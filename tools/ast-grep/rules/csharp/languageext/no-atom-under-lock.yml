@@ -101,4 +101,4 @@ rule:
             stopBy: {matches: deferred-callback}
             matches: lock-region
 message: '`$CELL` changes under a lock that serializes it a second time'
-note: Use one serializer, `Swap` on an `Atom` alone or a lock over a plain field, each orders every write by itself
+note: Use one serializer, the atomic cell's own operations alone or a lock over a plain field, each orders every write by itself

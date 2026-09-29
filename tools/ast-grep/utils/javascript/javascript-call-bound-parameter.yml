@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: javascript-call-bound-parameter
+language: javascript
+arguments: [value]
+utils:
+    only-called:
+        not:
+            has:
+                stopBy: end
+                kind: identifier
+                pattern: $FUNCTION
+                not: {any: [{inside: {kind: call_expression, field: function}}, {inside: {kind: function_declaration, field: name}}]}
+rule:
+    kind: identifier
+    pattern: $PARAMETER
+    inside:
+        kind: function_declaration
+        stopBy: end
+        all:
+            - has: {field: name, pattern: $FUNCTION}
+            - any:
+                - all:
+                    - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}}
+                    - inside:
+                        kind: program
+                        stopBy: end
+                        all:
+                            - matches: only-called
+                            - not: {has: {stopBy: end, kind: call_expression, all: [{has: {field: function, pattern: $FUNCTION}}, {not: {has: {field: arguments, has: {nthChild: 1, matches: value}}}}]}}
+                            - has: {stopBy: end, kind: call_expression, all: [{has: {field: function, pattern: $FUNCTION}}, {has: {field: arguments, has: {nthChild: 1, matches: value}}}]}
+                - all:
+                    - has: {field: parameters, has: {nthChild: 2, kind: identifier, pattern: $PARAMETER}}
+                    - inside:
+                        kind: program
+                        stopBy: end
+                        all:
+                            - matches: only-called
+                            - not: {has: {stopBy: end, kind: call_expression, all: [{has: {field: function, pattern: $FUNCTION}}, {not: {has: {field: arguments, has: {nthChild: 2, matches: value}}}}]}}
+                            - has: {stopBy: end, kind: call_expression, all: [{has: {field: function, pattern: $FUNCTION}}, {has: {field: arguments, has: {nthChild: 2, matches: value}}}]}
+                - all:
+                    - has: {field: parameters, has: {nthChild: 3, kind: identifier, pattern: $PARAMETER}}
+                    - inside:
+                        kind: program
+                        stopBy: end
+                        all:
+                            - matches: only-called
+                            - not: {has: {stopBy: end, kind: call_expression, all: [{has: {field: function, pattern: $FUNCTION}}, {not: {has: {field: arguments, has: {nthChild: 3, matches: value}}}}]}}
+                            - has: {stopBy: end, kind: call_expression, all: [{has: {field: function, pattern: $FUNCTION}}, {has: {field: arguments, has: {nthChild: 3, matches: value}}}]}
+                - all:
+                    - has: {field: parameters, has: {nthChild: 4, kind: identifier, pattern: $PARAMETER}}
+                    - inside:
+                        kind: program
+                        stopBy: end
+                        all:
+                            - matches: only-called
+                            - not: {has: {stopBy: end, kind: call_expression, all: [{has: {field: function, pattern: $FUNCTION}}, {not: {has: {field: arguments, has: {nthChild: 4, matches: value}}}}]}}
+                            - has: {stopBy: end, kind: call_expression, all: [{has: {field: function, pattern: $FUNCTION}}, {has: {field: arguments, has: {nthChild: 4, matches: value}}}]}

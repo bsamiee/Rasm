@@ -44,4 +44,4 @@ fix:
     template: ''
     expandEnd: {regex: '^,$'}
 message: '`$DIE` turns the failure into a defect that `$RUN` squashes to the same thrown value'
-note: 'Delete the step, `Effect.runPromise` and `Effect.runSync` accept any error type and throw the first failure or the first defect of the cause alike'
+note: 'Delete the step, `Effect.runPromise` and `Effect.runSync` accept any error type and throw a cause''s first failure or first defect alike'

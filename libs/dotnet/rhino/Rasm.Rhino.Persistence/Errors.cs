@@ -18,3 +18,17 @@ public sealed record NotAttachable(Type UserDataType) : Expected("{UserDataType}
 public sealed record ArchiveRejected(string Member, string Log) : Expected("{Member} rejected the archive: {Log}", ErrorOps.Code<ArchiveRejected>());
 
 public sealed record DuplicateTarget(string Target, int Matched) : Expected("{Matched} embedded files write the same target {Target}", ErrorOps.Code<DuplicateTarget>());
+
+public sealed record FontUnavailable(string Family) : Expected("Eto allocates no font of family {Family}", ErrorOps.Code<FontUnavailable>());
+
+public sealed record TranslucentColor(string Member, byte Alpha) : Expected("{Member} drops alpha {Alpha} at the write", ErrorOps.Code<TranslucentColor>()) {
+    public static Fin<Unit> Unless(bool opaque, string member, byte alpha) => opaque ? unit : new TranslucentColor(member, alpha);
+}
+
+public sealed record UnknownThemeKey(string Key) : Expected("No theme zone enumerates {Key}", ErrorOps.Code<UnknownThemeKey>()) {
+    public static Fin<Unit> Unless(bool known, string key) => known ? unit : new UnknownThemeKey(key);
+}
+
+public sealed record OddPadding(int Row, int Glyph) : Expected("Row {Row} and glyph {Glyph} leave no whole padding", ErrorOps.Code<OddPadding>()) {
+    public static Fin<Unit> Unless(bool even, int row, int glyph) => even ? unit : new OddPadding(row, glyph);
+}

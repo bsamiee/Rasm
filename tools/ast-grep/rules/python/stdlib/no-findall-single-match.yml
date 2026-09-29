@@ -68,4 +68,4 @@ constraints:
     FINDITER: {regex: '(^|\.)finditer$', matches: regex-callee}
     FINDALL: {regex: '(^|\.)findall$', matches: regex-callee}
 message: '`$CALL` reads one match through the iterator or list of every match'
-note: 'Use `match`, `search`, or `fullmatch` and select on `None`, one match needs no list of every match'
+note: 'Use `search`, `match`, or `fullmatch` and select on `None`, each stops at the first match'

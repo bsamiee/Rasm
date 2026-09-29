@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-member-name-reflection-csharp
+language: csharp
+severity: error
+utils:
+    owner-type:
+        kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'
+    type-type:
+        regex: '^((global::)?System\.(Reflection\.)?)?(Type|TypeInfo)\??$'
+    type-member:
+        kind: identifier
+        pattern: $RECEIVER
+        inside:
+            stopBy: {matches: owner-type}
+            matches: owner-type
+            any:
+                - has: {field: body, has: {kind: property_declaration, all: [{has: {field: type, matches: type-type}}, {has: {field: name, pattern: $RECEIVER}}]}}
+                - has: {field: body, has: {kind: field_declaration, has: {kind: variable_declaration, all: [{has: {field: type, matches: type-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $RECEIVER}}}]}}}
+                - has: {kind: parameter_list, has: {kind: parameter, all: [{has: {field: type, matches: type-type}}, {has: {field: name, pattern: $RECEIVER}}]}}
+    type-step:
+        kind: identifier
+        regex: '^(GetType|GetTypeInfo|MakeGenericType|MakeArrayType|MakeByRefType|MakePointerType|GetGenericTypeDefinition|GetElementType|GetNestedType|GetInterface)$'
+    type-value:
+        any:
+            - kind: typeof_expression
+            - kind: invocation_expression
+              has:
+                field: function
+                any:
+                    - kind: identifier
+                      regex: '^GetType$'
+                    - kind: member_access_expression
+                      has: {field: name, matches: type-step}
+                    - kind: conditional_access_expression
+                      has: {kind: member_binding_expression, has: {field: name, matches: type-step}}
+            - kind: identifier
+              regex: '(^[tT]ype|Type)$'
+            - kind: member_access_expression
+              has: {field: name, regex: '(^[tT]ype|Type)$'}
+            - kind: identifier
+              matches: {csharp-declared-type: {type: {matches: type-type}}}
+            - matches: type-member
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, regex: '^this$'}
+                - has: {field: name, matches: type-member}
+            - kind: 'postfix_unary_expression, parenthesized_expression'
+              has: {matches: type-value}
+    name-literal:
+        any:
+            - kind: 'string_literal, verbatim_string_literal, raw_string_literal'
+            - kind: invocation_expression
+              has: {field: function, kind: identifier, regex: '^nameof$'}
+    name-local:
+        kind: identifier
+        pattern: $LOCAL
+        inside:
+            stopBy: end
+            kind: 'block, declaration_list'
+            has:
+                stopBy: end
+                kind: variable_declarator
+                all:
+                    - has: {field: name, pattern: $LOCAL}
+                    - has: {matches: name-literal}
+    name-value:
+        pattern: $NAME
+        any:
+            - matches: name-literal
+            - matches: name-local
+    name-argument:
+        kind: argument
+        has: {nthChild: {position: 1, reverse: true}, matches: name-value}
+    first-name-argument:
+        kind: argument
+        any:
+            - nthChild: 1
+              not: {has: {field: name, kind: identifier}}
+            - has: {field: name, regex: '^(typeName|assemblyName|assemblyFile)$'}
+        has: {nthChild: {position: 1, reverse: true}, matches: name-value}
+    method:
+        kind: identifier
+        pattern: $METHOD
+    member-lookup:
+        kind: identifier
+        regex: '^(GetField|GetProperty|GetMethod|GetMember|GetEvent|GetNestedType|GetInterface|InvokeMember|GetRuntime(Field|Method|Property|Event)|GetDeclared(Field|Method|Methods|Property|Event|NestedType))$'
+        matches: method
+    lookup:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                any:
+                    - kind: member_access_expression
+                      all:
+                        - has: {field: name, matches: member-lookup}
+                        - has: {field: expression, matches: type-value}
+                    - kind: conditional_access_expression
+                      all:
+                        - has: {field: condition, matches: type-value}
+                        - has: {kind: member_binding_expression, has: {field: name, matches: member-lookup}}
+            - has: {field: arguments, has: {matches: name-argument}}
+    factory:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                any:
+                    - all:
+                        - has: {field: expression, regex: '^((global::)?System\.Linq\.Expressions\.)?Expression$'}
+                        - has: {field: name, regex: '^(Property|Field|PropertyOrField|Call)$', matches: method}
+                    - all:
+                        - has: {field: expression, regex: '^((global::)?System\.)?Delegate$'}
+                        - has: {field: name, regex: '^CreateDelegate$', matches: method}
+            - has: {field: arguments, has: {matches: name-argument}}
+    type-by-name:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                any:
+                    - all:
+                        - has: {field: expression, regex: '^((global::)?System\.)?Type$'}
+                        - has: {field: name, regex: '^GetType$', matches: method}
+                    - all:
+                        - has: {field: expression, regex: '(^|\.)(Activator|AppDomain|CurrentDomain)$'}
+                        - has: {field: name, regex: '^CreateInstance\w*$', matches: method}
+            - has: {field: arguments, has: {matches: first-name-argument}}
+rule:
+    any:
+        - matches: lookup
+        - matches: factory
+        - matches: type-by-name
+message: '`$METHOD` looks up a member or type by name string `$NAME`'
+note: Name a type or member directly (`typeof(<type>)`, a property read, a method group, an expression lambda) and reach a non-public member through an `[UnsafeAccessor]` extern typed like it, a runtime binding by name and signature that throws on a missing member

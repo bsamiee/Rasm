@@ -6,4 +6,4 @@ rule:
     kind: comment
     regex: '^/\*\*\s*(\*\s*)?(The|A|An)\s+\S'
 message: 'Doc comment summary opens with an article'
-note: 'Open summary with the noun it names or verb it performs'
+note: 'Open the summary with the member''s verb or returned noun, an article states no fact'

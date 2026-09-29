@@ -40,4 +40,4 @@ rule:
             - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^contains$'}}}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: code-read}}}}
 message: '`$MATCH` classifies an error by casting it and comparing its code'
-note: 'Match the code as a pattern on the error in one step (`case CocoaError.fileNoSuchFile` in a `switch`, `if case URLError.timedOut = error`), one `switch` covers codes of different error types (`case .noSuchFileOrDirectory as Errno`)'
+note: 'Match each code as a pattern on the error (`case CocoaError.fileNoSuchFile` in a `switch`, `if case URLError.timedOut = error`), one `switch` covers codes of different error types (`case .noSuchFileOrDirectory as Errno`)'

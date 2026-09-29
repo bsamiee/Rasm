@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-asserted-object-keys
+language: tsx
+severity: error
+ignores: ['.claude/plugins/*/hooks/**']
+rule:
+    pattern: $CALL as $TYPE
+    has:
+        kind: call_expression
+        pattern: $CALL
+        has: {field: function, regex: '^(globalThis\.)?Object\.(keys|entries)$', matches: syntax-global-reference}
+constraints:
+    TYPE:
+        not:
+            regex: |-
+                (?x)
+                ^(any|unknown)$
+                |^(readonly\ )?(string|any|unknown)\[\]$
+                |^(Readonly)?Array<(string|any|unknown)(\ \|\ symbol)?>$
+                |^\(string\ \|\ symbol\)\[\]$
+                |^(readonly\ )?\[string,\ .*\]\[\]$
+                |^(Readonly)?Array<\[string,\ .*\]>$
+message: '`$CALL` asserted as `$TYPE` restates the key type of its object'
+note: 'Call `Struct.keys(<object>)` or `Record.toEntries(<record>)` from `effect`, each typing keys from its argument type'
+labels:
+    TYPE: {style: primary, message: Key type the assertion claims}

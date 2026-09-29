@@ -60,4 +60,4 @@ rule:
         stopBy: end
         has: {stopBy: {kind: 'function_definition, lambda'}, matches: joined-string}
 message: '`$READ` reads a digit back from the numbers `$S` renders into one string'
-note: 'Hold the values in a `list[int]` and index or count the list, a rendered string loses the values it spells'
+note: 'Index or count a `list[int]` holding the values, a rendered string loses the values it spells'

@@ -12,7 +12,7 @@ utils:
             - matches: name-string
             - matches: {python-assigned-name: {value: {matches: name-string}}}
             - matches: {python-class-attribute: {value: {matches: name-string}}}
-            - matches: {python-relayed-parameter: {value: {matches: name-string}}}
+            - matches: {python-bound-parameter: {value: {matches: name-string}}}
     imported-entry:
         any:
             - {kind: aliased_import, has: {field: alias, pattern: $CALLEE}}
@@ -90,27 +90,27 @@ utils:
         all:
             - has: {field: operators, regex: '^==$'}
             - has: {matches: name-string}
-    handler-names:
+    swallowing-handler:
         kind: except_clause
         not: {has: {kind: block, has: {kind: raise_statement}}}
     broad-handler:
-        matches: handler-names
+        matches: swallowing-handler
         any:
             - not: {has: {field: value, regex: '.'}}
             - has: {field: value, any: [{regex: '^(Exception|BaseException)$'}, {has: {stopBy: end, kind: identifier, regex: '^(Exception|BaseException)$', not: {inside: {kind: as_pattern_target}}}}]}
     key-handler:
-        matches: handler-names
+        matches: swallowing-handler
         any:
             - not: {has: {field: value, regex: '.'}}
             - has: {field: value, any: [{regex: '^(KeyError|LookupError|Exception|BaseException)$'}, {has: {stopBy: end, kind: identifier, regex: '^(KeyError|LookupError|Exception|BaseException)$', not: {inside: {kind: as_pattern_target}}}}]}
     suppress-call:
         kind: call
         has: {field: function, regex: '^(contextlib\.)?suppress$'}
-    broad-answer:
+    under-broad-catch:
         any:
             - inside: {stopBy: end, kind: try_statement, field: body, has: {matches: broad-handler}}
             - inside: {stopBy: end, kind: with_statement, field: body, has: {kind: with_clause, has: {kind: with_item, has: {field: value, matches: suppress-call, has: {field: arguments, has: {regex: '^(Exception|BaseException)$'}}}}}}
-    key-answer:
+    under-key-catch:
         any:
             - inside: {stopBy: end, kind: try_statement, field: body, has: {matches: key-handler}}
             - inside: {stopBy: end, kind: with_statement, field: body, has: {kind: with_clause, has: {kind: with_item, has: {field: value, matches: suppress-call, has: {field: arguments, has: {regex: '^(KeyError|LookupError|Exception|BaseException)$'}}}}}}
@@ -125,7 +125,7 @@ rule:
           pattern: $CHECK
           all:
             - has: {field: value, matches: namespace}
-            - matches: key-answer
+            - matches: under-key-catch
             - has: {field: subscript, matches: attribute-name}
         - kind: class_pattern
           pattern: $CHECK
@@ -184,7 +184,7 @@ rule:
                     - has: {field: arguments, has: {nthChild: 2}}
                     - has: {field: function, any: [{matches: default-callee}, {matches: boolean-callee}]}
                     - has: {field: arguments, has: {nthChild: 2, matches: attribute-name}}
-            - matches: broad-answer
+            - matches: under-broad-catch
         - kind: call
           pattern: $CHECK
           all:
@@ -208,5 +208,5 @@ rule:
             - inside: {kind: 'tuple, parenthesized_expression', inside: {kind: as_pattern, inside: {kind: except_clause, field: value}}}
             - inside: {kind: argument_list, inside: {matches: suppress-call}}
           not: {inside: {stopBy: {kind: except_clause}, kind: except_clause, has: {kind: block, has: {kind: raise_statement}}}}
-message: '`$CHECK` answers a missing attribute in place of the type that declares it'
-note: 'Narrow to the declaring type with `isinstance` or a class pattern and read its attribute, a lookup by name hides the type from type checkers'
+message: '`$CHECK` tests for an attribute in place of its declaring type'
+note: 'Narrow with `isinstance` or a class pattern to the declaring type and read its attribute, a test by name hides declaring types from type checkers'

@@ -69,6 +69,6 @@ rule:
         - not: {has: {field: body, has: {kind: function_definition, has: {field: name, regex: '^(__new__|__setattr__)$'}, stopBy: {not: {kind: decorated_definition}}}}}
         - has: {field: body, any: [{matches: single-operation}, {matches: static-operations}, {matches: field-assignments}]}
 message: '`$NAME` is a plain class holding one method, static methods alone, or an `__init__` that only assigns fields'
-note: 'Declare the fields on a frozen `msgspec.Struct`, or an `attrs.frozen` class where the interpreter lacks msgspec, and each operation as a module function, a record and a function each state what the class spells by hand'
+note: 'Declare fields on a frozen `msgspec.Struct`, or an `attrs.frozen` class where the interpreter lacks msgspec, and each operation as a module function, a record and a function state what the class spells by hand'
 labels:
     NAME: {style: primary, message: Plain class}

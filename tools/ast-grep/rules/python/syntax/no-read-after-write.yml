@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-read-after-write
+language: python
+severity: error
+utils:
+    conditional-write:
+        kind: if_statement
+        all:
+            - has:
+                field: condition
+                kind: comparison_operator
+                all:
+                    - has: {field: operators, regex: '^!=$'}
+                    - has: {nthChild: 1, kind: parenthesized_expression, has: {kind: named_expression, has: {field: value, kind: call, pattern: $READ}}}
+            - has: {field: consequence, has: {kind: expression_statement, has: {kind: call}}}
+            - not: {has: {kind: 'elif_clause, else_clause'}}
+rule:
+    kind: call
+    pattern: $CALL
+    any:
+        - has: {field: function, kind: attribute, has: {field: attribute, regex: '^event_simulate$'}}
+        - all:
+            - inside:
+                kind: 'expression_statement, return_statement'
+                stopBy: end
+                follows: {stopBy: end, matches: conditional-write}
+            - pattern: $READ
+message: '`$CALL` finds a host value through simulated input or a read after its own write'
+note: 'Take a value from its write and target, and set host values through a member or stored file the host reads, the written target states what simulated input or a second read finds'

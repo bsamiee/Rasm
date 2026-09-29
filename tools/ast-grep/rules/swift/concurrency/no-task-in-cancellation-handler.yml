@@ -40,4 +40,4 @@ rule:
             - has: {nthChild: 1, kind: navigation_expression, regex: '\.setCancelHandler$'}
             - has: {kind: call_suffix, has: {kind: lambda_literal, stopBy: end, matches: handler-body}}
 message: '`$TASK` from a synchronous cancellation handler runs with no happens-before relation to the awaiting frame'
-note: 'Cancel synchronously inside the handler, resume or finish the continuation, or await the cleanup as a child task of the enclosing group'
+note: 'Cancel synchronously inside the handler, resume or finish a continuation, or await cleanup as a child task of an enclosing group'

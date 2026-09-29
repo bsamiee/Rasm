@@ -31,4 +31,4 @@ rule:
           matches: mapping
           not: {any: [{matches: written}, {matches: forwarded}]}
 message: 'Environment read bypasses typed settings'
-note: 'Declare the value as a `BaseSettings` field loaded at the application boundary, domain code reads no ambient source'
+note: 'Declare the value as a `BaseSettings` field loaded at the application boundary, `BaseSettings` validates environment variables into typed fields'

@@ -154,5 +154,5 @@ rule:
                             all:
                                 - has: {field: expression, pattern: $INDEXED}
                                 - has: {field: subscript, not: {matches: literal-index}}
-message: '`$NAME` throws when the sequence lacks the element or answers it with a default sentinel'
-note: Use `Head`, `Find(<predicate>)`, `Last`, or `At(<index>)`, and bind a known arity with a list pattern `[var first, .. var rest]`, `Single()` becomes `[var only]`
+message: '`$NAME` throws or returns a default sentinel when the sequence lacks the element'
+note: Use `Head`, `Last`, `Find(<predicate>)`, or `At(<index>)`, each returning an `Option`, and a list pattern (`[var first, .. var rest]`, `[var only]`) for a known arity

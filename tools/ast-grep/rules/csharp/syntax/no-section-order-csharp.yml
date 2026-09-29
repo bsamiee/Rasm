@@ -22,5 +22,5 @@ rule:
           follows: {stopBy: end, matches: csharp-section-divider, regex: '^// --- \[EXPORTS\] '}
 transform:
     LABEL: {replace: {source: $DIVIDER, replace: '^// --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
-message: Section `$LABEL` follows a section the table orders after it
+message: Section `$LABEL` follows a section that belongs after it
 note: Use the order `[TYPES]`, `[CONSTANTS]`, `[MODELS]`, `[ERRORS]`, `[SERVICES]`, `[OPERATIONS]`, `[COMPOSITION]`, `[EXPORTS]`

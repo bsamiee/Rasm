@@ -51,4 +51,4 @@ rule:
                             - all: [{has: {field: operator, regex: '^<=$'}}, {has: {field: left, matches: zero}}, {has: {field: right, matches: input, pattern: $VALUE}}]
     not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '.'}}}}
 message: '`$VALUE` is caller input checked as a host answer'
-note: Use `Limits.AtLeast(0).Check(<value>, <subject>)` for a bound and `Invalid.Unless` over the emptiness test for an id or a sequence
+note: Use `Limits.AtLeast(0).Check(<value>, <subject>)` for a bound and `Invalid.Unless` over an emptiness test for an id or a sequence, `Answers` errors name a value the host returned

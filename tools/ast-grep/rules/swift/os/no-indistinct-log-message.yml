@@ -27,5 +27,5 @@ rule:
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: value-only}}}}
             - follows: {stopBy: end, matches: earlier-site}
             - inside: {stopBy: end, follows: {stopBy: end, matches: earlier-site}}
-message: '`$LOGGER` logs a lone interpolated value or the message of an earlier log call, a log reader cannot tell the sites apart'
-note: 'Name the operation and its subject in the literal text of each message, and log a failure that several paths share once after they join'
+message: '`$LOGGER` logs a lone interpolated value or an earlier call''s message, and log readers cannot tell the sites apart'
+note: 'Name the operation and its subject in each message''s literal text, and log a failure several paths share once after they join'

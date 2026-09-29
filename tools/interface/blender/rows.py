@@ -1,6 +1,7 @@
 """Records the host and Blender's Python exchange as JSON, msgspec coding them on the host and cattrs inside Blender, and the file stamp both sides compute."""
 
 from collections.abc import Mapping
+from importlib.util import source_from_cache
 
 from attrs import frozen
 
@@ -67,14 +68,33 @@ class Launch:
     inkscape: str | None
 
 
+@frozen
+class Width:
+    """Logical width and view2d zoom every stored region of an editor's region type takes, editor and region type by name and by their RNA enum value."""
+
+    editor: str
+    space: int
+    kind: str
+    region: int
+    width: int
+    zoom: float
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def stamp(files: Mapping[str, tuple[int, int]]) -> str:
-    """Digest of one line per relative path with its CRC-32 and size, in path order."""
-    return digest(b"".join(f"{name}\0{crc}\0{size}\n".encode() for name, (crc, size) in sorted(files.items())))
+    """Digest of one line per relative path with its CRC-32 and size, in path order, a path importlib names the bytecode cache of another path left to the interpreter that rewrites it."""
+
+    def cached(name: str) -> bool:
+        try:
+            return source_from_cache(name) in files
+        except ValueError:
+            return False
+
+    return digest(b"".join(f"{name}\0{crc}\0{size}\n".encode() for name, (crc, size) in sorted(files.items()) if not cached(name)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Archive", "Installation", "Launch", "Listed", "Local", "stamp"]
+__all__ = ["Archive", "Installation", "Launch", "Listed", "Local", "Width", "stamp"]

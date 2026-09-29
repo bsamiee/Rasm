@@ -30,6 +30,7 @@ class Internal(StrEnum):
     AI_HOST = "Rhino.AI.RhinoAIHost, RhinoAI"
     AI_SETTINGS = "Rhino.AI.AISettings, RhinoAI"
     BASE_TAB_CONTROL = "Rhino.UI.Internal.TabPanels.Controls.BaseTabControl, Rhino.UI"
+    BASE_TAB_CONTROL_ITEM = "Rhino.UI.Internal.TabPanels.Controls.BaseTabControlItem, Rhino.UI"
     CASCADE_STYLE = "Rhino.UI.Internal.TabPanels.CascadeStyle, Rhino.UI"
     DISPLAY_ATTRIBUTES_INT = "UnsafeNativeMethods+DisplayAttributesInt, RhinoCommon"
     DISPLAY_ATTRS_COLOR = "UnsafeNativeMethods+DisplayAttrsColor, RhinoCommon"
@@ -47,7 +48,6 @@ class Internal(StrEnum):
     TAB_CONTROL_DISPLAY_STYLE = "Rhino.UI.Internal.TabPanels.TabControlDisplayStyle, Rhino.UI"
     TAB_PANEL_DOCK_BARS = "Rhino.UI.Internal.TabPanels.TabPanelDockBars, Rhino.UI"
     TAB_PANEL_DOCK_SITES = "Rhino.UI.Internal.TabPanels.TabPanelDockSites, Rhino.UI"
-    TAB_PANEL_GRIPPER_CONTROL = "Rhino.UI.Internal.TabPanels.Controls.TabPanelGripperControl, Rhino.UI"
     TAB_PANEL_SETTINGS = "Rhino.UI.Internal.TabPanels.TabPanelSettings, Rhino.UI"
     TECHNICAL_MODE_PARAMETER = "Rhino.Display.DisplayPipelineAttributes+TechnicalModeParameter, RhinoCommon"
     TOOLBAR_SETTINGS = "Rhino.UI.Internal.TabPanels.ToolbarSettings, Rhino.UI"
@@ -102,7 +102,7 @@ def located(path: SettingsPath) -> Rhino.PersistentSettings | None:
 
 
 def opened(path: SettingsPath) -> Rhino.PersistentSettings:
-    """Settings child at the path for a write, each absent level added."""
+    """Settings child at the path, each absent level added."""
     root, _, names = rooted(path)
     return reduce(lambda held, name: held.AddChild(name), names, root)
 

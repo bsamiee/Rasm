@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-max-for-any
+id: no-extremum-comparison
 language: python
 severity: error
 utils:
@@ -95,4 +95,4 @@ transform:
     QUANTIFIER: rewrite($FIXABLE, rewriters=[any-quantifier, all-quantifier])
 fix: $QUANTIFIER$CLAUSES_LEFT$CLAUSES_RIGHT$KEPT
 message: '`$CMP` compares an extremum to a bound'
-note: 'Use `any` or `all` over a per-element comparison, each stops at the first deciding element and states the quantifier an extremum hides'
+note: 'Use `any` or `all` over a per-element comparison, each names its quantifier and stops at the first deciding element'

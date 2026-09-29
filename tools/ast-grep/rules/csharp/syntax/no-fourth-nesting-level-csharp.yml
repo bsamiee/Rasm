@@ -41,6 +41,6 @@ rule:
                     stopBy: {matches: boundary}
                     not: {inside: {matches: control, stopBy: {matches: function}}}
 message: Function or control nesting reaches a fourth level
-note: Use a match, query, or pipeline over better upstream logic, an extracted helper keeps the fourth level one call away
+note: Flatten the logic upstream into a match, query, or pipeline, an extracted helper keeps the fourth level one call away
 labels:
     SCOPE: {style: primary}

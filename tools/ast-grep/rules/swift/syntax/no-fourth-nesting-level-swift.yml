@@ -27,6 +27,6 @@ rule:
                 stopBy: {matches: swift-nesting-boundary}
                 not: {inside: {matches: swift-nesting-level, stopBy: {matches: swift-nesting-boundary}}}
 message: Closure or control nesting reaches a fourth level
-note: Flatten the fourth level with a guard clause, one `switch` over the combined cases, a chained step after the closure that returns the value, or a sequence operation upstream (`compactMap`, `filter`, `first(where:)`, `contains(where:)`)
+note: Flatten with a guard clause, one `switch` over combined cases, a chained step after a closure returning its value, or a sequence operation upstream (`compactMap`, `filter`, `first(where:)`, `contains(where:)`)
 labels:
     SCOPE: {style: primary}

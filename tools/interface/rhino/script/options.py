@@ -1,5 +1,5 @@
 # ty: ignore[unresolved-import, unresolved-attribute, invalid-argument-type, unsupported-operator]
-# mypy: disable-error-code="import-not-found, import-untyped, call-overload, misc"
+# mypy: disable-error-code="import-not-found, import-untyped, call-overload, misc, operator"
 # ruff: file-ignore[import-outside-top-level]
 """Rhino's application settings with the Alerter, Rhino Render, and default renderer rows."""
 
@@ -32,10 +32,11 @@ from Rhino.Render import Utilities
 import System
 from System import Array, String
 from System.Globalization import CultureInfo
+from System.Reflection import BindingFlags
 
 from interface.report import Row
-from interface.rhino.script.accessors import Internal, key, member
-from interface.roles import Accent, Typography
+from interface.rhino.script.accessors import Internal, key, member, opened
+from interface.roles import Accent, TEXT_POINTS
 from interface.units import ANGLE_STEP
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -50,8 +51,15 @@ def rows() -> tuple[Row, ...]:
     defaults, monitor = NSUserDefaults.StandardUserDefaults, NSUserDefaults("com.mcneel.rhinoceros.RhinoMonitor", NSUserDefaultsType.SuiteName)
     english, languages = CultureInfo(1033), "AppleLanguages"
     toolbar = Internal.TOOLBAR_SETTINGS.type.GetProperty("Instance").GetValue(None)
-    icon_size, options, standard = 16, "Options", "StandardUserDefaults"
+    glyph, tool_row, ribbon, options, standard = 18, 24, Internal.TAB_CONTROL_DISPLAY_STYLE.parsed("Text"), "Options", "StandardUserDefaults"
+    tab_icon = max(
+        Internal.TAB_PANEL_SETTINGS.type.GetProperty("MinimumToolBarImageSize").GetValue(None),
+        Internal.BASE_TAB_CONTROL.type.GetMethod("CalculateTabHeight", BindingFlags.Static | BindingFlags.NonPublic).Invoke(None, Array[System.Object]([ribbon]))
+        - 2 * Internal.BASE_TAB_CONTROL_ITEM.type.GetProperty("ItemPadding").GetValue(None).Height,
+    )
     general, advanced, mouse, appearance = ((options, name) for name in ("General", "Advanced", "Mouse", "Appearance"))
+    text = clr.GetClrType(String)
+    _, system_family = opened(appearance).TryGetDefault.Overloads[text, text.MakeByRefType()]("CommandPromptFontName")
 
     def prompt_font(family: str) -> None:
         """Set the command prompt font family through the appearance state the native owner reads."""
@@ -105,8 +113,8 @@ def rows() -> tuple[Row, ...]:
             for name in ("EchoCommandsToHistoryWindow", "EchoPromptsToHistoryWindow", "ShowViewportTitles", "ShowCrosshairs", "ShowCursorWhenCrosshairsVisible", "ShowOsnapBar")
         ),
         member(AppearanceSettings, "ShowLayoutDropShadow", target=False),
-        member(AppearanceSettings, "CommandPromptFontSize", target=110),
-        Row(label="AppearanceSettings.CommandPromptFontName", read=lambda: AppearanceSettings.GetCurrentState().CommandPromptFontName, write=prompt_font, target=Typography.INTERFACE.family),
+        member(AppearanceSettings, "CommandPromptFontSize", target=TEXT_POINTS * 10),
+        Row(label="AppearanceSettings.CommandPromptFontName", read=lambda: AppearanceSettings.GetCurrentState().CommandPromptFontName, write=prompt_font, target=system_family),
         *(key(appearance, name, target=True) for name in ("AutocompleteCommands", "FuzzyAutocomplete", "ShowStatusbar", "AlwaysShowGeneralObjectProperties", "ShowSideBar")),
         key(appearance, "StatusbarInfoPaneMode", target=int(Internal.STATUS_BAR_INFO_PANE_MODE.parsed("selected_object_count"))),
         key(appearance, "DirectionArrowThickness", target=2),
@@ -136,9 +144,9 @@ def rows() -> tuple[Row, ...]:
             Internal.TAB_PANEL_SETTINGS.setting(name, target=target)
             for name, target in (
                 ("LockDockedWindows", True),
-                ("TabIconSize", icon_size),
-                ("ToolBarImageSize", 24),
-                ("HorizontalDisplayStyle", Internal.TAB_CONTROL_DISPLAY_STYLE.parsed("Text")),
+                ("TabIconSize", tab_icon),
+                ("ToolBarImageSize", glyph),
+                ("HorizontalDisplayStyle", ribbon),
                 ("VerticalDisplayStyle", Internal.TAB_CONTROL_DISPLAY_STYLE.parsed("Bitmap")),
                 ("FloatingDisplayStyle", Internal.TAB_CONTROL_DISPLAY_STYLE.parsed("Bitmap")),
                 ("HideSingleToolBarTab", True),
@@ -149,12 +157,21 @@ def rows() -> tuple[Row, ...]:
         ),
         *(
             member(toolbar.Buttons, name, target=target)
-            for name, target in (("PanelButtonSize", icon_size), ("ButtonPadding", 3), ("SpacerSize", 5), ("Cascade", Internal.CASCADE_STYLE.parsed("AsPanel")), ("MiddleMouseDelay", 400))
+            for name, target in (
+                ("PanelButtonSize", max(toolbar.Buttons.PanelButtonSizesMinimum, min(toolbar.Buttons.PanelButtonSizesMaximum, tab_icon))),
+                ("ButtonPadding", (tool_row - glyph) // 2),
+                ("SpacerSize", 5),
+                ("Cascade", Internal.CASCADE_STYLE.parsed("AsPanel")),
+                ("MiddleMouseDelay", 400),
+            )
         ),
         *(member(toolbar.ToolTips, name, target=True) for name in ("IncludeShortcut", "IncludeAlias")),
-        key((), "OSnapButtonDisplay", target=int(Internal.OSNAP_BUTTON_DISPLAY.parsed("IconOnly"))),
-        key((), "SelectionFilterButtonDisplay", target=int(Internal.SELECTION_FILTER_BUTTON_DISPLAY.parsed("IconOnly"))),
-        *(key((), name, target=icon_size) for name in ("OSnapIconSize", "SelectionFilterIconSize")),
+        key((), "OSnapButtonDisplay", target=int(Internal.OSNAP_BUTTON_DISPLAY.parsed("IconAndText"))),
+        key((), "SelectionFilterButtonDisplay", target=int(Internal.SELECTION_FILTER_BUTTON_DISPLAY.parsed("IconAndText"))),
+        *(
+            key((), name, target=max(tab_icon, display.type.DeclaringType.GetField("MinIconSize", BindingFlags.Static | BindingFlags.NonPublic).GetValue(None)))
+            for name, display in (("OSnapIconSize", Internal.OSNAP_BUTTON_DISPLAY), ("SelectionFilterIconSize", Internal.SELECTION_FILTER_BUTTON_DISPLAY))
+        ),
         *(key((), name, target=True) for name in ("OSnapStretchButtons", "SelectionFilterUseCheckedColor", "SelectionFilterStretchButtons")),
         key((), "AnnotationSpellCheck", target=False),
         key(("PropertiesEditor", options), "DisplayPagesOnIdle", target=True),

@@ -233,21 +233,21 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [33]   | `Error.ToErrorException()`                        | `instance` | Expected-error exception wrapper        |
 |  [34]   | `Error.ToException()`                             | `instance` | Conversion to `Exception`               |
 |  [35]   | `Error.Throw<R>()`                                | `instance` | Throw the error                         |
-|  [36]   | `Errors.Cancelled`                                | `static`   | Cancellation error, `-2000000001`       |
-|  [37]   | `Errors.TimedOut`                                 | `static`   | Timeout error, `-2000000002`            |
-|  [38]   | `Errors.SequenceEmpty`                            | `static`   | Empty-sequence error, `-2000000003`     |
-|  [39]   | `Errors.Closed`                                   | `static`   | Closed-resource, `-2000000004`          |
-|  [40]   | `Errors.ValidationFailed`                         | `static`   | Validation failure, `-2000000011`       |
-|  [41]   | `Errors.SourceClosed` / `SourceCompleted`         | `static`   | `-2000000013` / `-2000000012`           |
-|  [42]   | `Errors.SinkFull`                                 | `static`   | Back-pressure error, `-2000000015`      |
-|  [43]   | `Errors.EndOfStream`                              | `static`   | End-of-stream error, `-2000000010`      |
+|  [36]   | `Errors.Cancelled`                                | `static`   | Cancellation error                      |
+|  [37]   | `Errors.TimedOut`                                 | `static`   | Timeout error                           |
+|  [38]   | `Errors.SequenceEmpty`                            | `static`   | Empty-sequence error                    |
+|  [39]   | `Errors.Closed`                                   | `static`   | Closed-resource error                   |
+|  [40]   | `Errors.ValidationFailed`                         | `static`   | Validation failure                      |
+|  [41]   | `Errors.SourceClosed` / `SourceCompleted`         | `static`   | Source closed and completed errors      |
+|  [42]   | `Errors.SinkFull`                                 | `static`   | Back-pressure error                     |
+|  [43]   | `Errors.EndOfStream`                              | `static`   | End-of-stream error                     |
 |  [44]   | `Errors.Bottom`                                   | `static`   | Bottom-value error                      |
 |  [45]   | `Errors.None`                                     | `static`   | Empty `ManyErrors` value                |
 |  [46]   | `Errors.ParseError(string)`                       | `static`   | Parse failure construction              |
 
 - `Error.New(string, Exception)` takes an argument typed as `Exception`, cast a derived or generic exception before the call
 - Derived or generic exception arguments convert implicitly to `Error` and make the call ambiguous with `Error.New(string, Error)`
-- `Error.HasCode` and `Error.Is` classify an `Errors` value by its code, a match on the message text breaks when the text changes
+- `Error.HasCode` with an `ErrorCodes` member and `Error.Is` classify an `Errors` value, a match on the message text breaks when the text changes
 
 ### [02.4]-[FALLIBLE]
 

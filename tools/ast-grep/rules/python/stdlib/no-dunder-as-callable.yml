@@ -37,5 +37,5 @@ transform:
     QUALIFIED: {replace: {source: $MODULE, replace: '^(.+)$', by: '$1.'}}
     FUNCTION: {replace: {source: $BUILTIN, replace: '^__(\w+)__$', by: '$1'}}
 fix: $FUNCTION$QUALIFIED$OPERATOR$UNBOUND
-message: 'Dunder `$DUNDER` is passed as a callable'
+message: '`$DUNDER` reads a dunder method as a callable'
 note: 'Pass the protocol builtin (`len`, `hash`, `str`, `iter`) or `operator.<name>` after `import operator`, an unbound dunder skips the reflected operand and builtin dispatch'

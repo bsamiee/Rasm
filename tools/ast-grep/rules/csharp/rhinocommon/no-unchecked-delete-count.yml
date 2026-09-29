@@ -31,4 +31,4 @@ rule:
         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: sequence, pattern: $ITEMS}}}
         - not: {matches: compared}
 message: '`$TABLE.Delete` returns a count that no comparison with `$ITEMS` checks'
-note: Compare the count with the requested items through `CountMismatch.Unless(<items>.Count, <delete call>, nameof(<table type>.Delete))`
+note: Use `CountMismatch.Unless(<items>.Count, <delete call>, nameof(<table type>.Delete))`, `Delete` returns how many items it deleted

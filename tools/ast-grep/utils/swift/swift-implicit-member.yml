@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-implicit-member
+language: swift
+rule:
+    kind: prefix_expression
+    all:
+        - has: {field: operation, regex: '^\.$'}
+        - has: {field: target, kind: simple_identifier}

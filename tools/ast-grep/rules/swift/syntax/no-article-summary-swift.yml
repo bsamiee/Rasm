@@ -15,5 +15,5 @@ transform:
     REST: {replace: {source: $SUMMARY, replace: '^(?:///\s*|/\*\*\s*(?:\*[ \t]*)?)(?i:The|A|An)\s+', by: ''}}
     NOUN: {convert: {source: $REST, toCase: capitalize}}
 message: 'Doc comment summary opens with an article'
-note: 'Open the summary with the noun it names or the verb it performs'
+note: 'Open the summary with its noun or verb'
 fix: $OPENING$NOUN

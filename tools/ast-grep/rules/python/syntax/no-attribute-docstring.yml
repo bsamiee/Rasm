@@ -28,5 +28,5 @@ rule:
 fix:
     template: $PREV
     expandStart: {pattern: $PREV}
-message: 'String statement after `$NAME` documents that name'
-note: 'Delete the string, the name states its meaning and Python attaches no docstring to an attribute'
+message: 'String statement after `$NAME` stands as its docstring'
+note: 'Delete the string and let the name state its meaning, Python attaches no docstring to an assignment or type alias'

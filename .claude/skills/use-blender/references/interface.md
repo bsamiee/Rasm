@@ -8,7 +8,7 @@ Workspaces, areas, regions, panels, and views of a GUI window's screen, and pict
 - `window.workspace = <workspace>` applies after the call returns, `while window.workspace.name != name: yield 0.1` waits for it in a timer
 - Screen operators but `area_close` finish in a background process
 - Workspace switches, deletes, and area sizes apply in a GUI event loop alone
-- Screen operators (`workspace.duplicate`, `workspace.delete`, `area_move`, `area_split`, `area_close`) poll under `temp_override(window=, screen=)`
+- Screen operators (`workspace.duplicate`, `workspace.delete`, `area_split`, `area_close`) poll under `temp_override(window=, screen=)`
 - `temp_override(window=window)` derives no screen, `screen=window.screen` joins it
 - `temp_override` refuses an area outside the window's current screen, operators on another workspace's area run after the workspace activates
 - `ui_scale` moves no area vertex and changes the header size after the next draw, sizes follow in a later tick
@@ -39,10 +39,6 @@ Workspaces, areas, regions, panels, and views of a GUI window's screen, and pict
 - `Area.type` is the editor family and `Area.ui_type` the sub-editor (`TIMELINE`, `ShaderNodeTree`, `FILES`), size tables key on `ui_type`
 - `screen.area_split(direction=, factor=)` under an `area` override cuts an exact size from the bottom or left with no snap
 - Split areas keep the larger part as the original area, and the new one is the area absent from the set taken before the call
-- `screen.area_move(x=, y=, delta=)` polls true under a window and screen override, `x` and `y` name the edge it moves
-- `--enable-event-simulate` launches drop OS input
-- `window.event_simulate(type="MOUSEMOVE", value="NOTHING", x=, y=)` rests the pointer and raises `RuntimeError` without the flag
-- `area_move` snaps a horizontal edge above a Timeline or Dope Sheet to header height plus 23 × scale, the area resized as an Outliner takes the exact size
 - Window growth collapses a bottom Dope Sheet area at or under 1.5 times the minimum height to header height
 - Editors trade places by swapping `area.type` values, each area keeps its rectangle and restores its stored space of that type
 - `screen.area_close` closes the override's `area` in a GUI and hangs a background process
@@ -50,12 +46,8 @@ Workspaces, areas, regions, panels, and views of a GUI window's screen, and pict
 
 ## [04]-[REGIONS]
 
-- Region widths follow a drag of the inner edge, posted in an event-simulate Blender as MOUSEMOVE, LEFTMOUSE PRESS, MOUSEMOVE, LEFTMOUSE RELEASE
-- Drags start 3 logical pixels inside the edge after `view2d.reset`, and hidden regions report 1x1
 - Stored region widths read back as `int(scale * (logical + 0.5))` device pixels
 - Toolbar glyphs scale with the region's view2d zoom alone, `scale_y` sizes the cell and never the glyph
-- `view2d.zoom_out(zoomfacx=(z - 1) / 2, zoomfacy=(z - 1) / 2)` after `view2d.reset` sets zoom z, a drag snaps to z
-- Region zoom reads as `width / ((width - 1) * span)`, `span` the x distance `view2d.region_to_view` gives between pixels 0 and 1
 - `screen.region_toggle(region_type=)` under an area override shows or hides a region
 - `show_region_asset_shelf` is writable where a registered `AssetShelf` polls true, `space.is_property_readonly(<name>)` reads writability on screen
 - One region shows one shelf, the first registered type with a passing poll, and `filter_<id>` class booleans pre-filter its assets by ID type

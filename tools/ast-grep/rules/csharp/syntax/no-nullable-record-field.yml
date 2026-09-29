@@ -30,4 +30,4 @@ rule:
                 - inside: {kind: 'parameter_list, declaration_list', inside: {matches: csharp-error-record}}
                 - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: csharp-error-record}}}
 message: 'Field of type `$TYPE` states absence with null'
-note: Hold `Option<T>` and convert the nullable value once at the boundary with `Optional`
+note: Hold `Option<T>` and convert a nullable value once at the boundary with `Optional`

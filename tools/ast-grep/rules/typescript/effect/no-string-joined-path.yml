@@ -44,4 +44,4 @@ rule:
             - has: {stopBy: end, matches: separator}
             - not: {inside: {kind: binary_expression, field: left}}
 message: '`$JOINED` joins a file-system path with a `/` literal'
-note: '`path.join(<directory>, <segment>)` over the yielded `Path.Path` service joins with the platform separator and normalizes the result'
+note: '`path.join(<directory>, <segment>)` on a yielded `Path.Path` service joins with platform separator and normalizes the result'

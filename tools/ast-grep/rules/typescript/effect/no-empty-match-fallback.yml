@@ -47,4 +47,4 @@ rule:
                     - matches: constant-thunk
                       has: {field: property, regex: '^const(Undefined|Null|Void)$', pattern: $D}
 message: '`Match.orElse` yields `$D` for every case the arms miss'
-note: '`Match.orElseAbsurd` closes arms that cover the union and a `Match.when` or `Match.tag` arm names each case they miss, no case then falls to an empty value'
+note: '`Match.orElseAbsurd` closes arms that cover the union, with a `Match.when` or `Match.tag` arm per missed case'

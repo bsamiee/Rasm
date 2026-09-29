@@ -61,4 +61,4 @@ rule:
             - has: {field: body, has: {stopBy: end, matches: element}}
             - not: {has: {field: body, has: {stopBy: end, any: [{matches: stray}, {matches: target}]}}}
 message: '`$RANGE` walks `$C` by index `$I` read only as `$C[$I]`'
-note: 'Iterate `<collection>`, or `islice(<collection>, <n>)` where `min` caps the count, an index read only to reach elements restates the iteration'
+note: 'Iterate `<collection>`, or `islice(<collection>, <n>)` when `min` caps the count, iteration yields each element the index reads'

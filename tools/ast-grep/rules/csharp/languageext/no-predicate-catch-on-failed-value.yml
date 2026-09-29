@@ -62,4 +62,4 @@ rule:
             - has: {field: left, pattern: $SOURCE, matches: failed-source}
             - has: {field: right, kind: invocation_expression, all: [{has: {field: function, pattern: $NAME, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}}, {has: {field: arguments, matches: predicate-arguments}}]}
 message: '`$NAME` on the failed effect `$SOURCE` runs its handler for every error and ignores its predicate'
-note: Use `Catch` on the `Fin` before `IO.lift`, or `IO.lift(() => <fin>)` where the effect stays deferred
+note: Use `Catch` on the `Fin` before `IO.lift`, or `IO.lift(() => <fin>)` to defer evaluation

@@ -15,7 +15,7 @@ import msgspec
 
 from interface import host
 from interface.adobe import window
-from interface.adobe.rows import ActionSet, Active, Menu, Paper, papers, PROMPT_NAME, prompt_source, Row, STROKE_UNITS, Tool, Toolbar
+from interface.adobe.rows import ActionSet, Active, Menu, Paper, papers, PROMPT_NAME, prompt_source, Row, STROKE_UNITS, text_scale, Tool, Toolbar
 from interface.adobe.session import Scripted
 from interface.adobe.stores import Default, File, Folder, UxpPlugin
 from interface.aliases import Alias
@@ -452,9 +452,10 @@ def folders(bundle: host.Bundle, base: Mapping[Folder, Path]) -> Mapping[Folder,
     })
 
 
-def rows(units: Units) -> tuple[Row | File | Default | UxpPlugin, ...]:
-    """Illustrator's rows with lengths in the system's page unit, type in points, and strokes in the system's stroke unit, the grid solved over paper at the darkest theme's grid alpha."""
-    rgb, capitalized, scale, grid_alpha, anchors = ("red", "green", "blue"), ("Red", "Green", "Blue"), 1.0, 0.3, 0x2AA0
+def rows(units: Units, bundle: host.Bundle) -> tuple[Row | File | Default | UxpPlugin, ...]:
+    """Illustrator's rows with the interface scaled to draw panel text at the interface text size, lengths in the system's page unit, type in points, and strokes in the system's stroke unit, the grid solved over paper at the darkest theme's grid alpha."""
+    rgb, capitalized, grid_alpha, anchors = ("red", "green", "blue"), ("Red", "Green", "Blue"), 0.3, 0x2AA0
+    scale = text_scale(bundle.path.joinpath("Contents", "Required", "Plug-ins", "UserInterface.aip", "Contents", "Resources", "xml", "FontTheme_Panel.xml"))
     codes = frozendict({Length.INCHES: 0, Length.MILLIMETERS: 1, Length.POINTS: 2})
     sixteen_bit = partial(channels, sixteen_bit=True)
     anchor = min((size for size in range(anchors.bit_length()) if anchors >> size & 1), key=lambda size: abs(size + 2 * int(2 * (scale % 1)) - POINT_WIDTH))

@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-fixed-value
+language: swift
+utils:
+    literal-value:
+        any:
+            - kind: 'boolean_literal, integer_literal, real_literal'
+            - kind: line_string_literal
+              not: {has: {kind: interpolated_expression}}
+            - matches: swift-implicit-member
+rule:
+    any:
+        - matches: literal-value
+        - kind: 'simple_identifier, self_expression, key_path_expression'
+        - kind: 'array_literal, dictionary_literal'
+          not: {has: {pattern: $_, not: {matches: swift-fixed-value}}}
+        - kind: navigation_expression
+          all:
+            - has: {field: target, matches: swift-fixed-value}
+            - not: {has: {regex: '^[?!]$'}}
+        - kind: value_argument
+          has: {field: value, regex: '^nil$'}
+        - kind: call_expression
+          all:
+            - has: {nthChild: 1, matches: swift-member-reference}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument}, not: {has: {kind: value_argument, not: {has: {field: reference_specifier, kind: value_argument_label}}}}}}
+            - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, pattern: $_}}}}}
+        - kind: call_expression
+          all:
+            - has:
+                nthChild: 1
+                any:
+                    - {kind: prefix_expression, matches: literal-value}
+                    - {kind: navigation_expression, has: {field: target, kind: simple_identifier, regex: '^[A-Z]'}}
+            - has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {kind: value_argument, not: {has: {field: value, matches: literal-value}}}}}}

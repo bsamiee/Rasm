@@ -109,4 +109,4 @@ rule:
             - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
             - all: [{matches: parameters-rest}, {has: {field: body, matches: result-rest}}]
 message: 'Function forwards its parameters unchanged into `$BODY`'
-note: 'Pass the callee, `flow(inner, callee)`, `Struct.get(key)`, or `Function.identity` in place of the wrapper where the callee takes no more arguments than the caller passes'
+note: 'Pass `<callee>`, `flow(<inner>, <callee>)`, `Struct.get(<key>)`, or `Function.identity` in place of the wrapper where `<callee>` takes no more arguments than its caller passes'

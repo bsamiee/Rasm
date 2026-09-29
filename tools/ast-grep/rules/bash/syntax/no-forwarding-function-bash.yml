@@ -27,8 +27,9 @@ rule:
                 pattern: $CALL
                 all:
                     - has: {field: name, regex: '^[A-Za-z0-9_./-]+$'}
+                    - not: {matches: bash-program-lookup}
                     - has: {matches: arguments}
                     - not: {has: {not: {matches: literal}}}
                     - not: {has: {matches: arguments, follows: {matches: arguments, stopBy: end}}}
-message: '`$NAME` passes its arguments and fixed words unchanged to `$CALL`'
-note: Call `<command>` at each call site and set fixed options in its tool configuration file
+message: '`$NAME` passes its arguments unchanged to `$CALL`'
+note: Call `<command> <words>` at each call site, a fixed option the tool reads from its configuration file goes there

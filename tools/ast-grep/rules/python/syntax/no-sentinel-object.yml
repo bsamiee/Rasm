@@ -51,4 +51,4 @@ rule:
                         not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{kind: comment}, {matches: python-docstring-or-comment}]}}}}}
                         inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
 message: '`$NAME` is a sentinel standing for absence by identity'
-note: 'Declare the value as `<T> | None`, a type checker narrows None where it cannot narrow an identity sentinel'
+note: 'Declare the value as `<T> | None`, `None` is the one absence value every caller and type checker reads'

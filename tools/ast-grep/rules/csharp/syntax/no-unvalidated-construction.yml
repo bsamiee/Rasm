@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-unsafe-accessor
+id: no-unvalidated-construction
 language: csharp
 severity: error
 utils:
@@ -36,8 +36,6 @@ utils:
                             - has: {stopBy: end, matches: non-public-member}
 rule:
     any:
-        - kind: attribute
-          has: {field: name, pattern: $CALLEE, regex: '^(global::)?(System\.Runtime\.CompilerServices\.)?UnsafeAccessor(Attribute)?$'}
         - kind: invocation_expression
           has:
             field: function
@@ -59,30 +57,26 @@ rule:
                     - matches: non-public-flag
         - kind: invocation_expression
           all:
-            - has: {field: function, matches: callee, has: {field: name, regex: '^(Get(Constructor|Field|Method|Property|Member|Event|NestedType)s?|InvokeMember)$'}}
+            - has: {field: function, matches: callee, has: {field: name, regex: '^GetConstructors?$'}}
             - has: {field: arguments, matches: non-public-flag}
-        - kind: invocation_expression
-          has:
-            field: function
-            matches: callee
-            regex: '(^|\.)(GetRuntime(Fields|Methods|Properties|Events)|GetDeclared(Field|Method|Methods|Property|Event|NestedType))$'
         - kind: member_access_expression
-          has: {field: name, pattern: $CALLEE, regex: '^Declared(Constructors|Fields|Methods|Members|Properties|Events|NestedTypes)$'}
+          has: {field: name, pattern: $CALLEE, regex: '^DeclaredConstructors$'}
         - kind: invocation_expression
           has:
             field: function
             kind: member_access_expression
             all:
-                - has: {field: expression, regex: '^(global::)?(System\.)?(Runtime\.(CompilerServices|InteropServices)\.)?(Unsafe|MemoryMarshal)$'}
                 - has:
                     field: name
                     kind: generic_name
                     pattern: $CALLEE
-                    regex: '^(As|BitCast|Cast)<'
-                    has:
-                        kind: type_argument_list
-                        all:
-                            - has: {nthChild: 2}
-                            - not: {has: {nthChild: 2, kind: predefined_type}}
-message: "`$CALLEE` reaches a hidden constructor or member past the type's validation"
-note: Use the declared factory or member of the constrained type
+                    has: {kind: type_argument_list, not: {has: {nthChild: {position: 1, reverse: true}, kind: predefined_type}}}
+                - any:
+                    - all:
+                        - has: {field: expression, regex: '^(global::)?(System\.)?(Runtime\.CompilerServices\.)?Unsafe$'}
+                        - has: {field: name, regex: '^(As|BitCast|Read|ReadUnaligned)<'}
+                    - all:
+                        - has: {field: expression, regex: '^(global::)?(System\.)?(Runtime\.InteropServices\.)?MemoryMarshal$'}
+                        - has: {field: name, regex: '^(Cast|AsRef|Read|TryRead)<'}
+message: '`$CALLEE` bypasses its type''s public constructors and factories'
+note: Use a declared factory or public constructor, each runs the checks its type states

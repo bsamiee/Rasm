@@ -154,4 +154,4 @@ transform:
     LIFTED: rewrite($CALL, rewriters=[direct, pipe, pipe-function-steps, pipe-method-steps])
 fix: $LIFTED$KEPT$TERNARY
 message: '`$V` enters `$M` through a predicate branch written by hand'
-note: '`<module>.liftPredicate(value, predicate, orFailWith)` lifts a plain value and `Effect.filterOrFail(effect, predicate, orFailWith)` filters the value an effect yields, each states the branch once'
+note: '`Option.liftPredicate(value, predicate)` or `Result.liftPredicate(value, predicate, orFailWith)` lifts a plain value, and `Effect.filterOrFail(effect, predicate, orFailWith)` filters the value an effect yields'

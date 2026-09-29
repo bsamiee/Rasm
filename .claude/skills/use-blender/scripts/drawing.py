@@ -116,7 +116,8 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
         offsets = np.empty(len(drawing.curve_offsets), np.int32)
         drawing.curve_offsets.foreach_get("value", offsets)
         positions = np.empty(offsets[-1] * 3, np.float32)
-        columns = {column: np.full(offsets[-1], getattr(found[0].points[0], column), np.float32) for column in ("radius", "opacity")}
+        point = found[0].points[0]
+        columns = {"radius": np.full(offsets[-1], point.radius, np.float32), "opacity": np.full(offsets[-1], point.opacity, np.float32)}
         for attribute in drawing.attributes:
             match attribute:
                 case bpy.types.FloatVectorAttribute(name="position"):

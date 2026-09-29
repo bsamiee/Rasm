@@ -255,4 +255,4 @@ transform:
     CLOSE: {replace: {source: $FALLBACK, replace: '(?s)^(.*)$', by: ')'}}
 fix: "$HELD$RECEIVER_DOT$IDENTITY_METHOD$FALLBACK_METHOD$NONE_METHOD$FAIL_METHOD$RIGHT_METHOD$LEFT_METHOD$CALL$OPEN$FIRST$FALLBACK$CLOSE"
 message: "`Match` returns one case's value unchanged and handles the other case alone"
-note: "Use `IfFail` on a `Fin`, `IfNone` on an `Option`, and `IfLeft` or `IfRight` on an `Either`, each passes the unchanged case through"
+note: "Use `IfFail` on a `Fin`, `Validation`, `Try`, or `IO`, `IfNone` or prelude `ifNone` on an `Option`, and `IfLeft` or `IfRight` on an `Either`, each passes the unchanged case through"

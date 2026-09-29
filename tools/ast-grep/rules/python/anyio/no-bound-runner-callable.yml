@@ -172,4 +172,4 @@ transform:
         replace: {source: $$$ARGS, replace: '(?s)^(.+)$', by: ', $1'}
 fix: $F$REST$UNFIXED
 message: '`$BOUND` binds arguments the runner passes to the function itself'
-note: 'Pass the function and its positional arguments as `<runner>(<function>, <arguments>)` and delete the binding, runners forward positional arguments a partial or lambda relays'
+note: 'Pass `<runner>(<function>, <arguments>)` and delete the binding, anyio runners forward positional `*args` to the function'

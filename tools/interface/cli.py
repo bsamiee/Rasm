@@ -6,19 +6,22 @@ from importlib import import_module
 from itertools import chain
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import traceback
 from typing import Annotated, Final
 
 import anyio
+from CoreFoundation import CFRunLoopGetMain, CFRunLoopRun, CFRunLoopStop
 import cyclopts
 import httpx
 from mcp import McpError
 import msgspec
 import psutil
+from PyObjCTools import MachSignals
 
-from interface.host import Applied, Failed, Host
+from interface.host import Applied, Failed, Host, performed
 from interface.units import Units
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -45,14 +48,26 @@ async def outcomes(name: str, entry: Callable[[Host], Awaitable[tuple[Applied | 
     return results
 
 
-async def run(
+async def applied(entries: Iterable[tuple[str, Callable[[Host], Awaitable[tuple[Applied | Failed, ...]]]]], units: Units) -> bool:
+    """Whether each application's entry applied, the entries run concurrently in the unit system over one HTTP client and their outcomes printed as one JSON document, the main run loop stopped once they end."""
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, limits=httpx.Limits(max_connections=4), timeout=httpx.Timeout(5.0, pool=None)) as client:
+            results = tuple(result for outcome in await anyio.gather(*(outcomes(name, entry, units, client) for name, entry in entries)) for result in outcome)
+        sys.stdout.buffer.write(msgspec.json.format(msgspec.json.encode(results, enc_hook=str), indent=1) + b"\n")
+        return all(isinstance(each, Applied) for each in results)
+    finally:
+        performed(lambda: CFRunLoopStop(CFRunLoopGetMain()))
+
+
+def run(
     entries: Iterable[tuple[str, Callable[[Host], Awaitable[tuple[Applied | Failed, ...]]]]], *, units: Annotated[Units, cyclopts.Parameter(accepts_keys=False, n_tokens=1)] = Units.IMPERIAL
 ) -> bool:
-    """Run the applications' entries concurrently in the unit system over one HTTP client, print their outcomes as one JSON document, and return whether each applied, the exit code."""
-    async with httpx.AsyncClient(follow_redirects=True, limits=httpx.Limits(max_connections=4), timeout=httpx.Timeout(5.0, pool=None)) as client:
-        results = tuple(result for outcome in await anyio.gather(*(outcomes(name, entry, units, client) for name, entry in entries)) for result in outcome)
-    sys.stdout.buffer.write(msgspec.json.format(msgspec.json.encode(results, enc_hook=str), indent=1) + b"\n")
-    return all(isinstance(each, Applied) for each in results)
+    """Run the applications' entries on an event loop thread while the main thread runs the main run loop that updates application instances, an interrupt cancelling the entries, and return whether each applied, the exit code."""
+    with anyio.from_thread.start_blocking_portal() as portal:
+        future = portal.start_task_soon(applied, entries, units)
+        MachSignals.signal(signal.SIGINT, lambda _: future.cancel())
+        CFRunLoopRun()
+    return future.result()
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

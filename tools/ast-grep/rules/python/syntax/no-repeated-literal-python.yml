@@ -31,7 +31,7 @@ utils:
             - not:
                 any:
                     - inside: {kind: concatenated_string}
-                    - inside: {kind: binary_operator, matches: python-string-sum}
+                    - inside: {kind: binary_operator, matches: python-string-concatenation}
                     - has: {stopBy: end, kind: interpolation}
                     - has: {stopBy: end, kind: string_content, has: {nthChild: 1}}
                     - inside: {kind: expression_statement, not: {has: {nthChild: 2}}}

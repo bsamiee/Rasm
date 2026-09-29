@@ -272,13 +272,13 @@
     </Theme>
     <ThemeStyle>
         <panel_title>
-            <ThemeFontStyle points="11" character_weight="400" shadow="0"/>
+            <ThemeFontStyle points="$solved.points" character_weight="400" shadow="0"/>
         </panel_title>
         <widget>
-            <ThemeFontStyle points="11" character_weight="400" shadow="0"/>
+            <ThemeFontStyle points="$solved.points" character_weight="400" shadow="0"/>
         </widget>
         <tooltip>
-            <ThemeFontStyle points="10" character_weight="400" shadow="0"/>
+            <ThemeFontStyle points="$solved.tooltip_points" character_weight="400" shadow="0"/>
         </tooltip>
     </ThemeStyle>
 </bpy>

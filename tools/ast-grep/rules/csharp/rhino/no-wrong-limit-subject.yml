@@ -61,5 +61,5 @@ rule:
                                   matches: same-file-method
                                 - kind: member_access_expression
                                   has: {field: name, matches: same-file-method}
-message: '`$SUBJECT` names another member than the value `$VALUE` it checks'
+message: '`$SUBJECT` names a member other than the checked value `$VALUE`'
 note: Use `nameof(<checked parameter or field>)` as the subject of `Check`

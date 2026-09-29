@@ -31,7 +31,7 @@ Project files are edited by hand in the form Xcode's writer produces:
 - Project-level Debug and Release configurations take it as `baseConfigurationReference` with empty `buildSettings`
 - `PBXFileReference` with `sourceTree = SOURCE_ROOT` and a project-relative path is the one reference form
 - `baseConfigurationReferenceAnchor` ignores a path outside the synchronized folder without a message
-- `-xcconfig` and `XCODE_XCCONFIG_FILE` stay out, they override every level and never reach the IDE
+- `-xcconfig` and `XCODE_XCCONFIG_FILE` stay out, each overrides every level and never reaches the IDE
 - `PRODUCT_NAME = $(TARGET_NAME)` stays, the spec default is empty
 - `ALWAYS_SEARCH_USER_PATHS = NO` stays, the `YES` default prints a header map warning in Swift-only targets
 - Dead code stripping and user script sandboxing stay, Xcode's recommended-settings check proposes both again
@@ -74,7 +74,7 @@ Remote packages join as an `XCRemoteSwiftPackageReference` of the project that i
 ## [05]-[SWIFT_FORMAT]
 
 swift-format comes from the selected Xcode through `xcrun`:
-- Mise holds no swift-format row, mise has no swift-format entry and a mise `swift` puts a second binary on `PATH`
+- `mise.toml` holds no swift-format row, the mise registry has no swift-format entry and a mise `swift` puts a second binary on `PATH`
 - `--version` prints `main`, the `xcodebuild -version` input identifies the binary
 - `.editorconfig` holds no `[*.swift]` section, `.swift-format` owns Swift indentation
 - `rules` lists every enabled rule with default-valued rows from `dump-configuration`, an omitted rule is off
@@ -112,7 +112,7 @@ CI's macOS job runs on the Xcode local builds use:
 - `runs-on` label alone selects Xcode, `DEVELOPER_DIR` names an image-only path and no build tool reads `.xcode-version`
 - Settings after `--` reach `build` alone, `lint` takes no forwarded arguments
 - `COMPILER_INDEX_STORE_ENABLE=NO` joins the forwarded settings, nothing in CI reads the index
-- `xcbeautify` stays out, it needs a pipe
+- `xcbeautify` reads a pipe alone and stays out
 - SwiftPM and derived data caches stay out, a restore keyed on sources misses on each source change
 
 ## [08]-[SWIFTPM]
@@ -138,7 +138,7 @@ SwiftPM joins with the first Swift library, until then the `mise.toml` `SWIFTPM_
 
 New Swift projects join as `<Name>.xcodeproj` with its shared scheme, root files serve every other item of a language join:
 - `workspace.ts` infers tags and targets from `project.pbxproj`, `nx.json` bodies apply by tag, CI runs `host:macos` projects in the macOS job
-- Swift is built into ast-grep, `tools/ast-grep/rules/swift` and `tools/ast-grep/outline/swift.yml` cover every Swift file with no `sgconfig.yml` row
+- `tools/ast-grep/rules/swift` and `tools/ast-grep/outline/swift.yml` cover every Swift file
 - Template projects drop each row a root file or default covers and each row nothing reads (Clang and Metal rows, `DEBUG` condition)
 - README changes with a new owner or project kind alone, `.xcodeproj` is a listed project file
 - `nx run <Name>:format` precedes the first `check`

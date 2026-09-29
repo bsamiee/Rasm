@@ -140,4 +140,4 @@ transform:
     OUT: rewrite($STMT, rewriters=[discard-assignment, and-statement, or-negated-statement, or-boolean-statement, or-statement, if-statement, else-boolean-statement, else-statement, if-else-statement, filtered-loop, loop])
 fix: $OUT
 message: Expression statement drops the value of a selection or iteration
-note: Write the selection as an `if` statement and the iteration as a `for` loop, an expression statement drops the value it computes
+note: 'Write a selection as an `if` statement and an iteration as a `for` loop, each statement then names the effect it runs'

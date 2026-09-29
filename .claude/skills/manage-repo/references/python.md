@@ -23,7 +23,7 @@ uv owns resolution, lock, and environment of the root project file.
 - `uv sync` installs the workspace root, `--all-packages` every member
 - `python-preference = "only-system"` excludes uv-managed interpreters, `UV_PYTHON` names the interpreter
 - Members without `[build-system]` lock as `virtual` and never install, a packaged member installs when a root dependency group names it
-- Targets run a member as `python -m <member>.<module>` from its parent folder or with that parent on `mise.toml` `[env]` `PYTHONPATH`
+- Targets run a member as `python -m <member>.<module>` from its parent folder or with the parent on `mise.toml` `[env]` `PYTHONPATH`
 - Target commands find the synced `.venv` on `PATH` through mise `python.uv_venv_auto`, `uv run` syncs before every run
 - `[project.scripts]` needs a build backend and an editable install
 - Editable installs put their module root on `sys.path` of every environment process

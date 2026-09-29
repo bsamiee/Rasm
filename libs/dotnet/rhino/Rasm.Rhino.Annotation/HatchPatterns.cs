@@ -83,10 +83,9 @@ public static partial class HatchPatterns {
         IO.lift(() => CountMismatch.Unless(indices.Count, doc.HatchPatterns.Delete(indices, quiet), nameof(HatchPatternTable.Delete)));
 
     public static IO<Unit> SetCurrent(RhinoDoc doc, int index) =>
-        IO.lift(() => {
-            doc.HatchPatterns.CurrentHatchPatternIndex = index;
-            return Mismatch.Unless(doc.HatchPatterns.CurrentHatchPatternIndex == index, nameof(HatchPatternTable.CurrentHatchPatternIndex));
-        });
+        from found in IO.lift(() => Missing.Unless(doc.HatchPatterns.FindIndex(index), nameof(HatchPatternTable.FindIndex)))
+        from current in IO.lift(() => doc.HatchPatterns.CurrentHatchPatternIndex = index)
+        select unit;
 
     public static IO<Option<HatchPatternRow>> Find(RhinoDoc doc, ComponentRef address) =>
         from found in TableOps.Find(Accessors(doc), address)

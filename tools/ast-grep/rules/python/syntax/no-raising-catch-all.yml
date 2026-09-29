@@ -22,5 +22,5 @@ rule:
           all:
             - inside: {kind: if_statement}
             - has: {field: body, matches: raising-body}
-message: 'Catch-all branch raises `TypeError` for a case the branches above leave unhandled'
-note: 'Delete the branch and let the last handled case close the dispatch, declared inputs reach no other type'
+message: 'Catch-all branch raises `TypeError` for a case no earlier branch handles'
+note: 'Delete the catch-all branch and close dispatch on its last handled case, declared inputs reach no other type'

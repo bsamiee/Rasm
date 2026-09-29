@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-property-swift
+language: swift
+severity: error
+utils:
+    own-callee:
+        nthChild: 1
+        any:
+            - {kind: simple_identifier, not: {regex: '^[A-Z]'}}
+            - {kind: navigation_expression, has: {field: target, kind: self_expression}}
+    own-call:
+        kind: call_expression
+        all:
+            - has: {matches: own-callee}
+            - has:
+                kind: call_suffix
+                not: {has: {kind: lambda_literal}}
+                has:
+                    kind: value_arguments
+                    not: {has: {kind: value_argument, not: {any: [{has: {field: value, matches: swift-fixed-value}}, {matches: swift-fixed-value}]}}}
+    own-call-statement:
+        any:
+            - matches: own-call
+            - kind: 'try_expression, await_expression, control_transfer_statement'
+              has: {matches: own-call-statement}
+    getter:
+        kind: statements
+        any:
+            - all:
+                - matches: swift-forwarded-member
+                - has: {stopBy: end, kind: navigation_expression, pattern: $READ}
+            - all:
+                - matches: {swift-single-statement: {first: {matches: own-call-statement}}}
+                - has: {stopBy: end, kind: call_expression, pattern: $READ}
+    setter-value:
+        kind: simple_identifier
+        any:
+            - regex: '^newValue$'
+            - all:
+                - pattern: $VALUE
+                - inside: {kind: computed_setter, stopBy: end, has: {kind: simple_identifier, pattern: $VALUE}}
+    forwarding-setter:
+        kind: computed_setter
+        has:
+            kind: statements
+            all:
+                - not: {has: {nthChild: 2}}
+                - has:
+                    nthChild: 1
+                    kind: assignment
+                    all:
+                        - has: {field: target, has: {pattern: $READ}}
+                        - has: {field: result, matches: setter-value}
+    host-member:
+        any:
+            - has: {kind: modifiers, any: [{has: {kind: attribute, regex: '^@(objc|IBOutlet|IBInspectable|NSManaged)\b'}}, {has: {regex: '^(override|dynamic)$'}}]}
+            - inside: {kind: class_declaration, stopBy: end, has: {kind: modifiers, has: {kind: attribute, regex: '^@objcMembers$'}}}
+rule:
+    kind: property_declaration
+    all:
+        - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
+        - not: {has: {field: name, regex: '^body$'}}
+        - not: {matches: host-member}
+        - has:
+            field: computed_value
+            any:
+                - has: {matches: getter}
+                - has: {kind: computed_getter, has: {matches: getter}}
+        - not: {has: {field: computed_value, has: {kind: 'computed_setter, computed_modify', not: {matches: forwarding-setter}}}}
+message: 'Property `$NAME` forwards `$READ` unchanged'
+note: 'Read `<owner>.<member>` or call `<owner>.<function>()` at each use and move a conformance the property satisfies to the forwarded type, a property that returns another member unchanged adds a name and no fact'

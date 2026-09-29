@@ -2,7 +2,6 @@ using Eto.Forms;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.UI;
-using Rhino.UI.Theme;
 
 namespace Rasm.Rhino.Ui;
 
@@ -48,10 +47,4 @@ public static class HostWindows {
         parent.Match(
             Some: static control => IO.pure(control),
             None: () => MainWindow(Some(doc)).Bind(static window => IO.lift(window.ToFin(new Missing(nameof(RhinoEtoApp.MainWindowForDocument))).Map(static found => (Control)found))));
-
-    // --- [THEME]
-    public static IO<Seq<((string Zone, string Entry) Key, Eto.Drawing.Color Value)>> Swatches(ThemeZone zone) =>
-        IO.lift(() => (from entry in toSeq(zone.Enumerate())
-                       from color in Optional(entry.Value as Eto.Drawing.Color?).ToSeq()
-                       select (Key: (Zone: zone.Id, Entry: entry.Id), Value: color)).Strict());
 }

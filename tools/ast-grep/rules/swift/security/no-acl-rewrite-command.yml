@@ -14,5 +14,5 @@ rule:
         - kind: line_str_text
           regex: 'set-(generic-password|internet-password|key)-partition-list'
           pattern: $COMMAND
-message: '`$COMMAND` rewrites the item ACL or partition list that the owning program''s next write restores'
-note: 'Write the item through `add-generic-password -U` with no `-T` or `-A` and leave the partition list to the owning program'
+message: '`$COMMAND` rewrites an item ACL or partition list the owning program''s next write restores'
+note: 'Write through `add-generic-password -U` with no `-T` or `-A` and leave partition lists to the owning program'

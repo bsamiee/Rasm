@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inline-convergence-python
+language: python
+severity: error
+files:
+    - tools/interface/**/*.py
+ignores:
+    - tools/interface/blender/extension/**
+utils:
+    target-write:
+        kind: expression_statement
+        pattern: $WRITE
+        any:
+            - has: {kind: assignment, all: [{has: {field: left, kind: 'attribute, subscript'}}, {has: {field: right, pattern: $TARGET}}]}
+            - has: {kind: call, all: [{has: {field: function, kind: identifier, regex: '^setattr$'}}, {has: {field: arguments, has: {nthChild: 3, pattern: $TARGET}}}]}
+rule:
+    kind: if_statement
+    all:
+        - has: {field: condition, kind: comparison_operator, all: [{has: {field: operators, regex: '^!=$'}}, {has: {nthChild: 2, pattern: $TARGET}}]}
+        - not: {has: {kind: 'elif_clause, else_clause'}}
+        - has:
+            field: consequence
+            all:
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: target-write}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+message: '`$WRITE` writes `$TARGET` after a `!=` test with no change line'
+note: 'Declare `Row(label=<label>, read=<read>, write=<write>, target=<target>)` and `yield from converged(<row>)`, `converged` alone compares, writes on difference, and returns change lines'

@@ -23,4 +23,4 @@ rule:
                 - has: {matches: search-closure}
                 - has: {kind: value_arguments, has: {kind: value_argument, has: {matches: search-closure}}}
 message: '`$SEARCH` tests each directory with `isExecutableFile` to find an executable by hand'
-note: 'Run the child as `Executable.name(<name>)` to search the child environment''s `PATH`, or resolve the path through `resolveExecutablePath(in:)`'
+note: 'Run the child as `Executable.name(<name>)` to search its environment''s `PATH`, or resolve a path through `resolveExecutablePath(in:)`'

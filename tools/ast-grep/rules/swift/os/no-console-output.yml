@@ -54,5 +54,5 @@ rule:
         - matches: diagnostic-call
         - matches: stdout-call
           not: {matches: host-entry}
-message: '`$CALLEE` writes to the console outside the host boundary'
+message: '`$CALLEE` writes console output outside the host boundary'
 note: 'Log a diagnostic through `Logger` from `os` with a `privacy:` annotation on each interpolation, a command-line tool writes its result to stdout from `static func main` of its `@main` type alone'

@@ -42,4 +42,4 @@ transform:
     UNWRAPPED: {rewrite: {source: $DECLARATION, rewriters: [return-type, unwrap-success]}}
 fix: $UNWRAPPED
 message: '`$NAME` returns `Result<$T, $E>` and constructs `.success` alone'
-note: 'Return the success type and the unwrapped value, a caller composing the function into a Result chain calls `.map`'
+note: 'Return the success type and unwrapped value, callers composing it into a Result chain call `.map`'

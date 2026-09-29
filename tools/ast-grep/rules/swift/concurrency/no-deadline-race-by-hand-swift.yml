@@ -48,5 +48,5 @@ rule:
                     - has: {stopBy: end, matches: sleep-task}
                     - has: {stopBy: end, matches: first-result}
                     - has: {stopBy: end, pattern: $G.cancelAll()}
-message: '`$RACE` races the work against `$SLEEP` and returns the timeout as a sentinel value'
-note: 'Throw the timed-out failure case from the sleeping child task, or return it as `.failure`'
+message: '`$RACE` races work against `$SLEEP` and returns the timeout as a sentinel value'
+note: 'Throw a timeout failure case from the sleeping child task, or return it as `.failure`'

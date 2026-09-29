@@ -53,7 +53,7 @@ Work runs live or headless on named files:
 pgrep -lf Blender.app/Contents/MacOS/Blender
 
 # GUI on <file> behind the frontmost application, with login session environment in place of shell environment
-env -i /usr/bin/open -n -g -a Blender <file> --args --no-window-focus
+env -i /usr/bin/open -g -a Blender <file> --args --no-window-focus
 ```
 
 ```python

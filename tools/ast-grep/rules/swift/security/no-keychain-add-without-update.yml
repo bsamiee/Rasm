@@ -15,4 +15,4 @@ transform:
     UPDATED: {replace: {source: $LISTED, replace: '^"(add-(?:generic|internet)-password) ', by: '"$1 -U '}}
 fix: $UPDATED
 message: '`$ARGS` adds a keychain item without `-U` and exits 45 with errSecDuplicateItem once the item exists'
-note: 'Pass `-U`, the add then updates an existing item in place with its ACL and partition list'
+note: 'Pass `-U` to update an existing item in place with its ACL and partition list'

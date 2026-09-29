@@ -24,5 +24,5 @@ rule:
           all:
             - has: {field: key, kind: line_string_literal}
             - has: {field: value, kind: 'call_expression, prefix_expression', regex: '^\.(string|number|bool|object|array|null)\b'}
-message: '`$SITE` reads or builds the document as an untyped value keyed by string'
+message: '`$SITE` reads or builds a document as an untyped value keyed by string'
 note: 'Declare a `Codable` type per document or message with an enum per tag, read it through `JSONDecoder` or `PropertyListDecoder`, and write it through `JSONEncoder` or `PropertyListEncoder`'

@@ -1,14 +1,19 @@
-"""Host side every application's run shares: the facts it reads, the bundle and processes it drives, the report it decodes, and the outcome it returns."""
+"""Host side every application's run shares: the facts it reads, the bundle, processes, and instances it drives, the report it decodes, and the outcome it returns."""
 
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
+from functools import partial
+from itertools import chain
 from pathlib import Path
 import plistlib
 from string.templatelib import Interpolation, Template
 import sys
-from typing import Final
+from typing import Final, override
 
 import anyio
+from AppKit import NSRunningApplication, NSWorkspace, NSWorkspaceOpenConfiguration
+from CoreFoundation import CFRunLoopGetMain, CFRunLoopPerformBlock, CFRunLoopWakeUp, kCFRunLoopCommonModes
+from Foundation import NSDictionary, NSError, NSKeyValueChangeNewKey, NSKeyValueObservingOptionInitial, NSKeyValueObservingOptionNew, NSObject, NSURL
 import httpx
 import msgspec
 import psutil
@@ -25,6 +30,8 @@ type Line = Header | Change | Skip | Measurement | Error
 DEADLINE: Final = 300.0
 LOOPBACK: Final = "127.0.0.1"
 LAUNCH_ENVIRONMENT: Final = frozendict[str, str]()
+ENDED: Final = ("terminated",)
+READY: Final = ("finishedLaunching", *ENDED)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -113,6 +120,18 @@ class Failed(msgspec.Struct, frozen=True, tag=True, tag_field="kind"):
     stderr: tuple[str, ...] = ()
 
 
+# --- [SERVICES] -------------------------------------------------------------------------
+
+
+class Observer(NSObject):
+    """Key-value observer of an application instance calling its `changed` once an observed key reads true, on the main run loop that updates the instance."""
+
+    @override
+    def observeValueForKeyPath_ofObject_change_context_(self, path: str, instance: NSRunningApplication, change: NSDictionary, context: int | None) -> None:
+        if change[NSKeyValueChangeNewKey]:
+            self.changed()
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -188,10 +207,69 @@ def running(application: Bundle) -> tuple[psutil.Process, ...]:
     return tuple(process for process in psutil.process_iter(["exe", "cmdline"]) if process.info["exe"] == str(application.executable))
 
 
-async def launch(application: Bundle, *arguments: str, files: Sequence[str] = (), environment: Mapping[str, str] = frozendict()) -> None:
-    """Start a new background instance of the bundle on the files with the arguments, its environment the given variables and none of the host's."""
-    variables = (part for name, value in environment.items() for part in ("--env", f"{name}={value}"))
-    await anyio.run_process(["/usr/bin/open", "-n", "-g", "-a", str(application.path), *variables, *files, *(("--args", *arguments) if arguments else ())], env=LAUNCH_ENVIRONMENT)
+def performed(block: Callable[[], None]) -> None:
+    """Queue the block on the main run loop in its common modes and wake the loop to run it."""
+    CFRunLoopPerformBlock(CFRunLoopGetMain(), kCFRunLoopCommonModes, block)
+    CFRunLoopWakeUp(CFRunLoopGetMain())
+
+
+async def reached(instance: NSRunningApplication, keys: tuple[str, ...]) -> bool:
+    """Whether one of the instance's keys read true before the deadline, each key observed on the main run loop that updates the instance."""
+    done, observer = anyio.Event(), Observer.new()
+    observer.changed = partial(anyio.from_thread.run_sync, done.set, token=anyio.lowlevel.current_token())
+
+    def observe() -> None:
+        for key in keys:
+            instance.addObserver_forKeyPath_options_context_(observer, key, NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew, None)
+
+    def unobserve() -> None:
+        for key in keys:
+            instance.removeObserver_forKeyPath_(observer, key)
+
+    performed(observe)
+    try:
+        with anyio.move_on_after(DEADLINE):
+            await done.wait()
+    finally:
+        performed(unobserve)
+    return done.is_set()
+
+
+async def registered(processes: Sequence[psutil.Process]) -> tuple[NSRunningApplication, ...]:
+    """Instances Launch Services lists for the processes once each finished launching or ended, a process it lists none for skipped."""
+    instances = tuple(filter(None, (NSRunningApplication.runningApplicationWithProcessIdentifier_(process.pid) for process in processes)))
+    await anyio.gather(*(reached(instance, READY) for instance in instances))
+    return instances
+
+
+async def launch(application: Bundle, *arguments: str, files: Sequence[str] = (), environment: Mapping[str, str] = frozendict()) -> NSRunningApplication:
+    """Instance of the bundle open on the files once it finished launching in the background, the live instance Launch Services lists or a new one with the arguments and only the given environment, opened after Launch Services drops every instance whose process exited."""
+    exited = (instance for instance in NSRunningApplication.runningApplicationsWithBundleIdentifier_(application.identifier) if not psutil.pid_exists(instance.processIdentifier()))
+    await anyio.gather(*(reached(instance, ENDED) for instance in exited))
+    configuration = NSWorkspaceOpenConfiguration.configuration()
+    configuration.setActivates_(False)
+    configuration.setPromptsUserIfNeeded_(False)
+    configuration.setAllowsRunningApplicationSubstitution_(False)
+    configuration.setArguments_(arguments)
+    configuration.setEnvironment_(dict(environment))
+    token = anyio.lowlevel.current_token()
+    send, receive = anyio.create_memory_object_stream[NSRunningApplication | NSError](1)
+
+    def opened(instance: NSRunningApplication | None, error: NSError | None) -> None:
+        anyio.from_thread.run_sync(send.send_nowait, error if instance is None else instance, token=token)
+
+    workspace, url = NSWorkspace.sharedWorkspace(), NSURL.fileURLWithPath_(str(application.path))
+    if files:
+        workspace.openURLs_withApplicationAtURL_configuration_completionHandler_([NSURL.fileURLWithPath_(file) for file in files], url, configuration, opened)
+    else:
+        workspace.openApplicationAtURL_configuration_completionHandler_(url, configuration, opened)
+    with send, receive:
+        match await receive.receive():
+            case NSError() as error:
+                raise OSError(f"opening {application.path} failed with {error.localizedDescription()} ({error.code()})")
+            case instance:
+                await reached(instance, READY)
+                return instance
 
 
 async def terminated(processes: Sequence[psutil.Process]) -> tuple[str, ...]:
@@ -208,19 +286,22 @@ async def terminated(processes: Sequence[psutil.Process]) -> tuple[str, ...]:
     return tuple(f"pid {process.pid} runs past its termination" for process in alive)
 
 
-async def quitted(application: Bundle, processes: Sequence[psutil.Process]) -> tuple[str, ...]:
-    """Errors of quitting the bundle's processes, the quit sent without awaiting its reply and each process alive at the deadline terminated."""
-    if not processes:
-        return ()
-    script = rendered(t"tell application id {application.identifier} to quit")
-    await anyio.run_process(["/usr/bin/osascript", "-e", "ignoring application responses", "-e", script, "-e", "end ignoring"])
-    _, alive = await anyio.to_thread.run_sync(psutil.wait_procs, processes, DEADLINE)
-    return await terminated(alive)
+async def quitted(instances: Sequence[NSRunningApplication]) -> tuple[str, ...]:
+    """Errors naming each instance Launch Services still lists at the deadline after its quit and after its forced quit."""
+
+    async def errors(instance: NSRunningApplication) -> tuple[str, ...]:
+        for request in (instance.terminate, instance.forceTerminate):
+            request()
+            if await reached(instance, ENDED):
+                return ()
+        return (f"pid {instance.processIdentifier()} runs past its quit and forced quit",)
+
+    return tuple(chain.from_iterable(await anyio.gather(*map(errors, instances))))
 
 
 @asynccontextmanager
-async def reopened(application: Bundle, discovered: Sequence[psutil.Process], *files: str, arguments: Sequence[str] = ()) -> AsyncIterator[None]:
-    """Scope that launches the bundle on the files at its exit, cancellation included, when an instance ran at discovery."""
+async def reopened(application: Bundle, discovered: Sequence[NSRunningApplication], *files: str, arguments: Sequence[str] = ()) -> AsyncIterator[None]:
+    """Scope that opens the files in the bundle's instance at its exit, cancellation included, when an instance ran at discovery."""
     try:
         yield
     finally:
@@ -269,7 +350,9 @@ __all__ = [
     "located",
     "outcome",
     "parse",
+    "performed",
     "quitted",
+    "registered",
     "rendered",
     "reopened",
     "running",

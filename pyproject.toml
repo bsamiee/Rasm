@@ -48,6 +48,7 @@ workspace = [
     "pydantic",
     "pydantic-settings",                                  # Settings models read from the environment and files
     "pygments",                                           # Lexer aliases and filename patterns, fence languages in prose.py
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",   # AppKit, Foundation, and CoreFoundation bindings for application instances and the main run loop
     "pyroscope-io",                                       # Continuous-profiling agent feeding the pyroscope-otel span-link exporter
     "pyroscope-otel",                                     # Continuous-profiling span links beside the OTLP exporters
     "regex",                                              # Unicode property classes the standard library regex lacks, emoji and pictograph matching
@@ -483,7 +484,7 @@ require-lazy = [
 
 [tool.ty]
 environment = { python-platform = "all", root = [".", "libs/python", "tools"] }
-analysis = { respect-type-ignore-comments = false }
+analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "PyObjCTools", "PyObjCTools.**"] }
 rules = { all = "error", dynamic-function-decorator-return = "ignore", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
 overrides = [{ include = ["tools/interface/rhino"], rules = { too-many-positional-arguments = "ignore" } }]
 
@@ -505,6 +506,8 @@ enable_error_code = ["exhaustive-match", "explicit-override", "ignore-without-co
 overrides = [
     { module = "tests.*", disallow_any_explicit = false, disallow_any_unimported = false, warn_unreachable = false, disable_error_code = ["arg-type"] },
     { module = ["fsspec", "fsspec.*", "s3fs"], ignore_missing_imports = true },
+    { module = ["AppKit", "CoreFoundation", "Foundation", "PyObjCTools", "PyObjCTools.*"], ignore_missing_imports = true },
+    { module = "interface.host", disallow_any_unimported = false, disallow_subclassing_any = false },
     { module = "interface.rhino.*", disable_error_code = ["abstract", "call-arg", "type-abstract"] },
 ]
 

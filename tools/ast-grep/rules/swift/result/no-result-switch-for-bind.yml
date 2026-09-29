@@ -36,4 +36,4 @@ rule:
           not: {regex: '(?s)^guard\s+case\s+(let\s+)?\.success\b[^,]*,.*\b(case|let|var)\b'}
           has: {matches: failure-return}
 message: 'Statement unpacks a Result to return its failure and bind its value'
-note: 'Use `<result>.flatMap { value in <continuation> }` with `mapError` first where the failure arm replaces the error and an async flatMap where the continuation awaits, one call skips the continuation on a failure'
+note: 'Use `<result>.flatMap { value in <continuation> }`, `.bind` where the continuation awaits, and `mapError` first where the failure arm replaces the error, one call skips the continuation on failure'

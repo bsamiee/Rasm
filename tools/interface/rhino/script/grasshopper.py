@@ -4,10 +4,11 @@
 
 from collections.abc import Iterable, Mapping
 from functools import partial
+from itertools import starmap
 from math import sumprod
 from operator import sub
 from pathlib import Path
-from typing import Final
+from typing import Final, TYPE_CHECKING
 
 from AppKit import NSWindow, NSWindowStyle
 import clr
@@ -37,6 +38,11 @@ from interface.frame import LOWER_EDITOR
 from interface.report import Row
 from interface.rhino.script.accessors import defaulted, hex_color, Internal, key, member
 from interface.roles import Alpha, Axis, blend, Guide, Line, Modality, Selection, substituted, Surface, SWATCHES, Tag, TAGS, Text, Typography, Wire
+
+if TYPE_CHECKING:
+    type Setting = Settings.Setting
+else:
+    Setting = getattr(Settings, "Setting`1")
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -224,6 +230,22 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
         Settings.TranslateObjects,
     )
 
+    def setting_row(setting: Setting, target: object) -> Row:
+        """Row of one central setting through its value."""
+
+        def valued(value: object) -> None:
+            setting.Value = value
+
+        return Row(label=f"Settings.{setting.Name}", read=lambda: setting.Value, write=valued, target=target)
+
+    def user_default(held: Mapping[str, Mapping[str, Mapping[str, object]]]) -> None:
+        """Write the user default guises built from the held part arguments."""
+        Defaults.UserDefault = dressed(held)
+
+    def snapped(members: Mapping[str, object]) -> None:
+        """Write the current snapping settings from their constructor members."""
+        SnappingSettings.Current = SnappingSettings(**members)
+
     def sketched(values: Mapping[str, object]) -> None:
         """Write the default sketch style through its owner, then the default shape into the same settings file."""
         ScratchObject.SetDefaultStyle(System.Enum.ToObject(matched.ReturnType, values["Colour"]), values["Stroke"], values["Double"], ArrowStyle(values["ArrowHead"]), values["ArrowFactor"])
@@ -243,10 +265,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
 
     return (
         Row(label=f'SkinServer["{SKIN}"]', read=loaded, write=lambda written: SkinServer.Save(SKIN, SkinDefinition.Parse(written)[0]), target=skin.ToText()),
-        *(
-            Row(label=f"Settings.{setting.Name}", read=partial(getattr, setting, "Value"), write=partial(setattr, setting, "Value"), target=target)
-            for setting, target in (*decided, *((setting, setting.Default) for setting in factory))
-        ),
+        *starmap(setting_row, (*decided, *((setting, setting.Default) for setting in factory))),
         defaulted((command,), "ShowBanner", target=False, default=True),
         defaulted((command,), "ShowEditor", target=True, default=True),
         defaulted((command,), "LoadLevel", target=3, default=3),
@@ -282,11 +301,11 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
                 file_row(f"{tabs}/Control", {"CurrentRuleSet": rules, "RowCount": count, "TabPreview": True}),
             )
         ),
-        Row(label="Defaults.UserDefault", read=lambda: slots(Defaults.UserDefault), write=lambda held: setattr(Defaults, "UserDefault", dressed(held)), target=slots(guises)),
+        Row(label="Defaults.UserDefault", read=lambda: slots(Defaults.UserDefault), write=user_default, target=slots(guises)),
         Row(
             label="SnappingSettings.Current",
             read=lambda: snapping(SnappingSettings.Current),
-            write=lambda members: setattr(SnappingSettings, "Current", SnappingSettings(**members)),
+            write=snapped,
             target=snapping(SnappingSettings.Default.WithFeedback(drawFeedback=True, colour=Color.FromArgb(*Guide.TRACKING))),
         ),
         *(

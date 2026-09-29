@@ -31,4 +31,4 @@ rule:
             - kind: delete_statement
               has: {matches: discarded, pattern: $P}
 message: 'Body discards parameter `$P`'
-note: 'Delete the parameter from the signature and every caller, or mark an overriding method `@typing.override`, a discarding statement keeps an unused parameter and silences the checker that reports it'
+note: 'Delete the parameter from the signature and every caller, or decorate an overriding method with `@typing.override`, a discard keeps an unused parameter and silences ruff `ARG` rules'

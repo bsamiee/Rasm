@@ -175,4 +175,4 @@ rule:
             - inside: {stopBy: end, matches: stateless-union}
             - has: {field: arguments, matches: preset-arms}
 message: "Stateless `$UNION` cases each select one static preset of `$HOST`"
-note: Use the preset type in place of the union, each caller passes the preset it selects
+note: Replace the union with its preset type, each caller passes its own preset

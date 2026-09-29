@@ -15,5 +15,5 @@ rule:
             inside: {kind: 'command, array', stopBy: {not: {kind: concatenation}}}
 fix: '"$VALUE"'
 message: 'Option value `$VALUE` word-splits and glob-expands inside an alternate value expansion'
-note: 'Quote values inside an alternate value expansion, `${<condition>:+--option="$<value>"}`'
+note: 'Quote the value, `${<condition>:+--option="$<value>"}`'
 labels: {VALUE: {style: primary}}

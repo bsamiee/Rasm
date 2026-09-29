@@ -24,19 +24,19 @@ utils:
     read:
         kind: call
         all:
-            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^GetValue$'}}, {has: {field: object, matches: member-lookup}}]}
             - any: [{pattern: '$_.GetValue($O)'}, {pattern: '$_.GetValue($O, None)'}]
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^GetValue$'}}, {has: {field: object, matches: member-lookup}}]}
     invoke:
         kind: call
         all:
-            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^Invoke$'}}, {has: {field: object, matches: method-lookup}}]}
             - pattern: $_.Invoke($O, $ARGS)
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^Invoke$'}}, {has: {field: object, matches: method-lookup}}]}
     write:
         kind: call
         inside: {kind: expression_statement}
         all:
-            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^SetValue$'}}, {has: {field: object, matches: member-lookup}}]}
             - pattern: $_.SetValue($O, $V)
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^SetValue$'}}, {has: {field: object, matches: member-lookup}}]}
     named:
         has: {stopBy: end, pattern: $N, regex: '^["'']\w+["'']$'}
     listed:
@@ -96,5 +96,5 @@ transform:
             source: $CALL
             rewriters: [read-attribute, read-computed, invoke-attribute, invoke-attribute-listed, invoke-attribute-spread, invoke-computed, invoke-computed-listed, invoke-computed-spread, write-attribute, write-computed]
 fix: $DIRECT
-message: '`$CALL` reflects over a public member of `$O`'
-note: 'Read, call, or assign the member on the instance, with reflection kept for a non-public or static member, pythonnet binds every public member of the runtime type'
+message: '`$CALL` reaches a public member of `$O` through reflection'
+note: 'Read, call, or assign the member on the instance, on its `__implementation__` where pythonnet returns it as an interface, and keep reflection for a non-public or static member, pythonnet binds every other returned object to its runtime type'

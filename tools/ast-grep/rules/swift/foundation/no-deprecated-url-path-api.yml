@@ -58,5 +58,5 @@ transform:
     DECODED: {replace: {source: $READ, replace: '(?s)^(.*)\.(host|user)$', by: '$1.$2(percentEncoded: false)'}}
     READ_FIX: {replace: {source: $DECODED, replace: '(?s)^(.*)\.(password|query|fragment)$', by: '$1.$2()'}}
 fix: '$OPEN_INIT$OPEN_APPENDING$OPEN_APPEND$P$TAIL$CLOSE$READ_FIX'
-message: '`$SITE` reads or builds the URL through a member the SDK deprecates for the `filePath:`, `path:`, and `percentEncoded:` forms'
+message: '`$SITE` reads or builds a URL through a member the SDK deprecates for its `filePath:`, `path:`, or `percentEncoded:` form'
 note: 'Call `URL(filePath:)`, `appending(path:)`, or `append(path:)` with `directoryHint:` (`.isDirectory` for `isDirectory: true`, `.notDirectory` for `false`, a ternary for a `Bool` name), and read `host(percentEncoded: false)`, `user(percentEncoded: false)`, `password()`, `query()`, or `fragment()`, each equal to its property'

@@ -13,7 +13,6 @@ google-java-format owns formatting, PMD owns lint, jdtls owns editor diagnostics
 - `pmd check` takes files or directories, `--rulesets <file>` names the ruleset, `--use-version java-<n>` Java level, `--cache <file>` cache location
 - Ruleset references each category whole and excludes rules by name, a threshold rule keeps its default or goes
 - PMD release tags take a `pmd_releases/` prefix and a `-SNAPSHOT` tag follows each release, a mise `github:` row pins the release
-- Java is a built-in ast-grep language, `sgconfig.yml` takes no row for it
 
 ## [03]-[LANGUAGE_SERVER]
 

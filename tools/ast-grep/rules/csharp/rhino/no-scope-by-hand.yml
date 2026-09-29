@@ -366,4 +366,4 @@ fix:
     template: $OPEN$USING$ACQUIRE$SEP$MODIFIER$ARROW$BODY$PURE$BIND$GROUPED$SHUT$CLOSE$SECOND_FIXED$TAIL_FIXED
     expandStart: {kind: local_declaration_statement, has: {stopBy: end, matches: use-call}}
 message: "`$ACQUIRE_TEXT$SACQ_TEXT` scope closes through `Bracket` by hand"
-note: Use `Disposal.Using(<acquire>, <resource> => <body>)`, `Disposal.Using` pairs one acquisition with its release
+note: Use `Disposal.Using(<acquire>, <resource> => <body>)`, `Using` pairs one acquisition with its release

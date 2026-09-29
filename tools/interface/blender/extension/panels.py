@@ -181,25 +181,25 @@ def remove_appended(header: type[bpy.types.Header]) -> list[Callable[[bpy.types.
 
 # --- [TOOLBAR]
 def packed(layout: bpy.types.UILayout, column_count: int, scale_y: float) -> Generator[bpy.types.UILayout | None, bool | None]:
-    """Toolbar column layout Blender's tool draw sends each tool and group end to, filling rows across groups and padding the last row."""
-    block, row, filled = layout.column(align=True), None, column_count
+    """Toolbar column layout Blender's tool draw sends each tool and group end to, filling rows across groups, a run of group ends opening one block, each row's cells sharing its width past the 2 widget units an icon cell stays fixed at, and blank cells padding the last row."""
+    block, row, filled, fixed_units = layout.column(align=True), None, column_count, 2
     signal = yield None
     while signal is not None:
         match signal:
             case True if row is not None and filled == column_count:
-                block = layout.column(align=True)
+                block, row = layout.column(align=True), None
                 signal = yield None
             case True:
                 signal = yield None
             case False if filled == column_count:
                 row, filled = block.row(align=True), 1
-                row.scale_x, row.scale_y = scale_y * 1.1, scale_y
+                row.scale_x, row.scale_y = fixed_units + 1, scale_y
                 signal = yield row
             case False:
                 filled += 1
                 signal = yield row
     for _ in range(column_count - filled):
-        row.label(text="")
+        row.label(text="", icon="BLANK1")
     yield None
 
 

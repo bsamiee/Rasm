@@ -50,3 +50,4 @@ description: "Use when adding or changing a project file, target, tool, workflow
 - Projects a root target alone checks declare no `check`
 - Writers take no CI format-and-diff step, each writer's check form or a build diagnostic fails on every change it writes
 - Rule, checker, or file extension rows join with a tracked file they read and the tree passing them
+- Languages built into ast-grep take no `sgconfig.yml` row

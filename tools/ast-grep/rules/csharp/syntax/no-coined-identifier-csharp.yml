@@ -27,4 +27,4 @@ rule:
         - matches: text-coined-word
     pattern: $NAME
 message: Declared name `$NAME` holds a coined term
-note: Use the host API member or language term the declaration matches, or the decided domain word
+note: Use the term host API, language, or field documentation uses for what the declaration names

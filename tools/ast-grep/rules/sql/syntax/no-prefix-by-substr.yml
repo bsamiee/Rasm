@@ -48,4 +48,4 @@ transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [position]}}
 fix: $FIXED$KEPT
 message: '`$TEST` tests a prefix through a slice as long as the prefix'
-note: 'Write `instr(<subject>, <prefix>) = 1` and `instr(<subject> || ''/'', <directory> || ''/'') = 1` for a path equal to or under a directory, each states the prefix once for SQLite and DuckDB'
+note: 'Write `instr(<subject>, <prefix>) = 1`, and `instr(<subject> || ''/'', <directory> || ''/'') = 1` for a path equal to or under a directory, each states the prefix once for SQLite and DuckDB'

@@ -108,6 +108,6 @@ transform:
     COMPOSED: rewrite($CALL, rewriters=[map-first, map-last, suspend])
 fix: $COMPOSED
 message: '`$RUN` starts a separate runtime inside an effect callback'
-note: 'Return the effect from the callback, the enclosing runtime then supplies its interruption and context'
+note: 'Return the effect from its callback, enclosing runtime then supplies its interruption and context'
 labels:
     RUN: {style: primary}

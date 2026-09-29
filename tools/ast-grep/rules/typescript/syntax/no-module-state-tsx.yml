@@ -26,4 +26,4 @@ rule:
             - kind: export_statement
               inside: {kind: program}
 message: 'Module-level `$NAME` holds mutable state every function in the module shares'
-note: 'Pass changing state to the next operation as a returned value, or hold shared state in a `Ref` across fibers and in a `$.state` atom across function hook reloads'
+note: 'Pass changing state to the next operation as a returned value, or hold shared state in a `Ref` across fibers and in a `$.state` key across function hook reloads'

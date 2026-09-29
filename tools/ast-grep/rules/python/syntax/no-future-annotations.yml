@@ -23,4 +23,4 @@ fix:
     template: $OUT$NEXT
     expandEnd: {pattern: $NEXT}
 message: '`$IMPORT` stores annotations as strings'
-note: 'Delete the import, Python 3.14 defers annotation evaluation and the future import turns every annotation into a string'
+note: 'Delete `annotations` from the import, Python 3.14 and later defer annotation evaluation by default'

@@ -109,4 +109,4 @@ rule:
             - has: {field: name, regex: '^message$', pattern: $TEXT}
             - inside: {kind: class_body, inside: {matches: error-class}}
 message: '`$TEXT` renders a typed failure to text'
-note: 'Keep the failure typed to the boundary, at the boundary `<error>.message` fills the `message` field a protocol error requires and `Cause.pretty(<cause>)` renders a caught cause with its `[cause]` chain'
+note: 'Keep failures typed to the boundary, where `<error>.message` fills a protocol error''s `message` field and `Cause.pretty(<cause>)` renders a caught cause with its `[cause]` chain'

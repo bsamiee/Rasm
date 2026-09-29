@@ -12,4 +12,4 @@ rule:
 transform:
     LABEL: {replace: {source: $DIVIDER, replace: '^// --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
 message: Divider label `$LABEL` names nothing its members do or own
-note: Use a label naming the operation family inside an owner, or the owned concept at file level
+note: Use a label naming an owner's operation family, or the owned concept at file level

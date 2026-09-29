@@ -6,27 +6,21 @@ namespace Arches.Profiles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Span {
-    private readonly Plane frame;
-
-    private Span(Point3d start, Point3d end, Plane frame, double tolerance) => (Start, End, this.frame, Tolerance) = (start, end, frame, tolerance);
+    private Span(Point3d start, Point3d end, Plane frame, double tolerance) => (Start, End, Frame, Tolerance) = (start, end, frame, tolerance);
 
     public Point3d Start { get; }
 
     public Point3d End { get; }
 
-    public double Tolerance { get; }
+    public Plane Frame { get; }
 
-    public Vector3d Normal => frame.ZAxis;
+    public double Tolerance { get; }
 
     public double Length => Start.DistanceTo(End);
 
-    public Vector3d Direction => frame.XAxis;
-
     public Point3d Midpoint => (Start + End) / 2;
 
-    public Vector3d Perpendicular => frame.YAxis;
-
-    public Line CenterLine => new(Midpoint - (Perpendicular * Length), Midpoint + (Perpendicular * Length));
+    public Line CenterLine => new(Midpoint - (Frame.YAxis * Length), Midpoint + (Frame.YAxis * Length));
 
     public double HalfSpan => Length / 2;
 
@@ -37,11 +31,11 @@ public sealed record Span {
     public static Fin<Span> From(Point3d start, Point3d end, Vector3d normal, double tolerance) =>
         new Plane(start, end - start, Vector3d.CrossProduct(normal, end - start)) is { IsValid: true } plane ? new Span(start, end, plane, tolerance) : new Degenerate(nameof(Span));
 
-    public Circle CircleAt(Point3d center, double radius) => new(new Plane(center, Direction, Perpendicular), radius);
+    public Circle CircleAt(Point3d center, double radius) => new(new Plane(center, Frame.XAxis, Frame.YAxis), radius);
 
     public Point3d Raised(Point3d candidate, Limits<double> limits) {
         Point3d pulled = CenterLine.ClosestPoint(candidate, limitToFiniteSegment: false);
-        Vector3d side = ((pulled - Midpoint) * Perpendicular) < 0 ? -Perpendicular : Perpendicular;
+        Vector3d side = ((pulled - Midpoint) * Frame.YAxis) < 0 ? -Frame.YAxis : Frame.YAxis;
         return Midpoint + (side * limits.Clamp(pulled.DistanceTo(Midpoint), Tolerance));
     }
 }
@@ -62,7 +56,7 @@ public abstract partial record ArchProfile {
     }
 
     public static Fin<ArchProfile> Mirrored(Span span, Seq<Arc> towardStart) {
-        Transform mirror = Transform.Mirror(new Plane(span.Midpoint, span.Direction));
+        Transform mirror = Transform.Mirror(new Plane(span.Midpoint, span.Frame.XAxis));
         return towardStart
             .Traverse(arc => Image(arc, mirror).Map(image => Seq(image, Reversed(arc))))
             .As()

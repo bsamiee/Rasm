@@ -78,4 +78,4 @@ rule:
               precedes: {matches: fold-step, stopBy: {not: {regex: '^,$'}}}
 fix: $COLLECTED$KEPT
 message: '`$FIXABLE$KEPT` recomputes by hand what a `Stream` destructor returns'
-note: '`Stream.runCollect` returns an `Array`, and `Stream.mkString`, `runCount`, `runHead`, `runLast`, and `runFold` consume the stream in order without holding the array'
+note: '`Stream.runCollect` returns an `Array`, and `Stream.mkString`, `runCount`, `runHead`, `runLast`, and `runFold` consume the stream in order without holding an array'

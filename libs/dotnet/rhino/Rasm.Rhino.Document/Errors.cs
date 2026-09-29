@@ -57,7 +57,7 @@ public sealed record InvalidElement(string Member, int Index) : Expected("Invali
 
 public sealed record InvalidOutput(string Member, int ItemCount) : Expected("{Member} returned {ItemCount} invalid items", ErrorOps.Code<InvalidOutput>());
 
-public abstract record LimitViolation : Expected {
+public abstract record LimitViolation : ValidationFailure {
     protected LimitViolation(string message, int code) : base(message, code) { }
 }
 

@@ -49,4 +49,4 @@ transform:
     FOUND: rewrite($FIRST, rewriters=[find])
 fix: $FOUND
 message: '`$SCAN` builds every match of the list to take the first'
-note: '`Array.findFirst(<list>, <predicate>)` stops at the first match and takes an `Option` mapper where the scan maps'
+note: '`Array.findFirst(<list>, <predicate>)` stops at its first match and takes an `Option` mapper where the scan maps'

@@ -93,4 +93,4 @@ rule:
             stopBy: {not: {matches: value-wrapper}}
             inside: {kind: initializer_expression, inside: {matches: creation}}
 message: '`$READ` stores a CLR type name in a field of `$CREATED`'
-note: Hold the `Type` or the value in the field and let the message template format its name
+note: Hold the `Type` or value in the field, a message template formats its name

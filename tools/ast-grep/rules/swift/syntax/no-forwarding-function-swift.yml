@@ -3,24 +3,14 @@ id: no-forwarding-function-swift
 language: swift
 severity: error
 utils:
-    implicit-member:
-        kind: prefix_expression
-        all:
-            - has: {field: operation, regex: '^\.$'}
-            - has: {field: target, kind: simple_identifier}
     function-reference:
         any:
             - kind: simple_identifier
-            - matches: implicit-member
+            - matches: swift-implicit-member
             - kind: navigation_expression
               all:
                 - has: {field: target, any: [{kind: 'self_expression, super_expression'}, {matches: function-reference}]}
                 - not: {has: {regex: '^[?!]$'}}
-    member-reference:
-        any:
-            - kind: simple_identifier
-            - kind: navigation_expression
-              has: {field: target, any: [{kind: 'self_expression, super_expression'}, {matches: member-reference}]}
     named-callee:
         nthChild: 1
         pattern: $F
@@ -30,8 +20,8 @@ utils:
         pattern: $F
         any:
             - {kind: simple_identifier, pattern: $FN}
-            - {kind: navigation_expression, matches: member-reference, has: {field: suffix, has: {field: suffix, pattern: $FN}}}
-            - {matches: implicit-member, has: {field: target, pattern: $FN}}
+            - {kind: navigation_expression, matches: swift-member-reference, has: {field: suffix, has: {field: suffix, pattern: $FN}}}
+            - {matches: swift-implicit-member, has: {field: target, pattern: $FN}}
     parenthesized-arguments:
         kind: value_arguments
         pattern: $ARGS
@@ -40,37 +30,6 @@ utils:
         kind: value_arguments
         pattern: $ARGS
         has: {regex: '^[(\[]$'}
-    fixed-value:
-        any:
-            - matches: literal-value
-            - kind: 'simple_identifier, self_expression, key_path_expression'
-            - kind: 'array_literal, dictionary_literal'
-              not: {has: {pattern: $_, not: {matches: fixed-value}}}
-            - kind: navigation_expression
-              all:
-                - has: {field: target, matches: fixed-value}
-                - not: {has: {regex: '^[?!]$'}}
-            - kind: value_argument
-              has: {field: value, regex: '^nil$'}
-            - kind: call_expression
-              all:
-                - has: {nthChild: 1, matches: member-reference}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument}, not: {has: {kind: value_argument, not: {has: {field: reference_specifier, kind: value_argument_label}}}}}}
-                - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, pattern: $_}}}}}
-            - kind: call_expression
-              all:
-                - has:
-                    nthChild: 1
-                    any:
-                        - {kind: prefix_expression, matches: literal-value}
-                        - {kind: navigation_expression, has: {field: target, kind: simple_identifier, regex: '^[A-Z]'}}
-                - has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {kind: value_argument, not: {has: {field: value, matches: literal-value}}}}}}
-    literal-value:
-        any:
-            - kind: 'boolean_literal, integer_literal, real_literal'
-            - kind: line_string_literal
-              not: {has: {kind: interpolated_expression}}
-            - matches: implicit-member
     forwarding-call:
         kind: call_expression
         all:
@@ -94,7 +53,7 @@ utils:
                 not: {has: {kind: lambda_literal}}
                 has:
                     matches: call-arguments
-                    not: {has: {kind: value_argument, not: {any: [{has: {field: value, matches: fixed-value}}, {matches: fixed-value}]}}}
+                    not: {has: {kind: value_argument, not: {any: [{has: {field: value, matches: swift-fixed-value}}, {matches: swift-fixed-value}]}}}
     declared-statement:
         any:
             - matches: declared-call
@@ -113,7 +72,7 @@ utils:
     declared-body:
         any:
             - has: {field: body, has: {matches: sole-declared}}
-            - has: {kind: computed_property, any: [{has: {matches: sole-declared}}, {has: {kind: computed_getter, has: {matches: sole-declared}}}]}
+            - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: sole-declared}}, {has: {kind: computed_getter, has: {matches: sole-declared}}}]}
     declaration:
         kind: 'function_declaration, init_declaration, subscript_declaration'
     unforwarded-parameter:
@@ -164,42 +123,10 @@ utils:
                     - has: {field: target, kind: 'simple_identifier, navigation_expression', not: {has: {kind: call_suffix, stopBy: end}}}
                     - has: {field: suffix, regex: '^\.withCString$'}
             - has: {kind: simple_identifier, regex: '^withUnsafe(Mutable)?Pointer$'}
-    member-read:
-        any:
-            - {kind: navigation_expression, pattern: $F}
-            - kind: 'await_expression, try_expression, control_transfer_statement'
-              has: {matches: member-read}
-    forwarded-member:
+    forwarded-read:
         kind: statements
-        all:
-            - not: {has: {nthChild: 2}}
-            - has: {nthChild: 1, matches: member-read}
-            - has:
-                stopBy: end
-                kind: navigation_expression
-                pattern: $F
-                has: {field: target, matches: member-reference, not: {kind: 'self_expression, super_expression'}}
-    self-callee-call:
-        kind: call_expression
-        has:
-            nthChild: 1
-            any:
-                - kind: simple_identifier
-                - kind: navigation_expression
-                  has: {field: target, kind: self_expression}
-    self-call:
-        kind: statements
-        matches: sole-declared
-        has:
-            nthChild: 1
-            any:
-                - matches: self-callee-call
-                - kind: 'try_expression, await_expression, control_transfer_statement'
-                  has: {matches: self-callee-call}
-    forwarding-getter:
-        any:
-            - matches: forwarded-member
-            - matches: self-call
+        matches: swift-forwarded-member
+        has: {stopBy: end, kind: navigation_expression, pattern: $F}
     plain-parameters:
         matches: declaration
         not:
@@ -267,7 +194,7 @@ utils:
         pattern: $PARAM
         inside: {kind: init_declaration, stopBy: end, has: {kind: parameter, has: {field: name, pattern: $PARAM}}}
     constant-result:
-        matches: fixed-value
+        matches: swift-fixed-value
         not: {any: [{matches: parameter-read}, {has: {stopBy: end, matches: parameter-read}}]}
     field-statements:
         kind: statements
@@ -305,19 +232,12 @@ rule:
                 kind: class_body
                 has: {kind: init_declaration, has: {kind: parameter, has: {field: name, pattern: $FIELD}}}
                 inside: {kind: class_declaration, has: {field: name, pattern: $F}}
-        - kind: function_declaration
+        - kind: 'function_declaration, subscript_declaration'
           all:
             - not: {has: {kind: parameter}}
-            - has: {field: body, has: {matches: forwarded-member}}
-        - kind: property_declaration
-          all:
-            - not: {has: {field: name, regex: '^body$'}}
-            - not: {has: {stopBy: end, matches: copy-with}}
-            - has:
-                field: computed_value
-                any:
-                    - has: {matches: forwarding-getter}
-                    - has: {kind: computed_getter, has: {matches: forwarding-getter}}
+            - any:
+                - has: {field: body, has: {matches: forwarded-read}}
+                - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: forwarded-read}}, {has: {kind: computed_getter, has: {matches: forwarded-read}}}]}
         - kind: lambda_literal
           all:
             - any:
@@ -334,5 +254,5 @@ rule:
                     - not: {has: {kind: lambda_function_type}}
                     - any: [{matches: anonymous-forwarded-1}, {matches: anonymous-forwarded-2}, {matches: anonymous-forwarded-3}]
             - not: {inside: {kind: call_suffix, inside: {matches: pointer-scope}}}
-message: 'Declaration passes its parameters and fixed values unchanged to `$F`'
-note: 'Call `<callee>` at each use or pass it as a value (`f`, `obj.m`, `m(label:)`, `Type.init`, `Result.success`), with `(label: f)` for a trailing closure on a labeled parameter, move arguments and fields the declaration fixes to each use with the sibling initializer taking that field as the one initializer, read `<value>.<member>` or `<value>[<key>]` in place of a forwarding property or subscript, and move a conformance it satisfies to the forwarded type'
+message: 'Declaration or closure passes its parameters and fixed values unchanged to `$F`'
+note: 'Call `<callee>` with fixed arguments and fields at each use or pass it as a value (`f`, `obj.m`, `m(label:)`, `Type.init`, `Result.success`, `(label: f)` for a trailing closure on a labeled parameter), keep a sibling initializer taking each field as sole initializer, read `<value>.<member>` in place of a parameterless function or subscript, and move a conformance it satisfies to the forwarded type'

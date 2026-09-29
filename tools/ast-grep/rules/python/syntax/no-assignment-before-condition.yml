@@ -53,5 +53,5 @@ transform:
 fix:
     template: $OUT$COMMENTED
     expandStart: {kind: expression_statement}
-message: 'Assignment to `$N` precedes the `if` condition that evaluates it first'
-note: 'Bind `(<name> := <value>)` in the condition with any comment between the statements moved above the `if`, the binding then sits at its first read'
+message: 'Assignment to `$N` precedes an `if` condition that reads it first'
+note: 'Move any comment between both statements above the `if` and bind `(<name> := <value>)` at its first read in its condition, one expression then binds and tests the value'

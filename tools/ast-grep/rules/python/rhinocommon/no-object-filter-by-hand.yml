@@ -63,4 +63,4 @@ rule:
                     not: {has: {kind: 'elif_clause, else_clause'}}
                     has: {field: condition, matches: holds-filter}
 message: '`$TEST` filters the object enumeration by hand'
-note: 'Set the attribute filter (`SpaceFilter`, `LayerIndexFilter`, `MaterialIndexFilter`, `NameFilter`) on the `ObjectEnumeratorSettings` that `GetObjectList` reads, the document then filters before it enumerates'
+note: 'Set the attribute filter (`SpaceFilter`, `LayerIndexFilter`, `MaterialIndexFilter`, `NameFilter`) on the `ObjectEnumeratorSettings` that `GetObjectList` reads, the document filters before it enumerates'

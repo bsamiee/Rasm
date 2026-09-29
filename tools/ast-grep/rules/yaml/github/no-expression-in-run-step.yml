@@ -34,4 +34,4 @@ rule:
                     has: {field: key, regex: '^(with|"with"|''with'')$'}
                     inside: {matches: script-step}
 message: '`$KEY` holds a `${{ }}` expression GitHub substitutes as text before the interpreter parses it'
-note: 'Set `env: {NAME: ${{ <context> }}}` on the step and read the variable as `"$NAME"` in `run` and `process.env.NAME` in `script`, the value then never parses as source'
+note: 'Set `env: {<NAME>: ''${{ <context> }}''}` on the step and read `"$<NAME>"` in `run` or `process.env.<NAME>` in `script`, an environment variable never parses as source'

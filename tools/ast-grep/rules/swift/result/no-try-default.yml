@@ -113,5 +113,5 @@ rule:
             - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, pattern: $TRY}
             - not: {has: {kind: if_statement}}
             - not: {matches: partition}
-message: '`$TRY` discards the error, the consumer reads nil or a default in place of the failure'
+message: '`$TRY` discards the error, and consumers read nil or a default in place of a failure'
 note: 'Recover through `Result { try <call> }.flatMapError { error in <recovered case> }` in place of `(try? <call>) ?? <default>`, a `catch` returning a default, or a `switch` or `if case` projecting `.success`, transform the result through `.map` or `.mapError` in place of `try? <result>.get()`, keep `Result { try <call> }` with a typed failure case in place of the `guard let` form, and match the failure case in place of `(try? <call>) != nil`'

@@ -40,4 +40,4 @@ rule:
             - has: {field: value, matches: listed}
             - has: {field: subscript, regex: '^(0|-1)$'}
 message: '`$FIRST` takes one path from a directory search in the order the filesystem lists it'
-note: 'Read the path from the owner that places the file, or match listed results with `case [<path>]` and an error case for every other count, a directory search yields paths in filesystem order and raises when it finds none'
+note: 'Read the path from the owner that places the file, or match listed results with `case [<path>]` and an error case for every other count, `next` and an index raise on an empty search'

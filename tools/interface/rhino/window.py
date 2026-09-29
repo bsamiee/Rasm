@@ -5,7 +5,7 @@ import ctypes
 from enum import auto, StrEnum
 import math
 from types import MappingProxyType
-from typing import override, Self, TypedDict
+from typing import Final, override, Self, TypedDict
 
 from interface.frame import Place, RIGHT_COLUMN, Role, TREE_ROWS
 
@@ -42,6 +42,8 @@ class PanelId(StrEnum):
     SCRIPTS = "8e40b456-7e20-43a0-92e6-a6991419cc91"
     WHAT = "2017c0ee-500a-43ae-b920-88465a7132a0"
     OSNAP = "d3c4a392-88de-4c4f-88a4-ba5636ef7f38"
+    SELECTION_FILTERS = "918191ca-1105-43f9-a34a-dda4276883c1"
+    NAMED_SELECTIONS = "679af970-96d0-4c3a-831d-b4ff878e2884"
 
 
 class RibbonTab(StrEnum):
@@ -87,22 +89,18 @@ class Site(StrEnum):
 
 
 class Extent(StrEnum):
-    """Lengths in points and row and toggle counts measured beside the dock site heights."""
+    """Lengths in points and row counts measured beside the dock site heights."""
 
     TAB_STRIP = auto()
     BUTTON = auto()
     RESIZER = auto()
-    COMMAND_HISTORY = auto()
+    STATUS_BAR = auto()
+    HISTORY_LINE = auto()
     LAYERS_CHROME = auto()
     LAYERS_HEADER = auto()
     LAYERS_ROW = auto()
     LAYERS_INSET = auto()
     LAYOUTS_INSET = auto()
-    OSNAP_TOGGLES = auto()
-    OSNAP_PITCH_X = auto()
-    OSNAP_PITCH_Y = auto()
-    OSNAP_INSET = auto()
-    OSNAP_CHROME = auto()
     MATERIALS_STRIP = auto()
     MATERIALS_ROW = auto()
     LIBRARIES_CHROME = auto()
@@ -112,14 +110,29 @@ class Extent(StrEnum):
     LIBRARIES_LIST_MINIMUM = auto()
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+TOGGLES: Final = (PanelId.OSNAP, PanelId.SELECTION_FILTERS)
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
+class Grid(TypedDict):
+    """Toggle count and cell pitch of a panel, and the width and height its container spends around the panel's content, in points."""
+
+    count: int
+    pitch_x: float
+    pitch_y: float
+    inset: float
+    chrome: float
+
+
 class Measured(TypedDict):
-    """Record the script prints: each dock site's height, each extent, and each Layers column's default width by `LayerColumns.ColumnType` name in enum order."""
+    """Record the script prints: each dock site's height, each extent, each toggle panel's grid, and each Layers column's default width by `LayerColumns.ColumnType` name in enum order."""
 
     sites: dict[Site, float]
     extents: dict[Extent, float]
+    grids: dict[PanelId, Grid]
     columns: dict[str, int]
 
 
@@ -141,9 +154,14 @@ class Layout(TypedDict):
 
 
 def band_sizes(extents: Mapping[Extent, float]) -> dict[Site, int]:
-    """Whole points of the ribbon band showing its tab strip over one button row, the sidebar four buttons wide, the right column, and the Command History bar's height."""
-    cell = round(extents[Extent.BUTTON])
-    return {Site.TOP: round(extents[Extent.TAB_STRIP]) + cell, Site.LEFT: 4 * cell, Site.RIGHT: RIGHT_COLUMN, Site.BOTTOM: round(extents[Extent.COMMAND_HISTORY])}
+    """Whole points of the ribbon band showing its tab strip over one button row, the sidebar four buttons wide rounded up to the 5 point step, the right column, and the Command History band showing the whole history lines that fit the bottom stack above the status bar and the resizer."""
+    cell, columns, step, bottom_stack, line = round(extents[Extent.BUTTON]), 4, 5, 87.5, extents[Extent.HISTORY_LINE]
+    return {
+        Site.TOP: round(extents[Extent.TAB_STRIP]) + cell,
+        Site.LEFT: math.ceil(columns * cell / step) * step,
+        Site.RIGHT: RIGHT_COLUMN,
+        Site.BOTTOM: round(math.floor((bottom_stack - extents[Extent.STATUS_BAR] - extents[Extent.RESIZER]) / line) * line),
+    }
 
 
 def layers_height(extents: Mapping[Extent, float]) -> float:
@@ -172,7 +190,7 @@ def upper_length(measured: Measured, site: Site, lower: float) -> int:
 
 
 def layout(measured: Measured) -> Layout:
-    """Layout the measures size, each side band sharing its length with the lower bar at its content height."""
+    """Layout the measures size, each side band sharing its length with the lower bar at its content height, the left container as tall as its tallest toggle grid wrapped as Rhino wraps it at the sidebar width."""
     extents, sizes = measured["extents"], band_sizes(measured["extents"])
     roles = {
         Role.PROPERTIES: PanelId.PROPERTIES,
@@ -186,8 +204,7 @@ def layout(measured: Measured) -> Layout:
         Role.STRUCTURE: PanelId.LAYERS,
     }
     top, bottom = (tuple(roles[role] for role in place.value if role in roles) for place in (Place.RIGHT_TOP, Place.RIGHT_BOTTOM))
-    toggles = extents[Extent.OSNAP_TOGGLES]
-    per_row = min(toggles, (sizes[Site.LEFT] - extents[Extent.OSNAP_INSET]) // extents[Extent.OSNAP_PITCH_X])
+    height = max(math.ceil(grid["count"] / max(1, (sizes[Site.LEFT] - grid["inset"]) // grid["pitch_x"])) * grid["pitch_y"] + grid["chrome"] for grid in measured["grids"].values())
 
     def split(site: Site, upper: Bar | tuple[PanelId, ...], lower: tuple[PanelId, ...], height: float) -> Band:
         upper_share, lower_share = shares(measured, site, height)
@@ -196,14 +213,14 @@ def layout(measured: Measured) -> Layout:
     return Layout(
         bands=MappingProxyType({
             Site.TOP: Band(size=sizes[Site.TOP], bars=((Bar.RIBBON, None),)),
-            Site.LEFT: split(Site.LEFT, Bar.SIDEBAR, (PanelId.OSNAP,), math.ceil(toggles / per_row) * extents[Extent.OSNAP_PITCH_Y] + extents[Extent.OSNAP_CHROME]),
+            Site.LEFT: split(Site.LEFT, Bar.SIDEBAR, TOGGLES, height),
             Site.RIGHT: split(Site.RIGHT, top, bottom, layers_height(extents)),
             Site.BOTTOM: Band(size=sizes[Site.BOTTOM], bars=((Bar.COMMAND_HISTORY, None),)),
         }),
-        returns=MappingProxyType({panel: bottom if panel in {*bottom, PanelId.LAYER_STATES} else top for panel in PanelId if panel is not PanelId.OSNAP}),
+        returns=MappingProxyType({panel: TOGGLES if panel in TOGGLES else bottom if panel in {*bottom, PanelId.LAYER_STATES} else top for panel in PanelId}),
     )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Band", "Bar", "Extent", "Layout", "Measured", "PanelId", "RibbonTab", "Site", "layers_height", "layout", "upper_length"]
+__all__ = ["TOGGLES", "Band", "Bar", "Extent", "Grid", "Layout", "Measured", "PanelId", "RibbonTab", "Site", "layers_height", "layout", "upper_length"]

@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-listed-enum-members-python
+language: python
+severity: error
+utils:
+    enum-class:
+        kind: class_definition
+        all:
+            - has: {field: name, pattern: $ENUM}
+            - has: {field: superclasses, has: {regex: '^(enum\.)?(Enum|IntEnum|StrEnum|Flag|IntFlag|ReprEnum)$'}}
+    unlisted-member:
+        kind: expression_statement
+        all:
+            - has: {kind: assignment, all: [{has: {field: left, kind: identifier, not: {regex: '^_'}, pattern: $MEMBER}}, {has: {field: right, pattern: $_}}]}
+            - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, pattern: $LISTED, has: {pattern: $ENUM.$MEMBER}}}}
+rule:
+    kind: 'list, tuple, set'
+    pattern: $LISTED
+    all:
+        - has: {nthChild: 1, kind: attribute, has: {field: object, kind: identifier, pattern: $ENUM}}
+        - has: {nthChild: 2, kind: attribute}
+        - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: attribute, pattern: $ENUM.$_}]}}}
+        - not: {inside: {kind: assignment, field: right, has: {field: left, kind: 'pattern_list, tuple_pattern'}}}
+        - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: enum-class}}
+        - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, matches: enum-class, has: {field: body, has: {matches: unlisted-member}}}}}
+message: '`$LISTED` lists every member of `$ENUM`'
+note: 'Iterate or test membership on `<enum>` itself (`tuple(<enum>)`, `<value> in <enum>`), iteration yields every member in declaration order'

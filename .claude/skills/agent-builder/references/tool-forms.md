@@ -43,7 +43,7 @@ Forms and facts per tool an agent step names, run from repository root.
 - `nx affected -t <target> --files=<path>[,<path>]` runs each file's project with its dependents, a plugin file of `nx.json` every project
 - `nx show project <project> --json | jq '.targets|keys'` lists targets, `jq '.targets.<target>.inputs'` the hashed inputs
 - `nx run rasm:outline -- <path> --items structure` maps a file, `--view names`, `signatures`, `expanded`, or `digest` set depth
-- `--match <Name>` selects one member, `-l <lang>` outlines a directory of one language, `--json=compact` prints one array
+- `-l <lang>` outlines a directory of one language, `--json=compact` prints one array
 - `--color never` fails outline target's schema, `NO_COLOR=1` in `.claude/settings.json` `env` reaches every tool subprocess
 - Outline maps bundled languages, markdown included, and custom languages `sgconfig.yml` names, and prints `nothing found` for the rest
 

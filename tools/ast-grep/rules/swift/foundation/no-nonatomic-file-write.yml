@@ -58,5 +58,5 @@ transform:
     SINGLE: {replace: {source: $EMPTY, replace: 'options: (\.[a-zA-Z]\w*)', by: 'options: [.atomic, $1]'}}
     APPENDED: {replace: {source: $WITHOUT_OPTIONS, replace: '(?s)^(.*?)(,?)(\s*)\)$', by: '${1}, options: [.atomic]${2}${3})'}}
 fix: '$ATOMICALLY$SINGLE$APPENDED'
-message: '`$R.write` truncates the file in place and exposes a half-written file until the write ends'
+message: '`$R.write` truncates the file in place and exposes partial content until writing ends'
 note: 'Pass `.atomic` in the `options:` of `Data.write` or `atomically: true` to `String.write` and `NSData.write`'

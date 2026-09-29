@@ -132,4 +132,4 @@ rule:
         - not: {has: {kind: 'await, yield, named_expression', stopBy: end}}
         - any: [{matches: repeated-operand}, {matches: repeated-arm}]
 message: '`$CALL` is evaluated again in one statement or once in every arm of a branch'
-note: 'Bind `<name> = <call>` before the statement or branch, or `(<name> := <call>)` at the first read inside a condition, lambda, or comprehension, one evaluation then states the value every read uses'
+note: 'Bind `<name> = <call>` before the statement or branch, or `(<name> := <call>)` at its first read inside a condition, lambda, or comprehension, one evaluation then feeds every read'

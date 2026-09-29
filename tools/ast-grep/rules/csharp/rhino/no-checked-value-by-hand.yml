@@ -49,4 +49,4 @@ constraints:
     ANSWERS: {regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers$'}
     FOUND: {regex: '^Found(\s*<.+>)?$'}
 message: Check selects between a value and `$OWNER` by hand
-note: Use `<owner>.Unless(<check>, <value>, <member>)`, with `Unless<T>` where `T` is a base type of `<value>`
+note: Use `<owner>.Unless(<check>, <value>, <member>)`, with `Unless<T>` where `T` is a base type of `<value>`, `Unless` returns `<value>` or `<owner>` from one check

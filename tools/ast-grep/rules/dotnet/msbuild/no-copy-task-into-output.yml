@@ -7,5 +7,5 @@ rule:
         - matches: {msbuild-element: {name: {regex: '^(Copy|Move)$'}}}
         - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir|PublishDir)\)'}}}}}
         - not: {has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^SourceFiles$'}, value: {regex: '^["'']\s*@\('}}}}}}
-message: Task writes into the project's own build or publish output alone
+message: Task writes a file into the project's build or publish output, where no referencing project receives it
 note: Declare a `None` or `Content` item with `CopyToOutputDirectory` or `CopyToPublishDirectory`

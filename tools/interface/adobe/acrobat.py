@@ -95,7 +95,6 @@ def rows(units: Units) -> tuple[Default, ...]:
         ),
         leaf("IPM", "DoNotCheckForMessage", node=(Typecode.BOOLEAN, True)),
         leaf("AVGeneral", "AcrobatRHPBottomBannerIPMEnabled", node=(Typecode.BOOLEAN, False)),
-        leaf("ToolRecommenderSection", "OnDocNextToolRecommendation", node=(Typecode.BOOLEAN, False)),
         leaf("AVGeneral", "DisableStudioHome", node=(Typecode.BOOLEAN, True)),
         leaf("HomeWelcome", "LastShowStatus", node=(Typecode.BOOLEAN, False)),
         leaf("DocumentStatus", "HomeScreenOptionWhenDocClosed", node=(Typecode.BOOLEAN, False)),

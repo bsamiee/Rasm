@@ -21,7 +21,7 @@ from interface.blender.script.editors import aligned, cleared_history, declared_
 from interface.blender.script.library import built_library
 from interface.blender.script.preferences import bound_keymaps, converged_preferences
 from interface.blender.script.rna import converge
-from interface.blender.script.screens import activate, build_screen, edges, Layout, LAYOUTS, override, resize, shaped_workspaces, size_regions, TICK
+from interface.blender.script.screens import activate, build_screen, Layout, LAYOUTS, override, region_widths, shaped_workspaces, TICK
 from interface.blender.script.settings import configured_addons, styles
 from interface.blender.script.startup import ANALYSIS, cleared_objects, declared_scenes, prepared_scene
 from interface.blender.script.theme import imported_theme
@@ -58,12 +58,12 @@ def temporary_object(scene: bpy.types.Scene) -> Iterator[None]:
 
 
 def shaped_workspace(unit_system: ModuleType, window: bpy.types.Window, layout: Layout, placement: Mapping[str, tuple[Task, ...]], modules: Mapping[str, str], units: Units) -> Iterator[float | str]:
-    """Show the layout's workspace at the end of the tab order, build its screen, and converge its filter, views, spaces, sidebar tab, studio light slots, edges, and regions, then the camera views one pass later, once the regions drew at their sizes."""
+    """Show the layout's workspace at the end of the tab order, build its screen, and converge its filter, views, spaces, sidebar tab, and studio light slots, then the camera views one pass later, once the regions drew at their sizes."""
     yield from activate(window, layout.task)
     with override(window):
         bpy.ops.workspace.reorder_to_back()
     yield TICK
-    yield from build_screen(window, unit_system, layout)
+    yield from build_screen(window, bpy.context.preferences, unit_system, layout)
     yield from converged(filtered(window.workspace, placement, modules))
     yield from navigation_bars(window)
     yield from chain.from_iterable(map(converged, cleared_history(window)))
@@ -75,14 +75,12 @@ def shaped_workspace(unit_system: ModuleType, window: bpy.types.Window, layout: 
     for label, shading, kind, light, name in slots(window.workspace):
         with studio_slot(shading, kind, light):
             yield from converge(unit_system, label, shading, {"studio_light": name})
-    yield from chain.from_iterable(resize(window, bpy.context.preferences, *edge) for edge in edges(bpy.context.preferences, layout.screen, window.screen.areas[:]))
-    yield from size_regions(window, bpy.context.preferences)
     yield TICK
     yield from chain.from_iterable(converge(unit_system, label, space, fitted) for label, space, fitted in fitted_cameras(window))
 
 
 def interface(window: bpy.types.Window, launch: Launch) -> Iterator[float | str]:
-    """Every step in order: packages, library, preferences, the theme one pass later once the window's pixel size and scale follow them, workspaces, the startup scenes, units, add-on settings, and keymaps, then the cleared stock objects and the save."""
+    """Every step in order: packages, library, preferences, the theme one pass later once the window's pixel size and scale follow them, workspaces and the region widths the host stores, the startup scenes, units, add-on settings, and keymaps, then the cleared stock objects and the save."""
     context, preferences, scene, keyconfigs = bpy.context, bpy.context.preferences, bpy.context.scene, bpy.context.window_manager.keyconfigs
     preferences.use_preferences_save = False
     stop_servers(loaded())
@@ -104,6 +102,7 @@ def interface(window: bpy.types.Window, launch: Launch) -> Iterator[float | str]
     placement = {row.identity: row.workspaces for row in launch.packages}
     with temporary_object(scene):
         yield from chain.from_iterable(shaped_workspace(unit_system, window, layout, placement, modules, units) for layout in LAYOUTS)
+        yield region_widths(preferences)
         yield from chain.from_iterable(map(converged, prepared_scene(scene)))
         yield from chain.from_iterable(converge(unit_system, label, owner, declared) for label, owner, declared in declared_scenes(scene, launch))
         yield from chain.from_iterable(map(converged, styles(preferences, scene)))

@@ -147,4 +147,4 @@ constraints:
         has: {matches: fail-arm}
         not: {has: {stopBy: end, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*fail'}}
 message: '`$VALUE` is matched to rebuild the `None`, `Left`, or failure case it holds'
-note: Use `Bind(<continuation>)`, `Map` where the continuation wraps a plain value, and `IO.lift(<fin>).Bind(<continuation>)` where it returns an effect, each passes the failure through unchanged
+note: Use `Bind(<continuation>)`, `Map` for a continuation returning a plain value, and `IO.lift(<fin>).Bind(<continuation>)` for one returning an effect, each passes the failure through unchanged

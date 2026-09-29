@@ -25,22 +25,26 @@ function changes(label, held, target) {
 // --- [REQUESTS]
 function converged(row, artifacts) {
     var accessor = accessors[row.access.type];
-    var held = accessor.read(row.access, row.target, artifacts);
-    if (same(held, row.target)) return [];
-    accessor.write(row.access, row.target, artifacts, held);
-    return changes(row.label, held, row.target);
+    return attempted(row.label, function () {
+        if (accessor.rows !== undefined) {
+            var lines = [];
+            var rows = accessor.rows(row);
+            for (var index = 0; index < rows.length; index++) lines = lines.concat(converged(rows[index], artifacts));
+            return lines;
+        }
+        var held = accessor.read(row.access, row.target, artifacts);
+        var wanted = accessor.wanted === undefined ? row.target : accessor.wanted(row.access, row.target, held);
+        if (same(held, wanted)) return [];
+        accessor.write(row.access, row.target, artifacts, held);
+        return changes(row.label, held, wanted);
+    });
 }
 
 function converge(request) {
     var lines = attempted('header', function () {
         return [['header'].concat(product.header()).join('\t')];
     });
-    for (var index = 0; index < request.rows.length; index++) {
-        var row = request.rows[index];
-        lines = lines.concat(attempted(row.label, function () {
-            return converged(row, request.artifacts);
-        }));
-    }
+    for (var index = 0; index < request.rows.length; index++) lines = lines.concat(converged(request.rows[index], request.artifacts));
     return lines;
 }
 
@@ -49,12 +53,13 @@ function release() {
     var lines = [];
     for (var index = app.documents.length - 1; index >= 0; index--) {
         var document = app.documents[index];
-        if (product.untitled(document)) {
+        var state = product.state(document);
+        if (state.untitled) {
             document.close(product.drop);
         } else {
             var path = document.fullName.fsName;
             paths.unshift(path);
-            if (product.modified(document)) lines.unshift(failed(path + ' holds unsaved changes'));
+            if (state.modified) lines.unshift(failed(path + ' holds unsaved changes'));
         }
     }
     return [['measurement', spelled(paths)].join('\t')].concat(lines);
@@ -66,19 +71,11 @@ var requests = { Release: release, Converge: converge };
 
 function main(argument) {
     var request = eval('(' + argument + ')');
-    var held = [];
-    for (var index = 0; index < product.scoped.length; index++) {
-        var scope = product.scoped[index];
-        held.push(scope.owner[scope.name]);
-        scope.owner[scope.name] = scope.value;
-    }
-    try {
+    return product.scoped(function () {
         return attempted(request.type, function () {
             return requests[request.type](request);
         }).join('\n');
-    } finally {
-        for (var restored = product.scoped.length - 1; restored >= 0; restored--) product.scoped[restored].owner[product.scoped[restored].name] = held[restored];
-    }
+    });
 }
 
 main(arguments[0]);

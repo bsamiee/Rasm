@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-same-name-enum-mapping
+language: csharp
+severity: error
+utils:
+    same-name-arm:
+        kind: switch_expression_arm
+        pattern:
+            context: 'var t = k switch { $A.$MEMBER => $B.$MEMBER };'
+            selector: switch_expression_arm
+    discard-arm:
+        kind: switch_expression_arm
+        has: {kind: discard, nthChild: 1}
+rule:
+    kind: switch_expression
+    all:
+        - pattern: $SWITCH
+        - has:
+            kind: switch_expression_arm
+            pattern:
+                context: 'var t = k switch { $A.$FIRST => $B.$FIRST };'
+                selector: switch_expression_arm
+            not: {pattern: {context: 'var t = k switch { $A.$FIRST => $A.$FIRST };', selector: switch_expression_arm}}
+        - not: {has: {kind: switch_expression_arm, not: {any: [{matches: same-name-arm}, {matches: discard-arm}]}}}
+        - inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: enum_declaration
+                all:
+                    - has: {field: name, pattern: $DECLARED, any: [{pattern: $A}, {pattern: $B}]}
+                    - not:
+                        has:
+                            field: body
+                            has:
+                                kind: enum_member_declaration
+                                all:
+                                    - has: {field: name, pattern: $NAME}
+                                    - not:
+                                        inside:
+                                            stopBy: end
+                                            kind: compilation_unit
+                                            has:
+                                                stopBy: end
+                                                pattern: $SWITCH
+                                                has:
+                                                    kind: switch_expression_arm
+                                                    pattern: {context: 'var t = k switch { $A.$NAME => $B.$NAME };', selector: switch_expression_arm}
+message: Switch pairs each `$DECLARED` member with a same-named member of another enum
+note: Hold the other enum's value and delete `$DECLARED` with its switch, both enums list the same members

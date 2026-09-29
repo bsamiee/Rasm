@@ -1,4 +1,4 @@
-"""Color roles, alphas, typefaces, and the point width every application's interface takes, the palette they read, and the template text naming a role by dotted path."""
+"""Color roles, alphas, typefaces, and the point width and text size every application's interface takes, the palette they read, and the template text naming a role by dotted path."""
 
 import cmath
 from collections.abc import Callable
@@ -14,6 +14,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 FILLS: Final = (17, 26, 33, 50, 57, 62, 71, 82)
 POINT_WIDTH: Final = 6
+TEXT_POINTS: Final = 10
 TAGS: Final = "Tags"
 
 # --- [PALETTE] --------------------------------------------------------------------------
@@ -350,6 +351,7 @@ __all__ = [
     "POINT_WIDTH",
     "SWATCHES",
     "TAGS",
+    "TEXT_POINTS",
     "Accent",
     "Alpha",
     "Annotation",

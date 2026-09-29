@@ -11,4 +11,4 @@ rule:
             - has: {field: left, kind: 'true, false'}
             - has: {field: right, kind: 'true, false'}
 message: '`$COMPARISON` compares a value with a boolean literal'
-note: 'Test the value or its negation'
+note: 'Test the value or its negation, a boolean value is its own condition'

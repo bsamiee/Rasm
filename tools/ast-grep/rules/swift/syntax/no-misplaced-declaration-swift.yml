@@ -47,4 +47,4 @@ rule:
                         - follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, pattern: $SECTION}
             - follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, not: {pattern: $SECTION}}
 message: Declaration `$NAME` sits under a section its kind does not belong to
-note: 'Use the section of its kind, `[TYPES]` for protocols and aliases, `[CONSTANTS]` for literals, `[MODELS]` or `[SERVICES]` for structs, classes, and actors, `[ERRORS]` for `Error` conformers, `[OPERATIONS]` for free functions, `[COMPOSITION]` for the `@main` type, and the extended type''s section for an extension'
+note: 'Use the section of its kind, `[TYPES]` for protocols and aliases, `[CONSTANTS]` for literals, `[MODELS]` or `[SERVICES]` for structs, classes, and actors, `[ERRORS]` for `Error` conformers, `[OPERATIONS]` for free functions, `[COMPOSITION]` for a `@main` type, and its extended type''s section for an extension'

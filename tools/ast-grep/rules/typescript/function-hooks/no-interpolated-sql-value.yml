@@ -20,4 +20,4 @@ rule:
                 - follows: {kind: string_fragment, regex: "'$"}
                 - has: {stopBy: end, matches: hand-quoted}
 message: '`$VALUE` splices a quoted value into SQL text'
-note: 'Keep the statement constant and bind each value as a `:name` parameter, through `bound` in `observation/sql.ts` for the sqlite3 shell, the database then reads each value typed and unquoted'
+note: 'Keep the statement constant and bind each value as a `:name` parameter through `bound` in `observation/sql.ts`, sqlite3 shell then reads each value typed and unquoted'

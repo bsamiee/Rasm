@@ -46,4 +46,4 @@ rule:
                 inside: {matches: enum-class}
                 not: {has: {any: [{matches: unpacking-init}, {kind: decorated_definition, has: {matches: unpacking-init}}]}}
 message: 'Member `$MEMBER` holds values of mixed kinds in one tuple read by position'
-note: 'Declare one field per element and unpack them in `__init__(self, <a>, <b>)`, each member then reads its values by name'
+note: 'Unpack the tuple in `__init__(self, <a>, <b>)` into one attribute per element, `Enum` passes a tuple value to `__init__` as separate arguments'

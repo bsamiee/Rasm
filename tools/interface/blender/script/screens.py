@@ -1,11 +1,12 @@
-# mypy: disable-error-code="arg-type"
-"""Blender's workspace layouts as split trees, the screen each one builds, its area edges, and its region widths."""
+# ty: ignore[unresolved-attribute]
+# mypy: disable-error-code="arg-type, attr-defined"
+"""Blender's workspace layouts as split trees, the screen each one builds at its extents, and the region widths the host stores."""
 
 from collections.abc import Iterator, Sequence
 from enum import auto, Enum, StrEnum
 from inspect import signature
 from itertools import chain, repeat
-from math import ceil, floor, isclose
+from math import floor
 from types import ModuleType
 from typing import Final, Literal
 
@@ -13,17 +14,18 @@ from attrs import frozen
 from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 import blf
 import bpy
-from mathutils import Vector
+from cattrs.preconf.json import make_converter
 
+from interface.blender.rows import Width
 from interface.blender.script.rna import converge
 from interface.frame import LOWER_EDITOR, RIGHT_COLUMN, Task, TREE_ROWS
-from interface.report import changes, subscript
+from interface.report import changes, Kind, line, subscript
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Side(StrEnum):
-    """Area edge `screen.area_move` moves: the top of a lower part, the left of a right part, or the right of a left part."""
+    """Side of a split's sized part along its cut: the top of a lower part, the left of a right part, or the right of a left part."""
 
     TOP = "top"
     LEFT = "left"
@@ -34,24 +36,9 @@ class Side(StrEnum):
         """Direction `screen.area_split` cuts along this edge."""
         return "HORIZONTAL" if self is Side.TOP else "VERTICAL"
 
-    @property
-    def member(self) -> Literal["height", "width"]:
-        """Area member the edge sizes."""
-        return "height" if self is Side.TOP else "width"
-
-    def grip(self, area: bpy.types.Area, gap: int) -> tuple[int, int]:
-        """Window position of the edge's vertex at its midpoint, the border gap outside the area's rectangle."""
-        match self:
-            case Side.TOP:
-                return (area.x + area.width // 2, area.y + area.height - 1 + gap)
-            case Side.LEFT:
-                return (area.x - gap, area.y + area.height // 2)
-            case Side.RIGHT:
-                return (area.x + area.width - 1 + gap, area.y + area.height // 2)
-
-    def delta(self, size: int, target: int) -> int:
-        """Signed `area_move` travel, positive right or up, that brings an area's extent from its size to the target."""
-        return size - target if self is Side.LEFT else target - size
+    def bounds(self, areas: Sequence[bpy.types.Area]) -> tuple[int, int]:
+        """Lowest start and highest end the areas reach across a cut along this edge, in window device pixels."""
+        return (min(area.y for area in areas), max(area.y + area.height for area in areas)) if self is Side.TOP else (min(area.x for area in areas), max(area.x + area.width for area in areas))
 
     def order(self, area: bpy.types.Area) -> int:
         """Key ordering areas top to bottom across a horizontal cut and left to right across a vertical one."""
@@ -59,7 +46,8 @@ class Side(StrEnum):
 
     def clear(self, first: Sequence[bpy.types.Area], second: Sequence[bpy.types.Area]) -> bool:
         """Whether a cut along this edge runs clear between the first part's areas and the second's."""
-        return min(area.y for area in first) >= max(area.y + area.height for area in second) if self is Side.TOP else min(area.x for area in second) >= max(area.x + area.width for area in first)
+        (first_low, first_high), (second_low, second_high) = self.bounds(first), self.bounds(second)
+        return first_low >= second_high if self is Side.TOP else second_low >= first_high
 
 
 class View(StrEnum):
@@ -118,7 +106,6 @@ class Extent(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 TICK: Final = 0.1
-EVENT_PASSES: Final = 2
 CONSOLE_SIZE: Final = 14
 TEXT_SIZE: Final = 12
 MARGIN_COLUMN: Final = 80
@@ -200,9 +187,9 @@ def device_pixels(preferences: bpy.types.Preferences, points: int) -> int:
 
 
 def tool_zoom(preferences: bpy.types.Preferences) -> float:
-    """Toolbar zoom that draws a tool row 24 points tall."""
+    """Toolbar zoom that draws a tool row 24 points tall, a row `draw_cls` draws as its scaled widget unit truncated to whole device pixels."""
     tool_row = 24
-    return device_pixels(preferences, tool_row) / (float(signature(ToolSelectPanelHelper.draw_cls).parameters["scale_y"].default) * widget_unit(preferences.system))
+    return device_pixels(preferences, tool_row) / int(signature(ToolSelectPanelHelper.draw_cls).parameters["scale_y"].default * widget_unit(preferences.system))
 
 
 # --- [LABELS]
@@ -297,139 +284,81 @@ def paired(node: str | Split, areas: Sequence[bpy.types.Area]) -> tuple[tuple[st
             return (*paired(first, upper), *paired(second, lower))
 
 
+def extents(node: str | Split, areas: Sequence[bpy.types.Area]) -> tuple[int, ...]:
+    """Extent each split's sized part spans across its cut on a screen the tree tiles, splits before their parts."""
+    match node:
+        case str():
+            return ()
+        case Split(side=side, first=first, second=second):
+            upper, lower = parted(node, areas)
+            low, high = side.bounds(upper if side is Side.RIGHT else lower)
+            return (high - low, *extents(first, upper), *extents(second, lower))
+
+
+def targets(preferences: bpy.types.Preferences, node: str | Split) -> tuple[int, ...]:
+    """Declared extent of each split's sized part, splits before their parts."""
+    match node:
+        case str():
+            return ()
+        case Split(first=first, second=second, extent=extent):
+            return (extent.pixels(preferences), *targets(preferences, first), *targets(preferences, second))
+
+
 # --- [SCREEN]
-def divided(window: bpy.types.Window, area: bpy.types.Area, node: str | Split) -> Iterator[float]:
-    """Split the area at half for each split of the tree, the new area being the lower or left part at half."""
+def cut(preferences: bpy.types.Preferences, areas: Sequence[bpy.types.Area], area: bpy.types.Area, split: Split) -> float:
+    """Factor `screen.area_split` takes to leave the split's sized part at its extent: the cut's offset from the area's low vertex over its vertex span, each side padded as `area_calc_totrct` pads it and a single area unpadded."""
+    system, side, border = preferences.system, split.side, preferences.view.border_width
+    inner, edge = int(max(border * system.ui_scale, system.ui_scale)), int(min(2 * system.ui_scale, border * system.ui_scale))
+    (low, high), (window_low, window_high) = side.bounds((area,)), side.bounds(areas)
+    near, far = inner if low > window_low else edge, inner if high < window_high else int(system.pixel_size) if side is Side.TOP else edge
+    span, target = high - low + (near + far if len(areas) > 1 else 0), split.extent.pixels(preferences)
+    return (span - target - far - inner if side is Side.LEFT else target + inner + near - 1) / span
+
+
+def divided(window: bpy.types.Window, preferences: bpy.types.Preferences, area: bpy.types.Area, node: str | Split) -> Iterator[float]:
+    """Cut the area at each split's sized extent, the two parts ordered across the cut, splits before their parts."""
     match node:
         case str():
             return
         case Split(side=side, first=first, second=second):
-            before = frozenset(each.as_pointer() for each in window.screen.areas)
+            before, factor = frozenset(each.as_pointer() for each in window.screen.areas), cut(preferences, window.screen.areas[:], area, node)
             with override(window, area):
-                bpy.ops.screen.area_split(direction=side.direction, factor=0.5)
+                bpy.ops.screen.area_split(direction=side.direction, factor=factor)
             yield TICK
-            new = next(each for each in window.screen.areas if each.as_pointer() not in before)
-            upper, lower = (area, new) if side is Side.TOP else (new, area)
-            yield from divided(window, upper, first)
-            yield from divided(window, lower, second)
+            upper, lower = sorted((area, next(each for each in window.screen.areas if each.as_pointer() not in before)), key=side.order)
+            yield from divided(window, preferences, upper, first)
+            yield from divided(window, preferences, lower, second)
 
 
-def build_screen(window: bpy.types.Window, unit_system: ModuleType, layout: Layout) -> Iterator[float | str]:
-    """Rebuild the screen from its largest area when its areas do not tile the layout's tree, then give each area its leaf's editor."""
+def build_screen(window: bpy.types.Window, preferences: bpy.types.Preferences, unit_system: ModuleType, layout: Layout) -> Iterator[float | str]:
+    """Rebuild the screen from its largest area when its areas do not tile the layout's tree at its extents, each split cut at its sized extent, then give each area its leaf's editor."""
     screen, tree, workspace = window.screen, layout.screen, window.workspace
-    if not (len(screen.areas) == len(leaves(tree)) and arranged(tree, screen.areas[:])):
-        before, keep = tuple(area.ui_type for area in screen.areas), max(screen.areas, key=lambda area: area.width * area.height)
+    if (held := extents(tree, screen.areas[:]) if len(screen.areas) == len(leaves(tree)) and arranged(tree, screen.areas[:]) else ()) != (wanted := targets(preferences, tree)):
+        before, keep = (tuple(area.ui_type for area in screen.areas), held), max(screen.areas, key=lambda area: area.width * area.height)
         for area in [area for area in screen.areas if area != keep]:
             with override(window, area):
                 bpy.ops.screen.area_close()
             yield TICK
-        yield from divided(window, keep, tree)
-        yield from changes(f"{workspace_label(workspace)}.screens[0].areas", before, leaves(tree))
+        yield from divided(window, preferences, keep, tree)
+        yield from changes(f"{workspace_label(workspace)}.screens[0].areas", before, (leaves(tree), wanted))
     yield from chain.from_iterable(converge(unit_system, area_label(workspace, area), area, {"ui_type": editor}) for editor, area in paired(tree, screen.areas[:]))
     yield TICK
 
 
-# --- [EDGES]
-def edges(preferences: bpy.types.Preferences, node: str | Split, areas: Sequence[bpy.types.Area]) -> tuple[tuple[bpy.types.Area, Side, int], ...]:
-    """Every edge the tree sizes on a screen it tiles as the area of its sized part beside the cut, the side `screen.area_move` moves, and the area's target extent along it in device pixels, splits before their parts."""
-    match node:
-        case str():
-            return ()
-        case Split(side=side, first=first, second=second, extent=extent):
-            upper, lower = parted(node, areas)
-            return ((upper[-1] if side is Side.RIGHT else lower[0], side, extent.pixels(preferences)), *edges(preferences, first, upper), *edges(preferences, second, lower))
-
-
-def resize(window: bpy.types.Window, preferences: bpy.types.Preferences, area: bpy.types.Area, side: Side, target: int) -> Iterator[float | str]:
-    """Move the area's edge on the side from its vertex until the area's extent along it is the target, the pointer resting there two passes first and the move settling one pass before its change line."""
-    if (size := getattr(area, side.member)) == target:
-        return
-    scale, label = preferences.system.ui_scale, f"{area_label(window.workspace, area)}.{side.member}"
-    x, y = side.grip(area, int(max(preferences.view.border_width * scale, scale)))
-    window.event_simulate(type="MOUSEMOVE", value="NOTHING", x=x, y=y)
-    yield from repeat(TICK, EVENT_PASSES)
-    with override(window):
-        bpy.ops.screen.area_move(x=x, y=y, delta=side.delta(size, target))
-    yield TICK
-    yield from changes(label, size, target)
-
-
 # --- [REGIONS]
-def logical(width: int, scale: float) -> int:
-    """Logical width a stored size draws `width` device pixels wide at."""
-    return ceil(width / scale - 0.5)
-
-
-def defaulted(width: int, scale: float) -> bool:
-    """Whether a region `width` device pixels wide draws at its editor default, no stored logical width drawing that width."""
-    return int(scale * (logical(width, scale) + 0.5)) != width
-
-
-def stroke(window: bpy.types.Window, region: bpy.types.Region, scale: float, travel: int) -> Iterator[float]:
-    """Drag the region's inner edge `travel` device pixels outward from its grip three scaled units inside it, two passes after each event."""
-    outward, inset = 1 if region.alignment == "LEFT" else -1, int(3 * scale)
-    x, y = region.x + region.width - 1 - inset if outward == 1 else region.x + inset, region.y + region.height // 2
-    for kind, value, at in (
-        ("MOUSEMOVE", "NOTHING", x),
-        ("MOUSEMOVE", "NOTHING", x),
-        ("LEFTMOUSE", "PRESS", x),
-        ("MOUSEMOVE", "NOTHING", x + outward * travel),
-        ("LEFTMOUSE", "RELEASE", x + outward * travel),
-    ):
-        window.event_simulate(type=kind, value=value, x=at, y=y)
-        yield from repeat(TICK, EVENT_PASSES)
-
-
-def zoomed(region: bpy.types.Region) -> float:
-    """Region's view2d zoom, its width in device pixels over its view width."""
-    return region.width / ((region.width - 1) * (Vector(region.view2d.region_to_view(1.0, 0.0)) - Vector(region.view2d.region_to_view(0.0, 0.0))).x)
-
-
-def drag(window: bpy.types.Window, area: bpy.types.Area, region: bpy.types.Region, scale: float, target: int, zoom: float) -> Iterator[float]:
-    """Set the region's zoom from a reset view, then stroke a region at its editor default by its drawn width's distance to the target and every region by its stored width's distance."""
-    with override(window, area, region):
-        bpy.ops.view2d.reset()
-        bpy.ops.view2d.zoom_out(zoomfacx=(zoom - 1) / 2, zoomfacy=(zoom - 1) / 2)
-    yield TICK
-    if defaulted(region.width, scale):
-        yield from stroke(window, region, scale, ceil(target * scale) - region.width)
-    held = logical(region.width, scale)
-    yield from stroke(window, region, scale, (1 if target > held else -1) * ceil(abs(target - held) * scale))
-
-
-def hidden(region: bpy.types.Region) -> bool:
-    """Whether the region is hidden, which Blender reports as a one-pixel region."""
-    return min(region.width, region.height) <= 1
-
-
-def toggle(window: bpy.types.Window, area: bpy.types.Area, region: bpy.types.Region) -> Iterator[float]:
-    """Show a hidden region or hide a shown one, two passes after the toggle."""
-    with override(window, area):
-        bpy.ops.screen.region_toggle(region_type=region.type)
-    yield from repeat(TICK, EVENT_PASSES)
-
-
-def size_regions(window: bpy.types.Window, preferences: bpy.types.Preferences) -> Iterator[float | str]:
-    """Drag every toolbar and sidebar on screen to its logical width and zoom, a hidden one shown for the drag and hidden again."""
-    scale, zoom, sidebar = preferences.system.ui_scale, tool_zoom(preferences), 260
+def region_widths(preferences: bpy.types.Preferences) -> str:
+    """Measurement line of the logical width and zoom of the sidebar of every editor a screen places and of each toolbar by editor, types by name and RNA enum value, which the host writes into the saved startup file once Blender quit."""
+    zoom, sidebar = tool_zoom(preferences), 260
     toolbar_margin, toolbar_column = 16, 40
     shelf, strip = (int((toolbar_margin + columns * toolbar_column) * zoom) for columns in (2, 1))
     widths = {
-        **{(editor, "UI"): (sidebar, 1.0) for editor in ("VIEW_3D", "NODE_EDITOR", "IMAGE_EDITOR", "TEXT_EDITOR", "SPREADSHEET")},
+        **{(area.type, "UI"): (sidebar, 1.0) for screen in bpy.data.screens for area in screen.areas if any(region.type == "UI" for region in area.regions)},
         **{(editor, "TOOLS"): (strip, zoom) for editor in ("NODE_EDITOR", "IMAGE_EDITOR")},
         ("VIEW_3D", "TOOLS"): (shelf, zoom),
         ("SPREADSHEET", "TOOLS"): (155, 1.0),
     }
-    for area, region in [(each, region) for each in window.screen.areas for region in each.regions if (each.type, region.type) in widths]:
-        (target, factor), label = widths[area.type, region.type], region_label(window.workspace, area, region)
-        if concealed := hidden(region):
-            yield from toggle(window, area, region)
-        held, current = None if defaulted(region.width, scale) else logical(region.width, scale), round(zoomed(region), 4)
-        if held != target or not isclose(current, factor, rel_tol=1e-3):
-            yield from drag(window, area, region, scale, target, factor)
-            yield from changes(label, (held, current), (target, round(factor, 4)))
-        if concealed:
-            yield from toggle(window, area, region)
+    spaces, kinds = (owner.bl_rna.properties["type"].enum_items for owner in (bpy.types.Area, bpy.types.Region))
+    return line(Kind.MEASUREMENT, make_converter().dumps(tuple(Width(editor, spaces[editor].value, kind, kinds[kind].value, width, factor) for (editor, kind), (width, factor) in widths.items())))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -448,15 +377,12 @@ __all__ = [
     "activate",
     "area_label",
     "build_screen",
-    "edges",
-    "hidden",
+    "device_pixels",
     "leaves",
     "override",
     "paired",
     "region_label",
-    "resize",
+    "region_widths",
     "shaped_workspaces",
-    "size_regions",
-    "toggle",
     "workspace_label",
 ]

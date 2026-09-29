@@ -93,4 +93,4 @@ rule:
             - has: {field: arguments, has: {nthChild: 1, matches: getter}, not: {has: {nthChild: 3}}}
             - has: {field: arguments, has: {nthChild: 2}}
 message: '`$CALL` raises when the settings key or child is missing'
-note: 'Use `TryGet<Name>(<key>)` and select on the found flag of its `(<found>, <value>)` tuple, and `AddChild(<key>)` to get or create a child to write, a missing key is an expected case each getter raises on'
+note: 'Branch on `<found>` of the `(<found>, <value>)` tuple `TryGet<Name>(<key>)` returns and get or create a child to write through `AddChild(<key>)`'

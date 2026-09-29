@@ -96,4 +96,4 @@ rule:
             - matches: mapping-body
             - matches: unwrap
 message: "Mapping method builds or unwraps a `$WRAPPER` result the boundary owns"
-note: Map the success value and keep the context at the call with `Map`, `Bind`, or a traversal
+note: Declare mappings over success types, each call applies its mapping through `Map`, `Bind`, or a traversal

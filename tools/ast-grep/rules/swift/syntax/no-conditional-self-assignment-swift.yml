@@ -20,5 +20,5 @@ rule:
                 - {kind: nil_coalescing_expression, any: [{has: {field: value, matches: self-value}}, {has: {field: if_nil, matches: self-value}}]}
                 - {kind: if_statement, has: {matches: kept, stopBy: {not: {kind: if_statement}}}}
                 - {kind: switch_statement, has: {kind: switch_entry, has: {matches: kept}}}
-message: '`$T` is written with its own value in one arm of the conditional'
+message: 'Assignment writes `$T` with its own value in one conditional arm'
 note: 'Write `<target>` under an `if`, `if case`, or `if let` on the arm that changes it'

@@ -52,4 +52,4 @@ rule:
     matches: creation
     has: {kind: argument_list, has: {matches: actual-argument}}
 message: '`$RECORD` states the actual kind as the constant `$KIND`'
-note: Read the actual kind from the value, and where the value's kind can only be that constant, return the error that names what the case lacks
+note: Read the actual kind from the value, and where one kind alone can occur, return an error naming what is missing

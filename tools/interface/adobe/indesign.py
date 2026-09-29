@@ -13,7 +13,7 @@ import msgspec
 
 from interface import host
 from interface.adobe import window
-from interface.adobe.rows import Active, member, Menu, papers, PROMPT_NAME, prompt_source, Row, STROKE_UNITS, Tool
+from interface.adobe.rows import Active, member, Menu, papers, PROMPT_NAME, prompt_source, Row, STROKE_UNITS, text_scale, Tool
 from interface.adobe.session import Scripted
 from interface.adobe.stores import File, Folder, UxpPlugin
 from interface.aliases import Alias
@@ -140,8 +140,8 @@ def checksum(page: bytes) -> int:
     return sum(body) % 0xFFF1 | sum(byte * (len(page) // lanes * (lanes - offset % lanes) - offset // lanes) for offset, byte in enumerate(body)) % 0xFFF1 << 16
 
 
-def recorded(held: bytes | None) -> bytes | host.Error:
-    """Defaults database with every UIScalingPrefs record at the 100 % interface scale the user set and each changed page checksummed, else the error of the absent database or record."""
+def recorded(slider: float, held: bytes | None) -> bytes | host.Error:
+    """Defaults database with every UIScalingPrefs record at the interface scale slider position the user set and each changed page checksummed, else the error of the absent database or record."""
     record, page_size = struct.Struct("<dHdiH"), 0x1000
     header = struct.pack("<II", 0x21898, record.size)
     match held:
@@ -151,7 +151,7 @@ def recorded(held: bytes | None) -> bytes | host.Error:
             return host.Error(f"{DEFAULTS} holds no UIScalingPrefs record")
         case bytes():
             first, *records = held.split(header)
-            body = header.join((first, *(record.pack(0.0, *record.unpack_from(chunk)[1:4], 1) + chunk[record.size :] for chunk in records)))
+            body = header.join((first, *(record.pack(slider, *record.unpack_from(chunk)[1:4], 1) + chunk[record.size :] for chunk in records)))
             return b"".join(
                 page if (page := body[start : start + page_size]) == held[start : start + page_size] else page[:-4] + checksum(page).to_bytes(4, "little") for start in range(0, len(body), page_size)
             )
@@ -197,9 +197,10 @@ def folders(bundle: host.Bundle, base: Mapping[Folder, Path]) -> Mapping[Folder,
     return frozendict({Folder.FACTORY: bundle.path.parent / "Presets" / "InDesign_Workspaces" / base[Folder.SETTINGS].name})
 
 
-def rows(units: Units) -> tuple[Row | File | UxpPlugin, ...]:
-    """InDesign's rows with lengths in points, the system's page unit shown on the rulers, strokes in the system's stroke unit, and type in points."""
+def rows(units: Units, bundle: host.Bundle) -> tuple[Row | File | UxpPlugin, ...]:
+    """InDesign's rows with the interface scaled to draw panel text at the interface text size through the slider's quarter steps above the unscaled interface, lengths in points, the system's page unit shown on the rulers, strokes in the system's stroke unit, and type in points."""
     presets = papers(units)
+    slider = (text_scale(bundle.path.parent.joinpath("Presets", "themeXMLs", "FontTheme_Panel_MAC_enUS.xml")) - 1) / 0.25
     reserved, edges, axes = ("None", "Registration", "Paper", "Black"), ("top", "bottom", "left", "right"), ("horizontal", "vertical")
     swatches = {name: rgb for name, rgb in SWATCHES.items() if name not in reserved}
     return (
@@ -258,7 +259,7 @@ def rows(units: Units) -> tuple[Row | File | UxpPlugin, ...]:
         ),
         Row("swatches", Named("swatches"), tuple(sorted({*reserved, *SWATCHES}))),
         Row("generalPreferences.setActiveWorkspace", Active(), window.WORKSPACE),
-        File(Folder.SETTINGS, DEFAULTS, recorded),
+        File(Folder.SETTINGS, DEFAULTS, partial(recorded, slider)),
         packaged(prompt_source(PRODUCT.name, COMMANDS)),
     )
 

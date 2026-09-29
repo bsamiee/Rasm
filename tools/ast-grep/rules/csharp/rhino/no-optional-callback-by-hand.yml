@@ -205,4 +205,4 @@ transform:
         rewrite: {source: $CALL, rewriters: [optional-run, optional-answer]}
 fix: $ANSWERED
 message: '`$OPTION` answers an optional callback through `$ANSWER` by hand'
-note: 'Use `Answers.Answer(<option>.Map(<run> => <effect>), <reject>, <fallback>, <none arm>)` or `Answers.Succeeded(<option>.Map(<run> => <effect>), <reject>, <none arm>)`, each `Option` overload answers `None` itself'
+note: 'Use `Answers.Answer(<option>.Map(<run> => <effect>), <reject>, <fallback>, <none arm>)` or `Answers.Succeeded(<option>.Map(<run> => <effect>), <reject>, <none arm>)`, each `Option` overload handles `None`'

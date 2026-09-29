@@ -15,4 +15,4 @@ rule:
             - has: {kind: member_binding_expression, has: {field: name, regex: '^CreateDefaultAttributes$'}}
     not: {matches: {csharp-owner-body: {type: {regex: '^TableOps$'}, member: {regex: '^WithAttributes$'}}}}
 message: '`$DOC.CreateDefaultAttributes` builds default object attributes by hand'
-note: Use `TableOps.WithAttributes(<doc>, <attributes>, <body>)`, with `None` for the document defaults
+note: Use `TableOps.WithAttributes(<doc>, <attributes>, <body>)`, with `None` for document defaults, `WithAttributes` disposes defaults it created after `<body>`

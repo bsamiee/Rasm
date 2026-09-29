@@ -20,4 +20,4 @@ rule:
             - has: {stopBy: end, matches: use-call, pattern: $USE}
             - has: {stopBy: end, matches: use-call, not: {pattern: $USE}}
 message: '`Bracket` releases more than one `use` registration by hand'
-note: Use one `Disposal.Using` per resource, nested in acquisition order, and `Disposal.AcquireAll` over a traversal
+note: Use one `Disposal.Using` per resource, nested in acquisition order, and `Disposal.AcquireAll` over a traversal, each `Using` releases its resource on success and failure

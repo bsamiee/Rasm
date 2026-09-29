@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-validation-swift
+language: swift
+severity: error
+rule:
+    kind: call_expression
+    any:
+        - pattern: '$VALUE.decode(as: $TYPE)'
+        - pattern: '$VALUE.decode(as: $TYPE, $$$REST)'
+constraints:
+    TYPE: {regex: '\.self$'}
+message: '`$VALUE` decodes into `$TYPE` through an encode and a second decode'
+note: 'Decode `$TYPE` in the read that produced `$VALUE`, inside a `JSONDocument` when a write must keep unknown fields'

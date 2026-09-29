@@ -12,5 +12,5 @@ rule:
                 - has: {field: name, regex: '^(FromBase64String|ToBase64String|DecompressBase64String)$', pattern: $MEMBER}
                 - not: {has: {field: expression, regex: '^((global::)?System\.)?Convert$'}}
         - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}}
-message: '`$MEMBER` holds a host object as its string encoding'
-note: Hold the host object under a `use` scope between the host calls that take it
+message: '`$MEMBER` converts a host object to or from a string encoding'
+note: Hold the host object in a `use` scope across every host call taking it, each decode builds a new object from the string

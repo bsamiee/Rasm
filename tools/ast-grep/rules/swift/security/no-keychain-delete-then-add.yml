@@ -31,4 +31,4 @@ rule:
                     kind: call_suffix
                     inside: {kind: call_expression, has: {kind: navigation_expression, has: {stopBy: end, matches: delete-command}}}
 message: '`$ADD` recreates a deleted keychain item and replaces its ACL and partition list with ones naming the writer alone'
-note: 'Drop the delete and replace the data in place through `add-generic-password -U` or `SecItemUpdate`'
+note: 'Drop the delete and update data in place through `add-generic-password -U` or `SecItemUpdate`'

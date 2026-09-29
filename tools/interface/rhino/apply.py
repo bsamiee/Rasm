@@ -6,7 +6,7 @@ import anyio
 import msgspec
 import psutil
 
-from interface.host import Applied, Error, Failed, Host, Line, Measurement, outcome, quitted, reopened, running
+from interface.host import Applied, Error, Failed, Host, Line, Measurement, outcome, quitted, registered, reopened, running
 from interface.rhino.packages import declared, install, Package
 from interface.rhino.session import announced, launched, released, reported, Rhino, run
 from interface.rhino.stores import edit
@@ -19,7 +19,7 @@ async def ran(host: Host, rhino: Rhino, packages: tuple[Package, ...]) -> tuple[
     """Report rows of the `main` call inside a fresh Rhino and of the files edited once it quit with the run's error output, a launch sending no port or a Rhino outliving its quit each an error row."""
     port = await launched(rhino)
     rows, stderr = await run(port, t"main(__rhino_doc__)") if isinstance(port, int) else ((port,), ())
-    reported = (*rows, *map(Error, await quitted(rhino.bundle, running(rhino.bundle))))
+    reported = (*rows, *map(Error, await quitted(await registered(running(rhino.bundle)))))
     match outcome(host.app, reported):
         case Applied(folder=folder):
             (record,) = (row.record for row in rows if isinstance(row, Measurement))
@@ -48,8 +48,9 @@ async def cleared(host: Host, rhino: Rhino, discovered: tuple[psutil.Process, ..
     held = (*(port.text for port in ports if isinstance(port, Error)), *(error for _, errors in reports for error in errors))
     if errors := held or tuple(chain.from_iterable(await anyio.gather(*(released(port) for port in listening)))):
         return outcome(host.app, tuple(map(Error, errors)))
-    async with reopened(rhino.bundle, discovered, *(path for paths, _ in reports for path in paths), arguments=("-nosplash",)):
-        match await quitted(rhino.bundle, discovered):
+    instances = await registered(discovered)
+    async with reopened(rhino.bundle, instances, *(path for paths, _ in reports for path in paths), arguments=("-nosplash",)):
+        match await quitted(instances):
             case ():
                 return await applied(host, rhino)
             case quit_errors:

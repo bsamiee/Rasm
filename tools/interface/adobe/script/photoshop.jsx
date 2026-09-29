@@ -91,6 +91,14 @@ var accessors = {
             executeAction(stringIDToTypeID('set'), descriptor({ 'null': property(access.owner), to: merged(stored(access.owner), target) }), DialogModes.NO);
         }
     },
+    PaletteFont: {
+        read: function () {
+            return stored('fontSmallSize');
+        },
+        write: function (access) {
+            accessors.ApplicationProperty.write({ owner: 'interfacePrefs' }, { paletteEnhancedFontTypeKey: access.option });
+        }
+    },
     ActionSet: {
         read: function (access, target, artifacts) {
             try {
@@ -119,14 +127,19 @@ var product = {
     header: function () {
         return [app.version, app.preferencesFolder.fsName];
     },
-    scoped: [{ owner: app, name: 'displayDialogs', value: DialogModes.NO }],
-    untitled: function (document) {
+    scoped: function (body) {
+        var dialogs = app.displayDialogs;
+        app.displayDialogs = DialogModes.NO;
+        try {
+            return body();
+        } finally {
+            app.displayDialogs = dialogs;
+        }
+    },
+    state: function (document) {
         var reference = new ActionReference();
         reference.putIdentifier(stringIDToTypeID('document'), document.id);
-        return !executeActionGet(reference).hasKey(stringIDToTypeID('fileReference'));
-    },
-    modified: function (document) {
-        return !document.saved;
+        return { untitled: !executeActionGet(reference).hasKey(stringIDToTypeID('fileReference')), modified: !document.saved };
     },
     drop: SaveOptions.DONOTSAVECHANGES
 };

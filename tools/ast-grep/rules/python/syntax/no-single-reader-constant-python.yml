@@ -106,4 +106,4 @@ rule:
                                         - matches: own-binding
                         - not: {has: {stopBy: end, matches: later-read}}
 message: 'Module-level constant `$NAME` has one reader, `$FN`'
-note: 'Bind the value inside its one reader, as a local where its name states a fact and inline otherwise, and drop its module-level name, module level holds entry points and the types they return'
+note: 'Move the value into its one reader, as a local where its name states a fact and inline otherwise, module level holds entry points and the types they return'

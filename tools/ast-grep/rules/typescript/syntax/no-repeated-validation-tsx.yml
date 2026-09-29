@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-validation-tsx
+language: tsx
+severity: error
+utils:
+    declares:
+        matches: syntax-function-boundary
+        has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', has: {field: pattern, pattern: $X}}}
+    string-parameter:
+        kind: identifier
+        pattern: $X
+        inside:
+            stopBy: {matches: declares}
+            matches: declares
+            has: {field: parameters, has: {kind: required_parameter, all: [{has: {field: pattern, pattern: $X}}, {has: {field: type, has: {kind: predefined_type, regex: '^string$'}}}]}}
+    number-parameter:
+        kind: identifier
+        pattern: $X
+        inside:
+            stopBy: {matches: declares}
+            matches: declares
+            has: {field: parameters, has: {kind: required_parameter, all: [{has: {field: pattern, pattern: $X}}, {has: {field: type, has: {kind: predefined_type, regex: '^number$'}}}]}}
+    boolean-parameter:
+        kind: identifier
+        pattern: $X
+        inside:
+            stopBy: {matches: declares}
+            matches: declares
+            has: {field: parameters, has: {kind: required_parameter, all: [{has: {field: pattern, pattern: $X}}, {has: {field: type, has: {kind: predefined_type, regex: '^boolean$'}}}]}}
+rule:
+    pattern: $CONVERSION
+    any:
+        - kind: call_expression
+          all:
+            - pattern: String($X)
+            - has: {field: function, matches: syntax-global-reference}
+            - has: {field: arguments, has: {matches: string-parameter}}
+        - kind: call_expression
+          all:
+            - pattern: $X.toString()
+            - has: {field: function, has: {field: object, matches: string-parameter}}
+        - kind: call_expression
+          all:
+            - pattern: Number($X)
+            - has: {field: function, matches: syntax-global-reference}
+            - has: {field: arguments, has: {matches: number-parameter}}
+        - kind: call_expression
+          all:
+            - pattern: Boolean($X)
+            - has: {field: function, matches: syntax-global-reference}
+            - has: {field: arguments, has: {matches: boolean-parameter}}
+fix: $X
+message: '`$CONVERSION` converts parameter `$X` to the type its annotation declares'
+note: 'Read `$X` directly, each conversion returns a value of its target type unchanged'

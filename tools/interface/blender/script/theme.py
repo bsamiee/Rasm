@@ -1,6 +1,6 @@
 # ruff: file-ignore[import-private-name, suspicious-xml-element-tree-usage, suspicious-xml-etree-import]
-# ty: ignore[unresolved-attribute]
-# mypy: disable-error-code="union-attr"
+# ty: ignore[invalid-argument-type, unresolved-attribute]
+# mypy: disable-error-code="arg-type, union-attr"
 """Blender's interface theme preset, the theme file's role placeholders rendered as bytes beside the members Blender's draw rules solve."""
 
 from collections.abc import Iterator
@@ -18,14 +18,15 @@ from bl_ui.space_userpref import USERPREF_MT_interface_theme_presets
 import bpy
 from mathutils import Color
 
+from interface.blender.script.screens import device_pixels
 from interface.report import changes, converged, Row, subscript
-from interface.roles import Accent, Alpha, Axis, blend, Line, POINT_WIDTH, substituted, Surface, Text
+from interface.roles import Accent, Alpha, Axis, blend, Line, POINT_WIDTH, substituted, Surface, Text, TEXT_POINTS
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def solved(system: bpy.types.PreferencesSystem) -> SimpleNamespace:
-    """Theme members Blender's draw rules solve from the roles by member name: grids, floor axis brightness, menu row fill, list outline, and point sizes at the system's pixel size and interface scale."""
+def solved(preferences: bpy.types.Preferences) -> SimpleNamespace:
+    """Theme members Blender's draw rules solve from the roles by member name: grids, floor axis brightness, menu row fill, list outline, point sizes at the system's pixel size and interface scale, and text style points drawing the interface text size and one point below it for tooltips."""
 
     def unlifted(rgb: tuple[int, int, int], shade: int) -> tuple[int, int, int]:
         """Theme color the 3D view draws as `rgb` after adding `shade` and lifting the sum by 255 x srgb_to_linear(b / 255)^(1 / 2.2), each channel at its nearest byte."""
@@ -40,7 +41,8 @@ def solved(system: bpy.types.PreferencesSystem) -> SimpleNamespace:
     image_alpha = round(255 * sumprod(rises, slopes) / sumprod(slopes, slopes)) / 255
     image_red, image_green, image_blue = (round(ground + (low - ground) / image_alpha - 10) for low, ground in zip(minor, Surface.CANVAS, strict=True))
     menu_red, menu_green, menu_blue = (ceil((hover - 0.2 * text) / 0.8) for hover, text in zip(Surface.HOVER, Text.PRIMARY, strict=True))
-    pixel, scale = system.pixel_size, system.ui_scale
+    pixel, scale = preferences.system.pixel_size, preferences.system.ui_scale
+    points, tooltip_points = (f"{device_pixels(preferences, size) / scale:.6g}" for size in (TEXT_POINTS, TEXT_POINTS - 1))
     return SimpleNamespace(
         canvas=unlifted(Surface.CANVAS, 0),
         grid=grid,
@@ -58,6 +60,8 @@ def solved(system: bpy.types.PreferencesSystem) -> SimpleNamespace:
         image_vertex_size=round(((POINT_WIDTH + 2.5) / sqrt(2) - 1.5) / scale),
         image_facedot_size=round(POINT_WIDTH / scale),
         handle_vertex_size=round((POINT_WIDTH + 1) / (1.4 * scale)),
+        points=points,
+        tooltip_points=tooltip_points,
     )
 
 
@@ -103,7 +107,7 @@ def imported_theme(context: bpy.types.Context) -> Iterator[str]:
         except FileNotFoundError:
             return None
 
-    theme, text, held = context.preferences.themes[0], substituted(Path(__file__).with_name("theme.xml").read_text(encoding="utf-8"), spelled, solved=solved(context.preferences.system)), exported()
+    theme, text, held = context.preferences.themes[0], substituted(Path(__file__).with_name("theme.xml").read_text(encoding="utf-8"), spelled, solved=solved(context.preferences)), exported()
     source = theme.filepath
     bpy.ops.preferences.reset_default_theme()
     before, wanted = read(held), {**read(exported()), **read(text)}

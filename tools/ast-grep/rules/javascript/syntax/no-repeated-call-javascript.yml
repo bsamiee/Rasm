@@ -39,4 +39,4 @@ rule:
             - matches: repeat-site
             - inside: {stopBy: {matches: scope}, matches: repeat-site}
 message: '`$CALL` is evaluated again in one statement'
-note: 'Bind `var <name> = <call>` before the statement and read `<name>`'
+note: 'Bind `var <name> = <call>` before the statement and read `<name>` at each use'

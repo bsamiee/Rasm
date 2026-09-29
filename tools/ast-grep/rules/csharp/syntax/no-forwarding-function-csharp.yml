@@ -255,4 +255,4 @@ rule:
                                           has: {field: body, kind: invocation_expression, has: {field: function, matches: boundary-callee}}
                                         - matches: boundary-callee
 message: '`$NAME` forwards its parameters unchanged to `$CALLEE`'
-note: Call `<callee>` at each use, `IO.lift(<receiver>.<member>)` where an effect composes and `fun(<action>)` for an `Action` in expression position, a forwarding function adds no fact to a call
+note: Call `<callee>` at each use, `IO.lift(<receiver>.<member>)` where an effect composes and `fun(<action>)` for an `Action` in expression position, a forwarding function adds no fact

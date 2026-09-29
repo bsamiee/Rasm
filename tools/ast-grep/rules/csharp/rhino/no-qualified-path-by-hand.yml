@@ -91,4 +91,4 @@ rule:
             - inside: {stopBy: end, matches: effect}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^QualifiedPath$'}}}}
 message: "`$CHECK($PATH)` requires a qualified path inside an effect by hand"
-note: Bind `Answers.QualifiedPath(<path>)`, `QualifiedPath` owns the check and its typed failure
+note: Bind `Answers.QualifiedPath(<path>)`, `QualifiedPath` fails with `Invalid` on a path that is not fully qualified

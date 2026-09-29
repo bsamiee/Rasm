@@ -37,4 +37,4 @@ rule:
               not: {inside: {stopBy: end, matches: continuation-body}}
               precedes: {kind: call_suffix, any: [{has: {kind: lambda_literal}}, {has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^block$'}}}}]}
 message: '`$DETACHED` launches work no parent''s cancellation, priority, or isolation reaches'
-note: 'Run the work as a child task through `async let` or `group.addTask`, or call an `@concurrent` function to leave the caller''s actor'
+note: 'Run work as a child task through `async let` or `group.addTask`, or call an `@concurrent` function to leave the caller''s actor'

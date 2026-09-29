@@ -84,7 +84,7 @@ NSApplication.SharedApplication.PostEvent(NSEvent.OtherEvent(NSEventType.Applica
 
 Modal dialogs hold every command, typed writer, and `open -g` file in the process, `run_python` runs inside their loop:
 - `NSApplication.SharedApplication.ModalWindow` names an alert or dialog holding the UI thread, its `ContentView` subviews hold its text and each `NSButton` title and tag
-- `NSApplication.SharedApplication.StopModalWithCode(IntPtr(<tag>))` answers an alert with its `<tag>` button once the call returns, first button's tag is 1000
+- `NSApplication.SharedApplication.StopModalWithCode(IntPtr(<tag>))` answers an alert with its `<tag>` button once the call returns
 
 - Eto dialogs a call opened keep their message loop after their window closes, a posted event ends it and finishes the call:
 

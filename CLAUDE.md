@@ -37,6 +37,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `use-rhino` skill for Rhino and Grasshopper
 - ALWAYS use `use-blender` skill for Blender
 - ALWAYS read a foreground command's exit code or the completion notification of a background command or agent, no sleep, poll, or monitor loop waits
+- ALWAYS open an application so its running instance is reused, never force a new instance or relaunch before the quit one deregisters
 
 [CLI_TOOLING]:
 
@@ -82,6 +83,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS pair acquisition and release in one resource scope, release runs on the error path
 - ALWAYS pass changing context to the next operation as a returned value, shared mutable state does not coordinate operations
 - ALWAYS confine mutation to a scope that owns it and publishes an immutable value, a buffer that never escapes stays pure
+- ALWAYS describe a desired state as data that interpreters reconcile into typed change rows for the live target, its stored form
 
 [BOUNDARY]: Boundaries own every conversion between external values and domain values
 - ALWAYS emit logs, traces, and metrics when translating the result at the boundary, domain expressions stay pure and emit none
@@ -95,6 +97,10 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS name the real type, a type alias exists only to resolve a name collision between referenced namespaces
 - ALWAYS define a custom operator, implicit conversion, or extension method for a domain meaning, never to shorten a call the direct form states
 - ALWAYS reach a dependency through the function or runtime that supplies it, never a service locator or a layer that forwards a call unchanged
+
+[DERIVATION]: Values a system exposes (types, defaults, members, ranges) come from its API and metadata at run time instead of literals or tables
+- ALWAYS declare a fact the API hides (setter clamp, relaunch-applied value) once at its owner, every other use derives it
+- ALWAYS type configuration values with their owner's range, and reach members through typed handles instead of member-name strings
 
 ## [03]-[DEPENDENCY_POLICY]
 

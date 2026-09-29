@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-forwarded-member
+language: swift
+utils:
+    member-read:
+        any:
+            - {kind: navigation_expression, pattern: $READ}
+            - kind: 'await_expression, try_expression, control_transfer_statement'
+              has: {matches: member-read}
+            - kind: tuple_expression
+              not: {has: {nthChild: 2}}
+              has: {field: value, matches: member-read}
+rule:
+    kind: statements
+    all:
+        - not: {has: {nthChild: 2}}
+        - has: {nthChild: 1, matches: member-read}
+        - has:
+            stopBy: end
+            kind: navigation_expression
+            pattern: $READ
+            has: {field: target, matches: swift-member-reference, not: {kind: 'self_expression, super_expression'}}

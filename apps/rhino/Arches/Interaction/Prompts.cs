@@ -4,6 +4,7 @@ using Rasm.Rhino.Display;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Viewport;
 using Rhino;
+using Rhino.ApplicationSettings;
 using Rhino.Display;
 using Rhino.Input.Custom;
 using Rhino.UI;
@@ -112,7 +113,7 @@ public static class Prompts {
         state.Apex.IfNone(() => span.Raised(point, limits));
 
     private static IO<Point3d> TypedRise(RhinoDoc doc, Span span, Limits<double> limits, double rise) =>
-        IO.lift(() => limits.Check(Math.Abs(rise), RisePrompt, bound => new ModelDistance(doc, bound)).Map(_ => span.Midpoint + (span.Perpendicular * rise)));
+        IO.lift(() => limits.Check(Math.Abs(rise), RisePrompt, bound => new ModelDistance(doc, bound)).Map(_ => span.Midpoint + (span.Frame.YAxis * rise)));
 
     private sealed record ApexState(bool ByRise, Option<Point3d> Apex);
 
@@ -152,17 +153,17 @@ public static class ProfileMarks {
         Marks.DrawWorld(display, EndPoints(start, end));
 
     private static IO<Unit> Curved(DisplayPipeline display, IO<Curve> curve, Span span) =>
-        Disposal.Using(curve, drawn => Marks.DrawWorld(display, Seq<WorldMark>(new WorldMark.CurveMark(drawn, Marks.FeedbackColor)) + SpanMarks(span)))
+        Disposal.Using(curve, drawn => Marks.DrawWorld(display, Seq<WorldMark>(new WorldMark.CurveMark(drawn, AppearanceSettings.FeedbackColor)) + SpanMarks(span)))
             .IfFail(_ => Ends(display, span.Start, span.End));
 
     private static Seq<WorldMark> ArcMarks(Arc arc) =>
-        Seq<WorldMark>(new WorldMark.ArcMark(arc, Marks.FeedbackColor), new WorldMark.Points(Seq(arc.Center, arc.MidPoint), Marks.PointColor, None))
+        Seq<WorldMark>(new WorldMark.ArcMark(arc, AppearanceSettings.FeedbackColor), new WorldMark.Points(Seq(arc.Center, arc.MidPoint), SmartTrackSettings.ActivePointColor, None))
         + EndPoints(arc.StartPoint, arc.EndPoint);
 
     private static Seq<WorldMark> SpanMarks(Span span) =>
-        Seq<WorldMark>(new WorldMark.LineMark(span.CenterLine, Marks.GuideColor), new WorldMark.Points(Seq(span.Midpoint), Marks.PointColor, None))
+        Seq<WorldMark>(new WorldMark.LineMark(span.CenterLine, AppearanceSettings.CrosshairColor), new WorldMark.Points(Seq(span.Midpoint), SmartTrackSettings.ActivePointColor, None))
         + EndPoints(span.Start, span.End);
 
     private static Seq<WorldMark> EndPoints(Point3d start, Point3d end) =>
-        Seq<WorldMark>(new WorldMark.LineMark(new Line(start, end), Marks.GuideColor), new WorldMark.Points(Seq(start, end), Marks.GuideColor, None));
+        Seq<WorldMark>(new WorldMark.LineMark(new Line(start, end), AppearanceSettings.CrosshairColor), new WorldMark.Points(Seq(start, end), AppearanceSettings.CrosshairColor, None));
 }

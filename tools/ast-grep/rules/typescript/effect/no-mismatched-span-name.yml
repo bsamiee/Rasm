@@ -23,4 +23,4 @@ rule:
             - inside: {kind: pair, field: value, has: {field: key, kind: property_identifier, pattern: $NAME}}
         - not: {has: {field: function, has: {field: arguments, has: {kind: string, has: {kind: string_fragment, pattern: $NAME}}}}}
 message: '`Effect.fn($SPAN)` names the span of `$NAME` with another name'
-note: 'Name the span after the binding, `const <name> = Effect.fn(''<name>'')(...)`, traces and stack frames then identify the function'
+note: 'Name the span after its binding, `const <name> = Effect.fn(''<name>'')(...)`, traces and stack frames then identify its function'

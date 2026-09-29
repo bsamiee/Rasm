@@ -158,5 +158,5 @@ transform:
     OPEN: {replace: {source: $WRAP, replace: '^(.*)\|.*$', by: '$1'}}
     CLOSE: {replace: {source: $WRAP, replace: '^.*\|(.*)$', by: '$1'}}
 fix: $OPEN$BODY$CLOSE
-message: '`$M` collects iterables through a chain object'
-note: 'Unpack each iterable into a display, `[*<a>, *<b>]`, or into a comprehension, `[*<iterable> for <iterable> in <iterables>]`, a display states the collection without an intermediate iterator'
+message: '`$M` concatenates iterables through `itertools.chain`'
+note: 'Unpack each iterable into a display, `[*<a>, *<b>]`, or a comprehension, `[*<iterable> for <iterable> in <iterables>]`, a display builds the collection with no intermediate iterator'

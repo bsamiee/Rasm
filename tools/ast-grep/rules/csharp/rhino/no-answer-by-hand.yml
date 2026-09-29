@@ -254,4 +254,4 @@ transform:
             by: unit
 fix: Answers.Answer($OPEN$EFFECT$DISCARD$LIFTED$CLOSE, $REJECT, $THUNK$UNPARENTHESIZED$LAZY$UNIT_FALLBACK)
 message: "`$EFFECT` runs and routes its failure to `$REJECT` by hand"
-note: Use `Answers.Answer(<effect>, <reject>, <fallback>)` with `Some(<effect>)` and `() => <fallback>` for an evaluated fallback, `Answers.Answer` runs the effect and reports its failure once
+note: Use `Answers.Answer(<effect>, <reject>, <fallback>)`, with `Some(<effect>)` and `() => <fallback>` for a computed fallback, `Answer` runs the effect and reports its failure once

@@ -18,7 +18,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - `command` on a target runs one command with its `options`, `executor: nx:run-commands` with `commands` and `parallel` exists for a list alone
 - `{projectRoot}` and `{projectName}` interpolate anywhere in an option value, `{workspaceRoot}` at its start alone
 - Commands with `cwd` at their project read the workspace root through `$NX_WORKSPACE_ROOT`
-- Target with `options` and no `executor`, `command`, or `targetDefaults` executor resolves to `nx:noop` with a `dependsOn` and drops without one
+- Targets with `options` and no `executor`, `command`, or `targetDefaults` executor resolve to `nx:noop` with a `dependsOn` and drop without one
 - Pipes, loops, conditionals, and variables in a command entry are a script, the second command takes its own entry or target
 - Tools that take files and no directory, or walk ignored trees before filtering (`yamlfmt`), run as `fd --hidden --extension <ext> --exec-batch <tool>`, one process over every file `.gitignore` leaves
 - `fd --exec-batch` runs nothing without a match, a row for an extension with no tracked file goes
@@ -47,7 +47,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Cache hits restore the files `outputs` name
 - File inputs hash tracked files alone, a target reading a dependency's output under an ignored path names it through `dependentTasksOutputFiles`
 - Named inputs hold files every target naming them reads, a file one target's tool reads joins its target's `inputs`
-- Named input one target reads inlines into the target, one a plugin reads (`production` in `@nx/dotnet`) stays
+- Named inputs one target reads inline into the target, one a plugin reads (`production` in `@nx/dotnet`) stays
 - Root project's `default` named input (`{projectRoot}/**/*`) is the whole workspace, root targets list their own inputs
 
 ## [04]-[SCOPE]

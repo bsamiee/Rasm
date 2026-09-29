@@ -23,7 +23,7 @@ rule:
     any:
         - {kind: string, not: {matches: python-bytes-literal}, has: {kind: string_content, has: {matches: printable-escape}}}
         - {kind: string, has: {kind: interpolation}, not: {has: {stopBy: end, kind: interpolation, not: {has: {field: expression, matches: literal}}}}}
-        - {matches: python-string-sum, not: {inside: {kind: binary_operator, matches: python-string-sum}}}
+        - {matches: python-string-concatenation, not: {inside: {kind: binary_operator, matches: python-string-concatenation}}}
         - kind: call
           all:
             - has: {field: function, kind: attribute, all: [{has: {field: object, any: [{matches: plain-string}, {kind: concatenated_string}, {regex: '^str$'}]}}, {not: {has: {field: attribute, regex: '^join$'}}}]}
@@ -37,4 +37,4 @@ rule:
             - has: {field: value, matches: plain-string}
             - has: {field: subscript, any: [{kind: integer}, {kind: slice, not: {has: {pattern: $_, not: {kind: 'integer, unary_operator'}}}}]}
 message: '`$S` computes a literal from literals'
-note: 'Write the value the computation derives as a plain literal'
+note: 'Write the result as one literal, a reader then sees the value without evaluating code'

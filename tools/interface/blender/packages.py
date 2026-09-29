@@ -3,7 +3,6 @@
 from collections.abc import Mapping
 from glob import escape
 from itertools import starmap
-from operator import methodcaller
 from pathlib import Path, PurePosixPath
 import shlex
 import shutil
@@ -219,8 +218,11 @@ def extracted(source: Path, tree: Path, label: str, module: str, manifest_filena
     with zipfile.ZipFile(source) as archive:
         members = [info for info in archive.infolist() if not info.is_dir()]
 
+        def depth(filename: str) -> int:
+            return filename.count("/")
+
         def shallowest(name: str) -> str | None:
-            return min((info.filename for info in members if PurePosixPath(info.filename).name == name), key=methodcaller("count", "/"), default=None)
+            return min((info.filename for info in members if PurePosixPath(info.filename).name == name), key=depth, default=None)
 
         match shallowest(manifest_filename), shallowest("__init__.py"):
             case str() as held, _:
@@ -255,10 +257,10 @@ def patched(root: Path, label: str, patches: tuple[Patch, ...]) -> Path | Error:
 
 
 def zipped(tree: Path, target: Path, build: Build) -> str:
-    """Stamp of the archive zipped at the target from every file under the tree, each link stored as the content it resolves to, the build recorded as its comment."""
+    """Stamp of the archive zipped at the target from every entry under the tree, each folder its own member that an overwriting install removes by, each link stored as what it resolves to, the build recorded as its comment."""
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.comment = msgspec.json.encode(build)
-        for path in sorted(path for path in tree.rglob("*") if not path.is_dir()):
+        for path in sorted(tree.rglob("*")):
             archive.write(path.resolve(strict=True), path.relative_to(tree).as_posix())
         return stamped(archive)
 

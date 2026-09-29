@@ -101,5 +101,5 @@ rule:
                 field: value
                 kind: invocation_expression
                 has: {field: function, regex: '(^|\.)From(<.+>)?$'}
-message: "`ValidateFactoryArguments` throws in place of the typed error `TryCreate`, `Validate`, and the framework converters return"
+message: "`ValidateFactoryArguments` throws in place of the typed error `TryCreate`, `Validate`, and framework converters return"
 note: Assign `validationError` and return, a nested value validates through its non-throwing `Validate`

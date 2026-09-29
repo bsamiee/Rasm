@@ -1,0 +1,196 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-member-name-reflection-javascript
+language: javascript
+severity: error
+utils:
+    member-name:
+        kind: string
+        regex: '^[''"][a-z][A-Za-z0-9]*[''"]$'
+    fixable-name:
+        matches: member-name
+        not: {regex: '^.(break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|false|finally|for|function|if|import|in|instanceof|new|null|return|super|switch|this|throw|true|try|typeof|var|void|while|with).$'}
+    list-method:
+        kind: call_expression
+        has: {field: function, kind: member_expression, has: {field: property, regex: '^(slice|filter|reverse|sort)$'}}
+    list-literal:
+        any:
+            - kind: array
+              all:
+                - not: {has: {pattern: $_, not: {any: [{matches: member-name}, {kind: comment}, {kind: spread_element, has: {matches: list-literal}}]}}}
+                - has: {any: [{matches: member-name}, {kind: spread_element}]}
+            - kind: object
+              all:
+                - not: {has: {pattern: $_, not: {any: [{kind: pair, has: {field: value, matches: list-literal}}, {kind: comment}]}}}
+                - has: {kind: pair}
+            - kind: ternary_expression
+              all: [{has: {field: consequence, matches: list-literal}}, {has: {field: alternative, matches: list-literal}}]
+            - kind: parenthesized_expression
+              has: {matches: list-literal}
+            - matches: list-method
+              has: {field: function, has: {field: object, matches: list-literal}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^concat$'}}, {has: {field: object, any: [{matches: list-literal}, {kind: array, not: {has: {pattern: $_}}}]}}]}
+                - not: {has: {field: arguments, has: {pattern: $_, not: {any: [{matches: list-literal}, {matches: member-name}, {kind: comment}]}}}}
+    list-binding:
+        kind: identifier
+        pattern: $LIST
+        inside:
+            kind: program
+            stopBy: end
+            has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $LIST}}, {has: {field: value, matches: list-literal}}]}
+    list-member:
+        kind: 'subscript_expression, member_expression'
+        has: {field: object, matches: list-binding}
+    list-copy:
+        any:
+            - kind: array
+              all:
+                - not: {has: {pattern: $_, not: {any: [{matches: member-name}, {kind: comment}, {kind: spread_element, has: {any: [{matches: list-literal}, {matches: list-binding}, {matches: list-member}]}}]}}}
+                - has: {kind: spread_element}
+            - matches: list-method
+              has: {field: function, has: {field: object, any: [{matches: list-binding}, {matches: list-member}]}}
+            - kind: call_expression
+              all:
+                - not: {has: {field: arguments, has: {pattern: $_, not: {any: [{matches: list-literal}, {matches: list-binding}, {matches: list-member}, {matches: member-name}, {kind: comment}]}}}}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^concat$'}}, {has: {field: object, any: [{matches: list-binding}, {matches: list-member}]}}]}
+    list-alias:
+        kind: identifier
+        pattern: $ALIAS
+        inside:
+            kind: program
+            stopBy: end
+            has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $ALIAS}}, {has: {field: value, any: [{matches: list-member}, {matches: list-copy}]}}]}
+    list-direct:
+        any:
+            - matches: list-literal
+            - matches: list-binding
+            - matches: list-member
+            - matches: list-copy
+            - matches: list-alias
+    list-value:
+        any:
+            - matches: list-direct
+            - matches: {javascript-call-bound-parameter: {value: {matches: list-direct}}}
+    element:
+        kind: subscript_expression
+        has: {field: object, matches: list-value}
+    element-direct:
+        kind: subscript_expression
+        has: {field: object, matches: list-direct}
+    element-alias:
+        kind: identifier
+        pattern: $ELEMENT
+        inside:
+            kind: program
+            stopBy: end
+            has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $ELEMENT}}, {has: {field: value, matches: element}}]}
+    key-table:
+        kind: object
+        all:
+            - not: {has: {pattern: $_, not: {any: [{kind: pair, has: {field: key, any: [{kind: property_identifier, regex: '^[a-z][A-Za-z0-9]*$'}, {matches: member-name}]}}, {kind: comment}]}}}
+            - has: {kind: pair}
+    key-table-binding:
+        kind: identifier
+        pattern: $TABLE
+        inside:
+            kind: program
+            stopBy: end
+            has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, matches: key-table}}]}
+    table-key:
+        kind: identifier
+        pattern: $KEY
+        inside:
+            kind: for_in_statement
+            stopBy: end
+            all:
+                - has: {field: left, pattern: $KEY}
+                - has: {field: right, any: [{matches: key-table}, {matches: key-table-binding}]}
+    callback-name:
+        kind: identifier
+        pattern: $ITEM
+        inside:
+            kind: 'function_expression, arrow_function'
+            stopBy: end
+            all:
+                - any:
+                    - has: {field: parameter, kind: identifier, pattern: $ITEM}
+                    - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ITEM}}
+                - inside:
+                    kind: arguments
+                    inside:
+                        kind: call_expression
+                        has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(forEach|map|filter|some|every|find|flatMap)$'}}, {has: {field: object, matches: list-value}}]}
+    name-value:
+        any:
+            - matches: element
+            - matches: element-alias
+            - matches: table-key
+            - matches: callback-name
+            - matches: {javascript-call-bound-parameter: {value: {any: [{matches: member-name}, {matches: element-direct}]}}}
+    literal-table:
+        pattern: $OWNER
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                stopBy: end
+                any:
+                    - kind: variable_declarator
+                      all: [{has: {field: name, pattern: $OWNER}}, {has: {field: value, kind: 'object, array'}}]
+                    - kind: assignment_expression
+                      all: [{has: {field: left, pattern: $OWNER}}, {has: {field: right, kind: 'object, array'}}]
+    literal-root:
+        kind: member_expression
+        has:
+            stopBy: end
+            field: object
+            kind: identifier
+            pattern: $ROOT
+            inside:
+                kind: program
+                stopBy: end
+                has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $ROOT}}, {has: {field: value, kind: 'object, array'}}]}
+    handle:
+        kind: 'identifier, member_expression'
+        not: {regex: '^([A-Z]\w*\.)?[A-Z][A-Z0-9_]*$'}
+rule:
+    pattern: $ACCESS
+    any:
+        - kind: subscript_expression
+          all:
+            - has: {field: object, pattern: $OWNER}
+            - has: {field: index, matches: fixable-name}
+        - kind: subscript_expression
+          all:
+            - has: {field: object, pattern: $OWNER, not: {any: [{matches: literal-table}, {matches: literal-root}]}}
+            - has: {field: index, matches: name-value}
+        - kind: object
+          all:
+            - has: {kind: pair, all: [{has: {field: key, regex: '^[''"]?(name|member|property|field|key|attribute)[''"]?$'}}, {has: {field: value, matches: member-name}}]}
+            - has:
+                kind: pair
+                has:
+                    field: value
+                    pattern: $OWNER
+                    matches: handle
+                    any:
+                        - regex: '^app(\.|$)'
+                        - inside: {kind: pair, has: {field: key, regex: '^[''"]?(owner|object|target|holder|receiver|host|subject)[''"]?$'}}
+rewriters:
+    - id: literal-subscript
+      rule:
+        kind: subscript_expression
+        all:
+            - has: {field: object, pattern: $OBJECT}
+            - has: {field: index, matches: fixable-name, pattern: $INDEX}
+      transform: {NAME: {substring: {source: $INDEX, startChar: 1, endChar: -1}}}
+      fix: $OBJECT.$NAME
+transform:
+    DIRECT:
+        rewrite:
+            source: $ACCESS
+            rewriters: [literal-subscript]
+fix: $DIRECT
+message: '`$ACCESS` reaches a member of `$OWNER` by a name string'
+note: 'Read, call, or assign `<owner>.<member>`, one expression per member where a name list or an owner and name record selects several'

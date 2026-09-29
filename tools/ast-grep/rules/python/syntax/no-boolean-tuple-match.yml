@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-boolean-kind-flag
+id: no-boolean-tuple-match
 language: python
 severity: error
 utils:
@@ -27,5 +27,5 @@ utils:
 rule:
     kind: match_statement
     has: {field: body, has: {matches: bool-tuple}}
-message: 'Match selects on a tuple of booleans'
-note: 'Select with an `if` chain over the tests, or with an enum member per reachable combination, each case then names what it means'
+message: '`match` selects on a tuple of booleans'
+note: 'Select with an `if` chain over the tests or an enum member per reachable combination, each case then names its meaning'

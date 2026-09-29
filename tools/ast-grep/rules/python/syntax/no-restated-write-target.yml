@@ -28,4 +28,4 @@ rule:
         - has: {field: value, matches: discarding-write}
         - inside: {kind: argument_list, has: {matches: target-argument}}
 message: '`$WRITE` ignores the value it receives and restates `$SHARED` from the row''s `target`'
-note: 'Write the value the row passes, `write=lambda <value>: <write of value>`, `target` then stays the one statement of what the row writes'
+note: 'Write the received value, `write=lambda <value>: <write of value>`, `target` then states once what the row writes'

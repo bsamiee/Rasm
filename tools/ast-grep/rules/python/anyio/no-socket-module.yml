@@ -14,5 +14,5 @@ rule:
         any:
             - inside: {kind: 'import_statement, import_from_statement', stopBy: end}
             - inside: {kind: type, stopBy: end}
-message: '`$USE` calls the blocking `socket` module'
-note: 'Use anyio networking functions (`anyio.connect_tcp`, `anyio.create_tcp_listener`, `anyio.getaddrinfo`), a blocking socket call stalls the event loop'
+message: '`$USE` names a blocking `socket` member'
+note: 'Use `anyio.connect_tcp`, `anyio.create_tcp_listener`, `anyio.getaddrinfo`, or `anyio.getnameinfo`, a blocking socket call stalls the event loop'

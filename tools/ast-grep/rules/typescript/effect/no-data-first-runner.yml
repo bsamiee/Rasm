@@ -92,4 +92,4 @@ transform:
     FIXED: rewrite($FIXABLE, rewriters=[chained-method-options, chained-method, chained-function-options, chained-function, method-options, method, function-options, function])
 fix: $FIXED$KEPT
 message: '`$RUN` wraps the pipe it runs'
-note: '`<program>.pipe(<step>, <runner>)` lists the runner as a step in reading order, `<runner>(<options>)` where the runner takes options'
+note: '`<program>.pipe(<step>, <runner>)` lists the runner as a step in reading order, with `<runner>(<options>)` for a runner that takes options'

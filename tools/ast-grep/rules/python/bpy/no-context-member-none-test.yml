@@ -36,5 +36,5 @@ rule:
             - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
             - all: [{inside: {kind: 'assert_statement'}}, {nthChild: 1}]
             - all: [{inside: {kind: 'conditional_expression'}}, {nthChild: 2}]
-message: 'Blender context member is tested for absence'
-note: 'Read the member directly, Blender supplies it in every script, handler, and operator context and the stub alone types it Optional'
+message: 'Condition tests a Blender context member for absence'
+note: 'Read the member directly, Blender sets it in every script, handler, and operator context although the stub types it Optional'

@@ -48,4 +48,4 @@ transform:
     OUT: rewrite($FIXABLE, rewriters=[none-test])
 fix: $OUT$KEPT
 message: 'Two-arm `match` over `$SUBJECT` holds an arm that only passes'
-note: 'Test the acting arm in an `if`, `if (<name> := <subject>) is not None:` for a `None` arm and `if isinstance(<name> := <subject>, <type>):` for a class pattern, a two-arm `match` with an empty arm spells a conditional'
+note: 'Test the acting arm in an `if`, `if (<name> := <subject>) is not None:` for a `None` arm and `if isinstance(<name> := <subject>, <type>):` for a class pattern, one test then states which case acts'

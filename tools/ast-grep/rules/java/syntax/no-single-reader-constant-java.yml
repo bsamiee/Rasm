@@ -49,4 +49,4 @@ rule:
                 - has: {stopBy: end, matches: reader}
                 - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: member}}}}
 message: Constant `$NAME` has one reader
-note: Bind the value inside its one reader, as a local where its name states a fact and inline otherwise, and drop its type-level name
+note: Bind the value inside its one reader, as a local where its name states a fact and inline otherwise

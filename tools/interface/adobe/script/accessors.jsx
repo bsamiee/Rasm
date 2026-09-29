@@ -38,12 +38,14 @@ var Member = {
         var item = owner.itemByName(access.item);
         return item.isValid ? item : null;
     },
-    read: function (access, target) {
+    read: function (access) {
         var holder = Member.holder(access);
         if (holder === null) return null;
         var value = holder[access.name];
-        if (access.enumeration === null) return value;
-        return value == $.global[access.enumeration][target] ? target : String(value);
+        return access.enumeration === null ? value : String(value);
+    },
+    wanted: function (access, target) {
+        return access.enumeration === null ? target : String($.global[access.enumeration][target]);
     },
     write: function (access, target) {
         var holder = Member.holder(access);

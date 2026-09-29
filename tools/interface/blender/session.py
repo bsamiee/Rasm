@@ -1,4 +1,4 @@
-"""Blender's session: the windowed Blender released through its bridge and quit, the interface run in a scripted instance, and the stored shelves edited before the released file reopens."""
+"""Blender's session: the windowed Blender released through its bridge and quit, the interface run in a scripted instance, and the stored shelves and region widths edited before the released file reopens."""
 
 import re
 
@@ -9,8 +9,30 @@ import psutil
 
 from interface.blender import stores
 from interface.blender.packages import Manifest
-from interface.blender.rows import Launch, Listed, Local
-from interface.host import Applied, bootstrap, Bundle, DEADLINE, Error, Failed, Host, LAUNCH_ENVIRONMENT, Line, literal, located, LOOPBACK, outcome, parse, quitted, reopened, running, Skip, terminated
+from interface.blender.rows import Launch, Listed, Local, Width
+from interface.host import (
+    Applied,
+    bootstrap,
+    Bundle,
+    DEADLINE,
+    Error,
+    Failed,
+    Host,
+    LAUNCH_ENVIRONMENT,
+    Line,
+    literal,
+    located,
+    LOOPBACK,
+    Measurement,
+    outcome,
+    parse,
+    quitted,
+    registered,
+    reopened,
+    running,
+    Skip,
+    terminated,
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -89,7 +111,7 @@ async def ran(bundle: Bundle, launch: Launch) -> tuple[Line, ...]:
     for path in (report, log, err):
         await path.unlink(missing_ok=True)
     call = t"start({literal(launch)})"
-    arguments = ("--no-window-focus", "--online-mode", "--enable-event-simulate", "--python-exit-code", "1", "--python-expr", bootstrap("interface.blender.script", call))
+    arguments = ("--no-window-focus", "--online-mode", "--python-exit-code", "1", "--python-expr", bootstrap("interface.blender.script", call))
 
     def scripted() -> list[psutil.Process]:
         return [process for process in running(bundle) if any(str(report) in argument for argument in process.info["cmdline"])]
@@ -115,7 +137,7 @@ async def ran(bundle: Bundle, launch: Launch) -> tuple[Line, ...]:
 
 # --- [SESSION]
 async def session(host: Host, bundle: Bundle, manifest: Manifest, essentials: frozenset[str], packages: tuple[Local | Listed, ...]) -> tuple[Line, ...]:
-    """Report rows of the interface run in a scripted Blender and the stored shelves edited once it quit, the windowed Blender released, quit, and reopened on its titled file, a companion bundle not installed a skip row."""
+    """Report rows of the interface run in a scripted Blender and the stored shelves and region widths edited once it quit, the windowed Blender released, quit, and reopened on its titled file, a companion bundle not installed a skip row."""
     companions = ("com.microsoft.VSCode", "org.inkscape.Inkscape")
     code, inkscapes = await anyio.gather(*(located(identifier) for identifier in companions))
     port = int(host.environ["BLENDER_MCP_PORT"])
@@ -133,13 +155,15 @@ async def session(host: Host, bundle: Bundle, manifest: Manifest, essentials: fr
     discovered = windowed(bundle)
     if isinstance(files := await closed(port, discovered), Error):
         return (files,)
-    if errors := await quitted(bundle, discovered):
+    instances = await registered(discovered)
+    if errors := await quitted(instances):
         return tuple(map(Error, errors))
-    async with reopened(bundle, discovered, *files, arguments=("--no-window-focus",)):
+    async with reopened(bundle, instances, *files, arguments=("--no-window-focus",)):
         reported = await ran(bundle, launch)
         match outcome(host.app, reported):
             case Applied(folder=folder):
-                return (*reported, *absent, *await anyio.to_thread.run_sync(stores.edit, folder / "userpref.blend", manifest, essentials))
+                (record,) = (row.record for row in reported if isinstance(row, Measurement))
+                return (*reported, *absent, *await anyio.to_thread.run_sync(stores.edit, folder, manifest, essentials, msgspec.json.decode(record, type=tuple[Width, ...])))
             case Failed():
                 return reported
 

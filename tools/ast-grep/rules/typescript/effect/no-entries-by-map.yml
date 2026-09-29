@@ -103,4 +103,4 @@ transform:
     BODY: rewrite($FN, rewriters=[key, bare])
 fix: $R.$OP($L, $BODY)
 message: '`$R.fromEntries` over `$M.map` rebuilds `$R.$OP`'
-note: '`Record.fromIterableWith(rows, f)` adds the pair `f` returns per element and `Record.fromIterableBy(rows, key)` adds each element under its key, with no entry array between'
+note: '`Record.fromIterableWith(<list>, <f>)` adds the pair `<f>` returns per element and `Record.fromIterableBy(<list>, <key>)` adds each element under its key, with no entry array between'

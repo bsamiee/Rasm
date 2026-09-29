@@ -24,7 +24,6 @@ Preferences, add-on records, repositories, keymaps, themes, fonts, and units, ea
 - Dynamic enums (`display_device`, `view_transform`, `look`, `length_unit`, `temperature_unit`) list `NONE` or `DEFAULT` in `bl_rna`
 - `render.engine` lists `BLENDER_EEVEE` alone in `bl_rna`
 - `Property.is_deprecated` marks members due for removal (`Scene.compositing_node_group`), each read or write of one prints a `DeprecationWarning`
-- Valid items of a dynamic enum come from the `TypeError` of an unknown identifier, `enum "X" not found in (...)`, the value restored after the read
 - `show_statusbar_vram`, `support_emulation`, and `use_remote_asset_libraries` raise `AttributeError` on write
 - `system.dpi`, `ui_scale`, `pixel_size`, and `ui_line_width` are runtime results of `view.ui_scale` and `view.ui_line_width`
 - `system.gpu_preferred_device` reads METAL in the GUI and AUTO headless

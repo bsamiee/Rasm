@@ -34,4 +34,4 @@ rule:
             - has: {kind: statements, has: {nthChild: 1, matches: guard-continue, pattern: $WHERE}}
         - not: {has: {stopBy: end, pattern: $WHERE, has: {stopBy: end, matches: varying-read}}}
 message: '`$WHERE` reads nothing of `$ITEM` or of state the loop changes'
-note: 'Hoist the test above the loop as one `guard` or `if`'
+note: 'Hoist the test above its loop as one `guard` or `if`'

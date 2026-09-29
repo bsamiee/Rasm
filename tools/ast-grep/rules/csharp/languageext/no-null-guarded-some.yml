@@ -239,4 +239,4 @@ fix:
     template: $CALL$RETURN($X)$END
     expandEnd: {kind: return_statement, follows: {matches: fallthrough}}
 message: Null test on `$X` chooses between `Some` and `None` by hand
-note: Use `Optional(<value>)` from `Prelude`
+note: Use `Optional(<value>)` from `Prelude`, a null value becomes `None`

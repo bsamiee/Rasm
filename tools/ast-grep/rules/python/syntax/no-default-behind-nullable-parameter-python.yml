@@ -125,4 +125,4 @@ rule:
 constraints:
     D: {matches: signature-default}
 message: 'Parameter `$P` accepts None and the body resolves None to `$D`'
-note: 'Declare the default in the signature, the parameter then rejects None and callers read its default where it is stated'
+note: 'Declare `<name>: <type> = <default>` in its signature, the parameter then rejects None and callers read its default at its declaration'

@@ -1,14 +1,16 @@
-"""Records the Adobe product modules share: setting rows with their shared accessors, the script argument, alias commands and their prompt source, toolbars, and papers."""
+"""Records the Adobe product modules share: setting rows with their shared accessors, the script argument, alias commands and their prompt source, toolbars, papers, and the interface scale a panel font theme gives."""
 
 from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
 from typing import Final
 
+from lxml import etree
 import msgspec
 
 from interface import host
 from interface.aliases import Alias, families
+from interface.roles import TEXT_POINTS
 from interface.units import Length, Units
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -113,6 +115,18 @@ def papers(units: Units) -> tuple[Paper, ...]:
     return (Paper(units), *(paper for paper in Paper if paper.value is not units))
 
 
+def text_scale(theme: Path) -> float:
+    """Interface scale drawing the panel font theme's main text, one size in every font size scheme, at the interface text size."""
+    tree = etree.parse(theme)
+    match tree.docinfo.internalDTD:
+        case None:
+            raise ValueError(f"{theme} declares no text ids")
+        case declared:
+            main = {entity.name: entity.content for entity in declared.iterentities()}["kText_Main_Large"]
+            (size,) = {float(row.attrib["size"]) for row in tree.iterfind(f"ThemeFonts/FontSize[@name='{main}']")}
+            return TEXT_POINTS / size
+
+
 # --- [SOURCE]
 def prompt_source(name: str, commands: Mapping[Alias, Tool | Menu]) -> str:
     """ExtendScript source running the alias prompt in the named product over each alias's label and command and the families holding them."""
@@ -127,4 +141,22 @@ def prompt_source(name: str, commands: Mapping[Alias, Tool | Menu]) -> str:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PROMPT_NAME", "SCRIPT", "STROKE_UNITS", "ActionSet", "Active", "Converge", "Member", "Menu", "Paper", "Release", "Row", "Tool", "Toolbar", "member", "papers", "prompt_source"]
+__all__ = [
+    "PROMPT_NAME",
+    "SCRIPT",
+    "STROKE_UNITS",
+    "ActionSet",
+    "Active",
+    "Converge",
+    "Member",
+    "Menu",
+    "Paper",
+    "Release",
+    "Row",
+    "Tool",
+    "Toolbar",
+    "member",
+    "papers",
+    "prompt_source",
+    "text_scale",
+]

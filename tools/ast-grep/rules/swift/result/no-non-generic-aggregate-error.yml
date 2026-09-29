@@ -25,4 +25,4 @@ rule:
                             - has: {kind: type_annotation, has: {field: name, pattern: $ELEMENT}}
                             - has: {kind: type_annotation, has: {field: name, kind: array_type, has: {field: name, pattern: $ELEMENT}}}
 message: Error struct stores `$ELEMENT` values alone, an aggregate error specialized by hand to one element type
-note: 'Declare one generic `struct <Aggregate><Element: Sendable>: Error` holding the first element and the remaining array, each use passes its element type as the generic argument'
+note: 'Declare one generic `struct <Aggregate><Element: Sendable>: Error` holding a first element and an array of the rest, each use passing its element type'

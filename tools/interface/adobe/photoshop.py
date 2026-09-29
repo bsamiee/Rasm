@@ -29,7 +29,7 @@ from interface.adobe.stores import File, Folder, Plugin
 from interface.aliases import Alias
 from interface.frame import Role
 from interface.render import DPI
-from interface.roles import Guide, Line, Selection, Status, Surface, SWATCHES, TAGS
+from interface.roles import Guide, Line, Selection, Status, Surface, SWATCHES, TAGS, TEXT_POINTS
 from interface.units import Length, Units
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -92,6 +92,12 @@ class ApplicationProperty(msgspec.Struct, frozen=True, tag=True):
     """Application descriptor property by its owner key, read through `executeActionGet` and set through `setd`."""
 
     owner: str
+
+
+class PaletteFont(msgspec.Struct, frozen=True, tag=True):
+    """UI font size option, read back as the `fontSmallSize` the held option draws native panels at and written as the `interfacePrefs` option by name."""
+
+    option: str
 
 
 class PageUnit(msgspec.Struct, frozen=True):
@@ -288,9 +294,10 @@ def folders(bundle: host.Bundle, base: Mapping[Folder, Path]) -> Mapping[Folder,
     })
 
 
-def rows(units: Units) -> tuple[Row | File, ...]:
-    """Photoshop's rows with lengths in the system's page unit, type in points, resolutions as the 16.16 fixed pixels per inch Photoshop holds, and smart guides at the magenta step its custom color store holds."""
+def rows(units: Units, _: host.Bundle) -> tuple[Row | File, ...]:
+    """Photoshop's rows with native panel text at the interface text size, lengths in the system's page unit, type in points, resolutions as the 16.16 fixed pixels per inch Photoshop holds, and smart guides at the magenta step its custom color store holds."""
     page, points, actions = UNITS[units.page], round(Length.INCHES / Length.POINTS), f"{PROMPT_NAME}.atn"
+    fonts = frozendict({9: "preferTinyPaletteFontType", 10: "preferSmallPaletteFontType"})
     grid = float(Fraction(math.floor(Fraction(units.snap / units.page) * page.inches * 10**5), 10**5) * Fraction(Length.INCHES / units.page).limit_denominator())
     resolution = float(Fraction(math.floor(Fraction(DPI, points) * 2**16), 2**16) * points**2)
     screens = ("screenModeStandard", "screenModeFullScreenWithMenubar", "screenModeArtboard", "screenModeFullScreen")
@@ -308,11 +315,11 @@ def rows(units: Units) -> tuple[Row | File, ...]:
             {
                 "kuiBrightnessLevel": "kPanelBrightnessDarkGray",
                 "highlightColorOption": "uiBlueHighlightColor",
-                "paletteEnhancedFontTypeKey": "preferTinyPaletteFontType",
                 "paletteUIScaledTypeKey": False,
                 "canvasBackgroundColors": [{"screenMode": screen, "color": Surface.CANVAS, "canvasColorMode": "custom", "canvasFrame": "none"} for screen in screens],
             },
         ),
+        Row("fontSmallSize", PaletteFont(fonts[TEXT_POINTS]), TEXT_POINTS),
         setting("workspacePreferences", {"enableLargeTabs": False, "enableNarrowOptionBar": True}),
         setting("generalPreferences", {"autoShowHomeScreen": False, "useClassicFileNewDialog": False}),
         setting("notificationsPreferences", {"showWhatsNew": False, "showFeatureOnboarding": False, "useRichToolTips": False, "quietMode": True}),
@@ -370,20 +377,12 @@ FRAME: Final = window.Frame(
             (Role.ASSETS, ("static.brushpresets", "static.styles", "static.customshapes", "static.brushstyler")),
             (Role.PROPERTIES, ("static.properties", "static.create")),
             (Role.COLOR, ("static.swatches", "static.picker", "static.gradients", "static.patterns")),
-            (
-                Role.AUTOMATION,
-                (
-                    "static.actions",
-                    "static.history",
-                    "dynamic.uxp/com.tk.multimask/tkmultimaskv9",
-                    "dynamic.uxp/com.tk.comboV8/tkcombocxv9",
-                    "dynamic.uxp/com.tk.myactionsV8/tkmyactions",
-                    "dynamic.uxp/com.adobe.pluginspanel/pluginsPanel",
-                    "dynamic.uxp/com.adobe.ccx.comments-webview/ccx-comments-uxp-webview",
-                ),
-            ),
+            (Role.AUTOMATION, ("static.actions", "static.history", "dynamic.uxp/com.adobe.pluginspanel/pluginsPanel", "dynamic.uxp/com.adobe.ccx.comments-webview/ccx-comments-uxp-webview")),
             (Role.STRUCTURE, ("static.layers", "static.navigator", "static.channels", "static.paths")),
-            (Role.EXPORT, ("dynamic.uxp/com.tk.export/tkexportv9",)),
+            (
+                Role.EXPORT,
+                ("dynamic.uxp/com.tk.export/tkexportv9", "dynamic.uxp/com.tk.multimask/tkmultimaskv9", "dynamic.uxp/com.tk.comboV8/tkcombocxv9", "dynamic.uxp/com.tk.myactionsV8/tkmyactions"),
+            ),
             (Role.INFORMATION, ("static.info",)),
         )
     }),

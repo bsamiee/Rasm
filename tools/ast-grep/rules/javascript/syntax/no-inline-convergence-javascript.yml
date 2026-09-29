@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inline-convergence-javascript
+language: javascript
+severity: error
+files: ['tools/interface/**']
+utils:
+    accessor:
+        kind: function_expression
+        inside:
+            kind: pair
+            all:
+                - has: {field: key, regex: '^(read|write)$', pattern: $SIDE}
+                - inside: {kind: object, has: {kind: pair, has: {field: key, regex: '^(read|write)$', not: {pattern: $SIDE}}}}
+        has: {field: parameters, has: {nthChild: 2, kind: identifier, pattern: $TARGET}}
+    own-accessor:
+        inside: {stopBy: {matches: javascript-function-boundary}, matches: accessor}
+    target:
+        kind: identifier
+        pattern: $TARGET
+    held:
+        kind: identifier
+        all:
+            - pattern: $HELD
+            - inside: {stopBy: {matches: javascript-function-boundary}, matches: javascript-function-boundary, has: {field: parameters, has: {nthChild: 'n+3', kind: identifier, pattern: $HELD}}}
+rule:
+    any:
+        - kind: return_statement
+          all:
+            - matches: own-accessor
+            - any:
+                - has: {matches: target}
+                - has: {kind: ternary_expression, any: [{has: {field: consequence, matches: target}}, {has: {field: alternative, matches: target}}]}
+        - kind: 'if_statement, ternary_expression'
+          all:
+            - matches: own-accessor
+            - has:
+                field: condition
+                all:
+                    - has: {stopBy: end, matches: target}
+                    - has: {stopBy: end, matches: held}
+message: 'Accessor `$SIDE` returns or compares its `$TARGET` argument'
+note: 'Return the held value from `read` and write `$TARGET` whole from `write`, `converged` alone compares held and target'

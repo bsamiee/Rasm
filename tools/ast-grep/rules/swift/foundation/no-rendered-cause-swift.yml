@@ -47,5 +47,5 @@ rule:
                         - has: {field: name, has: {field: bound_identifier, pattern: $RENDER}}
                         - has: {field: value, any: [{matches: rendering}, {matches: enclosing-expression, has: {stopBy: {not: {matches: enclosing-expression}}, matches: rendering}}]}
     not: {inside: {matches: swift-view-builder, stopBy: end}}
-message: '`$RENDER` stores the error as text, its consumers can no longer match the failure case'
-note: 'Hold the typed error in the property or case payload, and read `localizedDescription` where the view or log renders it'
+message: '`$RENDER` stores an error as text that no consumer can match to its failure case'
+note: 'Hold the typed error in the property or associated value, and read `localizedDescription` where a view or log renders it'

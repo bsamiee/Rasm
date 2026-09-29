@@ -57,4 +57,4 @@ rule:
                 - has: {stopBy: end, matches: reference}
                 - not: {matches: two-references}
 message: '`$NAME` is a one-expression function with one caller in its file'
-note: 'Write the expression at its one call site with arguments in place of parameters, the function names an expression that call site states in place'
+note: 'Write the expression at its call site with arguments in place of parameters'

@@ -56,4 +56,4 @@ rule:
             - has: {field: right, kind: invocation_expression, all: [{has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}}, {has: {field: arguments, matches: missing-id}}]}
     not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Registered$'}}}}
 message: '`$REGISTER` maps its missing plug-in id exception by hand'
-note: Use `Answers.Registered(<register>, <assembly>, <plugInId>, <member>)` over the `(Assembly, Guid)` overload of the host registration
+note: Use `Answers.Registered(<register>, <assembly>, <plugInId>, <member>)` over the `(Assembly, Guid)` host overload, `Registered` maps its `InvalidDataException` to `ExportMissingGuid`

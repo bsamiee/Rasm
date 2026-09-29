@@ -164,5 +164,5 @@ rule:
         - matches: out-declared
 constraints:
     OUT: {kind: identifier}
-message: 'Empty fallback on the host out array `$OUT` hides whether the host filled it'
-note: Read the out array directly where the host always fills it, keep `Optional(<array>)` where null is a host answer and consume the `Option`
+message: 'Empty fallback on host out array `$OUT` hides whether the host filled it'
+note: Read the out array directly where the host always fills it, or consume `Optional(<array>)` as an `Option` where null is a host answer

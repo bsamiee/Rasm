@@ -28,7 +28,7 @@ utils:
                             matches: {python-binding: {name: {pattern: $AT}}}
                             not: {matches: position-binding}
             - kind: identifier
-              matches: {python-relayed-parameter: {value: {matches: integer}}}
+              matches: {python-bound-parameter: {value: {matches: integer}}}
     constant:
         matches: python-module-constant
         not: {regex: '^_?[A-Z]\w*[a-z]\w*\.'}
@@ -226,7 +226,7 @@ utils:
     helper-parameter:
         kind: identifier
         pattern: $PARAM
-        matches: {python-relayed-parameter: {value: {matches: row-ref}}}
+        matches: {python-bound-parameter: {value: {matches: row-ref}}}
         not:
             inside:
                 kind: 'function_definition, lambda'

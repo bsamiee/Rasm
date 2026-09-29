@@ -81,7 +81,6 @@ Partial immutability leaves mutation reachable:
 
 Copy forms beyond a `with` expression:
 - Lenses update a nested field without a chain of `with` expressions
-- Reflection can copy an object and replace one backing field, less boilerplate at the cost of speed and control over legal transitions
 - F# data with C# behavior gets immutable defaults and copy-and-update expressions at the cost of a mixed-language solution and an extra assembly
 
 Explicit copy methods stay preferred. Reflection can alter private and read-only fields and no C# technique prevents all mutation, immutability prevents accidental mutation and communicates the intended model.

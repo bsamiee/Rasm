@@ -61,5 +61,5 @@ rule:
           all:
             - has: {kind: where_clause, has: {matches: exists-check}}
             - has: {kind: statements, has: {matches: removal, stopBy: end}}
-message: '`fileExists` before the removal of `$SUBJECT` races the filesystem and repeats the removal''s own check'
-note: 'Remove the item unconditionally inside the function that maps a missing file to `.success(nil)` and every other error to `.failure`'
+message: '`fileExists` before removing `$SUBJECT` repeats a check removal makes and races the filesystem'
+note: 'Remove unconditionally inside the function that maps a missing file to `.success(nil)` and every other error to `.failure`'

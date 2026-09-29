@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-property-csharp
+language: csharp
+severity: error
+utils:
+    owner-type:
+        kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'
+    cell-type:
+        regex: '^((global::)?[\w.]+\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|Lazy|Channel|ThreadLocal|AsyncLocal|StrongBox)\s*<'
+    member-declaration:
+        any:
+            - kind: 'property_declaration, method_declaration, event_declaration'
+              has: {field: name, pattern: $ROOT}
+            - kind: 'field_declaration, event_field_declaration'
+              has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $ROOT}}}
+    value-declaration:
+        any:
+            - kind: field_declaration
+              has: {kind: variable_declaration, all: [{not: {has: {field: type, matches: cell-type}}}, {has: {kind: variable_declarator, has: {field: name, pattern: $ROOT}}}]}
+            - kind: property_declaration
+              all: [{not: {has: {field: type, matches: cell-type}}}, {has: {field: name, pattern: $ROOT}}]
+    owner-member:
+        kind: identifier
+        pattern: $ROOT
+        inside:
+            stopBy: {matches: owner-type}
+            matches: owner-type
+            any:
+                - has: {field: body, has: {matches: member-declaration}}
+                - has: {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $ROOT}}}
+    owner-value:
+        kind: identifier
+        pattern: $ROOT
+        inside:
+            stopBy: {matches: owner-type}
+            matches: owner-type
+            any:
+                - has: {field: body, has: {matches: value-declaration}}
+                - has: {kind: parameter_list, has: {kind: parameter, all: [{not: {has: {field: type, matches: cell-type}}}, {has: {field: name, pattern: $ROOT}}]}}
+    root:
+        any:
+            - kind: identifier
+              regex: '^[A-Z]'
+              not: {matches: owner-member}
+            - kind: 'predefined_type, alias_qualified_name, qualified_name, generic_name'
+            - matches: owner-value
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, regex: '^this$'}
+                - has: {field: name, matches: owner-value}
+            - kind: member_access_expression
+              all:
+                - has: {field: name, kind: identifier}
+                - has: {field: expression, matches: root}
+    member-read:
+        pattern: $READ
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: name, kind: identifier}
+                - has: {field: expression, matches: root}
+            - kind: conditional_access_expression
+              all:
+                - has: {field: condition, matches: root}
+                - has: {kind: member_binding_expression}
+    index-parameter:
+        kind: identifier
+        pattern: $INDEX
+        inside: {stopBy: end, kind: indexer_declaration, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $INDEX}}}}
+    element-read:
+        kind: element_access_expression
+        pattern: $READ
+        all:
+            - has: {field: expression, matches: root}
+            - has:
+                field: subscript
+                all:
+                    - not: {has: {kind: argument, not: {has: {nthChild: 1, matches: index-parameter}, not: {has: {nthChild: 2}}}}}
+                    - not: {has: {kind: argument, has: {kind: identifier, pattern: $REPEATED}, follows: {stopBy: end, kind: argument, has: {kind: identifier, pattern: $REPEATED}}}}
+    member-body:
+        any:
+            - kind: arrow_expression_clause
+              has: {nthChild: 1, matches: member-read}
+            - kind: block
+              all:
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                - has: {kind: return_statement, has: {matches: member-read}}
+    element-body:
+        any:
+            - kind: arrow_expression_clause
+              has: {nthChild: 1, matches: element-read}
+            - kind: block
+              all:
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                - has: {kind: return_statement, has: {matches: element-read}}
+    sole-getter:
+        kind: accessor_list
+        all:
+            - not: {has: {kind: accessor_declaration, nthChild: 2}}
+            - has: {kind: accessor_declaration, has: {field: name, regex: '^get$'}}
+    forwarding-property:
+        kind: property_declaration
+        all:
+            - has: {field: name, pattern: $NAME}
+            - any:
+                - has: {field: value, matches: member-body}
+                - has: {field: accessors, matches: sole-getter, has: {kind: accessor_declaration, has: {field: body, matches: member-body}}}
+    reordered-index:
+        any:
+            - all:
+                - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $SLOT}}}
+                - not: {has: {stopBy: end, pattern: $READ, has: {field: subscript, has: {kind: argument, nthChild: 1, has: {kind: identifier, pattern: $SLOT}}}}}
+            - all:
+                - has: {field: parameters, has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $SLOT}}}
+                - not: {has: {stopBy: end, pattern: $READ, has: {field: subscript, has: {kind: argument, nthChild: 2, has: {kind: identifier, pattern: $SLOT}}}}}
+            - all:
+                - has: {field: parameters, has: {kind: parameter, nthChild: 3, has: {field: name, pattern: $SLOT}}}
+                - not: {has: {stopBy: end, pattern: $READ, has: {field: subscript, has: {kind: argument, nthChild: 3, has: {kind: identifier, pattern: $SLOT}}}}}
+            - has: {field: parameters, has: {kind: parameter, nthChild: 4}}
+    forwarding-indexer:
+        kind: indexer_declaration
+        all:
+            - has: {pattern: $$NAME, regex: '^this$'}
+            - any:
+                - has: {field: value, matches: element-body}
+                - has: {field: accessors, matches: sole-getter, has: {kind: accessor_declaration, has: {field: body, matches: element-body}}}
+            - not: {matches: reordered-index}
+rule:
+    any:
+        - matches: forwarding-property
+        - matches: forwarding-indexer
+    not:
+        any:
+            - has: {kind: modifier, regex: '^(override|abstract|extern|partial|new)$'}
+            - has: {kind: attribute_list}
+            - has: {kind: explicit_interface_specifier}
+            - all:
+                - inside: {kind: declaration_list, inside: {has: {kind: base_list, has: {regex: '^((global::)?[\w.]*\.)?I[A-Z]\w*(<.*>)?$'}}}}
+                - has: {kind: modifier, regex: '^public$'}
+                - not: {has: {kind: modifier, regex: '^static$'}}
+message: '`$NAME` forwards `$READ` unchanged'
+note: Read `<owner>.<member>` or `<owner>[<index>]` at each use and make a private forwarded field public, a forwarding member adds a name and no fact

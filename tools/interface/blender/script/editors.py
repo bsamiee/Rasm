@@ -12,7 +12,7 @@ import bpy
 from mathutils import Vector
 
 from interface.blender.script.rna import Paint
-from interface.blender.script.screens import area_label, CONSOLE_SIZE, hidden, Layout, leaves, MARGIN_COLUMN, override, paired, region_label, TEXT_SIZE, toggle, View, workspace_label
+from interface.blender.script.screens import area_label, CONSOLE_SIZE, Layout, leaves, MARGIN_COLUMN, override, paired, region_label, TEXT_SIZE, TICK, View, workspace_label
 from interface.blender.script.startup import HEADLAMP, PLAN_DISTANCE
 from interface.render import LENS, LOOK_DEVELOPMENT
 from interface.report import changes, converged, Row, subscript
@@ -374,14 +374,20 @@ def flipped(window: bpy.types.Window, area: bpy.types.Area, bar: bpy.types.Regio
         bpy.ops.screen.region_flip()
 
 
+def navigation_bar(window: bpy.types.Window, area: bpy.types.Area, bar: bpy.types.Region) -> Iterator[float | str]:
+    """Show the Properties editor's tab column, hidden while Blender reports it one pixel wide or tall, one pass before converging it onto the right side, the window's outer edge of the right column."""
+    label = region_label(window.workspace, area, bar)
+    if min(bar.width, bar.height) <= 1:
+        with override(window, area):
+            bpy.ops.screen.region_toggle(region_type=bar.type)
+        yield TICK
+        yield from changes(label, "hidden", "shown")
+    yield from converged(Row(label=f"{label}.alignment", read=lambda: bar.alignment, write=partial(flipped, window, area, bar), target="RIGHT"))
+
+
 def navigation_bars(window: bpy.types.Window) -> Iterator[float | str]:
-    """Show each Properties editor's tab column and converge it onto the right side, the window's outer edge of the right column."""
-    for area, bar in [(each, region) for each in window.screen.areas if each.type == "PROPERTIES" for region in each.regions if region.type == "NAVIGATION_BAR"]:
-        label = region_label(window.workspace, area, bar)
-        if hidden(bar):
-            yield from toggle(window, area, bar)
-            yield from changes(label, "hidden", "shown")
-        yield from converged(Row(label=f"{label}.alignment", read=partial(getattr, bar, "alignment"), write=partial(flipped, window, area, bar), target="RIGHT"))
+    """Each Properties editor's tab column shown and aligned in turn."""
+    return chain.from_iterable([navigation_bar(window, area, bar) for area in window.screen.areas if area.type == "PROPERTIES" for bar in area.regions if bar.type == "NAVIGATION_BAR"])
 
 
 def typed(space: bpy.types.SpaceConsole) -> tuple[str, ...]:

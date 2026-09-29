@@ -1,9 +1,5 @@
 //@include "accessors.jsx"
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-var CHANNELS = { RGB: ['red', 'green', 'blue'], CMYK: ['cyan', 'magenta', 'yellow', 'black'] };
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [PREFERENCES]
@@ -28,7 +24,7 @@ function profiles(access) {
     var indexes = slots(access);
     for (var index = 0; index < indexes.length; index++) {
         var file = app.preferences.getStringPreference(access.slot + '_' + indexes[index]);
-        if (!seen[file]) files.push(file);
+        if (!seen[file]) files.push({ slot: indexes[index], file: file });
         seen[file] = true;
     }
     return files;
@@ -40,10 +36,7 @@ function named(collection, name) {
 }
 
 function channels(color) {
-    var names = CHANNELS[color.typename === 'CMYKColor' ? 'CMYK' : 'RGB'];
-    var values = [];
-    for (var index = 0; index < names.length; index++) values.push(color[names[index]]);
-    return rounded(values);
+    return rounded(color.typename === 'CMYKColor' ? [color.cyan, color.magenta, color.yellow, color.black] : [color.red, color.green, color.blue]);
 }
 
 function converted(space, rgb) {
@@ -56,8 +49,19 @@ function converted(space, rgb) {
 
 function painted(space, rgb) {
     var values = converted(space, rgb);
-    var color = space === 'CMYK' ? new CMYKColor() : new RGBColor();
-    for (var index = 0; index < CHANNELS[space].length; index++) color[CHANNELS[space][index]] = values[index];
+    var color;
+    if (space === 'CMYK') {
+        color = new CMYKColor();
+        color.cyan = values[0];
+        color.magenta = values[1];
+        color.yellow = values[2];
+        color.black = values[3];
+    } else {
+        color = new RGBColor();
+        color.red = values[0];
+        color.green = values[1];
+        color.blue = values[2];
+    }
     return color;
 }
 
@@ -81,11 +85,9 @@ function wanted(space, target) {
     return { space: space, stroke: rounded(converted(space, target.stroke)), resolution: target.resolution, group: target.group, swatches: swatches };
 }
 
-function rewrite(document, stored, target) {
-    var declared = wanted(stored.space, target);
-    if (!same(stored.stroke, declared.stroke)) document.defaultStrokeColor = painted(stored.space, target.stroke);
-    if (!same(stored.resolution, declared.resolution)) document.rasterEffectSettings.resolution = target.resolution;
-    if (same([stored.group, stored.swatches], [declared.group, declared.swatches])) return;
+function written(document, space, target) {
+    document.defaultStrokeColor = painted(space, target.stroke);
+    document.rasterEffectSettings.resolution = target.resolution;
     var group = named(document.swatchGroups, target.group);
     if (group !== null) group.remove();
     var made = document.swatchGroups.add();
@@ -94,7 +96,7 @@ function rewrite(document, stored, target) {
         var swatch = named(document.swatches, target.swatches[index][0]);
         var placed = swatch === null ? document.swatches.add() : swatch;
         placed.name = target.swatches[index][0];
-        placed.color = painted(stored.space, target.swatches[index][1]);
+        placed.color = painted(space, target.swatches[index][1]);
         made.addSwatch(placed);
     }
 }
@@ -111,39 +113,39 @@ var accessors = {
         }
     },
     Slots: {
-        read: function (access, target) {
-            var indexes = slots(access);
-            var values = [];
-            for (var index = 0; index < indexes.length; index++) values.push(app.preferences.getIntegerPreference(access.key + '_' + indexes[index]));
-            for (var slot = 0; slot < values.length; slot++) if (values[slot] !== target) return values;
-            return target;
-        },
-        write: function (access, target) {
-            var indexes = slots(access);
-            for (var index = 0; index < indexes.length; index++) app.preferences.setIntegerPreference(access.key + '_' + indexes[index], target);
+        rows: function (row) {
+            var indexes = slots(row.access);
+            var rows = [];
+            for (var index = 0; index < indexes.length; index++) {
+                rows.push({ label: row.label.replace('<n>', indexes[index]), access: { type: 'Preference', kind: 'Integer', key: row.access.key + '_' + indexes[index] }, target: row.target });
+            }
+            return rows;
         }
     },
     Profile: {
+        rows: function (row) {
+            var files = profiles(row.access);
+            var rows = [];
+            for (var index = 0; index < files.length; index++) {
+                rows.push({ label: row.label.replace('<n>', files[index].slot), access: { type: 'Document', file: files[index].file }, target: row.target });
+            }
+            return rows;
+        }
+    },
+    Document: {
         read: function (access, target) {
-            var files = profiles(access);
-            var records = [];
-            var differs = false;
-            for (var index = 0; index < files.length; index++) {
-                var document = app.open(new File(files[index]));
-                records.push(held(document, target));
-                differs = differs || !same(records[index], wanted(records[index].space, target));
-                document.close(SaveOptions.DONOTSAVECHANGES);
-            }
-            return differs ? records : target;
+            var document = app.open(new File(access.file));
+            var record = held(document, target);
+            document.close(SaveOptions.DONOTSAVECHANGES);
+            return record;
         },
-        write: function (access, target, artifacts, records) {
-            var files = profiles(access);
-            for (var index = 0; index < files.length; index++) {
-                if (same(records[index], wanted(records[index].space, target))) continue;
-                var document = app.open(new File(files[index]));
-                rewrite(document, records[index], target);
-                document.close(SaveOptions.SAVECHANGES);
-            }
+        wanted: function (access, target, record) {
+            return wanted(record.space, target);
+        },
+        write: function (access, target, artifacts, record) {
+            var document = app.open(new File(access.file));
+            written(document, record.space, target);
+            document.close(SaveOptions.SAVECHANGES);
         }
     },
     ActionSet: {
@@ -172,12 +174,17 @@ var product = {
     header: function () {
         return [app.version, new File(app.preferences.getStringPreference('startupFileType')).parent.parent.fsName];
     },
-    scoped: [{ owner: app, name: 'userInteractionLevel', value: UserInteractionLevel.DONTDISPLAYALERTS }],
-    untitled: function (document) {
-        return document.path.fsName === '';
+    scoped: function (body) {
+        var level = app.userInteractionLevel;
+        app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
+        try {
+            return body();
+        } finally {
+            app.userInteractionLevel = level;
+        }
     },
-    modified: function (document) {
-        return !document.saved;
+    state: function (document) {
+        return { untitled: document.path.fsName === '', modified: !document.saved };
     },
     drop: SaveOptions.DONOTSAVECHANGES
 };

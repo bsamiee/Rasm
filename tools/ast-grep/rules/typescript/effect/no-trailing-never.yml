@@ -44,4 +44,4 @@ rule:
                         kind: call_expression
                         has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^sleep$'}}
 message: '`$NEVER` holds the program open after its last step'
-note: '`Layer.launch(Layer.effectDiscard(<program>))` builds the program as a layer and keeps it open until interruption, and its scope closes with the runtime'
+note: '`Layer.launch(Layer.effectDiscard(<program>))` builds `<program>` as a layer open until interruption, its scope closing with the runtime'

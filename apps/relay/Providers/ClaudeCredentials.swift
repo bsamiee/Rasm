@@ -4,29 +4,14 @@ import Foundation
 // --- [MODELS] --------------------------------------------------------------------------
 
 nonisolated struct ClaudeOAuthToken: Sendable {
-    struct Attributes: Decodable, Sendable {
+    struct Attributes: Codable, Sendable {
         let accessToken: String?
         let refreshToken: String?
-        let subscriptionType: String?
-        let rateLimitTier: String?
-
-        enum CodingKeys: CodingKey {
-            case accessToken, refreshToken, subscriptionType, rateLimitTier
-        }
-
-        init(from decoder: any Decoder) {
-            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-            accessToken = try? container?.decodeIfPresent(String.self, forKey: .accessToken)
-            refreshToken = try? container?.decodeIfPresent(String.self, forKey: .refreshToken)
-            subscriptionType = try? container?.decodeIfPresent(String.self, forKey: .subscriptionType)
-            rateLimitTier = try? container?.decodeIfPresent(String.self, forKey: .rateLimitTier)
-        }
-    }
-
-    struct Grant: Decodable, Sendable {
-        let scopes: [String]
+        let scopes: [String]?
         let expiresAt: Double?
         let refreshTokenExpiresAt: Double?
+        let subscriptionType: String?
+        let rateLimitTier: String?
     }
 
     let fields: [String: JSONValue]
@@ -46,34 +31,26 @@ nonisolated struct ClaudeOAuthToken: Sendable {
         expiresAt.map { expiry in expiry <= now.addingTimeInterval(Self.refreshMargin) } ?? false
     }
 
-    static func make(_ value: JSONValue) -> Result<Self?, ClaudeFailure> {
-        let grant: Result<Grant, ClaudeFailure> = Result { try value.decode(as: Grant.self) }
-            .mapError { _ in ClaudeFailure.invalidCredentials }
-            .flatMap { grant in
-                grant.scopes.contains(where: \.isEmpty) ? .failure(.invalidCredentials) : .success(grant)
-            }
-        return Result { try value.decode(as: JSONDocument<Attributes>.self) }
-            .mapError { _ in ClaudeFailure.invalidCredentials }
-            .flatMap { document -> Result<Self?, ClaudeFailure> in
-                switch document.known.accessToken {
-                    case .none: .failure(.invalidCredentials)
-                    case .some(let token) where token.isEmpty || document.known.refreshToken?.isEmpty == true:
-                        .success(nil)
-                    case .some(let token):
-                        grant.map { grant -> Self? in
-                            Self(
-                                fields: document.fields,
-                                accessToken: token,
-                                refreshToken: document.known.refreshToken,
-                                scopes: grant.scopes,
-                                expiresAt: date(grant.expiresAt),
-                                refreshTokenExpiresAt: date(grant.refreshTokenExpiresAt),
-                                plan: document.known.subscriptionType,
-                                rateLimitTier: document.known.rateLimitTier,
-                            )
-                        }
-                }
-            }
+    static func make(_ document: JSONDocument<Attributes>) -> Result<Self?, ClaudeFailure> {
+        switch (document.known.accessToken, document.known.scopes) {
+            case (.none, _): .failure(.invalidCredentials)
+            case (.some(let token), _) where token.isEmpty || document.known.refreshToken?.isEmpty == true:
+                .success(nil)
+            case (.some(let token), .some(let scopes)) where !scopes.contains(where: \.isEmpty):
+                .success(
+                    Self(
+                        fields: document.fields,
+                        accessToken: token,
+                        refreshToken: document.known.refreshToken,
+                        scopes: scopes,
+                        expiresAt: date(document.known.expiresAt),
+                        refreshTokenExpiresAt: date(document.known.refreshTokenExpiresAt),
+                        plan: document.known.subscriptionType,
+                        rateLimitTier: document.known.rateLimitTier,
+                    )
+                )
+            case (.some, _): .failure(.invalidCredentials)
+        }
     }
 
     private static func date(_ milliseconds: Double?) -> Date? {
@@ -295,30 +272,40 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         }
     }
 
-    func readItem() async -> Result<JSONDocument<ClaudeCredentialItem<JSONValue>>?, ClaudeFailure> {
+    func readItem() async -> Result<
+        JSONDocument<ClaudeCredentialItem<JSONDocument<ClaudeOAuthToken.Attributes>>>?, ClaudeFailure
+    > {
         await Keychain.readGenericPassword(service: service, account: username)
             .claude()
             .flatMap { data in
                 data.map { data in
-                    Self.decode(JSONDocument<ClaudeCredentialItem<JSONValue>>.self, from: data).map(Optional.some)
+                    Self.decode(JSONDocument<ClaudeCredentialItem<JSONDocument<ClaudeOAuthToken.Attributes>>>.self, from: data)
+                        .map(Optional.some)
                 } ?? .success(nil)
             }
     }
 
     func writeOAuth(
         _ oauth: some Encodable & Sendable,
-        over item: JSONDocument<ClaudeCredentialItem<JSONValue>>?,
-    ) async -> Result<Void, ClaudeFailure> {
-        await Result {
-            try JSONEncoder().encode(
-                JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: oauth))
-            )
-        }
-        .mapError(ClaudeFailure.filesystem)
-        .bind { data in
-            await Keychain.writeGenericPassword(service: service, account: username, data: data)
-                .claude()
-        }
+        over item: JSONDocument<ClaudeCredentialItem<JSONDocument<ClaudeOAuthToken.Attributes>>>?,
+    ) async -> Result<JSONDocument<ClaudeOAuthToken.Attributes>, ClaudeFailure> {
+        await Result { try JSONEncoder().encode(oauth) }
+            .mapError(ClaudeFailure.filesystem)
+            .flatMap { data in Self.decode(JSONDocument<ClaudeOAuthToken.Attributes>.self, from: data) }
+            .flatMap { written in
+                Result {
+                    try JSONEncoder().encode(
+                        JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: written))
+                    )
+                }
+                .mapError(ClaudeFailure.filesystem)
+                .map { data in (written, data) }
+            }
+            .bind { written, data in
+                await Keychain.writeGenericPassword(service: service, account: username, data: data)
+                    .claude()
+                    .map { _ in written }
+            }
     }
 
     func deleteItem() async -> Result<Void, ClaudeFailure> {

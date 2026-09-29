@@ -4,7 +4,7 @@ namespace Arches.Profiles;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Circular {
-    public static Fin<ArchProfile> Semicircular(Span span) => new ArchProfile.Arcs(span, Seq(new Arc(span.Start, span.Perpendicular, span.End)));
+    public static Fin<ArchProfile> Semicircular(Span span) => new ArchProfile.Arcs(span, Seq(new Arc(span.Start, span.Frame.YAxis, span.End)));
 
     public static Fin<ArchProfile> SingleCentered(Span span, Point3d apex) => ThroughApex(span, apex).Map<ArchProfile>(arc => new ArchProfile.Arcs(span, Seq(arc)));
 
@@ -37,9 +37,9 @@ public static class Horseshoe {
         double rise = apex.DistanceTo(span.Midpoint);
         Vector3d riseDirection = new Line(span.Midpoint, apex).UnitTangent;
         double baseRadius = (Math.Pow(rise, 2) - (5.0 / 12.0 * Math.Pow(span.Length, 2))) / (2 * rise);
-        Point3d sideCenter = span.Start + (span.Direction * (span.Length / 3)) + (riseDirection * baseRadius);
-        Circle sideCircle = new(new Plane(sideCenter, span.Direction, riseDirection), sideCenter.DistanceTo(span.End));
-        Interval sweep = new(-Math.Atan2(baseRadius, span.Length * 2 / 3), Vector3d.VectorAngle(span.Direction, apex - sideCenter));
+        Point3d sideCenter = span.Start + (span.Frame.XAxis * (span.Length / 3)) + (riseDirection * baseRadius);
+        Circle sideCircle = new(new Plane(sideCenter, span.Frame.XAxis, riseDirection), sideCenter.DistanceTo(span.End));
+        Interval sweep = new(-Math.Atan2(baseRadius, span.Length * 2 / 3), Vector3d.VectorAngle(span.Frame.XAxis, apex - sideCenter));
         return ArchProfile.Mirrored(span, Seq(new Arc(sideCircle, sweep)));
     }
 }

@@ -43,4 +43,4 @@ rule:
                         - kind: generic_type
                           has: {field: name, matches: library-interface}
 message: '`$NAME` reimplements `$INTERFACE`, a value the library constructs'
-note: 'Build the value with `<module>.make` or read it from the runtime, `Tracer.make` over `Effect.tracer` for a tracer, the library then keeps the invariants it constructs'
+note: 'Build the value with `<module>.make` or read it from runtime, `Tracer.make` over `Effect.tracer` for a tracer, library constructors then hold its invariants'

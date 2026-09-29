@@ -466,4 +466,4 @@ fix:
     template: $OPEN$PRESENT$X$SHUT$CLOSE$SLOTS
     expandStart: {kind: local_declaration_statement}
 message: Sentinel or null test on `$X$COALESCED$UNWRAPPED$RECEIVER` rebuilds `Answers.Present` by hand
-note: Use `Answers.Present(<value or items>)`, `Answers.Present` owns the host's empty, negative, zero, and null answers
+note: Use `Answers.Present(<value or items>)`, `Present` filters each empty, negative, zero, and null host answer

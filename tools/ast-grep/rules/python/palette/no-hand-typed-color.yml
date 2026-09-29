@@ -93,4 +93,4 @@ rule:
     any: [{matches: channels}, {matches: repeated}, {matches: keyed-channels}, {matches: named}, {matches: spelled}]
     not: {inside: {stopBy: end, kind: class_definition, has: {field: name, regex: '^Ink$'}}}
 message: '`$COLOR` spells a color by hand'
-note: 'Take the role its meaning needs from `roles.py` with raw bytes in the `Ink` role alone, every color derives from one palette'
+note: 'Read the `roles.py` role its meaning needs, `Ink` alone holds raw channel values and every other role derives from `Palette`'

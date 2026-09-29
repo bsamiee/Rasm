@@ -33,15 +33,21 @@ var product = {
     header: function () {
         return [app.version, app.scriptPreferences.scriptsFolder.parent.parent.fsName];
     },
-    scoped: [
-        { owner: app.scriptPreferences, name: 'userInteractionLevel', value: UserInteractionLevels.NEVER_INTERACT },
-        { owner: app.scriptPreferences, name: 'measurementUnit', value: MeasurementUnits.POINTS }
-    ],
-    untitled: function (document) {
-        return !document.saved;
+    scoped: function (body) {
+        var preferences = app.scriptPreferences;
+        var level = preferences.userInteractionLevel;
+        var unit = preferences.measurementUnit;
+        preferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
+        preferences.measurementUnit = MeasurementUnits.POINTS;
+        try {
+            return body();
+        } finally {
+            preferences.measurementUnit = unit;
+            preferences.userInteractionLevel = level;
+        }
     },
-    modified: function (document) {
-        return document.modified;
+    state: function (document) {
+        return { untitled: !document.saved, modified: document.modified };
     },
     drop: SaveOptions.NO
 };

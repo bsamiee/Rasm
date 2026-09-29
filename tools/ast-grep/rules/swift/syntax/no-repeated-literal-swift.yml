@@ -99,4 +99,4 @@ rule:
         - all: [{matches: namespace-read}, {pattern: $K}, {matches: text-third}]
         - all: [{matches: path-node}, {matches: path-third}]
 message: '`$S` repeats a literal spelled twice earlier in the file'
-note: 'Bind the value once, as a local where one function reads it and otherwise as a static constant of the type that owns its behavior, a type holding literals alone owns none'
+note: 'Bind the value once, as a local where one function reads it and otherwise as a static constant of its behavior''s owning type, a type holding literals alone owns no behavior'

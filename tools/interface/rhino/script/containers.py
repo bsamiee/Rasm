@@ -1,5 +1,5 @@
-# ty: ignore[unresolved-import, unresolved-attribute, unsupported-operator, invalid-argument-type, invalid-return-type, no-matching-overload]
-# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, operator, arg-type, no-any-return, dict-item"
+# ty: ignore[unresolved-import, unresolved-attribute, unsupported-operator, invalid-argument-type, no-matching-overload]
+# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, operator, arg-type, no-any-return, typeddict-item"
 # ruff: file-ignore[banned-api, suspicious-xml-etree-import, suspicious-xml-element-tree-usage]
 """Rhino's content panel settings, the measures of its window, and the window layout restored from the one the measures size."""
 
@@ -13,7 +13,7 @@ import uuid
 import xml.etree.ElementTree as ET
 
 import clr
-from Eto.Forms import Control, Splitter, TreeGridView
+from Eto.Forms import Control, Splitter, TextArea, TreeGridView
 import Rhino
 from Rhino.DocObjects.Tables import RestoreLayerProperties
 from Rhino.PlugIns import PlugIn
@@ -31,15 +31,15 @@ from interface.render import MATERIALS
 from interface.report import changes, Kind, line, Row
 from interface.rhino.markup import canonical, element
 from interface.rhino.script.accessors import absent, color, guid, Internal, key, unsigned
-from interface.rhino.window import Band, Bar, Extent, Layout, layout, Measured, PanelId, RibbonTab, Site
+from interface.rhino.window import Band, Bar, Extent, Grid, Layout, layout, Measured, PanelId, RibbonTab, Site, TOGGLES
 from interface.roles import Surface
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 # --- [MEASURES]
-def measured(doc: Rhino.RhinoDoc, bundled: ET.Element) -> Measured:
-    """Dock site heights, extents, and Layers column default widths of the window, the Osnap chrome under a lone side-docked panel's gripper, and a contentless Command History bar at its bundled band height, each opened panel closed again."""
+def measured(doc: Rhino.RhinoDoc, root: ET.Element) -> Measured:
+    """Dock site heights, extents, Layers column default widths, and each toggle panel's grid, every panel measured as its container's selected tab and the container left with the tab the exported layout selects."""
     bars, serial = Internal.TAB_PANEL_DOCK_BARS.type, UInt32(doc.RuntimeSerialNumber)
     dock_sites = Internal.TAB_PANEL_DOCK_SITES.type.GetMethod("FromDocument", Array[System.Type]([clr.GetClrType(Rhino.RhinoDoc)])).Invoke(None, Array[System.Object]([doc]))
 
@@ -96,61 +96,53 @@ def measured(doc: Rhino.RhinoDoc, bundled: ET.Element) -> Measured:
             Extent.LIBRARIES_LIST_MINIMUM: splitter.Panel2MinimumSize,
         }
 
-    def osnap(panel: object, _: object) -> dict[Extent, float]:
-        """Osnap grid's toggle count, pitch, and inset from the panel's own metrics, and its chrome under the gripper a lone side-docked panel shows."""
-        kind, hidden = panel.GetType(), BindingFlags.NonPublic
-        spacing = 4 if kind.GetMethod("UseToggleButtons", BindingFlags.Instance | hidden).Invoke(panel, None) else 0
-        cell = private(panel, kind, "m_control_size")
-        padding = kind.GetMethod("GeometryPadding", BindingFlags.Static | hidden).Invoke(None, Array[System.Object]([System.Enum.Parse(kind.GetNestedType("LayoutGeometry", hidden), "Grid")]))
-        gripper = 2 if Internal.TAB_PANEL_SETTINGS.type.GetProperty("LockDockedWindows").GetValue(None) else Internal.TAB_PANEL_GRIPPER_CONTROL.type.GetProperty("FixedHeight").GetValue(None)
-        return {
-            Extent.OSNAP_TOGGLES: private(panel, kind, "m_item_count"),
-            Extent.OSNAP_PITCH_X: cell.Width + spacing,
-            Extent.OSNAP_PITCH_Y: cell.Height + spacing,
-            Extent.OSNAP_INSET: padding.Horizontal,
-            Extent.OSNAP_CHROME: gripper + padding.Vertical,
-        }
+    def toggles(panel: object, shell: object) -> Grid:
+        """Toggle count and the cell pitch the panel wraps its toggles at under either geometry, and the width and height its container spends around the panel's content."""
+        kind = panel.GetType()
+        cell, spacing = private(panel, kind, "m_control_size"), 4 if kind.GetMethod("UseToggleButtons", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(panel, None) else 0
+        return Grid(
+            count=private(panel, kind, "m_item_count"),
+            pitch_x=cell.Width + spacing,
+            pitch_y=cell.Height + spacing,
+            inset=shell.Size.Width - panel.Content.Width,
+            chrome=shell.Size.Height - panel.Content.Height,
+        )
 
     top, window = Panels.PanelDockBar(guid(PanelId.PROPERTIES)), RhinoEtoApp.MainWindowForDocument(doc).ControlObject.ContentView
-    homes = {panel: Panels.PanelDockBar(guid(panel)) for panel in (PanelId.OSNAP, PanelId.LAYERS, PanelId.LAYOUTS, PanelId.MATERIALS, PanelId.LIBRARIES)}
 
-    def selected(panel: PanelId, measure: Callable[[object, object], dict[Extent, float]]) -> dict[Extent, float]:
-        """Measures of the panel laid out as its container's selected tab."""
+    def selected[T](panel: PanelId, measure: Callable[[object, object], T]) -> T:
+        """Measures of the panel laid out as its container's selected tab, the panel closed again where no container held it and the container's exported tab selected again."""
         identity = guid(panel)
-        Panels.OpenPanel(top if homes[panel] == System.Guid.Empty else homes[panel], identity, makeSelectedPanel=True)
-        window.LayoutSubtreeIfNeeded()
-        return measure(Panels.GetPanel(identity, doc), container(Panels.PanelDockBar(identity)))
+        home = Panels.PanelDockBar(identity)
+        bar = top if home == System.Guid.Empty else home
+        Panels.OpenPanel(bar, identity, makeSelectedPanel=True)
+        try:
+            window.LayoutSubtreeIfNeeded()
+            return measure(Panels.GetPanel(identity, doc), container(bar))
+        finally:
+            if home == System.Guid.Empty:
+                Panels.ClosePanel(identity, doc)
+            Panels.OpenPanel(bar, System.Guid.Parse(next(root.iterfind(f"dock_bars/dock_bar[@guid='{bar}']/tabs")).attrib["selected_item"]), makeSelectedPanel=True)
 
-    try:
-        window.LayoutSubtreeIfNeeded()
-        match container(guid(Bar.COMMAND_HISTORY)):
-            case None:
-                history = int(next(band for band in bundled.iterfind("dock_sites/dock_site/band") if band.find(f"dock_bar[@guid='{Bar.COMMAND_HISTORY}']") is not None).attrib["size"])
-            case shown:
-                history = shown.Size.Height
-        toolbar = Internal.TOOLBAR_SETTINGS.type.GetProperty("Instance").GetValue(None)
-        style = Internal.TAB_PANEL_SETTINGS.type.GetProperty("HorizontalDisplayStyle").GetValue(None)
-        return Measured(
-            sites={site: getattr(dock_sites, site).Control.Size.Height for site in Site},
-            extents={
-                Extent.TAB_STRIP: Internal.BASE_TAB_CONTROL.type.GetMethod("CalculateTabHeight", BindingFlags.Static | BindingFlags.NonPublic).Invoke(None, Array[System.Object]([style])),
-                Extent.BUTTON: toolbar.Buttons.TotalButtonSize,
-                Extent.RESIZER: Internal.DOCK_SITE_RESIZER.type.GetProperty("ResizerWidth").GetValue(None),
-                Extent.COMMAND_HISTORY: history,
-                **selected(PanelId.OSNAP, osnap),
-                **selected(PanelId.LAYERS, layers),
-                **selected(PanelId.LAYOUTS, lambda panel, shell: {Extent.LAYOUTS_INSET: inset(shell, contained(panel, Internal.LAYOUT_TREE_GRID_VIEW.type))}),
-                **selected(PanelId.MATERIALS, materials),
-                **selected(PanelId.LIBRARIES, libraries),
-            },
-            columns={
-                str(column): Internal.LAYER_COLUMNS.type.GetMethod("DefaultWidth").Invoke(None, Array[System.Object]([column])) for column in System.Enum.GetValues(Internal.LAYER_COLUMN_TYPE.type)
-            },
-        )
-    finally:
-        for panel in (panel for panel, home in homes.items() if home == System.Guid.Empty):
-            Panels.ClosePanel(guid(panel), doc)
-        Panels.OpenPanel(top, guid(PanelId.PROPERTIES), makeSelectedPanel=True)
+    window.LayoutSubtreeIfNeeded()
+    toolbar = Internal.TOOLBAR_SETTINGS.type.GetProperty("Instance").GetValue(None)
+    style = Internal.TAB_PANEL_SETTINGS.type.GetProperty("HorizontalDisplayStyle").GetValue(None)
+    return Measured(
+        sites={site: getattr(dock_sites, site).Control.Size.Height for site in Site},
+        extents={
+            Extent.TAB_STRIP: Internal.BASE_TAB_CONTROL.type.GetMethod("CalculateTabHeight", BindingFlags.Static | BindingFlags.NonPublic).Invoke(None, Array[System.Object]([style])),
+            Extent.BUTTON: toolbar.Buttons.TotalButtonSize,
+            Extent.RESIZER: Internal.DOCK_SITE_RESIZER.type.GetProperty("ResizerWidth").GetValue(None),
+            Extent.STATUS_BAR: dock_sites.StatusBar.Height,
+            Extent.HISTORY_LINE: contained(container(guid(Bar.COMMAND_HISTORY)), clr.GetClrType(TextArea)).Font.LineHeight,
+            **selected(PanelId.LAYERS, layers),
+            **selected(PanelId.LAYOUTS, lambda panel, shell: {Extent.LAYOUTS_INSET: inset(shell, contained(panel, Internal.LAYOUT_TREE_GRID_VIEW.type))}),
+            **selected(PanelId.MATERIALS, materials),
+            **selected(PanelId.LIBRARIES, libraries),
+        },
+        grids={panel: selected(panel, toggles) for panel in TOGGLES},
+        columns={str(column): Internal.LAYER_COLUMNS.type.GetMethod("DefaultWidth").Invoke(None, Array[System.Object]([column])) for column in System.Enum.GetValues(Internal.LAYER_COLUMN_TYPE.type)},
+    )
 
 
 # --- [LAYOUT]
@@ -291,9 +283,10 @@ def restore(doc: Rhino.RhinoDoc, target: ET.Element) -> str | None:
 
 def window_layout(doc: Rhino.RhinoDoc, bundled: ET.Element, *, restored: bool) -> Iterator[str]:
     """Measured record and report lines of the live window layout restored from the render of the measures taken under it, measured and rendered again once a restore gave the containers their rendered forms, an error line naming what the render lacks or the restore refused."""
-    record, label = measured(doc, bundled), f'WindowLayouts["{Task.MODELING}"]'
+    root, label = exported(doc), f'WindowLayouts["{Task.MODELING}"]'
+    record = measured(doc, root)
     measurement = line(Kind.MEASUREMENT, json.dumps(record))
-    root, plan, ribbon = exported(doc), layout(record), {row.attrib["guid"]: row for row in bundled.iterfind(f"dock_bars/dock_bar[@guid='{Bar.RIBBON}']/tabs/tool_bar")}
+    plan, ribbon = layout(record), {row.attrib["guid"]: row for row in bundled.iterfind(f"dock_bars/dock_bar[@guid='{Bar.RIBBON}']/tabs/tool_bar")}
     target = deepcopy(root)
     held = resolved(target, plan)
     if missing := lacking(held, plan, ribbon):

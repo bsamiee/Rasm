@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-index-literal-by-code
+id: no-computed-index-into-literal
 language: python
 severity: error
 utils:
@@ -55,4 +55,4 @@ rule:
                 - kind: identifier
                   matches: named-table
 message: 'Literal `$TABLE` is read at the computed index `$CODE`'
-note: 'Select the value with `match` over the case, or with an enum member holding it, a computed index into a literal table breaks when table order moves'
+note: 'Select the value with `match` over the case or an enum member holding it, a computed index breaks when table order changes'

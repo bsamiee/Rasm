@@ -75,4 +75,4 @@ rule:
             - has: {field: condition, matches: context-receiver}
     not: {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}}
 message: '`$CALL` marshals one call to the UI thread'
-note: Return to the UI thread once where the chain leaves it, with `IO<A>.Post()` at the fork
+note: Call `Post()` once on an `IO` holding every UI-thread call to run it on the `SynchronizationContext` captured at chain start

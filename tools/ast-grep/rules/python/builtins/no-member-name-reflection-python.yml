@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-member-name-reflection-python
+language: python
+severity: error
+utils:
+    name-literal:
+        kind: string
+        regex: '^[rRuU]?("|'')[A-Za-z_]\w*(\.[A-Za-z_]\w*)*("|'')$'
+    literal-names:
+        kind: 'tuple, list, set'
+        has: {matches: name-literal}
+        not: {has: {pattern: $_, not: {any: [{matches: name-literal}, {kind: comment}]}}}
+    stored-name-literal:
+        any:
+            - kind: identifier
+              matches: {python-assigned-name: {value: {matches: name-literal}}}
+            - matches: {python-class-attribute: {value: {matches: name-literal}}}
+    names-table:
+        any:
+            - matches: literal-names
+            - kind: identifier
+              matches: {python-assigned-name: {value: {matches: literal-names}}}
+            - matches: {python-class-attribute: {value: {matches: literal-names}}}
+    looped-name:
+        kind: identifier
+        pattern: $KEY
+        any:
+            - inside:
+                kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+                stopBy: end
+                has: {kind: for_in_clause, all: [{has: {field: left, kind: identifier, pattern: $KEY}}, {has: {field: right, matches: names-table}}]}
+            - inside:
+                kind: for_statement
+                stopBy: end
+                all: [{has: {field: left, kind: identifier, pattern: $KEY}}, {has: {field: right, matches: names-table}}]
+    member-name:
+        any:
+            - matches: stored-name-literal
+            - matches: looped-name
+    any-name:
+        any:
+            - matches: name-literal
+            - matches: member-name
+    checked-name:
+        any:
+            - matches: name-literal
+            - kind: identifier
+              matches: {python-assigned-name: {value: {matches: name-literal}}}
+            - matches: {python-class-attribute: {value: {matches: name-literal}}}
+            - matches: {python-bound-parameter: {value: {matches: name-literal}}}
+    reader:
+        kind: identifier
+        regex: '^getattr$'
+        matches: {python-builtin-name: {name: {regex: '^getattr$'}}}
+    writer:
+        kind: identifier
+        regex: '^(setattr|delattr)$'
+        matches: {python-builtin-name: {name: {regex: '^(setattr|delattr)$'}}}
+    attribute-builtin:
+        any: [{matches: reader}, {matches: writer}]
+    operator-getter:
+        regex: '(^|\.)(attrgetter|methodcaller)$'
+        matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^(attrgetter|methodcaller)$'}}}
+rule:
+    kind: call
+    pattern: $CALL
+    any:
+        - all:
+            - has: {field: function, matches: attribute-builtin}
+            - has: {field: arguments, has: {nthChild: 2, matches: member-name}}
+            - not:
+                all:
+                    - has: {field: arguments, has: {nthChild: 3}}
+                    - has: {field: function, matches: reader}
+                    - has: {field: arguments, has: {nthChild: 2, matches: checked-name}}
+        - all:
+            - not: {inside: {kind: expression_statement}}
+            - has: {field: function, matches: writer}
+            - has: {field: arguments, has: {nthChild: 2, matches: name-literal}}
+        - all:
+            - has: {field: arguments, has: {nthChild: 1, matches: attribute-builtin}}
+            - has: {field: arguments, has: {nthChild: 3, matches: any-name}}
+            - has: {field: function, matches: functools-partial-callee}
+        - all:
+            - has: {field: function, matches: operator-getter}
+            - has: {field: arguments, has: {nthChild: 1, matches: any-name}}
+message: '`$CALL` reaches a member by a name string'
+note: 'Read, call, or assign the member on its owner, through a lambda argument for a deferred read or call and a nested `def` for a deferred assignment, type checkers read a member reached by name as `Any`'

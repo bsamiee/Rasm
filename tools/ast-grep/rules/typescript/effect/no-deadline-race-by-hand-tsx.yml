@@ -36,4 +36,4 @@ rule:
             - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(race|raceFirst)$'}}
             - has: {field: arguments, has: {matches: sleep-branch}}
 message: '`$RACE` composes a deadline fallback by hand'
-note: '`Effect.timeoutOrElse({ duration, orElse })` interrupts the source at the deadline and evaluates `orElse` lazily, and `Effect.timeoutOption` returns `Option.none()` in place of the `TimeoutError`'
+note: '`Effect.timeoutOrElse({ duration, orElse })` interrupts the source at its deadline and evaluates `orElse` lazily, and `Effect.timeoutOption` returns `Option.none()` in place of `TimeoutError`'

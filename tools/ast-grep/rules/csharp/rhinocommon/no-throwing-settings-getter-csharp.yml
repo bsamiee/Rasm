@@ -129,4 +129,4 @@ rule:
                 - matches: one-argument
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: key}}}
 message: '`$CALL` throws when the settings key or child is missing'
-note: Use `TryGet<Name>(<key>, out <value>)` at the boundary and `AddChild(<key>)` for a child to write, each answers a missing key without throwing
+note: Read through `TryGet<Name>(<key>, out <value>)` at the boundary and get or create a child to write through `AddChild(<key>)`

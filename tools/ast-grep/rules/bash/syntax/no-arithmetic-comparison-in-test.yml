@@ -102,4 +102,4 @@ transform:
     BODY: rewrite($EXPRESSION, rewriters=[compare])
 fix: (( $BODY ))
 message: '`$TEST` compares integers through a `test` operator'
-note: Compare in an arithmetic command with parameter names, `(( <left> == <right> ))`
+note: Compare with `(( <left> == <right> ))`, an arithmetic command reads variable names as integers with no `$` or quotes

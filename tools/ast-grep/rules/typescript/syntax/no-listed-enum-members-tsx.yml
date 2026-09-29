@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-listed-enum-members-tsx
+language: tsx
+severity: error
+ignores: ['**/*.test.ts', '**/*.spec.ts']
+utils:
+    literal-union:
+        kind: union_type
+        not: {has: {stopBy: end, pattern: $_, not: {kind: 'union_type, literal_type, string, string_fragment, escape_sequence'}}}
+rule:
+    kind: array
+    pattern: $LIST
+    all:
+        - has: {nthChild: 2, kind: string}
+        - not: {has: {pattern: $_, not: {kind: 'string, comment'}}}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+                stopBy: end
+                kind: type_alias_declaration
+                all:
+                    - has: {field: name, pattern: $NAME}
+                    - has: {field: value, matches: literal-union}
+                    - not:
+                        has:
+                            field: value
+                            has:
+                                stopBy: end
+                                kind: string
+                                inside: {kind: literal_type}
+                                all:
+                                    - pattern: $MEMBER
+                                    - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, pattern: $LIST, has: {kind: string, pattern: $MEMBER}}}}
+        - not:
+            has:
+                kind: string
+                all:
+                    - pattern: $ITEM
+                    - not:
+                        inside:
+                            kind: program
+                            stopBy: end
+                            has:
+                                stopBy: end
+                                kind: type_alias_declaration
+                                all:
+                                    - has: {field: name, pattern: $NAME}
+                                    - has: {field: value, has: {stopBy: end, kind: literal_type, has: {kind: string, pattern: $ITEM}}}
+message: '`$LIST` lists every member of `$NAME` again'
+note: 'Declare the members once as `const <list> = [...] as const` or `Schema.Literals([...])` and derive `$NAME` as `(typeof <list>)[number]` or `typeof <schema>.Type`'

@@ -35,4 +35,4 @@ rule:
                 - {matches: branch, has: {stopBy: end, matches: suffix-test}}
                 - {kind: statements, has: {kind: guard_statement, has: {stopBy: end, matches: suffix-test}}}
 message: '`$SLICE` removes the tested affix `$AFFIX` by a count that restates its length'
-note: 'Drop the affix by one match, `<text>.trimmingPrefix(<affix>)`, `trimPrefix(<affix>)`, or `<text>.replacing(/<affix>\z/, with: "")` where text without it stays unchanged, `<text>.wholeMatch(of: /<affix>(.*)/)?.1` where it yields nil'
+note: 'Drop the affix by one match, `<text>.trimmingPrefix(<affix>)`, `trimPrefix(<affix>)`, or `<text>.replacing(/<affix>\z/, with: "")` where text without it stays unchanged, `<text>.wholeMatch(of: /<affix>(.*)/)?.1` where text without it yields nil'

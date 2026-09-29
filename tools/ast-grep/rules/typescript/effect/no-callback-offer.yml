@@ -46,4 +46,4 @@ rule:
                     matches: syntax-function-boundary
                     has: {stopBy: end, matches: offer-call}
 message: 'Callback feeds `$QUEUE` outside the effect that built it'
-note: '`Stream.callback((queue) => <registration>)` builds the queue and runs the registration under the stream `Scope`, its release covers both'
+note: '`Stream.callback((queue) => <registration>)` builds its queue and runs `<registration>` in the stream `Scope`, one release closes both'

@@ -73,4 +73,4 @@ transform:
     FIXED: rewrite($FIXABLE, rewriters=[arrow])
 fix: $FIXED$KEPT
 message: 'Function wraps `$M.gen` and rebuilds the effect at each call'
-note: '`Effect.fnUntraced(function* (<parameters>) { ... }, <steps>)` takes the arguments into one generator body with the pipe steps as transforms, and `Effect.fn(<name>)` replaces a trailing `Effect.withSpan(<name>)`'
+note: '`Effect.fnUntraced(function* (<parameters>) { ... }, <steps>)` takes the arguments into one generator body with pipe steps as transforms, and `Effect.fn(<name>)` replaces a trailing `Effect.withSpan(<name>)`'

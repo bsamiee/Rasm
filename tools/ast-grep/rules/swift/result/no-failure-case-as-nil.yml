@@ -24,4 +24,4 @@ rule:
                                 - kind: switch_pattern
                                   regex: '^(Foundation\.)?(CocoaError|URLError|POSIXError|MachError)\.'
 message: '`flatMapError` maps a failure case of `$E` to `.success(nil)`, one absence spelled as a failure and as `nil`'
-note: 'Return `.success(nil)` for that case from the producing function, drop the case from its failure type and the `flatMapError` from each consumer, a host error cast or pattern (`as? CocoaError`, `case CocoaError.fileNoSuchFile`, `.noSuchFileOrDirectory as Errno`) stays the classifying boundary'
+note: 'Return `.success(nil)` for the case from its producing function and drop it from its failure type and from each consumer''s `flatMapError`, a host error cast or pattern (`as? CocoaError`, `case CocoaError.fileNoSuchFile`, `.noSuchFileOrDirectory as Errno`) stays a classifying boundary'

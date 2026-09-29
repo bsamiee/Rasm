@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-property-python
+language: python
+severity: error
+utils:
+    member-chain:
+        kind: attribute
+        has:
+            field: object
+            any:
+                - kind: identifier
+                - matches: member-chain
+    forwarded-read:
+        matches: member-chain
+        pattern: $READ
+        not: {regex: '^(self|cls)\.\w+$'}
+    property-callee:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^property$'}}}
+            - matches: {python-member-use: {module: {regex: '^builtins$'}, name: {regex: '^property$'}}}
+    property-decorator:
+        kind: decorator
+        has: {matches: property-callee}
+    single-parameter:
+        has: {nthChild: 1, kind: identifier}
+        not: {has: {nthChild: 2}}
+rule:
+    any:
+        - kind: function_definition
+          all:
+            - inside: {kind: decorated_definition, has: {matches: property-decorator}}
+            - has: {field: name, pattern: $NAME}
+            - has: {field: parameters, matches: single-parameter}
+            - has:
+                field: body
+                kind: block
+                all:
+                    - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-docstring-or-comment}}}}}
+                    - has: {kind: return_statement, has: {matches: forwarded-read}}
+        - kind: assignment
+          all:
+            - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition, field: body}}}
+            - has: {field: left, kind: identifier, pattern: $NAME}
+            - has:
+                field: right
+                kind: call
+                all:
+                    - has: {field: function, matches: property-callee}
+                    - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, kind: lambda, all: [{has: {field: parameters, matches: single-parameter}}, {has: {field: body, matches: forwarded-read}}]}}
+message: 'Property `$NAME` forwards `$READ` unchanged'
+note: 'Read `<owner>.<member>` at each use, the property adds a name and no fact'

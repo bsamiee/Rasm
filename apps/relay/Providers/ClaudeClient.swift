@@ -506,14 +506,11 @@ actor ClaudeClient: ProviderClient {
             case .failure(.signInRequired):
                 let signedOut: Result<Void, ClaudeFailure> = await store.readItem().bind {
                     item -> Result<Void, ClaudeFailure> in
-                    let oauth: JSONDocument<ClaudeOAuthToken.Attributes>? = item?.known.claudeAiOauth.flatMap { oauth in
-                        try? oauth.decode(as: JSONDocument<ClaudeOAuthToken.Attributes>.self)
-                    }
-                    return if let oauth, oauth.known.refreshToken == posted {
-                        await store.writeOAuth(JSONDocument(fields: oauth.fields, known: ClaudeOAuthUpdate.signedOut), over: item)
-                    } else {
-                        .success(())
-                    }
+                    guard let oauth: JSONDocument<ClaudeOAuthToken.Attributes> = item?.known.claudeAiOauth,
+                        oauth.known.refreshToken == posted
+                    else { return .success(()) }
+                    return await store.writeOAuth(JSONDocument(fields: oauth.fields, known: ClaudeOAuthUpdate.signedOut), over: item)
+                        .map { _ in () }
                 }
                 return .failure(.signInRequired.releasing(signedOut))
             case .failure(let error):
@@ -529,21 +526,17 @@ actor ClaudeClient: ProviderClient {
     ) async -> Result<ClaudeCredential, ClaudeFailure> {
         let now: Date = Date()
         return await store.readItem().bind { item -> Result<ClaudeCredential, ClaudeFailure> in
-            let stored: String? = item?.known.claudeAiOauth.flatMap { oauth in
-                try? oauth.decode(as: ClaudeOAuthToken.Attributes.self).refreshToken
+            if let stored: String = item?.known.claudeAiOauth?.known.refreshToken, !stored.isEmpty, stored != posted {
+                return await store.read().flatMap { content in Self.matched(content, to: current.identity) }
             }
-            let sibling: Bool = stored.map { stored in !stored.isEmpty && stored != posted } ?? false
-            let written: Result<Void, ClaudeFailure> =
-                await sibling
-                ? .success(())
-                : store.writeOAuth(response.oauth(replacing: current.token, posted: posted, at: now), over: item)
-            return await written.bind { _ in await store.read() }
-                .flatMap { content in Self.matched(content, to: current.identity) }
-                .flatMap { renewed in
-                    (sibling ? .success(nil) : response.identity(plan: renewed.token.plan)).map { identity in
-                        (renewed, identity)
-                    }
+            return await store.writeOAuth(response.oauth(replacing: current.token, posted: posted, at: now), over: item)
+                .flatMap(ClaudeOAuthToken.make)
+                .flatMap { token in
+                    token.map { token in
+                        .success(ClaudeCredential(token: token, account: current.account, identity: current.identity))
+                    } ?? .failure(.invalidResponse)
                 }
+                .flatMap { renewed in response.identity(plan: renewed.token.plan).map { identity in (renewed, identity) } }
                 .map { renewed, identity in
                     if let identity { verifiedIdentities[renewed.token.fingerprint] = identity }
                     return renewed

@@ -36,4 +36,4 @@ rule:
         nthChild: 2
         inside: {kind: argument_list, inside: {matches: value-scope}}
 message: '`$VALUES` opens a second scope inside a scope over acquired values'
-note: Use one `Disposal.Using(IO.pure(<first>.Map<IDisposable>(...) + <second>.Map<IDisposable>(...)), <body>)`, or `Disposal.Release` over that sequence where no body follows
+note: Use one `Disposal.Using(IO.pure(<first>.Map<IDisposable>(...) + <second>.Map<IDisposable>(...)), <body>)`, or `Disposal.Release` over the sequence where no body follows

@@ -50,5 +50,5 @@ transform:
             replace: '^((?:\[(?:[^\[\]"]|"(?:[^"\\]|\\.)*"|\[[^\]]*\])*\]\s*)*(?:(?:public|internal|protected|private|file|unsafe|new)\s+)*)(?:sealed\s+)?'
             by: '${1}abstract '
 fix: $ABSTRACT
-message: 'Library class `$NAME` derives from `$HOST`, a type Rhino constructs or identifies by type, and stays instantiable'
-note: Declare the class `abstract`, the application subclass supplies the public parameterless constructor
+message: 'Library class `$NAME` derives from `$HOST` and stays instantiable'
+note: Declare `<name>` `abstract` for an application subclass to supply a public parameterless constructor, Rhino constructs or identifies host subclasses by type

@@ -39,5 +39,5 @@ rule:
                         - has: {pattern: $B}
                         - has: {kind: switch_entry, has: {kind: switch_pattern, has: {matches: newline, stopBy: end}}}
                     - matches: newline-search
-message: '`for` over `$BYTES` splits `$B` into lines at each newline by hand'
+message: '`for` over `$BYTES` splits lines by hand, testing each `$B` for a newline'
 note: 'Iterate the async line sequence of the byte source, `lines` of `FileHandle.AsyncBytes`, `URL.AsyncBytes`, or `URLSession.AsyncBytes`, or `strings()` of swift-subprocess `SubprocessOutputSequence`'

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-bool-as-slice-index
+id: no-boolean-as-number
 language: python
 severity: error
 utils:
@@ -60,4 +60,4 @@ rule:
                 - all: [{has: {field: left, matches: sequence-literal}}, {has: {field: right, matches: bool-value}}]
                 - all: [{has: {field: right, matches: sequence-literal}}, {has: {field: left, matches: bool-value}}]
 message: '`$USE` reads a boolean as an index or a repeat count'
-note: 'Select the form with `<a> if <test> else <b>`, a boolean read as a number hides its choice'
+note: 'Select the value with `<a> if <test> else <b>`, a boolean read as a number hides its choice'

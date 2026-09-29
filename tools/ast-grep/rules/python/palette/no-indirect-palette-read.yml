@@ -25,4 +25,4 @@ rule:
     matches: palette-class
     not: {any: [{kind: identifier, matches: named-step-read}, {matches: declared}]}
 message: '`$READ` reads `Palette` without naming a step'
-note: 'Read the step as `Palette.<FAMILY>[<step>]`, each read names the shade its role takes'
+note: 'Read `Palette.<FAMILY>[<step>]` with a literal step, each read names the color its role takes'

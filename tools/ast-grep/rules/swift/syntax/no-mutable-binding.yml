@@ -91,4 +91,4 @@ rule:
                                                 has: {field: target, has: {matches: head}}
                                                 not: {inside: {stopBy: end, kind: for_statement, has: {pattern: $$_AWAIT, regex: '^await$'}}}
 message: '`var $NAME` binds a value an expression computes'
-note: 'Bind `let` to the expression that yields the final value (`map`, `reduce`, `merging`, a memberwise init, a `switch` or `if` expression)'
+note: 'Bind `let` to the expression yielding its final value (`map`, `reduce`, `merging`, a memberwise init, a `switch` or `if` expression)'

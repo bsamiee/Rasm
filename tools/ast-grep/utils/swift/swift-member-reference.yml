@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-member-reference
+language: swift
+rule:
+    any:
+        - kind: simple_identifier
+        - kind: navigation_expression
+          has: {field: target, any: [{kind: 'self_expression, super_expression'}, {matches: swift-member-reference}]}
