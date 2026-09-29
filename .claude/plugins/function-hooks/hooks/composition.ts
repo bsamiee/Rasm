@@ -32,7 +32,8 @@ const decoded = <T>(subject: string, printed: Result<string>): Result<T> =>
 
 const rendered = (value: Fault): string => {
     const outcomes = { unstarted: 'did not run', unwritten: 'not written', undecoded: 'output does not decode as JSON' } as const;
-    return value.kind === 'exited' ? `${value.subject} exited ${value.code}, ${value.stderr}` : `${value.subject} ${outcomes[value.kind]}, ${String(value.cause)}`;
+    const [line = ''] = (value.kind === 'exited' ? value.stderr : String(value.cause)).split('\n');
+    return value.kind === 'exited' ? `${value.subject} exited ${value.code}, ${line}` : `${value.subject} ${outcomes[value.kind]}, ${line}`;
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

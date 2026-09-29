@@ -12,7 +12,10 @@ import type { Building, Judging, Spawned } from './state.d.ts';
 
 type Argv = readonly [string, ...string[]];
 type Once<T> = (start: () => Promise<T>) => Promise<T>;
-type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'rewrite'; readonly input: ToolCallInput; readonly note: string } | { readonly kind: 'pass' };
+type Decision =
+    | { readonly kind: 'deny'; readonly reason: string }
+    | { readonly kind: 'rewrite'; readonly input: ToolCallInput; readonly note: string; readonly instruction: string }
+    | { readonly kind: 'pass' };
 
 interface Database {
     readonly argv: Argv;
@@ -114,11 +117,7 @@ const _decision = async ($: EngineInterface, e: ToolCallInput, walking: boolean)
     if (reparsed.kind === 'fault') {
         return { kind: 'deny', reason: `command not parsed, ${rendered(reparsed.fault)}` };
     }
-    return _decided(await refusal(reparsed.value), {
-        kind: 'rewrite',
-        input: { ...e, command: rewrite.value.command },
-        note: `\`${command}\` ran as \`${rewrite.value.command}\`: ${rewrite.value.notes.join(', ')}, write the corrected form`,
-    });
+    return _decided(await refusal(reparsed.value), { kind: 'rewrite', input: { ...e, command: rewrite.value.command }, note: rewrite.value.note, instruction: rewrite.value.instruction });
 };
 
 // --- [RECORD] --------------------------------------------------------------------------
@@ -318,10 +317,10 @@ const register: Register = (on, options) => {
     on('tool.call', async ($, e, next) => {
         const decision = await _decision($, e, walking);
         if (decision.kind === 'rewrite') {
-            $.ui.log(`${e.tool} ${decision.note}`);
+            $.ui.log(decision.note);
         }
         const ran = decision.kind === 'deny' ? { deny: decision.reason } : await next(decision.kind === 'rewrite' ? decision.input : e);
-        const answer = decision.kind === 'rewrite' && ran.deny === undefined ? { ...ran, context: [...(ran.context ?? []), decision.note] } : ran;
+        const answer = decision.kind === 'rewrite' && ran.deny === undefined ? { ...ran, context: [...(ran.context ?? []), `${decision.note}, ${decision.instruction}`] } : ran;
         if (answer.deny !== undefined && observing) {
             const [db, ts] = await _stamped($, database);
             if (db.kind === 'some') {

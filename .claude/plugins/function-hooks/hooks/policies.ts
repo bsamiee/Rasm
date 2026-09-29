@@ -30,11 +30,13 @@ interface Facts {
 interface Insertion {
     readonly at: number;
     readonly text: string;
-    readonly note: string;
+    readonly program: string;
+    readonly flag: string;
 }
 interface Rewrite {
     readonly command: string;
-    readonly notes: readonly string[];
+    readonly note: string;
+    readonly instruction: string;
 }
 interface Shape {
     readonly options: readonly string[];
@@ -283,12 +285,8 @@ const _sd = (command: Command): readonly Insertion[] => {
     const across = span(0);
     const find = span(operand + 1);
     return [
-        ...(across.kind === 'some' && !_sourced(program, options) && !options.some((name) => ['-A', '--across'].includes(name))
-            ? [{ at: across.value.end, text: ' -A', note: 'sd matches inside one line unless -A is passed' }]
-            : []),
-        ...(find.kind === 'some' && !rest.includes('--') && rest.some((word) => _dashed(program, word))
-            ? [{ at: find.value.start, text: '-- ', note: 'sd reads a word opening with - as an option unless -- precedes the find' }]
-            : []),
+        ...(across.kind === 'some' && !_sourced(program, options) && !options.some((name) => ['-A', '--across'].includes(name)) ? [{ at: across.value.end, text: ' -A', program, flag: '-A' }] : []),
+        ...(find.kind === 'some' && !rest.includes('--') && rest.some((word) => _dashed(program, word)) ? [{ at: find.value.start, text: '-- ', program, flag: '--' }] : []),
     ];
 };
 
@@ -306,7 +304,15 @@ const _spliced = (text: string, insertions: readonly Insertion[]): string => {
 
 const commandRewrite = (commands: readonly Command[], text: string): Option<Rewrite> => {
     const insertions = commands.flatMap(_sd);
-    return insertions.length === 0 ? none : some({ command: _spliced(text, insertions), notes: [...new Set(insertions.map(({ note }) => note))] });
+    if (insertions.length === 0) {
+        return none;
+    }
+    const added = [...Map.groupBy(insertions, ({ program }) => program)].map(([program, own]) => [program, [...new Set(own.map(({ flag }) => flag))].join(' and ')] as const);
+    return some({
+        command: _spliced(text, insertions),
+        note: added.map(([program, flags]) => `${program} ran with ${flags} added`).join(', '),
+        instruction: `write ${added.map(([, flags]) => flags).join(' and ')}`,
+    });
 };
 
 // --- [DECISION] ------------------------------------------------------------------------
