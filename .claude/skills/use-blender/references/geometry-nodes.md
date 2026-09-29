@@ -1,10 +1,8 @@
 # [GEOMETRY_NODES]
 
-Parametric geometry is a node group on a Nodes modifier: the group's interface declares inputs, the modifier holds their values, and the depsgraph evaluates the result.
+Parametric geometry as a node group on a Nodes modifier, with inputs the group interface declares and values the modifier holds.
 
 ## [01]-[GROUP]
-
-`describe_node_type` lists each node's sockets before code links them, `digest("<Group>")` from `scripts/nodes.py` reads an existing tree, links name sockets by their `name`:
 
 ```python
 # [EXECUTE_BLENDER_CODE] Row of instances of the object's own geometry, count and spacing as modifier inputs
@@ -40,7 +38,12 @@ for column in set(depth.values()):
 modifier = obj.modifiers.new("<Group>", "NODES")
 modifier.node_group = tree
 evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
-result = {"inputs": [(i.name, i.identifier) for i in tree.interface.items_tree if i.in_out == "INPUT"], "vertices": len(evaluated.data.vertices), "dimensions": list(evaluated.dimensions), "warnings": [w.message for w in modifier.node_warnings]}
+result = {
+    "inputs": [(i.name, i.identifier) for i in tree.interface.items_tree if i.in_out == "INPUT"],
+    "vertices": len(evaluated.data.vertices),
+    "dimensions": list(evaluated.dimensions),
+    "warnings": [w.message for w in modifier.node_warnings],
+}
 ```
 
 - Nodes placed by link depth read left to right in the editor
@@ -50,7 +53,7 @@ result = {"inputs": [(i.name, i.identifier) for i in tree.interface.items_tree i
 
 ## [02]-[INPUTS]
 
-Modifier input values sit on `modifier.properties.inputs`, one member per interface identifier, an item assignment on the modifier raises `TypeError: id properties not supported`:
+Modifier input values sit on `modifier.properties.inputs` as one member per interface identifier:
 
 ```python
 # [EXECUTE_BLENDER_CODE] Set a group input by its interface name and read the evaluated result
@@ -66,14 +69,15 @@ instances = sum(1 for i in depsgraph.object_instances if i.is_instance and i.par
 result = {"vertices": len(obj.evaluated_get(depsgraph).data.vertices), "instances": instances}
 ```
 
+- Item assignments on the modifier raise `TypeError: id properties not supported`
 - Each input holds `value`, `type` (`VALUE` or `ATTRIBUTE`), and `attribute_name` for the attribute an `ATTRIBUTE` input reads
 - `inputs[<identifier>]` is the raw `IDPropertyGroup` with the value at `["value"]`, the attribute form holds `.value`
-- `obj.update_tag()` after a value change makes the next evaluated read hold it, in the session as in background
+- `obj.update_tag()` after a value change makes the next evaluated read hold it, live and in background
 
 ## [03]-[RESULTS]
 
 - Instances stay out of the evaluated mesh and out of `Object.dimensions`, `depsgraph.object_instances` counts them and `snapshot` bounds include them
-- Realize Instances turns instances into mesh, then vertices, attributes, and `Object.dimensions` include them
+- Vertices, attributes, and `Object.dimensions` include instances after Realize Instances turns them into mesh
 - `evaluated.evaluated_geometry()` holds `mesh`, `curves`, `pointcloud`, and `instances_pointcloud()`
 - `instance_transform` reads column-major through `foreach_get`, the translation sits at `[3, :3]`
 - `obj.evaluated_get(depsgraph).data.attributes` holds evaluated attributes

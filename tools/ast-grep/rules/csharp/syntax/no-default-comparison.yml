@@ -91,4 +91,4 @@ rule:
                 - all: [{has: {field: left, matches: generic-operand}}, {has: {field: right, matches: default-value}}]
                 - all: [{has: {field: left, matches: default-value}}, {has: {field: right, matches: generic-operand}}]
 message: Comparison with `default` reads a sentinel as absence
-note: Return absence as `Option<A>` from the producer
+note: Return absence as `Option<A>` from the producer, `default` is a valid value of the type

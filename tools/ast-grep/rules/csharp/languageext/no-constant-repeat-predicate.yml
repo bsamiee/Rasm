@@ -73,4 +73,4 @@ transform:
     CLOSE: {replace: {source: $FIXED, replace: '(?s)^.+$', by: ')'}}
 fix: $HELD$BASE$OPEN$REST$CLOSE
 message: '`$CALLEE` takes a predicate that returns a constant'
-note: Use `Repeat` or `Retry` with the same effect and schedule, `repeat(<effect>.As())` over a `K<IO, A>` in place of the prelude `repeatUntil`, and delete a predicate local or member nothing else reads
+note: Use `Repeat` or `Retry` over the same effect and schedule, and `repeat(<effect>.As())` in place of prelude `repeatUntil`, a constant predicate restates those overloads

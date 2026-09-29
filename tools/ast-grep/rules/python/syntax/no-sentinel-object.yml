@@ -37,14 +37,8 @@ rule:
     all:
         - any:
             - all:
-                - has: {field: left, kind: identifier, pattern: $NAME}
-                - has: {field: right, matches: sentinel-value}
-                - inside:
-                    kind: expression_statement
-                    inside: {kind: 'module, class_definition', stopBy: {kind: 'function_definition, lambda'}}
-            - all:
-                - has: {field: left, kind: pattern_list, pattern: $NAME}
-                - has: {field: right, kind: expression_list, has: {matches: sentinel-value}}
+                - has: {field: left, kind: 'identifier, pattern_list', pattern: $NAME}
+                - has: {field: right, any: [{matches: sentinel-value}, {kind: expression_list, has: {matches: sentinel-value}}]}
                 - inside:
                     kind: expression_statement
                     inside: {kind: 'module, class_definition', stopBy: {kind: 'function_definition, lambda'}}
@@ -57,4 +51,4 @@ rule:
                         not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{kind: comment}, {matches: python-docstring-or-comment}]}}}}}
                         inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
 message: '`$NAME` is a sentinel standing for absence by identity'
-note: 'Declare the value as `<T> | None`'
+note: 'Declare the value as `<T> | None`, a type checker narrows None where it cannot narrow an identity sentinel'

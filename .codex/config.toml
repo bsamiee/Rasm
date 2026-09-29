@@ -1,19 +1,17 @@
 [mcp_servers.adobe]
-command = "mise"
-args = ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts"]
+command = "node"
+args = ["apps/creative-cloud/mcp/main.ts"]
 
 [mcp_servers.roslyn-codelens]
-command = "mise"
-args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
+command = "dotnet"
+args = ["dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
 required = true
 startup_timeout_sec = 120
 tool_timeout_sec = 300
 default_tools_approval_mode = "approve"
 
 [mcp_servers.rhino-mcp-platform]
-command = "mise"
-args = ["exec", "--", "rhino-mcp-router"]
-env = { RHINO_PATH = "/Applications/RhinoBETA.app" }
+command = "rhino-mcp-router"
 startup_timeout_sec = 20
 tool_timeout_sec = 180
 
@@ -24,17 +22,11 @@ startup_timeout_sec = 20
 tool_timeout_sec = 120
 
 [mcp_servers.blender]
-command = "mise"
-args = ["exec", "--", "blender-mcp"]
-env = { BLENDER_MCP_PORT = "9877", BLENDER_PATH = "/Applications/Blender.app/Contents/MacOS/Blender" }
-startup_timeout_sec = 30
+command = "blender-mcp"
 tool_timeout_sec = 300
 default_tools_approval_mode = "approve"
 
 [mcp_servers.mcp-for-blender]
-command = "mise"
-args = ["exec", "--", "mcp-for-blender"]
-env = { DISABLE_TELEMETRY = "true", BLENDER_MCP_SAFE_MODE = "0" }
-startup_timeout_sec = 30
-tool_timeout_sec = 300
+command = "mcp-for-blender"
+tool_timeout_sec = 180
 default_tools_approval_mode = "approve"

@@ -25,13 +25,11 @@ rewriters:
       fix: $UNLESS($LIFTED, $MEMBER)
 rule:
     kind: invocation_expression
-    pattern: $ANSWER.ToFin(new $RECORD($MEMBER))
+    pattern: $ANSWER.ToFin(new Missing($MEMBER))
     has: {field: function, has: {field: expression, matches: optional-chain}}
     not: {matches: {csharp-owner-body: {type: {regex: '^Missing$'}, member: {regex: '^Unless$'}}}}
-constraints:
-    RECORD: {regex: '^(Missing|Refused)$'}
 transform:
     OWNED: {rewrite: {source: $ANSWER, rewriters: [unchanged-arguments, owner]}}
 fix: $OWNED
-message: Null answer of `$VALUE` becomes a `$RECORD` failure by hand
-note: Use `Missing.Unless(<value>, <member>)` and chain each `Map` after it
+message: '`Optional($VALUE)` rebuilds `Missing.Unless` through `ToFin(new Missing(...))`'
+note: Use the nullable overload `Missing.Unless(<value>, <member>)` with each `Map` chained after it

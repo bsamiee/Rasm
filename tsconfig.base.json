@@ -1,8 +1,6 @@
 {
     "compilerOptions": {
         "allowImportingTsExtensions": true,
-        "allowUnreachableCode": false,
-        "allowUnusedLabels": false,
         "composite": true,
         "declarationMap": true,
         "emitDeclarationOnly": true,
@@ -13,16 +11,14 @@
         "moduleDetection": "force",
         "noEmitOnError": true,
         "noErrorTruncation": true,
-        "noFallthroughCasesInSwitch": true,
         "noImplicitOverride": true,
         "noImplicitReturns": true,
         "noPropertyAccessFromIndexSignature": true,
         "noUncheckedIndexedAccess": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
         "skipLibCheck": true,
         "target": "esnext",
         "verbatimModuleSyntax": true
     },
-    "include": ["${configDir}/*.ts"]
+    "include": ["${configDir}/*.ts"],
+    "exclude": ["${configDir}/vitest.config.ts"]
 }

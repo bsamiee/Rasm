@@ -117,4 +117,4 @@ rule:
             - matches: type-test
             - has: {stopBy: end, pattern: $THROWN, matches: thrown}
 message: Exception inside the `Error` `$ERROR` is type-tested by hand
-note: Use `<error>.HasException<E>()` to match the type, its subtypes, and every `ManyErrors` leaf
+note: Use `<error>.HasException<E>()`, `HasException` tests the type, its subtypes, and every `ManyErrors` leaf

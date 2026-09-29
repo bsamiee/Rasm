@@ -7,6 +7,7 @@ utils:
     boundary: {any: [{matches: control}, {kind: function_definition}]}
 rule:
     matches: control
+    pattern: $CONTROL
     inside:
         matches: control
         stopBy: {matches: boundary}
@@ -17,5 +18,7 @@ rule:
                 matches: control
                 stopBy: {matches: boundary}
                 not: {inside: {matches: control, stopBy: {kind: function_definition}}}
-message: Control statement sits at a fourth nesting level
-note: Flatten inner levels into guard clauses, `<condition> || continue`
+transform:
+    HEAD: {replace: {source: $CONTROL, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` opens a fourth nesting level'
+note: Fold inner levels into one `case` over combined conditions or an upstream filter pipeline

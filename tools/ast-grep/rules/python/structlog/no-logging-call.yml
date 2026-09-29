@@ -16,5 +16,5 @@ rule:
             - has: {field: attribute, matches: event-method}
             - has: {field: object, matches: python-stdlib-logger}
 message: '`$USE` logs through the standard library logging API'
-note: 'Use `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)`'
+note: 'Use `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)`, structlog renders every event with its bound context'
 labels: {USE: {style: primary, message: Event method}}

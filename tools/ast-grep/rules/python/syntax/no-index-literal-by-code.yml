@@ -55,4 +55,4 @@ rule:
                 - kind: identifier
                   matches: named-table
 message: 'Literal `$TABLE` is read at the computed index `$CODE`'
-note: 'Select the value by `match` over the case, or by an enum member holding it'
+note: 'Select the value with `match` over the case, or with an enum member holding it, a computed index into a literal table breaks when table order moves'

@@ -9,7 +9,7 @@ Project files are edited by hand in the form Xcode's writer produces:
 - `LastUpgradeCheck`, `LastSwiftUpdateCheck`, and each scheme's `LastUpgradeVersion` hold the installed Xcode's 2700
 - Every Xcode or `xcode` MCP save adds a self `projectReferences` entry, a `.xcodeproj` file reference, and a `Products` group, hand edits revert them
 - Objects sit in one section per `isa`, sorted by id, while lists inside an object keep their written order
-- Values holding `-` take quotes, a value opening with `.` stays bare although the `syntax-project-pbxproj` editor extension flags it
+- Values holding `-` take quotes, a value opening with `.` stays unquoted although the `syntax-project-pbxproj` editor extension flags it
 - `PBXFileSystemSynchronizedRootGroup` at `path = .` routes every project directory file into the target's existing phases with no source list
 - Sources stay at `.`, the new-project template's sibling source folder gives a tool a one-file folder
 - Apps name each non-source file (`CLAUDE.md`, `LICENSE`) in `membershipExceptions`, their Resources phase copies every unnamed file into the bundle
@@ -35,10 +35,10 @@ Project files are edited by hand in the form Xcode's writer produces:
 - `PRODUCT_NAME = $(TARGET_NAME)` stays, the spec default is empty
 - `ALWAYS_SEARCH_USER_PATHS = NO` stays, the `YES` default prints a header map warning in Swift-only targets
 - Dead code stripping and user script sandboxing stay, Xcode's recommended-settings check proposes both again
-- Release builds write a dSYM, crash reports from an installed product carry no symbols otherwise
+- Release builds write a dSYM, crash reports from an installed product hold no symbols otherwise
 - `MACOSX_DEPLOYMENT_TARGET` holds the oldest macOS the installed Xcode runs on (26.6 for Xcode 27), the 27.0 default launches on no macOS 26 host
 - Below a 27.0 deployment target `ARCHS_STANDARD` includes x86_64, `ARCHS = arm64` narrows it until the floor reaches 27.0
-- `-destination platform=macOS` takes no arch under `ARCHS`, a missing destination also matches Any Mac and warns
+- `-destination platform=macOS` takes no arch under `ARCHS`, a missing destination matches Any Mac and warns
 - Automatic signing with the root team resolves an unset `CODE_SIGN_IDENTITY` to Apple Development
 - Apple Development's designated requirement keeps TCC grants (a tool's Apple Events) across rebuilds, an ad hoc signature prompts again
 - Apps add hardened runtime and `MainActor` default isolation, tools `CREATE_INFOPLIST_SECTION_IN_BINARY` for their Info.plist keys
@@ -112,7 +112,6 @@ CI's macOS job runs on the Xcode local builds use:
 - `runs-on` label alone selects Xcode, `DEVELOPER_DIR` names an image-only path and no build tool reads `.xcode-version`
 - Settings after `--` reach `build` alone, `lint` takes no forwarded arguments
 - `COMPILER_INDEX_STORE_ENABLE=NO` joins the forwarded settings, nothing in CI reads the index
-- Swift takes no format-and-diff step, `swift-format lint --strict` and `swiftlint lint` fail on every change `format` writes
 - `xcbeautify` stays out, it needs a pipe
 - SwiftPM and derived data caches stay out, a restore keyed on sources misses on each source change
 
@@ -120,7 +119,7 @@ CI's macOS job runs on the Xcode local builds use:
 
 SwiftPM joins with the first Swift library, until then the `mise.toml` `SWIFTPM_BUILD_DIR` row is its one fact:
 - Every `swift package` run writes a build directory, `--help` included, the row keeps `.build` out of the tree
-- `SWIFTPM_BUILD_DIR` overrides `--scratch-path`, a package target sets `SWIFTPM_BUILD_DIR={workspaceRoot}/.cache/swiftpm/{projectRoot}` in its `env`
+- `SWIFTPM_BUILD_DIR` overrides SwiftPM's build directory flag, a package target sets `SWIFTPM_BUILD_DIR={workspaceRoot}/.cache/swiftpm/{projectRoot}` in its `env`
 - Package targets pass `--cache-path $NX_WORKSPACE_ROOT/.cache/swiftpm/cache`, the clone cache `xcodebuild` uses
 - Apps stay `.xcodeproj`, PackageDescription has no application product, Info.plist, icon, or signing API
 - Libraries take `libs/swift/<Name>/Package.swift` at the newest tools version the installed toolchain accepts

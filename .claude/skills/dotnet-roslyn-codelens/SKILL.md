@@ -5,7 +5,7 @@ description: "Use when reading, navigating, diagnosing, or refactoring a C#, .cs
 
 # [DOTNET_ROSLYN_CODELENS]
 
-Covers the roslyn-codelens MCP server, from symbol navigation and diagnostics over a loaded solution to refactoring and solution management. Tools resolve every symbol through the compilation, text search matches characters and misses aliases, partial types, generic instantiations, and metadata symbols.
+Covers the roslyn-codelens MCP server over a loaded solution. Tools resolve every symbol through the compilation, and text search matches characters and misses aliases, partial types, generic instantiations, and metadata symbols.
 
 ## [01]-[TOOL_SELECTION]
 
@@ -117,7 +117,7 @@ Reference kinds:
 - `type_check` (`x is T`, `is T v`, `case T v:`), `typeof`, `base_type`, `type_constraint`, `type_argument`
 - `declaration` (variable, parameter, return, and field type positions), `attribute`, `nameof`, `xml_doc` (`<see cref=...>`)
 - `usage` is a rare fallback
-- Receivers are a `read`: `_map[k] = v` and `_map.Add(k, v)` read the field `_map`, the contents change and the field stays assigned
+- Receivers count as `read`, `_map[k] = v` and `_map.Add(k, v)` read field `_map` while its contents change
 
 ### [03.2]-[READING_TYPES_AND_MEMBERS]
 
@@ -131,9 +131,9 @@ Reference kinds:
   - `maxDepth` defaults to 3, `maxNodes` to 500
 - `get_method_source` — full declaration source for one or many members in one call, whole types are out of scope
   - Members: methods (all overloads), constructors (`Type.Type`, nested types fully qualified), properties, fields, events
-  - Indexers are requested as `Type.this` or `Type.this[]`
-  - Each item carries a status (`ok`, `notFound`, `ambiguous`, `metadata`, `unsupportedKind`), one miss leaves the batch intact
-  - `metadata` items carry `origin` for `peek_il`
+  - Indexers take `Type.this` or `Type.this[]`
+  - Each item holds a status (`ok`, `notFound`, `ambiguous`, `metadata`, `unsupportedKind`), one miss leaves the batch intact
+  - `metadata` items hold `origin` for `peek_il`
 - `get_overloads` — every overload of a method or constructor from source and metadata, with full parameter and modifier detail
 - `get_operators` — every user-defined operator and conversion a type declares (operators do not inherit)
   - Synthesized record equality and checked variants are included
@@ -154,7 +154,7 @@ Reference kinds:
 - `get_public_api_surface` — every public and protected type and member declared in production projects
   - Test projects, generated code, internal symbols, protected members on sealed types, and inherited members are skipped
 - `find_breaking_changes` — diffs the current public API surface against a baseline, a JSON snapshot from `get_public_api_surface` or a `.dll`
-  - Return type changes, `sealed` changes, and nullable annotation changes are undetected, an empty diff proves no compatibility
+  - Return type changes, `sealed` changes, and nullable annotation changes are undetected, an empty diff leaves compatibility unknown
 
 ### [03.3]-[USAGE_AND_DEPENDENCIES]
 
@@ -164,7 +164,7 @@ Reference kinds:
 - `find_event_subscribers` — every `+=` and `-=` site for an event with the resolved handler name and a subscribe or unsubscribe tag
 - `find_reflection_usage` — coupling that no reference reports: `Activator.CreateInstance`, `MethodInfo.Invoke`, and assembly scanning
 - `get_di_registrations` — `IServiceCollection` registrations of a type with lifetime, in generic, `typeof` pair, and factory-lambda forms
-- `get_project_dependencies` — the direct and transitive project references of one project. `project` is required
+- `get_project_dependencies` — direct and transitive project references of the required `project`
 - `get_nuget_dependencies` — NuGet packages and versions per project
 - `find_obsolete_usage` — every call site of an `[Obsolete]` symbol, grouped by deprecation message and severity, errors first
   - Metadata deprecations from packages are included, symbols with no usage are omitted
@@ -187,12 +187,12 @@ Reference kinds:
   - `title` in the result names the action that ran
   - Apply refuses to write when a file changed on disk after the snapshot loaded and names the stale files
   - `rebuild_solution` then a retry resolves a stale file
-  - Actions that add a file write it to disk, and the watcher adds that file to the snapshot
+  - Actions that add a file write it to disk, and the watcher adds it to the snapshot
 - `rename_symbol` — solution-wide rename of a type or member through the Roslyn Renamer, preview by default, `apply_code_action` offers no rename
   - Cascades to references, overrides, `nameof`, and crefs
   - `renameInComments` defaults to `true`, `renameInStrings` to `false`, `renameOverloads` to `true`
   - Locals, parameters, file renames, constructors, and metadata symbols are rejected, a constructor renames through its containing type
-  - Apply refuses on new-compiler-error conflicts unless `force=true` is passed, and refuses on files changed since the snapshot in every case
+  - Apply refuses on new-compiler-error conflicts unless `force=true`, and refuses on files changed since the snapshot in every case
   - Generic types accept the arity-free name: `Data.Repository` finds `Repository<T>`
 - `change_signature` — adds, removes, and reorders a method's parameters and rewrites every call site, `apply_code_action` offers no signature change
   - `operations` apply in order: `remove` takes a parameter name, `reorder` a full permutation of the surviving names
@@ -218,15 +218,15 @@ Code generation runs through `apply_code_action` with the exact title `get_code_
 
 `get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. Under a build that runs analyzers with warnings as errors, the default call reproduces almost nothing of what fails the build. Pass `includeAnalyzers=true` when the answer must match the build, and before `get_code_fixes` for an analyzer diagnostic.
 
-Solutions named on the server's command line are trusted for that session, every other solution needs `trust_solution`. `get_code_fixes` loads the fix providers as analyzer code and answers `SolutionNotTrusted` on an untrusted solution, compiler diagnostics included.
+Solutions named on the server's command line are trusted for the session, every other solution needs `trust_solution`. `get_code_fixes` loads the fix providers as analyzer code and answers `SolutionNotTrusted` on an untrusted solution, compiler diagnostics included.
 
-`analyzerPolicy` in the trust file (`roslyn-codelens/trust.json` under the user's application data directory, read at server start) selects the analyzer assemblies that load. `nuget-and-solution-bin`, the default, accepts `~/.nuget/packages`, the SDK directory, and a `bin` or `obj` path under the solution, `strict` drops the solution paths, `all` accepts every path. The allowlist spells `~/.nuget/packages` itself and reads no `globalPackagesFolder` from `NuGet.config`. Package analyzers restored to a relocated folder load under `all` alone, and `get_diagnostics` misses their diagnostics under the other policies.
+`analyzerPolicy` in the trust file (`roslyn-codelens/trust.json` under the user's application data directory, read at server start) selects the analyzer assemblies that load. `nuget-and-solution-bin`, the default, accepts `~/.nuget/packages`, the SDK directory, and a `bin` or `obj` path under the solution, `strict` drops the solution paths, `all` accepts every path. `nuget-and-solution-bin` spells `~/.nuget/packages` literally and reads no `globalPackagesFolder` from `NuGet.config`. Package analyzers restored to a relocated folder load under `all` alone, and `get_diagnostics` misses their diagnostics under the other policies.
 
-Analyzers run with no analyzer options: `.editorconfig` severities apply, its option values do not. Style analyzers that read an option (`IDE0055` formatting) report against Roslyn defaults, their items from `get_diagnostics` are no finding, and `dotnet format --verify-no-changes` is the formatting verdict.
+Analyzers run under `.editorconfig` severities with no analyzer option values. Style analyzers that read an option (`IDE0055` formatting) report against Roslyn defaults, their items from `get_diagnostics` are no finding, and `dotnet format --verify-no-changes` is the formatting verdict.
 
-Analyzer assemblies built against a newer Roslyn than the server bundles do not load, and the server's startup log names each one as `ReferencesNewerCompiler`. Under a preview SDK, its `CodeStyle` assemblies (`IDE*`) fall in that set, `get_diagnostics` omits their diagnostics, and the build is the verdict until a server release bundles the SDK's Roslyn.
+Analyzer assemblies built against a newer Roslyn than the server bundles do not load, and the server's startup log names each one as `ReferencesNewerCompiler`. Under a preview SDK, its `CodeStyle` assemblies (`IDE*`) are among them, `get_diagnostics` omits their diagnostics, and the build is the verdict until a server release bundles the SDK's Roslyn.
 
-When a call returns `SolutionNotTrusted`, call `trust_solution` and retry. `scope` defaults to `session`. `persistent` writes the path to the trust store, `addRoot` with a directory trusts every solution below it. `list_trusted_paths` reports the current state, `revoke_trust` removes an entry.
+When a call returns `SolutionNotTrusted`, call `trust_solution` and retry. `scope` defaults to `session`, `persistent` writes the path to the trust store, and `addRoot` with a directory trusts every solution below it. `list_trusted_paths` reports the current state, `revoke_trust` removes an entry.
 
 ### [03.5]-[EXCEPTION_ANALYSIS]
 
@@ -237,14 +237,14 @@ When a call returns `SolutionNotTrusted`, call `trust_solution` and retry. `scop
   - `when`-filtered catches never count as catching, the filter can be false at run time
   - `hasFilter: true` marks an exception that passed such a clause, `escapes: false` always pairs with `hasFilter: false`
   - `maxDepth` defaults to 3, `maxNodes` to 500, either limit sets `truncated`
-  - Throws inside a lambda or local function are excluded, they escape when that body runs
+  - Throws inside a lambda or local function are excluded, they escape when the body runs
 - `find_throw_sites` — every throw of an exception type across the solution, a throw inside a lambda or local function included
-  - `includeDerived` matches subclasses, a bare `throw;` resolves to the enclosing catch's type
+  - `includeDerived` matches subclasses, a rethrowing `throw;` resolves to the enclosing catch's type
 - `find_catch_blocks` — every `catch` for a type, each item with `hasFilter`, `rethrows`, and `isEmpty`
-  - `includeBaseClauses` adds `catch (Exception)` and bare `catch`
+  - `includeBaseClauses` adds `catch (Exception)` and general `catch`
   - Silent swallowing reads as `isEmpty: true, rethrows: false`
 
-Tools see explicit `throw` only, implicit run-time exceptions (null dereference, division by zero) and reflection-invoked throws stay unreported. `get_exception_flow` alone walks calls, and it follows the declared symbol, not the run-time override. `get_exception_flow` models async as synchronous: a throw inside an `async` method propagates at the call site, and an enclosing `try` counts as catching it. Synchronous modeling is correct for an awaited call and wrong for fire-and-forget (`_ = M();`), where nothing enclosing sees it.
+Tools see explicit `throw` only, implicit run-time exceptions (null dereference, division by zero) and reflection-invoked throws stay unreported. `get_exception_flow` alone walks calls, and it resolves each call to its declared symbol in place of a run-time override. `get_exception_flow` models an `async` method as synchronous, a throw inside it propagates at the call site and an enclosing `try` counts as catching it. Synchronous modeling matches an awaited call and misses fire-and-forget (`_ = M();`), where nothing enclosing sees the throw.
 
 ### [03.6]-[CODE_QUALITY]
 
@@ -269,12 +269,12 @@ Tools see explicit `throw` only, implicit run-time exceptions (null dereference,
 - `check_architecture` — layering rules supplied inline, `scope` selects `namespace` (default) or `project`
   - `forbid` (`Domain.*` must not depend on `Infrastructure.*`) catches the expected violation
   - `allowOnly` (`Api.*` can depend only on `Application.*` and `Domain.*`) catches the rest
-  - Edges come from resolved symbols, not `using` directives
-  - `allowOnly` evaluates only solution-internal, non-generated targets, an empty result proves nothing
-  - Framework namespaces and generator output are ignored, a self-reference is never a violation, `forbid` restricts either of those
+  - Edges come from resolved symbols
+  - `allowOnly` evaluates solution-internal, non-generated targets alone, edges to framework namespaces and generator output stay unchecked unless `forbid` names them
+  - Self-references are never a violation
   - Results group per violated edge with a full `referenceCount` and the first `maxSitesPerViolation` sites
 
-`get_complexity_metrics`: complexity per member (methods, constructors, properties, indexers, operators). Each row holds:
+`get_complexity_metrics` rows hold complexity per member (methods, constructors, properties, indexers, operators):
 - `complexity` — cyclomatic, the number of independent paths through the member, a straight-line method scores 1
 - `cognitive` — how hard the member is to follow, a 0 means nothing branches, it ranks refactoring work
   - Nesting costs extra, a whole `switch` costs 1, `else`/`else if` cost 1 with no nesting penalty
@@ -288,7 +288,7 @@ Tools see explicit `throw` only, implicit run-time exceptions (null dereference,
 - `get_source_generators` — the generators active per project and their outputs
 - `get_generated_code` — the generated source, filtered by generator or by file path
 
-Every location-returning result has an `isGenerated` flag, read it before editing a match, generator output is rewritten on the next compile.
+Location-returning results hold an `isGenerated` flag, and the next compile rewrites generator output. Read the flag before editing a match.
 
 ### [03.8]-[EXTERNAL_ASSEMBLIES]
 
@@ -304,7 +304,7 @@ Only assemblies the loaded solution references can be inspected. Unreferenced as
 
 ### [03.9]-[SOLUTION_MANAGEMENT]
 
-Solutions named on the server's command line load with the first one active, with none named the `.sln` or `.slnx` found walking up from the working directory loads. `ROSLYN_CODELENS_OPEN_PROJECT_TIMEOUT_SECONDS` (default `300`) bounds each project's load, a project over it joins `skippedProjects` with `kind: "Timeout"` and the rest of the solution loads. Edits to `.cs`, `.csproj`, `.props`, and `.targets` files recompile the affected projects on the next tool call with no further action.
+Solutions named on the server's command line load with the first one active. With none named, the server loads the `.sln` or `.slnx` found walking up from the working directory. `ROSLYN_CODELENS_OPEN_PROJECT_TIMEOUT_SECONDS` (default `300`) bounds each project's load, a project over it joins `skippedProjects` with `kind: "Timeout"` and the rest of the solution loads. Edits to `.cs`, `.csproj`, `.props`, and `.targets` files recompile the affected projects on the next tool call with no further action.
 
 - `rebuild_solution` — a full reload: re-open the solution, recompile every project, rebuild every index
   - Serves a package or analyzer change, and results that stay stale after an edit

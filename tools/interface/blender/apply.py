@@ -1,33 +1,30 @@
-"""Applies the interface to Blender with the packages `packages.toml` declares, the shared content, and the asset shelf catalog tabs, and upgrades the staged packages."""
-
-from functools import partial
-from pathlib import Path
+"""Applies the interface to Blender with the packages `packages.toml` declares at their staged builds, the look-development image, and the asset shelf catalogs."""
 
 import anyio
-import msgspec
 
-from interface.blender.content import assembled, look_development
-from interface.blender.packages import Access, decoded, Environment, resolution, upgrade
-from interface.blender.sessions import relaunch
-from interface.host import Applied, bundle, Failed, Host
+from interface.blender import packages
+from interface.blender.packages import Manifest
+from interface.blender.rows import Local
+from interface.blender.session import session
+from interface.host import Applied, Error, Failed, Host, outcome
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-async def apply(host: Host) -> tuple[Applied | Failed]:
-    """Blender's outcome over the packages `packages.toml` declares at their staged builds, failed for an unresolved package."""
-    environment = msgspec.convert(host.server("blender").env, Environment, strict=False)
-    executable = Path(environment.blender_path)
-    declared = decoded(await anyio.Path(Path(__file__).with_name("packages.toml")).read_text(encoding="utf-8"))
-    blender = await bundle(executable.parents[2])
-    match await resolution(host, executable, declared, Access.OFFLINE, (partial(look_development, host.client), partial(assembled, executable))):
-        case Failed() as failed:
-            return (failed,)
-        case catalog, rows, changes:
-            outcome = await relaunch(host, executable, environment.blender_mcp_port, blender, rows, catalog)
-            return (msgspec.structs.replace(outcome, changes=(*changes, *outcome.changes)),)
+async def apply(host: Host) -> tuple[Applied | Failed, ...]:
+    """Blender's one outcome over the staging rows and, when every package, the extension, and the image staged, the session's rows."""
+    bundle = await packages.bundled(host)
+    if isinstance(installation := await packages.installation(host, bundle), Error):
+        return (outcome(host.app, (installation,)),)
+    (rows, lines), packed, looked = await anyio.gather(packages.resolution(host, installation, upgrading=False), packages.packaged(host, bundle, installation), packages.look_development(host))
+    staged = (*lines, *looked, *((packed,) if isinstance(packed, Error) else ()))
+    match packed:
+        case (Manifest() as manifest, Local() as extension) if not any(isinstance(row, Error) for row in staged):
+            return (outcome(host.app, (*staged, *await session(host, bundle, manifest, installation.essentials, (*rows, extension)))),)
+        case _:
+            return (outcome(host.app, staged),)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["apply", "upgrade"]
+__all__ = ["apply"]

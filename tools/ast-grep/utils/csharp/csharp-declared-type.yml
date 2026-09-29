@@ -24,3 +24,14 @@ rule:
                     all:
                         - has: {field: type, matches: type}
                         - has: {kind: variable_declarator, has: {field: name, pattern: $DECLARED}}
+            - kind: block, switch_section
+              has:
+                stopBy: {kind: 'block, lambda_expression, anonymous_method_expression, local_function_statement'}
+                kind: declaration_expression
+                all:
+                    - has: {field: type, matches: type}
+                    - has: {field: name, pattern: $DECLARED}
+            - kind: foreach_statement
+              all:
+                - has: {field: type, matches: type}
+                - has: {field: left, pattern: $DECLARED}

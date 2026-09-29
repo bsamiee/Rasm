@@ -9,7 +9,7 @@ rule:
         - precedes: {pattern: $NEXT}
         - pattern: $_
 message: Divider `[IMPORTS]` names no section
-note: Delete the divider, imports precede every section divider
+note: Delete the divider, imports form the preamble above the first section
 fix:
     template: $NEXT
     expandEnd: {pattern: $NEXT}

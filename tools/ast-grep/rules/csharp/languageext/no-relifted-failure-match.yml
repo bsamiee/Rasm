@@ -93,24 +93,36 @@ utils:
                         kind: return_statement
                         nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                         has: {matches: failure-constructor}
+    relift-argument:
+        kind: argument
+        has: {nthChild: {position: 1, reverse: true}, any: [{matches: none-arm}, {matches: fail-arm}]}
+    positional:
+        kind: argument
+        not: {has: {field: name, pattern: $_}}
+    member-match:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match(\s*<.+>)?$'}}, {has: {field: expression, pattern: $VALUE}}]}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]}
+    prelude-match:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match(\s*<.+>)?$'}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
+            - has: {field: arguments, has: {nthChild: 1, matches: positional, has: {pattern: $VALUE}}}
 rule:
     kind: invocation_expression
     any:
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH(Some: $CONTINUE, None: $RELIFT); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH(None: $RELIFT, Some: $CONTINUE); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH($CONTINUE, None: $RELIFT); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH(Succ: $CONTINUE, Fail: $RELIFT); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH(Fail: $RELIFT, Succ: $CONTINUE); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH($CONTINUE, Fail: $RELIFT); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH(Some: $CONTINUE, $RELIFT); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH(Succ: $CONTINUE, $RELIFT); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH(Right: $CONTINUE, Left: $RELIFT); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH(Left: $RELIFT, Right: $CONTINUE); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH(Left: $RELIFT, $CONTINUE); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.$MATCH($RELIFT, Right: $CONTINUE); }', selector: invocation_expression, strictness: cst}
         - all:
-            - pattern: {context: 'class C { object F() => $VALUE.$MATCH($FIRST, $SECOND); }', selector: invocation_expression, strictness: cst}
-            - not: {has: {field: arguments, has: {kind: argument, has: {field: name, pattern: $_}}}}
+            - matches: member-match
+            - has: {field: arguments, has: {matches: relift-argument, has: {field: name, regex: '^(None|Fail|Left)$'}}}
+        - all:
+            - matches: member-match
+            - has: {field: arguments, has: {kind: argument, has: {field: name, regex: '^(Some|Succ|Right)$'}}}
+            - has: {field: arguments, has: {matches: positional, all: [{matches: relift-argument}]}}
+        - all:
+            - matches: member-match
+            - not: {has: {field: arguments, has: {kind: argument, not: {matches: positional}}}}
             - any:
                 - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {any: [{matches: none-arm}, {matches: constructor-fail-arm}]}}}
                 - has:
@@ -118,28 +130,21 @@ rule:
                     all:
                         - has: {kind: argument, nthChild: 1, has: {matches: constructor-fail-arm, not: {has: {field: body, kind: cast_expression}}}}
                         - not: {has: {kind: argument, nthChild: 2, has: {kind: lambda_expression, has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}}}}
-        - pattern: {context: 'class C { object F() => $FUNCTION($VALUE, Some: $CONTINUE, None: $RELIFT); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $FUNCTION($VALUE, None: $RELIFT, Some: $CONTINUE); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $FUNCTION($VALUE, $CONTINUE, None: $RELIFT); }', selector: invocation_expression, strictness: cst}
         - all:
-            - pattern: {context: 'class C { object F() => $FUNCTION($VALUE, $CONTINUE, $ABSENT); }', selector: invocation_expression, strictness: cst}
-            - not: {has: {field: arguments, has: {kind: argument, has: {field: name, pattern: $_}}}}
+            - matches: prelude-match
+            - has: {field: arguments, has: {matches: relift-argument, has: {field: name, regex: '^None$'}}}
+        - all:
+            - matches: prelude-match
+            - not: {has: {field: arguments, has: {kind: argument, not: {matches: positional}}}}
+            - has: {field: arguments, has: {kind: argument, nthChild: 3, has: {matches: none-arm}}}
         - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).IfNone($ABSENT); }', selector: invocation_expression, strictness: cst}
         - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).$UNWRAP($REFAIL); }', selector: invocation_expression, strictness: cst}
 constraints:
-    MATCH: {regex: '^Match(\s*<.+>)?$'}
-    FUNCTION: {regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match(\s*<.+>)?$'}
     UNWRAP: {regex: '^If(Fail|Left)$'}
-    RELIFT:
-        any:
-            - matches: none-arm
-            - matches: fail-arm
-            - kind: argument
-              has: {any: [{matches: none-arm}, {matches: fail-arm}]}
     ABSENT: {kind: argument, has: {matches: none-arm}}
     REFAIL:
         kind: argument
         has: {matches: fail-arm}
         not: {has: {stopBy: end, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*fail'}}
 message: '`$VALUE` is matched to rebuild the `None`, `Left`, or failure case it holds'
-note: Use `Bind(<continuation>)`, `Map` when the continuation wraps a plain value in `Some` or a success, or `IO.lift(<fin>).Bind(<continuation>)` when it returns an effect
+note: Use `Bind(<continuation>)`, `Map` where the continuation wraps a plain value, and `IO.lift(<fin>).Bind(<continuation>)` where it returns an effect, each passes the failure through unchanged

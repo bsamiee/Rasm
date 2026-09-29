@@ -44,6 +44,10 @@ rule:
           inside: {kind: source_file}
           has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
           not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
+          any:
+            - has: {kind: computed_property, has: {kind: computed_setter, pattern: $SETTER}}
+            - has: {kind: computed_property, pattern: $GETTER, not: {has: {kind: computed_setter}}}
+            - not: {has: {kind: computed_property}}
         - kind: simple_identifier
           pattern: $NAME
           inside:
@@ -54,10 +58,12 @@ rule:
 transform:
     HEADER: {replace: {source: $DECLARATION, replace: '\s*(=|\{)[\s\S]*$', by: ''}}
     SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    GET: {replace: {source: $GETTER, replace: '(?s)^.*$', by: ' { get }'}}
+    SET: {replace: {source: $SETTER, replace: '(?s)^.*$', by: ' { get set }'}}
     BINDINGS_HEADER: {replace: {source: $BINDINGS, replace: '\s*\{[\s\S]*$', by: ''}}
     BINDINGS_LINE: {replace: {source: $BINDINGS_HEADER, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $SIGNATURE$BINDINGS_LINE
+signature: $SIGNATURE$GET$SET$BINDINGS_LINE
 isExported:
     any:
         - has: {matches: exported}
@@ -89,8 +95,10 @@ role: item
 symbolType: operator
 rule:
     kind: operator_declaration
+    pattern: $DECLARATION
     has: {kind: custom_operator, pattern: $NAME}
 name: $NAME
+signature: $DECLARATION
 
 ---
 id: swift-precedence-group
@@ -99,8 +107,12 @@ role: item
 symbolType: operator
 rule:
     kind: precedence_group_declaration
+    pattern: $DECLARATION
     has: {kind: simple_identifier, pattern: $NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
 name: $NAME
+signature: $SIGNATURE
 
 ---
 id: swift-macro
@@ -117,6 +129,23 @@ transform:
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+
+---
+id: swift-macro-expansion
+language: swift
+role: item
+symbolType: event
+rule:
+    kind: 'macro_invocation, diagnostic'
+    pattern: $DECLARATION
+    inside: {kind: source_file}
+transform:
+    NAME: {replace: {source: $DECLARATION, replace: '^#(\w+)[\s\S]*$', by: '$1'}}
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+isExported: false
 
 ---
 id: swift-member-struct
@@ -257,6 +286,10 @@ rule:
           pattern: $DECLARATION
           has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
           not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
+          any:
+            - has: {kind: computed_property, has: {kind: computed_setter, pattern: $SETTER}}
+            - has: {kind: computed_property, pattern: $GETTER, not: {has: {kind: computed_setter}}}
+            - not: {has: {kind: computed_property}}
         - kind: simple_identifier
           pattern: $NAME
           inside:
@@ -267,10 +300,12 @@ rule:
 transform:
     HEADER: {replace: {source: $DECLARATION, replace: '\s*(=|\{)[\s\S]*$', by: ''}}
     SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    GET: {replace: {source: $GETTER, replace: '(?s)^.*$', by: ' { get }'}}
+    SET: {replace: {source: $SETTER, replace: '(?s)^.*$', by: ' { get set }'}}
     BINDINGS_HEADER: {replace: {source: $BINDINGS, replace: '\s*\{[\s\S]*$', by: ''}}
     BINDINGS_LINE: {replace: {source: $BINDINGS_HEADER, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $SIGNATURE$BINDINGS_LINE
+signature: $SIGNATURE$GET$SET$BINDINGS_LINE
 isPublic:
     not:
         any:
@@ -312,10 +347,10 @@ signature: $DECLARATION
 id: swift-member-method
 language: swift
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+parentRuleIds: [swift-extension]
 symbolType: method
 rule:
-    kind: 'function_declaration, protocol_function_declaration'
+    kind: function_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $$NAME}
 transform:
@@ -330,7 +365,7 @@ isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: 
 id: swift-member-initializer
 language: swift
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+parentRuleIds: [swift-extension, swift-protocol]
 symbolType: constructor
 rule:
     kind: init_declaration
@@ -348,19 +383,17 @@ isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: 
 id: swift-member-deinitializer
 language: swift
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor]
 symbolType: constructor
 rule:
     kind: deinit_declaration
     pattern: $DECLARATION
     has: {regex: '^deinit$', pattern: $$NAME}
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+isPublic: true
 
 ---
 id: swift-member-subscript
@@ -371,10 +404,16 @@ symbolType: method
 rule:
     kind: subscript_declaration
     pattern: $DECLARATION
+    any:
+        - has: {stopBy: end, kind: setter_specifier, pattern: $SETTER}
+        - pattern: $GETTER
+          not: {has: {stopBy: end, kind: setter_specifier}}
 transform:
     HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
     LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
     SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    GET: {replace: {source: $GETTER, replace: '(?s)^.*$', by: ' { get }'}}
+    SET: {replace: {source: $SETTER, replace: '(?s)^.*$', by: ' { get set }'}}
 name: subscript
-signature: $SIGNATURE
+signature: $SIGNATURE$GET$SET
 isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}

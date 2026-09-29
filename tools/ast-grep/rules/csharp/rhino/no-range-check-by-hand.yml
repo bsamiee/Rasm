@@ -273,4 +273,4 @@ rule:
                 inside: {kind: declaration_list, inside: {matches: csharp-error-record, not: {has: {field: name, matches: limit-error}}}}
             - inside: {stopBy: end, matches: csharp-validation-hook}
 message: '`$CHECK` states a numeric range check by hand'
-note: Use `<limits>.Bind(limits => limits.Check(<value>, <subject>))`, with `<limits>` a `Fin<Limits<T>>` field holding `Limits.AtLeast(<lo>).AtMost(<hi>, nameof(<field>))` for constant bounds and that chain inline for runtime bounds, `Above` in place of `AtLeast` for a strict lower bound on a real value, `AtLeast(<n + 1>)` in place of `Above(<n>)` on an integer, and `Limits.AtLeast`, `Above`, `AtMost`, or `Below` with `Check` for one bound
+note: Use `Limits.AtLeast(<lo>).AtMost(<hi>, <member>)` or one of `AtLeast`, `Above`, `AtMost`, and `Below` with `Check(<value>, <subject>)`, `Check` reports each violated bound as a typed error

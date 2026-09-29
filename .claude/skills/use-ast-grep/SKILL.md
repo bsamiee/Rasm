@@ -44,7 +44,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `has` and `inside` at `stopBy: end` walk the whole subtree or ancestor chain per candidate, `field` narrows `has` to one child first
 - Kindless `any:` arms widen the kind set to every kind, `all:` narrows it to the intersection of its items
 - One `$VAR` across clauses requires sameness, `not:` on a rebound pattern requires difference, `$_VAR` skips both
-- `has` binds `$VAR` to the earliest matching child, a later clause rejecting that child fails the rule, the narrower `has` precedes the wider
+- `has` binds `$VAR` to earliest matching child, later clauses rejecting bound child fail the rule, narrower `has` precedes wider one
 - Captures bound on one node re-match their text inside a later `not: {has: ...}` or `not: {inside: ...}`, the form for a fact every sibling repeats
 - `nthChild` counts named siblings, counts include comments the block holds, `ofRule: {not: {kind: comment}}` counts semantic slots
 - `stopBy` default neighbor serves direct relations, `end` the whole axis, a rule a bounded walk including the stop node
@@ -53,7 +53,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - Unnamed token fields (`operator`) take `has: {field: <role>, pattern: $$_X}`
 - `has: {field: <role>, kind: <kind>}` tests the first child with the field alone, a repeated field (`argument`) takes `nthChild` or a fieldless `has`
 - Relational objects hold a rule key beside `field` and `stopBy`, `has: {field: <role>}` alone fails the load
-- Default `follows` reads the adjacent sibling alone, a comment between statements breaks it until `stopBy: end`
+- Default `follows` reads the adjacent sibling alone, a comment or unnamed token (`,`) between siblings needs `stopBy: end`
 - `has` visits unnamed children, restrict named children with `not: {has: {pattern: $_, not: <allowed>}}`
 - `constraints:` needs no kind set, negative and relational capture guards belong under it
 - Metavariables bound in `all`, relational rules, and the matching `any:` arm export to `fix`, `message`, and `transform`
@@ -72,11 +72,11 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - String `matches: <name>` resolves a parameter, then a local util, then a global util
 - Global utils called under `constraints` alone need no kind set
 - Local util captures reach the caller's `fix`, global util captures stay private
-- Captures an argument rule binds reach the caller's `fix`, `message`, and `labels`
+- Captures an argument rule binds reach the caller's `fix`, `message`, and `labels`, a local util named through `matches` in an argument neither sees nor exports caller captures
 
 ## [04]-[FIX]
 
-`fix` replaces a match with a template, `transform` derives text, and `rewriters` change structure inside captures.
+`fix` replaces a match with a template, `transform` derives text, and `rewriters` change structure inside captures:
 - Templates are unparsed text, captures substitute anywhere in them without a syntax or precedence check
 - Unfixable variants (guards, discards, exports, valueless members) are `not:` arms before the template
 - Undefined metavariables fail the rule load under `scan` and substitute empty under `run -r`
@@ -142,7 +142,7 @@ Tree-sitter recovers with `ERROR` or zero-width `MISSING` nodes, and its precede
 |  [08]   | `Optional[X]`                    | `type` > `generic_type` > `type_parameter` in an annotation, `subscript` in a value position      |
 |  [09]   | `[*items for items in groups]`   | `list_comprehension` with a `body: list_splat`, set and generator forms with the same `body`      |
 
-Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks the precedence.
+Fixes emit walrus conditionals as `(v := (a if b else c))`.
 
 | [INDEX] | [BASH]                          | [SHAPE]                                                                                                |
 | :-----: | :------------------------------ | :----------------------------------------------------------------------------------------------------- |
@@ -160,9 +160,6 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks t
 |  [12]   | `local -n r=$1`, `declare -A m` | `declaration_command` with the keyword, an option `word`, and `variable_name` or `variable_assignment` |
 |  [13]   | `f() { ...; }`                  | `function_definition` with `name: word` and `body: compound_statement`, `function` spelling included   |
 |  [14]   | `if c; then a; else b; fi`      | `if_statement` with the condition, the then statements, and `else_clause` as named children, no `then` |
-
-- `has: {field: argument}` tests the first argument alone, a guard over any argument drops `field`
-- `follows` on an argument binds with `stopBy: end` alone, the neighbor default stops at the unnamed token between siblings
 
 | [INDEX] | [YAML]                | [SHAPE]                                                                                    |
 | :-----: | :-------------------- | :----------------------------------------------------------------------------------------- |
@@ -192,8 +189,8 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks t
 
 - Guards over the `filter_expression` child keep a filtered aggregate silent
 - Aggregate patterns match the inner `invocation` of a `window_function`
-- Keyword children of a `case` are `keyword_case`, `keyword_when`, `keyword_then`, `keyword_else`, and `keyword_end`, `nthChild` counts them
+- `nthChild` counts the `keyword_*` children of a `case`
 
 ## [07]-[OUTLINE]
 
-`ast-grep outline` returns a declaration's parsed range, a text search returns every occurrence of its name with no boundary between definition, use, and body. An outline pays in a file too long to read whole and in a language with no richer navigator, an extractor over a file read whole earns no place.
+`ast-grep outline` returns a declaration's parsed range, a text search every occurrence of the name with no boundary between definition, use, and body. Use an outline for a file too long to read whole in a language with no richer navigator.

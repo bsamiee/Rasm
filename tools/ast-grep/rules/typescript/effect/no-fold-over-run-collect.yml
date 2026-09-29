@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fold-over-run-collect
+language: tsx
+severity: error
+utils:
+    collect-member:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^runCollect$'}
+            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Stream)?$'}, exported: {regex: '^Stream$'}}}}
+    collected:
+        any:
+            - kind: call_expression
+              has: {field: function, matches: collect-member}
+            - kind: yield_expression
+              has: {kind: call_expression, has: {field: function, matches: collect-member}}
+            - kind: parenthesized_expression
+              has: {matches: collected}
+    array-fold:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^(head|last|reduce|join)$'}
+            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Array)?$'}, exported: {regex: '^Array$'}}}}
+    fold:
+        any:
+            - matches: array-fold
+            - kind: call_expression
+              has: {field: function, matches: array-fold}
+            - kind: arrow_function
+              all:
+                - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $XS}}}
+                - has:
+                    field: body
+                    any:
+                        - pattern: $XS.length
+                        - pattern: $XS.join($$$_)
+                        - pattern: $XS.reduce($$$_)
+                        - pattern: $XS[0]
+                        - pattern: $XS.at($_)
+    fold-step:
+        kind: call_expression
+        all:
+            - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^map$'}}
+            - has: {field: arguments, has: {matches: fold, nthChild: {position: 1, reverse: true}}}
+    copy:
+        any:
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    any:
+                        - {matches: syntax-global-reference, regex: '^(globalThis\.)?Array\.from$'}
+                        - kind: member_expression
+                          all:
+                            - has: {field: property, regex: '^fromIterable$'}
+                            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Array)?$'}, exported: {regex: '^Array$'}}}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected, pattern: $COLLECTED}}, {not: {has: {nthChild: 2}}}]}
+            - kind: array
+              all:
+                - has: {nthChild: 1, kind: spread_element, has: {matches: collected, pattern: $COLLECTED}}
+                - not: {has: {nthChild: 2}}
+rule:
+    any:
+        - matches: copy
+          pattern: $FIXABLE
+        - pattern: $KEPT
+          any:
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^map$'}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected}}, {has: {nthChild: 2, matches: fold}}]}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: collected}}, {has: {field: property, regex: '^pipe$'}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: fold-step}}
+            - matches: collect-member
+              inside: {kind: arguments}
+              precedes: {matches: fold-step, stopBy: {not: {regex: '^,$'}}}
+fix: $COLLECTED$KEPT
+message: '`$FIXABLE$KEPT` recomputes by hand what a `Stream` destructor returns'
+note: '`Stream.runCollect` returns an `Array`, and `Stream.mkString`, `runCount`, `runHead`, `runLast`, and `runFold` consume the stream in order without holding the array'

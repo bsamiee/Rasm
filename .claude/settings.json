@@ -92,7 +92,7 @@
         "defaultMode": "bypassPermissions"
     },
     "enableAllProjectMcpServers": true,
-    "disabledMcpjsonServers": ["greptile", "hostinger", "arena"],
+    "disabledMcpjsonServers": ["greptile", "arena"],
     "hooks": {
         "SessionStart": [
             {

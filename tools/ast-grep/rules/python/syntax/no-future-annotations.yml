@@ -22,5 +22,5 @@ transform:
 fix:
     template: $OUT$NEXT
     expandEnd: {pattern: $NEXT}
-message: 'Future import stores annotations as strings'
-note: 'Delete the import'
+message: '`$IMPORT` stores annotations as strings'
+note: 'Delete the import, Python 3.14 defers annotation evaluation and the future import turns every annotation into a string'

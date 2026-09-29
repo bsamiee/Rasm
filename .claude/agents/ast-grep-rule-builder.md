@@ -87,7 +87,7 @@ Installed source or binary decides over a page.
 10. Run `yamllint <files>` and `yamlfmt -lint <files>` over the derived rule and util files, fix each line
 11. Bound draft cycles at 3 per rule
 
-Step 6 writes a refused category through `bar.sql` of `observation`, `:verdict` the refusing row of the bar table of `rule-building`, `:earns` 0, then `transition.sql` of `observation` per site, `:state` `confirmed`, `:verdict` that row. Step 8 runs `transition.sql` per site, `:state` `checker_owned`, `:evidence` `ast-grep:<rule id>`. Both bind `:by` `agent:<id>`.
+Step 6 writes a refused category through `bar.sql` of `observation`, `:verdict` the refusing row of the bar table of `rule-building`, `:earns` 0, then `transition.sql` of `observation` per site, `:state` `confirmed`, `:verdict` that row. Step 8 runs `transition.sql` per site, `:state` `checker_owned`, `:evidence` `ast-grep:<rule id>`. Both bind `:actor` `agent` and `:actor_id` `<id>`.
 
 </procedure>
 

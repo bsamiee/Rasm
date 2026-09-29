@@ -1,3 +1,231 @@
+id: typescript-function-value
+language: tsx
+role: item
+symbolType: function
+utils:
+    listed: {inside: {kind: program, has: {kind: export_statement, has: {stopBy: end, kind: export_specifier, has: {field: name, pattern: $NAME}}}}}
+rule:
+    kind: lexical_declaration
+    pattern: $DECLARATION
+    inside: {kind: program}
+    has:
+        kind: variable_declarator
+        all:
+            - has: {field: name, pattern: $NAME}
+            - has:
+                field: value
+                any:
+                    - kind: arrow_function, function_expression
+                    - kind: call_expression
+                      has: {field: function, regex: '^Effect\.fn(Untraced)?(\(|$)'}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, has: {pattern: $_}}
+      fix: '{…}'
+    - id: object
+      rule: {kind: object, has: {pattern: $_}}
+      fix: '{…}'
+    - id: array
+      rule: {kind: array, has: {pattern: $_}}
+      fix: '[…]'
+    - id: expression-body
+      rule: {inside: {kind: arrow_function, field: body}, not: {kind: statement_block}, pattern: $_}
+      fix: …
+transform:
+    SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array, expression-body]}}
+    CHAINED: {replace: {source: $SHAPED, replace: '\s*\n\s*\.', by: '.'}}
+    FLAT: {replace: {source: $CHAINED, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $FLAT, replace: '(?:,\s*)?;?$|,\s*(?P<close>[)\]])|(?P<open>[(\[])\s+', by: '${close}${open}'}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {matches: listed}
+
+---
+id: typescript-constant
+language: tsx
+role: item
+symbolType: constant
+utils:
+    listed: {inside: {kind: program, has: {kind: export_statement, has: {stopBy: end, kind: export_specifier, has: {field: name, pattern: $NAME}}}}}
+rule:
+    kind: lexical_declaration
+    pattern: $DECLARATION
+    regex: '^const\b'
+    inside: {kind: program}
+    has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, has: {pattern: $_}}
+      fix: '{…}'
+    - id: object
+      rule: {kind: object, has: {pattern: $_}}
+      fix: '{…}'
+    - id: array
+      rule: {kind: array, has: {pattern: $_}}
+      fix: '[…]'
+    - id: expression-body
+      rule: {inside: {kind: arrow_function, field: body}, not: {kind: statement_block}, pattern: $_}
+      fix: …
+transform:
+    SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array, expression-body]}}
+    CHAINED: {replace: {source: $SHAPED, replace: '\s*\n\s*\.', by: '.'}}
+    FLAT: {replace: {source: $CHAINED, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $FLAT, replace: '(?:,\s*)?;?$|,\s*(?P<close>[)\]])|(?P<open>[(\[])\s+', by: '${close}${open}'}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {matches: listed}
+
+---
+id: typescript-variable
+language: tsx
+role: item
+symbolType: variable
+utils:
+    listed: {inside: {kind: program, has: {kind: export_statement, has: {stopBy: end, kind: export_specifier, has: {field: name, pattern: $NAME}}}}}
+rule:
+    kind: lexical_declaration
+    pattern: $DECLARATION
+    regex: '^let\b'
+    inside: {kind: program}
+    has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*=[\s\S]*$|;$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {matches: listed}
+
+---
+id: typescript-entry
+language: tsx
+role: item
+symbolType: function
+rule:
+    kind: expression_statement
+    pattern: $STATEMENT
+    inside: {kind: program}
+    has:
+        kind: call_expression
+        has: {stopBy: end, kind: member_expression, has: {field: property, regex: '^(runMain|runFork|runPromise|runSync)$'}}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, has: {pattern: $_}}
+      fix: '{…}'
+    - id: object
+      rule: {kind: object, has: {pattern: $_}}
+      fix: '{…}'
+transform:
+    SHAPED: {rewrite: {source: $STATEMENT, rewriters: [block, object]}}
+    CHAINED: {replace: {source: $SHAPED, replace: '\s*\n\s*\.', by: '.'}}
+    FLAT: {replace: {source: $CHAINED, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $FLAT, replace: '(?:,\s*)?;?$|,\s*(?P<close>[)\]])|(?P<open>[(\[])\s+', by: '${close}${open}'}}
+name: main
+signature: $SIGNATURE
+isExported: false
+
+---
+id: typescript-export-default
+language: tsx
+role: item
+symbolType: module
+rule:
+    kind: export_statement
+    pattern: $DECLARATION
+    has: {regex: '^default$'}
+    not: {has: {field: declaration, pattern: $_}}
+transform:
+    FLAT: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $FLAT, replace: ';$', by: ''}}
+name: default
+signature: $SIGNATURE
+isExported: true
+
+---
+id: typescript-export-type-list
+language: tsx
+role: item
+symbolType: module
+rule:
+    kind: export_statement
+    pattern: $DECLARATION
+    has: {regex: '^type$'}
+    all:
+        - has: {kind: export_clause}
+        - not: {has: {field: source, pattern: $_}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
+name: types
+signature: $SIGNATURE
+isExported: true
+
+---
+id: typescript-abstract-class
+language: tsx
+role: item
+symbolType: class
+rule:
+    kind: abstract_class_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {kind: abstract_class_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    FLAT: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $FLAT, replace: '\s+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {inside: {kind: export_statement}}
+
+---
+id: typescript-abstract-class-member
+language: tsx
+role: member
+parentRuleIds: [typescript-abstract-class]
+symbolType: method
+rule:
+    kind: abstract_method_signature, method_definition, public_field_definition
+    pattern: $DECLARATION
+    inside: {kind: class_body, inside: {kind: abstract_class_declaration}}
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: statement_block, inside: {kind: method_definition, field: body}}
+      fix: ''
+    - id: value
+      rule: {inside: {kind: public_field_definition, field: value}, pattern: $_}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, value]}}
+    FLAT: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $FLAT, replace: '\s*=?\s*;?$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: accessibility_modifier, regex: '^(private|protected)$'}}}
+
+---
+id: typescript-generator-function
+language: tsx
+role: item
+symbolType: function
+rule:
+    kind: generator_function_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: statement_block, inside: {kind: generator_function_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    FLAT: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $FLAT, replace: '\s+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {inside: {kind: export_statement}}
+
+---
 id: typescript-ambient-member
 language: tsx
 role: member
@@ -8,12 +236,16 @@ utils:
         kind: statement_block
         inside: {kind: module, inside: {kind: ambient_declaration}}
 rule:
-    kind: type_alias_declaration, interface_declaration, function_signature, method_signature
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    any:
-        - inside: {matches: module-body}
-        - inside: {kind: export_statement, inside: {matches: module-body}}
+    all:
+        - any:
+            - kind: type_alias_declaration, interface_declaration, function_signature
+              has: {field: name, pattern: $NAME}
+            - kind: lexical_declaration
+              has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+        - any:
+            - inside: {matches: module-body}
+            - inside: {kind: export_statement, inside: {matches: module-body}}
 transform:
     WITHOUT_VALUE: {replace: {source: $DECLARATION, replace: '^(type\s+[\w$]+(?:<[\s\S]*>)?)\s*=[\s\S]*$', by: '$1'}}
     WITHOUT_BODY: {replace: {source: $WITHOUT_VALUE, replace: '^(interface\s[^{]*?)\s*\{[\s\S]*$', by: '$1'}}
@@ -27,18 +259,14 @@ isPublic: {inside: {kind: export_statement}}
 id: typescript-object-member
 language: tsx
 role: member
-parentRuleIds: [tsx-export-const, tsx-export-const-typed, tsx-top-level-const, tsx-top-level-const-typed, tsx-export-let, tsx-export-let-typed, tsx-top-level-let, tsx-top-level-let-typed]
+parentRuleIds: [typescript-constant, typescript-variable]
 symbolType: property
 utils:
     declared-value:
         inside:
             kind: variable_declarator
             field: value
-            inside:
-                kind: lexical_declaration
-                any:
-                    - inside: {kind: program}
-                    - inside: {kind: export_statement, inside: {kind: program}}
+            inside: {kind: lexical_declaration, inside: {kind: program}}
             stopBy:
                 not: {kind: 'as_expression, satisfies_expression, parenthesized_expression'}
     schema-module:
@@ -63,24 +291,6 @@ utils:
                     - all:
                         - has: {field: source, regex: '^["'']effect/Schema["'']$'}
                         - has: {stopBy: end, kind: namespace_import, has: {kind: identifier, pattern: $MODULE}}
-    constructor-import:
-        kind: identifier
-        pattern: $CONSTRUCTOR
-        inside:
-            kind: program
-            stopBy: end
-            has:
-                kind: import_statement
-                not: {has: {regex: '^type$'}}
-                all:
-                    - has: {field: source, regex: '^["'']effect/Schema["'']$'}
-                    - has:
-                        stopBy: end
-                        kind: import_specifier
-                        has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^(Struct|TaggedUnion)$'}
-                        all:
-                            - has: {kind: identifier, pattern: $CONSTRUCTOR, nthChild: {position: 1, ofRule: {kind: identifier}, reverse: true}}
-                            - not: {has: {regex: '^type$'}}
 rule:
     any:
         - kind: pair
@@ -100,38 +310,30 @@ rule:
                     matches: declared-value
                     has:
                         field: function
-                        any:
-                            - kind: member_expression
-                              all:
-                                - has: {field: property, regex: '^(Struct|TaggedUnion)$'}
-                                - has: {field: object, matches: schema-module}
-                            - matches: constructor-import
+                        kind: member_expression
+                        all:
+                            - has: {field: property, regex: '^(Struct|TaggedUnion)$'}
+                            - has: {field: object, matches: schema-module}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $DECLARATION
+signature: $SIGNATURE
 
 ---
 id: typescript-hook-registration
 language: tsx
 role: member
-parentRuleIds: [tsx-top-level-arrow-function, tsx-export-const, tsx-export-const-typed]
+parentRuleIds: [typescript-function-value]
 symbolType: method
 rule:
     kind: call_expression
-    pattern: $DECLARATION
     inside:
         kind: expression_statement
         inside:
             kind: statement_block
             inside:
                 kind: arrow_function, function_expression
-                inside:
-                    kind: variable_declarator
-                    field: value
-                    inside:
-                        kind: lexical_declaration
-                        any:
-                            - inside: {kind: program}
-                            - inside: {kind: export_statement, inside: {kind: program}}
+                inside: {kind: variable_declarator, field: value, inside: {kind: lexical_declaration, inside: {kind: program}}}
     all:
         - has: {field: function, kind: identifier, regex: '^on$'}
         - has: {field: arguments, has: {kind: 'string, template_string', nthChild: 1, pattern: $EVENT}}

@@ -1,0 +1,284 @@
+<bpy>
+    <Theme>
+        <user_interface>
+            <ThemeUserInterface menu_shadow_width="0" icon_alpha="1" icon_saturation="0" widget_emboss="${Surface.SHADOW}00" link="${Accent.LINK}ff" editor_border="$Surface.FRAME" editor_outline="${Surface.FRAME}ff" editor_outline_active="${Surface.FRAME}ff" widget_text_cursor="$Accent.ITEM_SELECTED" panel_roundness="0.4" panel_header="${Surface.BOX}ff" panel_title="$Text.PRIMARY" panel_text="$Text.PRIMARY" panel_back="${Surface.PANEL}ff" panel_sub_back="$Surface.SHADOW$Alpha.VEIL" panel_outline="$Text.PRIMARY$Alpha.HAIRLINE" panel_active="${Accent.FOCUS}ff" transparent_checker_primary="$Surface.BOX" transparent_checker_secondary="$Surface.PANEL" transparent_checker_size="10" axis_x="$Axis.X" axis_y="$Axis.Y" axis_z="$Axis.Z" axis_w="$Text.SECONDARY" gizmo_hi="$Selection.GIZMO_HOVER" gizmo_primary="$Selection.GIZMO" gizmo_secondary="$Selection.GIZMO_SECONDARY" gizmo_view_align="$Guide.HANDLE" gizmo_a="$Selection.GIZMO" gizmo_b="$Selection.GIZMO_SECONDARY" icon_scene="${Modality.DATA.token}ff" icon_collection="${Text.ICON}ff" icon_object="${Modality.TRANSFORM.token}ff" icon_object_data="${Modality.GEOMETRY.token}ff" icon_modifier="${Modality.VECTOR.token}ff" icon_shading="${Modality.DISPLAY.token}ff" icon_folder="${Modality.DATA.token}ff" icon_autokey="${Accent.CHECKBOX_CHECKED}ff" icon_border_intensity="0">
+                <wcol_regular>
+                    <ThemeWidgetColors outline="${Surface.FIELD}ff" outline_sel="${Accent.CONTROL_PRESSED}ff" inner="${Surface.FIELD}ff" inner_sel="${Accent.CONTROL_PRESSED}ff" item="$Surface.FRAME$Alpha.WIDGET_ITEM" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_regular>
+                <wcol_tool>
+                    <ThemeWidgetColors outline="${Surface.FIELD}ff" outline_sel="${Accent.CONTROL_PRESSED}ff" inner="${Surface.FIELD}ff" inner_sel="${Accent.CONTROL_PRESSED}ff" item="${Text.PRIMARY}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_tool>
+                <wcol_toolbar_item>
+                    <ThemeWidgetColors outline="${Surface.PANEL}ff" outline_sel="${Accent.CONTROL_PRESSED}ff" inner="${Surface.PANEL}ff" inner_sel="${Accent.CONTROL_PRESSED}ff" item="$Text.PRIMARY$Alpha.TOOLBAR_ICON" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_toolbar_item>
+                <wcol_radio>
+                    <ThemeWidgetColors outline="${Surface.FIELD}ff" outline_sel="${Accent.CONTROL_PRESSED}ff" inner="${Surface.FIELD}ff" inner_sel="${Accent.CONTROL_PRESSED}ff" item="${Surface.FRAME}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_radio>
+                <wcol_text>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Accent.FOCUS}ff" inner="${Surface.FIELD}ff" inner_sel="${Field.EDITING}ff" item="${Accent.TEXT_SELECTED}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_text>
+                <wcol_option>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Accent.FOCUS}ff" inner="${Surface.FIELD}ff" inner_sel="${Accent.CHECKBOX_CHECKED}ff" item="${Text.PRIMARY}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_option>
+                <wcol_toggle>
+                    <ThemeWidgetColors outline="${Surface.FIELD}ff" outline_sel="${Accent.CONTROL_PRESSED}ff" inner="${Surface.FIELD}ff" inner_sel="${Accent.CONTROL_PRESSED}ff" item="${Surface.FRAME}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_toggle>
+                <wcol_num>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Accent.FOCUS}ff" inner="${Surface.FIELD}ff" inner_sel="${Field.EDITING}ff" item="${Accent.INDICATOR}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_num>
+                <wcol_numslider>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Accent.FOCUS}ff" inner="${Surface.FIELD}ff" inner_sel="${Field.EDITING}ff" item="${Field.SLIDER}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_numslider>
+                <wcol_box>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Line.BORDER}ff" inner="${Surface.WELL}ff" inner_sel="${Surface.FIELD}ff" item="${Surface.FRAME}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_box>
+                <wcol_curve>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Text.SECONDARY}ff" inner="${Surface.FRAME}ff" inner_sel="${Surface.FRAME}ff" item="${Line.BORDER}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_curve>
+                <wcol_menu>
+                    <ThemeWidgetColors outline="${Surface.FIELD}ff" outline_sel="${Accent.CONTROL_PRESSED}ff" inner="${Surface.FIELD}ff" inner_sel="${Accent.CONTROL_PRESSED}ff" item="${Text.SECONDARY}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_menu>
+                <wcol_pulldown>
+                    <ThemeWidgetColors outline="${Line.BORDER}00" outline_sel="${Accent.FOCUS}00" inner="${Surface.FRAME}00" inner_sel="${Accent.CONTROL_PRESSED}ff" item="${Text.SECONDARY}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_pulldown>
+                <wcol_menu_back>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Line.BORDER}ff" inner="${Surface.FRAME}ff" inner_sel="${Accent.ROW_ACTIVE}ff" item="${Text.SECONDARY}ff" text="$Text.SECONDARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_menu_back>
+                <wcol_pie_menu>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Accent.ROW_ACTIVE}ff" inner="${Surface.FRAME}ff" inner_sel="${Accent.ROW_ACTIVE}ff" item="${Surface.HOVER}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_pie_menu>
+                <wcol_tooltip>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Line.BORDER}ff" inner="${Surface.FRAME}ff" inner_sel="${Accent.ROW_ACTIVE}ff" item="${Text.SECONDARY}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_tooltip>
+                <wcol_menu_item>
+                    <ThemeWidgetColors outline="${Line.BORDER}00" outline_sel="${Accent.FOCUS}00" inner="${solved.menu_inner}00" inner_sel="${Accent.ROW_ACTIVE}ff" item="${Text.SECONDARY}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_menu_item>
+                <wcol_scroll>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Line.BORDER}ff" inner="${Surface.FRAME}00" inner_sel="${Surface.HOVER}ff" item="${Surface.FIELD}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_scroll>
+                <wcol_progress>
+                    <ThemeWidgetColors outline="${Line.BORDER}ff" outline_sel="${Line.BORDER}ff" inner="${Surface.FRAME}ff" inner_sel="${Accent.INDICATOR}ff" item="${Accent.INDICATOR}ff" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_progress>
+                <wcol_list_item>
+                    <ThemeWidgetColors outline="${solved.list_outline}00" outline_sel="${Line.BORDER}ff" inner="${Surface.WELL}00" inner_sel="${Accent.ROW_ACTIVE}ff" item="$Text.PRIMARY$Alpha.ROW_ITEM" text="$Text.PRIMARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_list_item>
+                <wcol_state>
+                    <ThemeWidgetStateColors error="${Status.ERROR}ff" warning="${Status.WARNING}ff" info="${Status.INFO}ff" success="${Status.SUCCESS}ff" inner_anim_sel="$Field.ANIMATED" inner_key_sel="$Field.KEYED" inner_driven_sel="$Field.DRIVEN" inner_overridden_sel="$Field.OVERRIDDEN" inner_changed_sel="$Field.CHANGED" blend="1"/>
+                </wcol_state>
+                <wcol_tab>
+                    <ThemeWidgetColors outline="${Surface.FRAME}ff" outline_sel="${Surface.FRAME}ff" inner="${Surface.WELL}ff" inner_sel="${Accent.TAB_ACTIVE}ff" item="${Surface.FRAME}ff" text="$Text.SECONDARY" text_sel="$Text.PRIMARY" show_shaded="FALSE" roundness="0.4"/>
+                </wcol_tab>
+            </ThemeUserInterface>
+        </user_interface>
+        <regions>
+            <ThemeRegions>
+                <asset_shelf>
+                    <ThemeRegionsAssetShelf back="${Surface.PANEL}ff" header_back="${Surface.FRAME}ff"/>
+                </asset_shelf>
+                <channels>
+                    <ThemeRegionsChannels back="$Surface.WELL" text="$Text.PRIMARY" text_selected="$Accent.ITEM_SELECTED"/>
+                </channels>
+                <scrubbing>
+                    <ThemeRegionsScrubbing back="${Surface.FRAME}ff" text="$Text.SECONDARY" time_marker="${Text.SECONDARY}ff" time_marker_selected="${Accent.ITEM_SELECTED}ff"/>
+                </scrubbing>
+                <sidebars>
+                    <ThemeRegionsSidebars back="${Surface.PANEL}ff" tab_back="${Surface.FRAME}ff"/>
+                </sidebars>
+            </ThemeRegions>
+        </regions>
+        <common>
+            <ThemeCommon>
+                <anim>
+                    <ThemeCommonAnim playhead="${Accent.INDICATOR}ff" preview_range="$Guide.CONSTRUCTION$Alpha.PREVIEW_RANGE" scene_strip_range="$Surface.SHADOW$Alpha.STRIP_RANGE" channels="${Surface.BOX}ff" channels_sub="${Surface.PANEL}ff" channel_group="${Surface.PANEL}ff" channel_group_active="${Accent.ROW_ACTIVE}ff" channel="${Surface.WELL}ff" channel_selected="${Accent.ROW_SELECTED}ff" keyframe="$Text.SECONDARY" keyframe_selected="$Selection.ITEM" keyframe_extreme="$Line.KEY_EXTREME" keyframe_extreme_selected="$Selection.ITEM" keyframe_breakdown="$Line.KEY_BREAKDOWN" keyframe_breakdown_selected="$Selection.ITEM" keyframe_jitter="$Line.KEY_JITTER" keyframe_jitter_selected="$Selection.ITEM" keyframe_moving_hold="$Line.LOCKED" keyframe_moving_hold_selected="$Selection.INACTIVE" keyframe_generated="$Text.DISABLED" keyframe_generated_selected="$Selection.INACTIVE" long_key="$Text.PRIMARY$Alpha.VEIL" long_key_selected="$Selection.ITEM$Alpha.HELD_KEY"/>
+                </anim>
+                <curves>
+                    <ThemeCommonCurves handle_free="$Guide.HANDLE" handle_sel_free="$Selection.ITEM" handle_auto="$Guide.HANDLE" handle_sel_auto="$Selection.ITEM" handle_vect="$Guide.HANDLE" handle_sel_vect="$Selection.ITEM" handle_align="$Guide.HANDLE" handle_sel_align="$Selection.ITEM" handle_auto_clamped="$Guide.HANDLE" handle_sel_auto_clamped="$Selection.ITEM" handle_vertex="$Ink.SCREEN" handle_vertex_select="$Selection.ITEM" handle_vertex_size="$solved.handle_vertex_size"/>
+                </curves>
+            </ThemeCommon>
+        </common>
+        <view_3d>
+            <ThemeView3D grid="${solved.grid}ff" grid_major="$solved.grid_major$Alpha.GRID_MAJOR" grid_axis_brightness="$solved.grid_axis_brightness" clipping_border_3d="${Surface.SECTION}ff" wire="$Ink.SCREEN" wire_edit="$Ink.SCREEN" edge_width="1" gp_wire_edit="$Ink.SCREEN$Alpha.EDIT_WIRE" gp_vertex="$Ink.SCREEN" gp_vertex_select="$Selection.ITEM" gp_vertex_size="$solved.gp_vertex_size" text_grease_pencil="$Text.SECONDARY" object_selected="$Selection.ITEM" object_active="$Selection.ACTIVE" camera="$Guide.HANDLE" empty="$Ink.SCREEN" light="${Guide.HANDLE}ff" speaker="$Guide.HANDLE" vertex="$Ink.SCREEN" vertex_select="$Selection.ITEM" vertex_size="$solved.vertex_size" edge_select="$Selection.ITEM" edge_mode_select="$Selection.ITEM" face="$Text.PRIMARY$Alpha.EDIT_FACE" face_select="$Selection.ITEM$Alpha.FACE_FILL" face_mode_select="$Selection.ITEM$Alpha.FACE_FILL" facedot_size="$solved.facedot_size" face_back="$Status.ERROR$Alpha.BACK_FACE" face_front="${Ink.SCREEN}00" bevel="$Line.BEVEL" seam="$Line.SEAM" sharp="$Line.SHARP" crease="$Line.CREASE" freestyle="${Guide.HANDLE}ff" extra_edge_len="$Text.PRIMARY" extra_edge_angle="$Text.PRIMARY" extra_face_angle="$Text.PRIMARY" extra_face_area="$Text.PRIMARY" editmesh_active="$Selection.ACTIVE$Alpha.FACE_FILL" normal="$Guide.CONSTRUCTION" vertex_normal="$Guide.CONSTRUCTION" split_normal="$Guide.CONSTRUCTION" vertex_unreferenced="$Ink.SCREEN" face_retopology="$Surface.SHADED$Alpha.FACE_FILL" nurb_uline="$Guide.HANDLE" nurb_vline="$Guide.HANDLE" nurb_sel_uline="$Selection.ITEM" nurb_sel_vline="$Selection.ITEM" bone_pose="$Selection.ITEM" bone_pose_active="$Selection.ACTIVE" bone_solid="$Surface.SHADED" bone_locked_weight="$Line.LOCKED$Alpha.LOCKED_WEIGHT" before_current_frame="$Line.BEFORE_FRAME" after_current_frame="$Line.AFTER_FRAME" bundle_solid="$Surface.SHADED" camera_path="$Guide.HANDLE" camera_passepartout="$Surface.SHADOW" skin_root="$Guide.CONSTRUCTION" view_overlay="$Guide.HANDLE" transform="$Guide.TRACKING" outline_width="1" object_origin_size="$solved.object_origin_size">
+                <space>
+                    <ThemeSpaceGradient text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff">
+                        <gradients>
+                            <ThemeGradientColors high_gradient="$solved.canvas" gradient="$solved.canvas"/>
+                        </gradients>
+                    </ThemeSpaceGradient>
+                </space>
+            </ThemeView3D>
+        </view_3d>
+        <graph_editor>
+            <ThemeGraphEditor grid="$Line.GRID_PANEL" vertex="$Text.SECONDARY" vertex_select="$Selection.ITEM" vertex_active="$Selection.ACTIVE" vertex_size="$solved.graph_vertex_size">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.PANEL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeGraphEditor>
+        </graph_editor>
+        <file_browser>
+            <ThemeFileBrowser row_alternate="${Text.PRIMARY}00">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.WELL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeFileBrowser>
+        </file_browser>
+        <nla_editor>
+            <ThemeNLAEditor grid="$Line.GRID_PANEL" active_action="$Accent.INDICATOR$Alpha.ACTIVE_ACTION" active_action_unset="$Line.LOCKED$Alpha.UNSET_ACTION" strips="$Surface.FIELD" strips_selected="$Selection.BODY" transition_strips="$Surface.BOX" transition_strips_selected="$Selection.BODY" meta_strips="$Surface.FIELD" meta_strips_selected="$Selection.BODY" sound_strips="$Surface.FIELD" sound_strips_selected="$Selection.BODY" tweak="$Guide.TENTATIVE" tweak_duplicate="$Status.WARNING" keyframe_border="${Surface.SHADOW}ff" keyframe_border_selected="${Surface.SHADOW}ff">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.PANEL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeNLAEditor>
+        </nla_editor>
+        <dopesheet_editor>
+            <ThemeDopeSheet grid="$Line.GRID_PANEL" keyframe_border="${Surface.SHADOW}ff" keyframe_border_selected="${Surface.SHADOW}ff" keyframe_scale_factor="1" summary="${Surface.BOX}ff" anim_interpolation_linear="$Text.SECONDARY$Alpha.INTERPOLATION" anim_interpolation_constant="$Text.DISABLED$Alpha.INTERPOLATION" anim_interpolation_other="$Line.LOCKED$Alpha.MIXED_INTERPOLATION" simulated_frames="${Accent.INDICATOR}ff">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.PANEL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeDopeSheet>
+        </dopesheet_editor>
+        <image_editor>
+            <ThemeImageEditor grid="$solved.image_grid$solved.image_grid_alpha" vertex="$Ink.SCREEN" vertex_select="$Selection.ITEM" vertex_size="$solved.image_vertex_size" face="$Text.PRIMARY$Alpha.UV_FACE" face_select="$Selection.ITEM$Alpha.FACE_FILL" face_mode_select="${Selection.ITEM}00" facedot_size="$solved.image_facedot_size" editmesh_active="$Selection.ACTIVE$Alpha.FACE_FILL" wire_edit="$Ink.SCREEN" edge_width="1" edge_select="$Selection.ITEM" scope_back="${Surface.PANEL}ff" preview_stitch_face="$Guide.TRACKING$Alpha.FACE_FILL" preview_stitch_edge="$Guide.TRACKING$Alpha.FACE_FILL" preview_stitch_vert="$Guide.TRACKING$Alpha.FACE_FILL" preview_stitch_stitchable="${Guide.TRACKING}ff" preview_stitch_unstitchable="${Status.ERROR}ff" preview_stitch_active="$Guide.TRACKING$Alpha.SELECTION_FILL" uv_shadow="${Line.LOCKED}ff" metadatabg="$Surface.FRAME" metadatatext="$Text.PRIMARY">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.CANVAS" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeImageEditor>
+        </image_editor>
+        <sequence_editor>
+            <ThemeSequenceEditor grid="$Line.GRID_PANEL" movie_strip="$Surface.FIELD" movieclip_strip="$Surface.FIELD" image_strip="$Surface.FIELD" scene_strip="$Surface.FIELD" audio_strip="$Surface.FIELD" effect_strip="$Surface.FIELD" transition_strip="$Surface.FIELD" color_strip="$Surface.FIELD" meta_strip="$Surface.FIELD" mask_strip="$Surface.FIELD" text_strip="$Surface.FIELD" active_strip="$Selection.ACTIVE" selected_strip="$Selection.ITEM" keyframe_border="${Surface.SHADOW}ff" keyframe_border_selected="${Surface.SHADOW}ff" preview_back="$Surface.CANVAS" metadatabg="$Surface.FRAME" metadatatext="$Text.PRIMARY" row_alternate="${Text.PRIMARY}00" text_strip_cursor="${Selection.ITEM}ff" selected_text="${Accent.TEXT_SELECTED}ff">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.PANEL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeSequenceEditor>
+        </sequence_editor>
+        <properties>
+            <ThemeProperties match="$Accent.INDICATOR">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.PANEL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeProperties>
+        </properties>
+        <text_editor>
+            <ThemeTextEditor line_numbers="$Text.SECONDARY" line_numbers_background="$Surface.FRAME" selected_text="$Accent.TEXT_SELECTED" cursor="$Accent.ITEM_SELECTED" syntax_builtin="$Text.KEYWORD" syntax_symbols="$Text.PRIMARY" syntax_special="$Text.FUNCTION" syntax_preprocessor="$Text.DECORATOR" syntax_reserved="$Text.ERROR" syntax_comment="$Text.COMMENT" syntax_string="$Text.STRING" syntax_numbers="$Text.NUMBER">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.WELL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeTextEditor>
+        </text_editor>
+        <node_editor>
+            <ThemeNodeEditor grid="$Line.GRID" node_outline="${Node.BORDER}ff" node_selected="$Node.SELECTED_BORDER" node_active="$Node.ACTIVE_BORDER" wire="${Wire.CASING}ff" wire_inner="$Wire.CORE" wire_select="$Wire.SELECTED$Alpha.WIRE_SELECTED" node_backdrop="${Surface.PANEL}ff" converter_node="$Modality.SCALAR.header" color_node="$Modality.COLOR.header" group_node="$Modality.DATA.header" group_socket_node="$Modality.DATA.header" frame_node="${Surface.RECESS}ff" matte_node="$Modality.TRANSFORM.header" distor_node="$Modality.TRANSFORM.header" noodle_curving="4" grid_levels="3" dash_alpha="0.5" input_node="$Modality.INPUT.header" output_node="$Modality.OUTPUT.header" filter_node="$Modality.COLOR.header" vector_node="$Modality.VECTOR.header" texture_node="$Modality.ANALYSIS.header" shader_node="$Modality.DISPLAY.header" script_node="$Modality.DATA.header" geometry_node="$Modality.GEOMETRY.header" attribute_node="$Modality.DATA.header" simulation_zone="$Modality.INPUT.border$Alpha.ZONE_FILL" repeat_zone="$Modality.TRANSFORM.border$Alpha.ZONE_FILL" foreach_geometry_element_zone="$Modality.VECTOR.border$Alpha.ZONE_FILL" closure_zone="$Modality.DATA.border$Alpha.ZONE_FILL">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.CANVAS" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeNodeEditor>
+        </node_editor>
+        <outliner>
+            <ThemeOutliner match="$Accent.INDICATOR" selected_highlight="$Accent.ROW_SELECTED" active="$Accent.ROW_ACTIVE" selected_object="$Accent.ITEM_SELECTED" active_object="$Accent.ITEM_ACTIVE" edited_object="$Accent.INDICATOR$Alpha.EDITED_OBJECT" row_alternate="${Text.PRIMARY}00">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.WELL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeOutliner>
+        </outliner>
+        <info>
+            <ThemeInfo info_selected="$Accent.ROW_SELECTED" info_selected_text="$Text.PRIMARY" info_error_text="$Text.PRIMARY" info_warning_text="$Text.ON_SOLID" info_info_text="$Text.PRIMARY" info_debug="${Status.INFO}ff" info_debug_text="$Text.PRIMARY" info_property="${Status.INFO}ff" info_property_text="$Text.PRIMARY" info_operator="${Status.INFO}ff" info_operator_text="$Text.PRIMARY">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.WELL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeInfo>
+        </info>
+        <preferences>
+            <ThemePreferences match="$Accent.INDICATOR">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.PANEL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemePreferences>
+        </preferences>
+        <console>
+            <ThemeConsole line_output="$Text.PRIMARY" line_input="$Text.SECONDARY" line_info="$Text.SECONDARY" line_error="$Text.ERROR" cursor="$Accent.ITEM_SELECTED" select="${Accent.TEXT_SELECTED}ff">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.WELL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeConsole>
+        </console>
+        <clip_editor>
+            <ThemeClipEditor grid="${Line.GRID}00" marker_outline="$Surface.SHADOW" marker="$Text.SECONDARY" active_marker="$Selection.ACTIVE" selected_marker="$Selection.ITEM" disabled_marker="$Text.DISABLED" locked_marker="$Line.LOCKED" path_before="$Line.BEFORE_FRAME" path_after="$Line.AFTER_FRAME" path_keyframe_before="$Line.BEFORE_FRAME" path_keyframe_after="$Line.AFTER_FRAME" metadatabg="$Surface.FRAME" metadatatext="$Text.PRIMARY">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.CANVAS" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeClipEditor>
+        </clip_editor>
+        <topbar>
+            <ThemeTopBar>
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.FRAME" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.FRAME}ff"/>
+                </space>
+            </ThemeTopBar>
+        </topbar>
+        <statusbar>
+            <ThemeStatusBar>
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.FRAME" text="$Text.SECONDARY" text_hi="$Text.PRIMARY" header="${Surface.FRAME}ff"/>
+                </space>
+            </ThemeStatusBar>
+        </statusbar>
+        <spreadsheet>
+            <ThemeSpreadsheet row_alternate="${Text.PRIMARY}00">
+                <space>
+                    <ThemeSpaceGeneric back="$Surface.WELL" text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff"/>
+                </space>
+            </ThemeSpreadsheet>
+        </spreadsheet>
+        <bone_color_sets>
+            <ThemeBoneColorSet normal="$Tag.COLOR_01.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.COLOR_02.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.COLOR_03.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.COLOR_04.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.COLOR_05.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.COLOR_06.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.COLOR_07.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.COLOR_08.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+            <ThemeBoneColorSet normal="$Tag.NEUTRAL.value" select="$Selection.ITEM" active="$Selection.ACTIVE" show_colored_constraints="FALSE"/>
+        </bone_color_sets>
+        <collection_color>
+            <ThemeCollectionColor color="$Tag.COLOR_01.value"/>
+            <ThemeCollectionColor color="$Tag.COLOR_02.value"/>
+            <ThemeCollectionColor color="$Tag.COLOR_03.value"/>
+            <ThemeCollectionColor color="$Tag.COLOR_04.value"/>
+            <ThemeCollectionColor color="$Tag.COLOR_05.value"/>
+            <ThemeCollectionColor color="$Tag.COLOR_06.value"/>
+            <ThemeCollectionColor color="$Tag.COLOR_07.value"/>
+            <ThemeCollectionColor color="$Tag.COLOR_08.value"/>
+        </collection_color>
+        <strip_color>
+            <ThemeStripColor color="$Tag.COLOR_01.value"/>
+            <ThemeStripColor color="$Tag.COLOR_02.value"/>
+            <ThemeStripColor color="$Tag.COLOR_03.value"/>
+            <ThemeStripColor color="$Tag.COLOR_04.value"/>
+            <ThemeStripColor color="$Tag.COLOR_05.value"/>
+            <ThemeStripColor color="$Tag.COLOR_06.value"/>
+            <ThemeStripColor color="$Tag.COLOR_07.value"/>
+            <ThemeStripColor color="$Tag.COLOR_08.value"/>
+            <ThemeStripColor color="$Tag.NEUTRAL.value"/>
+        </strip_color>
+    </Theme>
+    <ThemeStyle>
+        <panel_title>
+            <ThemeFontStyle points="11" character_weight="400" shadow="0"/>
+        </panel_title>
+        <widget>
+            <ThemeFontStyle points="11" character_weight="400" shadow="0"/>
+        </widget>
+        <tooltip>
+            <ThemeFontStyle points="10" character_weight="400" shadow="0"/>
+        </tooltip>
+    </ThemeStyle>
+</bpy>

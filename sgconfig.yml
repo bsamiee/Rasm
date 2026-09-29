@@ -16,6 +16,7 @@ customLanguages:
         libraryPath: .cache/ast-grep/sql.so
         extensions: [sql]
         expandoChar: _
+        outlineRules: tools/ast-grep/outline/sql.yml
 languageInjections:
     - hostLanguage: tsx
       rule:

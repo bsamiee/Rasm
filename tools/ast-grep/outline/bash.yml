@@ -1,0 +1,29 @@
+id: bash-function
+language: bash
+role: item
+symbolType: function
+rule:
+    kind: function_definition
+    pattern: $DEFINITION
+    has: {field: name, pattern: $NAME}
+    not: {inside: {kind: function_definition, stopBy: end}}
+transform:
+    SIGNATURE: {replace: {source: $DEFINITION, replace: '^((?:function\s+)?[^\s(]+(?:\s*\(\s*\))?)[\s\S]*$', by: '$1'}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: bash-variable
+language: bash
+role: item
+symbolType: variable
+rule:
+    kind: variable_assignment, variable_name
+    any:
+        - inside: {kind: program}
+          has: {field: name, kind: variable_name, pattern: $NAME}
+        - inside: {kind: declaration_command, pattern: $DECLARATION, inside: {kind: program}}
+          any: [{has: {field: name, pattern: $NAME}}, {pattern: $NAME}]
+transform:
+    KEYWORD: {replace: {source: $DECLARATION, replace: '^(\S+(?:\s+-\S+)*)[\s\S]*$', by: '$1 '}}
+name: $NAME
+signature: $KEYWORD$NAME

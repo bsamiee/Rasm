@@ -83,6 +83,7 @@ class Alpha:
     SELECTION_FILL: Final = 0.12
     CROSSING_FILL: Final = 0.0
     DISABLED: Final = 0.4
+    DISABLED_BUTTON: Final = 0.0
     NULL_WIRE: Final = 0.5
     DISABLED_WIRE: Final = 0.3
     ZONE_FILL: Final = 0.2
@@ -224,6 +225,7 @@ class Guide:
     HANDLE: Final = Palette.NEUTRAL[11]
     TRACKING: Final = Palette.MAGENTA[11]
     TRACKING_ACTIVE: Final = Palette.MAGENTA[12]
+    TRACKING_STORED: Final = Palette.MAGENTA[10]
     TENTATIVE: Final = Palette.MAGENTA[6]
 
 
@@ -326,6 +328,12 @@ def blend(top: tuple[int, int, int], bottom: tuple[int, int, int], alpha: float)
     return (red, green, blue)
 
 
+def fractions(rgb: tuple[int, int, int]) -> tuple[float, float, float]:
+    """Byte fractions of a color, each channel over 255, the form a display color member stores."""
+    red, green, blue = (channel / 255 for channel in rgb)
+    return (red, green, blue)
+
+
 def substituted[T](template: str, text: Callable[[T], str], **values: T) -> str:
     """Template text with each `$dotted.path` placeholder replaced by the text of the run-time value or role it names."""
 
@@ -360,5 +368,6 @@ __all__ = [
     "Typography",
     "Wire",
     "blend",
+    "fractions",
     "substituted",
 ]

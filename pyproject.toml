@@ -315,7 +315,7 @@ dev = [
     "coverage",
     "dirty-equals",
     "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
-    "fake-bpy-module-5.2",                                # bpy, bmesh, mathutils, and gpu stubs matching the installed Blender for skill scripts
+    "fake-bpy-module-latest",                             # bpy, bmesh, mathutils, and gpu stubs from Blender's main branch for skill scripts
     "rhino-stubs-typed",                                  # RhinoCommon and Grasshopper stubs for the use-rhino skill scripts that run in Rhino's Python
     "rhino3dm",                                           # openNURBS geometry and 3dm file IO, the sdist builds its extension with the cmake build dependency
     "hypothesis",
@@ -391,7 +391,7 @@ cache-dir = ".cache/ruff"
 preview = true
 line-length = 200
 src = [".", "libs/python", "tools"]
-per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313", ".claude/skills/use-rhino/scripts/*.py" = "py313" }
+per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313", ".claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py" = "py313" }
 format = { line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]

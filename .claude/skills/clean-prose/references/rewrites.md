@@ -146,7 +146,7 @@ Identifier and file renames update every reference:
 - BEFORE: `Read in order before the first edit, with <agent> each file in scope and <dir> its agents directory`
 - AFTER: `Read in order before first edit, with <agent> each file in scope and <dir> its directory`
 
-- BEFORE: `` `<file>` and `<project file>` whole, the layout, the store keys, the options, the events, the proof lines, and the known issues ``
+- BEFORE: `` `<file>` and `<project file>` whole, the layout, the store keys, the options, the events, the test lines, and the known issues ``
 - AFTER: `` `<file>` and `<project file>` whole `` (apposition restated headings of file)
 
 - KEEP: `` `<check>`, parse state of every file in directory `` (one reading decides next step)
@@ -167,7 +167,7 @@ Identifier and file renames update every reference:
 
 - BEFORE: `Confidence comes from tests, not from inspecting the implementation`
 - AFTER: `Confidence comes from tests`
-- WRONG: `Confidence comes from tests, inspecting the implementation proves nothing` (one negative swapped for another)
+- WRONG: `Confidence comes from tests, inspecting the implementation shows nothing` (one negative swapped for another)
 
 - BEFORE: `` Read a `.binlog` only through the `binlog` MCP tools, never directly ``
 - AFTER: `` Read a `.binlog` through `binlog` MCP tools `` (direct read goes in anti-pattern table)

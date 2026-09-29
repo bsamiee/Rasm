@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {kind: simple_identifier, regex: '^withChecked(Throwing)?Continuation$'}
+        - has: {kind: simple_identifier, regex: '^with(Checked|Unsafe)(Throwing)?Continuation$'}
         - has:
             kind: call_suffix
             has:

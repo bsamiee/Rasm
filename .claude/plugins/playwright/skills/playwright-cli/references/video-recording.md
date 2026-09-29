@@ -34,7 +34,7 @@ playwright-cli video-start $PLAYWRIGHT_MCP_OUTPUT_DIR/checkout-test-run-42.webm
 
 ### 2. Record entire hero scripts.
 
-When recording a video for the user or as a proof of work, it is best to create a code snippet and execute it with run-code.
+When recording a video for the user, it is best to create a code snippet and execute it with run-code.
 It allows inserting appropriate pauses between the actions and annotating the video. There are new Playwright APIs for that.
 
 1) Perform scenario using CLI and take note of all locators and actions. You'll need those locators to request their bounding boxes for highlight.

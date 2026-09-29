@@ -53,4 +53,4 @@ rule:
             - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition}}}
             - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: tested-field}}
 message: '`$NAME` defaults to an empty string standing for absence'
-note: 'Declare `<name>: str | None = None` and test `is None`'
+note: 'Declare `<name>: str | None = None` and test `is None`, an empty string is a value the type admits and states no absence'

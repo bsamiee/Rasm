@@ -150,4 +150,4 @@ transform:
     CLOSE: {replace: {source: $RECORD, replace: '^.+$', by: ')'}}
 fix: $SAME$REPLACE$MODULE_CALLEE$OPEN$CHANGES$CLOSE$UNFIXED
 message: '`$C(...)` rebuilds `$X` by spelling its fields'
-note: 'Use `replace(<record>, <field>=<value>)` from `copy`, or the record itself when no field changes'
+note: 'Use `replace(<record>, <field>=<value>)` from `copy`, or the record itself when no field changes, kept fields stay unspelled'

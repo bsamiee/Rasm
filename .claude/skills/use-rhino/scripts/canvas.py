@@ -1,5 +1,5 @@
-# ty: ignore[unresolved-import, too-many-positional-arguments]
-# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, no-any-return, attr-defined, call-arg, type-abstract"
+# ty: ignore[unresolved-import, too-many-positional-arguments, unsupported-operator]
+# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, no-any-return, attr-defined, call-arg, type-abstract, operator"
 # /// script
 # dependencies = ["msgspec"]
 #
@@ -18,11 +18,12 @@ from pathlib import Path
 import clr
 from document import artifacts, layer_index, Objects, read_objects
 from Eto.Drawing import Bitmap, ImageFormat, PixelFormat, PointF, RectangleF
+from Grasshopper2 import Folders
 from Grasshopper2.Bake import BakeContext, BakeDataState, BakeUpdateMode, IBakeAware, MetaPattern, UserPattern
 from Grasshopper2.Components import Component, Side
 from Grasshopper2.Data import Modifiers
-from Grasshopper2.Doc import Document, DocumentIO, DocumentState, FileContents, IAttributes, IDocumentObject, IParameterAttributes, ObjectActivity
-from Grasshopper2.Framework import ObjectProxies, ObjectProxy, PluginRequirement, PluginRequirements, PluginServer
+from Grasshopper2.Doc import Document, DocumentIO, DocumentState, FileContents, GraphTopology, IAttributes, IDocumentObject, IParameterAttributes, ObjectActivity
+from Grasshopper2.Framework import FailureKind, ObjectProxies, ObjectProxy, PluginRequirement, PluginRequirements, PluginServer
 from Grasshopper2.Parameters import Connections, IParameter, IPin, Pins
 from Grasshopper2.Parameters.Special import NumberSliderObject, TextInputObject, ToggleObject, ValueListObject, ValueObject
 from Grasshopper2.Parameters.Standard import AbsoluteTolerancePin, UnitSystem, UnitSystemPin
@@ -38,13 +39,13 @@ from records import collect_faults, Fault, File, Record
 from Rhino import RhinoDoc
 from Rhino.DocObjects import ObjectAttributes
 from Rhino.Geometry import Box, Brep, Circle, Curve, GeometryBase, Interval, Line, Mesh, Plane, Point3d, Rectangle3d, Vector3d
-from Rhino.Runtime import HostUtils
+from Rhino.Runtime.Code.Languages import LanguageSpec
 from RhinoCodePlatform.GH import IScriptParameter
 from RhinoCodePlatform.GH.Context import IScriptObject
-from ScriptComponents.Components import BaseScriptComponent, CSharpComponent, Python3Component
-from System import Activator, AppDomain, Array, Convert, Enum, Guid, Object, TimeSpan, Type
-from System.Collections.Generic import IEnumerable
-from System.Reflection import Assembly, RuntimeReflectionExtensions
+from ScriptComponents.Components import BaseScriptComponent
+from ScriptComponents.Parameters import ConsoleOutParameter
+from System import Activator, Array, Convert, Enum, Guid, Object, TimeSpan
+from System.Reflection import BindingFlags
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -85,13 +86,14 @@ class Node(Record, frozen=True):
 
 
 class Plugin(Record, frozen=True):
-    """Third-party Grasshopper 2 plugin with its components by `chapter/section`, or the reason its library failed to load."""
+    """Third-party Grasshopper 2 plugin with its components by `chapter/section`, or a library that failed to load."""
 
     id: str | None
     name: str
     location: str
     components: dict[str, tuple[str, ...]]
-    failure: str | None = None
+    failure: FailureKind | None = None
+    reason: str | None = None
 
 
 class Slider(Record, frozen=True):
@@ -120,8 +122,8 @@ class Part(Record, frozen=True):
     outputs: tuple[str, ...] = ()
 
 
-class Stage(Record, frozen=True):
-    """Parts one named group holds in an Open Color family."""
+class Group(Record, frozen=True):
+    """Named group of parts in an Open Color family."""
 
     name: str
     color: str
@@ -165,7 +167,7 @@ def _parameters(document_object: object, side: Side) -> tuple[IParameter, ...]:
 
 
 def _name(parameter: IParameter) -> str:
-    """Return the name a build wires a port by, a script parameter's variable name and every other port's own name."""
+    """Return the name a build wires a port by, a script parameter's variable name or another port's name."""
     match parameter:
         case IScriptParameter():
             return IScriptParameter(parameter).VariableName
@@ -185,8 +187,8 @@ def _port(parameters: Sequence[IParameter], port: Port) -> IParameter | tuple[Fa
             return (Fault(IParameter, port, tuple(named)),)
 
 
-def _joint(objects: Mapping[str, IDocumentObject | tuple[Fault, ...]], key: str, port: Port, side: Side) -> IParameter | tuple[Fault, ...]:
-    """Return a wire end on the object `key` names, an object that failed to resolve adding no fault of its own."""
+def _end(objects: Mapping[str, IDocumentObject | tuple[Fault, ...]], key: str, port: Port, side: Side) -> IParameter | tuple[Fault, ...]:
+    """Return a wire end on the object `key` names, a fault for an unknown key, and no fault for an object that failed to resolve."""
     match objects.get(key):
         case None:
             return (Fault(Wire, key, tuple(objects)),)
@@ -196,8 +198,14 @@ def _joint(objects: Mapping[str, IDocumentObject | tuple[Fault, ...]], key: str,
             return _port(_parameters(found, side), port)
 
 
+def _ends(objects: Mapping[str, IDocumentObject | tuple[Fault, ...]], wires: Sequence[Wire]) -> tuple[tuple[tuple[IParameter, IParameter], ...], tuple[Fault, ...]]:
+    """Return each wire's source output and target input beside every fault among the ends."""
+    ends = tuple((_end(objects, connection.source, connection.output, Side.Output), _end(objects, connection.target, connection.input, Side.Input)) for connection in wires)
+    return ends, collect_faults(*ends)
+
+
 def _converted(parameter: IParameter, items: Sequence[Item]) -> object | tuple[Fault, ...]:
-    """Return values in a typed port's own type through Grasshopper 2's conversions as its array, a port of any type taking them as a list."""
+    """Return values as an array of a typed port's type through Grasshopper 2 conversions, or as a list for an untyped port."""
     match parameter.TypeAssistantWeak:
         case None:
             return list(items)
@@ -218,14 +226,14 @@ def _source(document: Document, source_id: object) -> tuple[str, str]:
 
 
 def _family(color: str) -> object | tuple[Fault, ...]:
-    """Return the Open Color family `color` names."""
-    family = Type.GetType("Eto.Drawing.OpenColor+Family, Grasshopper2", throwOnError=True)
+    """Return the Open Color family `color` names in the type `GroupObject.GroupColour` holds."""
+    family = clr.GetClrType(GroupObject).GetProperty("GroupColour").PropertyType
     names = tuple(Enum.GetNames(family))
     return Enum.Parse(family, color) if color in names else (Fault(GroupObject, color, names),)
 
 
 def _modifiers(modifiers: Sequence[Modifier]) -> Modifiers | tuple[Fault, ...]:
-    """Chain `With<Name>` modifiers from an empty set, `(name, depth)` passing its depth."""
+    """Chain `With<Name>` modifiers from an empty set, `(name, depth)` as `With<Name>(depth)`."""
     accepted = tuple(sorted({method.Name.removeprefix("With") for method in clr.GetClrType(Modifiers).GetMethods() if method.Name.startswith("With") and not method.Name.startswith("Without")}))
     steps = [(modifier,) if isinstance(modifier, str) else modifier for modifier in modifiers]
     unknown = tuple(Fault(Modifiers, name, accepted) for name, *_ in steps if name not in accepted)
@@ -241,7 +249,7 @@ def _modifiers(modifiers: Sequence[Modifier]) -> Modifiers | tuple[Fault, ...]:
 
 
 def _group(document: Document, doc: RhinoDoc, name: str, family: object, members: Sequence[IDocumentObject]) -> GroupObject | tuple[Fault, ...]:
-    """Add a named group holding `members`, pinned to `doc`'s unit system and absolute tolerance, refusing a repeated member."""
+    """Add a named group of `members` pinned to `doc`'s unit system and absolute tolerance, or a fault per repeated member."""
     created = GroupObject()
     created.GroupColour, created.UserName = family, name
     if refused := tuple(Fault(GroupObject, str(member.InstanceId)) for member in members if not created.AddContent(member.InstanceId)):
@@ -260,7 +268,7 @@ def _group(document: Document, doc: RhinoDoc, name: str, family: object, members
 
 
 def _describe(item: object) -> Value:
-    """Describe a value by its geometry."""
+    """Return an item as a JSON value, geometry as its coordinates and measures."""
 
     def measures(shape: Box | GeometryBase) -> dict[str, object]:
         match shape:
@@ -383,12 +391,7 @@ def graph(document: Document, sample: int = 3) -> tuple[Node, ...]:
 def plugins() -> tuple[Plugin, ...]:
     """Load Grasshopper 2 libraries installed since the editor started and list every third-party plugin and failed library."""
     PluginServer.ScopeYakPlugins()
-    pending = {location for location in PluginServer.State.ScopedLocations if not PluginServer.State.IsLocationLoaded(location)}
-    held = {Path(item.Location).stem for item in AppDomain.CurrentDomain.GetAssemblies() if not item.IsDynamic}
-    for dependency in {sibling for location in pending for sibling in Path(location).parent.glob("*.dll") if sibling.stem not in held and HostUtils.IsManagedDll(str(sibling))}:
-        Assembly.LoadFrom(str(dependency))
-    PluginServer.LoadAllScopedPlugins(lambda location: location in pending)
-    core = {Path(location).resolve() for location in (*PluginServer.CorePlugins, clr.GetClrType(ObjectProxies).Assembly.Location)}
+    PluginServer.LoadAllScopedPlugins()
     proxies = sorted((proxy for proxy in ObjectProxies.Proxies if not proxy.Obsolete), key=lambda proxy: (str(proxy.Plugin.Id), proxy.Nomen.Chapter, proxy.Nomen.Section, proxy.Nomen.Name))
     components = {
         owner: {
@@ -401,10 +404,10 @@ def plugins() -> tuple[Plugin, ...]:
         *(
             Plugin((key := str(plugin.Id)), plugin.Name, location, components.get(key, {}))
             for location, plugin in ((pair.Item1, pair.Item2) for pair in PluginServer.State.Loaded)
-            if Path(location).resolve() not in core
+            if not Path(location).is_relative_to(Folders.PluginFolder)
         ),
         *(
-            Plugin(None, Path(location).stem, location, {}, failure.Reason if failure.Exception is None else f"{failure.Reason} {(failure.Exception.InnerException or failure.Exception).Message}")
+            Plugin(None, Path(location).stem, location, {}, failure.Kind, failure.Reason if failure.Exception is None else f"{failure.Reason} {failure.Exception.GetBaseException().Message}")
             for location, failure in ((pair.Item1, pair.Item2) for pair in PluginServer.State.Failures)
         ),
     )
@@ -413,9 +416,9 @@ def plugins() -> tuple[Plugin, ...]:
 # --- [EDITS]
 
 
-def build(document: Document, doc: RhinoDoc, stages: Sequence[Stage], wires: Sequence[Wire] = ()) -> dict[str, str] | tuple[Fault, ...]:
-    """Add stages of parts as named groups laid out by flow, with values, modifiers, and wires, and map each key to its canvas id, or return every fault."""
-    all_parts = [part for stage in stages for part in stage.parts]
+def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Sequence[Wire] = ()) -> dict[str, str] | tuple[Fault, ...]:
+    """Add groups of parts laid out by flow, with values, modifiers, and wires, and map each key to its canvas id, or return every fault."""
+    all_parts = [part for entry in groups for part in entry.parts]
     parts = {part.key: part for part in all_parts}
     repeated = tuple(Fault(Part, key) for key, count in Counter(part.key for part in all_parts).items() if count > 1)
     fields = {(key, name): part for key, part in parts.items() if isinstance(part, Part) for name in dict.fromkeys((*part.values, *part.modifiers))}
@@ -423,13 +426,13 @@ def build(document: Document, doc: RhinoDoc, stages: Sequence[Stage], wires: Seq
     def scripted(emitted: IDocumentObject, part: Part, source: str) -> IDocumentObject | tuple[Fault, ...]:
         if not isinstance(emitted, BaseScriptComponent):
             return (Fault(BaseScriptComponent, part.selector),)
-        component = {clr.GetClrType(kind): kind for kind in (Python3Component, CSharpComponent)}[emitted.GetType()].Create(part.name or part.key, source)
+        component = type(emitted.__implementation__).Create(part.name or part.key, source)
         component.Context.EnforceParamsOnCreate = False
         component.Context.InitLanguages(document, component.Context.GetLanguageSpec())
-        component.MarshalInputs = component.MarshalOutputs = component.MarshalGuids = isinstance(component, Python3Component)
+        component.MarshalInputs = component.MarshalOutputs = component.MarshalGuids = LanguageSpec.Python.Matches(component.Context.GetLanguageSpec())
         document.Objects.Add(component, PointF(0.0, 0.0))
         IScriptObject(component).ParamsCollect()
-        for parameter in [parameter for parameter in component.Parameters.Outputs if part.outputs and parameter.UserName]:
+        for parameter in [parameter for parameter in component.Parameters.Outputs if not isinstance(parameter, ConsoleOutParameter)] if part.outputs else ():
             component.Parameters.RemoveOutput(parameter, None)
         for name in part.outputs:
             component.DoCreateParameter(Side.Output, component.Parameters.OutputCount, None)
@@ -440,11 +443,11 @@ def build(document: Document, doc: RhinoDoc, stages: Sequence[Stage], wires: Seq
         if not isinstance(emitted, ValueListObject):
             return (Fault(ValueListObject, part.selector),)
         document.Objects.Add(emitted, PointF(0.0, 0.0))
-        kind = clr.GetClrType(ValueListObject).Assembly.GetType("Grasshopper2.Parameters.Special.ValueListItem", throwOnError=True)
+        setter = clr.GetClrType(ValueListObject).GetMethod("Set", BindingFlags.Instance | BindingFlags.NonPublic)
+        kind = setter.GetParameters()[0].ParameterType.GetElementType()
         items = Array.CreateInstance(kind, len(part.items))
         for index, (name, text) in enumerate(part.items):
             items.SetValue(Activator.CreateInstance(kind, Array[Object]([name, text, index == part.selected, None])), index)
-        setter = next(method for method in RuntimeReflectionExtensions.GetRuntimeMethods(clr.GetClrType(ValueListObject)) if method.Name == "Set" and method.IsAssembly)
         setter.Invoke(emitted, Array[Object]([items, False]))
         return emitted
 
@@ -466,13 +469,12 @@ def build(document: Document, doc: RhinoDoc, stages: Sequence[Stage], wires: Seq
 
     made = {key: created(part) for key, part in parts.items()}
     objects, object_faults = _partition(made)
-    families, family_faults = _partition(dict(enumerate(_family(stage.color) for stage in stages)))
-    ports, port_faults = _partition({(key, name): _joint(made, key, name, Side.Input) for key, name in fields})
+    families, family_faults = _partition(dict(enumerate(_family(entry.color) for entry in groups)))
+    ports, port_faults = _partition({(key, name): _end(made, key, name, Side.Input) for key, name in fields})
     chains, chain_faults = _partition({(key, name): _modifiers(part.modifiers[name]) for (key, name), part in fields.items() if name in part.modifiers})
     persistent, value_faults = _partition({(key, name): _converted(ports[key, name], part.values[name]) for (key, name), part in fields.items() if name in part.values and (key, name) in ports})
-    sources, source_faults = _partition({index: _joint(made, connection.source, connection.output, Side.Output) for index, connection in enumerate(wires)})
-    targets, target_faults = _partition({index: _joint(made, connection.target, connection.input, Side.Input) for index, connection in enumerate(wires)})
-    if faults := (*repeated, *object_faults, *family_faults, *port_faults, *value_faults, *chain_faults, *source_faults, *target_faults):
+    ends, end_faults = _ends(made, wires)
+    if faults := (*repeated, *object_faults, *family_faults, *port_faults, *value_faults, *chain_faults, *end_faults):
         document.Methods.DeleteObjects(Array[IDocumentObject]([item for item in objects.values() if item.Document is not None]), None, ActionList.Empty)
         return faults
     for item in (item for item in objects.values() if item.Document is None):
@@ -483,9 +485,9 @@ def build(document: Document, doc: RhinoDoc, stages: Sequence[Stage], wires: Seq
         ports[field].Set(items)
     for field, modifier_set in chains.items():
         ports[field].Modifiers = modifier_set
-    for index, source in sources.items():
-        Connections.Connect(source, targets[index], None)
-    grouped = [_group(document, doc, stage.name, families[index], [objects[part.key] for part in stage.parts]) for index, stage in enumerate(stages)]
+    for source, target in ends:
+        Connections.Connect(source, target, None)
+    grouped = [_group(document, doc, entry.name, families[index], [objects[part.key] for part in entry.parts]) for index, entry in enumerate(groups)]
     arrange(document)
     return collect_faults(*grouped) or {key: str(item.InstanceId) for key, item in objects.items()}
 
@@ -494,14 +496,13 @@ def wire(document: Document, wires: Sequence[Wire], *, replace: bool = True) -> 
     """Join existing objects by canvas id, `replace` dropping each target input's earlier sources, and describe each target."""
     found = {canvas_id: _find(document, canvas_id) for connection in wires for canvas_id in (connection.source, connection.target)}
     objects, object_faults = _partition(found)
-    sources, source_faults = _partition({index: _joint(found, connection.source, connection.output, Side.Output) for index, connection in enumerate(wires)})
-    targets, target_faults = _partition({index: _joint(found, connection.target, connection.input, Side.Input) for index, connection in enumerate(wires)})
-    if faults := (*object_faults, *source_faults, *target_faults):
+    ends, end_faults = _ends(found, wires)
+    if faults := (*object_faults, *end_faults):
         return faults
-    for target in targets.values() if replace else ():
+    for _, target in ends if replace else ():
         Connections.DisconnectAllInputs(target, None)
-    for index, source in sources.items():
-        Connections.Connect(source, targets[index], None)
+    for source, target in ends:
+        Connections.Connect(source, target, None)
     return tuple(_node(objects[canvas_id], 0) for canvas_id in dict.fromkeys(connection.target for connection in wires))
 
 
@@ -569,18 +570,15 @@ def group(document: Document, doc: RhinoDoc, name: str, color: str, ids: Sequenc
 
 
 def cluster(document: Document, ids: Sequence[str], name: str) -> Node | tuple[Fault, ...]:
-    """Collapse objects into one cluster named `name` that keeps their boundary wires and takes their place in each group, refused with the reason for a set no cluster holds."""
+    """Collapse objects into one cluster named `name` that keeps their boundary wires and takes their place in each group, refused with the topology of an empty or concave set."""
     found = [_find(document, canvas_id) for canvas_id in ids]
     if faults := collect_faults(*found):
         return faults
     members, connectivity = Array[IDocumentObject](found), document.Objects.Connectivity
     founding = {member.FoundingObject.InstanceId for member in members}
     between = {node.Id for member in founding for node in connectivity.FindAllOutputs(member)} & {node.Id for member in founding for node in connectivity.FindAllInputs(member)}
-    allowed, reason = document.Methods.CanCreateCluster(members)
-    if not allowed:
-        return (Fault(Document, name, (reason,)),)
-    if between - founding:
-        return (Fault(Document, name, ("A cluster may not contain a concave set of objects.",)),)
+    if (topology := GraphTopology.Concave if between - founding else connectivity.SubsetTopology(Array[Guid]([*founding]))) in {GraphTopology.Empty, GraphTopology.Concave}:
+        return (Fault(Document, name, (topology,)),)
     created, placed = document.Methods.ClusterObjects(members, None), {member.InstanceId for member in members}
     created.UserName = name
     shared = {owner: common for owner in document.Objects.Groups if (common := placed.intersection(owner.ContentIds))}
@@ -697,10 +695,8 @@ def image(document: Document, name: str, margin: int = 24) -> File[int]:
         context = graphics.ContentContext
         for owner in document.Objects.Groups:
             owner.Attributes.Draw(context, skin)
-        repository = clr.GetClrType(Editor).Assembly.GetType("Grasshopper2.UI.Canvas.WireRepository", throwOnError=True)
-        signature = Array[Type]([context.GetType(), skin.GetType(), frame.GetType(), frame.GetType(), clr.GetClrType(IEnumerable[IAttributes])])
-        arguments = Array[Object]([context, skin, frame, frame, Array[IAttributes]([item.Attributes for item in placed])])
-        repository.GetMethod("DrawWires", signature).Invoke(Activator.CreateInstance(repository, Array[Object]([document])), arguments)
+        repository = Activator.CreateInstance(clr.GetClrType(WireShape).Assembly.GetType("Grasshopper2.UI.Canvas.WireRepository", throwOnError=True), Array[Object]([document]))
+        repository.DrawWires(context, skin, frame, frame, Array[IAttributes]([item.Attributes for item in placed]))
         for item in placed:
             item.Attributes.Draw(context, skin)
     finally:
@@ -715,4 +711,4 @@ def image(document: Document, name: str, margin: int = 24) -> File[int]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Data", "Node", "Part", "Plugin", "Slider", "Stage", "Wire", "arrange", "assign", "bake", "build", "cluster", "definition", "delete", "graph", "group", "image", "plugins", "show", "wire"]
+__all__ = ["Data", "Group", "Node", "Part", "Plugin", "Slider", "Wire", "arrange", "assign", "bake", "build", "cluster", "definition", "delete", "graph", "group", "image", "plugins", "show", "wire"]

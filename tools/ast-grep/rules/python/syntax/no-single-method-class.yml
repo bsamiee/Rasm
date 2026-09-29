@@ -13,22 +13,62 @@ utils:
         kind: decorated_definition
         has: {kind: decorator, regex: '^@staticmethod$'}
         not: {has: {kind: function_definition, has: {field: name, regex: '^__.*__$'}}}
+    field-value:
+        any:
+            - kind: identifier, integer, float, true, false, none
+            - kind: unary_operator
+              has: {kind: 'integer, float'}
+            - kind: string
+              not: {has: {kind: interpolation}}
+            - kind: list, tuple, set, dictionary, expression_list, pair
+              not: {has: {pattern: $_, not: {matches: field-value}}}
+    self-field:
+        kind: attribute
+        has: {field: object, kind: identifier, regex: '^self$'}
+    self-assignment:
+        kind: expression_statement
+        has:
+            kind: assignment
+            all:
+                - has:
+                    field: left
+                    any:
+                        - matches: self-field
+                        - kind: pattern_list
+                          has: {matches: self-field}
+                          not: {has: {pattern: $_, not: {matches: self-field}}}
+                - has: {field: right, matches: field-value}
+    single-operation:
+        all:
+            - has: {matches: method}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{matches: python-docstring-or-comment}, {matches: init}]}}}}}
+    static-operations:
+        all:
+            - has: {matches: static-method}
+            - not: {has: {not: {any: [{matches: python-docstring-or-comment}, {matches: static-method}]}}}
+    field-assignments:
+        all:
+            - not: {has: {kind: function_definition, not: {matches: init}}}
+            - not:
+                any:
+                    - has: {kind: decorated_definition, has: {kind: function_definition, not: {has: {field: name, regex: '^__.*__$'}}}}
+                    - has: {kind: expression_statement, has: {kind: assignment, has: {field: right, not: {kind: 'integer, float, string, true, false, none, tuple, list, unary_operator'}}}}
+            - has:
+                matches: init
+                has:
+                    field: body
+                    all:
+                        - has: {matches: self-assignment}
+                        - not: {has: {not: {any: [{matches: python-docstring-or-comment}, {matches: self-assignment}]}}}
 rule:
     kind: class_definition
     all:
         - matches: python-plain-class
         - has: {field: name, pattern: $NAME}
         - not: {has: {kind: identifier, regex: '^__class__$', stopBy: end}}
-        - has:
-            field: body
-            any:
-                - all:
-                    - has: {matches: method}
-                    - not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{matches: python-docstring-or-comment}, {matches: init}]}}}}}
-                - all:
-                    - has: {matches: static-method}
-                    - not: {has: {not: {any: [{matches: python-docstring-or-comment}, {matches: static-method}]}}}
-message: '`$NAME` holds one instance method or static methods alone'
-note: 'Write the operation as a function and its state as a frozen `msgspec.Struct`, or an `attrs.frozen` class where the interpreter lacks msgspec'
+        - not: {has: {field: body, has: {kind: function_definition, has: {field: name, regex: '^(__new__|__setattr__)$'}, stopBy: {not: {kind: decorated_definition}}}}}
+        - has: {field: body, any: [{matches: single-operation}, {matches: static-operations}, {matches: field-assignments}]}
+message: '`$NAME` is a plain class holding one method, static methods alone, or an `__init__` that only assigns fields'
+note: 'Declare the fields on a frozen `msgspec.Struct`, or an `attrs.frozen` class where the interpreter lacks msgspec, and each operation as a module function, a record and a function each state what the class spells by hand'
 labels:
-    NAME: {style: primary, message: Class with one method}
+    NAME: {style: primary, message: Plain class}

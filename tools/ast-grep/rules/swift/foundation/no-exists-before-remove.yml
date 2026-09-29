@@ -35,10 +35,7 @@ utils:
             - pattern: '$MANAGER.removeItem(atPath: $SUBJECT)'
             - pattern: '$MANAGER.trashItem(at: $SUBJECT, resultingItemURL: $$_)'
     exit-body:
-        kind: statements
-        all:
-            - has: {nthChild: 1, kind: control_transfer_statement}
-            - not: {has: {nthChild: 2}}
+        matches: {swift-single-statement: {first: {kind: control_transfer_statement}}}
 rule:
     pattern: $SITE
     any:

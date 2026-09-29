@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-failure-as-log-message
+language: tsx
+severity: error
+utils:
+    log-member:
+        matches: effect-effect-member
+        has: {field: property, regex: '^(log|logTrace|logDebug|logInfo|logWarning|logError|logFatal)$'}
+    failure-handler:
+        kind: call_expression
+        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(tapError|tapErrorTag|catch|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons)$'}}
+    failure-callback:
+        kind: arrow_function, function_expression
+        all:
+            - any:
+                - has: {field: parameter, kind: identifier, pattern: $ERROR}
+                - has: {field: parameters, has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ERROR}}}
+            - any:
+                - inside: {kind: arguments, inside: {matches: failure-handler}}
+                - inside: {kind: pair, field: value, inside: {kind: object, inside: {kind: arguments, inside: {matches: failure-handler}}}}
+rule:
+    pattern: $LOG
+    any:
+        - matches: log-member
+          inside: {kind: arguments, inside: {matches: failure-handler, has: {field: function, has: {field: property, regex: '^tapError$'}}}}
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: log-member}
+            - has: {field: arguments, has: {kind: identifier, pattern: $ERROR}}
+            - inside: {matches: failure-callback, stopBy: {matches: syntax-function-boundary}}
+message: '`$LOG` logs the failure as a message value'
+note: '`Effect.tapCause(Effect.logError)` or `Effect.logError(<text>, Cause.fail(<error>))` hands the failure to the log cause, the logger renders a log cause with its span frame and `[cause]` chain'

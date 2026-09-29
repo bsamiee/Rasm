@@ -1,11 +1,10 @@
-# mypy: disable-error-code="arg-type, index, union-attr"
+# mypy: disable-error-code="index, union-attr"
 # ty: ignore[unresolved-attribute]
 # ruff: file-ignore[suspicious-xml-etree-import, subprocess-without-shell-equals-true]
-"""Write the Line Art strokes seen through an orthographic camera as an SVG and PDF sheet at scale to `.artifacts/blender/<name>.svg` and `.pdf`, screen-ink white in document black, run inside Blender through `runpy.run_path`."""
+"""Grease Pencil strokes an orthographic camera sees as an SVG and PDF sheet at scale in `.artifacts/blender/`, screen ink written as document ink."""
 
 from enum import StrEnum
 from itertools import pairwise
-from pathlib import Path
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
@@ -14,16 +13,17 @@ import attrs
 import bpy
 from mathutils import Color
 import numpy as np
+from results import artifacts, unknown, UnknownObjects
+
+from interface.roles import Ink
+from interface.units import Length
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type Outcome = Sheet | Rejected | NoPdf
 
 
 class Rejection(StrEnum):
     """Scene state no sheet draws from, each value the `kind` its result reports."""
 
-    UNKNOWN_OBJECTS = "UnknownObjects"
     NO_CAMERA = "NoCamera"
     NOT_CAMERA = "NotCamera"
     NOT_ORTHOGRAPHIC = "NotOrthographic"
@@ -36,11 +36,11 @@ class Rejection(StrEnum):
 
 @attrs.frozen
 class Sheet:
-    """Written SVG and PDF, paper size in millimeters, scale denominator, camera, and drawn stroke count per Grease Pencil object."""
+    """Written SVG and PDF, paper size in meters, scale denominator, camera, and drawn stroke count per Grease Pencil object."""
 
-    path: str
+    svg: str
     pdf: str
-    paper_mm: tuple[float, float]
+    paper: tuple[float, float]
     scale: int
     camera: str
     strokes: dict[str, int]
@@ -59,54 +59,60 @@ class Rejected:
 
 @attrs.frozen
 class NoPdf:
-    """SVG written, `typst` absent from the process's `PATH` or `typst compile` failed with its diagnostics."""
+    """SVG written without its PDF, with the diagnostics of the failed `typst compile`, `None` when the process's `PATH` holds no `typst`."""
 
-    path: str
-    error: str
+    svg: str
+    diagnostics: str | None
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, ...] = ()) -> Outcome:
-    """Project the strokes of the named Grease Pencil objects, or of every visible one, through the scene camera onto a 1:`scale` sheet."""
+def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, ...] = ()) -> Sheet | Rejected | NoPdf | UnknownObjects:
+    """Project the strokes of the named Grease Pencil objects, or of every visible one, through the named or scene camera onto a 1:`scale` sheet."""
     depsgraph = bpy.context.evaluated_depsgraph_get()
     scene = depsgraph.scene
-    if missing := tuple(n for n in (objects if camera is None else (camera, *objects)) if n not in scene.objects):
-        return Rejected(Rejection.UNKNOWN_OBJECTS, missing)
-    match scene.camera if camera is None else scene.objects[camera]:
-        case None:
-            return Rejected(Rejection.NO_CAMERA, (scene.name,))
-        case bpy.types.Object(data=bpy.types.Camera(type="ORTHO") as lens) as view:
-            pass
-        case bpy.types.Object(data=bpy.types.Camera()) as view:
-            return Rejected(Rejection.NOT_ORTHOGRAPHIC, (view.name,))
-        case view:
-            return Rejected(Rejection.NOT_CAMERA, (view.name,))
+    if (absent := unknown(scene.objects, objects if camera is None else (camera, *objects))) is not None:
+        return absent
+    if (view := scene.camera if camera is None else scene.objects[camera]) is None:
+        return Rejected(Rejection.NO_CAMERA, (scene.name,))
+    if not isinstance(lens := view.data, bpy.types.Camera):
+        return Rejected(Rejection.NOT_CAMERA, (view.name,))
+    if lens.type != "ORTHO":
+        return Rejected(Rejection.NOT_ORTHOGRAPHIC, (view.name,))
     drawn = [scene.objects[n] for n in objects] or [o for o in scene.objects if isinstance(o.data, bpy.types.GreasePencil) and o.visible_get()]
     if foreign := tuple(o.name for o in drawn if not isinstance(o.data, bpy.types.GreasePencil)):
         return Rejected(Rejection.NOT_GREASE_PENCIL, foreign)
     to_view = view.matrix_world.normalized().inverted()
     frame = np.array([corner.xy for corner in lens.view_frame(scene=scene)])
     low, high = frame.min(axis=0), frame.max(axis=0)
-    mm = scene.unit_settings.scale_length / bpy.utils.units.to_value("METRIC", "LENGTH", "1mm") / scale
+    inches = scene.unit_settings.scale_length / scale / Length.INCHES
+    digits = int(-np.log10(np.spacing(np.float32(1))))
 
     def number(value: float) -> str:
-        """Text of the value to the significant digits single precision holds, the precision of Grease Pencil positions and camera frames."""
-        return np.format_float_positional(value, precision=np.finfo(np.float32).precision, unique=False, fractional=False, trim="-")
+        """Text of the value to the decimal digits single precision holds, the precision of Grease Pencil positions and camera frames."""
+        return np.format_float_positional(value, precision=digits, unique=False, fractional=False, trim="-")
 
     def ink(style: bpy.types.MaterialGPencilStyle) -> str:
-        """Hex of the style's scene-linear stroke color in sRGB bytes, screen-ink white written as document black."""
-        srgb = (np.clip(Color(style.color[:3]).from_scene_linear_to_srgb()[:], 0, 1) * 255).round().astype(np.uint8)
-        return "#" + (np.zeros_like(srgb) if (srgb == 255).all() else srgb).tobytes().hex()
+        """Hex of the style's scene-linear stroke color in sRGB bytes, screen ink written as document ink."""
+        srgb = (np.array(Color(style.color[:3]).from_scene_linear_to_srgb()).clip(0, 1) * 255).round().astype(np.uint8)
+        return "#" + (bytes(Ink.DOCUMENT) if (srgb == Ink.SCREEN).all() else srgb.tobytes()).hex()
+
+    def shown(node: bpy.types.GreasePencilLayer | bpy.types.GreasePencilLayerGroup | None) -> bool:
+        """Whether neither the node nor a group holding it is hidden."""
+        return node is None or (not node.hide and shown(node.parent_group))
 
     def strokes(owner: bpy.types.Object, layer: bpy.types.GreasePencilLayer) -> list[ET.Element]:
-        """One element per stroke of the layer's current drawing with two or more points and a visible material, in sheet millimeters with its own color, opacity, and width."""
-        match layer.current_frame():
-            case bpy.types.GreasePencilFrame(drawing=bpy.types.GreasePencilDrawing(strokes=found) as drawing) if len(found):
-                pass
-            case _:
-                return []
+        """Element per stroke of the layer's current drawing with two or more points and a shown material, in paper inches."""
+        if (frame := layer.current_frame()) is None or (drawing := frame.drawing) is None or not len(found := drawing.strokes):
+            return []
+        match layer.parent:
+            case None:
+                parent_to_world = owner.matrix_world
+            case bpy.types.Object(pose=bpy.types.Pose(bones=bones)) as parent if layer.parent_bone in bones:
+                parent_to_world = parent.matrix_world @ bones[layer.parent_bone].matrix @ layer.matrix_parent_inverse
+            case parent:
+                parent_to_world = parent.matrix_world @ layer.matrix_parent_inverse
         offsets = np.empty(len(drawing.curve_offsets), np.int32)
         drawing.curve_offsets.foreach_get("value", offsets)
         positions = np.empty(offsets[-1] * 3, np.float32)
@@ -117,11 +123,10 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
                     attribute.data.foreach_get("vector", positions)
                 case bpy.types.FloatAttribute(name=column) if column in columns:
                     attribute.data.foreach_get("value", columns[column])
-        to_world = (layer.parent.matrix_world @ layer.matrix_parent_inverse if layer.parent else owner.matrix_world) @ layer.matrix_local
-        projection = np.array(to_view @ to_world)
+        projection = np.array(to_view @ parent_to_world @ layer.matrix_local)
         xy = positions.reshape(-1, 3) @ projection[:2, :3].T + projection[:2, 3]
-        points = np.column_stack(((xy[:, 0] - low[0]) * mm, (high[1] - xy[:, 1]) * mm))
-        widths = 2 * (columns["radius"] + layer.radius_offset) * to_world.median_scale * mm
+        points = np.column_stack(((xy[:, 0] - low[0]) * inches, (high[1] - xy[:, 1]) * inches))
+        widths = 2 * columns["radius"] * np.linalg.norm(projection[:3, :3] @ np.full(3, np.sqrt(1 / 3))) * inches
         styles = {i: (ink(style), style.color[3]) for i, slot in enumerate(owner.material_slots) if slot.material is not None and (style := slot.material.grease_pencil) is not None and not style.hide}
         return [
             ET.Element(
@@ -138,33 +143,28 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
             for color, alpha in (pen,)
         ]
 
-    pencils = [(o, data) for o in (d.evaluated_get(depsgraph) for d in drawn) if isinstance(data := o.data, bpy.types.GreasePencil)]
-    layers = {owner.name: {layer.name: strokes(owner, layer) for layer in data.layers if not layer.hide} for owner, data in pencils}
+    layers = {owner.name: {layer.name: strokes(owner, layer) for layer in owner.data.layers if shown(layer)} for owner in (o.evaluated_get(depsgraph) for o in drawn)}
     counts = {owner: sum(map(len, by_layer.values())) for owner, by_layer in layers.items()}
     if not any(counts.values()):
         return Rejected(Rejection.NO_STROKES, tuple(counts))
-    width, height = map(number, (high - low) * mm)
-    svg = ET.Element("svg", {"xmlns": "http://www.w3.org/2000/svg", "width": f"{width}mm", "height": f"{height}mm", "viewBox": f"0 0 {width} {height}"})
-    linework = ET.SubElement(svg, "g", {"fill": "none", "stroke-linecap": "round", "stroke-linejoin": "round"})
+    across, down = (high - low) * inches
+    width, height = number(across), number(down)
+    root = ET.Element("svg", {"xmlns": "http://www.w3.org/2000/svg", "width": f"{width}in", "height": f"{height}in", "viewBox": f"0 0 {width} {height}"})
+    linework = ET.SubElement(root, "g", {"fill": "none", "stroke-linecap": "round", "stroke-linejoin": "round"})
     for owner, by_layer in layers.items():
         for layer, elements in by_layer.items():
             ET.SubElement(linework, "g", {"id": f"{owner}/{layer}"}).extend(elements)
-    path = next(p for p in Path(__file__).resolve().parents if (p / ".git").exists()) / ".artifacts" / "blender" / f"{name}.svg"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    ET.ElementTree(svg).write(path, encoding="utf-8")
-    svg_file, pdf = str(path), path.with_suffix(".pdf")
+    path = artifacts() / f"{name}.svg"
+    ET.ElementTree(root).write(path, encoding="utf-8")
+    svg, pdf = str(path), str(path.with_suffix(".pdf"))
     if (typst := shutil.which("typst")) is None:
-        return NoPdf(svg_file, "Blender's PATH holds no typst")
+        return NoPdf(svg, None)
     page = "#set page(width: auto, height: auto, margin: 0pt)\n#image(sys.inputs.svg)\n"
-    compiled = subprocess.run((typst, "compile", "--root", path.anchor, "--input", f"svg={path}", "-", str(pdf)), input=page, capture_output=True, text=True, check=False)
-    return NoPdf(svg_file, compiled.stderr.strip()) if compiled.returncode else Sheet(svg_file, str(pdf), (float(width), float(height)), scale, view.name, counts)
-
-
-def as_result(value: Outcome) -> dict[str, object]:
-    """`result` dict for `execute_blender_code`, the case name, or a rejection's own kind, under `kind`."""
-    return {"kind": type(value).__name__, **attrs.asdict(value)}
+    compiled = subprocess.run((typst, "compile", "--root", path.anchor, "--input", f"svg={svg}", "-", pdf), input=page, capture_output=True, text=True, check=False)
+    paper = (float(number(across * Length.INCHES)), float(number(down * Length.INCHES)))
+    return NoPdf(svg, compiled.stderr.strip()) if compiled.returncode else Sheet(svg, pdf, paper, scale, view.name, counts)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["NoPdf", "Outcome", "Rejected", "Rejection", "Sheet", "as_result", "sheet"]
+__all__ = ["NoPdf", "Rejected", "Rejection", "Sheet", "sheet"]

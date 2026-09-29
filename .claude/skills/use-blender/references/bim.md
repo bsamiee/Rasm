@@ -1,32 +1,33 @@
 # [BIM]
 
-IFC work runs on Bonsai with its bundled `ifcopenshell`: the IFC file is the model, Blender objects are views of its entities that Bonsai writes back on save.
+IFC projects through Bonsai and its bundled `ifcopenshell`.
 
 ## [01]-[LOAD]
 
-Bonsai acts on every file load through `load_post`, before any agent code runs on the file:
+Bonsai acts on every file load through `load_post`, before a call's code runs on the file:
 - Bonsai keeps the window's workspace and the file's snap settings at load, `activate_workspace`, `should_setup_workspace`, and `should_use_snap` off
 - GUI sessions hold every Bonsai tool from registration with `should_setup_toolbar` on, headless sessions register none
 - `setup_tabs` writes 20 `BIMAreaProperties` entries onto every screen, a Properties area reads `tab` (`PROJECT`, `BLENDER`) at its area index
 - `override_scene_panel` re-registers every non-Bonsai `bl_context == "scene"` panel, stock ones included, in class-name order once per session
 - Re-registered Scene panels reorder the Scene tab and lose the owner id of every class that declares no `bl_owner_id`
 - Bonsai imports as `bonsai` from the shared wheel folder, `bl_ext.blender_org.bonsai.tool` raises `ModuleNotFoundError` and `bonsai.tool` imports
-- Bonsai camera, unit, georeference, and drawing properties raise from their enum callbacks until an IFC project loads
-- `BIMSolarProperties.shadow_mode = "SHADING"` switches `render.engine` to `BLENDER_WORKBENCH`, ID item writes (`props["latitude"]`) skip every update
+- Bonsai georeference and drawing enum callbacks print a traceback on stderr and answer an empty item until an IFC project loads
 
 ## [02]-[MODEL]
 
-- `bim.load_project(filepath=, should_start_fresh_session=False)` loads an IFC into the open file, spatial elements as empties
+- IFC files hold the model, and Blender objects show its entities
+- `bim.load_project(filepath=, should_start_fresh_session=False)` loads an IFC into the open file after `bim.convert_to_blender()`
 - `should_start_fresh_session` defaults true and runs `wm.read_homefile()`, the open file's objects and path gone with no prompt
 - `bim.new_project(preset="imperial_ft")` starts a feet project after the same `wm.read_homefile()`, `metric_m` and `metric_mm` metric ones
 - `bim.new_project` makes the site, building, and storey collections siblings under the `IfcProject/<Name>` collection
-- Loaded objects take the name `<IfcClass>/<Name>`
+- Loaded objects take the name `<IfcClass>/<Name>`, spatial elements as empties
 - `bonsai.tool.Ifc.get()` returns the open `ifcopenshell.file`, `bonsai.tool.Ifc.get_entity(<object>)` the entity behind an object
 - `ifcopenshell.util.element` reads psets (`get_psets`), container (`get_container`), and type (`get_type`) from an entity
 - `bim.save_project(filepath=)` writes the file, object transforms reach `ObjectPlacement` on save
 - Mesh edits reach the IFC through `bim.update_representation()` on the active and selected object before `bim.save_project`
 - `BIMProperties` imperial unit items are lower-case words (`square foot`, `cubic foot`), SI items upper-case IFC names (`SQUARE_METRE`, `KILO/GRAM`)
-- Cameras carry `BIMCameraProperties` (`target_view`, `diagram_scale`, `dpi`), read once the camera becomes an IFC drawing
+- Every camera holds `BIMCameraProperties` (`target_view`, `diagram_scale`, `dpi`)
+- `bim.add_drawing` seeds `diagram_scale` from the unit system (`1/8"=1'-0"|1/96` in feet) at `dpi` 75
 
 ## [03]-[AUTHORING]
 
@@ -56,11 +57,9 @@ result = {"unit_scale": ifcopenshell.util.unit.calculate_unit_scale(f)}
 
 - `unit.assign_unit` with no arguments sets millimeters, `feet` as `length`, `area`, and `volume` sets feet, square feet, and cubic feet
 - `calculate_unit_scale` answers `0.3048` for feet and `0.001` for millimeters, and representation arguments stay meters under either
-- `bim.load_project` of the written file then gives the Blender view, a 5 m wall measures `(5.0, 0.2, 3.0)` as `IfcWall/<wall>`
-
 ## [04]-[DRAWINGS]
 
-Bonsai drawings are scaled SVG views cut from the IFC model and sheets place them, in a headless session:
+Bonsai drawings are scaled SVG views cut from the IFC model, placed on sheets in a headless session:
 1. `scene.DocProperties.target_view` takes `PLAN_VIEW`, `ELEVATION_VIEW`, `SECTION_VIEW`, `REFLECTED_PLAN_VIEW`, or `MODEL_VIEW`
 2. `bpy.ops.bim.add_drawing()` adds an `IfcAnnotation/<VIEW>` camera at the origin, section and elevation cameras take their place in code
 3. `bpy.ops.bim.activate_drawing(drawing=<camera>.BIMObjectProperties.ifc_definition_id, should_view_from_camera=False)`
@@ -70,7 +69,7 @@ Bonsai drawings are scaled SVG views cut from the IFC model and sheets place the
 7. `bpy.ops.bim.add_sheet()` and `bpy.ops.bim.load_sheets()`, then `active_sheet_index` and `active_drawing_index` pick an `is_drawing` entry
 8. `bpy.ops.bim.add_drawing_to_sheet()`, then `bpy.ops.bim.create_sheets(open_viewer=False)` writes `sheets/<sheet>.svg` at the sheet size
 
-- Drawings carry `data-scale="1:100"` and millimeter `width` and `height`, a 5 m wall draws 50 mm long
+- Drawings hold `data-scale` as the camera's `diagram_scale` (`1:100`, `1/8"=1'-0"`) and millimeter `width` and `height`, a 5 m wall draws `5000 / N` mm at 1:N
 - `doc.drawing_font` names the viewport decoration font alone, sheets keep `default.css` (OpenGost at 2.5 mm text, 0.25 mm lines)
 - `drawings/cache/` holds linework and annotation layers, `drawings/assets/` holds symbols, markers, and patterns
 - `create_sheets` runs the `svg2pdf_command` and `svg2dxf_command` preferences as JSON command lists with `svg`, `pdf`, and `dxf` replaced by paths

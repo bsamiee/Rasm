@@ -32,5 +32,5 @@ rule:
                     - has: {field: name, pattern: $T}
 constraints:
     MAP: {regex: '^(map|compactMap)$'}
-message: '`$T` is built afresh per element of `$S` on every read'
+message: '`$T` hands observers a new untracked object per element of `$S` on every read'
 note: 'Store an array of per-item `@Observable` models'

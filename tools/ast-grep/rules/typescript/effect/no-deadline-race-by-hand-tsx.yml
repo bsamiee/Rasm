@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-deadline-race-by-hand-tsx
+language: tsx
+severity: error
+utils:
+    timeout-call:
+        kind: call_expression
+        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^timeout$'}}
+    timeout-catch:
+        kind: call_expression
+        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^catchTag$'}}
+    timeout-tag: {kind: string, regex: '^.TimeoutError.$'}
+    sleep-call:
+        kind: call_expression
+        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^sleep$'}}
+    sleep-branch:
+        any:
+            - matches: sleep-call
+            - kind: call_expression
+              any:
+                - has: {field: function, kind: member_expression, has: {field: object, matches: sleep-call}}
+                - has: {field: arguments, has: {nthChild: 1, matches: sleep-call}}
+rule:
+    pattern: $RACE
+    any:
+        - matches: timeout-call
+          inside: {kind: arguments}
+          precedes:
+            matches: timeout-catch
+            has: {field: arguments, has: {nthChild: 1, matches: timeout-tag}}
+            stopBy: {not: {any: [{regex: '^,$'}, {kind: comment}]}}
+        - matches: timeout-catch
+          has: {field: arguments, all: [{has: {nthChild: 1, matches: timeout-call}}, {has: {nthChild: 2, matches: timeout-tag}}]}
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(race|raceFirst)$'}}
+            - has: {field: arguments, has: {matches: sleep-branch}}
+message: '`$RACE` composes a deadline fallback by hand'
+note: '`Effect.timeoutOrElse({ duration, orElse })` interrupts the source at the deadline and evaluates `orElse` lazily, and `Effect.timeoutOption` returns `Option.none()` in place of the `TimeoutError`'

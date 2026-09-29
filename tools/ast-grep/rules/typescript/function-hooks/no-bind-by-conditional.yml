@@ -53,5 +53,5 @@ rule:
             - any:
                 - has: {field: alternative, kind: else_clause}
                 - precedes: {pattern: $_}
-message: '`$R` is matched on `kind` by hand to return its fault and bind its value'
-note: '`bind(<result>, (<value>) => <continuation>)` skips the continuation on a fault, `map` where the continuation returns a plain value'
+message: '`$R` returns its fault and binds its value through a `kind` test written by hand'
+note: '`bind(<result>, (<value>) => <continuation>)` skips the continuation on a fault, and `map` applies where the continuation returns a plain value'

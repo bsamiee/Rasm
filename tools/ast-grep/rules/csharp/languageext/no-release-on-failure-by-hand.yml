@@ -10,7 +10,7 @@ utils:
                 - has: {kind: argument, nthChild: {position: 1, ofRule: {kind: argument}}, has: {matches: csharp-release-handler}}
                 - not: {has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}}
             - all:
-                - has: {kind: argument, nthChild: {position: 1, ofRule: {kind: argument}}, any: [{matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}, {has: {matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}}]}
+                - has: {kind: argument, nthChild: {position: 1, ofRule: {kind: argument}}, matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}
                 - has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, has: {matches: csharp-release-handler}}
                 - not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}
     caught-release:
@@ -97,6 +97,6 @@ rule:
     any:
         - matches: caught-release
         - matches: checked-release
-    not: {matches: {csharp-failure-owner: {effect: {pattern: $EFFECT}}}}
+    not: {matches: {csharp-owner-body: {type: {regex: '^GeometryOps$'}, member: {regex: '^OnFailure$'}}}}
 message: '`$EFFECT` runs a release on failure and keeps its error by hand'
-note: Use one `OnFailure(<effect>, <release>)` owner per package, `GeometryOps.OnFailure` in the Rhino libraries and one declared beside the operations elsewhere, with `<release>` an `IO<Unit>` that reads no error, and lift a discarded `IsSucc`, `IsFail`, or `Match` check into that effect first
+note: Use `GeometryOps.OnFailure(<effect>, <release>)` with `<release>` an `IO<Unit>`, `OnFailure` releases on failure and keeps both errors

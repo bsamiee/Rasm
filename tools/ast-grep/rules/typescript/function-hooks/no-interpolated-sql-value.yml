@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-interpolated-sql-value
+language: tsx
+severity: error
+utils:
+    hand-quoted:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^replace(All)?$'}}
+            - has: {field: arguments, has: {nthChild: 2, kind: string, regex: "^[\"`]''[\"`]$"}}
+rule:
+    kind: template_string
+    all:
+        - has: {nthChild: 1, kind: string_fragment, regex: '(?i)^\s*(alter|begin|commit|create|delete|drop|insert|pragma|select|update|with)\b'}
+        - not: {inside: {kind: call_expression, field: arguments}}
+        - has:
+            kind: template_substitution
+            pattern: $VALUE
+            any:
+                - follows: {kind: string_fragment, regex: "'$"}
+                - has: {stopBy: end, matches: hand-quoted}
+message: '`$VALUE` splices a quoted value into SQL text'
+note: 'Keep the statement constant and bind each value as a `:name` parameter, through `bound` in `observation/sql.ts` for the sqlite3 shell, the database then reads each value typed and unquoted'

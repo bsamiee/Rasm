@@ -39,4 +39,4 @@ rule:
                         - has: {field: type, matches: container-type}
             - not: {has: {field: body, has: {stopBy: {kind: 'function_definition, lambda, class_definition'}, kind: assignment, has: {field: left, kind: identifier, pattern: $P}}}}
 message: '`$CALL` hands values back through the container parameter `$P`'
-note: 'Return or yield the values and let the caller collect them'
+note: 'Return or yield the values and let the caller collect them, a domain function writes only its return value'

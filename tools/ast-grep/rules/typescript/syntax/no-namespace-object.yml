@@ -33,5 +33,5 @@ rule:
                             - inside: {kind: variable_declarator, field: name}
                             - inside: {kind: member_expression, field: object}
                             - inside: {kind: export_specifier}
-message: '`$NAME` groups functions in an object the module already namespaces'
-note: 'Declare each member as its own `const` and list it in the export statement'
+message: '`$NAME` groups functions in an object the module namespaces'
+note: 'Declare each member as its own `const` and list it in the export statement, the module is the namespace'

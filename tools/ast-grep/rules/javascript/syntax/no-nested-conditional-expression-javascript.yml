@@ -8,4 +8,4 @@ rule:
         - has: {kind: ternary_expression, stopBy: {not: {kind: 'parenthesized_expression, unary_expression'}}}
         - not: {inside: {kind: ternary_expression, stopBy: {not: {kind: 'parenthesized_expression, unary_expression'}}}}
 message: 'Conditional expression nests a conditional'
-note: 'Select with an `if` statement per test, or a `switch` when every test compares one subject'
+note: 'Select with an `if` statement per test, or `switch` when every test compares one subject'

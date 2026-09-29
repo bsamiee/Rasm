@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-boolean-literal-comparison
+language: javascript
+severity: error
+rule:
+    kind: binary_expression
+    pattern: $COMPARISON
+    all:
+        - has: {field: operator, regex: '^(===|!==|==|!=)$'}
+        - any:
+            - has: {field: left, kind: 'true, false'}
+            - has: {field: right, kind: 'true, false'}
+message: '`$COMPARISON` compares a value with a boolean literal'
+note: 'Test the value or its negation'

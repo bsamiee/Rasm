@@ -4,7 +4,10 @@ language: tsx
 severity: error
 rule:
     kind: comment
+    pattern: $DOC
     regex: '^/\*\*\s*(\*\s*)?(The|A|An)\s+\S'
     not: {inside: {kind: ambient_declaration, stopBy: end}}
-message: 'Doc comment summary opens with an article'
-note: 'Open the summary with the noun it names or the verb it performs'
+transform:
+    ARTICLE: {replace: {source: $DOC, replace: '^/\*\*\s*(?:\*\s*)?(The|A|An)\s[\s\S]*$', by: '$1'}}
+message: 'Doc comment summary opens with the article `$ARTICLE`'
+note: 'Open the summary with the verb the member performs or the noun it returns, an article states no fact'

@@ -82,5 +82,5 @@ rewriters:
 transform:
     OUT: rewrite($SHIELDED, rewriters=[shield])
 fix: $OUT$UNSHIELDED
-message: 'Cleanup await raises under the cancellation the block handles'
-note: 'Wrap the cleanup in `with anyio.CancelScope(shield=True):`'
+message: 'Cleanup await raises again under the cancellation its block handles'
+note: 'Run cleanup inside `with anyio.CancelScope(shield=True):`, a cancelled scope cancels every unshielded await of its cleanup'

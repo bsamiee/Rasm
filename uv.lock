@@ -2047,12 +2047,12 @@ wheels = [
 ]
 
 [[package]]
-name = "fake-bpy-module-5-2"
-version = "20260730"
+name = "fake-bpy-module-latest"
+version = "20260928"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/76/8c/95c6ead563863ff10551bb72e12305934e31f1dda152182aae125e80d2c9/fake_bpy_module_5_2-20260730.tar.gz", hash = "sha256:0db44b866f9bf6e018ec1802207481617529b6c9402930c92e9513205d6f4f34", size = 948626, upload-time = "2026-07-30T04:10:22.707Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f1/60/a8449ed14d13a107167947693440bae8b3392dad84b2023b7f2768713e24/fake_bpy_module_latest-20260928.tar.gz", hash = "sha256:02d88d4155b431560f12f37c50505236d69829e8825eae2eb7d1bf02b1b6e455", size = 968207, upload-time = "2026-09-28T12:16:28.075Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/89/a27073478c3d0154e2b62013dc7d405e0686fc1b75f0a3499f875fee43ae/fake_bpy_module_5_2-20260730-py3-none-any.whl", hash = "sha256:bc8faaafabd277b347128a2fb5189f7b635427812a1832e69295c14589965fe8", size = 1095618, upload-time = "2026-07-30T04:10:21.169Z" },
+    { url = "https://files.pythonhosted.org/packages/07/8a/eab2126426f9217bda16eb21df41cafcf4223bbffe8f304a6b8512edd83d/fake_bpy_module_latest-20260928-py3-none-any.whl", hash = "sha256:368211e2f0ef11107d3e3874797402264d22b006c43f9718b85e3b8df2fed81c", size = 1116234, upload-time = "2026-09-28T12:16:26.035Z" },
 ]
 
 [[package]]
@@ -3092,6 +3092,7 @@ dependencies = [
     { name = "attrs" },
     { name = "cyclopts" },
     { name = "httpx" },
+    { name = "lxml" },
     { name = "mcp" },
     { name = "msgspec" },
     { name = "psd-tools" },
@@ -3107,6 +3108,7 @@ requires-dist = [
     { name = "attrs" },
     { name = "cyclopts" },
     { name = "httpx" },
+    { name = "lxml" },
     { name = "mcp" },
     { name = "msgspec" },
     { name = "psd-tools" },
@@ -7167,7 +7169,7 @@ dev = [
     { name = "coverage" },
     { name = "dirty-equals" },
     { name = "editorconfig" },
-    { name = "fake-bpy-module-5-2" },
+    { name = "fake-bpy-module-latest" },
     { name = "hypothesis" },
     { name = "moto", extra = ["server"] },
     { name = "mypy" },
@@ -7500,7 +7502,7 @@ dev = [
     { name = "coverage" },
     { name = "dirty-equals" },
     { name = "editorconfig" },
-    { name = "fake-bpy-module-5-2" },
+    { name = "fake-bpy-module-latest" },
     { name = "hypothesis" },
     { name = "moto", extras = ["server"] },
     { name = "mypy" },

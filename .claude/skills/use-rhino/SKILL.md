@@ -17,11 +17,11 @@ description: "Use when a task drives a Rhino document, a .3dm file, or a Grassho
 - [07]-[PLUGINS](references/plugins.md): Yak packages, and loading a compiled plugin or library and calling its commands and functions
 
 [SCRIPTS]:
-- [01]-[HOOK](scripts/hook.py): Project hook that wraps `run_python` and refuses router tools a script entry point replaces, nothing calls it by hand
-- [02]-[RECORDS](scripts/records.py): `Record`, `Fault`, `File`, `Properties`, and the layer and material records every script shares
-- [03]-[DOCUMENT](scripts/document.py): Entry points over the open documents, one document, and a `.rhp` or library load, each returning a record
+- [01]-[HOOK](scripts/hook.py): Project hook that runs each `run_python` script through `document.run` and refuses router tools a script entry point replaces
+- [02]-[RECORDS](scripts/records.py): Records and faults every script returns inside and outside Rhino
+- [03]-[DOCUMENT](scripts/document.py): Entry points over open documents, one document, and a `.rhp` or library load, returning records
 - [04]-[CANVAS](scripts/canvas.py): Grasshopper 2 task documents, builds, layout, values, bakes, clusters, plugins, and pictures
-- [05]-[FILE3DM](scripts/file3dm.py): `uv run --script` over `.3dm` files or folders prints each file's record, no Rhino involved
+- [05]-[FILE3DM](scripts/file3dm.py): `uv run --script` over `.3dm` files or folders prints each file's record without Rhino
 
 Results print as records with a class naming their case. Rejected inputs return a tuple of `Fault(source, value, accepted)`, `source` the Rhino type that refused `value` and `accepted` its alternatives:
 
@@ -30,6 +30,7 @@ Results print as records with a class naming their case. Rejected inputs return 
 from Rhino.Geometry import Box, Interval, Plane
 import document
 from records import Properties
+
 doc = __rhino_doc__
 massing = Box(Plane.WorldXY, Interval(0, 10), Interval(0, 10), Interval(0, 30)).ToBrep()
 print(document.layer(doc, "Site::Buildings", Properties(color="#C83C3C")))
@@ -43,15 +44,15 @@ Each call leaves screen, front application, and other documents as it found them
 - `RhinoDoc.ActiveDoc` is the document any session last activated, scripts take `__rhino_doc__` or `RhinoDoc.FromRuntimeSerialNumber(<serial>)`
 - Calls send no pointer or key event and run with Rhino behind the user's application
 - Documents become active only while the user holds Rhino in front, prompt releases, saves, and closes run behind
-- Temporary values (a color, a setting, a selection) return in the `finally` of their setting call
-- Views return from `ViewportInfo(viewport)` and `viewport.DisplayMode` taken before a change, in the same call's `finally`
-- Modals hold Rhino's shared UI thread and can bring Rhino front as they end, code calls nothing the setup reference lists as raising one
+- Temporary changes (color, setting, selection) revert in their call's `finally`
+- Views revert to `ViewportInfo(viewport)` and `viewport.DisplayMode` read before a change, in the same call's `finally`
+- Modals hold Rhino's shared UI thread and can bring Rhino front as they end, scripts use the alternative the setup reference lists for each
 - Trial table rows (hatch patterns, linetypes) go in a `RhinoDoc.CreateHeadless(None)` disposed in the same call, user documents take kept rows alone
 - Untitled documents stay open as their session left them, closing one destroys its session's work
 - Other sessions' documents stay inactive with their window tabs behind
 - Tasks build Grasshopper 2 definitions in their own documents and leave the user's current canvas unchanged
 - Documents a task opened close at its end, a titled one through `close(doc)`, a spawned untitled one through `close_slot`
-- Canvases, packages, and files a task opened leave at its end, and disk keeps only the files the task produces
+- Tasks close canvases they opened and remove packages and files they added at their end, except files the task produces
 
 ## [02]-[START]
 
@@ -63,7 +64,7 @@ Tasks run steps in order before any change:
 5. Files the task names that no document holds read first with `uv run --script <skill>/scripts/file3dm.py <file>...`
 6. `Fault` lines name files Rhino answers with a modal alert that holds every close in the process, and stay unopened
 7. `open -g -b com.mcneel.rhinoceros.9 <file>...` opens other files behind the user's application, each as its own slot, an open file adds no document
-8. Work in the task's named document, else in a temporary copy of its unit system's `Template Files/` template, closed unsaved and deleted at the end
+8. Work in the task's named document, else in a temporary copy of its unit system's `Template Files/` template, closed unsaved and deleted at task end
 9. Record the working document's `serial`, `pid`, and `port`
 10. `describe(doc)` fields decide the next step:
 
@@ -116,13 +117,17 @@ Every call passes `slot`, a call without one runs in its session's last-used slo
 ## [04]-[SCRIPTS]
 
 `run_python` runs CPython on Rhino's UI thread with `__rhino_doc__` as its slot's document, and the project hook wraps every call:
-- Scripts `import document`, `records`, and `canvas` fresh from the skill's directory, packages they name install on first use
+- Scripts `import document`, `records`, and `canvas` fresh from the skill's directory
+- RhinoCode reads directive comments (`# r:`, `# env:`, `# flag:`) from a script's first 31 lines
+- `# r: <package>` in one script installs a package a skill module's `dependencies` names after its import raises `ModuleNotFoundError`
 - Stdout, stderr, and a raise's traceback with script line numbers return as call output, and the call itself succeeds
 - Edits of one call form one undo step named after its script's first comment line and mark the document modified
 - `scriptcontext.doc` and `rhinoscriptsyntax` see the slot's document during each call
 - One CPython serves every run in the process, listener calls and Grasshopper 2 components included, and ignores `PYTHON*` variables
-- `_-ScriptEditor _Run "<file>"` runs a `.py` file on the shared CPython, `_NoEcho` ahead of it keeps its prompts and path out of the history
+- `_-ScriptEditor _Run "<file>"` runs a `.py` file on the shared CPython, `_NoEcho` ahead of it keeps its prompts and path out of command history
+- `_-RunPythonScript "<file>"` runs a `.py` file on IronPython 2.7
 - `# env: <folder>` puts a folder on `sys.path` for one run, its modules stay in `sys.modules` until a run deletes them or Rhino quits
+- `# flag: python.reloadEngine` reloads every loaded module in place for every caller in the process, a reloaded module keeps names its source dropped
 
 Rules the hook cannot hold:
 - Globals reset per call, objects from an earlier call are found again through `find`
@@ -152,6 +157,7 @@ Rules the hook cannot hold:
 ## [05]-[COMMANDS]
 
 RhinoCommon comes first where it has an operation, `command(doc, macro, layer_path, ids)` runs the rest:
+- `RhinoApp.RunScript` on an inactive document holds Rhino's UI thread in a point prompt no call releases, `command` refuses one
 - Macros answer every prompt in order, `_Enter` accepts a default, `!` cancels a running command, `'` runs inside one, `-` takes the scripted form
 - Options take their full `_Name=Value` form, abbreviated option text depends on the command-line locale
 - Prompts a macro leaves unanswered cancel its command, `results` read `Result.Cancel`, and `output` ends with the unanswered prompt
@@ -171,9 +177,9 @@ curl -s -X POST <endpoint>/ -H 'Content-Type: application/json' \
     -d '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"rhino://commands/<Name>/help"}}' | jq -r '.result.contents[0].text'
 ```
 
-## [06]-[EVIDENCE]
+## [06]-[INSPECTION]
 
-Work is done when a document read and a capture show it:
+Records, saved files, and captures show a document's state:
 - Records hold each object's layer and bounding box, RhinoCommon on the ids gives `IsValid`, `IsSolid`, `IsClosed`, length, area, and volume
 - `file3dm.py` on a saved or exported `.3dm` shows layers, counts, and views the file on disk holds, `edited` names its last save
 - `capture` draws `.artifacts/rhino/<name>.png` through the view's pipeline without grid, axes, highlight, or Gumball
@@ -183,7 +189,7 @@ Work is done when a document read and a capture show it:
 - `zoom` takes ids, a `BoundingBox`, or `()` for every visible object, `None` draws the view unchanged
 - Captures draw at the view's device pixel size unless `size` names one
 - `viewport.WorldToClient(point)` maps a point to capture pixels, `describe(doc).current_view` names the user's view
-- `Bitmap.GetPixel` reads the frame buffer and `magick` reads a PNG through its profile, compare values from one path alone
+- `Bitmap.GetPixel` reads the frame buffer and `magick` reads a PNG through its profile, a comparison takes values from one of them alone
 - PNGs store their settings and camera, `capture(doc, "<after>", since="<before>")` redraws them and counts changed pixels
 - `Capture.changed` holds the count, `<after>-diff.png` marks changed pixels red, an unchanged scene counts 0
 - `capture`, `pdf`, and `material` return `Fault(RhinoDoc, None)` with no active document, a file `open -g` opens becomes active

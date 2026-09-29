@@ -1,106 +1,76 @@
 import type { ClassicHookEvent, EventName } from 'claude-code';
-import { fromNullable, none, type Option, some } from '../composition.ts';
+import { none, type Option, some } from '../composition.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Event = ClassicHookEvent | 'tool.call' | Extract<EventName, `turn.${string}`>;
-type Trim = (value: Readonly<Record<string, unknown>>, tool: Option<string>) => Readonly<Record<string, unknown>>;
-
-interface Columns {
-    readonly session?: string;
-    readonly prompt?: string;
-    readonly agent?: string;
-    readonly tool?: string;
-    readonly toolUse?: string;
-    readonly drops: readonly string[];
-    readonly trims: readonly Trim[];
-}
-interface Row {
+type Payload = Readonly<Record<string, unknown>>;
+type Ids = Readonly<Partial<Record<'sessionId' | 'promptId' | 'agentId' | 'tool' | 'toolUseId', string>>>;
+type Row = Ids & {
     readonly event: Event;
     readonly ts: number;
     readonly sessionId: string;
-    readonly promptId: Option<string>;
-    readonly agentId: Option<string>;
-    readonly tool: Option<string>;
-    readonly toolUseId: Option<string>;
     readonly payload: string;
+};
+
+interface Drops {
+    readonly [key: string]: Drops | true;
 }
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const _RESPONSE_DROPS: Readonly<Record<string, readonly string[]>> = { ['Read']: ['pages'], ['Write']: ['content'], ['Edit']: ['originalFile'] };
-
-// --- [REFINEMENTS] ---------------------------------------------------------------------
-
-const _isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
-const _isText = (value: unknown): value is string => typeof value === 'string';
+interface Columns {
+    readonly ids: Ids;
+    readonly drops: Drops;
+    readonly tools: Readonly<Partial<Record<string, Drops>>>;
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _text = (value: Readonly<Record<string, unknown>>, key: string | undefined): Option<string> => {
-    const cell = key === undefined ? undefined : value[key];
-    return _isText(cell) ? some(cell) : none;
-};
+const _isRecord = (value: unknown): value is Payload => typeof value === 'object' && value !== null;
 
-const _without = (value: Readonly<Record<string, unknown>>, keys: readonly string[]): Readonly<Record<string, unknown>> =>
-    Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
-
-const _read: Trim = (value, tool) => {
-    const response = value['tool_response'];
-    return tool.kind === 'some' && tool.value === 'Read' && _isRecord(response) && _isRecord(response['file'])
-        ? { ...value, ['tool_response']: { ...response, file: _without(response['file'], ['content', 'base64', 'cells']) } }
+const _dropped = (value: unknown, drops: Drops): unknown => {
+    if (Array.isArray(value)) {
+        return value.map((item) => _dropped(item, drops));
+    }
+    return _isRecord(value)
+        ? Object.fromEntries(
+              Object.entries(value).flatMap(([key, item]) => {
+                  const cut = drops[key];
+                  return cut === true ? [] : [[key, cut === undefined ? item : _dropped(item, cut)]];
+              }),
+          )
         : value;
 };
 
-const _response: Trim = (value, tool) => {
-    const drops = tool.kind === 'some' ? fromNullable(_RESPONSE_DROPS[tool.value]) : none;
-    const response = value['tool_response'];
-    return drops.kind === 'some' && _isRecord(response) ? { ...value, ['tool_response']: _without(response, drops.value) } : value;
+const session = (value: Payload, columns: Columns): Option<string> => {
+    const cell = columns.ids.sessionId === undefined ? undefined : value[columns.ids.sessionId];
+    return typeof cell === 'string' ? some(cell) : none;
 };
 
-const _dropped =
-    (key: string, drops: readonly string[]): Trim =>
-    (value): Readonly<Record<string, unknown>> => {
-        const items = value[key];
-        return Array.isArray(items) ? { ...value, [key]: items.filter(_isRecord).map((item) => _without(item, drops)) } : value;
-    };
-
-const session = (value: Readonly<Record<string, unknown>>, columns: Columns): Option<string> => _text(value, columns.session);
-
-const row = (event: Event, value: Readonly<Record<string, unknown>>, columns: Columns, sessionId: string, ts: number): Row => {
-    const tool = _text(value, columns.tool);
-    return {
-        event,
-        ts,
-        sessionId,
-        promptId: _text(value, columns.prompt),
-        agentId: _text(value, columns.agent),
-        tool,
-        toolUseId: _text(value, columns.toolUse),
-        payload: JSON.stringify(
-            _without(
-                columns.trims.reduce((trimmed, trim) => trim(trimmed, tool), value),
-                [columns.session, columns.prompt, columns.agent, columns.tool, columns.toolUse].filter(_isText).concat(columns.drops),
-            ),
-        ),
-    };
+const row = (event: Event, value: Payload, columns: Columns, sessionId: string, ts: number): Row => {
+    const ids: Ids = Object.fromEntries(
+        Object.entries(columns.ids).flatMap(([name, key]) => {
+            const cell = value[key];
+            return typeof cell === 'string' ? [[name, cell]] : [];
+        }),
+    );
+    const columned = Object.fromEntries(Object.values(columns.ids).map((key) => [key, true] as const));
+    return { ...ids, event, ts, sessionId, payload: JSON.stringify(_dropped(value, { ...columns.drops, ...(ids.tool === undefined ? {} : columns.tools[ids.tool]), ...columned })) };
 };
 
 // --- [COLUMNS] -------------------------------------------------------------------------
 
 const CLASSIC: Columns = {
-    session: 'session_id',
-    prompt: 'prompt_id',
-    agent: 'agent_id',
-    tool: 'tool_name',
-    toolUse: 'tool_use_id',
-    drops: ['hook_event_name'],
-    trims: [_read, _response, _dropped('tool_calls', ['tool_response'])],
+    ids: { sessionId: 'session_id', promptId: 'prompt_id', agentId: 'agent_id', tool: 'tool_name', toolUseId: 'tool_use_id' },
+    drops: { ['hook_event_name']: true, ['tool_calls']: { ['tool_response']: true } },
+    tools: {
+        ['Read']: { ['tool_response']: { pages: true, file: { content: true, base64: true, cells: true } } },
+        ['Write']: { ['tool_response']: { content: true } },
+        ['Edit']: { ['tool_response']: { originalFile: true } },
+    },
 };
-const CALL: Columns = { agent: 'agentId', tool: 'tool', toolUse: 'tool_use_id', drops: [], trims: [_dropped('trace', ['received', 'returned'])] };
-const TURN: Columns = { agent: 'agentId', drops: [], trims: [] };
+const CALL: Columns = { ids: { agentId: 'agentId', tool: 'tool', toolUseId: 'tool_use_id' }, drops: { trace: { received: true, returned: true } }, tools: {} };
+const TURN: Columns = { ids: { agentId: 'agentId' }, drops: {}, tools: {} };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Columns, Event, Row };
+export type { Columns, Event, Payload };
 export { CALL, CLASSIC, row, session, TURN };

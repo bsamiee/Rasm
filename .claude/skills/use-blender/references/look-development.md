@@ -7,50 +7,54 @@ Materials, worlds, lights, and library assets.
 Faces render the slot their `material_index` names:
 - `mesh.materials.append(<material>)` adds a slot no face uses, and the render keeps the look of slot 0
 - `obj.material_slots[<i>].material = <material>` changes the look of every face on slot `<i>`
-- New materials are Principled BSDF with `use_nodes` on, unassigned faces render 0.8 gray, `edit.material_link` OBDATA links materials to the mesh
+- New materials hold a Principled BSDF and Material Output tree, unassigned faces render 0.8 gray
+- `edit.material_link` OBDATA links materials to the mesh
+- Materials, worlds, and lights hold their node tree from creation, `use_nodes` is an `is_deprecated` member on each
+- Principled BSDF inputs are `Subsurface Weight`, `Specular IOR Level`, `Transmission Weight`, `Coat Weight`, and `Emission Color`
+- `material.surface_render_method` (`DITHERED`, `BLENDED`) sets transparency
 - Principled inputs, `Material.diffuse_color`, `Object.color`, and world and node colors hold scene linear values
-- `mathutils.Color((r / 255, g / 255, b / 255)).from_srgb_to_scene_linear()` converts a hex color for them
+- `mathutils.Color((r / 255, g / 255, b / 255)).from_srgb_to_scene_linear()` converts a hex color to scene linear
 - Byte / 255 written unconverted draws lighter, a 180 byte draws near 218
 - `Material.diffuse_color` colors Solid mode alone and follows no Base Color change, a built material sets both
 - Fresh Principled BSDFs hold `Emission Color` white at `Emission Strength` 0, a strength above 0 glows white until the color is set
-- Data images (roughness, metallic, normal, height, opacity, occlusion) take `colorspace_settings.name = "Non-Color"`, color images `sRGB`
 - `Gamma 2.2 Encoded Rec.709` among the image color spaces reads a color texture with Rhino's own curve
-- Normal Map nodes read the OpenGL convention, a texture set's `NormalGL` file is the one to load
+- Normal Map nodes read the OpenGL convention, a texture set's `NormalGL` file matches it
 - Object, Generated, and Box projections compute at render time, UVs scaled so one unit is one declared length survive every exporter
 
 ## [02]-[LIBRARIES]
 
-Library tools of `mcp-for-blender` download, build, and pack in one call, each with a trap its result states and the action that closes it:
+Each `mcp-for-blender` library behavior takes its action:
 
-| [INDEX] | [SOURCE]         | [TRAP]                                                     | [ACTION]                                             |
+| [INDEX] | [SOURCE]         | [BEHAVIOR]                                                 | [ACTION]                                             |
 | :-----: | :--------------- | :--------------------------------------------------------- | :--------------------------------------------------- |
 |  [01]   | Poly Haven maps  | Material named after the asset id with zero users          | `material_slots[<i>].material` in code before a save |
 |  [02]   | Poly Haven HDRI  | New world per call, the previous world left with no user   | Delete the orphan by name                            |
 |  [03]   | Poly Haven scale | Texture spans `scale_mm` in the world on a `POINT` mapping | `Scale` = surface meters / texture width on 0-1 UVs  |
 |  [04]   | Sketchfab        | Required `target_size` becomes the largest dimension       | Real size of the subject in meters                   |
-|  [05]   | Poly Pizza       | Arbitrary scale and origin, CC-BY on most models           | `normalize_size=True`, relay `polypizza_attribution` |
+|  [05]   | Poly Pizza       | Arbitrary scale and origin, license per model              | `normalize_size=True`, relay `polypizza_attribution` |
 |  [06]   | Hyper3D          | Free trial key with a daily quota, normalized size         | One object per job, placed from `world_bounding_box` |
 
 - Hunyuan3D holds no account, and its tools fail
 - Poly Haven packs every downloaded image into the `.blend`, a 4k texture set grows the file by its map sizes
 - Importer of ambientCG downloads a set (Color, Roughness, NormalGL, NormalDX, Displacement) into its `cache_dir` preference
 - Normalized imports hold the factor in root object scale
-- Download results name imported objects and bounds, the next call reads them by those names
+- Download results name imported objects and bounds, later calls read the objects by name
 
 ## [03]-[WORLD_AND_LIGHT]
 
 Metals reflect the world and render near black under the flat gray default world, an HDRI or sky lights their renders:
-- `ShaderNodeTexSky` defaults to `MULTIPLE_SCATTERING`, `sun_elevation` and `sun_rotation` place its sun, `altitude` is meters above sea level
-- `sun_disc` lights Cycles alone, site light pairs the sky with `sun_disc` False and a SUN lamp at the disc's irradiance
-- Sun to sky on a horizontal plane is 7.4:1 under the physical sky, a 4 W/m² sun reads as overcast
-- Lights a task adds take physical watts against exposure -5.3, and a 1000 W point light 5 m above a gray floor renders it dark
+- `ShaderNodeTexSky` models are `MULTIPLE_SCATTERING`, the default, and `SINGLE_SCATTERING`
+- `sun_elevation` (default 15°) and `sun_rotation` place the sky's sun, `altitude` (default 100 m) is meters above sea level
+- `sun_disc` lights both engines, EEVEE below Cycles through its world light
+- Site light pairs the sky with `sun_disc` False and a SUN lamp at the disc's irradiance
+- Sun to sky on a horizontal plane is 7.4:1 under the physical sky
+- Added lights take physical watts, and under exposure -5.3 a 1000 W point light 5 m above a gray floor renders it dark
 - EEVEE turns world light above `world.sun_threshold` (10 by default) into a sun of its own, 0 turns the extraction off
 - Lights changed to `SUN` read again from `bpy.data.lights`, a handle taken before the change stays a point light
 - SUN lamps converted from the stock point light keep an 11.4° angle, `light.angle = light.bl_rna.properties["angle"].default` gives 0.526°
 - Cycles has `Object.is_shadow_catcher` and EEVEE no catcher, a ground catcher is a per-scene object
 - `bpy.ops.preferences.studiolight_install` copies a file into the user `studiolights/<type>` folder, `studio_lights.load` lasts one session
 - `shading.studio_light` names a `WORLD` light for Material Preview, `use_scene_world_render` and `use_scene_lights_render` on show the site sky
-- Use `references/geospatial.md` for a sun from a site and time
 
 ## [04]-[ASSET_LIBRARIES]
 
@@ -81,7 +85,8 @@ result = {"preview": list(obj.preview.image_size), "catalog": catalog}
 - `asset_generate_preview()` renders the preview inside the call in background runs, `asset_mark()` alone stores none
 - `bpy.data.libraries.write` writes the given IDs and their dependencies with asset data and previews, replacing the whole target file
 - Catalog lines take the form `<uuid>:<path>:<simple name>` after a `VERSION 1` line, one catalog per path
-- Library rows in `preferences.filepaths.asset_libraries` need a folder with a catalog file, `asset_libraries.remove(<row>)` drops one
+- Library rows in `preferences.filepaths.asset_libraries` take any folder, `asset_libraries.remove(<row>)` drops one
 - Remote rows come from `bpy.ops.preferences.asset_library_add(type="REMOTE", name=, remote_url=)`, `asset_libraries.new` takes no URL
-- Remote rows take `import_method` `APPEND` or `PACK`, `APPEND_REUSE` raises on a remote row
-- Remote row `https://ambientcg.com/api/blender/` lists ambientCG's 8,711 materials, 425 worlds, and 204 objects, each fetched on first use
+- Remote rows take `import_method` `APPEND` or `PACK`, `APPEND_REUSE` and `LINK` raise on a remote row
+- Remote rows behind a login take `use_auth_token=True` and `auth_token=` on `asset_library_add`
+- Remote row `https://ambientcg.com/api/blender/` lists ambientCG's materials, worlds, and objects, each fetched on first use

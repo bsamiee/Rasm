@@ -95,5 +95,5 @@ transform:
     MODULE_OUT: rewrite($MODULE_FORM, rewriters=[module-call])
     IMPORTED_OUT: rewrite($IMPORTED_FORM, rewriters=[imported-call])
 fix: $MODULE_OUT$IMPORTED_OUT$UNFIXED
-message: 'Codec instance serves one call'
-note: 'Use `<module>.encode(<value>)` or `<module>.decode(<value>, type=<type>)`, and bind a codec that takes an option those functions lack once at module level'
+message: '`$CALL` builds a codec for one call'
+note: 'Use `<module>.encode(<value>)` or `<module>.decode(<value>, type=<type>)`, and bind a codec once at module level for an option those functions lack, a codec built per call repeats its setup'

@@ -81,8 +81,7 @@ utils:
         kind: return_statement
         not: {has: {kind: 'await, named_expression, yield', stopBy: end}}
         any:
-            - has: {matches: ok-call, has: {field: arguments, not: {has: {nthChild: 2}}, has: {pattern: $VALUE, has: {kind: identifier, pattern: $V, stopBy: end}}}}
-            - has: {matches: ok-call, has: {field: arguments, not: {has: {nthChild: 2}}, has: {kind: identifier, pattern: $VALUE, all: [{pattern: $V}]}}}
+            - has: {matches: ok-call, has: {field: arguments, not: {has: {nthChild: 2}}, has: {pattern: $VALUE, any: [{kind: identifier, pattern: $V}, {has: {kind: identifier, pattern: $V, stopBy: end}}]}}}
             - has:
                 kind: call
                 pattern: $STEP
@@ -186,6 +185,6 @@ fix:
     template: return $HEAD$PLAIN$MAP_TAIL$CONSTANT_TAIL$BIND_TAIL$ERROR_TAIL
     expandEnd: {kind: return_statement}
 message: 'Match over `$SUBJECT` spells a Result combinator by hand'
-note: 'Use `<subject>.map(<f>)` for an `Ok(<value>)` return, `<subject>.bind(<f>)` for a returned Result, and `<subject>.map_error(<f>)` for an `Error(<value>)` return'
+note: 'Use `<subject>.map(<f>)` for an `Ok(<value>)` return, `<subject>.bind(<f>)` for a returned Result, and `<subject>.map_error(<f>)` for an `Error(<value>)` return, each combinator passes the other case through unchanged'
 labels:
     SUBJECT: {style: primary, message: Result the combinator runs on}

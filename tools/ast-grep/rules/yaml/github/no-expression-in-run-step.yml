@@ -33,5 +33,5 @@ rule:
                     stopBy: end
                     has: {field: key, regex: '^(with|"with"|''with'')$'}
                     inside: {matches: script-step}
-message: 'GitHub substitutes a `${{ }}` expression into the `$KEY` source as text before its interpreter parses it'
-note: 'Set `env: {NAME: ${{ <context> }}}` on the step and read the variable, `"$NAME"` in `run` and `process.env.NAME` in `script`'
+message: '`$KEY` holds a `${{ }}` expression GitHub substitutes as text before the interpreter parses it'
+note: 'Set `env: {NAME: ${{ <context> }}}` on the step and read the variable as `"$NAME"` in `run` and `process.env.NAME` in `script`, the value then never parses as source'

@@ -4,12 +4,21 @@ language: java
 severity: error
 rule:
     kind: line_comment
-    regex: '^// --- \[IMPORTS\]'
-    any:
-        - precedes: {pattern: $NEXT}
-        - pattern: $_
-message: Divider `[IMPORTS]` names no section
-note: Delete the divider, imports precede every section divider
+    pattern: $DIVIDER
+    inside: {kind: program}
+    all:
+        - any:
+            - regex: '^// --- \[IMPORTS\]'
+            - regex: '^// --- \[[A-Z0-9_]+\]'
+              precedes: {kind: 'package_declaration, import_declaration'}
+              not: {precedes: {stopBy: {matches: java-section-divider}, not: {kind: 'package_declaration, import_declaration, line_comment, block_comment'}}}
+        - any:
+            - precedes: {pattern: $NEXT}
+            - pattern: $_
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^// --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
+message: Divider `$LABEL` names no section
+note: Delete the divider, package and import declarations precede every section divider
 fix:
     template: $NEXT
     expandEnd: {pattern: $NEXT}

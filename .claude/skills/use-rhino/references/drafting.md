@@ -7,8 +7,8 @@ Drawings and sheets come from `document.py` entry points and RhinoCommon inside 
 `make2d(doc, view, layer_path, ids, offset)` projects solids, SubD, meshes, curves, and block instances through a view with `HiddenLineDrawing` and returns records of the flat curves it added:
 - Visible curves go on `<layer_path>::Visible` and hidden curves on `<layer_path>::Hidden` in the Hidden linetype
 - Curves lie on World XY with their lower corner at `offset`
-- Block instances project through their definition's geometry in place, the instance stays as it is
-- `ids` naming text or points return a `RhinoObject` fault for each, runs over every visible object skip them
+- Block instances project through their definition's geometry in place and stay unchanged
+- `ids` naming text or points return a `RhinoObject` fault for each, runs over every visible model-space object skip them
 - Shapes `HiddenLineDrawing` refuses return a `HiddenLineDrawing` fault each
 
 ## [02]-[LAYOUTS]
@@ -35,6 +35,7 @@ Drawings and sheets come from `document.py` entry points and RhinoCommon inside 
 # Aligned dimension in the current style
 from Rhino.Geometry import AnnotationType, LinearDimension, Plane, Point3d, Vector3d
 import document
+
 doc = __rhino_doc__
 dimension = LinearDimension.Create(AnnotationType.Aligned, doc.DimStyles.Current, Plane.WorldXY, Vector3d.XAxis, Point3d(0, 0, 0), Point3d(10, 0, 0), Point3d(5, -3, 0), 0.0)
 print(document.add(doc, dimension, "<A::B>"))

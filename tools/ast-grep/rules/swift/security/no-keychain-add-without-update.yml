@@ -14,5 +14,5 @@ transform:
     LISTED: {replace: {source: $ARGS, replace: '"(add-(?:generic|internet)-password)"', by: '"$1", "-U"'}}
     UPDATED: {replace: {source: $LISTED, replace: '^"(add-(?:generic|internet)-password) ', by: '"$1 -U '}}
 fix: $UPDATED
-message: '`add-generic-password` or `add-internet-password` without `-U` adds a second item beside the existing one'
-note: 'Pass `-U` to update the item in place with its ACL and partition list'
+message: '`$ARGS` adds a keychain item without `-U` and exits 45 with errSecDuplicateItem once the item exists'
+note: 'Pass `-U`, the add then updates an existing item in place with its ACL and partition list'

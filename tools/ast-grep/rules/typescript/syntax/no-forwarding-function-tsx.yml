@@ -40,17 +40,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: object, matches: effect-module}
-            - has:
-                field: property
-                regex: |-
-                    (?x)^(map|flatMap|andThen|tap|tapError|tapBoth|filter|filterMap|filterOrFail|filterOrElse|forEach|reduce|getOrElse|orElse
-                    |orElseSucceed|orElseFail|catchAll|catchAllCause|catchTag|catchTags|catchSome|mapError|mapBoth|match|matchEffect|zip
-                    |zipWith|zipLeft|zipRight|as|ensuring|provide|provideService|provideContext|mapInput|partition|partitionMap|take
-                    |takeWhile|takeRight|drop|dropWhile|dropRight|append|appendAll|prepend|prependAll|retry|repeat|timeout|delay|when
-                    |race|merge|mapOut|filterInput|scan|split|replace|bind|bindTo|some|every|contains|findFirst|findLast|chunksOf
-                    |intersperse|union|intersection|difference|mapAccum|mapEffect|onError|onExit|withSpan|annotateLogs|sortBy|groupBy
-                    |sort|sortWith|dedupeWith|get|set|has|remove|modify|update|pick|omit|evolve|liftPredicate|fromOption|withTracer
-                    |provideMerge|startsWith|endsWith|includes|join|equals|matchTag|tapErrorTag|catchIf)$
+            - has: {field: property, matches: effect-dual-operation}
     string-method:
         regex: |-
             (?x)^(startsWith|endsWith|includes|trim|trimStart|trimEnd|toUpperCase|toLowerCase|split|slice|at|charAt|charCodeAt
@@ -119,4 +109,4 @@ rule:
             - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
             - all: [{matches: parameters-rest}, {has: {field: body, matches: result-rest}}]
 message: 'Function forwards its parameters unchanged into `$BODY`'
-note: 'Pass the callee, `flow(inner, callee)`, `Struct.get(key)`, or `Function.identity` where the callee takes no more arguments'
+note: 'Pass the callee, `flow(inner, callee)`, `Struct.get(key)`, or `Function.identity` in place of the wrapper where the callee takes no more arguments than the caller passes'

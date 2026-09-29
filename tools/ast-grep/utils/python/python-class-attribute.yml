@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-class-attribute
+language: python
+arguments: [value]
+rule:
+    kind: attribute
+    all:
+        - has: {field: object, kind: identifier, pattern: $OWNER}
+        - has: {field: attribute, pattern: $MEMBER}
+        - inside:
+            kind: module
+            stopBy: end
+            has:
+                kind: class_definition
+                all:
+                    - has: {field: name, pattern: $OWNER}
+                    - has: {field: body, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $MEMBER}}, {has: {field: right, matches: value}}]}}}

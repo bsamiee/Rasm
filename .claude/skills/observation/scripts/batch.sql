@@ -1,8 +1,8 @@
--- Proposes an agent's sites in one batch, :worktree the tree the paths are relative to, :sites a JSON array keyed by site columns, :id the writing agent, run from :worktree
+-- Proposes an agent's sites in one batch, :worktree the tree the paths are relative to, :sites a JSON array keyed by site columns, :actor_id the writing agent, run from :worktree
 .read .claude/skills/observation/scripts/site.sql
 .param set :state 'proposed'
-.param set :by "'agent:' || :id"
-insert into site(category, path, text, occurrence, start_line, start_column, end_line, end_column, subject_hash, message, replacement, source)
+.param set :actor 'agent'
+insert into site(category, path, text, occurrence, start_line, start_column, end_line, end_column, subject_hash, message, replacement)
 select
     value ->> '$.category',
     value ->> '$.path',
@@ -14,7 +14,6 @@ select
     value ->> '$.end_column',
     lower(hex(sha3(readfile(value ->> '$.path'), 256))),
     value ->> '$.message',
-    value ->> '$.replacement',
-    'agent:' || :id
+    value ->> '$.replacement'
 from json_each(:sites);
 .read .claude/skills/observation/scripts/insert.sql

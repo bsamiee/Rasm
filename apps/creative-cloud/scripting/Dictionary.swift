@@ -50,7 +50,7 @@ struct ScriptingDictionary {
         var definition: Unmanaged<CFData>?
         let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(application as CFURL, 0, &definition)
         guard status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() else {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+            throw ScriptingFailure.definitionUnavailable(application, status)
         }
         return data as Data
     }
@@ -265,11 +265,14 @@ enum ScriptingFailure: CustomNSError {
     case unknownOrdinal(String)
     case unquotedForm
     case notObjectSpecifier
+    case definitionUnavailable(URL, OSStatus)
+    case eventFailed(OSStatus, message: String?)
 
     static var errorDomain: String { NSOSStatusErrorDomain }
 
     var errorCode: Int {
         switch self {
+            case .definitionUnavailable(_, let status), .eventFailed(let status, _): Int(status)
             case .runningInstances, .terminated: Int(procNotFound)
             case .absentCommand: Int(errAEEventNotHandled)
             case .unknownParameter: Int(errAEParamMissed)
@@ -279,7 +282,7 @@ enum ScriptingFailure: CustomNSError {
     }
 
     var errorUserInfo: [String: Any] {
-        let description: String =
+        let description: String? =
             switch self {
                 case .runningInstances(let url): "Execution requires exactly one running instance of \(url.path(percentEncoded: false))"
                 case .terminated(let url): "\(url.path(percentEncoded: false)) terminated before it finished launching"
@@ -289,8 +292,10 @@ enum ScriptingFailure: CustomNSError {
                 case .unknownOrdinal(let ordinal): "Unknown ordinal: \(ordinal)"
                 case .unquotedForm: "Object specifiers require a quoted four-character form"
                 case .notObjectSpecifier: "Record does not coerce to an object specifier"
+                case .definitionUnavailable(let url, _): "Scripting definition is unreadable for \(url.path(percentEncoded: false))"
+                case .eventFailed(_, let message): message
             }
-        return [NSLocalizedDescriptionKey: description]
+        return description.map { text in [NSLocalizedDescriptionKey: text] } ?? [:]
     }
 }
 

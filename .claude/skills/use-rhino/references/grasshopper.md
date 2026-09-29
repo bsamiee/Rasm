@@ -6,13 +6,13 @@ Grasshopper 2 definitions build, solve, check, and bake through `canvas` in docu
 
 Each task works in its own document behind the current canvas:
 1. `definition = canvas.definition("</abs/definition.ghz>")` opens or creates the file's document with its Rhino preview off
-2. `canvas.build(definition, __rhino_doc__, stages, wires)` adds, names, sets, wires, groups, and lays out the parts
-3. `definition.Solution.Start()` starts a solve, `canvas.graph(definition)` in a later call checks each output against the task
+2. `canvas.build(definition, __rhino_doc__, groups, wires)` adds the definition's parts
+3. `definition.Solution.Start()` starts a solve, `canvas.graph(definition)` in a later call reads each output
 4. `canvas.bake(__rhino_doc__, definition, "<id>")` writes the result into `__rhino_doc__`
 5. `Editor.Instance.Documents.Pop(definition, True)` closes `definition` at the task's end, unsaved edits included
 
 - `Editor` imports from `Grasshopper2.UI`
-- First task documents replace an editor holding only its empty start document and become the current canvas
+- Task documents opened into an editor holding only its empty start document replace it and become the current canvas
 - `canvas.definition()` with no path returns the user's current canvas
 - `canvas.show(definition)` makes a task document the current canvas with its Rhino preview on
 - `g2_solve_canvas` solves the current canvas alone, task documents solve through `Solution.Start()`
@@ -44,34 +44,35 @@ Grasshopper 2 names operations by pattern:
 
 ## [03]-[BUILD]
 
-`build(definition, doc, stages, wires)` adds a definition as stages of parts and returns each key's canvas id, or every fault with the document unchanged:
+`build(definition, doc, groups, wires)` adds a definition as groups of parts and returns each key's canvas id, or every fault with the document unchanged:
 
 ```python
 # Bay grid in model units
 import canvas
-from canvas import Part, Slider, Stage, Wire
+from canvas import Group, Part, Slider, Wire
+
 definition = canvas.definition("</abs/definition.ghz>")
-stages = (
-    Stage("Inputs", "Gray", (Slider("bay", 10.0, 30.0, 60.0, 1, "Bay", "{0} ft"),)),
-    Stage("Grid", "Blue", (Part("grid", "00000000-6c37-45ac-9068-c7a38be9f9ca", "Grid", values={"Y Size": (30.0,)}),)),
+groups = (
+    Group("Inputs", "Gray", (Slider("bay", 10.0, 30.0, 60.0, 1, "Bay", "{0} ft"),)),
+    Group("Grid", "Blue", (Part("grid", "00000000-6c37-45ac-9068-c7a38be9f9ca", "Grid", values={"Y Size": (30.0,)}),)),
 )
-print(canvas.build(definition, __rhino_doc__, stages, (Wire("bay", "", "grid", "X Size"),)))
+print(canvas.build(definition, __rhino_doc__, groups, (Wire("bay", "", "grid", "X Size"),)))
 ```
 
-- Stages lay out left to right in flow order as named groups in an Open Color family, their parts in columns by wire depth
-- Parts take a user name that says what their output holds, every part another stage reads takes one
+- Groups lay out left to right in flow order in their Open Color family, their parts in columns by wire depth
+- Parts take a user name that says what their output holds, every part another group reads takes one
 - `values` maps an input to persistent values, `modifiers` maps an input to `With<Name>` modifiers (`"Grafting"`, `("Trimming", 1)`)
 - Modifiers graft, flatten, simplify, and reverse data on the input itself in place of Graft Tree and Flatten Tree components
 - Slider values are model units of `doc`, `grip` shows their unit on the grip (`"{0} ft"` draws `30.0 ft` and holds 30.0)
 - Value list parts take `items` as `(name, value text)` pairs and `selected` as an index
-- Parts reading a stage beyond the adjacent column take its data through a Relay part in their own stage
+- Parts reading a group beyond the adjacent column take its data through a Relay part in their own group
 - Wires name a port by name, user name, or index, a repeated port name takes its index, a lone parameter's port takes `""`
-- Components read units and tolerance from `RhinoDoc.ActiveDoc` unless a pin sets them, stage groups pin `doc`'s
+- Components read units and tolerance from `RhinoDoc.ActiveDoc` unless a pin sets them, build groups pin `doc`'s
 - `wire(definition, wires)` joins existing objects by canvas id, `replace=False` adds a second source to an input
 - `arrange(definition)` lays out an existing definition by flow, each group one block
 - `delete(definition, ids)` removes objects with their wires
-- `cluster(definition, ids, "<name>")` collapses a finished stage into one cluster with its boundary wires
-- Clusters refuse an empty set and a set a wire path leaves and reenters, returning the reason
+- `cluster(definition, ids, "<name>")` collapses a finished group into one cluster with its boundary wires
+- `cluster` returns a fault naming the `GraphTopology` of an empty set and of a set a wire path leaves and reenters
 
 ## [04]-[SCRIPT_PARTS]
 
@@ -86,6 +87,7 @@ Parts with `script` build a Python 3 or C# script component, `selector` the Pyth
 
 ```python
 from canvas import Part
+
 source = """import Grasshopper2
 
 class Script_Instance(Grasshopper2.Components.GH_ScriptInstance):
@@ -113,6 +115,7 @@ series = Part("series", "00000000-33f7-4221-9706-35b3266bbc0c", "Series", script
 
 ```python
 import canvas
+
 definition = canvas.definition("</abs/definition.ghz>")
 print(canvas.assign(definition, "<number id>", (2.0, 4.0, 6.0)))
 print(canvas.assign(definition, "<move id>", None, "Shape", ("Grafting",)))
@@ -155,6 +158,7 @@ Solves with zero errors pass value faults in silence:
 # Save a task document to its own .ghz
 from Grasshopper2.Doc import DocumentIO, FileContents
 import canvas
+
 definition = canvas.definition("</abs/definition.ghz>")
 print(DocumentIO(definition, trackFiles=False, reportErrors=False).Save(definition.File.Path, FileContents.Small))
 ```
@@ -175,5 +179,6 @@ print(DocumentIO(definition, trackFiles=False, reportErrors=False).Save(definiti
 Libraries come from Yak packages and registered development builds:
 - Libraries installed before Rhino launched load with the editor, their components answer `g2_search_components` by component name
 - `plugins()` loads libraries installed while Rhino runs
+- Failed libraries hold a `FailureKind` in `failure` and Grasshopper 2's message in `reason`
 - Rhino packages add components when they hold a Grasshopper 2 library
 - Use the plugins reference for finding and installing packages

@@ -19,4 +19,4 @@ rule:
         - has: {field: expression, pattern: $VALUE}
         - has: {field: pattern, pattern: $PATTERN, matches: unused-var}
 message: '`$VALUE is $PATTERN` tests a pattern every value matches'
-note: Map the host answer the call returns into a result, or discard the value with `ignore(<expression>)`
+note: Map the host answer the call returns into a result, a pattern every value matches drops it unread

@@ -2,6 +2,8 @@ extends: default
 
 ignore-from-file: .gitignore
 
+yaml-files: ["*.yaml", "*.yml", "!pnpm-lock.yaml"]
+
 rules:
     line-length: disable
     indentation: disable

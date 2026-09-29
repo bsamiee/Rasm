@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-relayed-parameter
+language: python
+arguments: [value]
+utils:
+    parameter:
+        any:
+            - {kind: identifier, pattern: $PARAMETER}
+            - {kind: typed_parameter, has: {kind: identifier, nthChild: 1, pattern: $PARAMETER}}
+            - {kind: 'default_parameter, typed_default_parameter', has: {field: name, pattern: $PARAMETER}}
+    callee:
+        any: [{kind: identifier, pattern: $FUNCTION}, {kind: attribute, has: {field: attribute, pattern: $FUNCTION}}]
+    method:
+        inside:
+            kind: block
+            stopBy: {not: {kind: decorated_definition}}
+            inside: {kind: class_definition, field: body}
+rule:
+    kind: identifier
+    pattern: $PARAMETER
+    inside:
+        kind: 'function_definition, lambda'
+        stopBy: end
+        all:
+            - any:
+                - has: {field: name, pattern: $FUNCTION}
+                - inside: {kind: assignment, field: right, has: {field: left, pattern: $FUNCTION}}
+            - any:
+                - has: {field: parameters, has: {kind: 'default_parameter, typed_default_parameter', all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: value, matches: value}}]}}
+                - all:
+                    - has: {field: parameters, has: {matches: parameter}}
+                    - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, matches: callee}}, {has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: value, matches: value}}]}}}]}}
+                - all:
+                    - not: {matches: method}
+                    - any:
+                        - all:
+                            - has: {field: parameters, has: {nthChild: 1, matches: parameter}}
+                            - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: identifier, pattern: $FUNCTION}}, {has: {field: arguments, has: {nthChild: 1, matches: value}}}]}}
+                        - all:
+                            - has: {field: parameters, has: {nthChild: 2, matches: parameter}}
+                            - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: identifier, pattern: $FUNCTION}}, {has: {field: arguments, has: {nthChild: 2, matches: value}}}]}}
+                        - all:
+                            - has: {field: parameters, has: {nthChild: 3, matches: parameter}}
+                            - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: identifier, pattern: $FUNCTION}}, {has: {field: arguments, has: {nthChild: 3, matches: value}}}]}}
+                - all:
+                    - matches: method
+                    - any:
+                        - all:
+                            - has: {field: parameters, has: {nthChild: 2, matches: parameter}}
+                            - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $FUNCTION}}}, {has: {field: arguments, has: {nthChild: 1, matches: value}}}]}}
+                        - all:
+                            - has: {field: parameters, has: {nthChild: 3, matches: parameter}}
+                            - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $FUNCTION}}}, {has: {field: arguments, has: {nthChild: 2, matches: value}}}]}}
+                        - all:
+                            - has: {field: parameters, has: {nthChild: 4, matches: parameter}}
+                            - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $FUNCTION}}}, {has: {field: arguments, has: {nthChild: 3, matches: value}}}]}}

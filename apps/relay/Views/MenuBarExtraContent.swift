@@ -168,15 +168,10 @@ private struct AccountCard: View {
         Button {
             store.select(model.account.id)
         } label: {
-            if model.isSelected {
-                Image(model.account.provider.symbol)
-                    .foregroundStyle(Color.accentColor)
-            } else {
-                Image(model.account.provider.symbol)
-            }
+            Image(model.account.provider.symbol)
         }
         .buttonStyle(.accessoryBar)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(model.isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
         .disabled(!model.isSelected && !model.canSelect)
         .overlay {
             if model.running?.kind == .selecting { ProgressView().controlSize(.mini) }

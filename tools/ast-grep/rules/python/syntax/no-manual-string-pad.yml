@@ -42,4 +42,4 @@ rule:
 constraints:
     FILL: {kind: string, regex: '^[rRuU]?("([^"\\]|\\.)"|''([^''\\]|\\.)'')$'}
 message: '`$TEXT` is padded by hand with `$FILL`'
-note: 'Use `format(<text>, f"<fill><align><width>")`'
+note: 'Use `format(<text>, f"<fill><align><width>")`, a format spec states fill, alignment, and width'

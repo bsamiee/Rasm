@@ -30,7 +30,7 @@ rewriters:
         matches: msbuild-tag
         pattern: _TAG
         inside: {pattern: _TARGET}
-        has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Name$'}}, {has: {kind: AttValue, pattern: _NAME}}]}
+        has: {matches: {msbuild-attribute: {name: {regex: '^Name$'}, value: {pattern: _NAME}}}}
         not: {has: {kind: Attribute, has: {kind: Name, regex: '^(Before|After)Targets$'}}}
       transform:
         RENAMED_TAG: rewrite($TAG, rewriters=[rename])

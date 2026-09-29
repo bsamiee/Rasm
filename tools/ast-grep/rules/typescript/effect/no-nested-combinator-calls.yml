@@ -9,36 +9,17 @@ utils:
             field: function
             kind: member_expression
             has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/\w+)?$'}, exported: {kind: identifier}}}}
-    pipe-step:
-        kind: call_expression
-        has:
-            field: function
-            kind: member_expression
-            has:
-                field: property
-                regex: |-
-                    (?x)^(map|flatMap|andThen|tap|tapError|tapErrorTag|tapCause|tapBoth|filter|filterMap|filterOrFail|filterOrElse|forEach
-                    |reduce|getOrElse|orElse|orElseSucceed|catch|catchCause|catchIf|catchFilter|catchTag|catchTags|catchReason|catchDefect
-                    |mapError|mapBoth|match|matchEffect|zip|zipWith|zipLeft|zipRight|as|ensuring|provide|provideService|provideContext
-                    |mapInput|partition|partitionMap|take|takeWhile|takeRight|drop|dropWhile|dropRight|append|appendAll|prepend|prependAll
-                    |retry|repeat|timeout|delay|when|race|merge|scan|split|replace|bind|bindTo|some|every|contains|findFirst|findLast
-                    |chunksOf|intersperse|union|intersection|difference|mapAccum|mapEffect|onError|onExit|withSpan|annotateLogs|sortBy
-                    |groupBy|flatten|fromIterable|orDie|scoped|asVoid|flip|result|option|exit|cached|forever|forkChild|forkScoped
-                    |forkDetach|interruptible|uninterruptible|ignore|compact|reverse|dedupe|sandbox)$
+    one-argument:
+        has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
     step:
         all:
             - matches: module-call
-            - matches: pipe-step
-            - not: {has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Schema)?$"}, exported: {regex: "^Schema$"}}}}}}
+            - not: {has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}}}
+            - any:
+                - matches: one-argument
+                - has: {field: function, has: {field: property, matches: effect-dual-operation}}
     unary-step:
-        matches: step
-        has:
-            field: function
-            has:
-                field: property
-                regex: |-
-                    (?x)^(flatten|fromIterable|orDie|scoped|asVoid|flip|result|option|exit|cached|forever|forkChild|forkScoped
-                    |forkDetach|interruptible|uninterruptible|ignore|compact|reverse|dedupe|sandbox)$
+        all: [{matches: step}, {matches: one-argument}]
     data-first-step:
         matches: step
         has:
@@ -51,6 +32,7 @@ rule:
     pattern: $CALL
     all:
         - matches: data-first-step
+        - has: {field: function, pattern: $OUTER}
         - has:
             field: arguments
             has:
@@ -88,7 +70,8 @@ rewriters:
         pattern: '$M.$OP($FIRST, $$$REST)'
       transform:
         INNER: rewrite($FIRST, rewriters=[unary, steps, unary-head, head])
-      fix: $INNER, $M.$OP($$$REST)
+        LISTED: {replace: {source: $$$REST, replace: '(?s),\s*$', by: ''}}
+      fix: $INNER, $M.$OP($LISTED)
     - id: unary-head
       rule:
         matches: unary-step
@@ -98,12 +81,13 @@ rewriters:
       rule:
         matches: step
         pattern: '$M.$OP($FIRST, $$$REST)'
-      fix: $FIRST, $M.$OP($$$REST)
+      transform: {LISTED: {replace: {source: $$$REST, replace: '(?s),\s*$', by: ''}}}
+      fix: $FIRST, $M.$OP($LISTED)
 transform:
     STEPS: rewrite($FIXABLE, rewriters=[unary, steps, unary-head, head])
     PIPED: {replace: {source: $STEPS, replace: '(?s)^(.+)$', by: 'pipe($1)'}}
 fix: $PIPED$KEPT
-message: 'Data-first module calls nest four deep and read from the inside out'
+message: '`$OUTER` wraps data-first module calls four deep'
 note: '`pipe(value, step, step, step)` lists the steps in evaluation order'
 labels:
     CALL: {style: primary}

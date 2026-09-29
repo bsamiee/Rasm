@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-tagged-key
+language: sql
+severity: error
+rule:
+    kind: binary_expression
+    pattern: _EXPRESSION
+    any:
+        - all:
+            - has: {field: operator, regex: '^\|\|$'}
+            - has: {field: left, kind: literal, regex: '^''[A-Za-z][\w-]*:''$', pattern: _LITERAL}
+        - all:
+            - has: {field: operator, regex: '(?i)^(not\s+)?like$'}
+            - has: {field: right, kind: literal, regex: '^''[A-Za-z][\w-]*:%''$', pattern: _LITERAL}
+        - all:
+            - has: {field: operator, regex: '^(=|==|<>|!=)$'}
+            - has: {kind: literal, regex: '^''[A-Za-z][\w-]*:''$', pattern: _LITERAL}
+transform:
+    TAG: {replace: {source: $LITERAL, replace: '^''([^:]+):%?''$', by: '$1'}}
+message: '`$EXPRESSION` spells the tag `$TAG` inside a key string'
+note: 'Store the tag in its own column referencing a lookup table and compare the column with `=`, a form foreign keys and indexes read'

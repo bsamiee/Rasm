@@ -22,7 +22,7 @@ utils:
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^void$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+                - has: {field: object, matches: effect-effect-module}
     constant-thunk:
         kind: member_expression
         has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^Function$'}}}}
@@ -47,4 +47,4 @@ rule:
                     - matches: constant-thunk
                       has: {field: property, regex: '^const(Undefined|Null|Void)$', pattern: $D}
 message: '`Match.orElse` yields `$D` for every case the arms miss'
-note: '`Match.orElseAbsurd` when the arms cover the union, one more `Match.when` or `Match.tag` arm otherwise'
+note: '`Match.orElseAbsurd` closes arms that cover the union and a `Match.when` or `Match.tag` arm names each case they miss, no case then falls to an empty value'

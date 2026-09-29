@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-subquery-ordered-aggregate
+language: sql
+severity: error
+utils:
+    ordered-aggregate:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^(group_concat|string_agg|json_group_array|json_group_object|array_agg|list)$'}
+            - not: {has: {kind: 'order_by, filter_expression'}}
+            - not: {inside: {kind: window_function}}
+    ordered-subquery:
+        kind: subquery
+        all:
+            - has:
+                kind: select
+                all:
+                    - not: {has: {kind: keyword_distinct}}
+                    - has: {kind: select_expression, not: {has: {kind: term, any: [{has: {field: alias, kind: identifier}}, {not: {has: {field: value, kind: 'field, all_fields'}}}]}}}
+            - has:
+                kind: from
+                all:
+                    - has: {kind: relation, has: {kind: object_reference, pattern: _TABLE}}
+                    - has: {kind: order_by, pattern: _ORDER}
+                    - not: {has: {kind: 'join, where, group_by, limit'}}
+rule:
+    kind: 'statement, subquery, create_query'
+    pattern: _QUERY
+    all:
+        - has: {kind: select, has: {kind: select_expression, has: {kind: term, has: {field: value, matches: ordered-aggregate, pattern: _AGGREGATE}}}}
+        - has:
+            kind: from
+            all:
+                - has: {kind: relation, has: {matches: ordered-subquery, pattern: _SUBQUERY}}
+                - not: {has: {kind: join}}
+rewriters:
+    - id: ordered
+      rule:
+        matches: ordered-aggregate
+        pattern: {context: 'select _NAME(___ARGUMENTS)', selector: invocation}
+        inside:
+            kind: term
+            inside:
+                kind: select_expression
+                inside:
+                    kind: select
+                    inside: {has: {kind: from, has: {kind: relation, has: {pattern: _SUBQUERY}}}}
+      fix: $NAME($$$ARGUMENTS $ORDER)
+    - id: unwrapped
+      rule: {pattern: _SUBQUERY}
+      fix: $TABLE
+transform:
+    FIXED: {rewrite: {source: $QUERY, rewriters: [ordered, unwrapped]}}
+fix: $FIXED
+message: '`$AGGREGATE` reads rows in the order `$SUBQUERY` sets, an order the aggregate does not keep'
+note: 'Move the `order by` into the call as `<aggregate>(<value>, <separator> order by <key>)` over the table, the one order SQLite and DuckDB apply to an aggregate'

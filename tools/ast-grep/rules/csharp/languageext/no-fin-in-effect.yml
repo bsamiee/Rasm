@@ -92,4 +92,4 @@ rule:
         - matches: pure-result
         - matches: tried-result
 message: '`$TYPE` holds a result type with a failure that duplicates the effect failure channel'
-note: Use `IO<A>` or `Eff<RT, A>` with the typed `Expected` on the effect failure channel, `IO.lift(<result>)` over a `Fin` or `Either`, `IO.lift(<result>.ToFin())` over a `Validation` or `Try`, and `ValidationT<Error, IO, A>` where errors keep accumulating inside the effect
+note: Use `IO<A>` or `Eff<RT, A>` with a typed `Expected` on the effect failure channel, `IO.lift` over a `Fin` or `Either`, `ToFin` over a `Validation` or `Try`, and `ValidationT<Error, IO, A>` where errors accumulate inside an effect

@@ -5,26 +5,160 @@ symbolType: struct
 rule:
     kind: type_alias_statement
     pattern: $DECLARATION
-    not:
-        inside:
-            kind: function_definition, class_definition
-            stopBy: end
+    not: {inside: {kind: 'function_definition, class_definition', stopBy: end}}
     has:
         field: left
         any:
             - has: {kind: identifier, pattern: $NAME}
-            - has:
-                kind: generic_type
-                has: {kind: identifier, pattern: $NAME}
+            - has: {kind: generic_type, has: {kind: identifier, pattern: $NAME}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $DECLARATION
+signature: $SIGNATURE
+---
+id: python-decorated-class
+language: python
+role: item
+symbolType: class
+rule:
+    kind: decorated_definition
+    pattern: $DECLARATION
+    not: {inside: {kind: 'function_definition, class_definition', stopBy: end}}
+    has: {field: definition, kind: class_definition, has: {field: name, pattern: $NAME}}
+utils:
+    body: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
+rewriters:
+    - id: header
+      rule: {matches: body}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[header])
+    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
+    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
+    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
+    JOINED: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $JOINED, replace: '\s+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: python-decorated-function
+language: python
+role: item
+symbolType: function
+rule:
+    kind: decorated_definition
+    pattern: $DECLARATION
+    not: {inside: {kind: 'function_definition, class_definition', stopBy: end}}
+    has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
+utils:
+    body: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
+rewriters:
+    - id: header
+      rule: {matches: body}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[header])
+    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
+    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
+    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
+    JOINED: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $JOINED, replace: '\s+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: python-export-list
+language: python
+role: item
+symbolType: variable
+rule:
+    kind: expression_statement
+    pattern: $DECLARATION
+    inside: {kind: module}
+    has: {kind: assignment, has: {field: left, regex: '^__all__$', pattern: $NAME}}
+transform:
+    UNTRAILED: {replace: {source: $DECLARATION, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
+    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
+    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
+    SIGNATURE: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: python-decorated-class-field
+language: python
+role: member
+symbolType: field
+parentRuleIds: [python-decorated-class]
+rule:
+    kind: assignment
+    has: {field: left, kind: identifier, pattern: $NAME}
+    inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition, field: body}}}
+name: $NAME
+---
+id: python-decorated-class-class
+language: python
+role: member
+symbolType: class
+parentRuleIds: [python-decorated-class]
+rule:
+    kind: class_definition
+    has: {field: name, pattern: $NAME}
+    inside: {kind: block, stopBy: {not: {kind: decorated_definition}}, inside: {kind: class_definition, field: body}}
+name: $NAME
+---
+id: python-method-header
+language: python
+role: member
+symbolType: method
+parentRuleIds: [python-class, python-decorated-class]
+rule:
+    kind: 'function_definition, decorated_definition'
+    pattern: $DECLARATION
+    any:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
+    not: {inside: {kind: decorated_definition}}
+    inside: {kind: block, inside: {kind: class_definition, field: body}}
+utils:
+    body: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
+rewriters:
+    - id: header
+      rule: {matches: body}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[header])
+    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
+    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
+    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
+    JOINED: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $JOINED, replace: '\s+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
 ---
 id: python-nested-function
 language: python
 role: member
 symbolType: function
-parentRuleIds: [python-function, python-async-function]
+parentRuleIds: [python-function, python-async-function, python-decorated-function]
 rule:
-    kind: function_definition
-    has: {field: name, pattern: $NAME}
+    kind: 'function_definition, decorated_definition'
+    pattern: $DECLARATION
+    any:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
+    not: {inside: {kind: decorated_definition}}
+    inside: {kind: function_definition, stopBy: end}
+utils:
+    body: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
+rewriters:
+    - id: header
+      rule: {matches: body}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[header])
+    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
+    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
+    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
+    JOINED: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $JOINED, replace: '\s+$', by: ''}}
 name: $NAME
+signature: $SIGNATURE

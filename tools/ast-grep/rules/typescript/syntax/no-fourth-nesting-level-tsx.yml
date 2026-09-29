@@ -22,11 +22,7 @@ utils:
                         any:
                             - matches: syntax-expression-wrapper
                             - kind: object, pair
-                inside:
-                    kind: lexical_declaration
-                    any:
-                        - inside: {kind: program}
-                        - inside: {kind: export_statement, inside: {kind: program}}
+                inside: {matches: syntax-module-constant}
             - inside:
                 kind: member_expression
                 field: object
@@ -40,14 +36,14 @@ utils:
                 - kind: member_expression
                   all:
                     - has: {field: property, regex: '^(fn|fnUntraced)$'}
-                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+                    - has: {field: object, matches: effect-effect-module}
                 - kind: call_expression
                   has:
                     field: function
                     kind: member_expression
                     all:
                         - has: {field: property, regex: '^fn$'}
-                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+                        - has: {field: object, matches: effect-effect-module}
     effect-fn-body:
         matches: syntax-function-boundary
         pattern: $BODY
@@ -105,6 +101,6 @@ rule:
                     stopBy: {matches: control-boundary}
                     not: {inside: {matches: control, stopBy: {matches: syntax-function-boundary}}}
 message: 'Functions or control statements nest four deep'
-note: 'Flatten the fourth level into a `pipe` step or an `Effect.gen` statement'
+note: 'Move the fourth level into a `pipe` step or an `Effect.gen` statement, nesting stops at three levels'
 labels:
     SCOPE: {style: primary}

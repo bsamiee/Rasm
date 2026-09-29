@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-function-java
+language: java
+severity: error
+utils:
+    parameter:
+        kind: formal_parameter, spread_parameter
+        any: [{has: {field: name, pattern: $P}}, {has: {kind: variable_declarator, has: {field: name, pattern: $P}}}]
+    parameter-read:
+        kind: identifier
+        pattern: $P
+        inside: {kind: method_declaration, stopBy: {kind: method_declaration}, has: {field: parameters, has: {matches: parameter}}}
+    named-callee:
+        kind: identifier, field_access, this, super
+        not:
+            any:
+                - matches: parameter-read
+                - has: {stopBy: end, any: [{kind: method_invocation}, {matches: parameter-read}]}
+    forwarded:
+        pattern: $CALL
+        all:
+            - any:
+                - kind: method_invocation
+                  all:
+                    - not: {has: {field: object, not: {any: [{matches: named-callee}, {matches: parameter-read}]}}}
+                    - not:
+                        all:
+                            - has: {field: name, pattern: $FN}
+                            - not: {has: {field: object, not: {kind: 'this, super'}}}
+                - kind: object_creation_expression
+                  not: {has: {kind: class_body}}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {pattern: $_, not: {matches: parameter-read}}}
+                    - not: {has: {kind: identifier, pattern: $REPEATED, follows: {stopBy: end, pattern: $REPEATED}}}
+            - not: {all: [{has: {field: object, pattern: $RECEIVER}}, {has: {field: arguments, has: {pattern: $RECEIVER}}}]}
+rule:
+    kind: method_declaration
+    all:
+        - has: {field: name, pattern: $FN}
+        - not:
+            any:
+                - all: [{has: {field: name, regex: '^main$'}}, {has: {kind: modifiers, regex: '\bstatic\b'}}]
+                - has: {kind: modifiers, has: {kind: marker_annotation, regex: '^@Override$'}}
+        - has: {field: parameters, has: {kind: 'formal_parameter, spread_parameter'}}
+        - has:
+            field: body
+            not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
+            has: {kind: 'return_statement, expression_statement', has: {matches: forwarded}}
+        - not:
+            has:
+                field: parameters
+                has:
+                    all:
+                        - matches: parameter
+                        - not:
+                            inside:
+                                kind: method_declaration
+                                stopBy: {kind: method_declaration}
+                                has:
+                                    field: body
+                                    has:
+                                        kind: return_statement, expression_statement
+                                        has: {any: [{has: {field: arguments, has: {pattern: $P}}}, {has: {field: object, pattern: $P}}]}
+transform:
+    F: {replace: {source: $CALL, replace: '\s*\([\s\S]*$', by: ''}}
+message: Method `$FN` forwards its parameters unchanged to `$F`
+note: Call `<callee>` at each use, a method that forwards a call unchanged adds no fact

@@ -165,4 +165,4 @@ fix:
     template: '$RETURN$LOCAL$HEAD$TEST$CASE$VALUE { $IN } else { $OUT }$NEWLINE$WHOLE_RETURN$CALL_RETURN$CTOR_OPEN$BEFORE_ARGS$LABEL_COLON$ARGUMENT$TAIL_ARGS$CTOR_CLOSE'
     expandEnd: {kind: control_transfer_statement}
 message: 'One case yields `$IN` and every other case `$OUT`'
-note: '`if case <pattern> = <value> { <matched> } else { <other> }` is one expression over both cases, `<value> == <case>` where the type is `Equatable`'
+note: 'Use `if case <pattern> = <value> { <matched> } else { <other> }`, or `<value> == <case>` where the type is `Equatable`, one expression over both cases'

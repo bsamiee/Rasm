@@ -1,15 +1,15 @@
-"""Blender's package rows from `packages.toml`, each staged as the archive its source, tool, or remote listing resolves, and the control extension Blender builds."""
+"""Blender's package rows from `packages.toml`, each a bundled add-on, a listed extension, or an archive staged from its GitHub source, tool, or patched listing, with the extension Blender builds and the look-development image."""
 
-from collections.abc import Awaitable, Callable, Coroutine
-from enum import StrEnum
-from functools import cache, partial
+from collections.abc import Mapping
 from glob import escape
-import hashlib
+from itertools import starmap
+from operator import methodcaller
 from pathlib import Path, PurePosixPath
-import runpy
+import shlex
+import shutil
 import stat
 from subprocess import CalledProcessError
-from typing import Self
+from typing import Final
 import zipfile
 
 import anyio
@@ -17,44 +17,33 @@ import httpx
 import msgspec
 
 from interface import roles
-from interface.blender.catalog import Catalog, Listed, Local
-from interface.host import Applied, bootstrap, Change, downloaded, Error, Failed, gather, Host
-from interface.report import ABSENT, digest
+from interface.blender.rows import Archive, Installation, Listed, Local, stamp
+from interface.frame import Task
+from interface.host import Applied, bootstrap, Bundle, bundle, Change, downloaded, Error, Failed, Header, Host, outcome
+from interface.render import LOOK_DEVELOPMENT
+from interface.report import ABSENT, digest, subscript
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Unresolved = ToolError | NoRelease | NoAsset | NoFile | NoPackage | Unstaged | Unlisted | Unfetched
-type Resolved = tuple[Local | Listed, tuple[Change, ...]] | Unresolved
-type Written = Path | ToolError | NoPackage | Unfetched
+type Origin = GitHub | Tool | Listing
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-class Access(StrEnum):
-    """Blender's network access flag, offline resolving each staged build and online each newest build."""
-
-    OFFLINE = "--offline-mode"
-    ONLINE = "--online-mode"
-
+EXTENSION_COMMAND: Final = ("--command", "extension")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Environment(msgspec.Struct, frozen=True, rename="upper"):
-    """Variables of the Blender server row naming the executable and the bridge port."""
-
-    blender_path: str
-    blender_mcp_port: int
-
-
-class GitHub(msgspec.Struct, frozen=True):
-    """GitHub repository whose newest release or branch head an archive row installs, a legacy add-on under the folder or repository name."""
+class GitHub(msgspec.Struct, frozen=True, tag="github", tag_field="kind"):
+    """GitHub repository whose newest release zip asset, or the head of the named branch, an archive row stages, a legacy add-on under the folder or repository name."""
 
     repository: str
     branch: str | None = None
     folder: str | None = None
 
 
-class Tool(msgspec.Struct, frozen=True):
-    """mise tool whose install holds the add-on file an archive row installs."""
+class Tool(msgspec.Struct, frozen=True, tag="tool", tag_field="kind"):
+    """mise tool whose install holds the add-on file an archive row stages."""
 
     name: str
     file: str
@@ -84,12 +73,11 @@ class Rpath(msgspec.Struct, frozen=True):
 
 
 class Package(msgspec.Struct, frozen=True):
-    """`packages.toml` row with its GitHub source or tool, the workspaces that place it, and the libraries, patches, and run paths staged into its archive."""
+    """`packages.toml` row with the workspace tasks that place it, its GitHub or tool origin, and the libraries, patches, and run paths staged into its archive."""
 
     id: str
-    workspaces: tuple[str, ...] = ()
-    source: GitHub | None = None
-    tool: Tool | None = None
+    workspaces: tuple[Task, ...] = ()
+    origin: GitHub | Tool | None = None
     libraries: Libraries | None = None
     patches: tuple[Patch, ...] = ()
     rpaths: tuple[Rpath, ...] = ()
@@ -101,47 +89,12 @@ class Packages(msgspec.Struct, frozen=True):
     packages: tuple[Package, ...]
 
 
-class Build(msgspec.Struct, frozen=True):
-    """Build a staged archive records as its comment, its source address, tool file, or listing hash with the digest of its corrections."""
-
-    source: str
-    corrections: str = ""
-
-
-class Manifest(msgspec.Struct, frozen=True):
-    """Extension manifest id and asset shelves, each shelf idname with the ID types of the assets it shows."""
-
-    id: str
-    shelves: dict[str, frozenset[str]]
-
-
-class Asset(msgspec.Struct, frozen=True):
-    """Release asset by file name and download address."""
-
-    name: str
-    browser_download_url: str
-
-
-class Release(msgspec.Struct, frozen=True):
-    """GitHub release by tag with its assets."""
-
-    tag_name: str
-    assets: tuple[Asset, ...]
-
-
-class Commit(msgspec.Struct, frozen=True):
-    """Branch head commit."""
-
-    sha: str
-
-
 class Listing(msgspec.Struct, frozen=True):
-    """Package a remote repository index lists with its version and archive address and hash."""
+    """Package a synced remote repository index lists at a version, with its archive address naming the archive hash."""
 
     id: str
     version: str
     archive_url: str
-    archive_hash: str
 
 
 class Index(msgspec.Struct, frozen=True):
@@ -150,400 +103,341 @@ class Index(msgspec.Struct, frozen=True):
     data: tuple[Listing, ...]
 
 
-# --- [ERRORS] ---------------------------------------------------------------------------
-
-
-class ToolError(msgspec.Struct, frozen=True):
-    """Command a resolution ran that exited with an error."""
-
-    command: tuple[str, ...]
-    code: int
-
-    @classmethod
-    def raised(cls, error: CalledProcessError) -> Self:
-        """Error of the failed process."""
-        return cls(tuple(map(str, error.cmd)), error.returncode)
-
-    @property
-    def message(self) -> str:
-        """Error line the outcome shows."""
-        return f"`{' '.join(self.command)}` exited with code {self.code}"
-
-
-class NoRelease(msgspec.Struct, frozen=True):
-    """Repository that publishes no release."""
+class ReleaseZip(msgspec.Struct, frozen=True, tag=True):
+    """Zip asset of a GitHub release by tag."""
 
     repository: str
-
-    @property
-    def message(self) -> str:
-        """Error line the outcome shows."""
-        return f"{self.repository} publishes no release"
+    tag: str
+    asset: str
 
 
-class NoAsset(msgspec.Struct, frozen=True):
-    """Release with several zip assets and none for this platform."""
+class BranchHead(msgspec.Struct, frozen=True, tag=True):
+    """GitHub branch head by commit."""
 
     repository: str
-    names: tuple[str, ...]
-
-    @property
-    def message(self) -> str:
-        """Error line the outcome shows."""
-        return f"{self.repository} releases {', '.join(self.names)} and none names this platform"
+    sha: str
 
 
-class NoFile(msgspec.Struct, frozen=True):
-    """Tool install that holds the declared file zero or several times."""
+class ToolFile(msgspec.Struct, frozen=True, tag=True):
+    """Add-on file of a tool install."""
 
-    tool: str
-    file: str
-
-    @property
-    def message(self) -> str:
-        """Error line the outcome shows."""
-        return f"{self.tool} holds {self.file} zero or several times"
+    path: str
 
 
-class NoPackage(msgspec.Struct, frozen=True):
-    """Archive holding neither an extension manifest nor a package folder."""
+class ListingZip(msgspec.Struct, frozen=True, tag=True):
+    """Archive a repository index lists."""
 
-    identity: str
-
-    @property
-    def message(self) -> str:
-        """Error line the outcome shows."""
-        return f"{self.identity} archive holds neither an extension manifest nor __init__.py"
-
-
-class Unstaged(msgspec.Struct, frozen=True):
-    """Source row with no staged build."""
-
-    identity: str
-
-    @property
-    def message(self) -> str:
-        """Error line the outcome shows."""
-        return f"{self.identity} has no staged build. Run `python -m interface.cli upgrade blender` to stage its newest"
-
-
-class Unlisted(msgspec.Struct, frozen=True):
-    """Row without a source or tool that names no bundled add-on and that zero or several remote repositories list."""
-
-    identity: str
-    repositories: tuple[str, ...]
-
-    @property
-    def message(self) -> str:
-        """Error line the outcome shows."""
-        return f"{self.identity} is no bundled add-on and {len(self.repositories)} remote repositories list it {self.repositories}"
-
-
-class Unfetched(msgspec.Struct, frozen=True):
-    """Failed download."""
-
-    identity: str
     url: str
-    reason: str
 
-    @property
-    def message(self) -> str:
-        """Error line the outcome shows."""
-        return f"{self.identity} download from {self.url} fails with {self.reason}"
+
+class Build(msgspec.Struct, frozen=True):
+    """Build a staged archive records as its comment: the source it came from and the digest of the corrections staged into it."""
+
+    source: ReleaseZip | BranchHead | ToolFile | ListingZip
+    corrections: str
+
+
+class Cached(msgspec.Struct, frozen=True):
+    """Archive the cache holds with the build its comment records."""
+
+    build: Build
+    archive: Archive
+
+
+class Manifest(msgspec.Struct, frozen=True):
+    """Extension manifest id and asset shelves, each shelf idname with the catalog paths it shows."""
+
+    id: str
+    shelves: dict[str, tuple[str, ...]]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+# --- [DECLARATION]
+async def declared() -> tuple[Package, ...]:
+    """Package rows `packages.toml` declares beside this module, each role placeholder as the byte fractions `rna.Paint` writes a display color as."""
+    text = await anyio.Path(__file__).with_name("packages.toml").read_text(encoding="utf-8")
+    return msgspec.toml.decode(roles.substituted(text, lambda rgb: ", ".join(map(str, roles.fractions(rgb)))), type=Packages).packages
+
+
+# --- [PROCESSES]
+async def executed(command: tuple[str, ...], environment: Mapping[str, str]) -> bytes | Error:
+    """Output of the command run in the environment, or the error naming its exit code and error output."""
+    try:
+        return (await anyio.run_process(command, env=environment)).stdout
+    except CalledProcessError as error:
+        return Error(f"`{shlex.join(command)}` exited with code {error.returncode}: {error.stderr.decode().strip()}")
+
+
+async def bundled(host: Host) -> Bundle:
+    """Blender bundle holding the executable the `BLENDER_PATH` variable names."""
+    return await bundle(Path(host.environ["BLENDER_PATH"]).parents[2])
+
+
+async def installation(host: Host, application: Bundle) -> Installation | Error:
+    """Installation facts a background Blender writes offline under the user's preferences, or the failed run."""
+    async with anyio.TemporaryDirectory() as temporary:
+        path = anyio.Path(temporary, "installation.json")
+        call = bootstrap("interface.blender.script", t"installation({str(path)})")
+        if isinstance(failed := await executed((str(application.executable), "--background", "--offline-mode", "--python-exit-code", "1", "--python-expr", call), host.environ), Error):
+            return failed
+        return msgspec.json.decode(await path.read_bytes(), type=Installation)
+
+
 # --- [ARCHIVES]
-@cache
-def tooling(executable: Path) -> tuple[str, str]:
-    """Extension manifest file name and this machine's split-platform archive tag, both from Blender's extension command-line tooling."""
-    namespace = runpy.run_path(str(next(executable.parent.parent.glob("Resources/*/scripts/addons_core/bl_pkg/cli/blender_ext.py"))))
-    return str(namespace["PKG_MANIFEST_FILENAME_TOML"]), str(namespace["platform_from_this_system"]()).replace("-", "_")
+def stamped(archive: zipfile.ZipFile) -> str:
+    """Stamp of the archive's file members by CRC-32 and size."""
+    return stamp({info.filename: (info.CRC, info.file_size) for info in archive.infolist() if not info.is_dir()})
 
 
-def commented(path: Path) -> Build | None:
-    """Build the staged archive records as its comment, None for no archive or a listing's archive."""
-    if path.exists():
-        with zipfile.ZipFile(path) as archive:
-            return msgspec.json.decode(archive.comment, type=Build) if archive.comment else None
-    return None
+def sealed(path: Path) -> Archive:
+    """Archive at the path with the stamp of its members."""
+    with zipfile.ZipFile(path) as archive:
+        return Archive(str(path), stamped(archive))
 
 
-def hashed(path: Path) -> str:
-    """Staged file's sha256 in repository index form, empty when none is staged."""
-    if path.exists():
-        with path.open("rb") as handle:
-            return f"sha256:{hashlib.file_digest(handle, 'sha256').hexdigest()}"
-    return ""
+def commented(target: Path, label: str) -> Cached | Error:
+    """Archive the cache holds at the target with the build its comment records, or the labeled error of no staged archive or a comment that records no build."""
+    try:
+        with zipfile.ZipFile(target) as archive:
+            return Cached(msgspec.json.decode(archive.comment, type=Build), Archive(str(target), stamped(archive)))
+    except FileNotFoundError:
+        return Error(f"{label} has no staged archive at {target}")
+    except msgspec.DecodeError as error:
+        return Error(f"{label} archive {target} records no build: {error}")
 
 
-def corrections(package: Package) -> str:
-    """Digest of the libraries, patches, and run paths a row stages, empty when it stages none."""
-    parts = (package.libraries, package.patches, package.rpaths)
-    return digest(msgspec.json.encode(parts)) if any(parts) else ""
+def tagged(asset: str, machines: Mapping[str, str]) -> str:
+    """Blender platform id of a split-platform asset name's trailing `<system>_<machine>` tag, the machine mapped through Blender's machine names."""
+    system, _, machine = asset.removesuffix(".zip").rpartition("-")[2].partition("_")
+    return f"{system}-{machines.get(machine, machine)}"
 
 
-def extracted(source: Path, tree: Path, identity: str, folder: str, manifest: str) -> Path | NoPackage:
-    """Package folder of the archive extracted into the tree in the form Blender installs, symbolic links kept."""
+def extracted(source: Path, tree: Path, label: str, module: str, manifest_filename: str) -> Path | Error:
+    """Package folder of the archive extracted into the tree in the form Blender installs, an extension at the tree root and a legacy add-on under its module folder, links kept as links."""
     with zipfile.ZipFile(source) as archive:
         members = [info for info in archive.infolist() if not info.is_dir()]
-        names = [info.filename for info in members]
-        shallowest = {name: min((each for each in names if PurePosixPath(each).name == name), key=lambda each: each.count("/"), default=None) for name in (manifest, "__init__.py")}
-        match shallowest[manifest], shallowest["__init__.py"]:
+
+        def shallowest(name: str) -> str | None:
+            return min((info.filename for info in members if PurePosixPath(info.filename).name == name), key=methodcaller("count", "/"), default=None)
+
+        match shallowest(manifest_filename), shallowest("__init__.py"):
             case str() as held, _:
-                root, package = held.removesuffix(manifest), tree
+                prefix, root = held.removesuffix(manifest_filename), tree
             case None, str() as initial:
-                root, package = initial.removesuffix("__init__.py"), tree / folder
+                prefix, root = initial.removesuffix("__init__.py"), tree / module
             case _:
-                return NoPackage(identity)
-        for info in [info for info in members if info.filename.startswith(root)]:
-            (path := package / info.filename.removeprefix(root)).parent.mkdir(parents=True, exist_ok=True)
+                return Error(f"{label} archive holds neither {manifest_filename} nor __init__.py")
+        for info in [info for info in members if info.filename.startswith(prefix)]:
+            (path := root / info.filename.removeprefix(prefix)).parent.mkdir(parents=True, exist_ok=True)
             if stat.S_ISLNK(info.external_attr >> 16):
                 path.symlink_to(archive.read(info).decode())
             else:
                 path.write_bytes(archive.read(info))
-    return package
+    return root
 
 
-def patched(package: Path, patches: tuple[Patch, ...]) -> Path:
-    """Package folder with each patch's text replaced once in its file, line endings kept."""
-    for patch in patches:
-        path = package / patch.file
-        path.write_text(path.read_text(encoding="utf-8", newline="").replace(patch.text, patch.replacement, 1), encoding="utf-8", newline="")
-    return package
+def patched(root: Path, label: str, patches: tuple[Patch, ...]) -> Path | Error:
+    """Root with each patch's text replaced once in its file, line endings kept, or the error naming each patch whose file holds its text other than once."""
+    missed = []
+    for index, patch in enumerate(patches):
+        path = root / patch.file
+        try:
+            text = path.read_text(encoding="utf-8", newline="")
+        except FileNotFoundError:
+            text = ""
+        if text.count(patch.text) == 1:
+            path.write_text(text.replace(patch.text, patch.replacement), encoding="utf-8", newline="")
+        else:
+            missed.append(f"{subscript(f'{label}.patches', index)} {patch.file}")
+    return Error(f"{', '.join(missed)} find no text held once to replace") if missed else root
 
 
-def zipped(tree: Path, target: Path, build: Build) -> Path:
-    """Every file under the tree but bytecode caches zipped at the target, the build recorded as the archive comment."""
+def zipped(tree: Path, target: Path, build: Build) -> str:
+    """Stamp of the archive zipped at the target from every file under the tree, each link stored as the content it resolves to, the build recorded as its comment."""
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.comment = msgspec.json.encode(build)
-        for path in sorted(path for path in tree.rglob("*") if path.is_file() and "__pycache__" not in path.parts):
-            archive.write(path, path.relative_to(tree).as_posix())
-    return target
+        for path in sorted(path for path in tree.rglob("*") if not path.is_dir()):
+            archive.write(path.resolve(strict=True), path.relative_to(tree).as_posix())
+        return stamped(archive)
 
 
-async def requested[T](client: httpx.AsyncClient, identity: str, url: str, kind: type[T]) -> T | Unfetched:
-    """JSON the address answers decoded as the kind, or the failed download."""
-    try:
-        return msgspec.json.decode((await client.get(url)).raise_for_status().content, type=kind)
-    except httpx.HTTPError as error:
-        return Unfetched(identity, url, repr(error))
+# --- [BUILDS]
+async def upstream(host: Host, blender: Installation, origin: Origin, revision: str) -> Build | Error:
+    """Newest build the origin publishes at the corrections revision: a release's zip asset for this platform, a branch head, a tool's add-on file, or a listed archive."""
+    match origin:
+        case GitHub(repository=repository, branch=str() as branch):
+            if isinstance(sha := await executed(("gh", "api", f"repos/{repository}/commits/{branch}", "--jq", ".sha"), host.environ), Error):
+                return sha
+            return Build(BranchHead(repository, sha.decode().strip()), revision)
+        case GitHub(repository=repository):
+            if isinstance(view := await executed(("gh", "release", "view", "-R", repository, "--json", "tagName,assets", "--jq", "[.tagName, [.assets[].name]]"), host.environ), Error):
+                return view
+            tag, names = msgspec.json.decode(view, type=tuple[str, tuple[str, ...]])
+            zips = [name for name in names if name.endswith(".zip")]
+            platforms = {name: platform for name in zips if (platform := tagged(name, blender.machines)).partition("-")[0] in blender.systems}
+            match [name for name, platform in platforms.items() if platform == blender.platform] if platforms else zips:
+                case [asset]:
+                    return Build(ReleaseZip(repository, tag, asset), revision)
+                case assets:
+                    return Error(f"{repository} release {tag} holds {len(assets)} zip assets for {blender.platform} where a release row stages one")
+        case Tool(name=name, file=file):
+            if isinstance(where := await executed(("mise", "where", name), host.environ), Error):
+                return where
+            match [path async for path in anyio.Path(where.decode().strip()).glob(f"**/{escape(file)}")]:
+                case [path]:
+                    return Build(ToolFile(str(path)), revision)
+                case paths:
+                    return Error(f"{name} install holds {file} {len(paths)} times where a tool row stages one")
+        case Listing(archive_url=url):
+            return Build(ListingZip(url), revision)
 
 
-async def installed(executable: Path, root: Path, libraries: Libraries) -> None:
-    """Install the add-on's libraries into its target folder with uv against the bundle's Python, numpy held at the bundled version."""
-    python = next(executable.parent.parent.glob("Resources/*/python/bin/python3.*"))
-    numpy = next(python.parent.parent.glob("lib/python3.*/site-packages/numpy-*.dist-info")).name.removeprefix("numpy-").removesuffix(".dist-info")
+async def unpacked(host: Host, blender: Installation, label: str, module: str, build: Build, tree: Path, archive: Path) -> Path | Error:
+    """Package folder of the build's source under the tree in the form Blender installs, its fetched archive at the archive path, a tool's add-on file under the module file name."""
+    match build.source:
+        case ToolFile(path=path):
+            await anyio.Path(tree).mkdir()
+            await anyio.Path(path).copy(anyio.Path(tree, module))
+            return tree
+        case ReleaseZip(repository=repository, tag=tag, asset=asset):
+            url = f"https://github.com/{repository}/releases/download/{tag}/{asset}"
+        case BranchHead(repository=repository, sha=sha):
+            url = f"https://codeload.github.com/{repository}/legacy.zip/{sha}"
+        case ListingZip(url=url):
+            pass
+    if isinstance(unfetched := await downloaded(host.client, url, archive), Error):
+        return unfetched
+    return await anyio.to_thread.run_sync(extracted, archive, tree, label, module, blender.manifest_filename)
+
+
+async def vendored(host: Host, blender: Installation, root: Path, libraries: Libraries | None) -> Path | Error:
+    """Root with an add-on's libraries installed by uv into its target folder against Blender's Python, numpy held at the bundled version, or the failed install."""
+    if libraries is None:
+        return root
     async with anyio.TemporaryDirectory() as temporary:
         constraints = anyio.Path(temporary, "constraints.txt")
-        await constraints.write_text(f"numpy=={numpy}\n", encoding="utf-8")
+        await constraints.write_text(f"numpy=={blender.numpy}\n", encoding="utf-8")
         requirements = () if libraries.requirements is None else ("--requirements", str(root / libraries.requirements))
-        await anyio.run_process(["uv", "pip", "install", "--python", str(python), "--target", str(root / libraries.target), "--constraints", str(constraints), *requirements, *libraries.packages])
+        command = ("uv", "pip", "install", "--python", blender.python, "--target", str(root / libraries.target), "--constraints", str(constraints), *requirements, *libraries.packages)
+        return failed if isinstance(failed := await executed(command, host.environ), Error) else root
 
 
-async def copied(path: Path, name: str, build: Build, target: Path) -> Path:
-    """Tool's single-file add-on zipped at the target under its module name, the build recorded as its comment."""
+async def signed(host: Host, root: Path, rpaths: tuple[Rpath, ...]) -> Path | Error:
+    """Root with each executable given its run path and signed again, or the first run-path addition or ad hoc signature that fails."""
+    for rpath in rpaths:
+        executable = str(root / rpath.file)
+        for command in (("/usr/bin/install_name_tool", "-add_rpath", rpath.path, executable), ("/usr/bin/codesign", "--force", "--sign", "-", executable)):
+            if isinstance(failed := await executed(command, host.environ), Error):
+                return failed
+    return root
+
+
+async def repacked(host: Host, blender: Installation, package: Package, label: str, module: str, build: Build, target: Path) -> str | Error:
+    """Stamp of the archive the build stages at the target: its source unpacked in the form Blender installs, patched, given its libraries and run paths, and zipped with the build as its comment."""
     async with anyio.TemporaryDirectory() as temporary:
-        await anyio.Path(path).copy(anyio.Path(temporary, name))
-        return await anyio.to_thread.run_sync(zipped, Path(temporary), target, build)
-
-
-async def repacked(client: httpx.AsyncClient, executable: Path, package: Package, folder: str, build: Build, target: Path) -> Written:
-    """Source archive at the build's address, extracted, patched, given its libraries and run paths, and zipped at the target."""
-    async with anyio.TemporaryDirectory() as temporary:
-        source, tree, (manifest, _) = Path(temporary, "source.zip"), Path(temporary, "tree"), tooling(executable)
-        if isinstance(failed := await downloaded(client, build.source, source), Error):
-            return Unfetched(package.id, build.source, failed.text)
-        match await anyio.to_thread.run_sync(extracted, source, tree, package.id, folder, manifest):
-            case NoPackage() as missing:
-                return missing
-            case extract:
-                root = await anyio.to_thread.run_sync(patched, extract, package.patches)
-        try:
-            if package.libraries is not None:
-                await installed(executable, root, package.libraries)
-            for rpath in package.rpaths:
-                await anyio.run_process(["/usr/bin/install_name_tool", "-add_rpath", rpath.path, str(root / rpath.file)])
-                await anyio.run_process(["/usr/bin/codesign", "--force", "--sign", "-", str(root / rpath.file)])
-        except CalledProcessError as error:
-            return ToolError.raised(error)
+        tree = Path(temporary, "tree")
+        if isinstance(root := await unpacked(host, blender, label, module, build, tree, Path(temporary, "source.zip")), Error):
+            return root
+        if isinstance(corrected := await anyio.to_thread.run_sync(patched, root, label, package.patches), Error):
+            return corrected
+        if isinstance(supplied := await vendored(host, blender, corrected, package.libraries), Error):
+            return supplied
+        if isinstance(sealed_root := await signed(host, supplied, package.rpaths), Error):
+            return sealed_root
         return await anyio.to_thread.run_sync(zipped, tree, target, build)
-
-
-async def rebuilt(client: httpx.AsyncClient, executable: Path, listing: Listing, patches: tuple[Patch, ...], build: Build, target: Path) -> Written:
-    """Listed archive downloaded, patched, and zipped at the target."""
-    async with anyio.TemporaryDirectory() as temporary:
-        source, tree, (manifest, _) = Path(temporary, "source.zip"), Path(temporary, "tree"), tooling(executable)
-        if isinstance(failed := await downloaded(client, listing.archive_url, source), Error):
-            return Unfetched(listing.id, listing.archive_url, failed.text)
-        match await anyio.to_thread.run_sync(extracted, source, tree, listing.id, listing.id, manifest):
-            case NoPackage() as missing:
-                return missing
-            case extract:
-                await anyio.to_thread.run_sync(patched, extract, patches)
-        return await anyio.to_thread.run_sync(zipped, tree, target, build)
-
-
-async def refreshed(client: httpx.AsyncClient, identity: str, url: str, target: Path, stated: str) -> tuple[Change, ...] | Unfetched:
-    """File at the target, downloaded into place while its hash differs from the stated one, with a change row when downloaded."""
-    if (held := await anyio.to_thread.run_sync(hashed, target)) == stated:
-        return ()
-    if isinstance(failed := await downloaded(client, url, target), Error):
-        return Unfetched(identity, url, failed.text)
-    return (Change(f"packages.{identity}.archive", held or ABSENT, stated),)
 
 
 # --- [RESOLUTION]
-def decoded(text: str) -> tuple[Package, ...]:
-    """Rows a `packages.toml` text declares, each role placeholder as the display channels Blender's draw colors read."""
-
-    def channels(rgb: tuple[int, int, int]) -> str:
-        return ", ".join(str(round(channel / 255, 4)) for channel in rgb)
-
-    return msgspec.toml.decode(roles.substituted(text, channels), type=Packages).packages
-
-
-async def background[T](executable: Path, access: Access, module: str, function: str, kind: type[T]) -> T | ToolError:
-    """JSON a background Blender writes through the module's function at a path in a temporary directory, decoded as the kind, or the failed command."""
-    async with anyio.TemporaryDirectory() as temporary:
-        path = anyio.Path(temporary, f"{function}.json")
-        try:
-            await anyio.run_process((str(executable), "--background", access, "--python-exit-code", "1", "--python-expr", bootstrap(module, t"{function!s}({str(path)})")))
-        except CalledProcessError as error:
-            return ToolError.raised(error)
-        return msgspec.json.decode(await path.read_bytes(), type=kind)
+async def staged(host: Host, blender: Installation, package: Package, label: str, module: str, origin: Origin, *, upgrading: bool) -> tuple[Local, tuple[Change, ...]] | Error:
+    """Row installing the package from its cached archive at the recorded build, or at the origin's newest build when upgrading, the archive rebuilt while its recorded build differs, with a change row when rebuilt."""
+    target, revision = host.cache / f"{package.id}.zip", digest(msgspec.json.encode((package.libraries, package.patches, package.rpaths)))
+    held = await anyio.to_thread.run_sync(commented, target, label)
+    recorded = msgspec.structs.replace(held.build, corrections=revision) if isinstance(held, Cached) else held
+    wanted = await upstream(host, blender, origin, revision) if upgrading else recorded
+    if isinstance(wanted, Error):
+        return wanted
+    if isinstance(held, Cached) and held.build == wanted:
+        return Local(package.id, held.archive, package.workspaces), ()
+    part = target.with_name(f"{target.name}.part")
+    if isinstance(members := await repacked(host, blender, package, label, module, wanted, part), Error):
+        return members
+    await anyio.Path(part).replace(target)
+    before = msgspec.json.encode(held.build).decode() if isinstance(held, Cached) else ABSENT
+    return Local(package.id, Archive(str(target), members), package.workspaces), (Change(f"{label}.archive", before, msgspec.json.encode(wanted).decode()),)
 
 
-async def cataloged(executable: Path, access: Access) -> tuple[Catalog, tuple[tuple[str, Listing], ...]] | ToolError:
-    """Catalog a background Blender writes at the access with every package each synced repository index lists, or the failed command."""
-    match await background(executable, access, "interface.blender.addons", "cataloged", Catalog):
-        case ToolError() as failed:
-            return failed
-        case catalog:
-            return catalog, tuple([
-                (module, listing)
-                for module, folder in catalog.repositories.items()
-                for listing in msgspec.json.decode(await anyio.Path(folder, ".blender_ext", "index.json").read_bytes(), type=Index).data
-            ])
-
-
-async def located(client: httpx.AsyncClient, executable: Path, identity: str, origin: GitHub, access: Access, held: Build | None) -> str | Unstaged | NoRelease | NoAsset | Unfetched:
-    """Address of the build a GitHub row's archive holds, the recorded one offline and the newest one online."""
-    if access is Access.OFFLINE:
-        return Unstaged(identity) if held is None else held.source
-    api, codeload = f"https://api.github.com/repos/{origin.repository}", f"https://codeload.github.com/{origin.repository}/zip"
-    match origin.branch:
-        case str() as branch:
-            match await requested(client, identity, f"{api}/commits/{branch}", Commit):
-                case Commit(sha=sha):
-                    return f"{codeload}/{sha}"
-                case failed:
-                    return failed
-        case None:
-            match await requested(client, identity, f"{api}/releases?per_page=1", tuple[Release, ...]):
-                case (Release(tag_name=tag, assets=assets),):
-                    zips, (_, platform) = [asset for asset in assets if asset.name.endswith(".zip")], tooling(executable)
-                    match [asset for asset in zips if asset.name.endswith(f"-{platform}.zip")] or zips:
-                        case []:
-                            return f"{codeload}/{tag}"
-                        case [asset]:
-                            return asset.browser_download_url
-                        case several:
-                            return NoAsset(origin.repository, tuple(asset.name for asset in several))
-                case Unfetched() as failed:
-                    return failed
-                case _:
-                    return NoRelease(origin.repository)
-
-
-async def fetched(target: Path, row: Local, held: Build | None, wanted: Build, write: Callable[[Build, Path], Awaitable[Written]]) -> Resolved:
-    """Row with its archive at the target, written while its recorded build differs from the wanted one, with a change row when written."""
-    if held == wanted:
-        return row, ()
-    match await write(wanted, target.with_suffix(".part")):
-        case Path() as written:
-            await anyio.Path(written).replace(target)
-            return row, (Change(f"packages.{row.identity}.archive", ABSENT if held is None else msgspec.json.encode(held).decode(), msgspec.json.encode(wanted).decode()),)
-        case failed:
-            return failed
-
-
-async def resolved(folder: Path, client: httpx.AsyncClient, executable: Path, package: Package, access: Access, core: frozenset[str], listings: tuple[tuple[str, Listing], ...]) -> Resolved:
-    """Row the session receives with the archive the access resolves, or the reason it does not resolve."""
-    target = Path(folder, f"{package.id}.zip")
-    row = Local(package.id, str(target), package.workspaces)
+async def resolved_row(host: Host, blender: Installation, package: Package, listings: tuple[tuple[str, Listing], ...], *, upgrading: bool) -> tuple[Local | Listed, tuple[Change, ...]] | Error:
+    """Row the session receives for the package: a bundled add-on, a listed extension, or its staged archive, or the reason it resolves to none."""
+    label = subscript("packages", package.id)
     match package:
-        case Package(source=GitHub() as origin):
-            held = await anyio.to_thread.run_sync(commented, target)
-            match await located(client, executable, package.id, origin, access, held):
-                case str() as address:
-                    return await fetched(target, row, held, Build(address, corrections(package)), partial(repacked, client, executable, package, origin.folder or origin.repository.partition("/")[2]))
-                case unresolved:
-                    return unresolved
-        case Package(tool=Tool(name=name, file=file)):
-            try:
-                where = await anyio.run_process(["mise", "where", name])
-            except CalledProcessError as error:
-                return ToolError.raised(error)
-            match [path async for path in anyio.Path(where.stdout.decode().strip()).glob(f"**/{escape(file)}")]:
-                case [path]:
-                    held = await anyio.to_thread.run_sync(commented, target)
-                    return await fetched(target, row, held, Build(str(path)), partial(copied, Path(path), f"{PurePosixPath(file).parts[0]}.py"))
-                case _:
-                    return NoFile(name, file)
-        case Package(id=identity) if identity in core:
+        case Package(origin=GitHub(repository=repository, folder=folder) as origin):
+            return await staged(host, blender, package, label, folder or repository.partition("/")[2], origin, upgrading=upgrading)
+        case Package(origin=Tool(file=file) as origin):
+            return await staged(host, blender, package, label, f"{PurePosixPath(file).parts[0]}.py", origin, upgrading=upgrading)
+        case Package(id=identity) if identity in blender.core:
             return Local(identity, None, package.workspaces), ()
         case Package(id=identity, patches=patches):
             match [(repository, listing) for repository, listing in listings if listing.id == identity]:
                 case [(_, listing)] if patches:
-                    held = await anyio.to_thread.run_sync(commented, target)
-                    return await fetched(target, row, held, Build(listing.archive_hash, corrections(package)), partial(rebuilt, client, executable, listing, patches))
+                    return await staged(host, blender, package, label, identity, listing, upgrading=upgrading)
                 case [(repository, listing)]:
-                    match await refreshed(client, identity, listing.archive_url, target, listing.archive_hash):
-                        case tuple() as changes:
-                            return Listed(identity, str(target), repository, listing.version, package.workspaces), changes
-                        case failed:
-                            return failed
+                    return Listed(identity, repository, listing.version, package.workspaces), ()
                 case found:
-                    return Unlisted(identity, tuple(repository for repository, _ in found))
+                    return Error(f"{label} names no bundled add-on and {len(found)} synced repository listings where one resolves it")
 
 
-async def resolution(
-    host: Host, executable: Path, declared: tuple[Package, ...], access: Access, content: tuple[Callable[[], Coroutine[object, object, tuple[Change, ...] | Unresolved]], ...]
-) -> tuple[Catalog, tuple[Local | Listed, ...], tuple[Change, ...]] | Failed:
-    """Blender's catalog, session rows, and change rows once every row and content step resolves at the access, or every error."""
-    folder, kept = anyio.Path(host.cache), {f"{package.id}.zip" for package in declared}
-    await folder.mkdir(parents=True, exist_ok=True)
-    for path in [path async for path in folder.iterdir() if path.name not in kept]:
-        await path.unlink()
-    match await cataloged(executable, access):
-        case ToolError() as failed:
-            return Failed(host.app, (failed.message,))
-        case catalog, listings:
-            row_results, content_results = await gather((
-                gather(resolved(host.cache, host.client, executable, package, access, catalog.core, listings) for package in declared),
-                gather(step() for step in content),
-            ))
-            match tuple(result.message for result in (*row_results, *content_results) if not isinstance(result, tuple)):
-                case ():
-                    rows = tuple(result for result in row_results if isinstance(result, tuple))
-                    changes = (*(change for _, changes in rows for change in changes), *(change for changed in content_results if isinstance(changed, tuple) for change in changed))
-                    return catalog, tuple(row for row, _ in rows), changes
-                case errors:
-                    return Failed(host.app, errors)
+async def indexed(repository: str, index: str) -> tuple[tuple[str, Listing], ...] | Error:
+    """Every package the remote repository's synced index file lists, with the repository module, or the error of a repository never synced."""
+    try:
+        listed = await anyio.Path(index).read_bytes()
+    except FileNotFoundError:
+        return Error(f"repository {repository} holds no synced index at {index}")
+    return tuple((repository, listing) for listing in msgspec.json.decode(listed, type=Index).data)
 
 
-async def packaged(host: Host, executable: Path) -> tuple[Manifest, Local]:
-    """Manifest and row of the extension package Blender builds from the extension folder."""
-    package, source, (name, _) = anyio.Path(host.artifacts, f"{host.app}-extension.zip"), anyio.Path(Path(__file__).with_name("extension")), tooling(executable)
-    await package.parent.mkdir(parents=True, exist_ok=True)
+async def resolution(host: Host, blender: Installation, *, upgrading: bool) -> tuple[tuple[Local | Listed, ...], tuple[Change | Error, ...]]:
+    """Session rows of every declared row that resolves, with the change and error rows of resolving them all, the cache holding the staged archives alone once every row resolved."""
+    await anyio.Path(host.cache).mkdir(parents=True, exist_ok=True)
+    packages, indexes = await anyio.gather(declared(), anyio.gather(*starmap(indexed, blender.repositories.items())))
+    listings = tuple(listing for index in indexes if not isinstance(index, Error) for listing in index)
+    results = await anyio.gather(*(resolved_row(host, blender, package, listings, upgrading=upgrading) for package in packages))
+    rows = tuple(result for result in results if not isinstance(result, Error))
+    if not (errors := tuple(failed for failed in (*indexes, *results) if isinstance(failed, Error))):
+        kept = {Path(row.archive.path).name for row, _ in rows if isinstance(row, Local) and row.archive is not None}
+        for path in [path async for path in anyio.Path(host.cache).iterdir() if path.name not in kept]:
+            await path.unlink()
+    return tuple(row for row, _ in rows), (*(change for _, changed in rows for change in changed), *errors)
+
+
+# --- [CONTENT]
+async def packaged(host: Host, application: Bundle, blender: Installation) -> tuple[Manifest, Local] | Error:
+    """Manifest of the extension folder and the row of the archive Blender builds from a copy of it with its linked modules resolved, the build's extensions folder its own so the user's shared wheels stay, or the failed build."""
+    source = anyio.Path(Path(__file__).with_name("extension"))
+    manifest = msgspec.toml.decode(await (source / blender.manifest_filename).read_bytes(), type=Manifest)
+    target = anyio.Path(host.artifacts, f"{manifest.id}.zip")
+    await target.parent.mkdir(parents=True, exist_ok=True)
     async with anyio.TemporaryDirectory() as temporary:
-        folder = await source.copy(anyio.Path(temporary, "extension"))
-        await anyio.run_process([str(executable), "--factory-startup", "--command", "extension", "build", "--source-dir", str(folder), "--output-filepath", str(package)])
-    manifest = msgspec.toml.decode(await anyio.Path(source, name).read_bytes(), type=Manifest)
-    return manifest, Local(manifest.id, str(package))
+        folder, extensions = await source.copy(anyio.Path(temporary, manifest.id)), anyio.Path(temporary, "extensions")
+        await extensions.mkdir()
+        command = (str(application.executable), "--factory-startup", *EXTENSION_COMMAND, "build", "--source-dir", str(folder), "--output-filepath", str(target))
+        if isinstance(failed := await executed(command, {**host.environ, "BLENDER_USER_EXTENSIONS": str(extensions)}), Error):
+            return failed
+    return manifest, Local(manifest.id, await anyio.to_thread.run_sync(sealed, Path(target)), ())
+
+
+async def look_development(host: Host) -> tuple[Change | Error, ...]:
+    """Look-development environment image extracted from its ambientCG set while absent, with a change row when extracted or the failed download."""
+    if await anyio.Path(LOOK_DEVELOPMENT).exists():
+        return ()
+    folder = LOOK_DEVELOPMENT.parent
+    url = str(httpx.URL("https://ambientcg.com/get", params={"file": f"{folder.name}.zip"}))
+    async with anyio.TemporaryDirectory() as temporary:
+        if isinstance(archive := await downloaded(host.client, url, Path(temporary, f"{folder.name}.zip")), Error):
+            return (archive,)
+        await anyio.to_thread.run_sync(shutil.unpack_archive, archive, folder)
+    return (Change(subscript("look_development", LOOK_DEVELOPMENT.name), ABSENT, url),)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -551,15 +445,15 @@ async def packaged(host: Host, executable: Path) -> tuple[Manifest, Local]:
 
 async def upgrade(host: Host) -> tuple[Applied | Failed]:
     """Upgrades each package `packages.toml` declares to the newest build its source publishes."""
-    executable = Path(msgspec.convert(host.server("blender").env, Environment, strict=False).blender_path)
-    declared = decoded(await anyio.Path(Path(__file__).with_name("packages.toml")).read_text(encoding="utf-8"))
-    match await resolution(host, executable, declared, Access.ONLINE, ()):
-        case Failed() as failed:
-            return (failed,)
-        case catalog, _, changes:
-            return (Applied(host.app, catalog.version, host.cache, changes),)
+    application = await bundled(host)
+    if isinstance(unsynced := await executed((str(application.executable), "--online-mode", *EXTENSION_COMMAND, "sync"), host.environ), Error):
+        return (outcome(host.app, (unsynced,)),)
+    if isinstance(blender := await installation(host, application), Error):
+        return (outcome(host.app, (blender,)),)
+    _, lines = await resolution(host, blender, upgrading=True)
+    return (outcome(host.app, (Header(blender.version, str(host.cache)), *lines)),)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Access", "Environment", "Manifest", "Package", "Unfetched", "Unresolved", "background", "decoded", "packaged", "resolution", "upgrade"]
+__all__ = ["Manifest", "bundled", "installation", "look_development", "packaged", "resolution", "upgrade"]

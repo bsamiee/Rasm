@@ -3,8 +3,6 @@ id: no-untyped-error-swift
 language: swift
 severity: error
 utils:
-    error-type:
-        regex: '^(Foundation\.)?(NSError|CocoaError|URLError|POSIXError|MachError)(\.init)?$'
     text-entry:
         kind: dictionary_literal
         has:
@@ -13,9 +11,12 @@ utils:
             precedes: {kind: line_string_literal, stopBy: {pattern: $_}}
 rule:
     kind: call_expression
-    has: {nthChild: 1, matches: error-type, pattern: $CALLEE}
     any:
-        - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^userInfo$'}}, {has: {field: value, matches: text-entry}}]}}}
-        - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^domain$'}}, {has: {field: value, kind: line_string_literal}}]}}}
-message: '`$CALLEE` builds an error from text with no type of its own, its consumers can match no failure case'
-note: 'Declare an `enum` with one case per failure and its values as payload, conforming to `LocalizedError` with `errorDescription`, or to `CustomNSError` with `errorDomain`, `errorCode`, and the text under `NSLocalizedDescriptionKey` in `errorUserInfo` where a system domain and code identify the case, `NSError` under a system domain reads no `errorDescription`'
+        - all:
+            - has: {nthChild: 1, pattern: $CALLEE, regex: '^(Foundation\.)?NSError(\.init)?$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^domain$'}}}}
+        - all:
+            - has: {nthChild: 1, pattern: $CALLEE, regex: '^(Foundation\.)?(CocoaError|URLError|POSIXError|MachError)(\.init)?$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^userInfo$'}}, {has: {field: value, matches: text-entry}}]}}}
+message: '`$CALLEE` builds an error from a domain, code, or text no Swift case names and no consumer can match'
+note: 'Construct `CocoaError(.<code>)`, `POSIXError(.<code>)`, `URLError(.<code>)`, or `MachError(.<code>)` for a system domain and otherwise a case of an `enum` conforming to `CustomNSError` for its domain and code or `LocalizedError` for its text'

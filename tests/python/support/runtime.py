@@ -30,15 +30,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 @pytest.fixture(scope="session")
 def _otel_exporter() -> InMemorySpanExporter:
-    """Attach a fresh in-memory exporter to the set-once process-level ``TracerProvider``."""
-    match trace.get_tracer_provider():
-        case TracerProvider() as tracer_provider:
-            pass
-        case _:
-            tracer_provider = TracerProvider()
-            trace.set_tracer_provider(tracer_provider)
+    """Set the process-level ``TracerProvider`` with an in-memory exporter and return the exporter."""
     exporter = InMemorySpanExporter()
+    tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+    trace.set_tracer_provider(tracer_provider)
     return exporter
 
 

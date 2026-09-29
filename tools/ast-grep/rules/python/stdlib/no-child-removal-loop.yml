@@ -68,4 +68,4 @@ transform:
     CLEARED: {rewrite: {source: $WHOLE, rewriters: [clear]}}
 fix: $CLEARED$KEPT
 message: '`$O.remove($E)` in a loop removes the children of `$O` one at a time'
-note: 'Delete every child with `del <element>[:]`, or assign the kept children with `<element>[:] = [<child> for <child> in <element> if <kept>]`'
+note: 'Delete every child with `del <element>[:]`, or assign the kept children with `<element>[:] = [<child> for <child> in <element> if <kept>]`, one slice write replaces the removal loop'

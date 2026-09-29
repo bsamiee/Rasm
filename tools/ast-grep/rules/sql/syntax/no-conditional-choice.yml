@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-conditional-choice
+language: sql
+severity: error
+utils:
+    plain:
+        not: {kind: 'binary_expression, unary_expression'}
+    null-else:
+        any:
+            - pattern: {context: 'select case when _C then _V end', selector: case}
+            - pattern: {context: 'select case when _C then _V else null end', selector: case}
+            - pattern: {context: 'select iif(_C, _V)', selector: invocation}
+            - pattern: {context: 'select iif(_C, _V, null)', selector: invocation}
+            - pattern: {context: 'select if(_C, _V)', selector: invocation}
+            - pattern: {context: 'select if(_C, _V, null)', selector: invocation}
+    simple-null-else:
+        all:
+            - any:
+                - pattern: {context: 'select case _X when _W then _V end', selector: case}
+                - pattern: {context: 'select case _X when _W then _V else null end', selector: case}
+            - has: {nthChild: 2, matches: plain}
+            - has: {nthChild: 4, matches: plain}
+    counting:
+        any:
+            - pattern: {context: 'select case when _C then 1 else 0 end', selector: case}
+            - pattern: {context: 'select iif(_C, 1, 0)', selector: invocation}
+            - pattern: {context: 'select if(_C, 1, 0)', selector: invocation}
+            - pattern: _C
+              any:
+                - kind: binary_expression
+                  has: {field: operator, regex: '(?i)^(=|==|<>|!=|<|>|<=|>=|is|is\s+not|like|not\s+like|glob|in|not\s+in|between|not\s+between|and|or)$'}
+                - kind: unary_expression
+                  has: {field: operator, kind: keyword_not}
+    aggregate:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$'}
+            - not: {has: {kind: filter_expression}}
+            - any:
+                - not: {has: {kind: term, nthChild: {position: 2, ofRule: {kind: term}}}}
+                - all:
+                    - has: {kind: object_reference, regex: '(?i)^(group_concat|string_agg)$'}
+                    - not: {has: {kind: term, nthChild: {position: 3, ofRule: {kind: term}}}}
+    conditional-aggregate:
+        matches: aggregate
+        any:
+            - has: {field: parameter, has: {field: value, any: [{matches: null-else}, {matches: simple-null-else}]}}
+            - all:
+                - has: {kind: object_reference, regex: '(?i)^(sum|total)$'}
+                - not: {has: {kind: keyword_distinct}}
+                - has: {field: parameter, has: {field: value, matches: counting}}
+    choice-without-else:
+        any:
+            - pattern: {context: 'select case when _C then _T end', selector: case}
+            - pattern: {context: 'select iif(_C, _T)', selector: invocation}
+            - all:
+                - pattern: {context: 'select case _X when _W then _T end', selector: case}
+                - has: {nthChild: 2, matches: plain}
+                - has: {nthChild: 4, matches: plain}
+    choice-with-else:
+        any:
+            - pattern: {context: 'select case when _C then _T else _E end', selector: case}
+            - pattern: {context: 'select iif(_C, _T, _E)', selector: invocation}
+            - all:
+                - pattern: {context: 'select case _X when _W then _T else _E end', selector: case}
+                - has: {nthChild: 2, matches: plain}
+                - has: {nthChild: 4, matches: plain}
+rule:
+    pattern: _NODE
+    any:
+        - matches: conditional-aggregate
+        - any: [{matches: choice-without-else}, {matches: choice-with-else}]
+          not: {inside: {kind: term, inside: {matches: conditional-aggregate}}}
+rewriters:
+    - id: counted
+      rule:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^(sum|total)$'}
+            - has: {field: parameter, has: {field: value, matches: counting}}
+      fix: count(*) filter (where $C)
+    - id: counted-value
+      rule:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^count$'}
+            - not: {has: {kind: keyword_distinct}}
+            - has: {field: parameter, has: {field: value, matches: null-else}}
+      constraints:
+        V:
+            any: [{kind: literal}, {kind: term, has: {field: value, kind: literal}}]
+            not: {has: {kind: keyword_null, stopBy: end}}
+      fix: count(*) filter (where $C)
+    - id: filtered
+      rule:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, pattern: _AGG}
+            - has: {field: parameter, has: {field: value, any: [{matches: null-else}, {matches: simple-null-else}]}}
+            - any: [{has: {kind: keyword_distinct, pattern: _DISTINCT}}, {not: {has: {kind: keyword_distinct}}}]
+            - any: [{has: {kind: term, nthChild: {position: 2, ofRule: {kind: term}}, pattern: _SEPARATOR}}, {not: {has: {kind: term, nthChild: {position: 2, ofRule: {kind: term}}}}}]
+            - any: [{has: {kind: order_by, pattern: _ORDER}}, {not: {has: {kind: order_by}}}]
+      transform:
+        DISTINCT_WORD: {replace: {source: $DISTINCT, replace: '^(.+)$', by: '$1 '}}
+        SEPARATOR_PARAMETER: {replace: {source: $SEPARATOR, replace: '^(.+)$', by: ', $1'}}
+        ORDER_CLAUSE: {replace: {source: $ORDER, replace: '^(.+)$', by: ' $1'}}
+        CONDITION: {replace: {source: $X, replace: '^(.+)$', by: '$1 = '}}
+      fix: $AGG($DISTINCT_WORD$V$SEPARATOR_PARAMETER$ORDER_CLAUSE) filter (where $CONDITION$W$C)
+    - id: chosen-without-else
+      rule: {matches: choice-without-else}
+      transform:
+        CONDITION: {replace: {source: $X, replace: '^(.+)$', by: '$1 = '}}
+      fix: if($CONDITION$W$C, $T, null)
+    - id: chosen-with-else
+      rule: {matches: choice-with-else}
+      transform:
+        CONDITION: {replace: {source: $X, replace: '^(.+)$', by: '$1 = '}}
+      fix: if($CONDITION$W$C, $T, $E)
+transform:
+    FIXED: {rewrite: {source: $NODE, rewriters: [counted, counted-value, filtered, chosen-without-else, chosen-with-else]}}
+fix: $FIXED
+message: '`$NODE` chooses a value by condition outside an aggregate `filter` clause or `if`'
+note: 'Use `<aggregate>(<value>) filter (where <condition>)` where an aggregate reads the choice and `if(<condition>, <then>, <else>)` elsewhere, one spelling per operation for SQLite and DuckDB'

@@ -3,4 +3,4 @@ id: csharp-labeled-divider
 language: csharp
 rule:
     kind: comment
-    regex: '^// --- \[[A-Z0-9_]+\]( -+)?$'
+    matches: text-labeled-divider

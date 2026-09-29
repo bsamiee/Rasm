@@ -5,7 +5,7 @@ description: "Use when reading or annotating a binary through Ghidra, covering g
 
 # [GHIDRA]
 
-Binary research through one Ghidra project per binary under `$GHIDRA_PROJECT_DIR`, program named after the binary's file. ghidra-cli starts a bridge that keeps the program resident and answers each command in place. Traversals the commands lack are scripts, each writing one file the session reads by line.
+Binary research through one Ghidra project per binary under `$GHIDRA_PROJECT_DIR`, program named after the binary's file. ghidra-cli starts a bridge that keeps the program resident and answers each command in place. Scripts run traversals the commands lack and write one file each.
 
 [SCRIPTS]:
 - [01]-[STUBS](scripts/Stubs.java): Every `__objc_stubs` function named after the message it sends and typed as a message send
@@ -13,9 +13,13 @@ Binary research through one Ghidra project per binary under `$GHIDRA_PROJECT_DIR
 - [03]-[DECOMPILE](scripts/Decompile.java): Seeds with callers and callees, the globals and types the bodies reference, in one indexed C file
 - [04]-[CALLSITES](scripts/CallSites.java): Every call site of seed functions with the argument text the decompiler resolved there
 - [05]-[HEADERS](scripts/Headers.java): C headers parsed into the program's types, prototypes applied to the named functions
+- [06]-[ARGUMENTS](scripts/Arguments.java): Output path, seed, and setting parser that collects every argument error
+- [07]-[FUNCTIONS](scripts/Functions.java): Call graph walks through thunks and stubs, stub selectors, string referrers, and parallel decompiles
+- [08]-[REPORT](scripts/Report.java): `Result` type with `Success` and `Failure` cases, and the writer of every script's file
 
 [FACTS]:
-- Project: Every command takes `--project <name>` until `set-default project <name>`, subcommands and flags come from `ghidra <group> --help`
+- Project: Every command takes `--project <name>` until `set-default project <name>`
+- Help: `ghidra <group> --help` lists subcommands and flags
 - Project: `mise.toml` names `$GHIDRA_PROJECT_DIR` outside the repository, Ghidra rejects a project path with a dot-prefixed component
 - Program: Scripts run on the bridge's current program, `program open <name>` switches the program
 - Program: Repeated imports into a project add `<file>.<n>`, the bridge then answers for the wrong program
@@ -35,20 +39,20 @@ Binary research through one Ghidra project per binary under `$GHIDRA_PROJECT_DIR
 - Bundle: `script run <path>` compiles the scripts directory as one bundle at the JDK `JAVA_HOME` names with no release flag
 - Bundle: Subdirectories become packages, one file that fails to compile fails every load, unnamed variables need JDK 22 or later
 - Bundle: `script java` and `script python` answer unsupported through the bridge
-- Bundle: `Arguments.java` parses seeds and settings, `Functions.java` walks calls and decompiles, `Report.java` holds results and the writer
+- Bundle: Edited bundles recompile on the next `script run` without a bridge restart
 - Scripts: Output path is the first argument, `--expect <path>` on the command fails a job with that file missing or empty
 - Files: `<out>`, `<report>`, `<macros>`, `<log>`, and a thinned binary go under `<main>/.artifacts/ghidra/<name>/`
 - Files: `<main>` is the main worktree's absolute path
 - Files: Scripts create the folder, `lipo` and redirects need `mkdir -p`
 - Files: `GHIDRA_JAVA_OPTIONS` places Ghidra settings, cache, and temp files under `<main>/.cache/ghidra/`
 - Logs: `application.log` holds import messages and `script.log` each script's printed lines, under `<main>/.cache/ghidra/settings/ghidra/<release>/`
-- Use `search-code` for a Ghidra API signature from the install's jars
+- Use `search-code` for a Ghidra API signature
 
-Numbered steps chain, each consuming the step before, bulleted cases are alternatives, one per command line in order.
+Numbered steps consume the step before. Bulleted cases are alternatives, one per command line in order.
 
 ## [01]-[READ]
 
-Import and analyze once, name the stubs, catalog the program, then decompile seeds with their neighborhood into one file.
+Import and analyze once, name stubs, catalog the program, then decompile seeds with their neighborhood into one file.
 
 Import, one line per case:
 - Analysis through the bridge started at this heap, `run_in_background`
@@ -98,8 +102,8 @@ Seeds and settings of `Decompile.java` and `CallSites.java`:
 - Seed: `0x<hex>` names the function containing the address, an address in no function takes `ghidra function create <address>` first
 - Seed: `<name>` or `<namespace>::<name>` names functions by plain or qualified name, `re:<regex>` those with a matching plain or qualified name
 - Seed: `str:<needle>` names functions referencing a defined string holding the needle case-insensitively, through a `__cfstring` struct included
-- Seed: `tag:<tag>` names functions carrying the tag, `re:.` every non-external function
-- Setting: `callers=<depth>` and `callees=<depth>` from 0 at 0, `timeout=<seconds>` from 1 at 30, and `payload=<megabytes>` from 1 at 50 by default
+- Seed: `tag:<tag>` names functions with the tag, `re:.` every non-external function
+- Setting: `callers=<depth>` and `callees=<depth>` take 0 or more and default to 0, `timeout=<seconds>` and `payload=<megabytes>` take 1 or more and default to 30 and 50
 - Setting: `CallSites.java` takes `timeout` and `payload` alone
 - Errors: Seeds matching no function and bad settings print together in one error before the usage text
 - Neighbors: Thunks and stubs among callers stand for their own callers, among callees for the function each reaches
@@ -125,7 +129,7 @@ ghidra function list --filter 'NOT name ^ FUN_' --fields name,address,size --lim
 
 ## [03]-[ANNOTATE]
 
-Marks that persist in the project and sharpen every later read:
+Annotations persist in the project for every later read:
 1. Predefined macros of the target from clang without blocks, one file of `#define` lines
 2. Headers parsed under the macros, `run_in_background`
 
@@ -142,25 +146,19 @@ ghidra batch <file> --project <name>
 
 `Headers.java`:
 - Defines: `-D<name>[=<value>]` on the command wins over a macro in the `-imacros` file
-- Defines: Shims `__has_feature(x) 0` and its siblings, `__builtin_va_list`, and `restrict` are forms the preprocessor takes from no file
-- Defines: Shim `__has_include(x) 1` overrides the SDK's fallback 0, under 0 MacTypes.h skips ConditionalMacros.h
-- Defines: Shim `__CF_ENUM_FIXED_IS_AVAILABLE 0`, CParser reads no fixed enum
-- Defines: Shims `__int128_t` and `__uint128_t` name Ghidra's `int16` and `uint16`, CParser knows no 128-bit integer
 - Defines: CParser rejects the `^` block pointers `__BLOCKS__` enables, `-fno-blocks` keeps the macro out of `<macros>`
-- Include: Every `-I<dir>` must be a directory
-- Include: CFBase.h parses with the framework headers, `usr/include`, and the clang resource `include` as `-I` values
-- Include: Preprocessor cannot lex `::`, a copy of the first `sys/cdefs.h` on the include path precedes the original
-- Include: Copied `sys/cdefs.h` reads `0` for every `#if` and `#elif` condition holding `::`, the copy sits in Ghidra's temp directory for one run
+- Arguments: Every `-I<dir>` names a directory and every header a file
+- Include: CoreFoundation and C library headers parse under `-I` framework `Headers`, `usr/include`, and clang's `include`
 - Report: `[HEADERS]` rows parsed or failed per header, `[PREPROCESSOR]` and `[PARSER]` messages, then `[APPLIED]` rows per function
 - Prototypes: Definitions apply to functions named with and without a leading underscore and follow a thunk to the thunked function
 
 ## [04]-[FORMAT]
 
 Every file opens with `// --- [INDEX]` over `// <program> <language> <counts>`, sections with `// --- [NAME]` padded to column 90:
-- Index: `args=<request>` closes the counts of a seeded script
+- Index: `args=<arguments>` closes the counts of a script that takes arguments after `<out>`
 - Catalog: `[STRINGS]` rows `<address> <text> functions=<count> <name>...`, `[IMPORTS]` rows `<library> <prototype> callers=<count> <name>...`
 - Catalog: `[FUNCTIONS]` rows `<address> <name> size=<bytes> callers=<count> callees=<count>`
-- Catalog: Rows rank by their count, names sort by entry address
+- Catalog: `[STRINGS]` and `[IMPORTS]` rows rank by count and `[FUNCTIONS]` rows by size, names sort by entry address
 - Catalog: Callers of a thunk or stub count for the function it reaches, thunks and stubs hold no `[FUNCTIONS]` row
 - Decompile: Blocks `// --- [<name>]` over `// <address> size=<bytes> <role> callers=<count>[: <names>]`
 - Decompile: `<role>` is `seed`, `caller:<depth>`, or `callee:<depth>`, `<names>` the callers with a block in the file by entry address
@@ -178,7 +176,7 @@ Every file opens with `// --- [INDEX]` over `// <program> <language> <counts>`, 
 
 Behaviors of the Ghidra API that decide how a script reads or writes a program:
 - Stubs: `Objective-C Message Analyzer` names and types stubs only with `ID` and `SEL` under `/_objc2_`, without them analysis leaves `FUN_<hex>`
-- Stubs: Mach-O import installs the `__objc_msgSend_stub` calling convention, which passes the receiver and message arguments without `x1`
+- Stubs: `__objc_msgSend_stub`, the calling convention Mach-O import installs, passes receiver and message arguments without `x1`
 - Stubs: Selector is the string the stub's load references
 - Types: `DataTypeWriter` writes the built-in typedefs from the constructor and skips a `FunctionDefinition` on write
 - Strings: `DefinedDataIterator.byDataInstance` with `StringDataInstance::isString` walks defined strings, a `__cfstring` struct references the text
@@ -190,7 +188,16 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 - Globals: `getGlobalSymbolMap` holds a fraction of the globals a body names, the C markup tokens hold every one
 - Preprocessor: `-D` takes no macro arguments, a prelude through `ReInit` and `Input()` defines a function-like macro
 - Preprocessor: `Define()` ignores a redefinition
-- Preprocessor: `__has_include` is no built-in
+- Preprocessor: `#if <name>` reads true for a definition that is no number, an undefined name compares as text and `<name> == 0` reads false
+- Preprocessor: `DefineTable.subParams` cuts a `...` argument at its first `)` at depth 0, a parenthesized group in it leaves the body unexpanded
+- Preprocessor: `DefineTable.getParams` toggles quote and apostrophe states apart, a `'` inside a string literal hides the closing `)`
+- Preprocessor: `PreProcessor` defines no compiler built-in (`__has_include`, `__has_feature`, `__builtin_va_list`) and cannot lex `::`
+- Preprocessor: Lexer reads a `__has_include` `<file>` argument at parenthesis depth 0 alone
+- Preprocessor: `#include` lookup per directory matches `CParserUtils.getFile`, a path miss falls back to the file name in that directory
+- Parser: `CParser` reads `__const` and `__restrict` as qualifiers, and `restrict` as an identifier
+- Parser: `CParser` knows no fixed enum, `__int128_t`, `__uint128_t`, or `_Float16`, Ghidra's `int16`, `uint16`, and `float2` name the types
+- Parser: `CParser` float literals end in `f`, `F`, `d`, or `D` alone, integer literals take `u`, `l`, and `ll`
+- Parser: `CParser` rejects an unnamed pointer parameter with an array suffix, `char * []`, and reads the named form and `int []`
 - Parser: `CParserUtils.parseHeaderFiles` swaps `System.out` and stops at the first failed header, a script drives each header itself
 - Source: `lib/<module>-src.zip` beside each module jar under `$GHIDRA_INSTALL_DIR/Ghidra` holds the installed source
 
@@ -198,12 +205,10 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 
 Each new traversal is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`:
 1. Bundle compiled against the install's jars with every warning on
-2. Format, PMD, and ast-grep commands of the `rasm:lint` target over the scripts directory, jdtls diagnostics through `jdtls@rasm`
+2. `google-java-format`, `pmd check`, and `ast-grep scan` of `<project>:lint` over the scripts directory, `jdtls@<marketplace>` diagnostics
 3. Run on a resident program, `run_in_background`
 
 ```bash
 javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" <main>/.claude/skills/use-ghidra/scripts/*.java
 ghidra script run <main>/.claude/skills/use-ghidra/scripts/<Script>.java --project <name> --expect <out> -- <out> <seed>...
 ```
-
-- Bundle: Edited bundles recompile on the next `script run` without a bridge restart

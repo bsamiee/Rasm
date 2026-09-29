@@ -1,35 +1,31 @@
 {
     "mcpServers": {
         "adobe": {
-            "command": "mise",
-            "args": ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts"]
+            "command": "node",
+            "args": ["apps/creative-cloud/mcp/main.ts"]
         },
         "roslyn-codelens": {
-            "command": "mise",
-            "args": ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
+            "command": "dotnet",
+            "args": ["dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
         },
         "binlog": {
-            "command": "mise",
-            "args": ["exec", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"]
+            "command": "dotnet",
+            "args": ["dnx", "Microsoft.AITools.BinlogMcp"]
         },
         "nuget": {
-            "command": "mise",
-            "args": ["exec", "--", "dotnet", "dnx", "NuGet.Mcp.Server"]
+            "command": "dotnet",
+            "args": ["dnx", "NuGet.Mcp.Server"]
         },
         "ast-grep": {
-            "command": "mise",
-            "args": ["exec", "--", "ast-grep-server"],
-            "env": {
-                "AST_GREP_CONFIG": "sgconfig.yml"
-            }
+            "command": "ast-grep-server"
         },
         "playwright": {
-            "command": "mise",
-            "args": ["exec", "--", "playwright", "mcp", "--headless", "--caps=config,network,pdf,storage,testing,vision,devtools"]
+            "command": "playwright",
+            "args": ["mcp", "--headless", "--caps=config,network,pdf,storage,testing,vision,devtools"]
         },
         "playwright-test": {
-            "command": "mise",
-            "args": ["exec", "--", "playwright", "run-test-mcp-server", "--headless"]
+            "command": "playwright",
+            "args": ["run-test-mcp-server", "--headless"]
         },
         "github": {
             "type": "http",
@@ -94,25 +90,13 @@
             "args": ["lldb-mcp"]
         },
         "rhino-mcp-platform": {
-            "command": "mise",
-            "args": ["exec", "--", "rhino-mcp-router"],
-            "env": { "RHINO_PATH": "/Applications/RhinoBETA.app" }
+            "command": "rhino-mcp-router"
         },
         "blender": {
-            "command": "mise",
-            "args": ["exec", "--", "blender-mcp"],
-            "env": {
-                "BLENDER_MCP_PORT": "9877",
-                "BLENDER_PATH": "/Applications/Blender.app/Contents/MacOS/Blender"
-            }
+            "command": "blender-mcp"
         },
         "mcp-for-blender": {
-            "command": "mise",
-            "args": ["exec", "--", "mcp-for-blender"],
-            "env": {
-                "DISABLE_TELEMETRY": "true",
-                "BLENDER_MCP_SAFE_MODE": "0"
-            }
+            "command": "mcp-for-blender"
         }
     }
 }

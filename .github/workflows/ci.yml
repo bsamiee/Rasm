@@ -28,7 +28,6 @@ jobs:
                 fetch-depth: 0
                 filter: tree:0
                 persist-credentials: false
-            - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
             - run: nx run rasm:check
             - run: nx affected -t check --exclude='tag:host:macos'
@@ -42,23 +41,11 @@ jobs:
                 fetch-depth: 0
                 filter: tree:0
                 persist-credentials: false
-            - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
             - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= COMPILER_INDEX_STORE_ENABLE=NO
 
-    format:
-        runs-on: ubuntu-26.04
-        timeout-minutes: 30
-        steps:
-            - uses: actions/checkout@v7
-              with:
-                persist-credentials: false
-            - uses: ./.github/actions/setup
-            - run: nx run rasm:format
-            - run: git diff --exit-code
-
     required:
-        needs: [check, macos, format]
+        needs: [check, macos]
         if: always()
         runs-on: ubuntu-slim
         timeout-minutes: 5

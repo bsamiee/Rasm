@@ -1,42 +1,39 @@
-# mypy: disable-error-code="import-not-found"
-# ty: ignore[unresolved-import]
-# ruff: file-ignore[import-private-name]
-"""Convert interchange files one empty scene per file through Blender's importers and one exporter, run in a session of its own through `runpy.run_path`."""
+# mypy: disable-error-code="attr-defined"
+# ty: ignore[unresolved-attribute]
+"""Convert interchange files through Blender importers and one exporter in a headless process, one empty factory scene per file."""
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Final
+from types import MappingProxyType
 
-import _bpy
 import attrs
 import bpy
-from cattrs.preconf.json import make_converter
+import numpy as np
+from results import artifacts, JSON
+from rna import DIGITS, operators
+from scene import bounds
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Outcome = Converted | NoImporter | AmbiguousImporter | SharedStem | Failed
-type Result = Batch | UnknownOperator | UnknownOptions | LiveSession
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-JSON: Final = make_converter()
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 @attrs.frozen
 class Converted:
-    """Files the exporter wrote, importer used, and imported object names."""
+    """Source with its importer, imported object names, world extent in meters, and the files the exporter wrote."""
 
     source: str
-    outputs: tuple[str, ...]
     importer: str
     objects: tuple[str, ...]
+    extent: tuple[float, float, float] | None
+    outputs: tuple[str, ...]
 
 
 @attrs.frozen
 class Batch:
-    """One outcome per input in input order, and the report file holding them."""
+    """Report file and one outcome per source in input order."""
 
     report: str
     files: tuple[Outcome, ...]
@@ -47,7 +44,7 @@ class Batch:
 
 @attrs.frozen
 class NoImporter:
-    """No C importer's file filter or file handler names the file, and no importer is named."""
+    """Source that no importer's file filter or file handler names, with no importer named."""
 
     source: str
     suffix: str
@@ -55,7 +52,7 @@ class NoImporter:
 
 @attrs.frozen
 class AmbiguousImporter:
-    """More than one importer reads the file with no named importer or lone C importer among them, `importer=` picks one."""
+    """Source more than one importer reads with no named or lone C importer among them, `importer=` picking one."""
 
     source: str
     candidates: tuple[str, ...]
@@ -71,7 +68,7 @@ class SharedStem:
 
 @attrs.frozen
 class Failed:
-    """Operator that raised or did not finish on a file, with its message or return set."""
+    """Operator that raised or returned without `FINISHED` on a source, with its message or return status."""
 
     source: str
     operator: str
@@ -80,21 +77,21 @@ class Failed:
 
 @attrs.frozen
 class UnknownOperator:
-    """Exporter, importer, or option ids naming no operator that writes or reads files through a file filter."""
+    """Exporter, importer, or option ids naming no operator of their role."""
 
     operators: tuple[str, ...]
 
 
 @attrs.frozen
 class UnknownOptions:
-    """Option names as `<operator>.<property>` that the operator does not declare."""
+    """Options as `<operator>.<property>` that the operator does not declare."""
 
     options: tuple[str, ...]
 
 
 @attrs.frozen
 class LiveSession:
-    """Call inside the live session, where emptying the scene per file replaces the user's open document."""
+    """Live session document a conversion's empty scene per file replaces."""
 
     document: str
 
@@ -102,40 +99,30 @@ class LiveSession:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def as_result(value: Result | Outcome) -> dict[str, object]:
-    """`result` dict, the case name under `kind` for the batch and, through the converter, for every file."""
-    return {"kind": type(value).__name__, **JSON.unstructure_attrs_asdict(value)}
-
-
-JSON.register_unstructure_hook_func(attrs.has, as_result)
-
-
-def convert(name: str, exporter: str, sources: tuple[str, ...], importer: str | None = None, options: Mapping[str, Mapping[str, object]] | None = None) -> Result:
-    """Import each source into an empty scene and export it to `.artifacts/blender/<name>/<stem><ext>`, `importer` for the files its filter names and the files no filter names, `options` the keyword arguments per importer or exporter id."""
+def convert(
+    name: str, exporter: str, sources: tuple[str, ...], importer: str | None = None, options: Mapping[str, Mapping[str, object]] = MappingProxyType({})
+) -> Batch | UnknownOperator | UnknownOptions | LiveSession:
+    """Batch of each source imported into an empty factory scene and exported to `.artifacts/blender/<name>/<stem><ext>`, `options` holding keyword arguments per operator id."""
     if not bpy.app.background:
         return LiveSession(bpy.data.filepath)
-    settings = {} if options is None else options
-    functions = (_bpy.ops.create_function(prefix.lower(), name) for prefix, _, name in (idname.partition("_OT_") for idname in _bpy.ops.dir()))
-    operators = {op.idname_py(): op for op in functions}
-    properties = {key: op.get_rna_type().properties for key, op in operators.items()}
-    ids = {op.idname(): key for key, op in operators.items()} | {key: key for key in operators}
-    globs = {key: patterns for key, props in properties.items() if (glob := props.get("filter_glob")) is not None and (patterns := tuple(filter(None, glob.default.split(";"))))}
-    saves = {key for key, props in properties.items() if (check := props.get("check_existing")) is not None and check.default}
+    functions = {op.idname_py(): op for op in operators()}
+    properties = {key: op.get_rna_type().properties for key, op in functions.items()}
+    ids = {op.idname(): key for key, op in functions.items()} | {key: key for key in functions}
+    globs = {key: patterns for key, props in properties.items() if "filter_glob" in props and (patterns := tuple(filter(None, props["filter_glob"].default.split(";"))))}
+    writers = {key for key in globs if "check_existing" in (props := properties[key]) and props["check_existing"].default}
     handled = {ids[op]: tuple(f"*{e}" for e in handler.bl_file_extensions.split(";")) for handler in bpy.types.FileHandler.__subclasses__() if (op := handler.bl_import_operator) in ids}
-    opens = {key: globs[key] for key in globs.keys() - saves} | handled
-    native = {key for key in opens if bpy.types.Operator.bl_rna_get_subclass_py(operators[key].idname()) is None}
-    writers = globs.keys() & saves
-    if unknown := tuple(op for op, table in ((exporter, writers), (importer, opens.keys()), *((op, opens.keys() | writers) for op in settings)) if op is not None and op not in table):
+    opens = {key: globs[key] for key in globs.keys() - writers} | handled
+    native = {key for key in opens if bpy.types.Operator.bl_rna_get_subclass_py(functions[key].idname()) is None}
+    if unknown := tuple(op for op, table in ((exporter, writers), (importer, opens.keys()), *((op, opens.keys() | writers) for op in options)) if op is not None and op not in table):
         return UnknownOperator(unknown)
-    if undeclared := tuple(f"{op}.{key}" for op, values in settings.items() for key in values if key not in properties[op]):
+    if undeclared := tuple(f"{op}.{key}" for op, values in options.items() for key in values if key not in properties[op]):
         return UnknownOptions(undeclared)
     readers = {key: patterns for key, patterns in opens.items() if key in native or key in handled or key == importer}
-    out = next(p for p in Path(__file__).resolve().parents if (p / ".git").exists()) / ".artifacts" / "blender" / name
-    out.mkdir(parents=True, exist_ok=True)
+    out = artifacts(name)
     paths = tuple(Path(s).resolve() for s in sources)
 
     def resolve(source: Path) -> str | NoImporter | AmbiguousImporter:
-        """Named importer when its filter names the file or no filter does, else the file's one C reader, else its one reader."""
+        """Named importer when its filter matches the file or no filter does, else the file's lone C reader, else its lone reader."""
         candidates = tuple(sorted(op for op, patterns in readers.items() if any(source.match(p, case_sensitive=False) for p in patterns)))
         named = (importer,) if importer is not None and (importer in candidates or not candidates) else ()
         match named, tuple(op for op in candidates if op in native), candidates:
@@ -147,12 +134,12 @@ def convert(name: str, exporter: str, sources: tuple[str, ...], importer: str | 
                 return AmbiguousImporter(str(source), candidates)
 
     def run(op: str, source: Path, **arguments: object) -> Failed | None:
-        """Failure of one operator call, an unreadable file raising `RuntimeError`, an argument outside its property raising `TypeError`, and a cancelled call answering without `FINISHED`."""
+        """Failure of one operator call, `None` when it finishes."""
         try:
-            status = operators[op](**arguments)
+            status = functions[op](**arguments)
         except (RuntimeError, TypeError) as error:
-            return Failed(str(source), op, str(error))
-        return None if "FINISHED" in status else Failed(str(source), op, str(sorted(status)))
+            return Failed(str(source), op, str(error).strip())
+        return None if "FINISHED" in status else Failed(str(source), op, " ".join(sorted(status)))
 
     def stamps() -> frozenset[tuple[str, int]]:
         """Name and modification time of every file in the output folder."""
@@ -166,14 +153,14 @@ def convert(name: str, exporter: str, sources: tuple[str, ...], importer: str | 
             return SharedStem(str(source), shared)
         bpy.ops.wm.read_homefile(use_empty=True, use_factory_startup=True)
         location = {"filepath": str(source), "directory": str(source.parent), "files": [{"name": source.name}]}
-        if failed := run(chosen, source, **settings.get(chosen, {}), **{key: value for key, value in location.items() if key in properties[chosen]}):
+        if failed := run(chosen, source, **options.get(chosen, {}), **{key: value for key, value in location.items() if key in properties[chosen]}):
             return failed
-        target = out / f"{source.stem}{globs[exporter][0].removeprefix('*')}"
+        corners = tuple(bounds(bpy.context.evaluated_depsgraph_get()).values())
+        extent = tuple(np.ptp(np.concatenate(corners), axis=0).round(DIGITS).tolist()) if corners else None
         before = stamps()
-        if failed := run(exporter, source, **settings.get(exporter, {}), filepath=str(target)):
+        if failed := run(exporter, source, **options.get(exporter, {}), filepath=str(out / f"{source.stem}{globs[exporter][0].removeprefix('*')}")):
             return failed
-        outputs = tuple(sorted(str(out / name) for name, _ in stamps() - before))
-        return Converted(str(source), outputs, chosen, tuple(sorted(o.name for o in bpy.data.objects)))
+        return Converted(str(source), chosen, tuple(sorted(o.name for o in bpy.data.objects)), extent, tuple(sorted(str(out / n) for n, _ in stamps() - before)))
 
     report = out / "convert.json"
     batch = Batch(str(report), tuple(one(p) for p in paths))
@@ -183,4 +170,4 @@ def convert(name: str, exporter: str, sources: tuple[str, ...], importer: str | 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AmbiguousImporter", "Batch", "Converted", "Failed", "LiveSession", "NoImporter", "Outcome", "Result", "SharedStem", "UnknownOperator", "UnknownOptions", "as_result", "convert"]
+__all__ = ["AmbiguousImporter", "Batch", "Converted", "Failed", "LiveSession", "NoImporter", "Outcome", "SharedStem", "UnknownOperator", "UnknownOptions", "convert"]

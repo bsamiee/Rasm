@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: syntax-package-reference
+language: tsx
+rule:
+    any:
+        - matches: {syntax-import-reference: {source: {regex: '^[^.]'}, exported: {regex: '.'}}}
+        - kind: member_expression
+          has: {field: object, matches: syntax-package-reference}

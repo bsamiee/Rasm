@@ -278,7 +278,7 @@
             "restore": {
                 "command": "dotnet restore Workspace.slnx",
                 "cache": true,
-                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/{apps,eng,libs,tests}/**/*.csproj", "dotnet"],
+                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.csproj", "dotnet"],
                 "outputs": ["{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*"]
             },
             "browsers": { "command": "playwright install chromium --no-shell", "parallelism": false },
@@ -296,7 +296,7 @@
             },
             "rewrite": { "command": "ast-grep scan -U --no-ignore hidden", "parallelism": false, "dependsOn": ["grammar"] },
             "outline": {
-                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml",
+                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml",
                 "dependsOn": ["grammar"]
             },
             "lint": {
@@ -310,6 +310,7 @@
                     { "runtime": "ruff --version" },
                     { "runtime": "biome --version" },
                     { "runtime": "yamllint --version" },
+                    { "runtime": "yamlfmt -version" },
                     { "runtime": "actionlint --version" },
                     { "runtime": "shellcheck --version" },
                     { "runtime": "google-java-format --version" },
@@ -320,7 +321,9 @@
                         "ast-grep scan --no-ignore hidden --error=no-suppress-all",
                         "biome check --error-on-warnings",
                         "ruff check",
+                        "ruff format --check",
                         "yamllint .",
+                        "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint",
                         "actionlint",
                         "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed",
                         "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --use-version java-27 --cache .cache/pmd/java --no-progress"
@@ -335,7 +338,7 @@
                         "biome check --write --error-on-warnings",
                         "ruff check --fix",
                         "ruff format",
-                        "yamlfmt .",
+                        "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt",
                         "fd --hidden --extension java --exec-batch google-java-format --aosp --replace",
                         "dotnet format Workspace.slnx --no-restore"
                     ],
@@ -351,6 +354,8 @@
                     "{workspaceRoot}/tsconfig.json",
                     "{workspaceRoot}/*.config.ts",
                     "{workspaceRoot}/{infra,tools/nx}/*.ts",
+                    "{workspaceRoot}/{libs/typescript,tests/typescript,.claude/plugins}/*/vitest.config.ts",
+                    "{workspaceRoot}/apps/*/*/vitest.config.ts",
                     "{workspaceRoot}/**/*.py",
                     { "externalDependencies": ["typescript"] }
                 ],
@@ -358,19 +363,16 @@
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/root"]
             },
             "check": { "dependsOn": ["lint", "typecheck"] },
-            "up": { "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts up", "parallelism": false },
-            "refresh": { "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts refresh", "parallelism": false },
-            "interface": {
-                "command": "python -m interface.cli",
-                "options": { "env": { "PYTHONPATH": "tools" } },
+            "infra": {
+                "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts",
                 "parallelism": false,
-                "outputs": ["{workspaceRoot}/.artifacts/tools/interface", "{workspaceRoot}/.cache/tools/interface"]
+                "configurations": { "up": { "args": "up" }, "refresh": { "args": "refresh" } }
             },
+            "interface": { "command": "python -m interface.cli", "parallelism": false },
             "upgrade": {
                 "executor": "nx:run-commands",
                 "parallelism": false,
-                "dependsOn": [{ "projects": ["tag:language:swift"], "target": "upgrade" }],
-                "outputs": ["{workspaceRoot}/.cache/tools/interface"],
+                "dependsOn": [{ "projects": ["tag:language:swift"], "target": "upgrade" }, { "projects": ["tag:host:rhino"], "target": "pack" }],
                 "options": {
                     "commands": [
                         "uv sync --upgrade",
@@ -379,8 +381,7 @@
                         "mise upgrade",
                         "python -m interface.cli upgrade"
                     ],
-                    "parallel": false,
-                    "env": { "PYTHONPATH": "tools" }
+                    "parallel": false
                 }
             }
         }

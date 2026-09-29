@@ -14,10 +14,9 @@ utils:
               inside:
                 kind: content
                 inside:
-                    kind: element
-                    has:
-                        kind: STag
-                        has: {kind: Name, regex: '^(HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|WorkingDirectory|PackagePath|([A-Za-z_][A-Za-z0-9_]*)?(Path|Paths|Dir|Directory|Root|Roots|Manifest))$'}
+                    matches:
+                        msbuild-element:
+                            name: {regex: '^(HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|WorkingDirectory|PackagePath|([A-Za-z_][A-Za-z0-9_]*)?(Path|Paths|Dir|Directory|Root|Roots|Manifest))$'}
                 not: {has: {kind: CharData, regex: 'RegularExpressions'}}
 rule:
     matches: path-value

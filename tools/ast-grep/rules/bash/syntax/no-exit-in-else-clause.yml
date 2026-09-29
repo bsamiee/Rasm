@@ -10,12 +10,12 @@ rule:
     kind: if_statement
     pattern: $IF
     all:
-        - not: {has: {kind: elif_clause}}
+        - not: {any: [{has: {kind: elif_clause}}, {has: {field: condition, nthChild: 2}}]}
         - has: {field: condition, pattern: $COND, precedes: {regex: '^then$', stopBy: {not: {regex: '^;$'}}}}
         - has:
             kind: else_clause
             pattern: $ELSE
-            has: {matches: leaving-command, nthChild: {position: 1, reverse: true}}
+            has: {matches: leaving-command, pattern: $LEAVE, nthChild: {position: 1, reverse: true}}
         - not:
             has:
                 matches: leaving-command
@@ -38,5 +38,5 @@ fix: |-
         $LEAVING
     }
     $THEN
-message: Else clause leaves the scope while the then branch nests under the condition
-note: 'Guard with `<condition> || { <else body>; }` and unnest the then branch'
+message: '`if $COND` nests its then branch while its else branch ends in `$LEAVE`'
+note: 'Short-circuit failure with `<condition> || { <else body>; }` and unnest the then branch below'

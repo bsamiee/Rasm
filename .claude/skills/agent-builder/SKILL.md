@@ -5,7 +5,7 @@ description: "Use when writing, rebuilding, or reviewing an agent definition, co
 
 # [AGENT_BUILDER]
 
-Agent definitions hold one role with its discovery steps, procedure, and owned files. Every sentence in one is a sentence its agent acts on during a run.
+Agent definitions hold one role with its discovery steps, procedure, and owned files. Every sentence in a definition states what its agent acts on during a run.
 
 [REFERENCES]:
 - [01]-[TOOL_FORMS](references/tool-forms.md): Forms and facts per CLI tool, MCP tool, and Nx target
@@ -17,19 +17,19 @@ Agent definitions hold one role with its discovery steps, procedure, and owned f
 |  [01]   | Skill    | Knowledge of a subject every caller applies: intent, criteria, facts of its tools |
 |  [02]   | Agent    | One role's purpose, scope its prompt supplies, order it works in                  |
 
-Facts sit in the skill or the agent, once:
-- Step 1 reads the references the role applies as `<reference> of <skill>`, `Skill(<name>)` first for a skill the `skills` list lacks
-- References one branch applies sit under that condition
-- Numbered run orders with commands move from a reference into the procedure, the reference keeps each step's criterion
+Facts sit once, in skill or agent:
+- Step 1 reads references the role applies as `<reference> of <skill>`, `Skill(<name>)` first for a skill missing from `skills`
+- References one branch applies sit under its condition
+- Numbered run orders with commands move from a reference into `procedure`, the reference keeps each step's criterion
 - Steps name a reference sequence as `under the <name> sequence of <reference>` with the call or reading it lacks
-- Mistakes a run showed enter as the criterion they imply: a judgment in the skill, a tool behavior as a decision fact
+- Mistakes a run showed enter as their implied criterion, a judgment in the skill or a tool behavior as a decision fact
 - Steps repeated across agents with one reading become a rule or a target each agent names
 
-Runs that repeat the same discovery steps get an agent. Roles with inputs of different kinds or disjoint owned files are separate agents, one agent takes a difference the prompt names as scope or direction when discovery steps hold for every value.
+Runs that repeat one set of discovery steps get an agent. Roles with inputs of different kinds or disjoint owned files are separate agents. When discovery steps hold for every value, one agent takes a difference the prompt names as scope or direction.
 
 ## [02]-[SECTIONS]
 
-Files open with frontmatter and a `# [NAME]` heading, then sections in run order as XML elements named for purpose, with a blank line after each opening tag, text against the tag parses as one HTML block:
+Markdown parses text against an opening tag as one HTML block, and a blank line follows each opening tag. Files open with frontmatter and a `# [NAME]` heading, then sections in run order as XML elements named for purpose:
 
 | [INDEX] | [SECTION]           | [PURPOSE]                                                                     |
 | :-----: | :------------------ | :---------------------------------------------------------------------------- |
@@ -46,7 +46,8 @@ Files open with frontmatter and a `# [NAME]` heading, then sections in run order
 |  [11]   | `done_when`         | Observable conditions of a finished run                                       |
 
 [ROLES]:
-- Role opens with purpose in one paragraph, scope comes from the prompt, an empty scope defaults to the set a file the role reads declares
+- Role opens with purpose in one paragraph
+- Prompts supply scope, an empty scope defaults to the set declared in a file the role reads
 - Runs cover every file in scope and act on every fact they find
 - User choices are reported with the options seen, work outside a reported choice completes
 - Owned files sit in a `role` table with a content column, files outside the table stay as found
@@ -55,26 +56,26 @@ Files open with frontmatter and a `# [NAME]` heading, then sections in run order
 [CONTEXT_GATHERING]:
 - Discovery skips what spawn supplies: root instructions, git status, preloaded skills
 - Discovery steps derive scope from a pattern over the files owning it (an extension, a diff filter, a graph query, an outline)
-- Discovery reads the effective set a tool evaluates before the file configuring it
-- Reads of a generated or large file locate a declaration by the literal the code spells, then `Read` that range
-- Under a shared directory, steps read and delete the path the run's own command printed or the prompt names
+- Discovery reads a tool's effective set before the file configuring it
+- Reads of a generated or large file locate a declaration by its spelled literal, then `Read` its range
+- Under a shared directory, steps read and delete paths the run's own command printed or its prompt names
 
 [SOURCES]:
 - Sources rows hold question, source, and exact call
-- MCP rows hold the argument value that changes the answer, one row per reading
-- Rows for a call past the result limit name a `jq` path over the file the result names
+- MCP rows hold each answer-changing argument value, one row per reading
+- Rows for a call past its result limit name a `jq` path over the file its result names
 - Rows for a failure name a listing locating the failing unit before a log explaining it
-- Tables end with the precedence sentence: file on disk, installed declaration, or binary decides over a page or report
+- Tables end with a sentence ranking file on disk, installed declaration, or binary over a page or report
 
 [DECISIONS]:
-- Decision facts are tool behaviors that decide a reading, each with the output line that shows it
+- Decision facts pair each tool behavior with the output line showing it
 
 [PROCEDURES]:
 - Steps write paths from repository root and name a tool in call form with a deciding argument
 - Steps spell commands as the allow list grants them
 - Each edit is one exact-string replacement
 - Checkers of the role's files sit in one step that runs them over scope and fixes each finding
-- Tables one step uses sit under that step, tables more than one step names sit in their own element between `decision` and `procedure`
+- Tables one step uses sit under it, tables more than one step names sit in their own element between `decision` and `procedure`
 - Procedure bounds its fix cycles with a count
 - Disposable files sit under a private directory the role table owns, procedure ends by deleting it
 
@@ -94,19 +95,19 @@ Steps name tools in the form the harness runs:
 - Commands take the documented form with flags `--help` prints
 - Steps hold no prefix or flag for a default a configuration file or the target owns
 - Files the run edits or judges line by line read whole, with no outline beside the read
-- Checks run through the existing target, a check a target already runs is one line naming the target
+- Checks a target runs are one step naming the target
 - Fix loops name a per-file command of each kind in scope
 
 ## [04]-[EXCLUSIONS]
 
-Sentences that state what another file owns, or bind the run past its prompt, go from the agent:
+Sentences that state what another file owns, or bind the run past its prompt, go from agents:
 - Sentences a preloaded skill states
 - `Skill` calls of a skill the `skills` list names
 - Discovery steps that map a file the next step reads whole
 - Sources rows that restate root instructions tool routing
 - Scope enumerations (`one of <a>, <b>, <c>`), a pattern or the prompt supplies scope
 - Output contracts, a run reports what changed and choices for the user
-- Steps that write a test, spec, fixture, harness, or proof script to verify the run's own work
+- Steps that write a test, spec, fixture, harness, or script checking the run's own work
 - Soft bounds, replaced by condition, command, or criterion
 - Narration of a past run, replaced by the criterion it showed
 
@@ -121,4 +122,4 @@ Checks on a finished file:
 
 ## [06]-[DESCRIPTION]
 
-Descriptions are written last, from a full read of the finished file, its preloaded skills, and root instructions tool routing. Skills and agents share one form, `Use when <situation>, covering <topics>`, at most 25 words. Descriptions name a tool, language, or file kind a delegating prompt holds, the situation states what the routing line lacks, covering names section subjects.
+Write descriptions last, after a full read of the finished file, its preloaded skills, and root instructions tool routing. Skills and agents share one form, `Use when <situation>, covering <topics>`, at most 25 words. Descriptions name a tool, language, or file kind a delegating prompt holds, the situation states what the routing line lacks, covering names section subjects.

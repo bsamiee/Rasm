@@ -1,20 +1,21 @@
 {
     "name": "function-hooks",
-    "description": "Denies policy-refused tool calls, with observation on records hook events as sink rows and delivers findings per lineage",
+    "description": "Refuses tool calls by policy, and with observation on records hook events as database rows and delivers findings per lineage",
     "author": {
         "name": "Bardia Samiee"
     },
+    "types": "./hooks/state.d.ts",
     "userConfig": {
         "observation": {
             "type": "boolean",
             "title": "Observation",
-            "description": "Recording of hook events and refused calls as sink rows, agent spawns and finding delivery at stop boundaries, and the footer label",
+            "description": "Recording of hook events and refused calls as database rows, agent spawns and finding delivery at stop boundaries, and the status line",
             "default": false
         },
         "walkPolicy": {
             "type": "boolean",
             "title": "Walk policy",
-            "description": "Refusal of a Bash walker with a start path under ~/Library/CloudStorage",
+            "description": "Refusal of a Bash walker that descends into ~/Library/CloudStorage",
             "default": false
         },
         "editThreshold": {
@@ -27,7 +28,7 @@
         "editAgent": {
             "type": "string",
             "title": "Edit agent",
-            "description": "Agent under .claude/agents/ spawned over range <key> <from_ts> <to_ts>",
+            "description": "Agent under .claude/agents/ that judges the unjudged edits of one lineage's range",
             "default": "shape-cataloger"
         },
         "categoryThreshold": {
@@ -40,7 +41,7 @@
         "categoryAgent": {
             "type": "string",
             "title": "Category agent",
-            "description": "Agent under .claude/agents/ spawned over category <category> lineage <key>",
+            "description": "Agent under .claude/agents/ that builds a checker rule for one recurring category",
             "default": "ast-grep-rule-builder"
         }
     }

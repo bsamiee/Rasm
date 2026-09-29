@@ -13,7 +13,7 @@ Process, router, and listener behavior behind every slot, with the fix for each 
 
 - Slots sit in `ai/state.db` and listeners announce in `ai/listeners/` under `~/Library/Application Support/McNeel/Rhinoceros` or `RHINO_MCP_HOME`
 - Router and the RhinoAI build Rhino loaded come from one package version, a Rhino holding another build lists no slot until it relaunches
-- MCP server rows run `ai/bin/rhino-mcp-router`, the copy RhinoAI stages at load, a router started before the next launch runs the previous build
+- MCP server rows run `ai/bin/rhino-mcp-router`, a copy RhinoAI stages at each load, a router started before a relaunch runs the previous build
 - Subagents of one session share one router, and every slot one of them spawns belongs to it
 - Router calls time out after 5 minutes
 - Claude Code moves an MCP call past 120 seconds to a background task
@@ -27,7 +27,7 @@ Process, router, and listener behavior behind every slot, with the fix for each 
 - Listeners bind from port 10500 up, one port per document
 - Scans (`list_slots`, a call without `slot`, a router start in any session) drop rows with a `<pid>-<port>.gone` file in `ai/listeners/`
 - Scans adopt every announced listener with no row
-- Listeners rewrite their announcement on the first idle 15 seconds after the last, a dropped live listener returns adopted at the next scan
+- Listeners rewrite their announcement at their first 15 idle seconds after each rewrite, a dropped live listener returns adopted at the next scan
 - Live listeners sit beside a `.gone` file after a `spawn_slot` that launched Rhino and after taking a closed document's port
 - Rows drop when their adopting router exits or a newer router build starts, and return adopted with the same `pid` and `port`
 - Rhino exits bring the router's own rows back through `-nosplash -runscript=_MCPSpawn`, under their names with `adopted: false` on new ports
@@ -43,7 +43,7 @@ Process, router, and listener behavior behind every slot, with the fix for each 
 Each slot's document answers JSON-RPC at its `endpoint` in `list_slots`, with every content block and resources the router does not serve:
 
 ```bash
-# Every content block of one call, the router keeps the first alone, a mutating tool mutates again
+# Every content block of one call, router keeps its first alone, a mutating tool mutates again
 curl -s -X POST <endpoint>/ -H 'Content-Type: application/json' \
     -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"<tool>","arguments":{}}}' | jq -r '.result.content[].text'
 # Third-party plugins Rhino has not loaded, with command names and file types
@@ -53,7 +53,7 @@ curl -s -X POST <endpoint>/ -H 'Content-Type: application/json' \
 
 - Resource `rhino://host/environment` names Rhino, OS, and .NET
 - `run_python` takes its code as `script`, sent from a file through `--data-binary @<file>`, shell-quoted JSON breaks on a quote
-- Listener calls skip the project hook, a script there opens with `# env: <skill>/scripts` to import skill modules
+- Listener calls skip the project hook, a script there opens with `# env: <skill>/scripts` and `# env: <repository>/tools` to import skill modules
 - Direct results hold `stdout` and `stderr` blocks, a raise adds an `error` block first and keeps the stdout printed before it
 - `PlugIn.GetPlugInInfo(pair.Key)` over `PlugIn.GetInstalledPlugIns()` pairs lists each plugin's `IsLoaded`, `FileName`, and visible `CommandNames`
 
@@ -64,35 +64,37 @@ Calls release prompts and save and close documents with Rhino behind the user's 
 - `RhinoApp.PostCancelEvent(<serial>)` cancels a waiting command and `RhinoApp.PostEnterEvent(<serial>, False)` accepts its default at its loop's next event:
 
 ```python
-# Cancel the waiting command, then wake the loop waiting for its next event
+# Cancel the waiting command, then wake its event loop
 from AppKit import NSApplication, NSEvent, NSEventModifierMask, NSEventType
 from CoreGraphics import CGPoint
 from Rhino import RhinoApp, RhinoDoc
 from System import Int16, IntPtr
+
 RhinoApp.PostCancelEvent(RhinoDoc.ActiveDoc.RuntimeSerialNumber)
 NSApplication.SharedApplication.PostEvent(NSEvent.OtherEvent(NSEventType.ApplicationDefined, CGPoint(0, 0), NSEventModifierMask(0), 0.0, IntPtr.Zero, None, Int16(0), IntPtr.Zero, IntPtr.Zero), True)
 ```
 
-- `describe(doc).prompt` is `None` on the call after the posted event
-- `save(doc)` writes through the window's `NSDocument` and `close(doc)` closes the window in-call, inactive documents included
+- `describe(doc).prompt` is `None` on the call after a posted event
+- `save(doc)` and `close(doc)` finish in-call, inactive documents included
 - `close(doc)` runs through another document's listener, a closed document's own listener ends inside the call and returns no reply
-- Active documents change only while Rhino is frontmost, `RhinoDoc.ActiveDoc` assignment and window key and main calls leave them unchanged behind
+- `RhinoDoc.ActiveDoc` assignment and window key and main calls leave the active document unchanged while Rhino is behind
 - Files `open -g` opens become the active document behind
 
 ## [05]-[DIALOGS]
 
 Modal dialogs hold every command, typed writer, and `open -g` file in the process, `run_python` runs inside their loop:
-- `NSApplication.SharedApplication.ModalWindow` names an alert or dialog holding the UI thread, its `ContentView` subviews hold the text and each `NSButton` title and tag
-- `NSApplication.SharedApplication.StopModalWithCode(IntPtr(<tag>))` answers the alert with that button once the call returns, the first button's tag is 1000
+- `NSApplication.SharedApplication.ModalWindow` names an alert or dialog holding the UI thread, its `ContentView` subviews hold its text and each `NSButton` title and tag
+- `NSApplication.SharedApplication.StopModalWithCode(IntPtr(<tag>))` answers an alert with its `<tag>` button once the call returns, first button's tag is 1000
 
 - Eto dialogs a call opened keep their message loop after their window closes, a posted event ends it and finishes the call:
 
 ```python
-# Close the Eto window, then wake the loop waiting for its next event
+# Close the Eto window, then wake its event loop
 from AppKit import NSApplication, NSEvent, NSEventModifierMask, NSEventType
 from CoreGraphics import CGPoint
 from System import Int16, IntPtr
 import Eto.Forms
+
 next(window for window in Eto.Forms.Application.Instance.Windows if window.Title == "<dialog title>").Close()
 NSApplication.SharedApplication.PostEvent(NSEvent.OtherEvent(NSEventType.ApplicationDefined, CGPoint(0, 0), NSEventModifierMask(0), 0.0, IntPtr.Zero, None, Int16(0), IntPtr.Zero, IntPtr.Zero), True)
 ```
@@ -130,9 +132,9 @@ log show --last 10m --predicate 'process == "Rhinoceros" AND eventMessage CONTAI
 ## [07]-[QUIT_AND_RELAUNCH]
 
 Quitting Rhino takes every slot with it, and files Rhino reads at launch are edited between quit and relaunch:
-1. `save(doc)` saves each titled document whose `modified` reads `True`
+1. `save(doc)` saves each titled document with `modified` reading `True`
 2. Next call sets untitled `doc.Modified = False` and Grasshopper 2 `Unmodify()`, runs `PlugIn.FlushSettingsSavedQueue()` and `RhinoApp.Exit(False)`
-3. Exit reads from `ps -p <pid>` in a later call, `kill -KILL <pid>` ends a Rhino it still lists after the quit
+3. Exit reads from `ps -p <pid>` in a later call, `kill -KILL <pid>` ends a Rhino it lists after the quit
 4. Settings XML, `containers.xml`, `default.rui`, Grasshopper 2 font files, and macOS defaults take their edits
 5. `spawn_slot {"version": "9"}` launches Rhino on the edited files, `open -g -b com.mcneel.rhinoceros.9 <file>...` reopens every saved file, each as its own slot
 

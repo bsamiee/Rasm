@@ -2,7 +2,47 @@
 id: python-member-use
 language: python
 arguments: [module, name]
+utils:
+    alias-import:
+        kind: aliased_import
+        inside: {kind: import_statement}
+        all:
+            - has: {field: name, kind: dotted_name, matches: module}
+            - has: {field: alias, kind: identifier, pattern: $ALIAS}
+    module-member:
+        all:
+            - not: {matches: python-shadowed-name}
+            - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {regex: "^$"}}}}
+        any:
+            - kind: dotted_name
+              matches: name
+              any:
+                - inside: {kind: import_from_statement, has: {field: module_name, matches: module}}
+                  follows: {kind: dotted_name, stopBy: end}
+                - inside: {kind: aliased_import, field: name, inside: {kind: import_from_statement, has: {field: module_name, matches: module}}}
+            - kind: attribute
+              all:
+                - has: {field: attribute, kind: identifier, matches: name}
+                - has:
+                    field: object
+                    any:
+                        - matches: module
+                        - kind: identifier
+                          pattern: $ALIAS
+                          any:
+                            - inside:
+                                kind: module, function_definition
+                                stopBy: end
+                                has:
+                                    stopBy: {kind: "function_definition, class_definition, lambda"}
+                                    matches: alias-import
+                            - inside:
+                                kind: class_definition
+                                stopBy: {kind: "function_definition, lambda"}
+                                has:
+                                    stopBy: {kind: "function_definition, class_definition, lambda"}
+                                    matches: alias-import
 rule:
     any:
-        - matches: {python-module-member: {module: {matches: module}, name: {matches: name}}}
+        - matches: module-member
         - matches: {python-imported-name: {module: {matches: module}, name: {matches: name}}}

@@ -1,0 +1,255 @@
+id: sql-table
+language: sql
+role: item
+symbolType: struct
+rule:
+    kind: create_table
+    pattern: _DECLARATION
+    has: {kind: object_reference, pattern: _NAME}
+rewriters:
+    - id: body
+      rule: {kind: 'column_definitions, create_query'}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    JOINED: {replace: {source: $HEADER, replace: '\s+', by: ' '}}
+    SIGNATURE: {replace: {source: $JOINED, replace: '(?i)\s*(\bas)?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-column
+language: sql
+role: member
+symbolType: field
+parentRuleIds: [sql-table]
+rule:
+    kind: column_definition
+    pattern: _DECLARATION
+    has: {field: name, pattern: _NAME}
+    inside: {kind: column_definitions, inside: {kind: create_table}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-view
+language: sql
+role: item
+symbolType: interface
+rule:
+    kind: 'create_view, create_materialized_view'
+    pattern: _DECLARATION
+    has: {kind: object_reference, pattern: _NAME}
+rewriters:
+    - id: body
+      rule: {kind: create_query}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    JOINED: {replace: {source: $HEADER, replace: '\s+', by: ' '}}
+    SIGNATURE: {replace: {source: $JOINED, replace: '(?i)\s*(\bas)?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-index
+language: sql
+role: item
+symbolType: key
+rule:
+    kind: create_index
+    pattern: _DECLARATION
+    has: {field: column, kind: identifier, pattern: _NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-trigger
+language: sql
+role: item
+symbolType: event
+rule:
+    kind: create_trigger
+    pattern: _DECLARATION
+    has: {kind: object_reference, pattern: _NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-function
+language: sql
+role: item
+symbolType: function
+rule:
+    kind: create_function
+    pattern: _DECLARATION
+    has: {kind: object_reference, pattern: _NAME}
+rewriters:
+    - id: body
+      rule: {kind: function_body}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    JOINED: {replace: {source: $HEADER, replace: '\s+', by: ' '}}
+    SIGNATURE: {replace: {source: $JOINED, replace: '\s+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-macro
+language: sql
+role: item
+symbolType: function
+rule:
+    kind: statement
+    pattern: _DECLARATION
+    regex: '(?i)^create\s+(or\s+replace\s+)?(temp(orary)?\s+)?macro\s'
+transform:
+    NAME: {replace: {source: $DECLARATION, replace: '(?is)^create\s+(?:or\s+replace\s+)?(?:temp(?:orary)?\s+)?macro\s+([\w.]+).*$', by: '$1'}}
+    HEADER: {replace: {source: $DECLARATION, replace: '(?is)^(create\s.*?macro\s+[\w.]+\s*\([^)]*\)\s*as(?:\s+table)?)\s.*$', by: '$1'}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-type
+language: sql
+role: item
+symbolType: class
+rule:
+    kind: create_type
+    pattern: _DECLARATION
+    has: {kind: object_reference, pattern: _NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-sequence
+language: sql
+role: item
+symbolType: variable
+rule:
+    kind: create_sequence
+    pattern: _DECLARATION
+    has: {kind: object_reference, pattern: _NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-schema
+language: sql
+role: item
+symbolType: namespace
+rule:
+    kind: create_schema
+    pattern: _DECLARATION
+    has: {kind: identifier, pattern: _NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-database
+language: sql
+role: item
+symbolType: module
+rule:
+    kind: create_database
+    pattern: _DECLARATION
+    has: {kind: identifier, pattern: _NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-extension
+language: sql
+role: item
+symbolType: package
+rule:
+    kind: create_extension
+    pattern: _DECLARATION
+    has: {kind: identifier, pattern: _NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-role
+language: sql
+role: item
+symbolType: object
+rule:
+    kind: create_role
+    pattern: _DECLARATION
+    has: {kind: identifier, pattern: _NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-statement
+language: sql
+role: item
+symbolType: operator
+rule:
+    kind: statement
+    pattern: _DECLARATION
+    all:
+        - inside: {kind: 'program, transaction'}
+        - not: {precedes: {kind: ERROR, regex: '^\.'}}
+        - has:
+            stopBy: end
+            pattern: _NAME
+            regex: '\w'
+            any:
+                - kind: object_reference
+                  inside:
+                    kind: >-
+                        insert, from, alter_table, alter_view, alter_index, alter_schema, alter_sequence, alter_type, alter_database, alter_role, drop_table, drop_view, drop_schema, drop_database, drop_role, drop_type, drop_sequence, drop_extension, drop_function
+                    inside: {kind: statement}
+                - kind: object_reference
+                  inside: {kind: relation, inside: {kind: update}}
+                - kind: identifier
+                  inside: {kind: drop_index, field: name}
+        - any:
+            - has: {kind: cte}
+            - not:
+                inside:
+                    kind: program
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: 'create_table, create_view, create_materialized_view, create_index, create_trigger, create_function, create_type, create_sequence, create_schema, create_database, create_extension, create_role'
+rewriters:
+    - id: clause
+      rule: {kind: 'keyword_with, cte'}
+      fix: ''
+transform:
+    BARE: rewrite($DECLARATION, rewriters=[clause])
+    OPENED: {replace: {source: $BARE, replace: '^[\s,]+', by: ''}}
+    JOINED: {replace: {source: $OPENED, replace: '\s+', by: ' '}}
+    SIGNATURE: {replace: {source: $JOINED, replace: '(?i)^(insert (?:or \w+ )?into [\w."]+(?: ?\([^)]*\))?|update (?:or \w+ )?[\w."]+|delete from [\w."]+|(?:drop|alter) \w+ (?:if exists )?[\w."]+)[\s\S]*$', by: '$1'}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: sql-cte
+language: sql
+role: member
+symbolType: variable
+parentRuleIds: [sql-table, sql-view, sql-statement]
+rule:
+    kind: cte
+    pattern: _DECLARATION
+    has: {kind: identifier, pattern: _NAME}
+rewriters:
+    - id: body
+      rule: {kind: statement, inside: {kind: cte}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    OPEN: {replace: {source: $HEADER, replace: '\s*\(\s*\)\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $OPEN, replace: '\s+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE

@@ -7,13 +7,7 @@
         "default": ["{projectRoot}/**/*", "sharedGlobals"],
         "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}"],
         "sharedGlobals": ["{workspaceRoot}/nx.json", "{workspaceRoot}/mise.toml", "{workspaceRoot}/tools/nx/*.ts"],
-        "dotnet": [
-            "{workspaceRoot}/global.json",
-            "{workspaceRoot}/NuGet.config",
-            "{workspaceRoot}/Directory.{Build.props,Build.targets,Packages.props}",
-            "{workspaceRoot}/.editorconfig",
-            { "runtime": "dotnet --version" }
-        ],
+        "dotnet": ["{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.targets,Directory.Packages.props}", { "runtime": "dotnet --version" }],
         "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "runtime": "uv --version" }, { "runtime": "python --version" }],
         "xcode": [{ "runtime": "xcodebuild -version" }],
         "typescript": ["{workspaceRoot}/tsconfig.base.json", "{workspaceRoot}/package.json", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/pnpm-lock.yaml", { "runtime": "node --version" }]
@@ -23,7 +17,7 @@
             { "cache": true },
             {
                 "filter": { "projects": ["tag:language:dotnet"] },
-                "dependsOn": ["^build", { "projects": ["rasm"], "target": "restore" }],
+                "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }],
                 "inputs": ["...", "dotnet"]
             },
             {
@@ -50,11 +44,11 @@
         "pack": [
             {
                 "filter": { "projects": ["tag:host:rhino"] },
-                "command": "dotnet publish {projectRoot} --no-restore --output .artifacts/yak/{projectRoot}",
+                "command": "dotnet publish {projectRoot} --no-restore --output .artifacts/rhino/{projectRoot}",
                 "cache": true,
                 "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
-                "inputs": ["production", "^production", "dotnet", { "runtime": "yak version" }],
-                "outputs": ["{workspaceRoot}/.artifacts/yak/{projectRoot}"],
+                "inputs": ["production", "^production", "{workspaceRoot}/.editorconfig", "dotnet", { "runtime": "yak version" }],
+                "outputs": ["{workspaceRoot}/.artifacts/rhino/{projectRoot}"],
                 "parallelism": false
             }
         ],
@@ -74,7 +68,7 @@
             },
             {
                 "filter": { "projects": ["tag:host:rhino"] },
-                "command": "python tools/yak/install.py .artifacts/yak/{projectRoot}",
+                "command": "python tools/yak/install.py .artifacts/rhino/{projectRoot}",
                 "dependsOn": ["pack"],
                 "parallelism": false
             }
@@ -140,7 +134,7 @@
             {
                 "filter": { "projects": ["tag:language:typescript"], "plugin": "@nx/vitest" },
                 "inputs": ["...", "typescript", "{workspaceRoot}/vitest.config.ts", "{workspaceRoot}/tests/typescript/support/setup.ts"],
-                "outputs": ["{workspaceRoot}/.artifacts/typescript/test-results/{projectName}", "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"]
+                "outputs": ["{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"]
             }
         ],
         "check": [

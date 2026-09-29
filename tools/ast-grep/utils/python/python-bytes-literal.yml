@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-bytes-literal
+language: python
+rule:
+    kind: string
+    has: {kind: string_start, regex: '^[rR]?[bB]'}

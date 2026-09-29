@@ -115,4 +115,4 @@ rule:
                 - inside: {stopBy: end, matches: release-member}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^Dispose$'}}}}
 message: Release runs once through the `$FLAG` flag by hand
-note: Compose `new Disposal(<release>)` and forward `Dispose` to it
+note: Hold `new Disposal(<release>)`, `Disposal` runs its release once

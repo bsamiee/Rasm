@@ -20,7 +20,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Commands with `cwd` at their project read the workspace root through `$NX_WORKSPACE_ROOT`
 - Target with `options` and no `executor`, `command`, or `targetDefaults` executor resolves to `nx:noop` with a `dependsOn` and drops without one
 - Pipes, loops, conditionals, and variables in a command entry are a script, the second command takes its own entry or target
-- Tools that take files and no directory run as `fd --hidden --extension <ext> --exec-batch <tool>`, one process over every file `.gitignore` leaves
+- Tools that take files and no directory, or walk ignored trees before filtering (`yamlfmt`), run as `fd --hidden --extension <ext> --exec-batch <tool>`, one process over every file `.gitignore` leaves
 - `fd --exec-batch` runs nothing without a match, a row for an extension with no tracked file goes
 - `dependsOn` names a target of the project (`build`), of its dependencies (`^build`), or of named projects (`{ projects, target }`)
 - `params: forward` on a `dependsOn` entry passes its arguments to the dependency

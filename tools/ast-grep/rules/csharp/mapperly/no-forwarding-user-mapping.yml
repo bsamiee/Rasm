@@ -22,4 +22,4 @@ rule:
 constraints:
     OWNER: {regex: '^(global::)?([A-Z]\w*\.)*[A-Z]\w*$'}
 message: '`[UserMapping]` method passes `$SOURCE` to `$OWNER.$MEMBER` unchanged'
-note: 'Mark the owner member `[UserMapping]` and add `[assembly: UseStaticMapper(typeof(<owner>))]`'
+note: 'Mark `<owner>.<member>` `[UserMapping]` and add `[assembly: UseStaticMapper(typeof(<owner>))]`, Mapperly then calls the owner member directly'

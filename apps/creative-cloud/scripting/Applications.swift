@@ -18,15 +18,18 @@ struct Application: Codable {
         self.identifier = identifier
         name = FileManager.default.displayName(atPath: url.path(percentEncoded: false))
         version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        processIdentifiers = runningApplications.filter { runningApplication in runningApplication.bundleURL?.resolvingSymlinksInPath().path(percentEncoded: false) == url.path(percentEncoded: false) }
-            .map(\.processIdentifier)
+        processIdentifiers = runningApplications.filter { runningApplication in
+            runningApplication.activationPolicy != .prohibited && runningApplication.bundleURL?.resolvingSymlinksInPath().path(percentEncoded: false) == url.path(percentEncoded: false)
+        }
+        .map(\.processIdentifier)
         scriptable = try url.resourceValues(forKeys: [.applicationIsScriptableKey]).applicationIsScriptable == true
     }
 
     init(from decoder: any Decoder) throws {
         let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
         let url: URL = try container.decode(URL.self)
-        guard url.isFileURL, let application: Self = try Self(url: url.resolvingSymlinksInPath(), runningApplications: NSWorkspace.shared.runningApplications) else {
+        let standardized: URL = URL(filePath: url.path(percentEncoded: false), directoryHint: .checkFileSystem).resolvingSymlinksInPath()
+        guard url.isFileURL, let application: Self = try Self(url: standardized, runningApplications: NSWorkspace.shared.runningApplications) else {
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Not an Adobe application bundle: \(url.absoluteString)")
         }
         self = application
@@ -80,7 +83,7 @@ struct Application: Codable {
                         }
                         return .failure(
                             .reply(
-                                NSError(domain: NSOSStatusErrorDomain, code: Int(status), userInfo: message.map { text in [NSLocalizedDescriptionKey: text] }),
+                                ScriptingFailure.eventFailed(status, message: message),
                                 reply.numberOfItems == 0 ? nil : dictionary.decode(reply),
                             )
                         )

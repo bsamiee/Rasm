@@ -21,5 +21,5 @@ rule:
             - not: {matches: local-annotation}
         - kind: subscript
           has: {field: value, matches: unsubscriptable}
-message: '`$G` defines no `__class_getitem__` on Python 3.13, where evaluating this subscript raises `TypeError`'
-note: 'Annotate with the `collections.abc` protocol the value satisfies (`Callable`, `Iterator`, `Iterable`, `Sequence`), a descriptor wrapped where it is registered'
+message: '`$G` defines no `__class_getitem__` on Python 3.13 and its subscript raises `TypeError` at evaluation'
+note: 'Annotate with the `collections.abc` protocol the value satisfies (`Callable`, `Iterator`, `Iterable`, `Sequence`), each protocol subscripts at run time'

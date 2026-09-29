@@ -26,4 +26,4 @@ rule:
             - matches: declared
         - matches: declared-required
 message: '`$NAME` names an `Action<Error>` sink outside the `reject` convention'
-note: Use `reject` for a parameter or private field and `Reject` for a property, record field, or public field
+note: Use `reject` for a parameter or private field and `Reject` for a property, record field, or public field, one name for the error sink in every package

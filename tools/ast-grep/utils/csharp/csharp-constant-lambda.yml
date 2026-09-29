@@ -8,11 +8,11 @@ utils:
             - kind: boolean_literal
             - kind: default_expression
               not: {has: {field: type, not: {regex: '^((global::)?System\.)?(bool|Boolean)$'}}}
-    bare:
+    literal-operand:
         any:
             - matches: literal
             - kind: parenthesized_expression
-              has: {matches: bare}
+              has: {matches: literal-operand}
     pure-operand:
         not:
             has:
@@ -26,7 +26,7 @@ utils:
             - kind: prefix_unary_expression
               all:
                 - regex: '^!'
-                - has: {matches: bare}
+                - has: {matches: literal-operand}
                 - has: {stopBy: end, matches: literal, not: {matches: value}}
             - kind: binary_expression
               matches: pure-operand

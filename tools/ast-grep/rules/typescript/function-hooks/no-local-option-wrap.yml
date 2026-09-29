@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-local-option-wrap
+language: tsx
+severity: error
+rule:
+    kind: variable_declarator
+    all:
+        - has: {field: name, kind: identifier, pattern: $O}
+        - has:
+            field: value
+            kind: call_expression
+            pattern: $WRAP($E)
+            has: {field: function, matches: {syntax-import-reference: {source: {regex: 'composition\.ts$'}, exported: {regex: '^fromUndefined$'}}}}
+        - inside: {kind: lexical_declaration, inside: {kind: statement_block}}
+        - inside:
+            kind: statement_block
+            stopBy: end
+            not:
+                has:
+                    stopBy: end
+                    kind: identifier
+                    pattern: $O
+                    not:
+                        any:
+                            - inside: {kind: variable_declarator, field: name}
+                            - inside: {kind: member_expression, field: object, has: {field: property, regex: '^(kind|value)$'}}
+message: '`$O` wraps `$E` in an Option the function unwraps without passing on'
+note: 'Test `<value> === undefined` and read the value directly where absence stays inside one function, an Option passes absence across a function boundary'

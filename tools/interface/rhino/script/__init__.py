@@ -1,0 +1,101 @@
+# ty: ignore[invalid-argument-type, unresolved-import]
+# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported"
+# ruff: file-ignore[banned-api, blind-except, import-outside-top-level, non-empty-init-module, print]
+"""Entry points the host runs inside Rhino's CPython for the launch signal, the converging run, and the document report and release before a quit."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Iterator
+from itertools import chain
+import json
+from pathlib import Path
+import socket
+import traceback
+from typing import TYPE_CHECKING
+
+import Rhino
+from Rhino.PlugIns import PlugIn
+from Rhino.UI import RhinoEtoApp
+
+from interface.report import converged, Kind, line, Row
+from interface.rhino.script import appearance, containers, display, keyboard, options, plugins, template
+from interface.rhino.script.accessors import plain, port as listener
+
+if TYPE_CHECKING:
+    from Grasshopper2.Doc import Document
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+
+def definitions() -> tuple[Document, ...]:
+    """Grasshopper 2 documents while its plug-in is loaded, none before it loads."""
+    if PlugIn.GetPlugInInfo(PlugIn.IdFromName("Grasshopper2")).IsLoaded:
+        from Grasshopper2.Doc import Document
+
+        return tuple(Document.AllDocuments)
+    return ()
+
+
+def emit(entries: Iterable[Row | str]) -> None:
+    """Print the header line, then each row's change lines and each report line as it comes, a raise printed as one error line holding its message and its cause's with their .NET frames, the row label it notes, and the cause's raising Python frame."""
+
+    def cause(error: BaseException) -> BaseException:
+        return error if (inner := error.__cause__ or error.__context__) is None else cause(inner)
+
+    folder = Path(Rhino.RhinoApp.GetDataDirectory(localUser=True, forceDirectoryCreation=False)) / "settings"
+    print(line(Kind.HEADER, str(Rhino.RhinoApp.Version), str(folder)))
+    try:
+        for text in chain.from_iterable(converged(entry, plain) if isinstance(entry, Row) else (entry,) for entry in entries):
+            print(text)
+    except Exception as error:
+        root = cause(error)
+        frame = traceback.extract_tb(root.__traceback__)[-1]
+        texts = chain.from_iterable(traceback.format_exception_only(each) for each in dict.fromkeys((root, error)))
+        print(line(Kind.ERROR, " ".join((*chain.from_iterable(text.split() for text in texts), f"at {frame.filename}:{frame.lineno}"))))
+
+
+def ready(address: str, port: int) -> None:
+    """Send the listener port of Rhino's active document over one connection to the host at the address and port."""
+    with socket.create_connection((address, port)) as connection:
+        connection.sendall(str(listener(Rhino.RhinoDoc.ActiveDoc)).encode())
+
+
+def main(doc: Rhino.RhinoDoc) -> None:
+    """Converge and report the Settings window closed and every store's rows in store order, Grasshopper 2 last, then flush the settings on every path."""
+    preferences = RhinoEtoApp.ApplicationPreferencesWindowForPage(None)
+
+    def entries() -> Iterator[Row | str]:
+        yield Row(label="ApplicationPreferencesWindow.Visible", read=lambda: preferences is not None and preferences.Visible, write=lambda _: preferences.Close(), target=False)
+        yield from chain(options.rows(), appearance.rows(), keyboard.rows(), containers.rows(doc), plugins.rows(), display.rows(), template.rows())
+        PlugIn.LoadPlugIn(PlugIn.IdFromName("Grasshopper2"))
+        from interface.rhino.script import grasshopper
+
+        yield from grasshopper.rows(doc, display.point_width(), display.curve_width())
+
+    try:
+        emit(entries())
+    finally:
+        PlugIn.FlushSettingsSavedQueue()
+
+
+def documents() -> None:
+    """Report every titled Rhino and Grasshopper 2 document's path and an error for each one holding unsaved edits."""
+    held, loaded = tuple(Rhino.RhinoDoc.OpenDocuments()), definitions()
+    emit((
+        line(Kind.MEASUREMENT, json.dumps([*(each.Path for each in held if each.Path), *(each.File.Path for each in loaded if each.File.Path)])),
+        *(line(Kind.ERROR, f"Rhino document {each.Path} holds unsaved edits") for each in held if each.Modified and each.Path),
+        *(line(Kind.ERROR, f"Grasshopper 2 document {each.File.Path} holds unsaved edits") for each in loaded if each.Modified and each.File.Path),
+    ))
+
+
+def release() -> None:
+    """Mark every untitled Rhino and Grasshopper 2 document unmodified, so a quit prompts for none."""
+    for document in (each for each in Rhino.RhinoDoc.OpenDocuments() if each.Modified and not each.Path):
+        document.Modified = False
+    for definition in (each for each in definitions() if each.Modified and not each.File.Path):
+        definition.Unmodify()
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["documents", "main", "ready", "release"]

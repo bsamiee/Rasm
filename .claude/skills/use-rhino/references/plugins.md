@@ -4,7 +4,7 @@ Packages come from the Yak server through `yak`, and compiled builds load from t
 
 ## [01]-[PACKAGES]
 
-`yak` runs from `/Applications/RhinoBETA.app/Contents/Resources/bin` outside Rhino and writes `~/Library/Application Support/McNeel/Rhinoceros/packages/9.0/<package>/<version>/`, the folder Rhino and Grasshopper 2 load packages from:
+`yak` runs from `<bundle>/Contents/Resources/bin` outside Rhino and writes `~/Library/Application Support/McNeel/Rhinoceros/packages/<major>.0/<package>/<version>/`, the folder Rhino and Grasshopper 2 load packages from:
 
 | [INDEX] | [NEED]                          | [COMMAND]                                                                                         |
 | :-----: | :------------------------------ | :------------------------------------------------------------------------------------------------ |
@@ -16,12 +16,7 @@ Packages come from the Yak server through `yak`, and compiled builds load from t
 |  [06]   | Installed packages              | `yak list`                                                                                        |
 |  [07]   | Remove                          | `yak uninstall <package>` deletes every version, `yak list` shows the result                      |
 
-`yak search --prerelease` names each match's newest version on any platform, Yak's versions API names the newest one Rhino 9 runs, prereleases included:
-
-```bash
-# Newest version with a macOS or cross-platform distribution for any Rhino, an earlier major, or Rhino 9 at or below the running service release
-curl -s https://yak.rhino3d.com/versions/<package> | jq -r --argjson release "$(defaults read /Applications/RhinoBETA.app/Contents/Info CFBundleShortVersionString | cut -d. -f2)" 'first(.[] | select(any(.distributions[]; .platform != "win" and (.rhino_version == "any" or (.rhino_version | ltrimstr("rh") | split("_") | map(tonumber)) <= [9, $release])))) | .version'
-```
+`yak search --prerelease` names each match's newest version on any platform.
 
 Packages installed while Rhino runs load in the running session:
 1. `canvas.plugins()` loads each Grasshopper 2 library in Rhino's assembly search paths and lists its `id` and components

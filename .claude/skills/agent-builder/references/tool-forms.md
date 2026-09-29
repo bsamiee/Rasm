@@ -34,10 +34,9 @@ Forms and facts per tool an agent step names, run from repository root.
 - `mise which <name>` takes one name per call, a second positional prints `error: unexpected argument`
 - `mise which <package binary>` prints `mise ERROR <name> is not a mise bin`, `command -v <name>` resolves the binary
 - `mise ls --current` prints the `global.json` SDK as `dotnet <version> (symlink)`
-- `mise env -s bash` is the environment the `SessionStart` hook writes
 - `mise env --json-extended | jq -r '.[].source'` names each row's file
 - `mise doctor` prints the `config_files:` list
-- `file $(mise which <binary>)` prints the architecture of a binary
+- `file $(mise which <binary>)` prints a binary's architecture
 
 ## [04]-[NX]
 
@@ -45,8 +44,8 @@ Forms and facts per tool an agent step names, run from repository root.
 - `nx show project <project> --json | jq '.targets|keys'` lists targets, `jq '.targets.<target>.inputs'` the hashed inputs
 - `nx run rasm:outline -- <path> --items structure` maps a file, `--view names`, `signatures`, `expanded`, or `digest` set depth
 - `--match <Name>` selects one member, `-l <lang>` outlines a directory of one language, `--json=compact` prints one array
-- `--color never` fails the outline target's schema, `NO_COLOR=1` in the settings `env` reaches every tool subprocess
-- Outline maps the bundled languages, markdown included, and the custom languages `sgconfig.yml` names, prints `nothing found` for the rest
+- `--color never` fails outline target's schema, `NO_COLOR=1` in `.claude/settings.json` `env` reaches every tool subprocess
+- Outline maps bundled languages, markdown included, and custom languages `sgconfig.yml` names, and prints `nothing found` for the rest
 
 ## [05]-[PACKAGE_MANAGERS]
 

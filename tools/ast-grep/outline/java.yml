@@ -1,3 +1,15 @@
+id: java-package
+language: java
+role: item
+symbolType: package
+rule:
+    kind: package_declaration
+    has: {kind: 'scoped_identifier, identifier', pattern: $NAME}
+name: $NAME
+signature: package $NAME
+isExported: false
+
+---
 id: java-record
 language: java
 role: item
@@ -7,10 +19,40 @@ rule:
     pattern: $DECLARATION
     inside: {kind: program}
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: java-body
+      rule:
+        kind: class_body
+        inside: {kind: record_declaration, field: body}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [java-body]}}
     LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '\(\s+', by: '('}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+$', by: '$1'}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {has: {kind: modifiers, has: {regex: '^public$'}}}
+
+---
+id: java-annotation
+language: java
+role: item
+symbolType: interface
+rule:
+    kind: annotation_type_declaration
+    pattern: $DECLARATION
+    inside: {kind: program}
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: java-body
+      rule:
+        kind: annotation_type_body
+        inside: {kind: annotation_type_declaration, field: body}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [java-body]}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+$', by: '$1'}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: modifiers, has: {regex: '^public$'}}}
@@ -24,7 +66,7 @@ symbolType: field
 rule:
     kind: formal_parameter
     pattern: $DECLARATION
-    inside: {kind: formal_parameters, inside: {kind: record_declaration, inside: {kind: program}}}
+    inside: {kind: formal_parameters, inside: {kind: record_declaration}}
     has: {field: name, pattern: $NAME}
 name: $NAME
 signature: $DECLARATION
@@ -34,52 +76,90 @@ isPublic: true
 id: java-member-nested-type
 language: java
 role: member
-parentRuleIds: [java-class, java-interface, java-enum, java-record]
+parentRuleIds: [java-class, java-interface, java-enum, java-record, java-annotation]
 symbolType: struct
 rule:
-    kind: 'class_declaration, record_declaration, interface_declaration, enum_declaration'
+    kind: 'class_declaration, record_declaration, interface_declaration, enum_declaration, annotation_type_declaration'
     pattern: $DECLARATION
-    inside: {kind: 'class_body, interface_body, enum_body_declarations'}
+    inside: {kind: 'class_body, interface_body, enum_body_declarations, annotation_type_body'}
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: java-body
+      rule:
+        kind: 'class_body, interface_body, enum_body, annotation_type_body'
+        inside: {kind: 'class_declaration, record_declaration, interface_declaration, enum_declaration, annotation_type_declaration', field: body}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [java-body]}}
     LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '\(\s+', by: '('}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+$', by: '$1'}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {regex: '^(private|protected)$'}}}}
+isPublic: {any: [{has: {kind: modifiers, has: {regex: '^public$'}}}, {inside: {kind: 'interface_body, annotation_type_body'}}]}
 
 ---
-id: java-member-private-field
+id: java-member-field
 language: java
 role: member
-parentRuleIds: [java-class, java-interface, java-enum, java-record]
+parentRuleIds: [java-class, java-interface, java-enum, java-record, java-annotation]
 symbolType: field
 rule:
-    kind: field_declaration
+    kind: 'field_declaration, constant_declaration'
     pattern: $DECLARATION
-    all:
-        - has: {field: declarator, has: {field: name, pattern: $NAME}}
-        - has: {kind: modifiers, has: {regex: '^(private|protected)$'}}
+    has: {field: declarator, has: {field: name, pattern: $NAME}}
+rewriters:
+    - id: java-declarator
+      rule:
+        kind: variable_declarator
+        has: {field: name, pattern: $DECLARED}
+      fix: $DECLARED
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*=[\s\S]*$', by: ''}}
-    SIGNATURE: {replace: {source: $HEADER, replace: ';\s*$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [java-declarator]}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\s*;$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: false
+isPublic: {any: [{has: {kind: modifiers, has: {regex: '^public$'}}}, {inside: {kind: 'interface_body, annotation_type_body'}}]}
 
 ---
 id: java-member-enum-constant
 language: java
 role: member
 parentRuleIds: [java-enum]
-symbolType: field
+symbolType: enumMember
 rule:
     kind: enum_constant
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: java-body
+      rule:
+        kind: class_body
+        inside: {kind: enum_constant, field: body}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [java-body]}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+$', by: '$1'}}
 name: $NAME
-signature: $DECLARATION
+signature: $SIGNATURE
+isPublic: true
+
+---
+id: java-member-annotation-element
+language: java
+role: member
+parentRuleIds: [java-annotation]
+symbolType: method
+rule:
+    kind: annotation_type_element_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    LINE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\s*;$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
 isPublic: true
 
 ---
@@ -92,13 +172,19 @@ rule:
     kind: method_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: java-body
+      rule:
+        kind: block
+        inside: {kind: method_declaration, field: body}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [java-body]}}
     LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '\(\s+', by: '('}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+$', by: '$1'}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {regex: '^(private|protected)$'}}}}
+isPublic: {has: {kind: modifiers, has: {regex: '^public$'}}}
 
 ---
 id: java-member-record-constructor
@@ -110,10 +196,28 @@ rule:
     kind: 'constructor_declaration, compact_constructor_declaration'
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: java-body
+      rule:
+        kind: 'constructor_body, block'
+        inside: {kind: 'constructor_declaration, compact_constructor_declaration', field: body}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [java-body]}}
     LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '\(\s+', by: '('}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+$', by: '$1'}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {regex: '^(private|protected)$'}}}}
+isPublic: {has: {kind: modifiers, has: {regex: '^public$'}}}
+
+---
+id: java-member-static-initializer
+language: java
+role: member
+parentRuleIds: [java-class, java-enum, java-record]
+symbolType: constructor
+rule:
+    kind: static_initializer
+name: static
+signature: static
+isPublic: false

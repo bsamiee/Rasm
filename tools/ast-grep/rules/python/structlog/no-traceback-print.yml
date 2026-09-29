@@ -43,5 +43,5 @@ rule:
                                 - has: {field: object, matches: exception-class}
         - matches: formatted-traceback
           inside: {stopBy: end, kind: argument_list, inside: {matches: output-sink}}
-message: '`$USE` prints the traceback outside structlog'
-note: 'Use `logger.exception(<event>)` inside the handler, `exc_info=<exception>` outside it, and `stack_info=True` for the current stack'
+message: '`$USE` prints a traceback outside structlog'
+note: 'Log through structlog with `logger.exception(<event>)` inside the handler, `exc_info=<exception>` outside it, and `stack_info=True` for the current stack, each traceback then joins its structured event'

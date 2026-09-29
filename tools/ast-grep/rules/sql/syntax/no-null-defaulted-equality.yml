@@ -8,25 +8,27 @@ utils:
         all:
             - has: {kind: object_reference, regex: '(?i)^(ifnull|coalesce)$'}
             - not: {has: {nthChild: 4}}
+    operand:
+        not: {has: {field: value, kind: 'binary_expression, unary_expression'}}
     left-defaulted:
         matches: defaulted
         all:
-            - has: {nthChild: 2, pattern: _A}
+            - has: {nthChild: 2, pattern: _A, matches: operand}
             - has: {nthChild: 3, pattern: _X}
     right-defaulted:
         matches: defaulted
         all:
-            - has: {nthChild: 2, pattern: _B}
+            - has: {nthChild: 2, pattern: _B, matches: operand}
             - has: {nthChild: 3, pattern: _X}
 rule:
     kind: binary_expression
     all:
-        - has: {field: operator, regex: '^(=|<>|!=)$', pattern: __OPERATOR}
+        - has: {field: operator, regex: '^(==?|<>|!=)$', pattern: __OPERATOR}
         - has: {field: left, matches: left-defaulted}
         - has: {field: right, matches: right-defaulted}
 transform:
-    EQUAL: {replace: {source: $OPERATOR, replace: '^=$', by: ' not'}}
+    EQUAL: {replace: {source: $OPERATOR, replace: '^==?$', by: ' not'}}
     NEGATION: {replace: {source: $EQUAL, replace: '^(<>|!=)$', by: ''}}
 fix: '$A is$NEGATION distinct from $B'
 message: '`$A` and `$B` compare through the shared default `$X`'
-note: 'Compare with `is not distinct from` or `is distinct from`, which SQLite and DuckDB both read'
+note: 'Compare with `is not distinct from` or `is distinct from`, the null-safe comparisons SQLite and DuckDB both read'

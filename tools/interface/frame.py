@@ -20,18 +20,8 @@ class Task(StrEnum):
 
 
 class Role(Enum):
-    """Panel and editor roles each application maps to its own ids, COLOR holding material and swatch editors, DOCUMENT sheet lists, and STRUCTURE the document tree."""
+    """Right-column panel roles each application maps to its own ids, COLOR holding material and swatch editors, DOCUMENT sheet lists, and STRUCTURE the document tree."""
 
-    TOOLS = auto()
-    CODE = auto()
-    CONSOLE = auto()
-    CANVAS = auto()
-    DATA = auto()
-    TEXTURE = auto()
-    RENDER = auto()
-    NODES = auto()
-    SHEET = auto()
-    HISTORY = auto()
     PROPERTIES = auto()
     ALIGNMENT = auto()
     DOCUMENT = auto()
@@ -57,11 +47,8 @@ class Role(Enum):
 
 
 class Place(Enum):
-    """Regions of the frame with the roles each holds in order, the left column at full height."""
+    """Right column of the frame, selection properties on top and the document tree at the bottom, with the roles each holds in order."""
 
-    LEFT = (Role.TOOLS, Role.CODE, Role.CONSOLE)
-    CENTER = (Role.CANVAS, Role.DATA, Role.TEXTURE, Role.RENDER)
-    LOWER = (Role.NODES, Role.SHEET, Role.HISTORY)
     RIGHT_TOP = (
         Role.PROPERTIES,
         Role.ALIGNMENT,

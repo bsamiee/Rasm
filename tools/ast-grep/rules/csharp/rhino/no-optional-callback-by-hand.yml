@@ -205,4 +205,4 @@ transform:
         rewrite: {source: $CALL, rewriters: [optional-run, optional-answer]}
 fix: $ANSWERED
 message: '`$OPTION` answers an optional callback through `$ANSWER` by hand'
-note: 'Use `Answers.Answer(<option>.Map(<run> => <effect>), <reject>, refused: <failure fallback>, <none arm>)` with `<none arm>` answering what `Match`, `Iter`, `Exists`, `ForAll`, or `Bind` answered for `None`, the 3-argument form where both fallbacks are one value, `Answers.Succeeded(<option>.Map(<run> => <effect>), <reject>, <none arm>)` for a `Succeeded` arm, and `<option>` alone where the `Some` arm answers its value unchanged'
+note: 'Use `Answers.Answer(<option>.Map(<run> => <effect>), <reject>, <fallback>, <none arm>)` or `Answers.Succeeded(<option>.Map(<run> => <effect>), <reject>, <none arm>)`, each `Option` overload answers `None` itself'

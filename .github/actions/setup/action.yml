@@ -4,12 +4,13 @@ description: Installs the toolchain and dependencies
 runs:
     using: composite
     steps:
+        - uses: nrwl/nx-set-shas@v5
         - uses: jdx/mise-action@v4
         - uses: actions/cache@v6
           if: runner.os == 'Linux'
           with:
             path: .cache/nuget/packages
-            key: nuget-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', 'Directory.Build.targets', 'NuGet.config', '**/*.csproj') }}
+            key: nuget-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', 'Directory.Build.targets', 'NuGet.config', '**/*.csproj', '**/*.proj') }}
         - uses: actions/cache@v6
           if: runner.os == 'Linux'
           with:

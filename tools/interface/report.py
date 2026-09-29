@@ -50,13 +50,18 @@ def digest(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()[:12]
 
 
+def subscript(label: str, *keys: str | int) -> str:
+    """Label with each key appended, a name as `["name"]` and an index as `[n]`."""
+    return label + "".join(f'["{key}"]' if isinstance(key, str) else f"[{key}]" for key in keys)
+
+
 def changes(label: str, before: object, target: object) -> Iterator[str]:
-    """Change line for each value a write moves off its held value, per key of either mapping at every depth, a name labeled `["name"]` and an index `[n]`."""
+    """Change line for each value a write moves off its held value, per key of either mapping at every depth, a name labeled `["name"]`, an index `[n]`, and `None` spelled `absent`."""
     match before, target:
         case Mapping() as held, Mapping() as wanted:
-            yield from chain.from_iterable(changes(f'{label}["{name}"]' if isinstance(name, str) else f"{label}[{name}]", held.get(name), wanted.get(name)) for name in dict.fromkeys((*wanted, *held)))
+            yield from chain.from_iterable(changes(subscript(label, name), held.get(name), wanted.get(name)) for name in dict.fromkeys((*wanted, *held)))
         case _ if before != target:
-            yield line(Kind.CHANGE, label, repr(before), repr(target))
+            yield line(Kind.CHANGE, label, *(ABSENT if value is None else repr(value) for value in (before, target)))
 
 
 def converged(row: Row, plain: Callable[[object], object] = lambda value: value) -> Iterator[str]:
@@ -73,4 +78,4 @@ def converged(row: Row, plain: Callable[[object], object] = lambda value: value)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ABSENT", "Kind", "Row", "changes", "converged", "digest", "line"]
+__all__ = ["ABSENT", "Kind", "Row", "changes", "converged", "digest", "line", "subscript"]

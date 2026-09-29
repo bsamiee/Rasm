@@ -1,6 +1,6 @@
 # [WORD_MAP]
 
-Deletion rows remove the word, replacement rows substitute listed word, noun and phrasal rows substitute listed verb.
+Deletion rows remove their words, replacement rows substitute the listed word, noun and phrasal rows the listed verb.
 
 ## [01]-[DELETIONS]
 
@@ -28,7 +28,7 @@ Deletion rows remove the word, replacement rows substitute listed word, noun and
 |  [20]   | Marketing        | `robust`, `powerful`, `comprehensive`, `seamless`, `elegant`, `clean` (as praise), `modern`, `lightweight`, `best`    |
 |  [21]   | Meta phrases     | `note that`, `it is worth noting`, `it is important to`, `in other words`, `as mentioned`, `in summary`               |
 |  [22]   | Empty hedges     | `possibly`, `typically`, `generally`, `usually`, `often`, `in some cases`, `in most cases`, `where appropriate`       |
-|  [23]   | Enumeration      | `one`, `two`, `three`, `several`, `a number of`, `various`, `multiple` (as a visible count)                           |
+|  [23]   | Enumeration      | `two`, `three`, `several`, `various`, `multiple`, `numerous`, `a number of`, `a few` (as a visible count)             |
 |  [24]   | Ordering         | `first`, `second` (as a sentence order)                                                                               |
 |  [25]   | Version markers  | `since version`, `as of`, `in version`, `upgrade from`                                                                |
 |  [26]   | Version words    | `legacy`, `new and current` (as a version), `migrate` (to a version)                                                  |

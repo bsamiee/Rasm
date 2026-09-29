@@ -34,4 +34,4 @@ rule:
                     - matches: interface-member
         - has: {field: name, pattern: $NAME}
 message: '`$NAME` answers through a `bool` and an `out` parameter'
-note: Return `Option<T>` or `Fin<T>`
+note: Return `Option<T>` or `Fin<T>`, one value holds both the answer and its presence

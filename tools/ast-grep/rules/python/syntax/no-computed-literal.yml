@@ -3,9 +3,6 @@ id: no-computed-literal
 language: python
 severity: error
 utils:
-    bytes:
-        kind: string
-        has: {kind: string_start, regex: '^[rR]?[bB]'}
     printable-escape:
         kind: escape_sequence
         regex: '^\\(x|u00|U000000)(2[0-9A-Fa-f]|[3-6][0-9A-Fa-f]|7[0-9A-Ea-e])$|^\\(0?[4-7][0-7]|1[0-6][0-7]|17[0-6])$|^\\N\{(?i:(LATIN (SMALL|CAPITAL) LETTER [A-Z]|DIGIT [A-Z]+|SPACE|(EXCLAMATION|QUOTATION|QUESTION) MARK|(NUMBER|DOLLAR|PERCENT|PLUS|EQUALS|LESS-THAN|GREATER-THAN) SIGN|AMPERSAND|APOSTROPHE|(LEFT|RIGHT) (PARENTHESIS|SQUARE BRACKET|CURLY BRACKET)|ASTERISK|COMMA|HYPHEN-MINUS|FULL STOP|(REVERSE )?SOLIDUS|COLON|SEMICOLON|COMMERCIAL AT|(CIRCUMFLEX|GRAVE) ACCENT|LOW LINE|VERTICAL LINE|TILDE))\}$'
@@ -18,22 +15,15 @@ utils:
             - matches: plain-string
             - kind: 'tuple, list'
               not: {has: {pattern: $_, not: {matches: literal}}}
-    plus-chain:
-        kind: binary_operator
-        all:
-            - has: {field: operator, regex: '^\+$'}
-            - has: {field: right, kind: string}
-            - has: {field: left, any: [{kind: string}, {matches: plus-chain}]}
-            - not: {has: {stopBy: end, kind: interpolation}}
     literal-arguments:
         kind: argument_list
         not: {has: {pattern: $_, not: {matches: literal}}}
 rule:
     pattern: $S
     any:
-        - {kind: string, not: {matches: bytes}, has: {kind: string_content, has: {matches: printable-escape}}}
+        - {kind: string, not: {matches: python-bytes-literal}, has: {kind: string_content, has: {matches: printable-escape}}}
         - {kind: string, has: {kind: interpolation}, not: {has: {stopBy: end, kind: interpolation, not: {has: {field: expression, matches: literal}}}}}
-        - {matches: plus-chain, not: {inside: {kind: binary_operator, matches: plus-chain}}}
+        - {matches: python-string-sum, not: {inside: {kind: binary_operator, matches: python-string-sum}}}
         - kind: call
           all:
             - has: {field: function, kind: attribute, all: [{has: {field: object, any: [{matches: plain-string}, {kind: concatenated_string}, {regex: '^str$'}]}}, {not: {has: {field: attribute, regex: '^join$'}}}]}
@@ -47,4 +37,4 @@ rule:
             - has: {field: value, matches: plain-string}
             - has: {field: subscript, any: [{kind: integer}, {kind: slice, not: {has: {pattern: $_, not: {kind: 'integer, unary_operator'}}}}]}
 message: '`$S` computes a literal from literals'
-note: 'Write the literal as its plain text'
+note: 'Write the value the computation derives as a plain literal'

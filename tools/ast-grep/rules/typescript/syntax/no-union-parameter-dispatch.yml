@@ -22,4 +22,4 @@ rule:
                         - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $PARAMETER}}
                     - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
 message: 'Argument shape selects the behavior at runtime through an overload or a `typeof` test'
-note: 'One function per argument shape, `Schema` decodes an unknown input once at the boundary'
+note: 'Declare one function per argument shape and decode an unknown input once at the boundary with `Schema`'

@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-paired-bound-check
+language: tsx
+severity: error
+utils:
+    schema-check:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
+                - has: {field: property, regex: '^(isMinLength|isMaxLength|isMinSize|isMaxSize|isMinProperties|isMaxProperties|isGreaterThan(OrEqualTo)?(Date|BigInt|BigDecimal)?|isLessThan(OrEqualTo)?(Date|BigInt|BigDecimal)?)$'}
+    lower:
+        matches: schema-check
+        pattern: $LOWER
+        has: {field: function, has: {field: property, regex: '^(isMin(Length|Size|Properties)|isGreaterThan(OrEqualTo)?(Date|BigInt|BigDecimal)?)$'}}
+    upper:
+        matches: schema-check
+        pattern: $UPPER
+        has: {field: function, has: {field: property, regex: '^(isMax(Length|Size|Properties)|isLessThan(OrEqualTo)?(Date|BigInt|BigDecimal)?)$'}}
+rule:
+    kind: arguments
+    all:
+        - has: {matches: lower}
+        - has: {matches: upper}
+        - any:
+            - all: [{has: {matches: lower, regex: 'Length\('}}, {has: {matches: upper, regex: 'Length\('}}]
+            - all: [{has: {matches: lower, regex: 'Size\('}}, {has: {matches: upper, regex: 'Size\('}}]
+            - all: [{has: {matches: lower, regex: 'Properties\('}}, {has: {matches: upper, regex: 'Properties\('}}]
+            - all: [{has: {matches: lower, regex: 'Than'}}, {has: {matches: upper, regex: 'Than'}}]
+        - inside:
+            kind: call_expression
+            has: {field: function, kind: member_expression, has: {field: property, regex: '^check$'}}
+message: '`$LOWER` and `$UPPER` state one range as two checks'
+note: '`Schema.isLengthBetween`, `isSizeBetween`, `isPropertiesLengthBetween`, `isBetween`, `isBetweenDate`, `isBetweenBigInt`, or `isBetweenBigDecimal` states both bounds in one check with one expected message and one arbitrary constraint'

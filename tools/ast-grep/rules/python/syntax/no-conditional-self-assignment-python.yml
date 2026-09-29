@@ -49,4 +49,4 @@ transform:
     OUT: rewrite($STMT, rewriters=[written-when-not-none, written-when-none, written-when-compound-false, written-when-false, written-when-true])
 fix: $OUT
 message: '`$T` is written with its own value in one arm of the conditional'
-note: 'Write `<target>` under an `if` on the arm that changes it'
+note: 'Write `<target>` under an `if` on the arm that changes it, no arm then rewrites its current value'

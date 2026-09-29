@@ -233,18 +233,13 @@ class Alias(Enum):
     PQ = "Purge"
     PW = "Delete Duplicates"
 
-    @property
-    def family(self) -> Family:
-        """Family the alias's first key names."""
-        return Family[self.name[0]]
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def families(names: Iterable[str]) -> tuple[Family, ...]:
-    """Families holding one of the alias names, in key order."""
-    held = {Alias[name].family for name in names}
+def families(aliases: Iterable[Alias]) -> tuple[Family, ...]:
+    """Families whose first key opens one of the aliases, in key order."""
+    held = {Family[alias.name[0]] for alias in aliases}
     return tuple(family for family in Family if family in held)
 
 

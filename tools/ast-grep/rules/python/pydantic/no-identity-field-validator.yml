@@ -160,4 +160,4 @@ fix:
     template: $NEXT$BASE$REBUILT
     expandEnd: {pattern: $NEXT}
 message: 'Validator returns the field value unchanged'
-note: 'Delete the validator'
+note: 'Delete the validator, an identity validator adds a call and states no rule'

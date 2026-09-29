@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unescaped-like-underscore
+language: sql
+severity: error
+rule:
+    kind: binary_expression
+    all:
+        - has: {field: left, pattern: _SUBJECT}
+        - has: {field: operator, regex: '(?i)^(not\s+)?like$', pattern: __OPERATOR}
+        - has: {field: right, kind: literal, regex: '\w_|_\w', not: {regex: '[\\!]'}, pattern: _PATTERN}
+        - not:
+            any:
+                - precedes: {kind: ERROR, regex: '(?i)^escape\b'}
+                - inside: {kind: statement, stopBy: end, precedes: {kind: ERROR, regex: '(?i)^escape\b'}}
+transform:
+    ESCAPED: {replace: {source: $PATTERN, replace: '_', by: '!_'}}
+fix: $SUBJECT $OPERATOR $ESCAPED escape '!'
+message: '`$PATTERN` reads each `_` as any one character'
+note: 'Write each literal underscore as `!_` under `escape ''!''`, the form SQLite and DuckDB read as one underscore'

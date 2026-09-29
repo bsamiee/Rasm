@@ -47,4 +47,4 @@ transform:
     OUT: rewrite($FIXABLE, rewriters=[unwrapped])
 fix: $OUT$KEPT
 message: '`next($IT)` catches `StopIteration` to reach `$D`'
-note: 'Use `next(<iterator>, <default>)`'
+note: 'Use `next(<iterator>, <default>)`, a default argument states the absent case a handler spells'

@@ -3,8 +3,6 @@ id: no-swallowed-failure
 language: tsx
 severity: error
 utils:
-    effect-module:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}
     failure-constructor:
         kind: call_expression
         pattern: $INNER
@@ -13,7 +11,7 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^(try|tryPromise|fail|failSync|failCause|failCauseSync|filterOrFail|mapError|mapBoth)$'}
-                - has: {field: object, matches: effect-module}
+                - has: {field: object, matches: effect-effect-module}
     boolean-handler:
         matches: {effect-constant-handler: {result: {kind: 'true, false'}}}
     boolean-pair:
@@ -31,7 +29,7 @@ rule:
                 pattern: $CALL
                 all:
                     - has: {field: property, regex: '^(isSuccess|isFailure)$'}
-                    - has: {field: object, matches: effect-module}
+                    - has: {field: object, matches: effect-effect-module}
             - has: {field: arguments, has: {nthChild: 1, matches: failure-constructor}}
         - all:
             - has:
@@ -40,7 +38,7 @@ rule:
                 pattern: $CALL
                 all:
                     - has: {field: property, regex: '^match$'}
-                    - has: {field: object, matches: effect-module}
+                    - has: {field: object, matches: effect-effect-module}
             - has:
                 field: arguments
                 has:
@@ -53,4 +51,4 @@ rule:
                                 - has: {field: value, matches: boolean-handler}
                         - not: {has: {matches: boolean-pair}}
 message: '`$CALL` collapses a typed failure into a boolean'
-note: 'Return the effect with its failure, the consumer reads the variant by `_tag`'
+note: 'Return the effect with its failure, the consumer then reads the variant by `_tag`'

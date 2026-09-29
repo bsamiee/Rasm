@@ -206,7 +206,6 @@ utils:
             any:
                 - has: {field: default_value, pattern: $_}
                 - has: {kind: parameter, has: {regex: '^\.\.\.$'}}
-                - has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}
     super-argument:
         kind: value_argument
         any:
@@ -240,18 +239,23 @@ utils:
               all:
                 - has: {kind: try_operator, regex: '^try$'}
                 - has: {any: [{matches: super-init}, {kind: await_expression, has: {matches: super-init}}]}
+    super-init-body:
+        kind: statements
+        all:
+            - has: {nthChild: 1, matches: super-init-statement}
+            - not: {has: {nthChild: 2}}
     unneeded-override:
         kind: init_declaration
         all:
             - has: {kind: modifiers, has: {kind: member_modifier, regex: '^override$'}}
             - not: {has: {kind: modifiers, any: [{has: {kind: attribute}}, {has: {kind: visibility_modifier, regex: '^private$'}}]}}
             - not: {has: {regex: '^[?!]$'}}
-            - has: {field: body, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, matches: super-init-statement}}}
+            - has: {field: body, has: {matches: super-init-body}}
     forced-required:
         kind: init_declaration
         all:
             - has: {kind: modifiers, has: {regex: '^required$'}}
-            - has: {field: body, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, matches: super-init-statement}}}
+            - has: {field: body, has: {matches: super-init-body}}
             - inside: {kind: class_body, has: {kind: init_declaration, not: {has: {kind: modifiers, has: {regex: '^(required|convenience)$'}}}}}
     assigned-field:
         kind: directly_assignable_expression
@@ -282,6 +286,7 @@ utils:
     anonymous-forwarded-2: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: anonymous-arguments-2}}}
     anonymous-forwarded-3: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: anonymous-arguments-3}}}
 rule:
+    not: {has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}}
     any:
         - matches: plain-parameters
           all:
@@ -295,7 +300,6 @@ rule:
                 - has: {field: body, has: {stopBy: end, kind: navigation_expression, has: {field: target, not: {kind: 'self_expression, super_expression'}}}}
         - kind: init_declaration
           all:
-            - not: {has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}}
             - has: {field: body, has: {matches: field-statements}}
             - inside:
                 kind: class_body
@@ -304,11 +308,9 @@ rule:
         - kind: function_declaration
           all:
             - not: {has: {kind: parameter}}
-            - not: {has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}}
             - has: {field: body, has: {matches: forwarded-member}}
         - kind: property_declaration
           all:
-            - not: {has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}}
             - not: {has: {field: name, regex: '^body$'}}
             - not: {has: {stopBy: end, matches: copy-with}}
             - has:

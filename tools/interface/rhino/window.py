@@ -1,18 +1,19 @@
-"""Rhino window layout facts the host and the Rhino side share."""
+"""Rhino window layout the host and the Rhino side share: panel, ribbon tab, and dock bar ids, the measured record, and the layout it sizes."""
 
 from collections.abc import Mapping
+import ctypes
 from enum import auto, StrEnum
 import math
 from types import MappingProxyType
-from typing import Final
+from typing import override, Self, TypedDict
 
-from interface.frame import Place, RIGHT_COLUMN, Role
+from interface.frame import Place, RIGHT_COLUMN, Role, TREE_ROWS
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Panel(StrEnum):
-    """Registered panel type ids and the Command History dock bar's id."""
+class PanelId(StrEnum):
+    """Registered panel type ids and the package panels."""
 
     PROPERTIES = "34ffb674-c504-49d9-9fcd-99cc811dcda2"
     NAMED_VIEWS = "77d33034-194d-4cd5-957c-730d9a9eac50"
@@ -41,11 +42,16 @@ class Panel(StrEnum):
     SCRIPTS = "8e40b456-7e20-43a0-92e6-a6991419cc91"
     WHAT = "2017c0ee-500a-43ae-b920-88465a7132a0"
     OSNAP = "d3c4a392-88de-4c4f-88a4-ba5636ef7f38"
-    COMMAND_HISTORY = "1d3d1785-2332-428b-a838-b2fe39ec50f4"
 
 
-class Toolbar(StrEnum):
-    """Toolbar ids of the ribbon's tabs in role order."""
+class RibbonTab(StrEnum):
+    """Toolbar ids of the ribbon's tabs in ribbon order, each named in `packages.toml` by member name."""
+
+    @override
+    @classmethod
+    def _missing_(cls, value: object) -> Self | None:
+        """Member the name spells."""
+        return cls.__members__.get(str(value))
 
     STANDARD = "4bb9c817-d19f-45fd-8af2-39e9805f3e9f"
     SELECT = "79d0d952-85af-4fe3-8444-46596bbe22fd"
@@ -63,8 +69,16 @@ class Toolbar(StrEnum):
     CPLANES = "32318c40-46e9-4aa3-8f73-09371ec27a4d"
 
 
+class Bar(StrEnum):
+    """Dock bars holding no panel tab, by the id Rhino registers each under."""
+
+    RIBBON = "171011a9-a956-41ee-853e-3ccc0c0db1d8"
+    SIDEBAR = "7491ffac-ebf2-4214-bf42-d3d1e4e0f0e1"
+    COMMAND_HISTORY = "1d3d1785-2332-428b-a838-b2fe39ec50f4"
+
+
 class Site(StrEnum):
-    """Main window dock sites as Rhino names their locations, each naming the height measured for it."""
+    """Main window dock sites as Rhino names their locations."""
 
     LEFT = "Left"
     RIGHT = "Right"
@@ -78,6 +92,7 @@ class Extent(StrEnum):
     TAB_STRIP = auto()
     BUTTON = auto()
     RESIZER = auto()
+    COMMAND_HISTORY = auto()
     LAYERS_CHROME = auto()
     LAYERS_HEADER = auto()
     LAYERS_ROW = auto()
@@ -97,52 +112,98 @@ class Extent(StrEnum):
     LIBRARIES_LIST_MINIMUM = auto()
 
 
-# --- [TABLES] ---------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
-PANELS: Final = MappingProxyType({
-    Role.PROPERTIES: Panel.PROPERTIES,
-    Role.DOCUMENT: Panel.LAYOUTS,
-    Role.COLOR: Panel.MATERIALS,
-    Role.ASSETS: Panel.BLOCK_DEFINITIONS,
-    Role.LIGHTING: Panel.SUN,
-    Role.DISPLAY: Panel.DISPLAY,
-    Role.VIEWS: Panel.NAMED_VIEWS,
-    Role.SNAPSHOTS: Panel.SNAPSHOTS,
-    Role.STRUCTURE: Panel.LAYERS,
-})
-RIGHT_TOP: Final = tuple(PANELS[role] for role in Place.RIGHT_TOP.value if role in PANELS)
-RIGHT_BOTTOM: Final = tuple(PANELS[role] for role in Place.RIGHT_BOTTOM.value if role in PANELS)
-RETURN_TOP: Final = (
-    Panel.ENVIRONMENTS,
-    Panel.LIBRARIES,
-    Panel.NOTES,
-    Panel.NAMED_POSITIONS,
-    Panel.NAMED_CPLANES,
-    Panel.TEXTURES,
-    Panel.RENDERING,
-    Panel.GROUND_PLANE,
-    Panel.LIGHTS,
-    Panel.CONTEXT_HELP,
-    Panel.BLOCK_CONTENT,
-    Panel.FILE_EXPLORER,
-)
-RETURN_BOTTOM: Final = (Panel.LAYER_STATES,)
+
+class Measured(TypedDict):
+    """Record the script prints: each dock site's height, each extent, and each Layers column's default width by `LayerColumns.ColumnType` name in enum order."""
+
+    sites: dict[Site, float]
+    extents: dict[Extent, float]
+    columns: dict[str, int]
+
+
+class Band(TypedDict):
+    """Dock site's one band: its size in whole points and its bars in order, a panel container named by its tabs, each with its single-precision share or None as a band's only bar."""
+
+    size: int
+    bars: tuple[tuple[Bar | tuple[PanelId, ...], float | None], ...]
+
+
+class Layout(TypedDict):
+    """Band of each dock site and the container, named by its tabs, each panel returns to."""
+
+    bands: Mapping[Site, Band]
+    returns: Mapping[PanelId, tuple[PanelId, ...]]
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def osnap_height(measured: Mapping[Site | Extent, float], width: float) -> float:
-    """Height the Osnap strip's toggle grid wraps to at the band width, as Rhino's grid layout wraps it."""
-    per_row = min(measured[Extent.OSNAP_TOGGLES], max(1, (width - measured[Extent.OSNAP_INSET]) // measured[Extent.OSNAP_PITCH_X]))
-    return math.ceil(measured[Extent.OSNAP_TOGGLES] / per_row) * measured[Extent.OSNAP_PITCH_Y] + measured[Extent.OSNAP_CHROME]
+def band_sizes(extents: Mapping[Extent, float]) -> dict[Site, int]:
+    """Whole points of the ribbon band showing its tab strip over one button row, the sidebar four buttons wide, the right column, and the Command History bar's height."""
+    cell = round(extents[Extent.BUTTON])
+    return {Site.TOP: round(extents[Extent.TAB_STRIP]) + cell, Site.LEFT: 4 * cell, Site.RIGHT: RIGHT_COLUMN, Site.BOTTOM: round(extents[Extent.COMMAND_HISTORY])}
 
 
-def bands(measured: Mapping[Site | Extent, float]) -> dict[Site, int]:
-    """Whole points each rewritten dock site's first band settles at, the sidebar four buttons wide above the Osnap strip."""
-    cell = round(measured[Extent.BUTTON])
-    return {Site.TOP: round(measured[Extent.TAB_STRIP]) + cell, Site.LEFT: 4 * cell, Site.RIGHT: RIGHT_COLUMN}
+def layers_height(extents: Mapping[Extent, float]) -> float:
+    """Height of the Layers container showing the tree's rows."""
+    return extents[Extent.LAYERS_CHROME] + extents[Extent.LAYERS_HEADER] + TREE_ROWS * extents[Extent.LAYERS_ROW]
+
+
+def side_length(measured: Measured, site: Site) -> float:
+    """Length of a side dock site once the top and bottom sites each hold their one band and its resizer, the window's sites summing to one height under any layout."""
+    extents, sites = measured["extents"], measured["sites"]
+    sizes = band_sizes(extents)
+    return sites[site] + sum(sites[end] - sizes[end] - extents[Extent.RESIZER] for end in (Site.TOP, Site.BOTTOM))
+
+
+def shares(measured: Measured, site: Site, lower: float) -> tuple[float, float]:
+    """Single-precision shares of a side band's upper and lower bars, the lower bar at its content height and the upper one at the middle of the whole point Rhino truncates it to."""
+    whole = side_length(measured, site)
+    share = (whole - measured["extents"][Extent.RESIZER] - lower + 0.5) / whole
+    return ctypes.c_float(share).value, ctypes.c_float(1 - share).value
+
+
+def upper_length(measured: Measured, site: Site, lower: float) -> int:
+    """Whole points Rhino gives a side band's upper bar, the single-precision product of the band length and the bar's share truncated."""
+    upper, _ = shares(measured, site, lower)
+    return math.trunc(ctypes.c_float(side_length(measured, site) * upper).value)
+
+
+def layout(measured: Measured) -> Layout:
+    """Layout the measures size, each side band sharing its length with the lower bar at its content height."""
+    extents, sizes = measured["extents"], band_sizes(measured["extents"])
+    roles = {
+        Role.PROPERTIES: PanelId.PROPERTIES,
+        Role.DOCUMENT: PanelId.LAYOUTS,
+        Role.COLOR: PanelId.MATERIALS,
+        Role.ASSETS: PanelId.BLOCK_DEFINITIONS,
+        Role.LIGHTING: PanelId.SUN,
+        Role.DISPLAY: PanelId.DISPLAY,
+        Role.VIEWS: PanelId.NAMED_VIEWS,
+        Role.SNAPSHOTS: PanelId.SNAPSHOTS,
+        Role.STRUCTURE: PanelId.LAYERS,
+    }
+    top, bottom = (tuple(roles[role] for role in place.value if role in roles) for place in (Place.RIGHT_TOP, Place.RIGHT_BOTTOM))
+    toggles = extents[Extent.OSNAP_TOGGLES]
+    per_row = min(toggles, (sizes[Site.LEFT] - extents[Extent.OSNAP_INSET]) // extents[Extent.OSNAP_PITCH_X])
+
+    def split(site: Site, upper: Bar | tuple[PanelId, ...], lower: tuple[PanelId, ...], height: float) -> Band:
+        upper_share, lower_share = shares(measured, site, height)
+        return Band(size=sizes[site], bars=((upper, upper_share), (lower, lower_share)))
+
+    return Layout(
+        bands=MappingProxyType({
+            Site.TOP: Band(size=sizes[Site.TOP], bars=((Bar.RIBBON, None),)),
+            Site.LEFT: split(Site.LEFT, Bar.SIDEBAR, (PanelId.OSNAP,), math.ceil(toggles / per_row) * extents[Extent.OSNAP_PITCH_Y] + extents[Extent.OSNAP_CHROME]),
+            Site.RIGHT: split(Site.RIGHT, top, bottom, layers_height(extents)),
+            Site.BOTTOM: Band(size=sizes[Site.BOTTOM], bars=((Bar.COMMAND_HISTORY, None),)),
+        }),
+        returns=MappingProxyType({panel: bottom if panel in {*bottom, PanelId.LAYER_STATES} else top for panel in PanelId if panel is not PanelId.OSNAP}),
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RETURN_BOTTOM", "RETURN_TOP", "RIGHT_BOTTOM", "RIGHT_TOP", "Extent", "Panel", "Site", "Toolbar", "bands", "osnap_height"]
+__all__ = ["Band", "Bar", "Extent", "Layout", "Measured", "PanelId", "RibbonTab", "Site", "layers_height", "layout", "upper_length"]

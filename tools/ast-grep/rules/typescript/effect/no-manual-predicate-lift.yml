@@ -1,0 +1,157 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-manual-predicate-lift
+language: tsx
+severity: error
+utils:
+    option-module:
+        kind: identifier
+        pattern: $M
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Option)?$'}, exported: {regex: '^Option$'}}}
+    result-module:
+        kind: identifier
+        pattern: $M
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Result)?$'}, exported: {regex: '^Result$'}}}
+    effect-module:
+        kind: identifier
+        pattern: $M
+        matches: effect-effect-module
+    one-argument:
+        has: {field: arguments, all: [{has: {nthChild: 1, pattern: $V}}, {not: {has: {nthChild: 2}}}]}
+    option-lifted:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: option-module}}, {has: {field: property, regex: '^some$'}}]}
+            - matches: one-argument
+    option-empty:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M}}, {has: {field: property, regex: '^none$'}}]}
+            - has: {field: arguments, not: {has: {nthChild: 1}}}
+    result-lifted:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: result-module}}, {has: {field: property, regex: '^succeed$'}}]}
+            - matches: one-argument
+    result-empty:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M}}, {has: {field: property, regex: '^fail$'}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
+    tested:
+        any:
+            - pattern: $V
+            - has: {stopBy: end, pattern: $V}
+    failing-arm:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(fail|failSync)$'}
+                - has: {field: object, matches: effect-module}
+    terminal-member:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^(fail|failSync|failCause|failCauseSync|die|interrupt)$'}
+            - has: {field: object, matches: effect-effect-module}
+    terminal-arm:
+        any:
+            - kind: call_expression
+              has: {field: function, matches: terminal-member}
+            - matches: terminal-member
+    discriminant-test:
+        kind: binary_expression
+        any:
+            - pattern: $_.kind === $_
+            - pattern: $_.kind !== $_
+            - pattern: $_._tag === $_
+            - pattern: $_._tag !== $_
+    declaration-of-tested:
+        kind: variable_declarator
+        has: {field: name, kind: identifier, pattern: $V}
+    generator-constant:
+        kind: identifier
+        pattern: $V
+        inside:
+            kind: generator_function
+            stopBy: end
+            has:
+                field: body
+                all:
+                    - has: {kind: lexical_declaration, has: {matches: declaration-of-tested}}
+                    - not:
+                        has:
+                            has: {kind: 'identifier, shorthand_property_identifier', pattern: $V, stopBy: end}
+                            not: {any: [{has: {matches: declaration-of-tested}}, {has: {kind: ternary_expression, pattern: $TERNARY, stopBy: end}}]}
+    lifted-then-filtered:
+        kind: call_expression
+        not: {has: {stopBy: end, kind: comment}}
+        any:
+            - all:
+                - any:
+                    - pattern: '$M.filterOrFail($M.succeed($V), $_, $_)'
+                    - pattern: '$M.succeed($V).pipe($M.filterOrFail($_, $_))'
+                    - pattern: '$M.succeed($V).pipe($M.filterOrFail($_, $_), $$$)'
+                    - pattern: '$PIPE($M.succeed($V), $M.filterOrFail($_, $_))'
+                    - pattern: '$PIPE($M.succeed($V), $M.filterOrFail($_, $_), $$$)'
+                - has: {stopBy: end, matches: result-module}
+            - all:
+                - any:
+                    - pattern: '$M.filter($M.some($V), $_)'
+                    - pattern: '$M.some($V).pipe($M.filter($_))'
+                    - pattern: '$M.some($V).pipe($M.filter($_), $$$)'
+                    - pattern: '$PIPE($M.some($V), $M.filter($_))'
+                    - pattern: '$PIPE($M.some($V), $M.filter($_), $$$)'
+                - has: {stopBy: end, matches: option-module}
+rule:
+    any:
+        - matches: lifted-then-filtered
+          pattern: $CALL
+        - kind: ternary_expression
+          pattern: $KEPT
+          all:
+            - any:
+                - all: [{has: {field: consequence, matches: option-lifted}}, {has: {field: alternative, matches: option-empty}}]
+                - all: [{has: {field: alternative, matches: option-lifted}}, {has: {field: consequence, matches: option-empty}}]
+                - all: [{has: {field: consequence, matches: result-lifted}}, {has: {field: alternative, matches: result-empty}}]
+                - all: [{has: {field: alternative, matches: result-lifted}}, {has: {field: consequence, matches: result-empty}}]
+            - has: {field: condition, matches: tested}
+        - kind: ternary_expression
+          pattern: $TERNARY
+          all:
+            - has: {field: condition, has: {matches: generator-constant, stopBy: end}}
+            - not: {has: {field: condition, any: [{matches: discriminant-test}, {has: {matches: discriminant-test, stopBy: end}}]}}
+            - any:
+                - all:
+                    - has: {field: alternative, matches: failing-arm}
+                    - not: {has: {field: consequence, matches: terminal-arm}}
+                - all:
+                    - has: {field: consequence, matches: failing-arm}
+                    - not: {has: {field: alternative, matches: terminal-arm}}
+constraints:
+    PIPE: {matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}}
+rewriters:
+    - id: direct
+      rule: {pattern: '$M.$FILTER($M.$LIFT($VALUE), $$$ARGS)'}
+      fix: $M.liftPredicate($VALUE, $$$ARGS)
+    - id: pipe
+      rule:
+        any:
+            - pattern: $M.$LIFT($VALUE).pipe($M.$FILTER($$$ARGS))
+            - pattern: '$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS))'
+              has: {field: function, kind: identifier}
+      fix: $M.liftPredicate($VALUE, $$$ARGS)
+    - id: pipe-function-steps
+      rule:
+        pattern: '$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS), $$$REST)'
+        has: {field: function, kind: identifier}
+      fix: $PIPE($VALUE, $M.liftPredicate($$$ARGS), $$$REST)
+    - id: pipe-method-steps
+      rule:
+        pattern: '$M.$LIFT($VALUE).pipe($M.$FILTER($$$ARGS), $$$REST)'
+      fix: $M.liftPredicate($VALUE, $$$ARGS).pipe($$$REST)
+transform:
+    LIFTED: rewrite($CALL, rewriters=[direct, pipe, pipe-function-steps, pipe-method-steps])
+fix: $LIFTED$KEPT$TERNARY
+message: '`$V` enters `$M` through a predicate branch written by hand'
+note: '`<module>.liftPredicate(value, predicate, orFailWith)` lifts a plain value and `Effect.filterOrFail(effect, predicate, orFailWith)` filters the value an effect yields, each states the branch once'

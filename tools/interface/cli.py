@@ -18,7 +18,7 @@ from mcp import McpError
 import msgspec
 import psutil
 
-from interface.host import Applied, Failed, gather, Host
+from interface.host import Applied, Failed, Host
 from interface.units import Units
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -34,12 +34,10 @@ def leaves(group: BaseExceptionGroup[BaseException]) -> tuple[BaseException, ...
     return tuple(chain.from_iterable(leaves(error) if isinstance(error, BaseExceptionGroup) else (error,) for error in group.exceptions))
 
 
-async def outcomes(
-    name: str, entry: Callable[[Host], Awaitable[tuple[Applied | Failed, ...]]], servers: dict[str, msgspec.Raw], units: Units, client: httpx.AsyncClient
-) -> tuple[Applied | Failed, ...]:
+async def outcomes(name: str, entry: Callable[[Host], Awaitable[tuple[Applied | Failed, ...]]], units: Units, client: httpx.AsyncClient) -> tuple[Applied | Failed, ...]:
     """Outcomes of one application's entry, a process, IO, transport, or decode failure failing it with the error and each failed command's error output."""
     try:
-        results = await entry(Host(name, ROOT, servers, os.environ, units, client))
+        results = await entry(Host(name, ROOT, os.environ, units, client))
     except* (OSError, subprocess.CalledProcessError, psutil.Error, msgspec.MsgspecError, McpError, httpx.HTTPError) as group:
         errors = tuple(line.strip() for line in traceback.format_exception_only(group, show_group=True))
         stderr = tuple(line for error in leaves(group) if isinstance(error, subprocess.CalledProcessError) for line in error.stderr.decode().splitlines())
@@ -51,9 +49,8 @@ async def run(
     entries: Iterable[tuple[str, Callable[[Host], Awaitable[tuple[Applied | Failed, ...]]]]], *, units: Annotated[Units, cyclopts.Parameter(accepts_keys=False, n_tokens=1)] = Units.IMPERIAL
 ) -> bool:
     """Run the applications' entries concurrently in the unit system over one HTTP client, print their outcomes as one JSON document, and return whether each applied, the exit code."""
-    servers = msgspec.json.decode(await anyio.Path(ROOT, ".mcp.json").read_bytes(), type=dict[str, dict[str, msgspec.Raw]])["mcpServers"]
     async with httpx.AsyncClient(follow_redirects=True, limits=httpx.Limits(max_connections=4), timeout=httpx.Timeout(5.0, pool=None)) as client:
-        results = tuple(result for outcome in await gather(outcomes(name, entry, servers, units, client) for name, entry in entries) for result in outcome)
+        results = tuple(result for outcome in await anyio.gather(*(outcomes(name, entry, units, client) for name, entry in entries)) for result in outcome)
     sys.stdout.buffer.write(msgspec.json.format(msgspec.json.encode(results, enc_hook=str), indent=1) + b"\n")
     return all(isinstance(each, Applied) for each in results)
 

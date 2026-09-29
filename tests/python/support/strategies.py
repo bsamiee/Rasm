@@ -324,20 +324,14 @@ def _register(subject: type) -> None:
     elif issubclass(subject, pydantic.BaseModel):
         model = subject
         st.register_type_strategy(subject, lambda _: _pydantic_strategy(model.__pydantic_core_schema__, {}))
-    else:
-        match msgspec.inspect.type_info(subject):
-            case (
-                msgspec.inspect.StructType(fields=fields) | msgspec.inspect.DataclassType(fields=fields) | msgspec.inspect.NamedTupleType(fields=fields) | msgspec.inspect.TypedDictType(fields=fields)
-            ):
-                st.register_type_strategy(
-                    subject,
-                    lambda _: st.fixed_dictionaries(
-                        {field.name: _msgspec_strategy(field.type) for field in fields if field.required},
-                        optional={field.name: _msgspec_strategy(field.type) for field in fields if not field.required},
-                    ).map(lambda arguments: subject(**arguments)),
-                )
-            case _:
-                pass
+    elif isinstance(info := msgspec.inspect.type_info(subject), msgspec.inspect.StructType | msgspec.inspect.DataclassType | msgspec.inspect.NamedTupleType | msgspec.inspect.TypedDictType):
+        fields = info.fields
+        st.register_type_strategy(
+            subject,
+            lambda _: st.fixed_dictionaries(
+                {field.name: _msgspec_strategy(field.type) for field in fields if field.required}, optional={field.name: _msgspec_strategy(field.type) for field in fields if not field.required}
+            ).map(lambda arguments: subject(**arguments)),
+        )
 
 
 def strategy_for[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:

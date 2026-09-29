@@ -1,28 +1,26 @@
-# mypy: disable-error-code="truthy-bool, union-attr"
+# mypy: disable-error-code="attr-defined, truthy-bool, union-attr"
 # ty: ignore[unresolved-attribute]
-"""Write the evaluated state of the scene to `.artifacts/blender/<name>.json` and name what changed since an earlier snapshot, run inside Blender through `runpy.run_path`."""
+"""Evaluated scene state written to `.artifacts/blender/<name>.json`, with each value changed since an earlier snapshot."""
 
-from collections.abc import Mapping
+from collections.abc import Sequence
 import hashlib
 from pathlib import Path
-import runpy
-from typing import Final
+from typing import Any
 
 import attrs
 import bpy
 from bpy_extras import anim_utils
-from cattrs.preconf.json import make_converter
+from nodes import Digest, record, trees
 import numpy as np
+from numpy.typing import NDArray
+from results import artifacts, JSON, unknown, UnknownObjects
+from rna import DIGITS, plain, stored
+from scene import bounds
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Animation = Animated | Unassigned | None
-type Outcome = Snapshot | UnknownObjects | MissingSnapshot
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-JSON: Final = make_converter()
-JSON.register_structure_hook_func(lambda kind: kind is object, lambda value, _: value)
+type Change = dict[str | int, Change] | tuple[object, object]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -42,11 +40,11 @@ class Geometry:
 
 @attrs.frozen
 class Channel:
-    """Key count, interpolations, and a hash over key coordinates of one F-curve."""
+    """Key count, interpolations, and a hash over key and handle coordinates of one F-curve."""
 
     keys: int
     interpolations: list[str]
-    digest: str
+    shape: str
 
 
 @attrs.frozen
@@ -79,7 +77,7 @@ class Modifier:
 
 @attrs.frozen
 class Constraint:
-    """Constraint name, type, and whether it is enabled."""
+    """Constraint name, type, and enabled state."""
 
     name: str
     type: str
@@ -110,19 +108,15 @@ class ObjectState:
 
 @attrs.frozen
 class SceneState:
-    """Scene settings, color management, orphan count, linked library files, and missing file paths."""
+    """Scene frame, engine, camera, unit and color management settings, orphan count, linked library files, and missing file paths."""
 
     name: str
     frame: int
     engine: str
     camera: str | None
-    unit_system: str
-    length_unit: str
-    scale_length: float
-    display_device: str
-    view_transform: str
-    look: str
-    exposure: float
+    unit_settings: object
+    view_settings: object
+    display_settings: object
     orphans: int
     library_files: list[str]
     missing: list[str]
@@ -130,25 +124,23 @@ class SceneState:
 
 @attrs.frozen
 class State:
-    """JSON a snapshot file holds: the scene, one record per object, the count per `bpy.data` collection, and one hash per node tree."""
+    """Scene state a snapshot file holds as JSON."""
 
     scene: SceneState
     objects: dict[str, ObjectState]
+    materials: dict[str, dict[str, object]]
     datablocks: dict[str, int]
-    trees: dict[str, str]
+    trees: dict[str, Digest]
 
 
 @attrs.frozen
 class Comparison:
-    """Objects present in one snapshot alone, and before and after of each changed object field, scene field, datablock count, and tree hash."""
+    """Objects present in one snapshot alone, and the before and after of each changed value nested under its keys and list indexes."""
 
     since: str
     added: tuple[str, ...]
     removed: tuple[str, ...]
-    changed: dict[str, dict[str, tuple[object, object]]]
-    scene: dict[str, tuple[object, object]]
-    datablocks: dict[str, tuple[int | None, int | None]]
-    trees: dict[str, tuple[str | None, str | None]]
+    changed: Change
 
 
 @attrs.frozen
@@ -157,18 +149,11 @@ class Snapshot:
 
     path: str
     objects: int
-    digest: str
+    hash: str
     comparison: Comparison | None
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
-
-
-@attrs.frozen
-class UnknownObjects:
-    """Object names absent from the scene."""
-
-    names: tuple[str, ...]
 
 
 @attrs.frozen
@@ -181,63 +166,49 @@ class MissingSnapshot:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None) -> Outcome:
-    """Write the state of the named or every object with the scene, datablocks, and node trees, then compare with `since`."""
-    path = next(p for p in Path(__file__).resolve().parents if (p / ".git").exists()) / ".artifacts" / "blender" / f"{name}.json"
-    scene = bpy.context.scene
-    if missing := tuple(n for n in objects if n not in scene.objects):
-        return UnknownObjects(missing)
-    if since is not None and not path.with_stem(since).is_file():
-        return MissingSnapshot(since)
+def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None) -> Snapshot | UnknownObjects | MissingSnapshot:
+    """Write the state of the named or every object with the scene, materials, datablock counts, and node trees, compared with `since`."""
+    path, scene = artifacts() / f"{name}.json", bpy.context.scene
+    if (absent := unknown(scene.objects, objects)) is not None:
+        return absent
     depsgraph = bpy.context.evaluated_depsgraph_get()
 
-    def digest(data: bytes) -> str:
+    def hashed(data: bytes) -> str:
         return hashlib.blake2b(data, digest_size=8).hexdigest()
 
-    def fixed(values: object) -> list[float]:
-        return (np.round(np.asarray(values, dtype=np.float64), 5) + 0.0).ravel().tolist()
+    def fixed(values: Sequence[float] | NDArray[np.float32] | NDArray[np.float64]) -> NDArray[np.float64]:
+        return np.round(np.asarray(values, dtype=np.float64), DIGITS) + 0.0
 
-    def floats[T: bpy.types.bpy_struct](collection: "bpy.types.bpy_prop_collection[T]", field: str, width: int) -> bytes:
+    def floats[T](collection: "bpy.types.bpy_prop_collection[T]", field: str, width: int) -> bytes:
         values = np.empty(len(collection) * width, dtype=np.float32)
         collection.foreach_get(field, values)
-        return (np.round(values, 5) + 0.0).tobytes()
+        return fixed(values).tobytes()
 
     def indexed(curve: bpy.types.FCurve) -> str:
         return f"{curve.data_path}[{curve.array_index}]"
 
-    solid = np.rec.fromrecords(
-        [
-            (owner.name, np.array(i.matrix_world), box)
-            for i in depsgraph.object_instances
-            if (body := i.object) is not None and (owner := i.parent if i.is_instance else body) is not None and np.ptp(box := np.array(body.bound_box), axis=0).any()
-        ],
-        dtype=[("owner", object), ("matrix", np.float64, (4, 4)), ("box", np.float64, (8, 3))],
-    )
-    corners = solid.box @ solid.matrix[:, :3, :3].mT + solid.matrix[:, None, :3, 3]
-    owners, index = np.unique(solid.owner, return_inverse=True)
-    low, high = np.full(((count := len(owners)), 3), np.inf), np.full((count, 3), -np.inf)
-    np.minimum.at(low, index, corners.min(axis=1))
-    np.maximum.at(high, index, corners.max(axis=1))
-    boxes = {o: [fixed(a), fixed(b)] for o, a, b in zip(owners, low, high, strict=True)}
+    def settings(struct: "bpy.types.bpy_struct[object]", base: "type[bpy.types.bpy_struct[object]]") -> dict[str, object]:
+        inherited = frozenset(base.bl_rna.properties.keys())
+        return {p.identifier: plain(getattr(struct, p.identifier)) for p in struct.bl_rna.properties if p.identifier not in inherited and stored(p)}
+
+    boxes = {owner: fixed(box).tolist() for owner, box in bounds(depsgraph).items()}
 
     def geometry(obj: bpy.types.Object) -> Geometry | None:
         try:
-            geometry_set = obj.evaluated_get(depsgraph).evaluated_geometry()
+            found = obj.evaluated_get(depsgraph).evaluated_geometry()
         except TypeError:
             return None
-        mesh, curves, cloud, pencil, instances = geometry_set.mesh, geometry_set.curves, geometry_set.pointcloud, geometry_set.grease_pencil, geometry_set.instances_pointcloud()
+        mesh, curves, cloud, pencil, instances = found.mesh, found.curves, found.pointcloud, found.grease_pencil, found.instances_pointcloud()
         frames = (layer.current_frame() for layer in (pencil.layers if pencil else ()))
         drawings = [frame.drawing for frame in frames if frame and frame.drawing]
-        positions = [drawing.attributes["position"] for drawing in drawings]
-        transforms = instances.attributes["instance_transform"] if instances else None
         return Geometry(
-            digest(
+            hashed(
                 b"".join((
                     floats(mesh.vertices, "co", 3) if mesh else b"",
                     floats(curves.points, "position", 3) if curves else b"",
                     floats(cloud.points, "co", 3) if cloud else b"",
-                    *(floats(p.data, "vector", 3) for p in positions if isinstance(p, bpy.types.FloatVectorAttribute)),
-                    floats(transforms.data, "value", 16) if isinstance(transforms, bpy.types.Float4x4Attribute) else b"",
+                    *(floats(drawing.attributes["position"].data, "vector", 3) for drawing in drawings),
+                    floats(instances.attributes["instance_transform"].data, "value", 16) if instances else b"",
                 ))
             ),
             len(mesh.vertices) if mesh else 0,
@@ -248,24 +219,19 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
             len(instances.points) if instances else 0,
         )
 
+    def channel(curve: bpy.types.FCurve) -> Channel:
+        keys = curve.keyframe_points
+        return Channel(len(keys), sorted({k.interpolation for k in keys}), hashed(b"".join(floats(keys, field, 2) for field in ("co", "handle_left", "handle_right"))))
+
     def animation(obj: bpy.types.Object) -> Animation:
         match obj.animation_data:
             case bpy.types.AnimData(action=bpy.types.Action() as action, action_slot=bpy.types.ActionSlot() as slot):
                 bag = anim_utils.action_get_channelbag_for_slot(action, slot)
-                channels = {
-                    indexed(c): Channel(len(c.keyframe_points), sorted({k.interpolation for k in c.keyframe_points}), digest(floats(c.keyframe_points, "co", 2))) for c in (bag.fcurves if bag else ())
-                }
-                return Animated(action.name, slot.identifier, channels)
+                return Animated(action.name, slot.identifier, {indexed(c): channel(c) for c in (bag.fcurves if bag else ())})
             case bpy.types.AnimData(action=bpy.types.Action() as action) as data:
                 return Unassigned(action.name, [s.identifier for s in data.action_suitable_slots])
             case _:
                 return None
-
-    nodes = runpy.run_path(str(Path(__file__).with_name("nodes.py")))
-    common = frozenset(bpy.types.Modifier.bl_rna.properties.keys())
-
-    def settings(modifier: bpy.types.Modifier) -> dict[str, object]:
-        return {p.identifier: nodes["plain"](getattr(modifier, p.identifier)) for p in modifier.bl_rna.properties if p.identifier not in common and nodes["stored"](p)}
 
     def state(obj: bpy.types.Object) -> ObjectState:
         location, rotation, scale = obj.matrix_world.decompose()
@@ -274,68 +240,68 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
             obj.data.name if obj.data else None,
             obj.parent.name if obj.parent else None,
             sorted(c.name for c in obj.users_collection),
-            fixed(location),
-            fixed(rotation.to_euler()),
-            fixed(scale),
+            fixed(location[:]).tolist(),
+            fixed(rotation.to_euler()[:]).tolist(),
+            fixed(scale[:]).tolist(),
             boxes.get(obj.name),
             obj.visible_get(),
             obj.hide_render,
             [s.material.name if s.material else None for s in obj.material_slots],
-            [Modifier(m.name, m.type, m.show_viewport, m.show_render, settings(m)) for m in obj.modifiers],
+            [Modifier(m.name, m.type, m.show_viewport, m.show_render, settings(m, bpy.types.Modifier)) for m in obj.modifiers],
             [Constraint(c.name, c.type, c.enabled) for c in obj.constraints],
             geometry(obj),
             animation(obj),
-            {indexed(d): nodes["plain"](d.driver) for d in (obj.animation_data.drivers if obj.animation_data else ())},
+            {indexed(d): plain(d.driver) for d in (obj.animation_data.drivers if obj.animation_data else ())},
         )
 
-    def delta[V](a: Mapping[str, V], b: Mapping[str, V]) -> dict[str, tuple[V | None, V | None]]:
-        return {k: (old, new) for k in sorted(a.keys() | b.keys()) if (old := a.get(k)) != (new := b.get(k))}
+    def delta(before: object, after: object) -> Change:
+        match before, after:
+            case list() | tuple(), list() | tuple():
+                return delta(dict(enumerate(before)), dict(enumerate(after)))
+            case dict(), dict():
+                return {k: change for k in dict.fromkeys([*before, *after]) if (change := delta(before.get(k), after.get(k)))}
+            case _:
+                return {} if before == after else (before, after)
 
-    records = {n: nodes["record"](owner, tree) for n, (owner, tree) in nodes["trees"]().items()}
-    now = State(
-        SceneState(
-            scene.name,
-            scene.frame_current,
-            scene.render.engine,
-            scene.camera.name if scene.camera else None,
-            scene.unit_settings.system,
-            scene.unit_settings.length_unit,
-            round(scene.unit_settings.scale_length, 5),
-            scene.display_settings.display_device,
-            scene.view_settings.view_transform,
-            scene.view_settings.look,
-            round(scene.view_settings.exposure, 5),
-            sum(block.users == 0 for block in bpy.data.all_ids),
-            sorted(library.filepath for library in bpy.data.libraries),
-            sorted(p for p in bpy.utils.blend_paths(absolute=True) if not Path(p).exists()),
-        ),
-        {o.name: state(o) for o in ([scene.objects[n] for n in objects] or scene.objects)},
-        {p.identifier: len(getattr(bpy.data, p.identifier)) for p in bpy.data.bl_rna.properties if isinstance(p, bpy.types.CollectionProperty)},
-        {n: digest(JSON.dumps(r, sort_keys=True).encode()) for n, r in records.items()},
+    current = JSON.unstructure(
+        State(
+            SceneState(
+                scene.name,
+                scene.frame_current,
+                scene.render.engine,
+                scene.camera.name if scene.camera else None,
+                plain(scene.unit_settings),
+                plain(scene.view_settings),
+                plain(scene.display_settings),
+                sum(block.users == 0 for block in bpy.data.all_ids),
+                sorted(library.filepath for library in bpy.data.libraries),
+                sorted(p for p in bpy.utils.blend_paths(absolute=True) if not Path(p).exists()),
+            ),
+            {o.name: state(o) for o in ([scene.objects[n] for n in objects] or scene.objects)},
+            {m.name: settings(m, bpy.types.ID) for m in bpy.data.materials},
+            {p.identifier: len(getattr(bpy.data, p.identifier)) for p in bpy.data.bl_rna.properties if isinstance(p, bpy.types.CollectionProperty) and p.fixed_type.base is not None},
+            {n: record(owner, tree) for n, (owner, tree) in trees().items()},
+        )
     )
 
-    def compare(label: str) -> Comparison:
-        before = JSON.loads(path.with_stem(label).read_text(encoding="utf-8"), State)
-        return Comparison(
-            label,
-            tuple(sorted(now.objects.keys() - before.objects.keys())),
-            tuple(sorted(before.objects.keys() - now.objects.keys())),
-            {n: fields for n in sorted(before.objects.keys() & now.objects.keys()) if (fields := delta(attrs.asdict(before.objects[n]), attrs.asdict(now.objects[n])))},
-            delta(attrs.asdict(before.scene), attrs.asdict(now.scene)),
-            delta(before.datablocks, now.datablocks),
-            delta(before.trees, now.trees),
-        )
-
-    comparison = None if since is None else compare(since)
-    text = JSON.dumps(now, sort_keys=True, indent=1)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    match since:
+        case None:
+            comparison = None
+        case str():
+            try:
+                before = JSON.loads(path.with_stem(since).read_bytes(), dict[str, Any])
+            except FileNotFoundError:
+                return MissingSnapshot(since)
+            shared = sorted(before["objects"].keys() & current["objects"].keys())
+            comparison = Comparison(
+                since,
+                tuple(sorted(current["objects"].keys() - before["objects"].keys())),
+                tuple(sorted(before["objects"].keys() - current["objects"].keys())),
+                delta(*({**side, "objects": {n: side["objects"][n] for n in shared}} for side in (before, current))),
+            )
+    text = JSON.dumps(current, sort_keys=True, indent=1)
     path.write_text(text, encoding="utf-8")
-    return Snapshot(str(path), len(now.objects), digest(text.encode()), comparison)
-
-
-def as_result(value: Outcome) -> dict[str, object]:
-    """`result` dict for `execute_blender_code`, the case name under `kind`."""
-    return {"kind": type(value).__name__, **attrs.asdict(value)}
+    return Snapshot(str(path), len(current["objects"]), hashed(text.encode()), comparison)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -343,6 +309,7 @@ def as_result(value: Outcome) -> dict[str, object]:
 __all__ = [
     "Animated",
     "Animation",
+    "Change",
     "Channel",
     "Comparison",
     "Constraint",
@@ -350,12 +317,9 @@ __all__ = [
     "MissingSnapshot",
     "Modifier",
     "ObjectState",
-    "Outcome",
     "SceneState",
     "Snapshot",
     "State",
     "Unassigned",
-    "UnknownObjects",
-    "as_result",
     "snapshot",
 ]

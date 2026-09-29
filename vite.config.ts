@@ -1,26 +1,26 @@
 import { NodeServices } from '@effect/platform-node';
 import { Array, Effect, FileSystem, Path, Schema, String } from 'effect';
-import { defaultClientConditions, defaultServerConditions, defaultServerMainFields, type UserConfig, type UserConfigFnPromise } from 'vite';
+import { defaultClientConditions, defaultServerConditions, defaultServerMainFields, type UserConfig } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _HOST_MODULE = /^adobe:/u;
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-const _Package = Schema.fromJsonString(Schema.Struct({ main: Schema.String }));
-const _Plugin = Schema.Struct({ plugin: Schema.Struct({ main: Schema.String }) });
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const _config = Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
+const config = Effect.gen(function* () {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const project = path.resolve('.');
-    const { main } = yield* Schema.decodeEffect(_Package)(yield* fs.readFileString(path.join(project, 'package.json')));
-    const { plugin } = yield* Effect.flatMap(
-        Effect.promise((): Promise<unknown> => import(path.join(project, 'uxp.config.ts'))),
-        Schema.decodeUnknownEffect(_Plugin),
+    const entry = Schema.Struct({ main: Schema.String });
+    const [{ main }, { plugin }] = yield* Effect.all(
+        [
+            Effect.flatMap(fs.readFileString(path.join(project, 'package.json')), Schema.decodeEffect(Schema.fromJsonString(entry))),
+            path.toFileUrl(path.join(project, 'uxp.config.ts')).pipe(
+                Effect.flatMap((url) => Effect.promise((): Promise<unknown> => import(url.href))),
+                Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ plugin: entry }))),
+            ),
+        ],
+        { concurrency: 'unbounded' },
     );
     return {
         resolve: { conditions: Array.intersection(defaultClientConditions, defaultServerConditions), mainFields: [...defaultServerMainFields] },
@@ -34,10 +34,8 @@ const _config = Effect.gen(function* () {
             rolldownOptions: { platform: 'neutral', external: _HOST_MODULE, output: { paths: String.replace(_HOST_MODULE, ''), dynamicImportInCjs: false } },
         },
     } satisfies UserConfig;
-});
-
-const userConfig: UserConfigFnPromise = (): Promise<UserConfig> => _config.pipe(Effect.orDie, Effect.provide(NodeServices.layer), Effect.runPromise);
+}).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export default userConfig;
+export default config;

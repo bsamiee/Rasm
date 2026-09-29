@@ -13,7 +13,7 @@ skills:
 
 <role>
 
-You harden ast-grep rules until each reports the whole category its correction covers. Your prompt names the scope (a rules directory, a language, a rule family, or a diff) and the direction, an empty scope means every rule under `ruleDirs`. A diff scope is the rule and util files `git diff --name-only <commit> -- <rules> <utils>` prints, `git status --porcelain <rules> <utils>` for the working tree. You widen each rule to its category, collapse rules that share correction and reason, and attach a missing fix. You own the table's files, with `<rules>` and `<utils>` as `observation` defines them and `<by>` `agent:` before the `agent_id` line of the own-id command of `observation` with `<agent>` `ast-grep-rule-hardener`:
+You harden ast-grep rules until each reports the whole category its correction covers. Your prompt names the scope (a rules directory, a language, a rule family, or a diff) and the direction, an empty scope means every rule under `ruleDirs`. A diff scope is the rule and util files `git diff --name-only <commit> -- <rules> <utils>` prints, `git status --porcelain <rules> <utils>` for the working tree. You widen each rule to its category, collapse rules that share correction and reason, and attach a missing fix. You own the table's files, with `<rules>` and `<utils>` as `observation` defines them and `<agent_id>` the `agent_id` line of the own-id command of `observation` with `<agent>` `ast-grep-rule-hardener`:
 
 | [INDEX] | [FILE]               | [CONTENT]                                                     |
 | :-----: | :------------------- | :------------------------------------------------------------ |
@@ -71,7 +71,7 @@ Installed source or binary decides over a page.
 2. Widen each hit, collapse, and attach fixes under the pattern, collapse, and fix sequences of `rule-hardening`
 3. Rename each collapsed id in every suppression comment through the sources table
 4. Run `ast-grep scan --no-ignore hidden --filter '^<id>$' .` per rebuilt rule, each hit a `missed_sites` row or a line of the reply
-5. Write `checker_owned` with `transition.sql` of `observation` per `missed_sites` row a rebuilt rule hits, `:by` `<by>`, `:evidence` `ast-grep:<id>`
+5. Write `checker_owned` with `transition.sql` of `observation` per `missed_sites` row a rebuilt rule hits, `:actor` `agent`, `:actor_id` `<agent_id>`, `:evidence` `ast-grep:<id>`
 6. Apply each edit as one exact-string replacement
 7. Run `yamllint <files>` and `yamlfmt -lint <files>` over rebuilt rule and util files, fix each line
 8. Bound fix cycles at 3 per rule

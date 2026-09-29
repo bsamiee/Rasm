@@ -2,8 +2,9 @@
 id: no-json-parse-tsx
 language: tsx
 severity: error
+ignores: ['.claude/plugins/*/hooks/**']
 rule:
     kind: call_expression
     has: {field: function, regex: '^(globalThis\.)?JSON\.parse$', matches: syntax-global-reference}
 message: '`JSON.parse` returns an unvalidated `any`'
-note: '`Schema.decodeUnknownEffect(Schema.fromJsonString(<schema>))` returns the typed value or a `SchemaError`'
+note: '`Schema.decodeUnknownEffect(Schema.fromJsonString(<schema>))` parses and validates in one step into the typed value or a `SchemaError`'

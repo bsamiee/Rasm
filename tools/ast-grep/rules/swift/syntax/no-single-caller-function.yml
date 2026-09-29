@@ -45,10 +45,9 @@ rule:
         - has:
             field: body
             has:
-                kind: statements
-                all:
-                    - not: {has: {nthChild: 2}}
-                    - has: {nthChild: 1, not: {kind: 'for_statement, while_statement, repeat_while_statement, do_statement, guard_statement, assignment, property_declaration, function_declaration'}}
+                matches:
+                    swift-single-statement:
+                        first: {not: {kind: 'for_statement, while_statement, repeat_while_statement, do_statement, guard_statement, assignment, property_declaration, function_declaration'}}
         - not: {has: {field: body, has: {stopBy: end, matches: reference}}}
         - not: {matches: fourth-level-move}
         - inside:
@@ -58,4 +57,4 @@ rule:
                 - has: {stopBy: end, matches: reference}
                 - not: {matches: two-references}
 message: '`$NAME` is a one-expression function with one caller in its file'
-note: 'Write the expression at its one call site with the arguments in place of the parameters'
+note: 'Write the expression at its one call site with arguments in place of parameters, the function names an expression that call site states in place'

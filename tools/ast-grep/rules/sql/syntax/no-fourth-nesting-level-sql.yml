@@ -14,7 +14,8 @@ utils:
                 stopBy: end
                 inside: {matches: nested, stopBy: end}
 rule:
+    pattern: _QUERY
     matches: fourth-level
     not: {inside: {matches: fourth-level, stopBy: end}}
-message: Subquery or common table expression sits at a fourth nesting level
-note: Flatten inner levels into named common table expressions, a correlated subquery into a window function over the same rows
+message: '`$QUERY` sits at the fourth nesting level of its statement'
+note: Name each inner query as a common table expression beside the others, or read a correlated one as a window function over the same rows

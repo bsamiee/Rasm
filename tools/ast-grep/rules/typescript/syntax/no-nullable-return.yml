@@ -79,19 +79,19 @@ utils:
 rule:
     any:
         - kind: return_statement
-          has: {matches: null-or-nan-result}
+          has: {matches: null-or-nan-result, pattern: $VALUE}
           not: {inside: {matches: host-contract, stopBy: {matches: syntax-function-boundary}}}
         - kind: arrow_function
-          has: {field: body, matches: null-or-nan-result}
+          has: {field: body, matches: null-or-nan-result, pattern: $VALUE}
           not: {matches: host-contract}
         - kind: return_statement
-          has: {matches: undefined-result}
+          has: {matches: undefined-result, pattern: $VALUE}
           inside: {matches: value-function, stopBy: {matches: syntax-function-boundary}}
           not: {inside: {matches: host-contract, stopBy: {matches: syntax-function-boundary}}}
         - kind: arrow_function
           all:
-            - has: {field: body, matches: undefined-result}
+            - has: {field: body, matches: undefined-result, pattern: $VALUE}
             - has: {field: return_type, matches: value-annotation}
             - not: {matches: host-contract}
-message: 'Function returns `null`, `undefined`, or `NaN` for absence'
-note: 'Return `Option`, `Option.none()` inside, `Option.fromNullishOr` or `Option.liftPredicate` at the boundary'
+message: 'Function returns `$VALUE` for an absent value'
+note: 'Return an `Option`, built with `Option.fromNullishOr` or `Option.liftPredicate` at the boundary, the consumer then unwraps absence by type'

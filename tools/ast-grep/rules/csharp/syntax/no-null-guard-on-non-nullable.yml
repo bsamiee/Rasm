@@ -170,4 +170,4 @@ fix:
     template: $KEPT$EMPTY_BODY
     expandStart: {regex: '^else$'}
 message: 'Null guard on `$PARAMETER` repeats the null contract of its non-nullable type'
-note: Delete the guard statement, a `??` or conditional `throw` keeps the parameter value
+note: Delete the guard and keep the parameter value, its non-nullable type states the contract

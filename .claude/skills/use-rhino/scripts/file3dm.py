@@ -52,7 +52,7 @@ class FileRecord(Record, frozen=True):
 
 
 def describe(path: Path) -> FileRecord | Fault:
-    """Read one `.3dm` file, counting model-space objects outside block definitions, a view holding page-space objects a layout."""
+    """Read one `.3dm` file with counts of model-space objects outside block definitions, a view with page-space objects as a layout."""
     if (model := File3dm.Read(str(path))) is None:
         return Fault(File3dm, str(path))
     objects = [item for item in model.Objects if not item.Attributes.IsInstanceDefinitionObject and item.Attributes.ActiveSpace == ActiveSpace.ModelSpace]
@@ -69,13 +69,19 @@ def describe(path: Path) -> FileRecord | Fault:
         else None
     )
     html = "#{:02X}{:02X}{:02X}".format
-    lock = Path(f"{path}.rhl")
+
+    def holders() -> tuple[str, ...] | None:
+        try:
+            return tuple(Path(f"{path}.rhl").read_text(encoding="utf-8-sig").splitlines())
+        except FileNotFoundError:
+            return None
+
     return FileRecord(
         path=str(path),
         version=model.ArchiveVersion,
         edited_by=model.LastEditedBy,
         edited=model.LastEdited.replace(tzinfo=UTC),
-        open_by=tuple(lock.read_text(encoding="utf-8-sig").splitlines()) if lock.exists() else None,
+        open_by=holders(),
         units=model.Settings.ModelUnitSystem,
         page_units=model.Settings.PageUnitSystem,
         tolerance=model.Settings.ModelAbsoluteTolerance,
@@ -123,7 +129,7 @@ def describe(path: Path) -> FileRecord | Fault:
 
 
 def main() -> None:
-    """Print one JSON line per `.3dm` file under each argument as it reads, exiting 1 when any file fails to read."""
+    """Print one JSON line per `.3dm` file under each argument as it reads, exit 1 when any file fails to read."""
     encoder, failed = msgspec.json.Encoder(enc_hook=lambda value: value.__name__ if isinstance(value, type) else value.name), False
     for path in (path for argument in map(Path, sys.argv[1:]) for path in (sorted(argument.rglob("*.3dm")) if argument.is_dir() else (argument,))):
         result = describe(path.resolve())

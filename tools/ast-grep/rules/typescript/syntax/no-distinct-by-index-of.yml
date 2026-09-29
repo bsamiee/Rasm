@@ -2,6 +2,7 @@
 id: no-distinct-by-index-of
 language: tsx
 severity: error
+ignores: ['.claude/plugins/*/hooks/**']
 utils:
     same-list:
         kind: call_expression
@@ -41,4 +42,4 @@ rule:
             - has: {field: function, regex: '^(globalThis\.)?Array\.from$', matches: syntax-global-reference}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: native-set}}, {not: {has: {nthChild: 2}}}]}
 message: '`$L` is deduplicated by hand'
-note: '`Array.dedupe(<list>)` keeps the first of each value by structural `Equal`, a `Set` by identity, and `indexOf` drops every `NaN`'
+note: '`Array.dedupe(<list>)` keeps the first of each value by `Equal` in one call, a `Set` compares by identity and `indexOf` drops every `NaN`'

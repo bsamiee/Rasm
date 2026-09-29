@@ -24,7 +24,7 @@ utils:
                         - has: {field: body, has: {stopBy: end, kind: return_statement, has: {stopBy: end, matches: enumeration}}}
     owned-attribute:
         kind: attribute
-        has: {field: attribute, regex: '^(Space|LayerIndex|MaterialIndex)$'}
+        has: {field: attribute, regex: '^(Space|LayerIndex|MaterialIndex|Name)$'}
     owned-filter:
         kind: comparison_operator
         pattern: $TEST
@@ -63,4 +63,4 @@ rule:
                     not: {has: {kind: 'elif_clause, else_clause'}}
                     has: {field: condition, matches: holds-filter}
 message: '`$TEST` filters the object enumeration by hand'
-note: 'Set the `ObjectEnumeratorSettings` filter of the attribute (`SpaceFilter`, `LayerIndexFilter`, `MaterialIndexFilter`) on the settings `GetObjectList` reads'
+note: 'Set the attribute filter (`SpaceFilter`, `LayerIndexFilter`, `MaterialIndexFilter`, `NameFilter`) on the `ObjectEnumeratorSettings` that `GetObjectList` reads, the document then filters before it enumerates'

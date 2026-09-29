@@ -71,23 +71,22 @@ utils:
             - any:
                 - has: {kind: statements, has: {kind: await_expression, stopBy: {kind: 'lambda_literal, function_declaration'}, pattern: $AWAITED}}
                 - pattern: $SYNC
+    caught-argument:
+        kind: value_arguments
+        all:
+            - has:
+                kind: value_argument
+                all:
+                    - has: {field: value, kind: simple_identifier, pattern: $CAUGHT}
+                    - any:
+                        - has: {kind: value_argument_label, pattern: $LABEL}
+                        - not: {has: {kind: value_argument_label}}
+            - not: {has: {nthChild: 2}}
     point-free-failure:
         kind: call_expression
         all:
             - has: {nthChild: 1, pattern: $CALLEE, regex: '^([A-Z]\w*(\.\w+)*|[a-z_]\w*)$'}
-            - has:
-                kind: call_suffix
-                has:
-                    kind: value_arguments
-                    all:
-                        - has:
-                            kind: value_argument
-                            all:
-                                - has: {field: value, kind: simple_identifier, pattern: $CAUGHT}
-                                - any:
-                                    - has: {kind: value_argument_label, pattern: $LABEL}
-                                    - not: {has: {kind: value_argument_label}}
-                        - not: {has: {nthChild: 2}}
+            - has: {kind: call_suffix, has: {matches: caught-argument}}
     returned:
         any:
             - all:
@@ -99,20 +98,7 @@ utils:
         kind: call_expression
         all:
             - has: {nthChild: 1, kind: prefix_expression, has: {field: target, kind: simple_identifier, pattern: $CASE}}
-            - has:
-                kind: call_suffix
-                not: {has: {kind: lambda_literal}}
-                has:
-                    kind: value_arguments
-                    all:
-                        - has:
-                            kind: value_argument
-                            all:
-                                - has: {field: value, kind: simple_identifier, pattern: $CAUGHT}
-                                - any:
-                                    - has: {kind: value_argument_label, pattern: $LABEL}
-                                    - not: {has: {kind: value_argument_label}}
-                        - not: {has: {nthChild: 2}}
+            - has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {matches: caught-argument}}
     result-type:
         kind: user_type
         regex: '^Result<'
@@ -261,5 +247,5 @@ rewriters:
 transform:
     FIXED: {rewrite: {source: $DO, rewriters: [result-point-free, result-case, result-typed-throws, result-identity, result-map-error-closure]}}
 fix: $FIXED
-message: '`do` builds a Result by statements, `.failure` returned from `catch`'
-note: '`Result { <throwing statements> }` returns the same cases, `.mapError(<Failure>.<case>)` where the `catch` wraps the error in a case, `.mapError(<classifier>)` where one or several `catch` blocks classify it, `Result { () throws(<Failure>) in ... }` where it returns the error unchanged, `await Result` over a body that awaits, `.flatMap { value in <continuation> }` where the body continues past the `catch`, `.flatMapError { failure in <recovered case> }` where a `catch` recovers'
+message: '`do` builds a Result by statements with `.failure` returned from `catch`'
+note: 'Use `Result { <throwing statements> }` (`await Result` when the body awaits) with `.mapError(<case or classifier>)` for a classifying `catch`, `throws(<Failure>)` for one returning the error unchanged, `.flatMap` for statements past the `catch`, and `.flatMapError` for a recovering `catch`, the `Result` initializer states the same cases in one expression'

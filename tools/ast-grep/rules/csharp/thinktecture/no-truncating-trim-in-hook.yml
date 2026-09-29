@@ -3,32 +3,10 @@ id: no-truncating-trim-in-hook
 language: csharp
 severity: error
 utils:
-    trim-callee:
-        any:
-            - kind: member_access_expression
-              has: {field: name, regex: '^TrimOrNullify$'}
-            - kind: conditional_access_expression
-              has: {kind: member_binding_expression, has: {field: name, regex: '^TrimOrNullify$'}}
-    slice-callee:
-        any:
-            - kind: member_access_expression
-              has: {field: name, regex: '^(Substring|AsSpan|AsMemory)$'}
-            - kind: conditional_access_expression
-              has: {kind: member_binding_expression, has: {field: name, regex: '^(Substring|AsSpan|AsMemory)$'}}
-    remove-callee:
-        any:
-            - kind: member_access_expression
-              has: {field: name, regex: '^Remove$'}
-            - kind: conditional_access_expression
-              has: {kind: member_binding_expression, has: {field: name, regex: '^Remove$'}}
-    take-callee:
-        any:
-            - kind: member_access_expression
-              has: {field: name, regex: '^(Take|TakeLast)(<.+>)?$'}
-            - kind: conditional_access_expression
-              has: {kind: member_binding_expression, has: {field: name, regex: '^(Take|TakeLast)(<.+>)?$'}}
     extension-class:
         regex: '^(global::)?(Thinktecture\.)?StringExtensions$'
+    callee:
+        kind: member_access_expression, conditional_access_expression
     bounded-range:
         kind: range_expression
         regex: '\.\.\s*[^\s^]'
@@ -43,19 +21,21 @@ utils:
             - all:
                 - has:
                     field: function
-                    matches: trim-callee
+                    matches: callee
+                    regex: '\.\s*TrimOrNullify$'
                     not: {has: {field: expression, matches: extension-class}}
                 - has: {field: arguments, has: {kind: argument}}
             - all:
                 - has:
                     field: function
-                    matches: trim-callee
+                    matches: callee
+                    regex: '\.\s*TrimOrNullify$'
                     has: {field: expression, matches: extension-class}
                 - has: {field: arguments, has: {kind: argument, nthChild: 2}}
     slice-cut:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: slice-callee}
+            - has: {field: function, matches: callee, regex: '\.\s*(Substring|AsSpan|AsMemory)$'}
             - has:
                 field: arguments
                 any:
@@ -64,12 +44,12 @@ utils:
     remove-cut:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: remove-callee}
+            - has: {field: function, matches: callee, regex: '\.\s*Remove$'}
             - has: {field: arguments, all: [{has: {kind: argument}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     take-cut:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: take-callee}
+            - has: {field: function, matches: callee, regex: '\.\s*(Take|TakeLast)(\s*<.+>)?$'}
             - has: {field: arguments, has: {kind: argument}}
     range-cut:
         kind: element_access_expression

@@ -1,11 +1,12 @@
 """Host side every application's run shares: the facts it reads, the bundle and processes it drives, the report it decodes, and the outcome it returns."""
 
-from collections.abc import AsyncIterator, Callable, Coroutine, Iterable, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
 import plistlib
 from string.templatelib import Interpolation, Template
-from typing import Final, overload
+import sys
+from typing import Final
 
 import anyio
 import httpx
@@ -28,20 +29,11 @@ LAUNCH_ENVIRONMENT: Final = frozendict[str, str]()
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Server(msgspec.Struct, frozen=True):
-    """`.mcp.json` server row: the command, its arguments, and the variables it adds to the environment."""
-
-    command: str
-    args: tuple[str, ...] = ()
-    env: dict[str, str] = {}
-
-
 class Host(msgspec.Struct, frozen=True):
-    """Facts one application's run reads, each `.mcp.json` server row decoded when the run names it, and the HTTP client every run shares."""
+    """Facts one application's run reads and the HTTP client every run shares."""
 
     app: str
     root: Path
-    servers: Mapping[str, msgspec.Raw]
     environ: Mapping[str, str]
     units: Units
     client: httpx.AsyncClient
@@ -55,10 +47,6 @@ class Host(msgspec.Struct, frozen=True):
     def cache(self) -> Path:
         """Folder under the repository's `.cache/` holding the packages the application stages across runs."""
         return self.root / ".cache" / self.app
-
-    def server(self, name: str) -> Server:
-        """Server row of the name."""
-        return msgspec.json.decode(self.servers[name], type=Server)
 
 
 class Bundle(msgspec.Struct, frozen=True, rename={"identifier": "CFBundleIdentifier", "name": "CFBundleName", "version": "CFBundleShortVersionString", "channel": "RELEASECHANNEL"}):
@@ -131,7 +119,7 @@ class Failed(msgspec.Struct, frozen=True, tag=True, tag_field="kind"):
 # --- [REPORT]
 def parse(text: str) -> tuple[Line, ...]:
     """Rows of a report, one per line, the first tab-separated cell naming the row's kind."""
-    return msgspec.convert([line.split("\t") for line in text.splitlines() if line], tuple[Line, ...], strict=False)
+    return msgspec.convert([line.split("\t") for line in text.splitlines() if line], tuple[Line, ...])
 
 
 def outcome(app: str, rows: Sequence[Line]) -> Applied | Failed:
@@ -146,20 +134,14 @@ def outcome(app: str, rows: Sequence[Line]) -> Applied | Failed:
             return Failed(app, errors, changes)
 
 
-def joined(result: Applied | Failed, errors: Sequence[str]) -> Applied | Failed:
-    """Outcome with the errors joined, an applied one failed with its changes and error output kept."""
-    match result, errors:
-        case _, []:
-            return result
-        case Failed() as failed, _:
-            return msgspec.structs.replace(failed, errors=(*failed.errors, *errors))
-        case Applied(changes=changes, stderr=stderr), _:
-            return Failed(result.app, tuple(errors), changes, stderr)
-
-
 # --- [SOURCE]
-def rendered(template: Template, literal: Callable[[object], str] = repr) -> str:
-    """Source text of the template, each interpolation spelled as a literal of its value, or as its formatted text under the `!s` conversion."""
+def literal(value: object) -> str:
+    """Value as JSON text, a literal in AppleScript and JavaScript source."""
+    return msgspec.json.encode(value).decode()
+
+
+def rendered(template: Template, spelling: Callable[[object], str] = literal) -> str:
+    """Source text of the template, each interpolation's value spelled by `spelling`, or as its formatted text under the `!s` conversion."""
 
     def spelled(part: str | Interpolation[object]) -> str:
         match part:
@@ -168,36 +150,24 @@ def rendered(template: Template, literal: Callable[[object], str] = repr) -> str
             case Interpolation(conversion="s"):
                 return format(part.value, part.format_spec)
             case _:
-                return literal(part.value)
+                return spelling(part.value)
 
     return "".join(map(spelled, template))
 
 
-def bootstrap(module: str, call: Template) -> str:
-    """Python source evaluating the call on the module imported fresh from the folder holding its package, no bytecode written."""
-    package, folder = module.partition(".")[0], str(Path(__file__).resolve().parents[1])
+def bootstrap(module: str, call: Template, *folders: Path) -> str:
+    """Python source evaluating the call on the module imported from the `tools` folder and `folders`, after evicting every module their Python files and directories name, bytecode written under the host's cache prefix."""
+    roots = tuple(folder.resolve() for folder in (Path(__file__).parents[1], *folders))
+    tops = sorted({path.stem for root in roots for path in root.iterdir() if path.suffix == ".py" or path.is_dir()})
     return rendered(
         t"import importlib, sys\n"
-        t"sys.dont_write_bytecode = True\n"
-        t"for name in [name for name in sys.modules if name.partition('.')[0] == {package}]:\n"
+        t"sys.pycache_prefix = {sys.pycache_prefix}\n"
+        t"for name in [name for name in sys.modules if name.partition('.')[0] in {tops}]:\n"
         t"    del sys.modules[name]\n"
-        t"if {folder} not in sys.path:\n"
-        t"    sys.path.insert(0, {folder})\n"
-        t"importlib.import_module({module})." + call
+        t"sys.path[:0] = [root for root in {tuple(map(str, roots))} if root not in sys.path]\n"
+        t"importlib.import_module({module})." + call,
+        repr,
     )
-
-
-# --- [TASKS]
-@overload
-async def gather[A, B](calls: tuple[Coroutine[object, object, A], Coroutine[object, object, B]], /) -> tuple[A, B]: ...
-@overload
-async def gather[T](calls: Iterable[Coroutine[object, object, T]], /) -> tuple[T, ...]: ...
-async def gather[T](calls: Iterable[Coroutine[object, object, T]]) -> tuple[T, ...]:
-    """Results of the calls run concurrently, in call order, a pair of calls keeping each result's type."""
-    handles: list[anyio.TaskHandle[T]] = []
-    async with anyio.create_task_group() as group:
-        handles.extend(group.create_task(call) for call in calls)
-    return tuple(handle.return_value for handle in handles)
 
 
 # --- [BUNDLE]
@@ -209,13 +179,13 @@ async def bundle(path: Path) -> Bundle:
 
 async def located(identifier: str) -> tuple[Bundle, ...]:
     """Every bundle Spotlight finds by the bundle id, in its order."""
-    return await gather(bundle(Path(found)) for found in (await anyio.run_process(["/usr/bin/mdfind", f"kMDItemCFBundleIdentifier == '{identifier}'"])).stdout.decode().splitlines())
+    return await anyio.gather(*(bundle(Path(found)) for found in (await anyio.run_process(["/usr/bin/mdfind", f"kMDItemCFBundleIdentifier == '{identifier}'"])).stdout.decode().splitlines()))
 
 
 # --- [PROCESS]
 def running(application: Bundle) -> tuple[psutil.Process, ...]:
-    """Every process running the bundle's main executable."""
-    return tuple(process for process in psutil.process_iter(["exe"]) if process.info["exe"] == str(application.executable))
+    """Every process running the bundle's main executable, its `info` holding the executable and command line read in one snapshot."""
+    return tuple(process for process in psutil.process_iter(["exe", "cmdline"]) if process.info["exe"] == str(application.executable))
 
 
 async def launch(application: Bundle, *arguments: str, files: Sequence[str] = (), environment: Mapping[str, str] = frozendict()) -> None:
@@ -242,7 +212,7 @@ async def quitted(application: Bundle, processes: Sequence[psutil.Process]) -> t
     """Errors of quitting the bundle's processes, the quit sent without awaiting its reply and each process alive at the deadline terminated."""
     if not processes:
         return ()
-    script = rendered(t"tell application id {application.identifier} to quit", lambda value: msgspec.json.encode(value).decode())
+    script = rendered(t"tell application id {application.identifier} to quit")
     await anyio.run_process(["/usr/bin/osascript", "-e", "ignoring application responses", "-e", script, "-e", "end ignoring"])
     _, alive = await anyio.to_thread.run_sync(psutil.wait_procs, processes, DEADLINE)
     return await terminated(alive)
@@ -290,14 +260,12 @@ __all__ = [
     "Host",
     "Line",
     "Measurement",
-    "Server",
     "Skip",
     "bootstrap",
     "bundle",
     "downloaded",
-    "gather",
-    "joined",
     "launch",
+    "literal",
     "located",
     "outcome",
     "parse",

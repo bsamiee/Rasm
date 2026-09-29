@@ -13,11 +13,16 @@ rule:
           all:
             - regex: '^"(?:[^'']*''[^'']*'')*[^'']*''[^'']*\$(\{|\(|[A-Za-z_])'
             - not: {regex: '^"\s*(\.param\s|(?i:set\s+variable\s))'}
-            - inside: {matches: sql-cli, stopBy: {kind: command}}
+            - inside:
+                stopBy: {kind: command}
+                any:
+                    - matches: sql-cli
+                    - kind: command
+                      inside: {kind: pipeline, has: {matches: sql-cli, nthChild: {position: 1, reverse: true}}}
         - kind: heredoc_body
           all:
             - regex: '^(?:[^'']*''[^'']*'')*[^'']*''[^'']*\$(\{|\(|[A-Za-z_])'
             - not: {regex: '^\s*(\.param\s|(?i:set\s+variable\s))'}
             - inside: {kind: heredoc_redirect, inside: {kind: redirected_statement, has: {field: body, matches: sql-cli}}}
 message: '`$CLI` receives a shell expansion spliced into a single-quoted SQL literal'
-note: Bind the value as a named parameter of the CLI and read the parameter in the SQL
+note: Bind values as CLI parameters (`.param set`, `SET VARIABLE`, `psql -v`) and read each parameter in SQL

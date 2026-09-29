@@ -1,12 +1,5 @@
 {
     "extends": "../../../tsconfig.base.json",
-    "compilerOptions": {
-        "types": ["node"],
-        "composite": false,
-        "declarationMap": false,
-        "emitDeclarationOnly": false,
-        "noEmit": true,
-        "tsBuildInfoFile": "../../../.cache/typescript/out/.claude/plugins/function-hooks/tsconfig.tsbuildinfo"
-    },
+    "compilerOptions": { "outDir": "../../../.cache/typescript/out/.claude/plugins/function-hooks", "types": ["node"] },
     "include": ["../../types/claude-code.d.ts", "hooks", "*.ts"]
 }

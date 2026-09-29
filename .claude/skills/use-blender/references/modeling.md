@@ -1,6 +1,6 @@
 # [MODELING]
 
-Architectural and CAD geometry comes from stated dimensions in code.
+Meshes built in code and the objects, modifiers, and collections holding them.
 
 ## [01]-[MESH]
 
@@ -37,28 +37,26 @@ evaluated = wall.evaluated_get(bpy.context.evaluated_depsgraph_get())
 result = {"dimensions_ft": [d / FOOT for d in evaluated.dimensions], "faces": len(evaluated.data.polygons)}
 ```
 
-- `bmesh.ops.create_cube(bm, size=1.0, matrix=Matrix.Diagonal((x, y, z, 1)))` builds a box of those dimensions centered on the origin
-- Code edits a mesh in Object Mode through `bm.from_mesh(mesh)` and `bm.to_mesh(mesh)`
-- `mesh.from_pydata(vertices, edges, faces)` builds a mesh from lists
-- Circular primitives take `vertices=64` or more, and facets meeting under 5.73° draw no edge in the wireframe overlay
+- `bmesh.ops.create_cube(bm, size=1.0, matrix=Matrix.Diagonal((x, y, z, 1)))` builds an `x` by `y` by `z` box centered on the origin
+- Circular primitives take `vertices=64` or more, facets meeting under 5.73° draw no wireframe edge at `overlay.wireframe_threshold` 0
+- `mesh.primitive_quad_sphere_add(segments=, radius=)` builds an all-quad sphere
 - `object.join()` under a selection override with `active_object=<target>` merges the selected objects into the target
 - `object.transform_apply(location=False, rotation=False, scale=True)` under a selection override bakes object scale into the mesh
 
 ## [02]-[MODIFIERS]
 
 - Stacks evaluate top down, `object.modifier_apply(modifier=)` under `temp_override(object=, active_object=)` bakes one modifier into the mesh
-- Applies below the top of the stack print `Info: Applied modifier was not first` and bake onto the unmodified mesh, the modifiers above staying
+- Applies below the top of the stack print `Info: Applied modifier was not first` and bake onto the unmodified mesh, and the modifiers above stay
 - Cutters keep cutting while `hide_set(True)` hides them, `hide_render` True keeps them out of renders, and captures skip them
+- `bpy.ops.object.shade_auto_smooth(angle=<radians>)` adds a `Smooth by Angle` modifier
 
 ## [03]-[EDIT_MODE]
 
 - `object.mode_set(mode="EDIT")` opens Edit Mode on `view_layer.objects.active`, and `bmesh.from_edit_mesh(<obj>.data)` returns the mesh it holds
-- `bmesh.update_edit_mesh(<obj>.data)` writes the bmesh into the edit mesh, `obj.data` still reads the mesh before the edit
-- Calls return through `object.mode_set(mode="OBJECT")` before `result`, `obj.data`, modifiers, exports, and snapshots then read the edit
+- `bmesh.update_edit_mesh(<obj>.data)` writes the bmesh into the edit mesh the evaluated object reads in Edit Mode
+- Calls return through `object.mode_set(mode="OBJECT")` before `result`, `obj.data` reads the edit from then on
 
 ## [04]-[ORGANIZATION]
 
-- `bpy.data.collections.new(<name>)` makes a collection outside every scene, `<parent>.children.link(<collection>)` places it in the tree
 - Operators link new objects into `bpy.context.collection`, the view layer's active collection, and `bpy.data.objects.new` links none
 - `matrix_world` of an object placed in the same call holds its transform once `bpy.context.view_layer.update()` evaluates it
-- Parenting that keeps the child in place sets `child.matrix_parent_inverse = parent.matrix_world.inverted()` beside `child.parent`

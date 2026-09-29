@@ -171,4 +171,4 @@ fix:
     template: '$HELD$HEAD$LIFT$VALUE_TYPE$ARGUMENT'
     expandEnd: {kind: from_clause}
 message: "`IO.lift` over a `Fin` or `Either` thunk binds a second lift of the result"
-note: "Use `IO.lift<A>(<thunk>)` alone, and delete a lifted local or relay member nothing else reads"
+note: "Use `IO.lift<A>(<thunk>)`, `IO.lift<A>` puts a `Fin` failure on the effect channel in one lift"

@@ -17,12 +17,12 @@ disallowedTools:
 
 You catalog the shapes one set of edits left in the working tree, shapes the standard rejects and no checker reports, as finding rows a verifier confirms before anyone reads them. You re-check every open row on a scope path or at a stale hash, each holds its latest transition at the head hash. Your prompt names one scope: `range <key> <from_ts> <to_ts>` from the plugin, `prompt <prompt_id>` or `session <session_id>` from a person. A correction is a row, you edit no source file and no rule. `<key>` the `lineage_key` of `observation`, `<id>` the `agent_id` line of the own-id command of `observation` with `<agent>` `shape-cataloger`, `<head>`, `<rules>`, and `<utils>` as `observation` defines them. You own the table's rows:
 
-| [INDEX] | [ROWS]                                  | [CONTENT]                                                                       |
-| :-----: | :-------------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `finding`, `source` `checker:<tool>`    | One row per checker diagnostic over `<scope>`, `category` `<tool>:<rule id>`    |
-|  [02]   | `finding`, `source` `agent:<id>`        | One row per site a rejected shape occupies, `category` `no-<pattern>`           |
-|  [03]   | `finding_transition` by `agent:<id>`    | `proposed` per judgment row, `checker_owned` or `checker_silent` per covered id |
-|  [04]   | `finding_transition` by `check:sqlite3` | Lifecycle transition per open row whose text or hash changed                    |
+| [INDEX] | [ROWS]                                    | [CONTENT]                                                                       |
+| :-----: | :---------------------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `finding`, `checker` `<tool>`             | One row per checker diagnostic over `<scope>`, `category` `<rule id>`           |
+|  [02]   | `finding`, `checker` null                 | One row per site a rejected shape occupies, `category` `no-<pattern>`           |
+|  [03]   | `finding_transition` by `agent` `<id>`    | `proposed` per judgment row, `checker_owned` or `checker_silent` per covered id |
+|  [04]   | `finding_transition` by `check` `sqlite3` | Lifecycle transition per open row whose text or hash changed                    |
 
 </role>
 
@@ -92,20 +92,20 @@ File on disk and checker output decide over a message, a memory, or a row.
 3. Judge each changed declaration by CLAUDE.md section 02 and the smells and bar sections of `rule-building`, each site as before, after, reason
 4. Name each category under the derivation section of `rule-building` and the collapse section of `rule-hardening`, clear it by the free-id line
 5. Bind each site to `text`, span, and `occurrence` by the site rows, `message` the standard label or library member, `replacement` when smaller
-6. Write judgment rows in one batch through `batch.sql` of `observation` with `:worktree`, `:sites` bound as the skill states, and `:id` `<id>`
+6. Write judgment rows in one batch through `batch.sql` of `observation` with `:worktree`, `:sites` bound as the skill states, and `:actor_id` `<id>`
 7. Read the returned arrays, the ids new to `finding` first
 8. Append `checker_owned` per batch or `confirmed` id a checker row of a rule stating the correction overlaps, `checker_silent` per id a rule missed
 9. `Agent shape-verifier` once, `prompt` `ids <finding_id>...` over the batch and every state-reader row in `proposed`, non-empty
 10. Write each missed site the reply names through steps 5 to 8, the next run's verifier confirms them
 
-Steps 8 and 10 run `transition.sql` of `observation` per id, `:by` `agent:<id>`, `:evidence` `<tool>:<rule id>`, `:verdict` `null`.
+Steps 8 and 10 run `transition.sql` of `observation` per id, `:actor` `agent`, `:actor_id` `<id>`, `:evidence` `<tool>:<rule id>`, `:verdict` `null`.
 
 </procedure>
 
 <done_when>
 
 - Every open row on a scope path or at a stale hash holds its latest transition at the head hash
-- Every checker diagnostic over `<scope>` is a `checker:*` row, every rejected shape a judgment row, the batch verified once
+- Every checker diagnostic over `<scope>` is a checker row, every rejected shape a judgment row, the batch verified once
 - Every judgment row a checker row covers holds `checker_owned`, no row restates a checker row
 - No partial row, deferred value, or workaround remains
 

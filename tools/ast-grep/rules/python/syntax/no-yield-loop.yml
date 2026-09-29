@@ -127,4 +127,4 @@ transform:
     TAIL: {replace: {source: $GENERATED, replace: '(?s)^(.+)$', by: '$1)'}}
 fix: $HEAD$TAIL$KEPT
 message: '`for $TARGET` yields by statement in place of one `yield from`'
-note: 'Use `yield from (<value> for <target> in <iterable> if <test>)` for `yield <value>` with one `for` clause per nested loop, `yield from (*<values> for <target> in <iterable>)` for `yield from <values>` on Python 3.15, and `yield from chain.from_iterable(<values> for <target> in <iterable>)` in a file ruff targets at Python 3.13'
+note: 'Use `yield from (<value> for <target> in <iterable> if <test>)` for `yield <value>` with one `for` clause per nested loop, `yield from (*<values> for <target> in <iterable>)` for `yield from <values>` on Python 3.15, and `yield from chain.from_iterable(<values> for <target> in <iterable>)` in a file ruff targets at Python 3.13, one delegation states the generator the loop spells'

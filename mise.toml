@@ -6,13 +6,10 @@ idiomatic_version_file_enable_tools = ["dotnet"]
 dotnet.isolated = true
 python.uv_venv_auto = "create|source"
 
-# --- [VARS] -----------------------------------------------------------------------------
-[vars]
-ghidra_install = "{{ get_env(name='HOMEBREW_PREFIX', default='/opt/homebrew') }}/opt/ghidra/libexec"
-
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
-_.path = ["./node_modules/.bin", "{{ vars.ghidra_install }}/support", "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
+GHIDRA_INSTALL_DIR = "{% if os() == 'macos' %}{{ exec(command='brew --prefix ghidra') }}/libexec{% endif %}"
+_.path = ["./node_modules/.bin", "{{ env.GHIDRA_INSTALL_DIR }}/support", "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
 DOTNET_NOLOGO = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 DOTNET_ROLL_FORWARD = "Major"
@@ -20,6 +17,7 @@ DOTNET_CLI_HOME = "{{config_root}}/.cache/dotnet"
 NUGET_HTTP_CACHE_PATH = "{{config_root}}/.cache/nuget/http-cache"
 UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
 UV_CACHE_DIR = "{{config_root}}/.cache/uv"
+PYTHONPATH = "{{config_root}}/tools"
 PYTHONPYCACHEPREFIX = "{{config_root}}/.cache/pycache"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
 SWIFTPM_BUILD_DIR = "{{config_root}}/.cache/swiftpm"
@@ -30,8 +28,12 @@ PLAYWRIGHT_MCP_USER_DATA_DIR = "{{ xdg_state_home }}/playwright-mcp/rasm"
 PLAYWRIGHT_MCP_BROWSER = "chromium"
 PLAYWRIGHT_MCP_OUTPUT_DIR = "{{config_root}}/.artifacts/playwright"
 PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE = "268435456"
+AST_GREP_CONFIG = "{{config_root}}/sgconfig.yml"
+RHINO_PATH = "/Applications/RhinoBETA.app"
+BLENDER_PATH = "/Applications/Blender.app/Contents/MacOS/Blender"
+BLENDER_MCP_PORT = "9877"
+BLENDER_MCP_DISABLE_TELEMETRY = "true"
 PULUMI_HOME = "{{config_root}}/.cache/pulumi"
-GHIDRA_INSTALL_DIR = "{{ vars.ghidra_install }}"
 GHIDRA_PROJECT_DIR = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
 GHIDRA_JAVA_OPTIONS = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
 
@@ -42,7 +44,6 @@ java = "latest"
 node = "latest"
 pnpm = "latest"
 uv = "latest"
-cmake = "latest"
 git-lfs = "latest"
 actionlint = "latest"
 shellcheck = "latest"
@@ -66,4 +67,4 @@ sqlite = "latest"
 "pypi:mcp-for-blender" = "latest"
 "github:sharkdp/hyperfine" = "latest"
 "github:akiselev/ghidra-cli" = "latest"
-"github:pmd/pmd" = { version = "7.27.0", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
+"github:pmd/pmd" = { version = "7.28.0", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }

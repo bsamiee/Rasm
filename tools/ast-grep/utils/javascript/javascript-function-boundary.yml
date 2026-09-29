@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: javascript-function-boundary
+language: javascript
+rule:
+    kind: function_declaration, function_expression, arrow_function, generator_function, generator_function_declaration, method_definition

@@ -8,8 +8,7 @@ rule:
     any:
         - has: {kind: ternary_expression, stopBy: {not: {kind: 'tuple_expression, prefix_expression'}}}
         - inside:
-            kind: statements
-            not: {has: {nthChild: 2}}
+            matches: {swift-single-statement: {first: {kind: ternary_expression}}}
             inside: {kind: 'if_statement, switch_entry'}
 message: 'Conditional expression nests a conditional'
-note: 'Select with one `if` expression per test, a `switch` expression over the combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case'
+note: 'Select with one `if` expression per test, a `switch` expression over the combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case, a nested conditional hides the test combination that selects each value'

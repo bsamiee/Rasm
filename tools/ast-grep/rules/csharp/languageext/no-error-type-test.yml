@@ -101,5 +101,5 @@ rule:
             any:
                 - matches: element-error
                 - matches: {csharp-error-owner: {name: {pattern: $ERROR}, type: {regex: '^((global::)?(LanguageExt\.)?Common\.)?Error$'}}}
-message: Type test on the `Error` `$ERROR` misses the same case inside `ManyErrors`
-note: Use `<error>.IsType<E>()`, `IsExpected` or `IsExceptional` for the base cases, or `Filter<E>()` where the branch reads the case
+message: Type test on `Error` `$ERROR` misses the same case inside `ManyErrors`
+note: Use `<error>.IsType<E>()`, `IsExpected`, or `IsExceptional`, and `Filter<E>()` where a branch reads the case, each searches `ManyErrors` leaves

@@ -1,19 +1,19 @@
-# mypy: disable-error-code="unreachable, attr-defined, import-not-found, union-attr"
-# ty: ignore[unresolved-attribute, invalid-context-manager, unresolved-import]
-# ruff: file-ignore[import-private-name]
-"""Find operators, RNA types, and add-on settings matching words across stock Blender and every enabled add-on, run inside Blender through `runpy.run_path`."""
+# mypy: disable-error-code="attr-defined, union-attr, arg-type"
+# ty: ignore[unresolved-attribute, invalid-argument-type]
+"""Operators, RNA types, and add-on settings matching words across stock Blender and every enabled add-on."""
 
 import ast
+from collections.abc import Mapping
 from enum import auto, StrEnum
 import inspect
 from itertools import accumulate
 from pathlib import Path
 import textwrap
 
-import _bpy
 import attrs
 import bpy
-import numpy as np
+from rna import BPyOpFunction, operators, plain
+from scene import viewport
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -36,9 +36,9 @@ class Operator:
     label: str
     description: str
     owner: str | None
-    params: dict[str, str]
+    params: Mapping[str, str]
     poll: bool
-    poll_in_view: bool
+    poll_in_view: bool | None
     reads: tuple[str, ...]
     source: str | None
     next: Tool
@@ -57,17 +57,16 @@ class Type:
 
 @attrs.frozen
 class Setting:
-    """Runtime property an add-on registered on an ID type, with its fields' values on the context's instance of that type."""
+    """Runtime property an add-on registered on an ID type, with its value on each context member of the type by ID name."""
 
     path: str
     type: str
-    values: dict[str, object] | None
-    next: Tool
+    values: dict[str, object]
 
 
 @attrs.frozen
 class Discovery:
-    """Every hit for the words, grouped by what it is."""
+    """Hits for the words, grouped by kind."""
 
     operators: tuple[Operator, ...]
     types: tuple[Type, ...]
@@ -78,43 +77,43 @@ class Discovery:
 
 
 def discover(*words: str) -> Discovery:
-    """Operators, RNA types, and add-on settings with every word in their text, polls answered in the timer context and in the largest 3D Viewport."""
-    needles = tuple(word.lower() for word in words)
+    """Operators, RNA types, and add-on settings with every word in their text, polls answered in the calling context and in the largest 3D Viewport when a window shows one."""
+    needles = tuple(word.casefold() for word in words)
     addons = {key: addon.module for addon in bpy.context.preferences.addons for key in {addon.module, addon.module.rpartition(".")[2]}}
     resources = Path(bpy.utils.resource_path("LOCAL"))
     members = tuple(bpy.context.copy().values())
-    arguments = set(bpy.types.OperatorProperties.bl_rna.properties.keys())
-    inherited = set(bpy.types.PropertyGroup.bl_rna.properties.keys())
     methods = {name for name in dir(bpy.types.Context) if callable(getattr(bpy.types.Context, name))}
-    areas = {area: window for manager in bpy.data.window_managers for window in manager.windows for area in window.screen.areas if isinstance(area.spaces.active, bpy.types.SpaceView3D)}
-    match max(areas, key=lambda area: area.width * area.height, default=None):
-        case bpy.types.Area() as area:
-            view = bpy.context.temp_override(window=areas[area], area=area, region=next(region for region in area.regions if region.type == "WINDOW"))
-        case None:
-            view = bpy.context.temp_override()
+    largest = viewport()
+    view = None if largest is None else bpy.context.temp_override(window=largest.window, area=largest.area, region=largest.region)
 
     def matches(text: str) -> bool:
-        lowered = text.lower()
-        return all(needle in lowered for needle in needles)
+        return all(needle in text.casefold() for needle in needles)
+
+    def descendants(cls: "type[bpy.types.bpy_struct[object]]") -> "set[type[bpy.types.bpy_struct[object]]]":
+        return {cls, *(found for sub in cls.__subclasses__() for found in descendants(sub))}
+
+    def own(struct: bpy.types.Struct) -> tuple[bpy.types.Property, ...]:
+        """Properties the struct declares, its base's left out."""
+        return tuple(p for p in struct.properties if struct.base is None or p.identifier not in struct.base.properties)
 
     def owner(cls: type) -> str | None:
-        """Enabled add-on with a module or extension id naming the package holding the class, none for Blender's own and agent code."""
+        """Enabled add-on with a module or extension id naming the package holding the class, none for Blender's own classes and executed code."""
         return next((addons[package] for package in accumulate(cls.__module__.split("."), lambda head, part: f"{head}.{part}") if package in addons), None)
 
     def source(cls: type) -> str | None:
-        """File defining the class, none for a compiled class or one from agent code."""
+        """File defining the class, none for a compiled class or one from executed code."""
         try:
             return inspect.getsourcefile(cls)
         except TypeError:
             return None
 
     def tool(cls: type, who: str | None, file: str | None) -> Tool:
-        """Bundled docs for a compiled class or one Blender ships outside its add-ons, live RNA for add-on and agent code."""
+        """Bundled docs for a compiled class or one Blender ships outside its add-ons, live RNA for add-on and executed code."""
         bundled = cls.__module__ == bpy.types.__name__ or (file is not None and Path(file).is_relative_to(resources))
         return Tool.GET_PYTHON_API_DOCS if who is None and bundled else Tool.BPY_API_LOOKUP
 
     def reads(cls: type) -> tuple[str, ...]:
-        """Deepest context chains up to two members the class's source reads, none for a class without a source file or with lines Python cannot find."""
+        """Deepest context chains up to two members the class's source reads, none for a class Python holds no source lines for."""
         try:
             tree = ast.parse(textwrap.dedent(inspect.getsource(cls)))
         except (OSError, TypeError):
@@ -123,71 +122,44 @@ def discover(*words: str) -> Discovery:
         chains = {".".join(parts) for parts in dotted if len(parts) > 1 and parts[0] == "context" and parts[1] not in methods and all(map(str.isidentifier, parts))}
         return tuple(sorted(chain for chain in chains if not any(other.startswith(f"{chain}.") for other in chains)))
 
-    def value(raw: object) -> object:
-        """JSON form of an RNA value, a data-block by name, another struct by its type, a collection by its length, arrays as nested lists."""
-        match raw:
-            case bpy.types.ID():
-                return raw.name
-            case bpy.types.bpy_struct():
-                return type(raw).__name__
-            case bpy.types.bpy_prop_collection():
-                return len(raw)
-            case set():
-                return sorted(raw)
-            case str() | int() | float() | bool() | None:
-                return raw
-            case _:
-                return np.asarray(raw).tolist()
+    def in_view(entry: BPyOpFunction) -> bool | None:
+        if view is None:
+            return None
+        with view:
+            return entry.poll()
 
-    def operator(idname: str) -> Operator | None:
-        """Operator hit for one registered idname, the operator function read through `_bpy.ops.create_function`."""
-        prefix, _, name = idname.partition("_OT_")
-        entry = _bpy.ops.create_function(prefix.lower(), name)
+    def operator(entry: BPyOpFunction) -> Operator | None:
         rna, call = entry.get_rna_type(), f"bpy.ops.{entry.idname_py()}"
         if not matches(f"{call} {rna.name} {rna.description}"):
             return None
-        match bpy.types.Operator.bl_rna_get_subclass_py(idname):
-            case type() as cls:
-                who, file = owner(cls), source(cls)
-                chains, following = reads(cls), tool(cls, who, file)
-            case _:
-                who, chains, file, following = None, (), None, Tool.GET_PYTHON_API_DOCS
-        with view:
-            poll_in_view = entry.poll()
-        params = {p.identifier: p.type for p in rna.properties if p.identifier not in arguments}
-        return Operator(call, rna.name, rna.description, who, params, entry.poll(), poll_in_view, chains, file, following)
+        cls = bpy.types.Operator.bl_rna_get_subclass_py(entry.idname())
+        who, file = (None, None) if cls is None else (owner(cls), source(cls))
+        chains, following = ((), Tool.GET_PYTHON_API_DOCS) if cls is None else (reads(cls), tool(cls, who, file))
+        params = {p.identifier: p.type for p in own(rna)}
+        return Operator(call, rna.name, rna.description, who, params, entry.poll(), in_view(entry), chains, file, following)
 
-    def rna_type(identifier: str, cls: type[bpy.types.bpy_struct]) -> Type | None:
+    def rna_type(cls: "type[bpy.types.bpy_struct[object]]") -> Type | None:
         rna = cls.bl_rna
-        if issubclass(cls, bpy.types.Operator) or not matches(f"{identifier} {rna.name} {rna.description}"):
+        if issubclass(cls, bpy.types.Operator | bpy.types.Macro | bpy.types.OperatorProperties) or not matches(f"{rna.identifier} {rna.name} {rna.description}"):
             return None
         who, file = owner(cls), source(cls)
-        return Type(identifier, rna.name, who, file, tool(cls, who, file))
+        return Type(rna.identifier, rna.name, who, file, tool(cls, who, file))
 
     def setting(host: type[bpy.types.ID], prop: bpy.types.Property) -> Setting | None:
-        match prop:
-            case bpy.types.PointerProperty(fixed_type=bpy.types.PropertyGroup() as group):
-                kind, names = group.identifier, tuple(q.identifier for q in group.properties if q.identifier not in inherited)
-            case _:
-                group, kind, names = None, prop.type, (prop.identifier,)
-        path = f"{host.__name__}.{prop.identifier}"
-        if not matches(f"{path} {prop.name} {prop.description} {'' if group is None else kind}"):
+        path = f"{host.bl_rna.identifier}.{prop.identifier}"
+        if not matches(f"{path} {prop.name} {prop.description}"):
             return None
-        instance = next((m for m in members if isinstance(m, host)), None)
-        target = instance if instance is None or group is None else getattr(instance, prop.identifier)
-        return Setting(path, kind, None if target is None else {n: value(getattr(target, n)) for n in names}, Tool.BPY_API_LOOKUP)
+        kind = prop.fixed_type.identifier if isinstance(prop, bpy.types.PointerProperty | bpy.types.CollectionProperty) else prop.type
+        return Setting(path, kind, {member.name: plain(getattr(member, prop.identifier)) for member in members if isinstance(member, host)})
 
-    operators = map(operator, _bpy.ops.dir())
-    types = (rna_type(name, cls) for name in dir(bpy.types) if isinstance(cls := getattr(bpy.types, name), type) and issubclass(cls, bpy.types.bpy_struct) and cls is not bpy.types.bpy_struct)
-    settings = (setting(host, prop) for host in bpy.types.ID.__subclasses__() for prop in host.bl_rna.properties if prop.is_runtime)
-    return Discovery(tuple(filter(None, operators)), tuple(filter(None, types)), tuple(filter(None, settings)))
-
-
-def as_result(value: Discovery) -> dict[str, object]:
-    """`result` dict for `execute_blender_code`, the case name under `kind` and a count per group."""
-    return {"kind": type(value).__name__, "counts": {f.name: len(getattr(value, f.name)) for f in attrs.fields(Discovery)}, **attrs.asdict(value)}
+    named = (cls for name in dir(bpy.types) if isinstance(cls := getattr(bpy.types, name), type) and issubclass(cls, bpy.types.bpy_struct))
+    structs = sorted((cls for cls in {*named, *descendants(bpy.types.bpy_struct)} if "bl_rna" in vars(cls)), key=lambda cls: cls.bl_rna.identifier)
+    hits = map(operator, operators())
+    types = map(rna_type, structs)
+    settings = (setting(host, prop) for host in structs if issubclass(host, bpy.types.ID) for prop in own(host.bl_rna) if prop.is_runtime)
+    return Discovery(tuple(filter(None, hits)), tuple(filter(None, types)), tuple(filter(None, settings)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Discovery", "Operator", "Setting", "Tool", "Type", "as_result", "discover"]
+__all__ = ["Discovery", "Operator", "Setting", "Tool", "Type", "discover"]

@@ -3,13 +3,13 @@ id: no-forwarding-function-bash
 language: bash
 severity: error
 utils:
-    single-command-body:
-        kind: compound_statement
-        has: {kind: command}
-        not:
-            any:
-                - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}
-                - has: {regex: '^&$'}
+    arguments: {kind: string, regex: '^"\$(\{@\}|@)"$'}
+    literal:
+        any:
+            - kind: command_name, word, raw_string
+            - kind: string
+              not: {has: {kind: 'simple_expansion, expansion, command_substitution, arithmetic_expansion'}}
+            - matches: arguments
 rule:
     kind: function_definition
     not: {has: {field: redirect, pattern: $$_REDIRECT}}
@@ -17,16 +17,18 @@ rule:
         - has: {field: name, pattern: $NAME}
         - has:
             field: body
-            matches: single-command-body
+            kind: compound_statement, subshell
+            not:
+                any:
+                    - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}
+                    - has: {regex: '^&$'}
             has:
                 kind: command
                 pattern: $CALL
                 all:
                     - has: {field: name, regex: '^[A-Za-z0-9_./-]+$'}
-                    - has:
-                        kind: string
-                        regex: '^"\$(\{@\}|@)"$'
-                        nthChild: {position: 1, reverse: true}
-                        follows: {kind: command_name}
-message: '`$NAME` forwards every argument unchanged to `$CALL`'
-note: Delete the function and call the forwarded command at each call site
+                    - has: {matches: arguments}
+                    - not: {has: {not: {matches: literal}}}
+                    - not: {has: {matches: arguments, follows: {matches: arguments, stopBy: end}}}
+message: '`$NAME` passes its arguments and fixed words unchanged to `$CALL`'
+note: Call `<command>` at each call site and set fixed options in its tool configuration file

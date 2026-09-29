@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-string-joined-path
+language: tsx
+severity: error
+ignores: ['.claude/plugins/*/hooks/**']
+utils:
+    directory-read:
+        any:
+            - kind: member_expression
+              regex: '^import\.meta\.(dirname|filename)$'
+            - kind: identifier
+              regex: '^__(dirname|filename)$'
+              matches: syntax-global-reference
+    path-source:
+        any:
+            - matches: directory-read
+            - kind: identifier
+              pattern: $DIR
+              inside:
+                kind: program
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: variable_declarator
+                    all:
+                        - has: {field: name, kind: identifier, pattern: $DIR}
+                        - has: {field: value, matches: directory-read}
+    separator: {kind: string, regex: '^[''"]/'}
+rule:
+    pattern: $JOINED
+    any:
+        - kind: template_string
+          all:
+            - not: {inside: {kind: call_expression, field: arguments}}
+            - not: {has: {kind: string_fragment, regex: '[*{}]|://'}}
+            - has:
+                kind: template_substitution
+                has: {matches: path-source}
+                precedes: {kind: string_fragment, regex: '^/'}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: left, any: [{matches: path-source}, {kind: binary_expression, has: {field: left, matches: path-source}}]}
+            - has: {stopBy: end, matches: separator}
+            - not: {inside: {kind: binary_expression, field: left}}
+message: '`$JOINED` joins a file-system path with a `/` literal'
+note: '`path.join(<directory>, <segment>)` over the yielded `Path.Path` service joins with the platform separator and normalizes the result'

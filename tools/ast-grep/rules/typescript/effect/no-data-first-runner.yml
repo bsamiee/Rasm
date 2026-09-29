@@ -16,7 +16,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+            - has: {field: object, matches: effect-effect-module}
     pipe-function:
         matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}
     piped-program:
@@ -91,5 +91,5 @@ rewriters:
 transform:
     FIXED: rewrite($FIXABLE, rewriters=[chained-method-options, chained-method, chained-function-options, chained-function, method-options, method, function-options, function])
 fix: $FIXED$KEPT
-message: '`$RUN` wraps the pipe it runs, the steps read from the inside out'
-note: '`<program>.pipe(<step>, <runner>, <step>)` runs the steps in reading order, `<runner>(<options>)` where the runner takes options'
+message: '`$RUN` wraps the pipe it runs'
+note: '`<program>.pipe(<step>, <runner>)` lists the runner as a step in reading order, `<runner>(<options>)` where the runner takes options'

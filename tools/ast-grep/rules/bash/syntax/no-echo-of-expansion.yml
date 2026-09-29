@@ -3,15 +3,16 @@ id: no-echo-of-expansion
 language: bash
 severity: error
 utils:
+    every-element: {kind: 'simple_expansion, expansion', regex: '\$\{?@|\[@\]|@\}'}
     expansion:
         kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
-        not: {regex: '\$\{?@|\[@\]|@\}'}
+        not: {matches: every-element}
     data:
         any:
             - kind: string
               pattern: $QUOTED
               has: {matches: expansion}
-              not: {has: {any: [{kind: string_content}, {kind: 'simple_expansion, expansion', regex: '\$\{?@|\[@\]|@\}'}]}}
+              not: {has: {any: [{kind: string_content}, {matches: every-element}]}}
             - matches: expansion
               pattern: $UNQUOTED
 rule:
@@ -34,4 +35,4 @@ transform:
     WRAPPED: {replace: {source: $UNQUOTED, replace: '^.+$', by: '"$0"'}}
 fix: printf '$ESCAPES$TEXT_ONLY$NEWLINE' $QUOTED$WRAPPED
 message: '`echo` parses `$TEXT` as options when its value matches `-[neE]+`'
-note: Print through a literal format, `printf '%s\n' "$<value>"`
+note: Print with a literal format, `printf '%s\n' "$<value>"`

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-first-glob-result
+language: python
+severity: error
+utils:
+    query:
+        kind: call
+        has: {field: function, regex: '(^|\.)(glob|rglob|iglob|iterdir|listdir|scandir)$'}
+    searched:
+        any:
+            - matches: query
+            - kind: call
+              all:
+                - has: {field: function, regex: '^a?iter$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: query}}
+            - kind: generator_expression
+              has: {kind: for_in_clause, has: {field: right, matches: query}}
+    listed:
+        any:
+            - matches: query
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(list|tuple)$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: query}}
+            - kind: 'list, tuple'
+              all:
+                - has: {nthChild: 1, kind: list_splat, has: {matches: query}}
+                - not: {has: {nthChild: 2}}
+            - kind: list_comprehension
+              has: {kind: for_in_clause, has: {field: right, matches: query}}
+rule:
+    pattern: $FIRST
+    any:
+        - kind: call
+          all:
+            - has: {field: function, regex: '^a?next$'}
+            - has: {field: arguments, any: [{matches: searched}, {has: {nthChild: 1, matches: searched}}]}
+        - kind: subscript
+          all:
+            - has: {field: value, matches: listed}
+            - has: {field: subscript, regex: '^(0|-1)$'}
+message: '`$FIRST` takes one path from a directory search in the order the filesystem lists it'
+note: 'Read the path from the owner that places the file, or match listed results with `case [<path>]` and an error case for every other count, a directory search yields paths in filesystem order and raises when it finds none'

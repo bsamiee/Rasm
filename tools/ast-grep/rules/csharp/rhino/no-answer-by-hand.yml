@@ -232,7 +232,7 @@ transform:
             source: $LAZY
             replace: '(?s)^.*$'
             by: '() => '
-    BARE:
+    UNPARENTHESIZED:
         replace:
             source: $CONSTANT
             replace: '^\(+\s*((?s).*?)\s*\)+$'
@@ -252,6 +252,6 @@ transform:
             source: $UNIT
             replace: '(?s)^.*$'
             by: unit
-fix: Answers.Answer($OPEN$EFFECT$DISCARD$LIFTED$CLOSE, $REJECT, $THUNK$BARE$LAZY$UNIT_FALLBACK)
+fix: Answers.Answer($OPEN$EFFECT$DISCARD$LIFTED$CLOSE, $REJECT, $THUNK$UNPARENTHESIZED$LAZY$UNIT_FALLBACK)
 message: "`$EFFECT` runs and routes its failure to `$REJECT` by hand"
-note: Use `Answers.Answer(<effect>, <reject>, <constant>)`, `Answers.Answer(Some(<effect>), <reject>, () => <fallback>)` for a fallback that evaluates, and `<effect>.Map(_ => <constant>)` as the effect where success answers the same constant
+note: Use `Answers.Answer(<effect>, <reject>, <fallback>)` with `Some(<effect>)` and `() => <fallback>` for an evaluated fallback, `Answers.Answer` runs the effect and reports its failure once

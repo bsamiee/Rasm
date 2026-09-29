@@ -56,6 +56,7 @@ rule:
           has: {pattern: $EXPRESSION, matches: numeric-expression}
         - matches: test-comparison
           pattern: $EXPRESSION
+    not: {inside: {matches: bash-sh-program, stopBy: end}}
 rewriters:
     - id: name
       rule:
@@ -100,5 +101,5 @@ rewriters:
 transform:
     BODY: rewrite($EXPRESSION, rewriters=[compare])
 fix: (( $BODY ))
-message: '`$TEST` compares numbers through a `-eq` family operator'
-note: Compare in an arithmetic command reading parameters by name, `(( <left> == <right> ))`
+message: '`$TEST` compares integers through a `test` operator'
+note: Compare in an arithmetic command with parameter names, `(( <left> == <right> ))`

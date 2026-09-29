@@ -210,7 +210,7 @@ PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/seed.spec.ts --debug=cli
 playwright-cli attach tw-XXXX
 ```
 
-Resume so the seed runs, then probe the app:
+Resume so the seed runs, then explore the app:
 
 ```bash
 playwright-cli resume                   # resume so that seed test runs fully

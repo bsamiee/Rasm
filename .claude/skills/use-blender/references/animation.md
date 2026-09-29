@@ -1,6 +1,6 @@
 # [ANIMATION]
 
-Keyframes sit in layered actions: an action holds slots, one per animated ID, and each slot's F-curves sit in a channelbag of the action's keyframe strip.
+Keyframes sit in layered actions with one slot per animated ID and each slot's F-curves in a channelbag of the action's keyframe strip.
 
 ## [01]-[KEYS]
 
@@ -32,6 +32,8 @@ result = {"action": animation.action.name, "slot": animation.action_slot.identif
 - Keys from `keyframe_insert` and `keyframe_points.insert` take `BEZIER` with `AUTO_CLAMPED` handles under every new-key preference
 - Linear motion sets `interpolation` on each key
 - `scene.frame_set(<frame>)` evaluates a frame before an animated read
+- `context.markers` lists the editor's markers
+- `anim.world_space_copy` and `world_space_paste` move world-space motion between objects or bones
 
 ## [02]-[SHARED_ACTIONS]
 

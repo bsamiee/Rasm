@@ -10,6 +10,7 @@ utils:
               regex: '^"delete-(generic|internet)-password '
             - pattern: SecItemDelete($$$)
 rule:
+    pattern: $ADD
     any:
         - kind: line_string_literal
           regex: 'delete-(generic|internet)-password .*\\nadd-(generic|internet)-password '
@@ -29,5 +30,5 @@ rule:
                     stopBy: end
                     kind: call_suffix
                     inside: {kind: call_expression, has: {kind: navigation_expression, has: {stopBy: end, matches: delete-command}}}
-message: 'Adding the item after deleting it recreates its ACL and partition list under the writer alone'
-note: 'Drop the delete, `add-generic-password -U` or `SecItemUpdate` replaces the data in place'
+message: '`$ADD` recreates a deleted keychain item and replaces its ACL and partition list with ones naming the writer alone'
+note: 'Drop the delete and replace the data in place through `add-generic-password -U` or `SecItemUpdate`'

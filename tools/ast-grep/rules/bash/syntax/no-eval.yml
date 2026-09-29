@@ -3,14 +3,24 @@ id: no-eval
 language: bash
 severity: error
 utils:
-    shell-name: {kind: command_name, regex: '^(?:\S+/)?(bash|sh|dash|ksh|zsh)$'}
+    expanded-word:
+        any:
+            - kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
+            - kind: string, concatenation
+              has: {matches: expanded-word}
 rule:
     kind: command
     pattern: $CMD
     any:
         - has: {field: name, regex: '^eval$'}
         - all:
-            - has: {field: name, matches: shell-name}
-            - has: {matches: bash-expanded-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$'}}
-message: '`$CMD` parses its arguments as shell code a second time'
-note: Run the command from an array, `"${<array>[@]}"`, or pass data to `bash -c '<script>' _ "$<value>"` as `$1`
+            - has: {field: name, regex: '^(builtin|command)$'}
+            - has: {kind: word, regex: '^eval$', nthChild: 2}
+        - all:
+            - has: {field: name, regex: '^(?:\S+/)?(bash|sh|dash|ksh|zsh)$'}
+            - has: {matches: expanded-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$'}}
+        - all:
+            - has: {field: name, regex: '^(source|\.)$'}
+            - has: {kind: process_substitution, nthChild: 2}
+message: '`$CMD` parses expanded data as shell code'
+note: 'Run commands from an array, `"${<command>[@]}"`, and pass values as arguments, `bash -c ''<script>'' _ "$<value>"`'

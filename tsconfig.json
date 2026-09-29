@@ -1,5 +1,6 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": { "outDir": ".cache/typescript/out/root", "types": ["node"] },
-    "include": ["*.config.ts", "tools/nx/*.ts", "infra/*.ts"]
+    "include": ["*.config.ts", "tools/nx/*.ts", "infra/*.ts", "{libs/typescript,tests/typescript,.claude/plugins}/*/vitest.config.ts", "apps/*/*/vitest.config.ts"],
+    "exclude": []
 }

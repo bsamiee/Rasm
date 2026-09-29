@@ -79,7 +79,7 @@ Files read, scans, and the `-check` build decide over a page.
 - `find_references` tags a member access on a static class as `declaration`, a `kinds` filter for type uses prints no item
 - `get_nuget_dependencies` prints the project file's own rows with `*` versions, `-getItem:PackageReference` prints the evaluated set
 - Edge checks read compiler use, build ordering, generated inputs, packaging, and metadata before a row goes
-- Successful builds prove no absence of shared writes, compiler diagnostics prove no target execution, output content, or incrementality
+- Successful builds leave shared writes unread, compiler diagnostics leave target execution, output content, and incrementality unread
 - Globs under `<logs>` delete a concurrent run's capture, captures are deleted by the path the `BinaryLogger wrote to:` line printed
 
 </decision>

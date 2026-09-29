@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-trailing-never
+language: tsx
+severity: error
+utils:
+    never:
+        matches: effect-effect-member
+        has: {field: property, regex: '^never$'}
+    last-statement:
+        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+        inside: {kind: statement_block, inside: {kind: generator_function, field: body}}
+rule:
+    pattern: $NEVER
+    any:
+        - kind: yield_expression
+          all:
+            - has: {matches: never}
+            - regex: '^yield\s*\*'
+            - any:
+                - inside: {kind: expression_statement, matches: last-statement}
+                - inside: {kind: return_statement, matches: last-statement}
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(andThen|flatMap)$'}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: {position: 1, reverse: true}
+                    any:
+                        - matches: never
+                        - kind: arrow_function
+                          all:
+                            - not: {has: {field: parameters, has: {pattern: $_}}}
+                            - has: {field: body, matches: never}
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^forever$'}}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {nthChild: 2}}
+                    - has:
+                        nthChild: 1
+                        kind: call_expression
+                        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^sleep$'}}
+message: '`$NEVER` holds the program open after its last step'
+note: '`Layer.launch(Layer.effectDiscard(<program>))` builds the program as a layer and keeps it open until interruption, and its scope closes with the runtime'

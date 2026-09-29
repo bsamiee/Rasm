@@ -1,6 +1,6 @@
 # [REFACTORING]
 
-Covers C# corrections no ast-grep rule enforces, from the host boundary to naming.
+Covers C# corrections no ast-grep rule enforces.
 
 Use `dotnet-coding-mapperly` for member copies between host and domain types.
 
@@ -71,7 +71,7 @@ Each concept and value has one owner, and callers reach it directly:
 |  [03]   | Named member lifting one host call, nothing added  | Caller lifting host member where it composes     | Layer adds no fact            |
 |  [04]   | Reverse, rescale, clamp, or filter of own output   | Inputs derived so construction yields result     | Correction hides wrong build  |
 |  [05]   | Literal or heuristic copied from ported source     | Derived from construction, or one stated rule    | Accident becomes rule         |
-|  [06]   | Positional pairing, index lookup, zip then unzip   | Rows carrying values, arrays paired once proven  | Positions drift apart         |
+|  [06]   | Positional pairing, index lookup, zip then unzip   | Rows holding values, arrays zipped at one length | Positions drift apart         |
 |  [07]   | Argument restating value callee or host derives    | Dropped, `None` picks overload or skips setter   | Value stated twice            |
 
 ## [06]-[NAMING]

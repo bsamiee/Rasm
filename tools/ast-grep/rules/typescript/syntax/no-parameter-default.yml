@@ -8,26 +8,71 @@ utils:
         any:
             - has: {field: parameter, kind: identifier, pattern: $P}
             - has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', has: {field: pattern, kind: identifier, pattern: $P}}}
+    source-declared-type:
+        any:
+            - kind: object_type
+            - kind: type_identifier
+              pattern: $U
+              not: {inside: {kind: generic_type, field: name}}
+              any:
+                - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: 'interface_declaration, class_declaration', has: {field: name, pattern: $U}}}
+                - inside:
+                    kind: program
+                    stopBy: end
+                    has:
+                        kind: import_statement
+                        all:
+                            - has: {field: source, has: {kind: string_fragment, regex: '^\.'}}
+                            - has:
+                                stopBy: end
+                                kind: import_specifier
+                                any:
+                                    - has: {field: alias, pattern: $U}
+                                    - all: [{not: {has: {field: alias, kind: identifier}}}, {has: {field: name, pattern: $U}}]
+    source-typed-parameter:
+        matches: syntax-function-boundary
+        has:
+            field: parameters
+            has:
+                kind: required_parameter, optional_parameter
+                all:
+                    - has: {field: pattern, kind: identifier, pattern: $P}
+                    - has:
+                        field: type
+                        has:
+                            stopBy: end
+                            any:
+                                - matches: source-declared-type
+                                - kind: type_identifier
+                                  pattern: $T
+                                  not: {inside: {kind: generic_type, field: name}}
+                                  inside:
+                                    kind: program
+                                    stopBy: end
+                                    has: {stopBy: end, kind: type_alias_declaration, all: [{has: {field: name, pattern: $T}}, {has: {field: value, any: [{matches: source-declared-type}, {has: {stopBy: end, matches: source-declared-type}}]}}]}
 rule:
     any:
         - kind: required_parameter
           all:
-            - has: {field: pattern, pattern: $P}
+            - has: {field: pattern, pattern: $READ}
             - has: {field: value, pattern: $D}
         - kind: 'assignment_pattern, object_assignment_pattern'
           all:
-            - has: {field: left, pattern: $P}
+            - has: {field: left, pattern: $READ}
             - has: {field: right, pattern: $D}
             - inside: {kind: 'required_parameter, optional_parameter', stopBy: {not: {kind: 'array_pattern, object_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, rest_pattern'}}}
         - kind: binary_expression
           all:
-            - has:
-                field: left
-                any:
-                    - {kind: identifier, pattern: $P}
-                    - {kind: member_expression, has: {field: object, kind: identifier, pattern: $P}}
+            - has: {field: left, kind: identifier, pattern: $P}
+            - has: {field: left, pattern: $READ}
             - has: {field: operator, regex: '^\?\?$'}
             - has: {field: right, pattern: $D}
             - inside: {stopBy: end, matches: parameter-named}
-message: 'Parameter `$P` accepts absence and resolves it to `$D`'
-note: 'Declare `<parameter>` required and pass the value at each call, `Schema.withDecodingDefaultKey` decodes an absent boundary key'
+        - kind: binary_expression
+          all:
+            - has: {field: left, kind: member_expression, pattern: $READ, has: {field: object, kind: identifier, pattern: $P}}
+            - has: {field: operator, regex: '^\?\?$'}
+            - has: {field: right, pattern: $D}
+            - inside: {stopBy: end, matches: source-typed-parameter}
+message: '`$READ` accepts absence and resolves it to `$D`'
+note: 'Declare the parameter or its field required and pass the value at each call, and let `Schema.withDecodingDefaultKey` decode a key absent at the boundary'

@@ -5,24 +5,24 @@ description: "Use when ruff reports a D or DOC violation, or a public Python mod
 
 # [PYTHON_DOCUMENT]
 
-Covers Google-style docstrings on Python modules, classes, functions, and methods, from which symbols get one to the example layout.
+Covers Google-style docstrings on Python modules, classes, functions, and methods.
 
-`pyproject.toml` sets `convention = "google"` and `preview = true`: every `D` rule the convention keeps, `D420`, `D421`, and every `DOC` rule except the ignored `DOC502` fire.
+Under `pyproject.toml` settings `convention = "google"` and `preview = true`, every `D` rule the convention keeps, `D420`, `D421`, and every `DOC` rule fire.
 
 ## [01]-[SCOPE]
 
-What gets a docstring:
+Members that take a docstring:
 - Every public module, package, class, nested class, method, and function (`D100` to `D104`, `D106`)
 - `__init__` (`D107`), with the constructor parameters under `Args:`
 - Magic methods (`__repr__`, `__eq__`) as a one-liner, `D105` fires on every undocumented one
 - Private functions and methods (`_name`) with logic the name does not state, as a one-liner
-- Multi-line private docstrings keep `Returns:`, `Yields:`, and `Raises:`, the `DOC` rules have no visibility filter
-- Module docstrings at the top of the file, one sentence on the module contents
+- Multi-line private docstrings keep `Returns:`, `Yields:`, and `Raises:`, `DOC` rules have no visibility filter
+- Module docstrings at file top, one sentence on module contents
+- `*args` and `**kwargs` under `Args:` (`D417`)
 
 Exemptions:
-- Classes, methods, and functions in test files (`D101` to `D103` under per-file ignores), the module docstring stays
-- Methods decorated with `typing.override` unless the override changes the base contract, `ignore-decorators` lists the decorator for `D102`
-- `self`, `cls`, `*args`, and `**kwargs` under `Args:`, `ignore-var-parameters = true` exempts `*args` and `**kwargs` from `D417`
+- Methods decorated with `typing.override` unless the override changes the base contract, `D102` skips them
+- `self` and `cls` under `Args:`
 
 Accurate existing docstrings stay. Docstrings in another convention (Sphinx `:param:` fields, NumPy underlines) convert to Google sections with their content preserved.
 
@@ -33,13 +33,13 @@ Accurate existing docstrings stay. Docstrings in another convention (Sphinx `:pa
 - `ruff format` never wraps docstring text, the summary line stays within the `E501` limit
 - Blank lines: one after the summary (`D205`), one before each section (`D411`) and between sections (`D410`), no empty section (`D414`)
 - Section headers: capitalized (`D405`), ending with a colon (`D416`), followed by the first entry with no blank line between (`D412`)
-- Indentation: section entries 4 spaces from the header and continuation lines 4 more, the body aligns with the opening quotes (`D207`, `D208`)
+- Indentation: section entries 4 spaces from the header and continuation lines 4 more, body aligned with opening quotes (`D207`, `D208`)
 
 ### [02.1]-[SECTIONS]
 
-`D420` orders `Args:`, then `Returns:` or `Yields:`, then `Raises:`, and leaves the other sections unordered:
+`D420` orders `Args:`, then `Returns:` or `Yields:`, then `Raises:`, and leaves other sections unordered:
 
-| [INDEX] | [SECTION]                 | [WHEN_TO_USE]                                                                                           |
+| [INDEX] | [SECTION]                 | [WHEN]                                                                                                  |
 | :-----: | :------------------------ | :------------------------------------------------------------------------------------------------------ |
 |  [01]   | `Args:`                   | Function has parameters, each one listed with a description (`D417`)                                    |
 |  [02]   | `Returns:`                | Function returns a value (`DOC201`, a "Returns" summary satisfies it), none without `return` (`DOC202`) |
@@ -47,11 +47,11 @@ Accurate existing docstrings stay. Docstrings in another convention (Sphinx `:pa
 |  [04]   | `Raises:`                 | Body contains `raise` (`DOC501`)                                                                        |
 |  [05]   | `Note:` or `Notes:`       | Side effects, mutation of an argument, or a caveat the signature cannot show                            |
 |  [06]   | `Example:` or `Examples:` | Usage a reader misuses without one                                                                      |
-|  [07]   | `Attributes:`             | Attributes set in `__init__`, not properties, dataclass and model fields use inline docstrings          |
+|  [07]   | `Attributes:`             | Attributes set in `__init__`, not properties                                                            |
 
 ### [02.2]-[ONE_LINERS]
 
-Docstrings that need no section are one-liners: opening and closing quotes on one line (`D200`), no blank line before (`D201`) or after (`D202`), the `DOC` rules skip them (`ignore-one-line-docstrings = true`):
+Docstrings that need no section are one-liners: opening and closing quotes on one line (`D200`), no blank line before (`D201`) or after (`D202`), `DOC` rules skip them (`ignore-one-line-docstrings = true`):
 
 ```python
 def is_valid(self) -> bool:
@@ -62,7 +62,7 @@ Docstrings that need a section or a description are multi-line, with closing quo
 
 ## [03]-[TYPE_ANNOTATIONS]
 
-Type hints state the types, the docstring adds the meaning a hint cannot: no `(str)` after an argument name, no type before the `Returns:` text, no signature in prose (`D402`):
+Docstrings add meaning a type hint cannot state, with no `(str)` after an argument name, no type before `Returns:` text, and no signature in prose (`D402`):
 
 ```python
 def connect(host: str, port: int, timeout: float = 30.0) -> Connection:
@@ -119,7 +119,7 @@ Functions returning `expression.Result` describe the `Ok` value and each `Error`
 
 ### [04.2]-[RAISES]
 
-Every exception the body raises with `raise` is listed (`DOC501`, `NotImplementedError` excluded) with the propagated exceptions a caller handles, `DOC502` is ignored and a listed exception the body does not raise passes:
+`Raises:` lists each exception a `raise` statement in the body throws (`DOC501`, `NotImplementedError` excluded), `DOC502` reports an entry no `raise` throws:
 
 ```text
 Raises:
@@ -129,7 +129,7 @@ Raises:
 
 ### [04.3]-[GENERATORS]
 
-`Yields:` replaces `Returns:` (`DOC402` on a missing one) and describes the item `next()` returns:
+`Yields:` describes the item `next()` returns:
 
 ```python
 def read_chunks(path: Path, size: int = 8192) -> Iterator[bytes]:
@@ -142,11 +142,11 @@ def read_chunks(path: Path, size: int = 8192) -> Iterator[bytes]:
 
 ### [04.4]-[ASYNC]
 
-Async functions follow the same rules, the docstring does not repeat the `async` keyword.
+Async function docstrings omit the `async` keyword.
 
 ### [04.5]-[OVERLOADS]
 
-`@overload` signatures have no docstring, the implementation has one that covers every signature, `ignore-decorators` lists `typing.overload`, the `D` rules check the implementation alone:
+Implementations hold one docstring covering every `@overload` signature, `D418` reports a docstring on an `@overload` signature:
 
 ```python
 @overload
@@ -200,37 +200,27 @@ class HTTPClient:
         self.max_retries = 3
 ```
 
-### [05.1]-[INLINE_ATTRIBUTES]
+### [05.1]-[FIELDS]
 
-Dataclasses, Pydantic models, TypedDicts, and NamedTuples:
-- Each field gets a string literal on the line after the field, the attribute docstring form of PEP 257
-- Class docstring has no `Attributes:` entry for the fields
+Field classes (`msgspec.Struct`, attrs classes, Pydantic models, TypedDicts) document fields by name and type alone with no `Attributes:` entry, ast-grep rule `no-attribute-docstring` reports a string after a field:
 
 ```python
-@dataclass
-class SearchResult:
+class SearchResult(msgspec.Struct, frozen=True):
     """Search result with a relevance score."""
 
     url: str
-    """The canonical URL of the result."""
-
     title: str
-    """Page title with HTML entities decoded."""
-
     score: float
-    """Relevance score between 0.0 and 1.0."""
-
     snippet: str | None = None
-    """Extracted text snippet, None when the source has no text."""
 ```
 
 ### [05.2]-[ABSTRACT_BASE_CLASSES]
 
-Abstract methods document the interface contract, the `DOC` rules skip abstract methods and stub functions (`pass`, `...`, `raise NotImplementedError`), their `Returns:` and `Raises:` sections state the contract.
+Abstract methods and stub functions (`pass`, `...`, `raise NotImplementedError`) state the interface contract in `Returns:` and `Raises:`, `DOC` rules skip both.
 
 ### [05.3]-[PROPERTIES]
 
-Properties document like attributes: a noun phrase for the value with no leading verb (`D421`), no `Args:`, no `Returns:` (`DOC201` exempts properties, `property-decorators` adds `pydantic.computed_field` to `@property` and `functools.cached_property`), setters document like methods:
+Property docstrings are a noun phrase with no leading verb (`D421`) and no `Args:` or `Returns:` (`DOC201` exempts `@property` and `functools.cached_property`). Setters document like methods:
 
 ```python
 @property

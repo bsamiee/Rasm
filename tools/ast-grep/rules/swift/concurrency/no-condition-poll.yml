@@ -33,5 +33,5 @@ rule:
                     stopBy: {kind: statements}
                     has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return|throw)\b'}}
         - has: {stopBy: end, matches: sleep-call, pattern: $SLEEP}
-message: '`$SLEEP` polls `$STATE` in a loop'
+message: '`$SLEEP` polls `$STATE` on a timer in a loop in place of awaiting its change'
 note: 'Await the change through `Observations { <state> }` for `@Observable` state, `publisher(for: <key path>).values` for a KVO-compliant property, `notifications(named:)` for a posted notification, `DispatchSource.makeFileSystemObjectSource` for a file, or the server push'

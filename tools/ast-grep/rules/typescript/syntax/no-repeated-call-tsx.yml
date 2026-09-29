@@ -39,4 +39,4 @@ rule:
             - matches: repeat-site
             - inside: {stopBy: {matches: scope}, matches: repeat-site}
 message: '`$CALL` is evaluated twice in one expression'
-note: 'Bind `const <name> = <call>` at the first read and read the name'
+note: 'Bind `const <name> = <call>` once and read the name at each use, the call then runs once'

@@ -3,14 +3,13 @@ id: no-literal-glob-in-task-source
 language: xml
 severity: error
 rule:
-    kind: element
     pattern: _TASK
     any:
         - all:
-            - has: {matches: msbuild-tag, has: {kind: Name, pattern: _NAME, regex: '^(Copy|Move)$'}}
+            - matches: {msbuild-element: {name: {pattern: _NAME, regex: '^(Copy|Move)$'}}}
             - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^SourceFiles$'}, value: {pattern: _GLOB, regex: '[*?]'}}}}}
         - all:
-            - has: {matches: msbuild-tag, has: {kind: Name, pattern: _NAME, regex: '^(Delete|Touch)$'}}
+            - matches: {msbuild-element: {name: {pattern: _NAME, regex: '^(Delete|Touch)$'}}}
             - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Files$'}, value: {pattern: _GLOB, regex: '[*?]'}}}}}
 rewriters:
     - id: pass-item

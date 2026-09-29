@@ -28,4 +28,4 @@ constraints:
     ALG: {regex: '^([''"]?)(md5|sha1|sha224|sha256|sha384|sha512|sha3_224|sha3_256|sha3_384|sha3_512|blake2b|blake2s)([''"]?)$'}
     DIGEST: {regex: '^(hex)?digest$'}
 message: '`$TRUNCATION` truncates a `$ALG` digest to `[$SLICE]` a second time in the file'
-note: 'Declare one function from hashed bytes to the truncated digest and call it at every site'
+note: 'Declare one function from the hashed bytes to the truncated digest and call it at every site, algorithm and length stay one fact'

@@ -71,7 +71,7 @@ Generator log decides the locator and assertion form over a form recalled from m
 - One comment holding its step text precedes each step's actions, a step with more actions takes no second comment
 - Locators and assertions come from the log, role locators and web-first assertions stay as recorded
 - Log ends with its best practices, `waitForLoadState`, `waitForNavigation`, `waitForTimeout`, and `page.evaluate` stay out of the file
-- Step the page cannot perform is a valid result reported with the snapshot that proved it, an output the run never saw is no evidence
+- Step the page cannot perform is a valid result reported with the snapshot that showed it, an output the run never saw is no evidence
 
 </decision>
 

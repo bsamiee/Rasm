@@ -26,18 +26,12 @@ utils:
               has: {kind: throw_statement}
               not: {has: {nthChild: 2}}
 rule:
-    any:
-        - kind: if_statement
-          pattern: $IF
-          all:
-            - has: {field: condition, matches: absence-test}
-            - has: {field: consequence, matches: throwing}
-        - kind: member_expression
-          pattern: $IF
-          all:
-            - has: {field: property, regex: '^getOrThrow(With)?$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Option|Result))?$'}, exported: {regex: '^(Option|Result)$'}}}}
+    kind: if_statement
+    pattern: $IF
+    all:
+        - has: {field: condition, matches: absence-test}
+        - has: {field: consequence, matches: throwing}
 message: '`throw` stands in for the failure case of an absent value'
-note: 'Return the reason as a value, `Effect.fromOption(<option>, () => <tagged error>)` or `Effect.fail` with a tagged variant'
+note: 'Return the reason as a value through `Effect.fromOption` or `Effect.fail` with a tagged variant, and state an absence construction rules out as a defect with `Option.getOrThrow`'
 labels:
     IF: {style: primary}

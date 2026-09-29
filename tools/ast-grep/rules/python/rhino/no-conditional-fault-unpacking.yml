@@ -29,4 +29,4 @@ rule:
                     - all: [{has: {nthChild: 1, matches: empty}}, {has: {nthChild: 3, matches: one-fault}}]
         - inside: {kind: module, stopBy: end, has: {matches: collector-import}}
 message: '`$UNPACKING` unpacks `$FAULT` under a condition'
-note: 'Pass the `Fault` or `None` to `collect_faults` beside other independent results, `collect_faults` keeps every `Fault` and drops the rest'
+note: 'Pass the `Fault` or `None` to `collect_faults` beside the other independent results, `collect_faults` keeps every `Fault` and drops the rest'

@@ -217,7 +217,7 @@ public static class TableOps {
             doc,
             add: static (document, add) => add.Rows
                 .TraverseM(row =>
-                    from proven in Clipped(document, row.Geometry)
+                    from clipped in Clipped(document, row.Geometry)
                     from id in Added(document, row, add)
                     select id)
                 .As(),

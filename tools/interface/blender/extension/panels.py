@@ -1,5 +1,5 @@
-# ty: ignore[invalid-argument-type, unresolved-attribute, unresolved-import]
-# mypy: disable-error-code="arg-type, attr-defined, import-not-found, no-any-return, union-attr, unreachable"
+# ty: ignore[invalid-argument-type, redundant-condition, unresolved-attribute, unresolved-import]
+# mypy: disable-error-code="arg-type, attr-defined, func-returns-value, import-not-found, no-any-return, union-attr, unreachable"
 # ruff: file-ignore[invalid-class-name, mutable-class-default, private-member-access, unnecessary-dunder-call]
 """Add-on panels collapsed under their owners, icon sidebar tabs, stock header draws, packed toolbar columns of the workspace's owners, and one asset shelf per asset kind."""
 
@@ -16,16 +16,13 @@ from typing import Final, override, TYPE_CHECKING
 import addon_utils
 from bl_pkg.bl_extension_utils import PKG_MANIFEST_FILENAME_TOML
 import bl_ui
-from bl_ui.space_toolsystem_common import ToolDef
 import bpy
 from packaging.utils import canonicalize_name, parse_wheel_filename
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import IconItems
 
-# --- [TABLES] ---------------------------------------------------------------------------
-
-SHELVES: Final = MappingProxyType[str, list[str]](tomllib.loads(Path(__file__).with_name(PKG_MANIFEST_FILENAME_TOML).read_text(encoding="utf-8"))["shelves"])
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 ICONS: Final = MappingProxyType[str, "IconItems"]({
     "Item": "OBJECT_DATA",
@@ -35,7 +32,6 @@ ICONS: Final = MappingProxyType[str, "IconItems"]({
     "Node": "NODE",
     "Group": "NODETREE",
     "Options": "OPTIONS",
-    "Image": "IMAGE_DATA",
     "Mask": "MOD_MASK",
     "Scopes": "SEQ_HISTOGRAM",
     "Text": "TEXT",
@@ -96,14 +92,14 @@ def lineage[T](base: type[T]) -> list[type[T]]:
 
 @cache
 def owning(addons: frozenset[str]) -> Callable[[str], str | None]:
-    """Resolver from a module name to its owning add-on, read from the enabled add-ons' folders and the wheels their manifests list."""
+    """Resolver from a module name to its owning add-on, read from the enabled add-ons' folders and the wheels their extension manifests list, cached per add-on set."""
     modules = [module for name, module in sys.modules.items() if name in addons and name not in addon_utils._addons_hidden_core]
     folders = {Path(module.__file__).parent if module.__spec__.submodule_search_locations else Path(module.__file__): module.__name__ for module in modules}
     wheels = {
         parse_wheel_filename(Path(wheel).name)[0]: module
         for folder, module in folders.items()
-        if (manifest := folder / PKG_MANIFEST_FILENAME_TOML).is_file()
-        for wheel in tomllib.loads(manifest.read_text(encoding="utf-8")).get("wheels", ())
+        if addon_utils.check_extension(module)
+        for wheel in tomllib.loads((folder / PKG_MANIFEST_FILENAME_TOML).read_text(encoding="utf-8")).get("wheels", ())
     }
     distributions = packages_distributions()
 
@@ -118,8 +114,8 @@ def owning(addons: frozenset[str]) -> Callable[[str], str | None]:
 
 
 # --- [PANELS]
-def collapse(preferences: bpy.types.Preferences) -> None:
-    """Re-register reordered stock panels in Blender's order and each add-on panel tree closed, owned by its add-on, with its category icon."""
+def collapse(preferences: bpy.types.Preferences) -> tuple[tuple[type[bpy.types.Panel], dict[str, object]], ...]:
+    """Re-register reordered stock panels in Blender's order and each add-on panel tree closed with a header, owned by its add-on, with its category icon, and return each re-registered class in order with the attributes it changed as they were before, None for an absent one."""
     owner = owning(frozenset(preferences.addons.keys()))
 
     def place(cls: type[bpy.types.Panel]) -> tuple[str, str, str]:
@@ -153,17 +149,17 @@ def collapse(preferences: bpy.types.Preferences) -> None:
         *(cls for cls in loaded if position[cls] < len(blender) and cls not in parents and place(cls) in placements),
         *(cls for cls in loaded if cls.bl_rna.identifier not in stock and (cls not in parents or parents[cls] in stock) and cls.bl_region_type != "HEADER" and owner(cls.__module__) not in engines),
     ]
+    subtrees = [subtree(parent) for parent in roots]
+    prior = tuple((cls, {key: vars(cls).get(key) for key in ("bl_options", "bl_owner_id", "bl_icon", "bl_icon_value")}) for members in subtrees for cls in members)
     for parent in [cls for cls in roots if cls not in parents and cls.bl_rna.identifier not in stock]:
         match parent:
-            case type(bl_options=declared, bl_order=_):
-                parent.bl_options = {"DEFAULT_CLOSED", *declared}
             case type(bl_options=declared):
-                parent.bl_options = {"DEFAULT_CLOSED", *(option for option in declared if option != "HIDE_HEADER")}
+                parent.bl_options = {"DEFAULT_CLOSED", *declared} - {"HIDE_HEADER"}
             case _:
                 parent.bl_options = {"DEFAULT_CLOSED"}
-    for cls in [cls for cls in icons if "bl_icon_value" in vars(cls)]:
+    for cls in [cls for cls, held in prior if cls in icons and held["bl_icon_value"] is not None]:
         del cls.bl_icon_value
-    for members in [subtree(parent) for parent in roots]:
+    for members in subtrees:
         for cls in reversed(members):
             bpy.utils.unregister_class(cls)
         for cls in members:
@@ -172,11 +168,12 @@ def collapse(preferences: bpy.types.Preferences) -> None:
             if cls in icons:
                 cls.bl_icon = icons[cls]
             bpy.utils.register_class(cls)
+    return prior
 
 
 def remove_appended(header: type[bpy.types.Header]) -> list[Callable[[bpy.types.Header, bpy.types.Context], None]]:
-    """Remove and return every draw function an add-on appended to the header."""
-    appended = [draw for draw in header._dyn_ui_initialize() if draw.__module__.partition(".")[0] != bl_ui.__name__]
+    """Remove and return every draw function an add-on appended to the header while it registered, which carries its owner."""
+    appended = [draw for draw in header._dyn_ui_initialize() if "_owner" in vars(draw)]
     for draw in appended:
         header.remove(draw)
     return appended
@@ -194,10 +191,11 @@ def packed(layout: bpy.types.UILayout, column_count: int, scale_y: float) -> Gen
                 signal = yield None
             case True:
                 signal = yield None
+            case False if filled == column_count:
+                row, filled = block.row(align=True), 1
+                row.scale_x, row.scale_y = scale_y * 1.1, scale_y
+                signal = yield row
             case False:
-                if filled == column_count:
-                    row, filled = block.row(align=True), 0
-                    row.scale_x, row.scale_y = scale_y * 1.1, scale_y
                 filled += 1
                 signal = yield row
     for _ in range(column_count - filled):
@@ -206,42 +204,31 @@ def packed(layout: bpy.types.UILayout, column_count: int, scale_y: float) -> Gen
 
 
 def placed(stock: Callable[[type, bpy.types.Context, str | None], Iterator[object]]) -> Callable[[type, bpy.types.Context, str | None], Iterator[object]]:
-    """Toolbar tool read that drops each tool of an add-on the workspace's owner filter excludes."""
+    """Toolbar tool read that drops each tool of an add-on the workspace's owner filter excludes, reading the preferences from the process context."""
 
     def tools_from_context(cls: type, context: bpy.types.Context, mode: str | None = None) -> Iterator[object]:
         workspace = context.workspace
         owner, passed = owning(frozenset(bpy.context.preferences.addons.keys())), {None, *(entry.name for entry in workspace.owner_ids)}
         owners = {id(tool._bl_tool): owner(tool.__module__) for tool in lineage(bpy.types.WorkSpaceTool) if workspace.use_filter_by_owner and "_bl_tool" in vars(tool)}
-        for item in stock(cls, context, mode):
-            match item:
-                case ToolDef():
-                    if owners.get(id(item)) in passed:
-                        yield item
-                case tuple():
-                    if group := tuple(tool for tool in item if owners.get(id(tool)) in passed):
-                        yield group
-                case _:
-                    yield item
+        items = (tuple(tool for tool in item if owners.get(id(tool)) in passed) if type(item) is tuple else item for item in stock(cls, context, mode))
+        return (item for item in items if item != () and owners.get(id(item)) in passed)
 
     return tools_from_context
 
 
 # --- [SHELF]
 class Shelf(bpy.types.AssetShelf):
-    """Asset shelf shown by default, its catalog tabs stored in the preferences, of the assets whose ID type its manifest shelf row names."""
+    """Asset shelf shown by default, its catalog tabs stored in the preferences."""
 
     bl_options = {"DEFAULT_VISIBLE", "STORE_ENABLED_CATALOGS_IN_PREFERENCES"}
-
-    @classmethod
-    @override
-    def asset_poll(cls, asset: bpy.types.AssetRepresentation | None) -> bool:
-        return asset.id_type in SHELVES[cls.__name__]
 
 
 class VIEW3D_AST_objects(Shelf):
     """Object Mode asset shelf of the object and collection assets in every library."""
 
     bl_space_type = "VIEW_3D"
+    filter_object = True
+    filter_group = True
 
     @classmethod
     @override
@@ -253,6 +240,7 @@ class NODE_AST_materials(Shelf):
     """Shader editor asset shelf of the material assets in every library."""
 
     bl_space_type = "NODE_EDITOR"
+    filter_material = True
 
     @classmethod
     @override
@@ -264,6 +252,7 @@ class IMAGE_AST_worlds(Shelf):
     """Image Editor View mode asset shelf of the world assets in every library."""
 
     bl_space_type = "IMAGE_EDITOR"
+    filter_world = True
 
     @classmethod
     @override
@@ -277,4 +266,4 @@ CLASSES: Final = (VIEW3D_AST_objects, NODE_AST_materials, IMAGE_AST_worlds)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CLASSES", "ICONS", "collapse", "packed", "placed", "remove_appended"]
+__all__ = ["CLASSES", "collapse", "packed", "placed", "remove_appended"]

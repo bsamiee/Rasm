@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-substitution-for-expansion
+language: bash
+severity: error
+utils:
+    parameter: {matches: {bash-parameter: {name: {kind: 'variable_name, subscript', pattern: $NAME}}}}
+    argument: {not: {kind: 'command_name, herestring_redirect, file_redirect, heredoc_redirect'}}
+    case-set:
+        kind: word, string, raw_string
+        regex: '^["'']?(\[:lower:\]|\[:upper:\]|a-z|A-Z|\[a-z\]|\[A-Z\])["'']?$'
+    converter:
+        kind: command
+        all:
+            - has: {field: name, pattern: $PROGRAM}
+            - any:
+                - all:
+                    - has: {field: name, regex: '^(?:\S+/)?tr$'}
+                    - has: {matches: case-set, pattern: $FROM, nthChild: {position: 1, ofRule: {matches: argument}}}
+                    - has: {matches: case-set, nthChild: {position: 2, ofRule: {matches: argument}}}
+                    - not: {has: {nthChild: {position: 3, ofRule: {matches: argument}}}}
+                - all:
+                    - has: {field: name, regex: '^(?:\S+/)?(awk|sed)$'}
+                    - has:
+                        kind: string, raw_string
+                        pattern: $FROM
+                        regex: '^["''](\{\s*print\s+to(upper|lower)\(\$0\)\s*;?\s*\}|s/\.\*/\\[UL]&/)["'']$'
+                        nthChild: {position: 1, ofRule: {matches: argument}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: argument}}}}
+    printer:
+        kind: command
+        any:
+            - all:
+                - has: {field: name, regex: '^echo$'}
+                - has: {kind: string, matches: parameter, nthChild: 2}
+                - not: {has: {nthChild: 3}}
+            - all:
+                - has: {field: name, regex: '^printf$'}
+                - has: {kind: 'word, string, raw_string', regex: '^["'']?%s(\\n)?["'']?$', nthChild: 2}
+                - has: {kind: string, matches: parameter, nthChild: 3}
+                - not: {has: {nthChild: 4}}
+    reader:
+        kind: command
+        all:
+            - has: {field: name, pattern: $PROGRAM}
+            - has: {field: name, pattern: $READER}
+            - any:
+                - all:
+                    - has: {field: name, regex: '^(?:\S+/)?date$'}
+                    - has: {kind: 'word, string, raw_string', pattern: $FORMAT, regex: '^["'']?\+%s["'']?$', nthChild: {position: 1, reverse: true}}
+                    - not: {has: {not: {any: [{kind: command_name}, {kind: word, regex: '^(-u|--utc|--universal)$'}, {pattern: $FORMAT}]}}}
+                - all:
+                    - has: {field: name, regex: '^(?:\S+/)?(pwd|hostname)$'}
+                    - not: {has: {nthChild: 2}}
+                - all:
+                    - has: {field: name, regex: '^(?:\S+/)?id$'}
+                    - has: {kind: 'word, string, raw_string', regex: '^["'']?-u["'']?$', nthChild: 2}
+                    - not: {has: {nthChild: 3}}
+rule:
+    kind: command_substitution
+    pattern: $SUB
+    all:
+        - not: {has: {nthChild: 2}}
+        - has:
+            any:
+                - kind: pipeline
+                  all:
+                    - has: {matches: printer, nthChild: 1}
+                    - has: {matches: converter, nthChild: 2}
+                    - not: {has: {nthChild: 3}}
+                - matches: converter
+                  has: {field: redirect, kind: herestring_redirect, has: {matches: parameter}}
+                - matches: reader
+        - not: {inside: {matches: bash-sh-program, stopBy: end}}
+transform:
+    UPPER: {replace: {source: $FROM, replace: '(?s)^(["'']?(\[:lower:\]|a-z|\[a-z\])["'']?|.*(toupper|\\U).*)$', by: U}}
+    LOWER: {replace: {source: $UPPER, replace: '(?s)^(["'']?(\[:upper:\]|A-Z|\[A-Z\])["'']?|.*(tolower|\\L).*)$', by: L}}
+    OPERATOR: {replace: {source: $LOWER, replace: '^(.)$', by: '@$1'}}
+    EPOCH: {replace: {source: $READER, replace: '^(?:\S+/)?date$', by: EPOCHSECONDS}}
+    DIRECTORY: {replace: {source: $EPOCH, replace: '^(?:\S+/)?pwd$', by: PWD}}
+    USER: {replace: {source: $DIRECTORY, replace: '^(?:\S+/)?id$', by: EUID}}
+    VARIABLE: {replace: {source: $USER, replace: '^(?:\S+/)?hostname$', by: HOSTNAME}}
+fix: ${$NAME$OPERATOR$VARIABLE}
+message: '`$SUB` forks `$PROGRAM` for a value a bash expansion holds'
+note: 'Read the bash expansion (`${<name>@U}`, `${<name>@L}`, `$EPOCHSECONDS`, `$PWD`, `$EUID`, `$HOSTNAME`)'

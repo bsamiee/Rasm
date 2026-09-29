@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-piped-fork-interruptibility
+language: tsx
+severity: error
+utils:
+    uninterruptible:
+        matches: effect-effect-member
+        has: {field: property, regex: '^uninterruptible$'}
+    fork-member:
+        matches: effect-effect-member
+        has: {field: property, regex: '^(forkIn|forkChild|forkScoped|forkDetach|runFork)$'}
+    fork-step:
+        any:
+            - matches: fork-member
+              not: {has: {field: property, regex: '^(forkIn|runFork)$'}}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: fork-member, not: {has: {field: property, regex: '^runFork$'}}}
+                - not: {has: {field: arguments, has: {kind: object}}}
+                - any:
+                    - has: {field: function, has: {field: property, regex: '^forkIn$'}}
+                    - not: {has: {field: arguments, has: {pattern: $_}}}
+    uninterruptible-effect:
+        any:
+            - kind: call_expression
+              has: {field: function, matches: uninterruptible}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
+                - has: {field: arguments, has: {matches: uninterruptible, nthChild: {position: 1, reverse: true}}}
+rule:
+    any:
+        - matches: uninterruptible
+          pattern: $FIXABLE
+          inside: {kind: arguments}
+          precedes: {matches: fork-step, pattern: $FORK, stopBy: {not: {regex: '^,$'}}}
+        - kind: call_expression
+          pattern: $KEPT
+          all:
+            - has: {field: function, matches: fork-member}
+            - has: {field: arguments, has: {nthChild: 1, matches: uninterruptible-effect}}
+rewriters:
+    - id: empty
+      rule: {kind: call_expression, pattern: $M.$F()}
+      fix: '$M.$F({ uninterruptible: true })'
+    - id: scoped
+      rule: {kind: call_expression, pattern: $M.$F($SCOPE)}
+      fix: '$M.$F($SCOPE, { uninterruptible: true })'
+    - id: unscoped
+      rule: {matches: fork-member, pattern: $M.$F}
+      fix: '$M.$F({ uninterruptible: true })'
+transform:
+    OPTIONED: rewrite($FORK, rewriters=[empty, scoped, unscoped])
+fix:
+    template: $OPTIONED$KEPT
+    expandEnd: {matches: fork-step, stopBy: end}
+message: '`$FORK$KEPT` starts its fiber interruptible until its `Effect.uninterruptible` step runs'
+note: '`Effect.forkIn(<scope>, { uninterruptible: true })` and the same option on `forkChild`, `forkScoped`, `forkDetach`, and `runFork` start the fiber uninterruptible, a piped `Effect.uninterruptible` applies only from its first scheduled step'

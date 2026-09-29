@@ -10,7 +10,16 @@ rule:
         stopBy: end
         has:
             stopBy: {kind: "function_definition, class_definition, lambda"}
-            kind: assignment
-            all:
-                - has: {field: left, kind: identifier, pattern: $NAME}
-                - has: {field: right, matches: value}
+            any:
+                - kind: assignment
+                  all: [{has: {field: left, kind: identifier, pattern: $NAME}}, {has: {field: right, matches: value}}]
+                - kind: named_expression
+                  all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: value}}]
+                - kind: assignment
+                  all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 1, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 1, matches: value}}}]
+                - kind: assignment
+                  all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 2, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 2, matches: value}}}]
+                - kind: assignment
+                  all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 3, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 3, matches: value}}}]
+                - kind: assignment
+                  all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 4, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 4, matches: value}}}]

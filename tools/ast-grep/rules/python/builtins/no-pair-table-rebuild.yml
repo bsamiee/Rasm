@@ -17,11 +17,11 @@ utils:
         any:
             - all:
                 - has: {field: function, regex: '^(builtins\.)?(tuple|list|iter|sorted|reversed)$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: value}}
+                - has: {field: arguments, has: {nthChild: 1, matches: table}}
             - all:
                 - has: {field: function, regex: '^(typing\.)?cast$'}
-                - has: {field: arguments, has: {nthChild: 2, matches: value}}
-    value:
+                - has: {field: arguments, has: {nthChild: 2, matches: table}}
+    table-value:
         any:
             - matches: python-module-constant
             - matches: pairs
@@ -57,86 +57,38 @@ utils:
                         - has: {field: type, matches: pair-sequence-type}
     declared:
         kind: identifier
-        inside:
-            kind: 'module, function_definition'
-            stopBy: end
-            has:
-                kind: assignment
-                stopBy: {kind: 'function_definition, class_definition, lambda'}
-                any:
-                    - all: [{has: {field: left, pattern: $TABLE}}, {has: {field: right, matches: value}}]
-                    - all: [{has: {field: left, pattern: $TABLE}}, {has: {field: type, matches: pair-sequence-type}}]
-                    - all: [{has: {field: left, has: {nthChild: 1, pattern: $TABLE}}}, {has: {field: right, kind: expression_list, has: {nthChild: 1, matches: value}}}]
-                    - all: [{has: {field: left, has: {nthChild: 2, pattern: $TABLE}}}, {has: {field: right, kind: expression_list, has: {nthChild: 2, matches: value}}}]
-                    - all: [{has: {field: left, has: {nthChild: 3, pattern: $TABLE}}}, {has: {field: right, kind: expression_list, has: {nthChild: 3, matches: value}}}]
-                    - all: [{has: {field: left, has: {nthChild: 4, pattern: $TABLE}}}, {has: {field: right, kind: expression_list, has: {nthChild: 4, matches: value}}}]
-    imported:
-        kind: identifier
-        pattern: $ALIAS
-        inside:
-            kind: module
-            stopBy: end
-            has:
-                kind: import_from_statement
-                has: {kind: aliased_import, all: [{has: {field: name, regex: '^_?[A-Z][A-Z0-9_]*$'}}, {has: {field: alias, pattern: $ALIAS}}]}
-    parameter:
-        any: [{kind: identifier, pattern: $TABLE}, {kind: typed_parameter, has: {nthChild: 1, pattern: $TABLE}}]
-    relayed:
-        kind: identifier
-        inside:
-            kind: function_definition
-            stopBy: end
-            all:
-                - has: {field: name, pattern: $HELPER}
-                - any:
-                    - has: {field: parameters, has: {kind: 'default_parameter, typed_default_parameter', all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, matches: value}}]}}
-                    - inside:
-                        kind: module
-                        stopBy: end
-                        has:
-                            kind: call
-                            stopBy: end
-                            all:
-                                - has: {field: function, pattern: $HELPER}
-                                - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, matches: value}}]}}
-                    - all:
-                        - has: {field: parameters, has: {nthChild: 1, matches: parameter}}
-                        - inside: {kind: module, stopBy: end, has: {kind: call, stopBy: end, all: [{has: {field: function, pattern: $HELPER}}, {has: {field: arguments, has: {nthChild: 1, matches: value}}}]}}
-                    - all:
-                        - has: {field: parameters, has: {nthChild: 2, matches: parameter}}
-                        - inside: {kind: module, stopBy: end, has: {kind: call, stopBy: end, all: [{has: {field: function, pattern: $HELPER}}, {has: {field: arguments, has: {nthChild: 2, matches: value}}}]}}
-                    - all:
-                        - has: {field: parameters, has: {nthChild: 3, matches: parameter}}
-                        - inside: {kind: module, stopBy: end, has: {kind: call, stopBy: end, all: [{has: {field: function, pattern: $HELPER}}, {has: {field: arguments, has: {nthChild: 3, matches: value}}}]}}
+        any:
+            - matches: {python-assigned-name: {value: {matches: table-value}}}
+            - inside:
+                kind: 'module, function_definition'
+                stopBy: end
+                has:
+                    kind: assignment
+                    stopBy: {kind: 'function_definition, class_definition, lambda'}
+                    all: [{has: {field: left, pattern: $TABLE}}, {has: {field: type, matches: pair-sequence-type}}]
     table:
         any:
-            - pattern: $TABLE
-              any:
-                - matches: python-module-constant
-                - matches: pairs
-                - matches: splice
-                - matches: declared
-                - matches: imported
-                - matches: relayed
-                - matches: typed
             - kind: subscript
               all:
                 - has: {field: value, matches: table}
                 - has: {field: subscript, kind: slice, regex: '^:$'}
-            - kind: call
+            - matches: copied
+            - pattern: $TABLE
               any:
-                - all:
-                    - has: {field: function, regex: '^(builtins\.)?(tuple|list|iter|sorted|reversed)$'}
-                    - has: {field: arguments, has: {nthChild: 1, matches: table}}
-                - all:
-                    - has: {field: function, regex: '^(typing\.)?cast$'}
-                    - has: {field: arguments, has: {nthChild: 2, matches: table}}
+                - matches: table-value
+                - matches: declared
+                - {kind: identifier, matches: {python-relayed-parameter: {value: {matches: table-value}}}}
+                - matches: typed
     unpacked:
         kind: 'pattern_list, tuple_pattern, list_pattern'
         all:
             - has: {nthChild: 1, pattern: $K}
             - has: {nthChild: 2, pattern: $V}
             - not: {has: {nthChild: 3}}
+    pair-loop:
+        all: [{has: {field: left, matches: unpacked}}, {has: {field: right, matches: table}}]
+    row-loop:
+        all: [{has: {field: left, kind: identifier, pattern: $P}}, {has: {field: right, matches: table}}]
     keyed:
         any: [{pattern: $K == $_}, {pattern: $_ == $K}]
     indexed:
@@ -147,10 +99,10 @@ utils:
             - any:
                 - all:
                     - has: {field: body, kind: identifier, pattern: $V}
-                    - has: {kind: for_in_clause, all: [{has: {field: left, matches: unpacked}}, {has: {field: right, matches: table}}]}
+                    - has: {kind: for_in_clause, matches: pair-loop}
                     - has: {kind: if_clause, has: {matches: keyed}}
                 - all:
-                    - has: {kind: for_in_clause, all: [{has: {field: left, kind: identifier, pattern: $P}}, {has: {field: right, matches: table}}]}
+                    - has: {kind: for_in_clause, matches: row-loop}
                     - has: {field: body, any: [{pattern: $P}, {pattern: '$P[1]'}]}
                     - has: {kind: if_clause, has: {matches: indexed}}
             - not: {has: {nthChild: 4}}
@@ -170,10 +122,10 @@ utils:
         all:
             - any:
                 - all:
-                    - has: {kind: for_in_clause, all: [{has: {field: left, matches: unpacked}}, {has: {field: right, matches: table}}]}
+                    - has: {kind: for_in_clause, matches: pair-loop}
                     - has: {field: body, kind: identifier, pattern: $K}
                 - all:
-                    - has: {kind: for_in_clause, all: [{has: {field: left, kind: identifier, pattern: $P}}, {has: {field: right, matches: table}}]}
+                    - has: {kind: for_in_clause, matches: row-loop}
                     - has: {field: body, pattern: '$P[0]'}
             - not: {has: {nthChild: 3}}
 rule:
@@ -189,7 +141,7 @@ rule:
             - has: {field: arguments, has: {nthChild: 2, matches: table}}
         - kind: call
           all:
-            - has: {field: function, regex: '^(functools\.)?partial$'}
+            - has: {field: function, matches: functools-partial-callee}
             - has: {field: arguments, has: {nthChild: 1, kind: 'identifier, attribute', regex: '^((builtins\.)?dict|(collections\.)?OrderedDict)$'}}
             - has: {field: arguments, has: {nthChild: 2, matches: table}}
         - kind: call
@@ -199,7 +151,7 @@ rule:
         - kind: dictionary_comprehension
           all:
             - has: {field: body, kind: pair, all: [{has: {field: key, kind: identifier, pattern: $K}}, {has: {field: value, kind: identifier, pattern: $V}}]}
-            - has: {kind: for_in_clause, all: [{has: {field: left, matches: unpacked}}, {has: {field: right, matches: table}}]}
+            - has: {kind: for_in_clause, matches: pair-loop}
             - not: {has: {kind: if_clause}}
         - kind: call
           all:
@@ -227,10 +179,10 @@ rule:
                 kind: generator_expression
                 any:
                     - all:
-                        - has: {kind: for_in_clause, all: [{has: {field: left, matches: unpacked}}, {has: {field: right, matches: table}}]}
+                        - has: {kind: for_in_clause, matches: pair-loop}
                         - has: {field: body, matches: keyed}
                     - all:
-                        - has: {kind: for_in_clause, all: [{has: {field: left, kind: identifier, pattern: $P}}, {has: {field: right, matches: table}}]}
+                        - has: {kind: for_in_clause, matches: row-loop}
                         - has: {field: body, matches: indexed}
                 not: {has: {kind: if_clause}}
         - kind: comparison_operator
@@ -252,14 +204,12 @@ rule:
           all:
             - any:
                 - all:
-                    - has: {field: left, matches: unpacked}
-                    - has: {field: right, matches: table}
+                    - matches: pair-loop
                     - has: {field: body, has: {nthChild: 1, kind: if_statement, has: {field: condition, matches: keyed}}}
                 - all:
-                    - has: {field: left, kind: identifier, pattern: $P}
-                    - has: {field: right, matches: table}
+                    - matches: row-loop
                     - has: {field: body, has: {nthChild: 1, kind: if_statement, has: {field: condition, matches: indexed}}}
             - has: {field: body, has: {nthChild: 1, kind: if_statement, has: {field: consequence, has: {nthChild: 1, any: [{kind: return_statement}, {kind: expression_statement, has: {kind: assignment}}]}}}}
             - not: {has: {field: body, has: {nthChild: 2}}}
 message: '`$CALL` derives a key lookup from the pair table `$TABLE` on every read'
-note: 'Declare `<table>` as a dict literal, under `MappingProxyType` at module level, and index or merge it directly'
+note: 'Declare `<table>` as a dict literal under `MappingProxyType` at module level and index or merge it, a mapping states the lookup once'

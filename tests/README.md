@@ -39,7 +39,7 @@ Every test asserts observable behavior against evidence independent of the imple
 [REQUIREMENTS]:
 - Compilers, import checks, and type checkers verify symbols exist, runtime tests assert behavior
 - Expected values come from an independent calculation, observation, or documented contract
-- Structural assertions on values the test constructs prove nothing, pair them with a behavioral assertion or delete them
+- Structural assertions on values the test constructs assert nothing the code computes, pair them with a behavioral assertion or delete them
 - Boundary tests supply invalid raw input through supported entry points, tests inside the boundary build every state through construction
 - Parameterized and property-based tests cover input classes and invariants
 - Properties defined from a predicate name a counterexample they must reject, a law that compares two evaluations needs none

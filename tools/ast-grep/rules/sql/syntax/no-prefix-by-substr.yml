@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-prefix-by-substr
+language: sql
+severity: error
+utils:
+    leading-slice:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^substr(ing)?$'}
+            - has: {kind: term, nthChild: {position: 1, ofRule: {kind: term}}, has: {field: value, pattern: _SUBJECT}}
+            - has: {kind: term, nthChild: {position: 2, ofRule: {kind: term}}, has: {field: value, kind: literal, regex: '^1$'}}
+            - has: {kind: term, nthChild: {position: 3, ofRule: {kind: term}}, has: {field: value, pattern: _LENGTH}}
+            - not: {has: {kind: term, nthChild: {position: 4, ofRule: {kind: term}}}}
+    prefix-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^==?$'}
+            - any:
+                - all: [{has: {field: left, matches: leading-slice}}, {has: {field: right, pattern: _PREFIX}}]
+                - all: [{has: {field: right, matches: leading-slice}}, {has: {field: left, pattern: _PREFIX}}]
+    prefix-length:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^length$'}
+            - has: {kind: term, has: {field: value, pattern: _PREFIX}}
+    separated-length:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: left, kind: invocation, all: [{has: {kind: object_reference, regex: '(?i)^length$'}}, {has: {kind: term, has: {field: value, pattern: _BASE}}}]}
+            - has: {field: right, kind: literal, regex: '^1$'}
+rule:
+    matches: prefix-test
+    pattern: _TEST
+    any:
+        - pattern: _FIXABLE
+          any:
+            - has: {stopBy: end, matches: leading-slice, has: {kind: term, has: {field: value, matches: prefix-length}}}
+            - all:
+                - has: {stopBy: end, matches: leading-slice, has: {kind: term, has: {field: value, matches: separated-length}}}
+                - has: {kind: binary_expression, regex: "^\\S+ \\|\\| '.'$", has: {field: left, pattern: _BASE}}
+        - pattern: _KEPT
+rewriters:
+    - id: position
+      rule: {matches: prefix-test}
+      fix: instr($SUBJECT, $PREFIX) = 1
+transform:
+    FIXED: {rewrite: {source: $FIXABLE, rewriters: [position]}}
+fix: $FIXED$KEPT
+message: '`$TEST` tests a prefix through a slice as long as the prefix'
+note: 'Write `instr(<subject>, <prefix>) = 1` and `instr(<subject> || ''/'', <directory> || ''/'') = 1` for a path equal to or under a directory, each states the prefix once for SQLite and DuckDB'

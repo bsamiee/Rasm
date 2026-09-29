@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-exists-before-read
+language: python
+severity: error
+utils:
+    existence:
+        any:
+            - kind: call
+              has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $PATH}}, {has: {field: attribute, regex: '^(exists|is_file)$'}}]}
+            - kind: call
+              all: [{has: {field: function, regex: '(^|\.)path\.(exists|isfile)$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}}]
+            - kind: 'await, parenthesized_expression'
+              has: {matches: existence}
+    read:
+        kind: call
+        any:
+            - has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $PATH}}, {has: {field: attribute, regex: '^(read_bytes|read_text|open|readlink|iterdir)$'}}]}
+            - has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}
+    reads:
+        any: [{matches: read}, {has: {stopBy: end, matches: read}}]
+rule:
+    pattern: $SITE
+    any:
+        - kind: conditional_expression
+          all:
+            - has: {nthChild: 2, matches: existence}
+            - has: {nthChild: 1, matches: reads}
+        - kind: if_statement
+          all:
+            - has: {field: condition, matches: existence}
+            - has: {field: consequence, matches: reads}
+message: '`$PATH` is tested for existence before the read that raises on its absence'
+note: 'Read the file and map `FileNotFoundError` to the absent value in one `try` at the boundary, an existence test races a read and repeats its check'

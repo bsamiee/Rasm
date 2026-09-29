@@ -1,59 +1,95 @@
-id: javascript-script-declaration
+id: javascript-include
 language: javascript
 role: item
-symbolType: function
-utils:
-    script-body:
-        kind: statement_block
-        inside:
-            kind: function_expression
-            inside:
-                kind: parenthesized_expression
-                any:
-                    - inside: {kind: expression_statement, inside: {kind: program}}
-                    - inside: {kind: call_expression, field: function, inside: {kind: expression_statement, inside: {kind: program}}}
+symbolType: module
 rule:
-    pattern: $DECLARATION
-    any:
-        - kind: function_declaration
-          inside: {matches: script-body}
-          has: {field: name, pattern: $NAME}
-        - kind: variable_declarator
-          inside: {kind: variable_declaration, inside: {matches: script-body}}
-          has: {field: name, pattern: $NAME}
+    kind: comment
+    regex: '^//@include\s'
+    pattern: $DIRECTIVE
 transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '^([^\n]*?)\s*\{?\s*(?:\n[\s\S]*)?$', by: '$1'}}
+    NAME: {replace: {source: $DIRECTIVE, replace: '^//@include\s+["'']?([^"'']*)["'']?\s*$', by: '$1'}}
 name: $NAME
-signature: $SIGNATURE
+isImport: true
 isExported: false
 
 ---
-id: javascript-script-entry
+id: javascript-function
+language: javascript
+role: item
+symbolType: function
+rule:
+    kind: function_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isExported: false
+
+---
+id: javascript-function-declarator
+language: javascript
+role: item
+symbolType: function
+rule:
+    kind: variable_declarator
+    inside: {kind: variable_declaration}
+    all:
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - has: {field: value, kind: 'function_expression, arrow_function'}
+name: $NAME
+isExported: false
+
+---
+id: javascript-variable
+language: javascript
+role: item
+symbolType: variable
+rule:
+    kind: variable_declarator
+    inside:
+        kind: variable_declaration
+        inside:
+            any:
+                - kind: program
+                - {kind: statement_block, inside: {kind: 'function_expression, arrow_function', field: body}}
+    has: {field: name, kind: identifier, pattern: $NAME}
+    not: {has: {field: value, kind: 'function_expression, arrow_function'}}
+name: $NAME
+isExported: false
+
+---
+id: javascript-property-assignment
+language: javascript
+role: item
+symbolType: property
+rule:
+    kind: assignment_expression
+    inside: {kind: expression_statement}
+    has: {field: left, kind: member_expression, pattern: $NAME}
+name: $NAME
+isExported: false
+
+---
+id: javascript-object-method
 language: javascript
 role: member
-parentRuleIds: [javascript-script-declaration]
-symbolType: property
-utils:
-    script-body:
-        kind: statement_block
-        inside:
-            kind: function_expression
-            inside:
-                kind: parenthesized_expression
-                any:
-                    - inside: {kind: expression_statement, inside: {kind: program}}
-                    - inside: {kind: call_expression, field: function, inside: {kind: expression_statement, inside: {kind: program}}}
+parentRuleIds: [javascript-variable, javascript-property-assignment]
+symbolType: method
 rule:
     kind: pair
-    pattern: $DECLARATION
-    has: {field: key, pattern: $NAME}
-    inside:
-        kind: object
-        inside:
-            kind: variable_declarator
-            field: value
-            inside: {kind: variable_declaration, inside: {matches: script-body}}
-transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '^([^\n]*?)\s*\{?\s*(?:\n[\s\S]*)?$', by: '$1'}}
+    inside: {kind: object, inside: {kind: 'variable_declarator, assignment_expression'}}
+    all:
+        - has: {field: key, pattern: $NAME}
+        - has: {field: value, kind: 'function_expression, arrow_function'}
 name: $NAME
-signature: $SIGNATURE
+
+---
+id: javascript-object-property
+language: javascript
+role: member
+parentRuleIds: [javascript-variable, javascript-property-assignment]
+symbolType: property
+rule:
+    kind: pair
+    inside: {kind: object, inside: {kind: 'variable_declarator, assignment_expression'}}
+    has: {field: key, pattern: $NAME}
+    not: {has: {field: value, kind: 'function_expression, arrow_function'}}
+name: $NAME

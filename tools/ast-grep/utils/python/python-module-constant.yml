@@ -3,4 +3,11 @@ id: python-module-constant
 language: python
 rule:
     kind: 'identifier, attribute'
-    regex: '^(\w+\.)*_?[A-Z][A-Z0-9_]*$'
+    any:
+        - regex: '^(\w+\.)*_?[A-Z][A-Z0-9_]*$'
+        - kind: identifier
+          pattern: $ALIAS
+          inside:
+            kind: module
+            stopBy: end
+            has: {kind: import_from_statement, has: {kind: aliased_import, all: [{has: {field: name, regex: '^_?[A-Z][A-Z0-9_]*$'}}, {has: {field: alias, pattern: $ALIAS}}]}}

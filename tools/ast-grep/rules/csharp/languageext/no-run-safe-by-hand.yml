@@ -64,4 +64,4 @@ transform:
     KEPT_RECEIVER: {replace: {source: $KEPT_IO, replace: '(?s)^(.+)$', by: '${1}.'}}
 fix: $RECEIVER$SAFE$KEPT_RECEIVER$KEPT($$$ENV)
 message: '`$BASE` run by hand restates `RunSafe`'
-note: Use `RunSafe()` or `RunSafeAsync()` on the effect with the same environment, and delete a `Try()` local no other expression reads
+note: Use `RunSafe()` or `RunSafeAsync()` on the effect with an unchanged environment, each returns a `Fin`

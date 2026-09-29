@@ -9,10 +9,10 @@ utils:
               any:
                 - inside:
                     kind: >-
-                        variable_declarator, method_declaration, class_declaration, interface_declaration, enum_declaration, record_declaration, annotation_type_declaration, annotation_type_element_declaration, formal_parameter, catch_formal_parameter, enhanced_for_statement, resource, enum_constant
+                        variable_declarator, method_declaration, class_declaration, interface_declaration, enum_declaration, record_declaration, annotation_type_declaration, annotation_type_element_declaration, formal_parameter, catch_formal_parameter, enhanced_for_statement, resource, enum_constant, instanceof_expression
                     field: name
                 - inside: {kind: lambda_expression, field: parameters}
-                - inside: {kind: inferred_parameters}
+                - inside: {kind: 'inferred_parameters, record_pattern_component, type_pattern, labeled_statement'}
             - kind: type_identifier
               inside: {kind: type_parameter}
 rule:
@@ -21,4 +21,4 @@ rule:
         - matches: text-coined-word
     pattern: $NAME
 message: Declared name `$NAME` holds a coined term
-note: Use the host API member or language term the declaration matches, or the decided domain word
+note: Name the declaration after its host API member, language term, or domain word

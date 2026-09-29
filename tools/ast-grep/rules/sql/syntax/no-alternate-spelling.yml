@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-alternate-spelling
+language: sql
+severity: error
+utils:
+    ifnull:
+        kind: invocation
+        has: {kind: object_reference, regex: '(?i)^ifnull$'}
+    json-call:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^json_extract(_string)?$'}
+            - has: {field: parameter, has: {field: value, pattern: _X, not: {kind: 'binary_expression, unary_expression'}}}
+            - has: {kind: term, nthChild: {position: 2, ofRule: {kind: term}}, has: {field: value, kind: literal, pattern: _P}}
+            - not: {has: {kind: term, nthChild: {position: 3, ofRule: {kind: term}}}}
+            - not:
+                inside:
+                    kind: term
+                    inside:
+                        kind: invocation
+                        has: {kind: object_reference, regex: '(?i)^json(_array|_object|_insert|_replace|_set|_group_array|_group_object|_quote)?$'}
+    count-constant:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^count$'}
+            - not: {has: {kind: keyword_distinct}}
+            - has: {field: parameter, has: {field: value, kind: literal, not: {has: {kind: keyword_null}}}}
+rule:
+    pattern: _NODE
+    any: [{matches: ifnull}, {matches: json-call}, {matches: count-constant}]
+rewriters:
+    - id: coalesce
+      rule: {kind: object_reference, inside: {matches: ifnull}}
+      fix: coalesce
+    - id: grouped-operator
+      rule:
+        matches: json-call
+        any:
+            - inside: {kind: unary_expression}
+            - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^(\|\||->>?)$'}}
+            - follows: {kind: ERROR, regex: '^[-+]$'}
+            - inside: {kind: term, follows: {kind: ERROR, regex: '^[-+]$'}}
+            - inside: {kind: term, nthChild: 1, inside: {kind: select_expression, follows: {kind: ERROR, regex: '^[-+]$'}}}
+      fix: ($X ->> $P)
+    - id: operator
+      rule: {matches: json-call}
+      fix: $X ->> $P
+    - id: star
+      rule: {kind: term, inside: {matches: count-constant}}
+      fix: '*'
+transform:
+    FIXED: {rewrite: {source: $NODE, rewriters: [coalesce, grouped-operator, operator, star]}}
+fix: $FIXED
+message: '`$NODE` is a second spelling of `$FIXED`'
+note: 'Use `coalesce(<value>, <default>)`, `<json> ->> <path>`, and `count(*)`, one spelling per operation for SQLite and DuckDB'

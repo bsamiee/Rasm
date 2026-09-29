@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unreachable-case-arm
+language: csharp
+severity: error
+utils:
+    unreachable:
+        kind: throw_expression, throw_statement
+        has: {kind: object_creation_expression, has: {field: type, regex: '^((global::)?System\.(Diagnostics\.)?)?UnreachableException$'}}
+        not: {inside: {kind: switch_expression_arm, stopBy: {kind: 'lambda_expression, anonymous_method_expression'}}}
+rule:
+    kind: argument
+    all:
+        - has: {kind: 'lambda_expression, anonymous_method_expression', has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}, matches: unreachable}}
+        - inside:
+            kind: argument_list
+            inside:
+                kind: invocation_expression
+                has: {field: function, pattern: $CALL, regex: '(^|\.)\s*(Switch|SwitchPartially|Map|MapPartially|Match)(\s*<.+>)?$'}
+message: 'Arm of `$CALL` throws `UnreachableException` for a case the value admits and the caller never receives'
+note: Narrow the value to handled cases with a union or request type parameterized by what each call accepts

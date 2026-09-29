@@ -1,3 +1,4 @@
+# --- [WORKSPACE] ------------------------------------------------------------------------
 packages:
     - 'libs/typescript/*'
     - 'apps/*/*'
@@ -8,6 +9,8 @@ saveExact: true
 cacheDir: .cache/pnpm/cache
 storeDir: .cache/pnpm/store
 minimumReleaseAge: 0
+
+# --- [CATALOG] --------------------------------------------------------------------------
 catalog:
     # --- [EFFECT_RUNTIME]
     effect: 4.0.0-rc.116
@@ -279,7 +282,7 @@ catalog:
     '@nx/devkit': 23.3.0-canary.20260918-027a0b0
     '@nx/dotnet': 23.3.0-canary.20260918-027a0b0
     '@nx/vitest': 23.3.0-canary.20260918-027a0b0
-    '@ast-grep/napi': 0.45.3 # Structural command and host discovery for the workspace task graph
+    '@ast-grep/napi': 0.45.3 # Structural search and rewrite over syntax trees from Node
     smol-toml: 1.8.0 # TOML parser for `pyproject.toml` in the workspace plugin
     '@biomejs/biome': 2.5.14
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
@@ -307,6 +310,8 @@ catalog:
     playwright: "1.64.0-alpha-2026-09-16"
     '@modelcontextprotocol/inspector': 2.7.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
     npm-check-updates: 23.1.0
+
+# --- [OVERRIDES] ------------------------------------------------------------------------
 overrides:
     '@pulumi/pulumi': 'catalog:'
     cloudevents>uuid: 14.0.2
@@ -322,10 +327,14 @@ overrides:
     'tsconfck>typescript': 'catalog:'
     '@nx/vitest>vitest': 'catalog:'
     '@effect/atom-react>scheduler': 'catalog:'
+
+# --- [PEER_DEPENDENCIES] ----------------------------------------------------------------
 peerDependencyRules:
     allowedVersions:
         'vite>yaml': '>=3.0.0-0'
         '@loaders.gl/core': '>=4.4.0'
+
+# --- [BUILDS] ---------------------------------------------------------------------------
 allowBuilds:
     '@datadog/pprof': true
     '@derekstride/tree-sitter-sql': false

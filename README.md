@@ -87,7 +87,7 @@ flowchart LR
         format_tree["nx run rasm:format"] --> writers["Every portable writer, then dotnet format"]
         check_all["nx run-many -t check"] --> project_check["Build, typecheck, or test per project"]
         check_affected["nx affected -t check"] --> project_check
-        ci["ci.yml"] --> setup["setup action"] --> ci_steps["rasm:check, affected check per host runner, format with git diff --exit-code"]
+        ci["ci.yml"] --> setup["setup action"] --> ci_steps["rasm:check, affected check per host runner"]
     end
 
     toolchain --> dependencies --> taskgraph --> commands
@@ -99,12 +99,12 @@ flowchart LR
 - `nx run rasm:check` runs lint and typecheck of root TypeScript files and every Python file
 - `nx run <project>:<target>` runs one target of one project
 - `nx run <project>:install` installs a project's Release product into its host
-- `nx run <project>:pack` builds a Rhino plug-in's yak package under `.artifacts/yak/`
+- `nx run <project>:pack` builds a Rhino plug-in's yak package under `.artifacts/rhino/` with a manifest `yak spec` derives from its build
 - `nx run rasm:upgrade` moves catalogs, Swift package locks, tool binaries, and application packages to their newest builds
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
 - `nx run rasm:interface` applies each `tools/interface/<app>/apply.py`, `-- <app>` one, and prints every outcome as one JSON document
-- Workspace plugin names each project's tags, empty targets, and `cli.ts` subcommands by project file, `@nx/dotnet` and `@nx/vitest` infer theirs
+- Workspace plugin names each project's tags and empty targets by project file, `@nx/dotnet` and `@nx/vitest` infer theirs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through its own setting
@@ -121,8 +121,8 @@ flowchart LR
 |  [06]   | Task graph                     | `nx.json`, root `package.json` `nx`                                                   |
 |  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                    |
 |  [08]   | Secret                         | Doppler, read through `doppler run` around the command                                |
-|  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:up`                  |
-|  [10]   | Tool no target runs            | Machine setup                                                                         |
+|  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:infra:up`            |
+|  [10]   | Tool with no consumer          | Machine setup                                                                         |
 |  [11]   | Application package            | `packages.toml` row beside the script installing it                                   |
 |  [12]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                          |
 |  [13]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                         |
@@ -130,6 +130,7 @@ flowchart LR
 
 - Package rows and `.editorconfig` analyzer rows hold a one-line purpose comment, every other configuration file holds section dividers alone
 - Tool rows name a release where `latest` resolves a development build
+- Tool consumers are targets, MCP rows, skills, `.gitattributes` filters, and CLAUDE.md `[CLI_TOOLING]` rows
 - Facts sit once in their owning file, other files name the owner
 - Mini configs, wrappers, and aliases beside an owner are corrected at the owner
 
@@ -140,7 +141,7 @@ flowchart LR
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
 - Swift: warnings as errors, strict memory safety, Swift 7 upcoming features, `swift-format lint --strict` and `swiftlint lint` at zero findings
 - Java: `google-java-format --aosp` and `pmd check` at zero findings
-- Tree: `yamllint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
+- Tree: `yamllint`, `yamlfmt -lint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
 - Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format` per Xcode project
 - Failing checks are fixed in the code or the rule, severity stays as configured
 

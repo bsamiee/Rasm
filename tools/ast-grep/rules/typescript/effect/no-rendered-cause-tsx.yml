@@ -53,18 +53,60 @@ utils:
                 - has: {field: property, regex: '^(message|stack)$'}
             - kind: template_substitution
               has: {kind: identifier, pattern: $CAUSE}
+    error-class:
+        kind: class_declaration, class
+        has:
+            kind: class_heritage
+            has:
+                kind: extends_clause
+                has:
+                    field: value
+                    stopBy: end
+                    kind: member_expression
+                    all:
+                        - has: {field: property, regex: '^(Error|TaggedError)$'}
+                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Data|Schema))?$'}, exported: {regex: '^(Data|Schema)$'}}}}
+    protocol-message:
+        kind: member_expression
+        has: {field: property, regex: '^message$'}
+        inside:
+            kind: pair
+            field: value
+            has: {field: key, regex: '^message$'}
+            inside:
+                kind: object
+                inside:
+                    kind: arguments
+                    inside:
+                        any:
+                            - kind: new_expression
+                              has: {field: 'constructor', matches: syntax-package-reference}
+                            - kind: call_expression
+                              has: {field: function, matches: syntax-package-reference}
+    cause-module:
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Cause)?$'}, exported: {regex: '^Cause$'}}}
+    built-cause:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: cause-module}}, {has: {field: property, regex: '^(pretty|prettyErrors)$'}}]}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    kind: call_expression
+                    has: {field: function, kind: member_expression, all: [{has: {field: object, matches: cause-module}}, {has: {field: property, regex: '^(fail|die)$'}}]}
 rule:
     any:
         - matches: rendering
+          pattern: $TEXT
           inside: {stopBy: end, matches: cause-parameter}
-        - kind: member_expression
-          pattern: $CAUSE
-          regex: '^this\.cause$'
-          inside:
-            kind: method_definition
-            stopBy: end
-            all:
-                - has: {regex: '^get$'}
-                - has: {field: name, regex: '^message$'}
-message: '`$CAUSE` renders to text before the boundary'
-note: 'Hold `cause: unknown` on the variant, `Cause.pretty` renders the failure with its `[cause]` chain at the boundary'
+          not: {matches: protocol-message}
+        - matches: built-cause
+          pattern: $TEXT
+        - kind: method_definition
+          all:
+            - has: {regex: '^get$'}
+            - has: {field: name, regex: '^message$', pattern: $TEXT}
+            - inside: {kind: class_body, inside: {matches: error-class}}
+message: '`$TEXT` renders a typed failure to text'
+note: 'Keep the failure typed to the boundary, at the boundary `<error>.message` fills the `message` field a protocol error requires and `Cause.pretty(<cause>)` renders a caught cause with its `[cause]` chain'

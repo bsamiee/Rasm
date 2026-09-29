@@ -80,5 +80,5 @@ rule:
             - matches: optional-failure-field
             - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $FIELD}}}
             - inside: {matches: member-with-data}
-message: '`$FIELD` holds an optional failure beside the data of a success'
-note: Use a union case or an `Expected` record holding the failure as a required field
+message: '`$FIELD` holds an optional failure beside success data'
+note: Use a union case or an `Expected` record with the failure as a required field, no value holds a success and a failure at once

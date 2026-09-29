@@ -14,4 +14,4 @@ rule:
     regex: '^(?i:[ru])?("""|''''''|"|'')\s*(The|A|An)\s+\S'
     inside: {matches: docstring}
 message: 'Docstring summary opens with an article'
-note: 'Open the summary with the noun it names or the verb it performs'
+note: 'Open the summary with the noun it names or the verb it performs, an article adds a word and no fact'

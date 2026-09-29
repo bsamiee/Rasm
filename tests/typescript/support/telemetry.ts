@@ -37,33 +37,32 @@ const snapshot: Effect.Effect<readonly MetricDataPoint[]> = Effect.map(
     }),
 );
 
-const capture = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<Observation<A, E>, never, R> =>
-    Effect.gen(function* () {
-        const tracer = yield* Effect.tracer;
-        const spans = MutableRef.make<readonly Tracer.Span[]>([]);
-        const before = HashMap.fromIterable(yield* snapshot);
-        const exit = yield* Effect.exit(
-            Effect.withTracer(
-                effect,
-                Tracer.make({
-                    ...tracer,
-                    span: (options) => {
-                        const span = tracer.span(options);
-                        MutableRef.update(spans, Array.append(span));
-                        return span;
-                    },
-                }),
-            ),
-        );
-        return {
-            exit,
-            metricChanges: Array.filter(
-                Array.map(yield* snapshot, ([series, value]) => ({ series, before: HashMap.get(before, series), value })),
-                (change) => !Option.contains(change.before, change.value),
-            ),
-            spans: MutableRef.get(spans),
-        };
-    });
+const capture = Effect.fnUntraced(function* <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.fn.Return<Observation<A, E>, never, R> {
+    const tracer = yield* Effect.tracer;
+    const spans = MutableRef.make<readonly Tracer.Span[]>([]);
+    const before = HashMap.fromIterable(yield* snapshot);
+    const exit = yield* Effect.exit(
+        Effect.withTracer(
+            effect,
+            Tracer.make({
+                ...tracer,
+                span: (options) => {
+                    const span = tracer.span(options);
+                    MutableRef.update(spans, Array.append(span));
+                    return span;
+                },
+            }),
+        ),
+    );
+    return {
+        exit,
+        metricChanges: Array.filter(
+            Array.map(yield* snapshot, ([series, value]) => ({ series, before: HashMap.get(before, series), value })),
+            (change) => !Option.contains(change.before, change.value),
+        ),
+        spans: MutableRef.get(spans),
+    };
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

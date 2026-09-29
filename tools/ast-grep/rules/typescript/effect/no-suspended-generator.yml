@@ -33,9 +33,9 @@ rule:
                 has: {field: body, matches: thunk-body}
         - not: {has: {stopBy: end, kind: comment, not: {inside: {stopBy: end, pattern: $GENERATOR}}}}
 constraints:
-    M: {matches: {syntax-import-reference: {source: {regex: "^effect(/Effect)?$"}, exported: {regex: "^Effect$"}}}}
+    M: {matches: effect-effect-module}
 fix: $GENERATOR
-message: '`$M.gen` defers its body until run, `$M.suspend` around it defers nothing'
-note: 'Delete the `suspend` call around the generator effect'
+message: '`$M.suspend` wraps `$M.gen`, an effect that defers its body'
+note: 'Keep the `<module>.gen` effect alone, a generator effect runs its body anew at each run'
 labels:
     GENERATOR: {style: primary}

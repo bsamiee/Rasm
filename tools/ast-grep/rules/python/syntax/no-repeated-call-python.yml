@@ -3,6 +3,8 @@ id: no-repeated-call-python
 language: python
 severity: error
 utils:
+    stateful-callee:
+        regex: '^(next|anext|input|print|iter|aiter|list|dict|set|bytearray|object|open|reversed|enumerate|zip|map|filter|range|memoryview|deque|defaultdict|OrderedDict|Counter|(\w+\.)*(choice|choices|random|randint|randrange|randbelow|uniform|triangular|gauss|normalvariate|lognormvariate|expovariate|vonmisesvariate|gammavariate|betavariate|paretovariate|weibullvariate|binomialvariate|shuffle|sample|getrandbits|randbytes|token_bytes|token_hex|token_urlsafe|now|today|utcnow|time|time_ns|monotonic|monotonic_ns|perf_counter|perf_counter_ns|process_time|process_time_ns|thread_time|thread_time_ns|urandom|uuid1|uuid4|uuid6|uuid7|uuid8|read|readline|readlines|write|pop|popleft|popitem|append|extend|insert|remove|discard|update|setdefault|send|recv|copy))$'
     scope:
         kind: 'expression_statement, return_statement, if_statement, elif_clause, else_clause, for_statement, while_statement, with_statement, assert_statement, raise_statement, delete_statement, function_definition, class_definition, decorated_definition, block, module, match_statement, case_clause, try_statement, except_clause, finally_clause, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
     nested-scope:
@@ -61,16 +63,73 @@ utils:
                     - inside: {kind: conditional_expression}
                     - not: {follows: {stopBy: end, nthChild: 2, matches: holds-call}}
             - follows: {stopBy: end, matches: holds-call}
+    repeated-operand:
+        all:
+            - has: {field: arguments, has: {pattern: $_, not: {matches: constant}}}
+            - not: {has: {kind: lambda, stopBy: end}}
+            - not: {any: [{matches: opposite-arm}, {inside: {stopBy: {matches: scope}, matches: opposite-arm}}]}
+            - any: [{matches: repeat-site}, {inside: {stopBy: {matches: scope}, matches: repeat-site}}]
+    locally-bound:
+        has:
+            stopBy: end
+            kind: identifier
+            pattern: $Y
+            inside:
+                stopBy: end
+                kind: 'conditional_expression, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+                all:
+                    - has: {stopBy: end, pattern: $CALL}
+                    - has: {stopBy: end, matches: {python-binding: {name: {pattern: $Y}}}}
+    arm-bound:
+        has:
+            stopBy: end
+            kind: identifier
+            pattern: $X
+            inside:
+                kind: 'case_clause, if_statement'
+                stopBy: {kind: 'case_clause, if_statement'}
+                has: {stopBy: end, matches: {python-binding: {name: {pattern: $X}}}}
+    first-case:
+        inside:
+            stopBy: end
+            kind: case_clause
+            field: consequence
+            nthChild: {position: 1, ofRule: {kind: case_clause}}
+            inside:
+                kind: block
+                all:
+                    - has: {kind: case_clause, nthChild: {position: 2, ofRule: {kind: case_clause}}}
+                    - not: {has: {kind: case_clause, not: {has: {field: consequence, matches: holds-call}}}}
+    first-branch:
+        inside:
+            stopBy: end
+            kind: if_statement
+            field: consequence
+            all:
+                - has: {kind: else_clause}
+                - not: {has: {kind: 'elif_clause, else_clause', not: {matches: holds-call}}}
+    first-arm:
+        any:
+            - nthChild: 1
+              inside: {kind: conditional_expression, has: {nthChild: 3, matches: holds-call}}
+            - inside:
+                stopBy: end
+                nthChild: 1
+                inside: {kind: conditional_expression, has: {nthChild: 3, matches: holds-call}}
+    repeated-arm:
+        all:
+            - has: {field: arguments, has: {pattern: $_}}
+            - not: {inside: {kind: expression_statement}}
+            - not: {matches: locally-bound}
+            - any:
+                - all: [{not: {matches: arm-bound}}, {any: [{matches: first-case}, {matches: first-branch}]}]
+                - matches: first-arm
 rule:
     kind: call
     pattern: $CALL
     all:
-        - has: {field: arguments, has: {pattern: $_, not: {matches: constant}}}
-        - has: {field: function, kind: 'identifier, attribute', not: {matches: python-stateful-callee}}
-        - not: {has: {kind: 'await, yield, named_expression, lambda', stopBy: end}}
-        - not: {any: [{matches: opposite-arm}, {inside: {stopBy: {matches: scope}, matches: opposite-arm}}]}
-        - any:
-            - matches: repeat-site
-            - inside: {stopBy: {matches: scope}, matches: repeat-site}
-message: '`$CALL` is evaluated twice in one expression'
-note: 'Bind the call by an assignment before the statement, or by `(<name> := <call>)` at its first evaluated read inside a condition, lambda, or comprehension'
+        - has: {field: function, kind: 'identifier, attribute', not: {matches: stateful-callee}}
+        - not: {has: {kind: 'await, yield, named_expression', stopBy: end}}
+        - any: [{matches: repeated-operand}, {matches: repeated-arm}]
+message: '`$CALL` is evaluated again in one statement or once in every arm of a branch'
+note: 'Bind `<name> = <call>` before the statement or branch, or `(<name> := <call>)` at the first read inside a condition, lambda, or comprehension, one evaluation then states the value every read uses'

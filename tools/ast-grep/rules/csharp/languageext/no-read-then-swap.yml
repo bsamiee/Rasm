@@ -65,4 +65,4 @@ rule:
                 inside: {kind: 'tuple_expression, argument_list'}
                 precedes: {stopBy: end, has: {stopBy: {matches: callback}, matches: swap}}
 message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
-note: Use one transition that takes the prior value, the state before and after held in the `Atom` value or the `Swap` result
+note: Use one transition from the prior value that returns state before and after in an `Atom` value or `Swap` result, a separate read races each write

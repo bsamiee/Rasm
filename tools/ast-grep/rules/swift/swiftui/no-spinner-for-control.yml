@@ -29,5 +29,5 @@ rule:
             - has: {kind: switch_entry, has: {matches: spinner-arm}}
             - has: {kind: switch_entry, has: {matches: control-arm}, not: {matches: bound-read}}
     inside: {matches: swift-view-builder, stopBy: end}
-message: '`$SPINNER` stands in for `$CONTROL` while its operation runs'
+message: '`$SPINNER` removes `$CONTROL` while its operation runs and resets the control''s identity'
 note: 'Keep `<control>` in place under `.disabled(<condition>).overlay { if <condition> { ProgressView() } }`'

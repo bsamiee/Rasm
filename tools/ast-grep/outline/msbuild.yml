@@ -1,3 +1,63 @@
+id: msbuild-project
+language: xml
+role: item
+symbolType: module
+rule:
+    kind: STag, EmptyElemTag
+    pattern: _TAG
+    has: {kind: Name, regex: '^Project$'}
+    inside: {kind: element, inside: {kind: document}}
+transform:
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
+    HEADER: {replace: {source: $LINE, replace: '^<[^\s/>]+\s*/?>$', by: ''}}
+name: Project
+signature: $HEADER
+isExported: false
+
+---
+id: msbuild-import
+language: xml
+role: item
+symbolType: module
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: _TAG
+        all:
+            - has: {kind: Name, regex: '^Import$'}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Project$'}}, {has: {kind: AttValue, pattern: _PATH}}]}
+    inside: {kind: content, stopBy: {not: {any: [{kind: content}, {kind: element, has: {kind: STag, has: {kind: Name, regex: '^ImportGroup$'}}}]}}, inside: {kind: element, inside: {kind: document}}}
+transform:
+    NAME: substring($PATH, startChar=1, endChar=-1)
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $LINE
+isImport: true
+isExported: false
+
+---
+id: msbuild-using-task
+language: xml
+role: item
+symbolType: class
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: _TAG
+        all:
+            - has: {kind: Name, regex: '^UsingTask$'}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^TaskName$'}}, {has: {kind: AttValue, pattern: _TASK}}]}
+    inside: {kind: content, inside: {kind: element, inside: {kind: document}}}
+transform:
+    NAME: substring($TASK, startChar=1, endChar=-1)
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $LINE
+isExported: false
+
+---
 id: msbuild-group
 language: xml
 role: item
@@ -7,27 +67,39 @@ rule:
     has:
         kind: STag, EmptyElemTag
         pattern: _TAG
-        has: {kind: Name, regex: "^(PropertyGroup|ItemGroup)$"}
+        has: {kind: Name, regex: '^(PropertyGroup|ItemGroup)$'}
     inside:
-        kind: element
-        inside: {kind: document}
-        has:
-            kind: STag
-            has: {kind: Name, regex: "^Project$"}
-        stopBy:
-            not:
-                any:
-                    - kind: content
-                    - kind: element
-                      has:
-                        kind: STag
-                        has: {kind: Name, regex: "^(Choose|When|Otherwise)$"}
+        kind: content
+        stopBy: {not: {any: [{kind: content}, {kind: element, has: {kind: STag, has: {kind: Name, regex: '^(Choose|When|Otherwise)$'}}}]}}
+        inside: {kind: element, inside: {kind: document}}
 transform:
     LABELED: {replace: {source: $TAG, replace: '^<(\w+)(?:[\s\S]*\sLabel=["'']([^"'']*)["''])?[\s\S]*$', by: '$1 $2'}}
-    LINE: {replace: {source: $LABELED, replace: '\s*\n\s*', by: ' '}}
-    NAME: {replace: {source: $LINE, replace: '\s+$', by: ''}}
+    NAME: {replace: {source: $LABELED, replace: '\s+$', by: ''}}
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
+    HEADER: {replace: {source: $LINE, replace: '^<[^\s/>]+\s*/?>$', by: ''}}
 name: $NAME
-signature: $TAG
+signature: $HEADER
+isExported: false
+
+---
+id: msbuild-target
+language: xml
+role: item
+symbolType: function
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: _TAG
+        all:
+            - has: {kind: Name, regex: '^Target$'}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Name$'}}, {has: {kind: AttValue, pattern: _VALUE}}]}
+    inside: {kind: content, inside: {kind: element, inside: {kind: document}}}
+transform:
+    NAME: substring($VALUE, startChar=1, endChar=-1)
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $LINE
 isExported: false
 
 ---
@@ -39,16 +111,8 @@ symbolType: property
 rule:
     kind: element
     pattern: _PROPERTY
-    has:
-        kind: STag, EmptyElemTag
-        has: {kind: Name, pattern: _NAME}
-    inside:
-        kind: content
-        inside:
-            kind: element
-            has:
-                kind: STag
-                has: {kind: Name, regex: "^PropertyGroup$"}
+    has: {kind: 'STag, EmptyElemTag', has: {kind: Name, pattern: _NAME}}
+    inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^PropertyGroup$'}}}}
 transform:
     LINE: {replace: {source: $PROPERTY, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
@@ -67,85 +131,12 @@ rule:
         pattern: _TAG
         all:
             - has: {kind: Name, pattern: _NAME}
-            - has:
-                kind: Attribute
-                all:
-                    - has: {kind: Name, regex: "^(Include|Update|Remove)$"}
-                    - has: {kind: AttValue, pattern: _VALUE}
-    inside:
-        kind: content
-        inside:
-            kind: element
-            has:
-                kind: STag
-                has: {kind: Name, regex: "^ItemGroup$"}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^(Include|Update|Remove)$'}}, {has: {kind: AttValue, pattern: _VALUE}}]}
+    inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^ItemGroup$'}}}}
 transform:
+    SPEC: substring($VALUE, startChar=1, endChar=-1)
     LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
-name: "$NAME $VALUE"
-signature: $LINE
-
----
-id: msbuild-target
-language: xml
-role: item
-symbolType: function
-rule:
-    kind: element
-    has:
-        all:
-            - kind: STag, EmptyElemTag
-            - pattern: _TAG
-            - has: {kind: Name, regex: "^Target$"}
-            - has:
-                kind: Attribute
-                all:
-                    - has: {kind: Name, regex: "^Name$"}
-                    - has: {kind: AttValue, pattern: _VALUE}
-    inside:
-        kind: content
-        inside:
-            kind: element
-            inside: {kind: document}
-            has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
-transform:
-    NAME: substring($VALUE, startChar=1, endChar=-1)
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
-name: $NAME
-signature: $LINE
-
----
-id: msbuild-task
-language: xml
-role: member
-parentRuleIds: [msbuild-target]
-symbolType: method
-rule:
-    kind: element
-    all:
-        - has:
-            all:
-                - kind: STag, EmptyElemTag
-                - pattern: _TAG
-                - has:
-                    kind: Name
-                    pattern: _NAME
-                    not: {regex: "^(PropertyGroup|ItemGroup|OnError)$"}
-        - inside:
-            kind: content
-            inside:
-                kind: element
-                has:
-                    kind: STag
-                    has: {kind: Name, regex: "^Target$"}
-                inside:
-                    kind: content
-                    inside:
-                        kind: element
-                        inside: {kind: document}
-                        has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
-transform:
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
-name: $NAME
+name: '$NAME $SPEC'
 signature: $LINE
 
 ---
@@ -159,17 +150,31 @@ rule:
     has:
         kind: STag, EmptyElemTag
         pattern: _TAG
-        has: {kind: Name, pattern: _NAME, regex: '^(PropertyGroup|ItemGroup)$'}
-    inside:
-        kind: content
-        inside:
-            kind: element
-            has: {kind: STag, has: {kind: Name, regex: '^Target$'}}
-            inside:
-                kind: content
-                inside:
-                    kind: element
-                    inside: {kind: document}
-                    has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
+        has: {kind: Name, regex: '^(PropertyGroup|ItemGroup)$'}
+    inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Target$'}}}}
+transform:
+    LABELED: {replace: {source: $TAG, replace: '^<(\w+)(?:[\s\S]*\sLabel=["'']([^"'']*)["''])?[\s\S]*$', by: '$1 $2'}}
+    NAME: {replace: {source: $LABELED, replace: '\s+$', by: ''}}
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
+    HEADER: {replace: {source: $LINE, replace: '^<[^\s/>]+\s*/?>$', by: ''}}
 name: $NAME
-signature: $TAG
+signature: $HEADER
+
+---
+id: msbuild-task
+language: xml
+role: member
+parentRuleIds: [msbuild-target]
+symbolType: method
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: _TAG
+        has: {kind: Name, pattern: _NAME, not: {regex: '^(PropertyGroup|ItemGroup)$'}}
+    inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Target$'}}}}
+transform:
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
+    HEADER: {replace: {source: $LINE, replace: '^<[^\s/>]+\s*/?>$', by: ''}}
+name: $NAME
+signature: $HEADER

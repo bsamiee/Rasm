@@ -21,14 +21,17 @@ FILTER_GLOSSY: Final = 1.0
 DPI: Final = 300
 LENS: Final = 50.0
 CAUSTICS: Final = True
+EXPOSURE: Final = -5.3
+SUN_IRRADIANCE: Final = 137.0
+SKY_RADIANCE: Final = 4.5126
 LATITUDE: Final = 29.7632836
 LONGITUDE: Final = -95.3632715
 ELEVATION: Final = 11.0
 NORTH: Final = 0.0
-MOMENT: Final = datetime(2026, 3, 20, 12, tzinfo=ZoneInfo("America/Chicago"))
 
 # --- [MOMENT] ---------------------------------------------------------------------------
 
+MOMENT: Final = datetime(2026, 3, 20, 12, tzinfo=ZoneInfo("America/Chicago"))
 OFFSET: Final = min(moment.replace(tzinfo=UTC) - moment for moment in (MOMENT.replace(month=1), MOMENT.replace(month=7)))
 DAYLIGHT: Final = MOMENT.replace(tzinfo=UTC) - MOMENT - OFFSET
 
@@ -38,14 +41,6 @@ DESIGN_TOOLS: Final = Path.home() / "Library" / "Application Support" / "design-
 MATERIALS: Final = DESIGN_TOOLS / "materials"
 LOOK_DEVELOPMENT: Final = MATERIALS / "hdri" / "DaySkyHDRI069A_2K" / "DaySkyHDRI069A_2K_HDR.exr"
 ASSETS: Final = DESIGN_TOOLS / "assets"
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def stocked(folder: Path) -> bool:
-    """Whether the folder holds a visible file at any depth."""
-    return any(path.is_file() and not path.name.startswith(".") for path in folder.rglob("*"))
-
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -57,6 +52,7 @@ __all__ = [
     "DIFFUSE_BOUNCES",
     "DPI",
     "ELEVATION",
+    "EXPOSURE",
     "FILTER_GLOSSY",
     "FRAME_SIZE",
     "GLOSSY_BOUNCES",
@@ -72,8 +68,9 @@ __all__ = [
     "NORTH",
     "OFFSET",
     "SAMPLES",
+    "SKY_RADIANCE",
+    "SUN_IRRADIANCE",
     "TRANSMISSION_BOUNCES",
     "TRANSPARENT_BOUNCES",
     "VOLUME_BOUNCES",
-    "stocked",
 ]

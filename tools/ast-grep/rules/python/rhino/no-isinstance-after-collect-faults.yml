@@ -17,4 +17,4 @@ rule:
                     - has: {field: function, regex: '^collect_faults$'}
                     - has: {field: arguments, has: {kind: identifier, pattern: $X}}
 message: '`isinstance($X, tuple)` repeats the fault test `collect_faults` ran on `$X`'
-note: 'Match independent results in one `match` with a success case naming each value and `case failed: return collect_faults(*failed)`, the success pattern narrows each value'
+note: 'Match the independent results in one `match` with a success case naming each value and `case failed: return collect_faults(*failed)`, a success pattern narrows each value'

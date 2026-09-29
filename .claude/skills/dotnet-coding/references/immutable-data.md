@@ -1,10 +1,13 @@
 # [IMMUTABLE_DATA]
 
-Covers the snapshot and transition model behind the immutability rules, with the persistent structures and their costs.
+Covers the snapshot and transition model behind immutability rules, with persistent structures and their costs.
 
 ## [01]-[TRANSITIONS]
 
-Programs represent real-world change without mutation: mutation overwrites a value in place, an immutable update creates the value of the next state, a state is a snapshot at a point in time, and a transition is a function from one snapshot to the next.
+Programs represent real-world change without mutation:
+- Mutation overwrites a value in place, an immutable update creates the next state's value
+- States are snapshots at a point in time
+- Transitions are functions from one snapshot to the next
 
 ```text
 current state --transition--> next state
@@ -12,7 +15,7 @@ current state --transition--> next state
    unchanged                  new value
 ```
 
-Entities keep their identity through many immutable states, freezing keeps an account the same account while its active and frozen states are distinct values, the model needs snapshots, transitions between them, and an association from the entity identity to its current snapshot. Avoiding mutation and enforcing immutability are separate concerns: the first is a design discipline where transitions return new values, and the second uses constructors, access restrictions, and immutable referenced values to prevent accidental violations of that discipline.
+Entities keep their identity through successive immutable states, a frozen account stays the same account while its active and frozen states are distinct values. The model needs snapshots, transitions between them, and an association from entity identity to current snapshot. Avoiding mutation is a design discipline where transitions return new values, and enforcing immutability uses constructors, access restrictions, and immutable referenced values to prevent accidental violations of it.
 
 ## [02]-[SHARED_MUTATION]
 
@@ -22,11 +25,11 @@ Shared mutable state creates problems:
 - Hidden coupling, every reader depends on every code path that can change the shared object
 - Loss of purity, changing state outside a function's local scope is an observable side effect
 
-Locks protect one update, and coordination becomes difficult when one business action affects many objects or subsystems, the larger the scope of shared mutation, the harder atomicity and correctness are to reason about. Asynchronous and parallel execution raise the same hazards as threads, a system that combines concurrency with state mutation cannot be proved free of race conditions, correctness comes from removing mutation from shared state. Mutation confined to a function is different, a local accumulator hidden from callers does not make the function impure, and `Fold` expresses that intent directly.
+Locks protect one update, and atomicity grows harder to reason about as one business action reaches more objects or subsystems. Asynchronous and parallel execution raise the hazards of threads, and a system combining concurrency with shared mutation cannot be shown free of race conditions. Mutation confined to a function keeps the function pure, and `Fold` expresses a local accumulator hidden from callers.
 
 ## [03]-[VALUES_AND_ENTITIES]
 
-For a value object, the value decides identity: changing a date, a number, or a geometric shape produces a different value, framework primitives, `LocalDate`, and `string` are immutable, and their operations (`LocalDate.PlusDays`) return new values instead of altering the receiver. Custom immutable operations follow the same shape. A value type is copied between functions, a mutation of the copy propagates down the call stack and never back up:
+Values decide identity of a value object, and changing a date, a number, or a geometric shape produces a different value. Framework primitives, `LocalDate`, and `string` are immutable, and their operations (`LocalDate.PlusDays`) return new values, as custom immutable operations do. Value types copy between functions, a mutation of the copy propagates down the call stack and never back up:
 
 ```csharp
 internal readonly record struct Point(double X, double Y);
@@ -38,11 +41,11 @@ internal static class Shapes {
 }
 ```
 
-Entities differ: their identity persists while their state changes, the state is an immutable snapshot and each allowed change is a function that constructs another snapshot, and the previous snapshot stays intact.
+Entity identity persists while state changes, each allowed change is a function constructing another immutable snapshot, and the previous snapshot stays intact.
 
 ## [04]-[DOMAIN_STATE]
 
-Snapshots construct through factories that establish the initial values, expose only the transitions the domain permits, and copy a mutable input collection at the boundary, and later changes to the caller's list never reach it:
+Snapshots construct through factories that set initial values, expose only transitions the domain permits, and copy a mutable input collection at the boundary out of reach of the caller's later changes:
 
 ```csharp
 internal readonly record struct Code(string Value);
@@ -65,27 +68,35 @@ internal static class Transitions {
 }
 ```
 
-`Opened` calls `toSeq`, which copies the list argument into a `Seq<Entry>`. `With` updates the permitted fields in one allocation, its `Option` parameters distinguish "not supplied" from a value, and `IfNone` keeps the current value for each absent one, status and limit can change while the code and the entry history cannot. `Add` uses `Cons` to keep the newest entry at the front.
+`toSeq` in `Opened` copies the list argument into a `Seq<Entry>`. `With` updates permitted fields in one allocation, its `Option` parameters distinguish "not supplied" from a value, and `IfNone` keeps the current value for each absent one. Status and limit can change, code and entry history cannot. `Add` uses `Cons` to keep the newest entry at the front.
 
-Public setters let callers replace properties, private setters still let code inside the class reassign them, a read-only interface over a mutable collection does not make the graph immutable, and an immutable top-level object that holds a mutable list is mutable, a shallow copy is safe only when every shared referenced value is immutable. The convention that setters serve only initialization and copy methods serve every later change cannot be enforced by the compiler, and getter-only properties, constructors, immutable referenced values, and copy methods make the contract visible and prevent accidental mutation.
+Partial immutability leaves mutation reachable:
+- Public setters let callers replace properties, private setters let code inside the class reassign them
+- Read-only interfaces over a mutable collection leave the graph mutable
+- Immutable top-level objects holding a mutable list are mutable, a shallow copy is safe only when every shared referenced value is immutable
+- Compilers cannot enforce setters for initialization alone and copy methods for every later change
+- Getter-only properties, constructors, immutable referenced values, and copy methods make the contract visible and prevent accidental mutation
 
 ## [05]-[COPIES]
 
-Lenses update a nested field without a chain of `with` expressions.
+Copy forms beyond a `with` expression:
+- Lenses update a nested field without a chain of `with` expressions
+- Reflection can copy an object and replace one backing field, less boilerplate at the cost of speed and control over legal transitions
+- F# data with C# behavior gets immutable defaults and copy-and-update expressions at the cost of a mixed-language solution and an extra assembly
 
-Reflection can copy an object and replace one backing field, and it removes boilerplate at the cost of speed and of the control over legal transitions, explicit copy methods stay preferred. Data can be declared in F#, where declarations are immutable by default and support copy-and-update expressions while C# implements the behavior, at the cost of a mixed-language solution and an extra assembly boundary. Reflection can alter private and read-only fields, no C# technique prevents all mutation, the goal is to prevent accidental mutation and to communicate the intended model.
+Explicit copy methods stay preferred. Reflection can alter private and read-only fields and no C# technique prevents all mutation, immutability prevents accidental mutation and communicates the intended model.
 
 ## [06]-[COST]
 
-Immutable updates allocate a new top-level object and raise garbage collection, the copy is shallow, unchanged immutable children are shared and only the changed values and the new parent are allocated, and the tradeoff is:
-- In-place mutation is cheaper for the individual write
+Immutable updates allocate a new top-level object and raise garbage collection. Copies are shallow, unchanged immutable children stay shared, and only changed values and the new parent allocate:
+- In-place mutation is cheaper for one write
 - Immutable updates improve safety, isolation, and reasoning
 - Mutable designs can require locks and defensive copying
-- Safety comes first, and only a measured hot path is optimized
+- Safety comes first, optimization goes to a measured hot path alone
 
 ## [07]-[PERSISTENT_LISTS]
 
-Functional singly linked lists are defined recursively, and persistent means that earlier in-memory versions stay available after an update, not that anything reaches a disk:
+Functional singly linked lists are recursive, and persistent means earlier in-memory versions stay available after an update, with nothing written to disk:
 
 ```text
 List<T> = Empty | Cons(head: T, tail: List<T>)
@@ -106,7 +117,7 @@ internal static class Histories {
 }
 ```
 
-Prepends share the whole existing list, the shared tail cannot change and the original and every derived list coexist:
+Prepends share the whole existing list, and the immutable tail lets the original and every derived list coexist:
 
 ```text
 original:       A -> B -> C
@@ -118,10 +129,10 @@ Operation costs stay within the order of magnitude of the mutable structure:
 - Prepend is `O(1)` with one new node, and removing the head is `O(1)` by returning the tail
 - `Map`, `Filter`, and a full aggregation are `O(n)`
 - Inserting or removing at index `m` is `O(m)` traversal with `m` rebuilt prefix nodes
-- Indexed operations belong on `Lst<A>`, which supplies `Insert`, `RemoveAt`, and `SetItem` over a balanced tree
+- Indexed operations belong on `Lst<A>` with `Insert`, `RemoveAt`, and `SetItem` over a balanced tree
 - Repeated appends at the end fit poorly, a queue-like workload takes another structure
 
-When emptiness matters, the sequence is consumed through `Match`, and a recursive implementation can overflow the stack on a long list, a long history folds with `Fold`.
+When emptiness matters, consume the sequence through `Match`. Recursion can overflow the stack on a long list, and a long history folds with `Fold`.
 
 ## [08]-[PERSISTENT_TREES]
 
@@ -131,7 +142,7 @@ Binary trees are defined recursively, `Map<K, V>` implements the model, `Select`
 Tree<T> = Leaf(value: T) | Branch(left: Tree<T>, right: Tree<T>)
 ```
 
-`Add`, `Find`, and `SetItem` associate an entity identity with its current snapshot, and `Add` throws for a present key while `SetItem` throws for an absent one, both programming errors:
+`Add`, `Find`, and `SetItem` associate an entity identity with its current snapshot. `Add` throws for a present key and `SetItem` for an absent one, both programming errors:
 
 ```csharp
 internal static class Registry {
@@ -141,7 +152,7 @@ internal static class Registry {
 }
 ```
 
-`Add` rebuilds only the nodes from the root to the new key and shares every untouched subtree, which is structural sharing:
+`Add` rebuilds only nodes from the root to the new key and shares every untouched subtree as structural sharing:
 
 ```text
 old root                 new root
@@ -149,4 +160,4 @@ old root                 new root
 L      R         ->      L    rebuilt R
 ```
 
-In a balanced tree of `n` elements an insertion creates about `log n + 2` objects, the logarithm's base is the tree's arity, a higher-arity tree stays shallow for a large collection, and `Map<K, V>` balances itself on every `Add`, which keeps the rebuilt path within that bound. Immutable snapshots and persistent structures remove time-dependent behavior from data access, components share values without coordinating changes.
+Insertions into a balanced tree of `n` elements create about `log n + 2` objects with the tree's arity as logarithm base, and a higher-arity tree stays shallow for a large collection. `Map<K, V>` balances itself on every `Add` to keep the rebuilt path within the bound. Immutable snapshots and persistent structures remove time-dependent behavior from data access, and components share values without coordinating changes.

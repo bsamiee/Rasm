@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-function-returning-gen
+language: tsx
+severity: error
+utils:
+    gen-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M, matches: effect-effect-module}}, {has: {field: property, regex: '^gen$'}}]}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {nthChild: 2}}
+                    - has: {nthChild: 1, kind: generator_function, not: {has: {field: parameters, has: {pattern: $_}}}, has: {field: body, pattern: $GENBODY}}
+    gen-effect:
+        any:
+            - matches: gen-call
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: gen-call}}, {has: {field: property, regex: '^pipe$'}}]}
+                - has: {field: arguments, pattern: $STEPLIST}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-effect-module}}, {has: {field: property, regex: '^withSpan$'}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: gen-call}}
+    returned-gen:
+        any:
+            - matches: gen-effect
+            - kind: statement_block
+              all:
+                - not: {has: {nthChild: 2}}
+                - has: {kind: return_statement, has: {matches: gen-effect}}
+    named-arrow:
+        kind: arrow_function
+        all:
+            - not: {has: {regex: '^async$'}}
+            - has: {field: body, matches: returned-gen}
+            - any:
+                - inside: {kind: variable_declarator, field: value}
+                - inside: {kind: public_field_definition, field: value}
+                - inside: {kind: pair, field: value, inside: {kind: object, not: {inside: {kind: arguments}}}}
+    fixable-arrow:
+        matches: named-arrow
+        all:
+            - not: {has: {kind: comment, stopBy: end}}
+            - not: {has: {field: body, has: {stopBy: end, regex: '^withSpan$', kind: property_identifier}}}
+            - not: {has: {field: return_type, kind: type_annotation, not: {regex: '^:\s*\w+\.Effect<'}}}
+rule:
+    any:
+        - matches: fixable-arrow
+          pattern: $FIXABLE
+        - matches: named-arrow
+          not: {matches: fixable-arrow}
+          pattern: $KEPT
+        - kind: function_declaration, generator_function_declaration
+          has: {field: body, matches: returned-gen, not: {has: {kind: comment}}}
+          pattern: $KEPT
+rewriters:
+    - id: arrow
+      rule:
+        kind: arrow_function
+        all:
+            - has: {field: body, matches: returned-gen}
+            - any: [{has: {field: parameters, pattern: $PARAMS}}, {has: {field: parameter, pattern: $PARAM}}]
+            - any: [{has: {field: type_parameters, pattern: $TYPES}}, {not: {has: {field: type_parameters, kind: type_parameters}}}]
+            - any: [{has: {field: return_type, pattern: $RETURN}}, {not: {has: {field: return_type, kind: type_annotation}}}]
+      transform:
+        SINGLE: {replace: {source: $PARAM, replace: '^(.+)$', by: '($1)'}}
+        TYPED: {replace: {source: $RETURN, replace: '^:\s*(\w+)\.Effect<', by: ': $1.fn.Return<'}}
+        STEPS: {replace: {source: $STEPLIST, replace: '(?s)^\((.*?),?\s*\)$', by: ', $1'}}
+      fix: $M.fnUntraced(function* $TYPES$PARAMS$SINGLE$TYPED $GENBODY$STEPS)
+transform:
+    FIXED: rewrite($FIXABLE, rewriters=[arrow])
+fix: $FIXED$KEPT
+message: 'Function wraps `$M.gen` and rebuilds the effect at each call'
+note: '`Effect.fnUntraced(function* (<parameters>) { ... }, <steps>)` takes the arguments into one generator body with the pipe steps as transforms, and `Effect.fn(<name>)` replaces a trailing `Effect.withSpan(<name>)`'

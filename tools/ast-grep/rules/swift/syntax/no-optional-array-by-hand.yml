@@ -18,10 +18,6 @@ utils:
         all:
             - has: {kind: navigation_expression, all: [{has: {field: target, pattern: $X}}, {has: {field: suffix, regex: '^\.(map|flatMap)$'}}]}
             - has: {kind: call_suffix, not: {has: {kind: value_arguments}}, has: {kind: lambda_literal, pattern: $LAMBDA, matches: one-element}}
-    in-for-each:
-        inside:
-            kind: value_argument
-            inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^ForEach$'}}}}
 rule:
     any:
         - kind: nil_coalescing_expression
@@ -45,7 +41,6 @@ rule:
                 - pattern: 'if let $X { [$X] } else { [] }'
                 - all: [{pattern: 'if let $_ = $X { [$_] } else { [] }'}, {pattern: $IF}]
                 - all: [{pattern: 'if let $X { [$_] } else { [] }'}, {pattern: $IF}]
-    not: {matches: in-for-each}
 transform:
     MAP:
         replace:

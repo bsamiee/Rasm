@@ -28,4 +28,4 @@ rule:
     kind: match_statement
     has: {field: body, has: {matches: bool-tuple}}
 message: 'Match selects on a tuple of booleans'
-note: 'Select by an `if` chain over the tests, or by an enum member per reachable combination'
+note: 'Select with an `if` chain over the tests, or with an enum member per reachable combination, each case then names what it means'

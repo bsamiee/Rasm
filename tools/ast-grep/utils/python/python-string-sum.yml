@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-string-sum
+language: python
+rule:
+    kind: binary_operator
+    all:
+        - has: {field: operator, regex: '^\+$'}
+        - has: {field: right, kind: string}
+        - has: {field: left, any: [{kind: string}, {matches: python-string-sum}]}
+        - not: {has: {stopBy: end, kind: interpolation}}

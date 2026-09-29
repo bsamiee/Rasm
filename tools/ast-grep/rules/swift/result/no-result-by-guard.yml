@@ -27,18 +27,15 @@ utils:
                 - kind: ternary_expression
                 - has: {matches: effect, stopBy: {kind: lambda_literal}}
     plain:
-        not:
-            any:
-                - kind: ternary_expression
-                - matches: effect
-                - has: {matches: effect, stopBy: {kind: lambda_literal}}
+        matches: plain-value
+        not: {matches: effect}
     bool-guard:
         kind: guard_statement
         all:
             - not: {has: {regex: '^,$'}}
             - not: {has: {field: condition, kind: 'value_binding_pattern, availability_condition'}}
             - not: {has: {field: condition, regex: '^case$'}}
-            - has: {field: condition, pattern: $BOOL_COND, matches: plain-value, not: {matches: effect}}
+            - has: {field: condition, pattern: $BOOL_COND, matches: plain}
             - has:
                 matches:
                     swift-single-statement:
@@ -202,4 +199,4 @@ fix:
     template: '$RETURN$BOOL_PREFIX$BOOL_COND$BOOL_THEN$BOOL_VALUE$BOOL_OTHERWISE$BOOL_ELSE$TRY$AWAIT_OPEN$OPEN$OPT$CLOSE$MAP_OPEN$X$MAP_IN$VALUE$THROWING$MAP_CLOSE$SUCCESS$COALESCE$ELSE$BIND_OPEN$LIFTED$BIND_IN$AWAITED$BIND_CLOSE$IF_EXPRESSION'
     expandEnd: {kind: control_transfer_statement}
 message: '`guard` or `if` returns each case by statements where one expression selects the result'
-note: '`<condition> ? <value> : <else value>` over one plain condition, `<optional>.map { <value> in <expression> } ?? <else value>` over one optional binding, `(<optional>.map(Result.success) ?? .failure(<failure>)).bind { <value> in <awaiting expression> }` where that expression awaits, `if <conditions> { <value> } else { <else value> }` over every other condition list, and the `guard` stays where the moved expression would reach a fourth nesting level'
+note: '`<condition> ? <value> : <else value>` over one plain condition, `<optional>.map { <value> in <expression> } ?? <else value>` over one optional binding, `(<optional>.map(Result.success) ?? .failure(<failure>)).bind { <value> in <awaiting expression> }` where that expression awaits, `if <conditions> { <value> } else { <else value> }` over every other condition list, and the `guard` stays where the moved expression reaches a fourth nesting level'

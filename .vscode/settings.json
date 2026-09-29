@@ -11,8 +11,7 @@
         "**/.artifacts": true,
         "**/.cache": true,
         "**/.nx": true,
-        "**/.venv": true,
-        "**/dist": true
+        "**/.venv": true
     },
 
     // --- [FILE_NESTING] ----------------------------------------------------------------
@@ -46,7 +45,7 @@
     "csharp.suppressBuildAssetsNotification": true,
 
     // --- [JAVA] ------------------------------------------------------------------------
-    "java.jdt.ls.java.home": "/Users/bardiasamiee/.local/share/mise/installs/java/latest",
+    "java.jdt.ls.java.home": "~/.local/share/mise/installs/java/latest",
     "java.project.sourcePaths": [".claude/skills/use-ghidra/scripts"],
     "java.project.referencedLibraries": ["/opt/homebrew/opt/ghidra/libexec/Ghidra/**/lib/*.jar"],
     "java.format.settings.google.extra": "--aosp",

@@ -4,11 +4,26 @@ language: tsx
 severity: error
 rule:
     kind: lexical_declaration
-    has: {field: kind, regex: '^let$'}
+    any:
+        - all:
+            - has: {field: kind, regex: '^let$'}
+            - has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+        - all:
+            - has: {field: kind, regex: '^const$'}
+            - has:
+                kind: variable_declarator
+                all:
+                    - has: {field: name, pattern: $NAME}
+                    - has:
+                        field: value
+                        kind: new_expression
+                        all:
+                            - has: {field: 'constructor', regex: '^(Map|Set|WeakMap|WeakSet)$', matches: syntax-global-reference}
+                            - not: {has: {field: arguments, has: {pattern: $_}}}
     inside:
         any:
             - kind: program
             - kind: export_statement
               inside: {kind: program}
-message: 'Module-level `let` shares mutable state across the module'
-note: 'Pass changing state as a returned value, `Ref` holds state shared across fibers'
+message: 'Module-level `$NAME` holds mutable state every function in the module shares'
+note: 'Pass changing state to the next operation as a returned value, or hold shared state in a `Ref` across fibers and in a `$.state` atom across function hook reloads'

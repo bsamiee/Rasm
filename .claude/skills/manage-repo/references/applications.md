@@ -1,19 +1,18 @@
 # [APPLICATIONS]
 
-Hosts apply one declared role language (palette, selection, lines, units) to each desktop application through its own stores, from declared rows.
+Hosts apply declared rows to each desktop application through its own stores.
 
 ## [01]-[ARCHIVE]
 
-Interface folder holds one `.archive/` with the knowledge of every application:
+One `.archive/` in the interface folder holds knowledge of every application:
 - `facts/` holds one text file per topic, each fact with its evidence, and `facts/index.txt` names each file's topic
 - `decompiled/` holds managed assemblies and native binaries as source, `inventories/` store dumps and factory baselines
-- `color/` holds color specimens and runnable map generators
+- `color/` holds seed provenance and generator rule of every hue family
 - Evidence is the application's own: source file and line at installed tag, decompiled path, dated documentation URL, or live read and result
 - Session, agent, decision, and task ids, transcript and temporary paths, work dates, interface code references, reports, plans, and notes stay out
 - Work reads `facts/index.txt`, then each facts file on its topic
 - Archived facts are used as written, a missing fact is read from the application before any row uses it
 - New facts join the facts file that owns their topic, and a fact found wrong is corrected in place
-- Facts of one application (a member, key, preference, path, or defect) sit in the archive or its `use-*` skill, the standard holds shared rules
 
 ## [02]-[STORES]
 
@@ -34,7 +33,7 @@ Every setting is written through its owning store and API:
 - Steps write a setting before the settings it constrains, an excluded value resets with no error
 - Settings that raise a dialog in a run, at close, or at quit (clipboard, file lock, missing font, save prompt) take the suppressing value
 - Update checks, repository sync at startup, and telemetry take their off value, license and server settings take no row
-- Promotional, AI, tip, and suggestion surfaces take their off value wherever a store reaches them
+- Promotional, AI, tip, and suggestion features take their off value wherever a store reaches them
 - Settings a platform mechanism replaces (an autosave timer under system document versions) take no row
 - Styles an application keeps per project or per object (a layer's plot weight, a note layer's thickness) take no row
 - Members with no reader in the installed source take no row
@@ -44,17 +43,18 @@ Every setting is written through its owning store and API:
 - Published libraries join as their publisher's remote library, fetched on use, and applies build only assets the interface authors
 - One-time cleanups (a stale add-on record, stored panel state, a run leftover) run once with the application quit and leave no row
 - Scripted runs turn preference auto-save at quit off and save once at their end, auto-save persists a failed run's partial writes
-- Embedded interpreters keep imported modules between runs, and each run evicts the shared modules and writes no bytecode
+- Embedded interpreters keep imported modules between runs, and each run evicts the shared modules and writes bytecode under the host's cache prefix
 
 [PROCESS]: Hosts launch, wait on, and quit each application through the operating system:
-- Hosts find an application by bundle id or by a configured executable matched inside its bundle, background instances excluded
+- Hosts take an application's bundle from its `mise.toml` `[env]` path row, else from its bundle ids through Spotlight
 - Launches take no focus (`open -g`, an application's no-focus flag), a focused new window takes the user's keystrokes
 - Runs act through the application's API and post no OS pointer or key event, activation, or window raise to the user's session
 - Launches open straight into a document with no splash or start window, a start window holds no document for a run to act on
 - Readiness comes from an event the application sends back, and a run that quits its application ends at process exit
 - Quit events return before the process exits, and their effect is read from process exit alone
-- Hosts own every application they drive, and close documents, quit, and relaunch it whenever a run needs
-- Runs launch each application once to write, then reopen one that ran at discovery on the files edited after its quit
+- Hosts release untitled documents and quit every running instance before a run, a titled document with unsaved edits fails the run
+- Runs launch each application once to write
+- Hosts reopen files open at discovery when a run ends, cancellation included
 - Processes alive at the deadline after a quit are terminated
 - Runs leave no residue in the application (autosave, history line, temporary document, run file)
 
@@ -83,25 +83,22 @@ Facts come from the application's source, decompile, documentation, stores, or p
 - Colors, widths, and sizes come from row and column profiles of a 1:1 capture, its bytes read through one tool every time under its ICC profile
 - Comparisons read drawn values against their roles and against their counterpart in the other applications
 - Line and fill visibility is judged by L* difference on the drawn ground, contrast ratios are recorded
-- Doubts are settled by a live read, a doubt left as a note is a defect
+- Live reads resolve doubts, a doubt left as a note is a defect
 
 ## [04]-[FILES]
 
 One folder holds every application's interface, one module per concept, and no file holds one type or one value:
-- Hosts derive the application set from subfolders, and each application folder holds one apply entry for its host with private stages
-- Shared facts (color roles, typography, layout sizes, units, pens, render parity, site) sit once in root modules in-application runtimes import
+- Shared facts sit once in root modules in-application code imports
 - Values join a shared module only when every application reads an equivalent member, a value one application reads stays in its application
 - Runtimes that cannot import shared modules take their values from the host as arguments, colors as 0-255 channels
 - In-application code imports the standard library, its application's API, and bundled packages, and parses at its interpreter's version
 - Tables and values derive from the application's API (property metadata, enums, public defaults, bundled files) wherever it supplies a fact
 - Built-ins and maintained add-ons that hold a behavior replace own code
-- Declared files take the format and extension their application reads and writes (alias export, display-mode file, skin, rule set, manifest)
+- Declared files take the format and extension their application reads and writes (alias export, skin, rule set, manifest)
 - Declared files exist where the application reads a file or where one replaces an inline table
 - Files state a key only when it takes effect and differs from the value its omission imports, identity keys (a mode id, a parent) stay declared
 - Rendered and compared files keep the application's encoding, markers, and number spelling, a reformatted value compares unequal
-- Color roles render into a temporary copy at apply time, the committed file holds no color literal
-- Imports take a fresh path (delete, then import) when the live export differs from its rendered file, a second run imports nothing
-- Keys a re-import or relaunch drops take a load path that holds them
+- Declared files name color roles as placeholders an apply renders, the committed file holds no color literal
 - Elements in layout and toolbar files resolve by id and owning file, a name or position match breaks across files
 - Manifests hold required keys and optional keys a consumer reads, code reads the extension id from its manifest
 - Extensions reach their application as the package its own build writes, installed on difference
@@ -112,7 +109,9 @@ One folder holds every application's interface, one module per concept, and no f
 - Hosts create the folders they write
 - Prerequisites no run creates sit once in the setup reference of each application's driving skill
 - Decisions sit in code as values and names it acts on, evidence sits in the archive, and no comment, note, or memory file restates either
-- Captures, logs, reports, built packages, and run output go under `.artifacts/`
+- Staged packages go under `.cache/<app>/`, run outputs (captures, logs, reports, built packages) under `.artifacts/<app>/`
+- Unsaved work renders into `.artifacts/<app>/renders/`, the application's default output folder
+- Saved projects render beside themselves through the application's relative path form
 
 ## [05]-[LAYOUT]
 
@@ -120,9 +119,10 @@ Every application takes one frame, one size scale, and one place per role:
 - Layouts are written through the application's own layout model (workspace, dock, region, and toolbar files or APIs) in its units
 - Each application expresses a role through its own constructs and names, a mode, view, or panel named after another application's construct goes
 - Workspaces take one set of task names and one order in every application
+- Applications holding one workspace keep its stock name
 - Workspaces exist for a distinct task, workspaces that differ by one strip merge
 - Workspaces inside one application share one frame, where each editor keeps one region, size, and order
-- Frames hold a full-height left column of sources and browsers, main editors in the center, and a full-height right column
+- Frames hold a full-height left column (tools, code, console), main editors in the center over lower editors, and a full-height right column
 - Right columns hold selection properties on top and document tree at the bottom
 - Docked strips span the region they serve, a strip running under a side column cuts it short
 - Command prompts and histories keep their application's dock and size, a history editor a workspace places fills a whole column
@@ -141,7 +141,7 @@ Every application takes one frame, one size scale, and one place per role:
 - Stock panels keep the application's order, an add-on's reordering is undone
 - Add-on panels open collapsed with their header shown and keep their add-on's identity
 - Workspaces show every enabled add-on except one that only other workspaces place
-- Asset panels hold one asset kind each, docked in the editor whose task takes that kind
+- Asset panels hold one asset kind each, docked in the editor with a task that takes the kind
 
 [SIZES]: Every region, strip, flyout, popover, floating panel, and dialog a user can open is sized for its content and opens at its declared size:
 - Interface scale is the smallest that keeps text legible and lines one device pixel wide
@@ -178,20 +178,19 @@ Navigation and bindings follow one rule in every application, mouse and trackpad
 - One suffix key draws a family's single-key command vertical to the construction plane
 - Named series take mnemonic suffixes (length, area, volume), opposite actions take adjacent keys (hide and show)
 - Macros join their extended command's family, scripts stay out of key families
-- Families whose single-key command matches a stock key's command (rotate) keep the stock key
+- Families with a single-key command matching a stock key's command (rotate) keep the stock key
 - Applications without a command line take a leader key that keeps every stock key
 - Leader prompts list family names in the status bar, then aliases matching a typed prefix, each grayed outside its acting state
 - Enter or Space runs a typed alias, the last alias on an empty prompt
 - Alias rows resolve commands registered when the leader opens
-- Each application binds alias keys to its own commands
 
-[ALIASES]: Aliases come from the root alias module, an alias outside it goes:
+[ALIASES]: Each application binds the shared alias keys to its own commands:
+- One writer replaces each alias table whole
 - Macros take the application's dialog-free, locale-independent command form
 - Commands and option forms come from the application's command list
 - Macros that pause for a pick block the scripting server that sent them
 - New alias names follow the family rule and collide with no command name, factory alias, or existing alias
 - User rows win over a factory alias they collide with
-- Tables use their application's alias export format and converge the whole set through one writer that replaces it
 - Shortcuts write one key at a time through their owner, a whole-table rewrite drops bindings the reader omits
 
 ## [07]-[COLOR]
@@ -202,7 +201,7 @@ One role module computes one palette of named hue families and a neutral scale o
 - Neutrals are pure grays at the chrome bytes applications fix, and every application's chrome takes neutral steps
 - Elements without a meaning take the neutral scale, any hue on screen marks a meaning
 - Hue separation is measured in normal vision alone, color-deficiency separation is recorded
-- Surfaces are flat, gradients, gloss, embossing, drop shadows, and zebra rows go wherever a setting removes them
+- Fills are flat, gradients, gloss, embossing, drop shadows, and zebra rows go wherever a setting removes them
 - Chrome shows no operating-system tint, an application-scoped setting removes it
 - Icons take the modality color of their category wherever a store reaches them, other monochrome icons their label's color
 - Multicolor icons draw gray at rest and in color on hover wherever a setting desaturates them
@@ -211,16 +210,16 @@ One role module computes one palette of named hue families and a neutral scale o
 [ROLES]: Roles name meanings by category, then role, then state:
 - Each role names one primitive once and holds it on every ground, and roles sharing a step each name it
 - Settings take the role their meaning names, read from each member's draw path in source, and a row sorts by where it draws
-- Meanings no role names add a role at the palette step for their use, a glance apart from ground and neighbors
+- Meanings no role names add a role at the palette step for their use, one step or more from ground and neighbors
 - Document ink (layer, print, and new-layer colors) is black, screen ink (display members outside black-to-white switching) white
 - Roles, alphas, and faces are literals over palette steps, ink raw bytes that paper and shadow take
 - New applications map every color member of their theme, skin, and settings stores, members no reader draws take their matching sibling's role
 
 [DEPTH]: Regions separate by lightness alone, darker reading farther back:
-- Depth runs frame, well, panel, box, field, with canvases on the well step below every body drawn on them
+- Depth runs recess, frame, well, panel, box, field, with canvases on the well step below every body drawn on them
 - Lists, trees, tables, consoles, history, and code sit in a well below their panel, headers and grouped boxes above it
 - Bodies holding controls take the panel step
-- Surfaces meeting without a line sit a glance apart, closer steps meet at a header, a divider, or a straight edge
+- Regions meeting without a line differ by 8 L* or more, closer steps meet at a header, a divider, or a straight edge
 - Dividers between editors and containers are gaps on the frame step, pop-ups and menus sit on it inside a border edge
 - Canvases draw screen ink with black-to-white switching on, layout sheets draw document ink on light paper
 
@@ -228,7 +227,7 @@ One role module computes one palette of named hue families and a neutral scale o
 - Hover lifts a fill one step on its own scale and a tab one step above its strip, a neutral hover stays apart from every accent fill by hue
 - Editable, clickable, and read-only separate by edge and fill: entries a fill with a border, buttons a fill flush with their edge, read-only no fill
 - Control edges stay flush with their fill in every state, an edge the application derives from other members is solved to draw flush
-- Field value states (animated, keyed, driven, overridden, changed) replace the rest fill, a glance apart where they share an editor
+- Field value states (animated, keyed, driven, overridden, changed) replace the rest fill, 2 steps apart in one family where they share an editor
 - Disabled drops its fill and lowers its label to the disabled step
 - Disabled canvas bodies keep their fill under a veil of their own ground at an alpha that puts their label on the disabled step
 
@@ -236,7 +235,7 @@ One role module computes one palette of named hue families and a neutral scale o
 - One accent family holds rows, tabs, pressed and checked controls, indicators, links, and focus, and no accent step draws on a canvas
 - Accent steps rise with state order: animated fields, selected rows, active tabs and keyed fields, active rows and pressed controls, indicators
 - Focus and checked boxes take the solid step, selected names and carets one step above it
-- Canvas selection (geometry, nodes, wires, keys) and its gizmos take the teal family, a glance apart from the accent and every stock selection color
+- Canvas selection (geometry, nodes, wires, keys) and its gizmos take teal, 0.08 or more apart in OKLab from every stock selection color
 - Canvas selection reads by chroma under screen ink: bodies step 6, inactive items 8, items 9, the active and hovered item 11
 - Selection on geometry stops at step 11, its step 12 draws only as a gizmo's hover and the active node's border
 - Node borders outrank their body in lightness: neutral 11 at rest, selection 11 when selected
@@ -258,7 +257,7 @@ One role module computes one palette of named hue families and a neutral scale o
 - Axis triads, errors, warnings, and success take their own hues
 - Edit marks take step 11 of their hue
 - Gold, brown, olive, sand, and muddy mixed hues stay out, dark steps of a warm family included
-- Accepted hues stay a glance apart from accent, selection, and each other
+- Accepted hue families sit 0.08 or more apart in OKLab at their solid step, the accent and selection families included
 - Text contrast is a legibility floor, text and ground above it keep their palette steps
 
 [MESSAGES]: One color per severity (error, warning, info, success) in every application:
@@ -274,7 +273,7 @@ One role module computes one palette of named hue families and a neutral scale o
 
 [TAGS]: Tags are the one categorical set a user assigns:
 - Slots keep the order applications number them in, each slot one solid, and a tagged item selected or active takes canvas selection steps
-- Slots stay a glance apart from each other and the accent, selection, axis, error, construction, tracking, preview, and datum grid hues
+- Slots sit 0.08 or more apart in OKLab from each other and the accent, selection, axis, error, construction, tracking, preview, and datum grid hues
 - Every color slot an application stores takes a tag, the neutral tag, or document ink
 - Layer color pickers offer document ink, then the tag set
 
@@ -336,7 +335,7 @@ Sheets print cut lines 0.35 mm, projection, annotation, center, and grid lines 0
 - Points draw one width in every application, each dot member solved from its own draw formula for the shared width
 - Display modes pass role bytes unconverted, the render path owns tone mapping, gamma, and texture linearization
 - Modeling modes draw shaded surfaces with edges, silhouettes, and object transparency, wireframe is a mode the user picks
-- Modeling modes override assigned materials with a neutral shaded surface under the head lamp, without shadows, cavity, or specular highlight
+- Modeling modes override assigned materials with a neutral shaded surface under a headlight, without shadows, cavity, or specular highlight
 - Rows set a drawing store's selecting usage flag first, then every color its store keeps takes its role, routed or not
 - Modes drawn on paper route every line to fixed document ink where black-to-white switching follows the application canvas
 - Per-object line widths stay honored, a pixel override that flattens them goes
@@ -363,7 +362,7 @@ Templates and startup documents hold the declared tables, views, units, and star
 - Startup documents hold no object every task deletes, no add-on log or secret, and add-on keys for unit rows alone
 - Templates and startup documents start every project with declared layers in the application's own layer construct beside its default container
 - Declared layers keep their order and tag slot, object kinds routed to a layer reach it through the application's default target setting
-- New objects land in the container an application creates under its own name
+- New objects go in the container an application creates under its own name
 - Saved states (views, visibility sets, work planes, positions, snapshots) belong to the project document
 - Organization names are domain terms interchange keeps, one per level and the same in every application
 - Definitions from another file insert embedded by default, a link is chosen per insert
@@ -372,11 +371,11 @@ Templates and startup documents hold the declared tables, views, units, and star
 ## [10]-[RENDER]
 
 Render, sun, location, and materials serve one output, and each application holds the settings that output needs from it:
-- Render parity members (frame size, sample limit, noise threshold, pixel density, caustics) hold one value in every application
-- Photometric parity comes from one calibration render of one scene per application
+- Render settings (frame size, sample limit, noise threshold, pixel density, caustics) hold one value in every application
+- Photometric values (exposure, sun irradiance, sky radiance) come from one calibration render of one scene per application
 - Location and moment come from a cited survey record and a fixed clock time, the machine's location and clock stay unread
 - Sun stores take the standard offset and a daylight flag, and north conventions convert per application to one sun vector
-- Add-on fields whose update callbacks rewrite related fields are written as raw items, a callback chain overwrites the declared values
+- Add-on fields with update callbacks that rewrite related fields are written as raw items, a callback chain overwrites the declared values
 - Materials use the metallic-roughness model every application shares, built through each material editor's typed content path
 - Data textures read without color conversion, color textures with display encoding, set where their material is built
 - Normal maps share one convention across applications
@@ -390,7 +389,7 @@ Render, sun, location, and materials serve one output, and each application hold
 Extensions stay by daily use and key on stable ids:
 - Dropped plug-ins and add-ons are uninstalled with their files and user data, a dropped core add-on is disabled
 - Plug-ins and add-ons load on demand, at startup only when a startup task uses them
-- Add-ons whose import starts a GUI toolkit register a background instance as the running application, they load on demand or go
+- Add-ons that start a GUI toolkit on import register a background instance as the running application, they load on demand or go
 - Staged archives take third-party add-on fixes and role colors before packing, each an exact replacement of text its file holds once
 - Rows for an optional plug-in or add-on key on its manifest id or registered name and run while enabled, a download folder name keys no row
 - Packages install on a difference of version or files, a build that reuses one version string differs by files alone

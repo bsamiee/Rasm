@@ -63,7 +63,7 @@ Snapshot and tool results decide over a page description in the prompt.
 - Saved plan holds one `**Seed:**` line per plan suite, the generator reads it as the seed of every scenario in that suite
 - Scenarios assume a fresh state and run in any order, a scenario that depends on another's outcome is two scenarios
 - Snapshot holds every role, name, and state a step names, a screenshot serves a visual fact alone
-- Page with no interactive element is a valid result reported with the snapshot that proved it, an output the run never saw is no evidence
+- Page with no interactive element is a valid result reported with the snapshot that showed it, an output the run never saw is no evidence
 
 </decision>
 

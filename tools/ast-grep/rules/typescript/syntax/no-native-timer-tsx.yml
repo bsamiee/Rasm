@@ -40,4 +40,4 @@ rule:
                             source: {regex: '^(node:)?timers/promises$'}
                             exported: {regex: '^scheduler$'}
 message: '`$NAME` schedules on the host timer outside the effect runtime'
-note: '`Effect.sleep` replaces a timeout, `Effect.repeat` with a `Schedule` an interval, `Effect.yieldNow` a microtask, interruption a clear call'
+note: '`Effect.sleep`, `Effect.repeat` with a `Schedule`, or `Effect.yieldNow` schedules inside the runtime, and interruption replaces each clear call'

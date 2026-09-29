@@ -29,7 +29,7 @@ utils:
                     not:
                         kind: pair
                         all:
-                            - has: {field: key, kind: 'property_identifier, string, number'}
+                            - has: {field: key, any: [{kind: 'property_identifier, string, number'}, {kind: computed_property_name, has: {kind: string}}]}
                             - has: {field: value, matches: literal}
             - kind: as_expression, satisfies_expression, parenthesized_expression
               has: {nthChild: 1, matches: literal}
@@ -58,7 +58,7 @@ utils:
     constant-reader:
         kind: variable_declarator
         all:
-            - inside: {kind: lexical_declaration, any: [{inside: {kind: program}}, {inside: {kind: export_statement, inside: {kind: program}}}]}
+            - inside: {matches: syntax-module-constant}
             - has: {field: name, kind: identifier, pattern: $HOLDER}
             - has: {field: value, has: {stopBy: end, matches: reference}}
     holds-reference:
@@ -103,4 +103,4 @@ rule:
                     - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, matches: constant-reader}}}}
                     - not: {has: {stopBy: end, matches: later-reference}}
 message: 'Module-level constant `$NAME` has one reader'
-note: 'Bind the value inside its one reader, as a local where its name states a fact and at the use site otherwise, and drop the module-level name'
+note: 'Bind the value inside its one reader, as a named local where the name states a fact and inline otherwise, module level holds entry points and the types they return'

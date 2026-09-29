@@ -24,4 +24,4 @@ constraints:
     E: {kind: identifier, regex: '^_?[A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*$'}
     KEY: {regex: '^(value|name)$'}
 message: '`$SCAN` scans the members of `$E` for one member'
-note: 'Look the member up by value through `<enum>(<value>)` or by name through `<enum>[<name>]`, and test a value first with `<value> in <enum>`'
+note: 'Look the member up by value with `<enum>(<value>)` or by name with `<enum>[<name>]`, and test a value first with `<value> in <enum>`, an enum owns its value and name lookups'

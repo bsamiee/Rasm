@@ -64,4 +64,4 @@ transform:
     OUT: rewrite($M, rewriters=[sole-argument, iterator, list, set])
 fix: $OUT
 message: '`$M` keeps the truthy elements of `$ITER` by hand'
-note: '`filter(None, <iterable>)` narrows `<T> | None` elements to `<T>`, `list(...)` or `set(...)` wraps it in place of a list or set comprehension'
+note: 'Use `filter(None, <iterable>)`, inside `list(...)` or `set(...)` in place of a list or set comprehension, `filter` owns the truth test the comprehension spells with a loop name'

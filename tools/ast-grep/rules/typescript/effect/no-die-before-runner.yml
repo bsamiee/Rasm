@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-die-before-runner
+language: tsx
+severity: error
+utils:
+    die-step:
+        any:
+            - matches: effect-effect-member
+              has: {field: property, regex: '^orDie$'}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^catch$'}}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {nthChild: 2}}
+                        - has:
+                            nthChild: 1
+                            any:
+                                - matches: effect-effect-member
+                                  has: {field: property, regex: '^die$'}
+                                - kind: arrow_function
+                                  all:
+                                    - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $E}}}
+                                    - has: {field: body, pattern: $_.die($E)}
+    context-step:
+        kind: call_expression
+        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(provide|provideService|provideServiceEffect|provideContext)$'}}
+    runner-step:
+        any:
+            - matches: effect-effect-member
+              has: {field: property, regex: '^(runPromise|runSync)$'}
+            - kind: call_expression
+              has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(runPromiseWith|runSyncWith)$'}}
+rule:
+    matches: die-step
+    pattern: $DIE
+    inside: {kind: arguments}
+    precedes:
+        stopBy: {not: {any: [{matches: context-step}, {regex: '^,$'}]}}
+        matches: runner-step
+        pattern: $RUN
+fix:
+    template: ''
+    expandEnd: {regex: '^,$'}
+message: '`$DIE` turns the failure into a defect that `$RUN` squashes to the same thrown value'
+note: 'Delete the step, `Effect.runPromise` and `Effect.runSync` accept any error type and throw the first failure or the first defect of the cause alike'

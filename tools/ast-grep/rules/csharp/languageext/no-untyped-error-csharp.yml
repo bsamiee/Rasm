@@ -124,4 +124,4 @@ rule:
                             kind: invocation_expression
                             has: {field: function, regex: '(^|\.)MapFail$'}
 message: '`$CALLEE` builds an error from text with no type of its own'
-note: Use a `sealed record` extending `Expected` with its message and a package code
+note: Use a `sealed record` extending `Expected` with its message and a package code, consumers match its type in place of text

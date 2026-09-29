@@ -1,10 +1,10 @@
 # [EXECUTION_PERFORMANCE]
 
-Target execution, project scheduling, and task cost in build duration. Every finding is a delta between captures taken under the same conditions.
+Covers target execution, project scheduling, and task cost in build duration. Findings are deltas between captures taken under one set of conditions.
 
 ## [01]-[COMPARABLE_CAPTURES]
 
-Change the input or setting under measurement alone. Hold the command, properties, node count, node reuse, restore state, and build server state constant across both captures, keep binary logging on for both, the logger has its own cost.
+Change the input or setting under measurement alone. Hold command, properties, node count, node reuse, restore state, and build server state constant across both captures. Binary logging has its own cost and stays on for both.
 
 | [INDEX] | [CAPTURE]     | [COMMANDS]                                                                   | [MEASURES]                               |
 | :-----: | :------------ | :--------------------------------------------------------------------------- | :--------------------------------------- |
@@ -15,15 +15,15 @@ Change the input or setting under measurement alone. Hold the command, propertie
 
 - `dotnet build-server shutdown` stops the MSBuild and compiler servers before a capture, `--disable-build-servers` keeps them out of one capture
 - `-nr:false` stops node reuse, the next capture starts its worker nodes again
-- Record the chosen state of each with the capture, a warm server and reused nodes remove process startup from the measured duration
-- Restore and capture both under `--artifacts-path <dir>`, a build another session runs into the shared `ArtifactsPath` changes the measured work
+- Record server and node state with the capture, a warm server and reused nodes remove process startup from measured duration
+- When another session builds into the shared `ArtifactsPath`, restore and capture both under `--artifacts-path <dir>`
 - `binlog_compare` shows property and package drift between captures
 - Compare the build against its own captures
 
 ## [02]-[BINLOG_DIAGNOSIS]
 
 1. Run `binlog_build_graph` for project dependencies, durations, and the critical path
-2. Run `binlog_project_target_times` on each project in that path
+2. Run `binlog_project_target_times` on each critical-path project
 3. Run `binlog_tasks_in_target` on each slow target
 4. Run `binlog_task_details` when task parameters or messages explain the cost
 
@@ -35,9 +35,8 @@ Critical path is the duration-weighted chain of project dependencies setting min
 
 - `dotnet build` passes `-maxcpucount`, the `MSBuildNodeCount` property in the binlog records the node count
 - Each node builds one project at a time, targets inside a project run one after another
-- `ResolveProjectReferences` and `_GetProjectReferenceTargetFrameworkProperties` include the referenced builds in their inclusive duration
-- Exclusive duration of those targets is the project's own cost
-- `-clp:PerformanceSummary` prints target and task totals on the console, `-ds` prints how projects were scheduled to nodes
+- `ResolveProjectReferences` and `_GetProjectReferenceTargetFrameworkProperties` include referenced builds in their inclusive duration, their exclusive duration is the project's own cost
+- `-clp:PerformanceSummary` prints target and task totals on the console, `-ds` prints project scheduling per node
 
 ## [04]-[PROJECT_GRAPH]
 
@@ -52,14 +51,14 @@ After each graph change, capture the same build again and run `binlog_build_grap
 
 ## [05]-[STATIC_GRAPH]
 
-`-graph` builds the project graph from declared references before execution and schedules referenced projects before their consumers. `-isolate` enforces the graph and is the one mode that reports `MSB4252`, a clean `-graph` build without it proves nothing about missing edges.
+`-graph` builds the project graph from declared references before execution and schedules referenced projects before their consumers. `-isolate` enforces the graph and is the one mode that reports `MSB4252`, a clean `-graph` build without it leaves missing edges unreported.
 
 ```bash
 dotnet restore Solution.slnx
 dotnet build Solution.slnx --no-restore -graph -isolate -bl:<dir>/graph-{}.binlog
 ```
 
-- `dotnet restore` runs first, restore breaks isolation under `--no-restore -graph -isolate`
+- `dotnet restore` runs as its own command, restore inside a `-graph -isolate` build breaks isolation
 - `<MSBuild Projects="...">` calls add no graph edge, `ProjectReference` or a `ProjectReferenceTargets` entry declares it
 - `MSB4252` names the calling project, the called project, and both global-property sets, the difference between the sets is the undeclared instance
 - `GraphIsolationExemptReference` with the full path of a project exempts one reference from the isolation check
@@ -78,7 +77,7 @@ dotnet build Solution.slnx --no-restore -graph -isolate -bl:<dir>/graph-{}.binlo
 
 ## [07]-[MULTITHREADED_MODE]
 
-`-mt` builds projects on threads inside one MSBuild process in place of worker processes, `-maxCpuCount` sets the thread count. The switch is experimental and unsupported, for measurement.
+`-mt` builds projects on threads inside one MSBuild process in place of worker processes, `-maxCpuCount` sets thread count. `-mt` is experimental and unsupported, for measurement.
 
 ## [08]-[RESOLVE_ASSEMBLY_REFERENCE]
 
@@ -91,7 +90,7 @@ When `binlog_expensive_tasks` shows `ResolveAssemblyReference` cost:
 
 ## [09]-[COMPILER_AND_ANALYZERS]
 
-`Csc` includes analyzer and source generator work. The SDK sends every compilation to the compiler server, `UseSharedCompilation=false` runs `csc` as a process per project, the `CompilerServer:` message under the `Csc` task records `server processed compilation` or `using command line tool by design`.
+`Csc` includes analyzer and source generator work. SDK builds send every compilation to the compiler server, and `UseSharedCompilation=false` runs `csc` as a process per project. `CompilerServer:` messages under the `Csc` task record `server processed compilation` or `using command line tool by design`.
 
 ```bash
 dotnet build Solution.slnx -t:Rebuild -p:ReportAnalyzer=true -bl:<dir>/analyzers-{}.binlog
@@ -108,11 +107,11 @@ When `binlog_expensive_tasks` shows `Copy` cost:
 1. Run `binlog_task_details` with `task_name=Copy` for the slow target
 2. Read `SourceFiles`, `DestinationFiles`, and `DestinationFolder`
 
-Then the fix the evidence selects:
+Evidence selects the fix:
 - Combine independent files in one `Copy` task
-- `SkipUnchangedFiles="true"` when a size and timestamp comparison is valid for the files
+- Set `SkipUnchangedFiles="true"` when a size and timestamp comparison is valid for the files
 - Remove a copy when nothing downstream reads the destination file
 
 ## [11]-[RESTORE]
 
-Run `binlog_nuget` when restore contributes to the measured build, read its duration, sources, and package count. The build-only capture separates restore from execution without reducing the combined duration.
+When restore contributes to the measured build, run `binlog_nuget` and read its duration, sources, and package count. Build-only captures separate restore from execution without reducing combined duration.

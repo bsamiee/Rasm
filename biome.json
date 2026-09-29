@@ -3,9 +3,9 @@
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
     "files": {
         "ignoreUnknown": true,
-        "includes": ["**", "!**/*.xcassets", "!**/*.icon", "!.claude/types/claude-code.d.ts", "!tools/interface/adobe/*.jsx"]
+        "includes": ["**", "!**/*.xcassets", "!**/*.icon", "!.claude/types/claude-code.d.ts", "!tools/interface/adobe/script/*.jsx"]
     },
-    "formatter": { "indentStyle": "space", "indentWidth": 4, "lineWidth": 200 },
+    "formatter": { "useEditorconfig": true, "lineWidth": 200 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
     "json": { "formatter": { "expand": "auto" } },
     "assist": { "actions": { "source": { "useSortedAttributes": "on", "useSortedPackageJson": "on", "useSortedProperties": "on" } } },
@@ -93,15 +93,6 @@
             "includes": [".claude/plugins/**"],
             "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } }
         },
-        {
-            "includes": ["infra/program.ts"],
-            "linter": {
-                "rules": {
-                    "style": {
-                        "useNamingConvention": { "level": "error", "options": { "conventions": [{ "selector": { "kind": "objectLiteralProperty" }, "formats": ["camelCase", "snake_case"] }] } }
-                    }
-                }
-            }
-        }
+        { "includes": ["infra/cli.ts"], "linter": { "rules": { "correctness": { "noNodejsModules": "off" } } } }
     ]
 }

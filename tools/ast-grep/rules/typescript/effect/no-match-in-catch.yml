@@ -56,4 +56,4 @@ rule:
             nthChild: {position: 1, reverse: true}
             has: {stopBy: {matches: syntax-function-boundary}, matches: selection}
 message: '`$HANDLER` selects the failure by hand inside its callback'
-note: '`Effect.catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` selects the failure by `_tag` or predicate ahead of the callback'
+note: '`Effect.catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` selects the failure by `_tag` or predicate before the callback runs'

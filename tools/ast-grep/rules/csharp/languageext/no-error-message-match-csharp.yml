@@ -161,4 +161,4 @@ rule:
                 - matches: element-error
                 - matches: {csharp-error-owner: {name: {pattern: $ERROR}, type: {regex: '^((global::)?(LanguageExt\.Common\.)?Error|((global::)?[\w.]+\.)?\w*Exception)$'}}}
 message: Error or exception `$ERROR` is classified by its message text
-note: Use `HasCode`, `IsType<E>`, `Is`, `HasException<E>`, or an exception type pattern
+note: Use `HasCode`, `IsType<E>`, `Is`, `HasException<E>`, or an exception type pattern, message text couples the branch to prose

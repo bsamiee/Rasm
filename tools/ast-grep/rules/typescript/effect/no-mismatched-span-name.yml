@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mismatched-span-name
+language: tsx
+severity: error
+utils:
+    span-name:
+        kind: call_expression
+        all:
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: '^fn$'}
+                    - has: {field: object, matches: effect-effect-module}
+            - has: {field: arguments, has: {nthChild: 1, kind: string, pattern: $SPAN}}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, matches: span-name}
+        - any:
+            - inside: {kind: variable_declarator, field: value, has: {field: name, kind: identifier, pattern: $NAME}}
+            - inside: {kind: public_field_definition, field: value, has: {field: name, kind: property_identifier, pattern: $NAME}}
+            - inside: {kind: pair, field: value, has: {field: key, kind: property_identifier, pattern: $NAME}}
+        - not: {has: {field: function, has: {field: arguments, has: {kind: string, has: {kind: string_fragment, pattern: $NAME}}}}}
+message: '`Effect.fn($SPAN)` names the span of `$NAME` with another name'
+note: 'Name the span after the binding, `const <name> = Effect.fn(''<name>'')(...)`, traces and stack frames then identify the function'

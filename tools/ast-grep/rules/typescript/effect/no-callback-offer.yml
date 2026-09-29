@@ -29,7 +29,7 @@ utils:
                     field: function
                     kind: member_expression
                     all:
-                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+                        - has: {field: object, matches: effect-effect-module}
                         - has: {field: property, regex: '^(runFork|runSync|runPromise|runCallback)$'}
                 - has: {field: arguments, has: {nthChild: 1, matches: queue-offer}}
 rule:
@@ -46,4 +46,4 @@ rule:
                     matches: syntax-function-boundary
                     has: {stopBy: end, matches: offer-call}
 message: 'Callback feeds `$QUEUE` outside the effect that built it'
-note: '`Stream.callback((queue) => register((value) => Queue.offerUnsafe(queue, value)))` owns the queue, the register effect runs under the stream''s `Scope`'
+note: '`Stream.callback((queue) => <registration>)` builds the queue and runs the registration under the stream `Scope`, its release covers both'

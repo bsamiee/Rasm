@@ -7,5 +7,5 @@ rule:
     pattern: $MACRO
     has: {kind: string_content, regex: '(?i)runpythonscript'}
     not: {inside: {kind: comparison_operator}}
-message: '`$MACRO` runs a file through `_-RunPythonScript`, which Rhino runs on IronPython 2.7'
+message: '`$MACRO` runs a file on IronPython 2.7 through `_-RunPythonScript`'
 note: 'Run the file through `_-ScriptEditor _Run "<file>"`'

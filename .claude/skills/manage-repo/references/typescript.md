@@ -10,7 +10,7 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - `catalog:` as an override value keeps one version source, the catalog
 - `allowBuilds` rows name packages with an install script, `true` runs it, `false` skips it, `pnpm install` reports a missing row
 - `peerDependencyRules.allowedVersions` silences the unmet peer warning and resolves nothing
-- `minimumReleaseAge: 0` lifts the default 1440 minute release delay
+- `minimumReleaseAge: 0` lifts the default 1440-minute release delay
 - `packages` globs match a directory on disk
 - Root `package.json` lists every catalog row except tool plugins as `catalog:`, a project `package.json` lists the rows its files import
 - `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of a lock rewrite
@@ -22,15 +22,15 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - `types` defaults to `[]`, a project lists `["node"]` where a file reads `import.meta.dirname` or a `node:` module, a UXP plugin its host typings
 - `files` or `references` keys suppress TS18003 (no inputs)
 - `include` globs resolve to TypeScript extensions alone, `files` lists an imported JSON file (`package.json` for `version`) or TS6307 reports it
-- `outDir` without `composite` enforces `rootDir` (TS6059), a `noEmit` project with a file outside its root replaces `outDir` with `tsBuildInfoFile`
+- `tsconfig.base.json` excludes a project's `vitest.config.ts`, root `tsconfig.json` includes each one
 - Generated declaration files import a package by its specifier through the project's `node_modules` link, a `.pnpm/<hash>` path pins one install
 
 ## [03]-[EXECUTION]
 
 - Node strips types from a `.ts` file it runs (`process.features.typescript` reads `strip`), no loader package joins
 - `erasableSyntaxOnly` keeps every file strippable
-- Target running a file names `node <file>.ts` with `cwd` at the project
-- Workspace package's `exports` map to `.ts` files resolves through the pnpm link
+- Targets running a file name `node <file>.ts` with `cwd` at the project
+- Workspace package `exports` entries naming `.ts` files resolve through the pnpm link
 - `@nx/vitest` infers `test` from a `vitest.config.ts` beside a `package.json`
 - Root Vite config reads `package.json` in `cwd`, a Vitest project config re-exports the root factory with its directory
 - Root Vitest config lists `projects` from the workspace globs

@@ -48,7 +48,7 @@ utils:
             - kind: list_splat
             - kind: attribute
               has: {field: object, kind: list_splat}
-    bare-source:
+    plain-source:
         not: {kind: 'conditional_expression, lambda, named_expression'}
     single-source:
         has: {field: arguments, any: [{kind: generator_expression}, {not: {has: {nthChild: 2}}}]}
@@ -82,12 +82,12 @@ rewriters:
     - id: generator-items
       rule: {kind: call, matches: fixed-chain, has: {field: arguments, kind: generator_expression, pattern: $GENERATOR}}
       fix: '*$GENERATOR'
-    - id: bare-from-iterable
+    - id: plain-from-iterable
       rule:
         kind: call
         all:
             - has: {field: function, kind: attribute, has: {field: attribute, regex: '^from_iterable$'}}
-            - has: {field: arguments, any: [{kind: generator_expression, pattern: $SOURCE}, {has: {nthChild: 1, matches: bare-source, pattern: $SOURCE}}]}
+            - has: {field: arguments, any: [{kind: generator_expression, pattern: $SOURCE}, {has: {nthChild: 1, matches: plain-source, pattern: $SOURCE}}]}
       fix: '*iterable for iterable in $SOURCE'
     - id: from-iterable
       rule:
@@ -96,8 +96,8 @@ rewriters:
             - has: {field: function, kind: attribute, has: {field: attribute, regex: '^from_iterable$'}}
             - has: {field: arguments, has: {nthChild: 1, pattern: $SOURCE}}
       fix: '*iterable for iterable in ($SOURCE)'
-    - id: bare-sole-splat
-      rule: {kind: call, has: {field: arguments, not: {has: {nthChild: 2}}, has: {kind: list_splat, has: {matches: bare-source, pattern: $SOURCE}}}}
+    - id: plain-sole-splat
+      rule: {kind: call, has: {field: arguments, not: {has: {nthChild: 2}}, has: {kind: list_splat, has: {matches: plain-source, pattern: $SOURCE}}}}
       fix: '*iterable for iterable in $SOURCE'
     - id: sole-splat
       rule: {kind: call, has: {field: arguments, not: {has: {nthChild: 2}}, has: {kind: list_splat, has: {pattern: $SOURCE}}}}
@@ -153,10 +153,10 @@ rewriters:
       rule: {kind: set}
       fix: '{|}'
 transform:
-    BODY: rewrite($K, rewriters=[fixed-items, generator-items, bare-from-iterable, from-iterable, bare-sole-splat, sole-splat, mixed-splat])
+    BODY: rewrite($K, rewriters=[fixed-items, generator-items, plain-from-iterable, from-iterable, plain-sole-splat, sole-splat, mixed-splat])
     WRAP: rewrite($M, rewriters=[list-collector, set-collector, tuple-spread, tuple-single, tuple-fixed, wrapped-set, wrapped-list, wrapped-sole, wrapped-spread, splat-spread, splat-fixed, display-list, display-set])
     OPEN: {replace: {source: $WRAP, replace: '^(.*)\|.*$', by: '$1'}}
     CLOSE: {replace: {source: $WRAP, replace: '^.*\|(.*)$', by: '$1'}}
 fix: $OPEN$BODY$CLOSE
 message: '`$M` collects iterables through a chain object'
-note: 'Unpack each iterable into the display, `[*<a>, *<b>]`, or into a comprehension, `[*<iterable> for <iterable> in <iterables>]`'
+note: 'Unpack each iterable into a display, `[*<a>, *<b>]`, or into a comprehension, `[*<iterable> for <iterable> in <iterables>]`, a display states the collection without an intermediate iterator'

@@ -2,6 +2,7 @@
 pragma foreign_keys = on;
 begin immediate;
 create temp table site(
+    checker text,
     category text not null,
     path text not null,
     text text not null,
@@ -17,6 +18,5 @@ create temp table site(
     subject_hash text not null,
     severity text,
     message text not null,
-    replacement text,
-    source text not null
+    replacement text
 ) strict;

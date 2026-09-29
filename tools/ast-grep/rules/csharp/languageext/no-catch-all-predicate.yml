@@ -3,11 +3,6 @@ id: no-catch-all-predicate
 language: csharp
 severity: error
 utils:
-    catch-all:
-        kind: argument
-        any:
-            - matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
-            - has: {matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}
     released-failure:
         all:
             - any:
@@ -16,10 +11,7 @@ utils:
                     - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}
                     - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^\|$'}}
             - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, has: {matches: csharp-release-handler}}}
-            - not:
-                all:
-                    - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $EFFECT}}
-                    - matches: {csharp-failure-owner: {effect: {pattern: $EFFECT}}}
+            - not: {matches: {csharp-owner-body: {type: {regex: '^GeometryOps$'}, member: {regex: '^OnFailure$'}}}}
 rule:
     kind: invocation_expression
     all:
@@ -36,7 +28,7 @@ rule:
                     - all:
                         - nthChild: {position: 1, ofRule: {kind: argument}}
                         - not: {has: {field: name, pattern: $_}}
-                matches: catch-all
+                matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
         - not: {matches: released-failure}
 message: '`$NAME` takes a predicate that accepts every error'
-note: Use `IfFail(<handler>)` on an `IO`, `Catch(<handler>)` or `CatchIO(<handler>)` on another `Fallible` type, or `@catch(<handler>)`
+note: Use `IfFail(<handler>)` on an `IO`, `Catch(<handler>)` or `CatchIO(<handler>)` on another `Fallible` type, or `@catch(<handler>)`, each takes no predicate

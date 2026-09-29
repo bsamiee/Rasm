@@ -5,18 +5,16 @@ description: "Use when a task needs a dependency's signature, API shape, usage, 
 
 # [SEARCH_CODE]
 
-Dependency declarations read from installed files, usage from Context7, DeepWiki, and public code, source and wiki from the repository at its installed tag, versions from registries.
+Dependency declarations come from installed files, usage from Context7, DeepWiki, and public code, source and wiki from the repository at its installed tag, and versions from registries.
 
 - Version: Context7 and DeepWiki index the default branch, an installed version's fact comes from its files, its tag, or a Context7 snapshot
-- Path: package metadata names repository and commit, Context7 IDs are its `/owner/repo` lowercased, and a tag list spells each tag
-- Prose: Context7 descriptions and DeepWiki answers are generated, code is quoted from its Source URL, a named member confirms in its declaration
+- Path: package metadata names repository and commit, Context7 IDs are the repository's `/owner/repo` lowercased, a tag list spells each tag
+- Prose: Context7 descriptions and DeepWiki answers are generated, code quotes come from their Source URL, member names from their declaration
 - Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
 - Size: `get_file_contents`, `get_package_context`, and `read_wiki_contents` return the whole document, a cited line reads through `rg`
 - Index: `search_code` reads default branches in files under 384 KB, the tree call finds a path at a tag
 - Quota: every client on one GitHub account shares 10 `search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none of it
 - Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from a repository URL skips the resolve
-
-Numbered steps chain, each consuming the step before, bulleted cases are alternatives, one per command line in order.
 
 ## [01]-[DECLARATION]
 
@@ -110,9 +108,9 @@ javap -cp '<jar>:<jar>' <package.Class> <package.Class>
 
 How a member composes, from the repository's code examples, source, wiki, and README and from public code, one concept per query naming its symbol.
 
-Context7 ID is the repository URL's `/owner/repo` lowercased, resolve when metadata names no URL:
+Context7 reads:
 - Candidates with snippet count, reputation, benchmark score, and Versions
-- Code examples and source of the default branch with a Source URL per snippet, wiki pages can describe an older major, `not found` means unindexed
+- Code examples and source with a Source URL per snippet, wiki pages can describe an older major, `not found` means unindexed
 - Snapshot from the Versions list, `__branch__<name>` snapshots an older major
 - Rendered docs site with API reference pages, Source URL names the docs version, a code fence can lose line breaks
 
@@ -123,13 +121,13 @@ mcp__context7__query-docs {"libraryId": "/<owner>/<repo>/<version>", "query": "<
 mcp__context7__query-docs {"libraryId": "/websites/<site>", "query": "<one concept>"}
 ```
 
-DeepWiki generated wiki of the default branch:
+DeepWiki reads:
 1. Page index per repository, what its parts are, `Repository not found` routes the repository to its tree and files
 2. Answer with quoted signatures over repositories step 1 indexed, up to 10 per call
 
 ```text
 mcp__deepwiki__read_wiki_structure {"repoName": "<owner>/<repo>"}
-mcp__deepwiki__ask_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>"], "question": "<question naming the members>"}
+mcp__deepwiki__ask_wiki_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>"], "question": "<question naming the members>"}
 ```
 
 GitHub public code composing members, repository and commit per fragment:

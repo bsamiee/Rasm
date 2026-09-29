@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-dual-operation
+language: tsx
+rule:
+    kind: property_identifier
+    regex: |-
+        (?x)^(map|flatMap|andThen|tap|tapError|tapErrorTag|tapCause|tapBoth|filter|filterMap|filterOrFail|filterOrElse|reduce|getOrElse
+        |orElse|orElseSucceed|catch|catchCause|catchIf|catchFilter|catchTag|catchTags|catchReason|catchDefect|mapError|mapBoth|match
+        |matchEffect|zip|zipWith|zipLeft|zipRight|as|ensuring|provide|provideService|provideContext|provideMerge|withTracer|mapInput
+        |partition|partitionMap|take|takeWhile|takeRight|drop|dropWhile|dropRight|append|appendAll|prepend|prependAll|retry|repeat
+        |timeout|delay|when|race|merge|scan|split|replace|bind|bindTo|some|every|contains|findFirst|findLast|chunksOf|intersperse
+        |union|intersection|difference|mapAccum|mapEffect|onError|onExit|withSpan|annotateLogs|groupBy|sort|sortWith|dedupeWith
+        |get|set|has|remove|modify|update|pick|omit|evolve|liftPredicate|fromOption|join|equals)$

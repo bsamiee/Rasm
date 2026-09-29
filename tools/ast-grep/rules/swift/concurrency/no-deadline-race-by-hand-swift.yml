@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-deadline-race-by-hand-swift
+language: swift
+severity: error
+utils:
+    group-call:
+        kind: call_expression
+        has:
+            kind: navigation_expression
+            all:
+                - has: {field: target, kind: simple_identifier, pattern: $G}
+                - has: {field: suffix, regex: '^\.add(Immediate)?Task(UnlessCancelled)?$'}
+    sleep-task:
+        matches: group-call
+        all:
+            - has: {stopBy: end, kind: call_expression, pattern: $SLEEP, regex: '^(await\s+)?(Task|\w+|(Continuous|Suspending)Clock\(\))\.sleep\('}
+            - not:
+                has:
+                    stopBy: end
+                    any:
+                        - kind: prefix_expression
+                          regex: '^\.failure$'
+                        - kind: navigation_expression
+                          regex: '^Result(<[^{]*>)?\.failure$'
+                        - kind: control_transfer_statement
+                          regex: '^throw\b'
+    first-result:
+        any:
+            - kind: call_expression
+              has:
+                nthChild: 1
+                kind: navigation_expression
+                all:
+                    - has: {field: target, pattern: $G}
+                    - has: {field: suffix, regex: '^\.(next|nextResult|first)$'}
+            - kind: for_statement
+              has: {field: collection, pattern: $G}
+rule:
+    kind: call_expression
+    all:
+        - has: {stopBy: {kind: call_suffix}, kind: simple_identifier, regex: '^with(Throwing)?TaskGroup$', pattern: $RACE}
+        - has:
+            kind: call_suffix
+            has:
+                kind: lambda_literal
+                all:
+                    - has: {kind: lambda_parameter, stopBy: end, has: {field: name, pattern: $G}}
+                    - has: {stopBy: end, matches: sleep-task}
+                    - has: {stopBy: end, matches: first-result}
+                    - has: {stopBy: end, pattern: $G.cancelAll()}
+message: '`$RACE` races the work against `$SLEEP` and returns the timeout as a sentinel value'
+note: 'Throw the timed-out failure case from the sleeping child task, or return it as `.failure`'

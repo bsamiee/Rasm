@@ -61,7 +61,7 @@ Paused page decides over the stack trace, a passing rerun decides over an edit.
 - `test.fixme()` marks a test after 3 cycles when the test reads correct and its failure persists
 - Fixme comment sits before the failing step and states what happens in place of the expected behavior
 - Most reasonable fix runs, no question goes to the user
-- Empty failing list is a valid result reported with the `test_run` line that proved it, an output the run never saw is no evidence
+- Empty failing list is a valid result reported with the `test_run` line that showed it, an output the run never saw is no evidence
 
 </decision>
 

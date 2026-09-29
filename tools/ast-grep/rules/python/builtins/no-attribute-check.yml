@@ -7,77 +7,12 @@ utils:
         kind: string
         regex: '^[rRuU]?("|'')[A-Za-z_]\w*("|'')$'
         not: {regex: '__call__'}
-    constant-name:
-        kind: identifier
-        pattern: $CONST
-        inside: {stopBy: end, kind: module, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $CONST}}, {has: {field: right, matches: name-string}}]}}}
-    member-name:
-        kind: attribute
-        all:
-            - has: {field: object, kind: identifier, pattern: $OWNER}
-            - has: {field: attribute, pattern: $MEMBER}
-            - inside:
-                stopBy: end
-                kind: module
-                has:
-                    kind: class_definition
-                    all:
-                        - has: {field: name, pattern: $OWNER}
-                        - has: {field: body, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $MEMBER}}, {has: {field: right, matches: name-string}}]}}}
-    relay-parameter:
-        any:
-            - {kind: identifier, pattern: $RELAY}
-            - {kind: typed_parameter, has: {kind: identifier, pattern: $RELAY}}
-            - {kind: 'default_parameter, typed_default_parameter', has: {field: name, pattern: $RELAY}}
-    relay-owner:
-        any:
-            - {kind: function_definition, has: {field: name, pattern: $FN}}
-            - {kind: lambda, inside: {kind: assignment, field: right, has: {field: left, pattern: $FN}}}
-    relay-call:
-        kind: call
-        has: {field: function, any: [{kind: identifier, pattern: $FN}, {kind: attribute, has: {field: attribute, pattern: $FN}}]}
-    relayed-name:
-        kind: identifier
-        pattern: $RELAY
-        inside:
-            stopBy: end
-            all:
-                - matches: relay-owner
-                - any:
-                    - has: {field: parameters, has: {kind: 'default_parameter, typed_default_parameter', all: [{has: {field: name, pattern: $RELAY}}, {has: {field: value, matches: name-string}}]}}
-                    - all:
-                        - has: {field: parameters, has: {matches: relay-parameter}}
-                        - inside: {stopBy: end, kind: module, has: {stopBy: end, matches: relay-call, has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, pattern: $RELAY}}, {has: {field: value, matches: name-string}}]}}}}
-                    - all:
-                        - not: {inside: {kind: block, inside: {kind: class_definition}}}
-                        - any:
-                            - all:
-                                - has: {field: parameters, has: {nthChild: 1, matches: relay-parameter}}
-                                - inside: {stopBy: end, kind: module, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: identifier, pattern: $FN}}, {has: {field: arguments, has: {nthChild: 1, matches: name-string}}}]}}
-                            - all:
-                                - has: {field: parameters, has: {nthChild: 2, matches: relay-parameter}}
-                                - inside: {stopBy: end, kind: module, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: identifier, pattern: $FN}}, {has: {field: arguments, has: {nthChild: 2, matches: name-string}}}]}}
-                            - all:
-                                - has: {field: parameters, has: {nthChild: 3, matches: relay-parameter}}
-                                - inside: {stopBy: end, kind: module, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: identifier, pattern: $FN}}, {has: {field: arguments, has: {nthChild: 3, matches: name-string}}}]}}
-                    - all:
-                        - inside: {kind: block, inside: {kind: class_definition}}
-                        - any:
-                            - all:
-                                - has: {field: parameters, has: {nthChild: 2, matches: relay-parameter}}
-                                - inside: {stopBy: end, kind: module, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $FN}}}, {has: {field: arguments, has: {nthChild: 1, matches: name-string}}}]}}
-                            - all:
-                                - has: {field: parameters, has: {nthChild: 3, matches: relay-parameter}}
-                                - inside: {stopBy: end, kind: module, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $FN}}}, {has: {field: arguments, has: {nthChild: 2, matches: name-string}}}]}}
-                            - all:
-                                - has: {field: parameters, has: {nthChild: 4, matches: relay-parameter}}
-                                - inside: {stopBy: end, kind: module, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $FN}}}, {has: {field: arguments, has: {nthChild: 3, matches: name-string}}}]}}
     attribute-name:
         any:
             - matches: name-string
-            - matches: constant-name
-            - matches: member-name
-            - matches: relayed-name
+            - matches: {python-assigned-name: {value: {matches: name-string}}}
+            - matches: {python-class-attribute: {value: {matches: name-string}}}
+            - matches: {python-relayed-parameter: {value: {matches: name-string}}}
     imported-entry:
         any:
             - {kind: aliased_import, has: {field: alias, pattern: $CALLEE}}
@@ -113,33 +48,33 @@ utils:
     default-callee:
         any:
             - matches: default-reference
-            - {kind: identifier, pattern: $RENAMED, inside: {stopBy: end, kind: 'module, block', has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $RENAMED}}, {has: {field: right, matches: default-reference}}]}}}}
+            - {kind: identifier, matches: {python-assigned-name: {value: {matches: default-reference}}}}
     boolean-callee:
         any:
             - matches: boolean-reference
-            - {kind: identifier, pattern: $RENAMED, inside: {stopBy: end, kind: 'module, block', has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $RENAMED}}, {has: {field: right, matches: boolean-reference}}]}}}}
+            - {kind: identifier, matches: {python-assigned-name: {value: {matches: boolean-reference}}}}
     partial-of-default:
         kind: call
         all:
-            - has: {field: function, regex: '^(functools\.)?partial$'}
+            - has: {field: function, matches: functools-partial-callee}
             - has: {field: arguments, has: {nthChild: 1, matches: default-callee}}
     partial-of-boolean:
         kind: call
         all:
-            - has: {field: function, regex: '^(functools\.)?partial$'}
+            - has: {field: function, matches: functools-partial-callee}
             - has: {field: arguments, has: {nthChild: 1, matches: boolean-callee}}
     object-partial-default:
         any:
             - {matches: partial-of-default, has: {field: arguments, has: {nthChild: 2}, not: {has: {nthChild: 3}}}}
-            - {kind: identifier, pattern: $RENAMED, inside: {stopBy: end, kind: 'module, block', has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $RENAMED}}, {has: {field: right, matches: partial-of-default, has: {field: arguments, has: {nthChild: 2}, not: {has: {nthChild: 3}}}}}]}}}}
+            - {kind: identifier, matches: {python-assigned-name: {value: {matches: partial-of-default, has: {field: arguments, has: {nthChild: 2}, not: {has: {nthChild: 3}}}}}}}
     name-partial-default:
         any:
             - {matches: partial-of-default, has: {field: arguments, has: {nthChild: 3, matches: attribute-name}, not: {has: {nthChild: 4}}}}
-            - {kind: identifier, pattern: $RENAMED, inside: {stopBy: end, kind: 'module, block', has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $RENAMED}}, {has: {field: right, matches: partial-of-default, has: {field: arguments, has: {nthChild: 3, matches: attribute-name}, not: {has: {nthChild: 4}}}}}]}}}}
+            - {kind: identifier, matches: {python-assigned-name: {value: {matches: partial-of-default, has: {field: arguments, has: {nthChild: 3, matches: attribute-name}, not: {has: {nthChild: 4}}}}}}}
     object-partial-boolean:
         any:
             - {matches: partial-of-boolean, has: {field: arguments, has: {nthChild: 2}, not: {has: {nthChild: 3}}}}
-            - {kind: identifier, pattern: $RENAMED, inside: {stopBy: end, kind: 'module, block', has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $RENAMED}}, {has: {field: right, matches: partial-of-boolean, has: {field: arguments, has: {nthChild: 2}, not: {has: {nthChild: 3}}}}}]}}}}
+            - {kind: identifier, matches: {python-assigned-name: {value: {matches: partial-of-boolean, has: {field: arguments, has: {nthChild: 2}, not: {has: {nthChild: 3}}}}}}}
     getmembers-callee:
         any:
             - {kind: identifier, regex: '^getmembers(_static)?$'}
@@ -274,4 +209,4 @@ rule:
             - inside: {kind: argument_list, inside: {matches: suppress-call}}
           not: {inside: {stopBy: {kind: except_clause}, kind: except_clause, has: {kind: block, has: {kind: raise_statement}}}}
 message: '`$CHECK` answers a missing attribute in place of the type that declares it'
-note: 'Read the attribute on the type that declares it, and select that type with `isinstance` or a class pattern'
+note: 'Narrow to the declaring type with `isinstance` or a class pattern and read its attribute, a lookup by name hides the type from type checkers'

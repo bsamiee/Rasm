@@ -38,4 +38,4 @@ rule:
         - all: [{inside: {kind: type, stopBy: end}}, {matches: earlier}]
         - matches: earlier-typed
 message: '`$UNION` repeats a union of three or more members spelled earlier in the file'
-note: 'Declare `type <Name> = <union>` under `[TYPES]` and name the alias at every site'
+note: 'Declare `type <Name> = <union>` under `[TYPES]` and name the alias at every site, the union then has one spelling'

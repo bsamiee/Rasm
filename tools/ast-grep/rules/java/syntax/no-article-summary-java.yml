@@ -3,11 +3,18 @@ id: no-article-summary-java
 language: java
 severity: error
 rule:
+    pattern: $SUMMARY
     any:
-        - kind: block_comment
-          regex: '^/\*\*\s*(\*\s*)?(The|A|An)\s+\S'
         - kind: line_comment
-          regex: '^///\s*(The|A|An)\s+\S'
+          regex: '^///\s*(?i:The|A|An)\s+\S'
           not: {follows: {kind: line_comment, regex: '^///'}}
-message: 'Doc comment summary opens with an article'
-note: 'Open the summary with the noun it names or the verb it performs'
+        - kind: block_comment
+          regex: '^/\*\*\s*(\*\s*)?(?i:The|A|An)\s+\S'
+transform:
+    OPENING: {replace: {source: $SUMMARY, replace: '^(///\s*|/\*\*\s*(?:\*[ \t]*)?)(?i:The|A|An)\s+[\s\S]*$', by: '$1'}}
+    REST: {replace: {source: $SUMMARY, replace: '^(?:///\s*|/\*\*\s*(?:\*[ \t]*)?)(?i:The|A|An)\s+', by: ''}}
+    NOUN: {convert: {source: $REST, toCase: capitalize}}
+    LINE: {replace: {source: $SUMMARY, replace: '^(?:///|/\*\*)[\s*]*([^\n]*?)\s*(?:\n[\s\S]*)?$', by: '$1'}}
+message: Doc comment summary `$LINE` opens with an article
+note: Open the summary with the noun it names or the verb it performs
+fix: $OPENING$NOUN

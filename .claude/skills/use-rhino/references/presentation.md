@@ -16,7 +16,7 @@ Other parameters and texture maps go on the same content:
 - `Replace(content)` on a stored material puts `content` in its place everywhere it is assigned
 - Edits run between `BeginChange(RenderContent.ChangeContexts.Program)` and `EndChange()`
 - `SetParameter(ParameterNames.PhysicallyBased.<Name>, value)` sets a parameter
-- Layers assigned in a script take `held = doc.Layers[index]`, `held.RenderMaterial = content`, then `held.CommitChanges()`
+- Layers assigned in a script take `doc.Layers[index].RenderMaterial = content`, layer edits apply at once and `CommitChanges()` does nothing
 - Texture maps are `ContentUuids.BitmapTextureType` content with `filename`, joined by `SetChild(texture, ChildSlotNames.PhysicallyBased.<Slot>)`
 - `SetChildSlotOn(<slot>, True, RenderContent.ChangeContexts.Program)` turns a slot on
 - `FindChild(<slot>)` and `ChildSlotOn(<slot>)` read a slot, the content lists no `Children`
@@ -34,6 +34,7 @@ from Rhino.Display import BackgroundStyle
 from Rhino.Render import RenderEnvironment, RenderSettings, SimulatedEnvironment
 from System import DateTime, DateTimeKind
 from System.Drawing import Color
+
 doc = __rhino_doc__
 settings = doc.RenderSettings
 sun = settings.Sun
@@ -73,6 +74,7 @@ Display modes are application settings every document and session shares, `Displ
 ```python
 # Copy a mode, change it, apply it to one viewport, keep it as a file
 from Rhino.Display import DisplayModeDescription
+
 mode_id = DisplayModeDescription.CopyDisplayMode(DisplayModeDescription.ShadedId, "<Style>")
 mode = DisplayModeDescription.GetDisplayMode(mode_id)
 mode.DisplayAttributes.CurveThicknessScale = 3
@@ -92,9 +94,10 @@ print(DisplayModeDescription.ExportToFile(mode, "</abs/style.ini>"))
 - `DeleteDisplayMode(id)` alone lets a mode return from its saved settings, a lasting removal deletes the mode's settings child and saves:
 
 ```python
-# Remove a display mode and its saved settings for good
+# Remove a display mode and its saved settings permanently
 from Rhino import PersistentSettings
 from Rhino.Display import DisplayModeDescription
+
 DisplayModeDescription.DeleteDisplayMode(<id>)
 PersistentSettings.RhinoAppSettings.AddChild("Options").AddChild("DisplayAttributesManager").DeleteChild("<id>")
 DisplayModeDescription.SaveDisplayModes()
@@ -134,8 +137,8 @@ screencapture -x -o -l <window id> <file>.png
 
 - Document windows are macOS window tabs of one frame, a background tab captures the front tab's pixels
 - Grasshopper 2's editor is a child window of its opening frame, and its capture includes the frame
-- Frame captures show the Grasshopper 2 preview without the editor after `Editor.Instance.Visible = False`
+- Frame captures show Grasshopper 2's preview without its editor after `Editor.Instance.Visible = False`
 - `view.Redraw()` ends the call before a window capture, window ids change at every launch
-- Window captures right after the redrawing call can hold the previous frame, one listener call between them draws the new one
+- Window captures right after a redrawing call can hold the window's previous frame, one listener call between them draws the new frame
 - Menus and pop-ups draw only after a click, their contents read from the Eto tree or System Events AX attributes
 - Docked panels capture through their own `NSView` with `BitmapImageRepForCachingDisplayInRect`, or hosted in a temporary Eto form captured by id

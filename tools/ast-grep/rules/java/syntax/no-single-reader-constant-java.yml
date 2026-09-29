@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-reader-constant-java
+language: java
+severity: error
+utils:
+    literal:
+        any:
+            - kind: >-
+                string_literal, character_literal, decimal_integer_literal, hex_integer_literal, octal_integer_literal, binary_integer_literal, decimal_floating_point_literal, hex_floating_point_literal, true, false, class_literal, identifier
+            - kind: field_access
+              not: {has: {stopBy: end, kind: method_invocation}}
+            - kind: unary_expression, binary_expression, parenthesized_expression, array_initializer, argument_list, method_reference
+              not: {has: {pattern: $_, not: {any: [{matches: literal}, {kind: type_identifier}]}}}
+            - kind: method_invocation
+              all:
+                - has: {field: object, matches: literal}
+                - has: {field: arguments, matches: literal}
+            - kind: object_creation_expression
+              all:
+                - has: {field: arguments, matches: literal}
+                - not: {has: {kind: class_body}}
+    reference:
+        kind: identifier
+        pattern: $NAME
+        not:
+            any:
+                - inside: {kind: variable_declarator, field: name}
+                - inside: {kind: field_access, field: field}
+                - inside: {kind: method_invocation, field: name}
+    member:
+        kind: >-
+            method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, block, field_declaration, constant_declaration, enum_constant
+        inside: {matches: java-member-list}
+    reader:
+        matches: member
+        pattern: $READER
+        has: {stopBy: end, matches: reference}
+rule:
+    kind: field_declaration
+    all:
+        - has: {kind: modifiers, all: [{has: {regex: '^private$'}}, {has: {regex: '^final$'}}]}
+        - not: {has: {kind: modifiers, has: {kind: 'marker_annotation, annotation'}}}
+        - has: {field: declarator, all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: literal}}]}
+        - inside: {matches: java-member-list}
+        - inside:
+            kind: program
+            stopBy: end
+            all:
+                - has: {stopBy: end, matches: reader}
+                - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: member}}}}
+message: Constant `$NAME` has one reader
+note: Bind the value inside its one reader, as a local where its name states a fact and inline otherwise, and drop its type-level name

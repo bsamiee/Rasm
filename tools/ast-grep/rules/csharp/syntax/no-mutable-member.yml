@@ -62,4 +62,4 @@ transform:
     READONLY: {replace: {source: $DECLARATION, replace: '(?s)^(.*?)\b(partial\s+)?record(\s+struct)\b', by: '${1}readonly ${2}record${3}'}}
 fix: $INIT$READONLY_FIELD$REQUIRED_PROPERTY$READONLY
 message: '`$TYPE` holds a member that changes after construction'
-note: Use `init` accessors, `readonly` fields, `required` members as `{ get; init; }` properties, and `readonly record struct` for a positional record struct, a later change goes through `with` or a transition that returns the next value
+note: Use `init` accessors, `readonly` fields, `{ get; init; }` for a `required` member, and `readonly record struct`, a later change goes through `with` or a transition returning the next value

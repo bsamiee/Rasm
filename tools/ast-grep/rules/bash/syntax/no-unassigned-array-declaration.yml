@@ -29,6 +29,15 @@ rule:
                             - has: {field: operator, regex: '^#$'}
                             - has: {kind: subscript, all: [{has: {field: name, pattern: $NAME}}, {has: {field: index, regex: '^[@*]$'}}]}
                     - not: {has: {stopBy: {kind: function_definition}, matches: assignment}}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: command
+                    all:
+                        - has: {field: name, regex: '^set$'}
+                        - has: {kind: word, regex: '^(-[a-zA-Z]*u[a-zA-Z]*|nounset)$'}
 fix: $NAME=()
 message: 'Unassigned declaration of `$NAME` fails `${#$NAME[@]}` as unbound under `set -u`'
-note: Assign the empty array in the declaration, `<name>=()`
+note: Assign an empty array in the declaration, `<name>=()`

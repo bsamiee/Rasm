@@ -198,4 +198,4 @@ rule:
                     - has: {matches: bool-arm, nthChild: 3, has: {kind: 'constant_pattern, discard', regex: '^(true|_)$'}}
             - matches: switch-pair
 message: Branch on `$CONDITION` pairs a unit success with a failure or another effect
-note: "Use `unless(<condition>, <effect>)` with the success arm first or `when(<condition>, <effect>)` with it second on an `IO` or `Eff`, with `.As()` where the type is `IO<Unit>` or `Eff<Unit>`, and `<condition> ? unit : <error>` on a `Fin` or `Validation`"
+note: "Use `when(<condition>, <effect>).As()` or `unless(<condition>, <effect>).As()` on an `IO` or `Eff` and `<condition> ? unit : <error>` on a `Fin` or `Validation`, each states the unit arm once"

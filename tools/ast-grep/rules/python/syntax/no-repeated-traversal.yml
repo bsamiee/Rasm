@@ -42,4 +42,4 @@ rule:
             - matches: after-pair
             - inside: {stopBy: end, matches: after-pair}
 message: '`for $OUTER_TARGET in $OUTER_SOURCE` then `for $INNER_TARGET in $INNER_SOURCE` repeats a two-level traversal `$FN` spells earlier'
-note: 'Bind the flattened elements once in the function (`<items> = [<element> for <a> in <outer> for <b> in <inner>]`) and read `<items>` in each comprehension or loop'
+note: 'Bind the flattened elements once in the function, `<items> = [<element> for <a> in <outer> for <b> in <inner>]`, and read `<items>` in each comprehension or loop, the traversal then has one spelling'

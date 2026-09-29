@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-malformed-divider-java
+language: java
+severity: error
+utils:
+    owner-level:
+        inside: {matches: java-member-list}
+    misparsed:
+        any:
+            - inside: {kind: program, stopBy: end, has: {kind: ERROR, stopBy: end}}
+            - inside: {kind: ERROR, stopBy: end}
+rule:
+    matches: java-divider-comment
+    pattern: $DIVIDER
+    any:
+        - not: {matches: java-labeled-divider}
+        - matches: java-labeled-divider
+          not: {any: [{matches: text-section-divider}, {matches: owner-level}, {matches: misparsed}]}
+        - matches: text-section-divider
+          not: {any: [{inside: {kind: program}}, {matches: owner-level}, {matches: misparsed}]}
+        - matches: java-section-divider
+          not: {regex: '^.{90}$'}
+message: Divider `$DIVIDER` departs from both divider forms
+note: Use `// --- [<SECTION>] ` with dashes to column 90 at file level, or `// --- [<FAMILY>]` inside an owner

@@ -1,217 +1,97 @@
-import type { AgentSpawnResult, ClassicHookInputs, PluginOptions } from 'claude-code';
-import { all, fault, map, ok, type Result } from '../composition.ts';
-import { basename } from '../path.ts';
-import { normalized, quoted } from './sql.ts';
+import type { AgentSpawnResult, PluginOptions } from 'claude-code';
+import { fromUndefined, none, type Option, some } from '../composition.ts';
+import type { Spawned } from '../state.d.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Kind = 'edit';
-
-interface Trigger {
-    readonly kind: Kind;
-    readonly view: string;
-    readonly threshold: number;
-    readonly agent: string;
-}
 interface Settings {
-    readonly edits: Trigger;
+    readonly editThreshold: number;
+    readonly editAgent: string;
     readonly categoryThreshold: number;
     readonly categoryAgent: string;
 }
-interface Lineage {
-    readonly main: string;
-    readonly worktree: string;
-    readonly branch: string;
+interface State {
     readonly key: string;
-}
-interface Range {
-    readonly trigger: Trigger;
     readonly count: number;
     readonly from: number;
-    readonly running: boolean;
-    readonly holding: number;
-}
-interface Judging {
-    readonly kind: 'range';
-    readonly agent: string;
-    readonly lineage: Lineage;
-    readonly range: Range;
-    readonly to: number;
-}
-interface Building {
-    readonly kind: 'category';
-    readonly agent: string;
-    readonly lineage: Lineage;
-    readonly session: string;
-    readonly category: string;
-}
-
-type Spawned = Judging | Building;
-type StateCells = readonly [string, string, string, string, string, string, string, string];
-type CategoryCells = readonly [string, string, string];
-
-interface Candidate {
-    readonly category: string;
-    readonly sites: number;
-    readonly reported: boolean;
-}
-interface State {
-    readonly edits: Range;
+    readonly running: number;
+    readonly categoryRunning: number;
+    readonly editors: number;
     readonly open: number;
     readonly undelivered: number;
-    readonly categoryRunning: boolean;
     readonly rules: number;
-    readonly candidates: readonly Candidate[];
+    readonly categories: readonly { readonly category: string; readonly sites: number }[];
+}
+interface Delivered {
+    readonly findings: readonly string[];
+    readonly rules: readonly { readonly category: string; readonly paths: readonly string[] }[];
+}
+interface Decided {
+    readonly range: boolean;
+    readonly category: Option<string>;
+    readonly deliver: boolean;
+}
+interface Request {
+    readonly prompt: string;
+    readonly description: string;
 }
 
-// --- [SETTINGS] ------------------------------------------------------------------------
-
-const _trigger = (options: PluginOptions, kind: Kind, view: string): Trigger => ({ kind, view, threshold: Number(options[`${kind}Threshold`]), agent: String(options[`${kind}Agent`]) });
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const settings = (options: PluginOptions): Settings => ({
-    edits: _trigger(options, 'edit', 'unjudged_edits'),
+    editThreshold: Number(options['editThreshold']),
+    editAgent: String(options['editAgent']),
     categoryThreshold: Number(options['categoryThreshold']),
     categoryAgent: String(options['categoryAgent']),
 });
 
-const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({ main, worktree, branch, key: `${worktree === main ? '.' : basename(worktree)}/${branch}` });
-
-// --- [STATEMENTS] ----------------------------------------------------------------------
-
-const _PRESENT = `instr(${normalized('cast(readfile(path) as text)')}, ntext) > 0`;
-
-const _under = (column: string, worktree: string): string => {
-    const literal = quoted(worktree);
-    return `(${column} = ${literal} or substr(${column}, 1, length(${literal}) + 1) = ${quoted(`${worktree}/`)})`;
+const decided = (seen: State, chosen: Settings, busy: readonly string[]): Decided => {
+    const quiet = seen.editors === 0;
+    const editing = seen.running > 0 || busy.includes(chosen.editAgent);
+    const categorizing = chosen.categoryThreshold > 0 && quiet && seen.categoryRunning === 0 && !busy.includes(chosen.categoryAgent);
+    return {
+        range: chosen.editThreshold > 0 && seen.count >= chosen.editThreshold && quiet && !editing,
+        category: categorizing ? fromUndefined(seen.categories.find(({ sites }) => sites >= chosen.categoryThreshold)?.category) : none,
+        deliver: quiet && !editing && (seen.undelivered > 0 || seen.rules > 0),
+    };
 };
-
-const _elsewhere = (agent: string, lineage: Lineage): string => `exists (select 1 from running_agents r where r.agent_type = ${quoted(agent)} and ${_under('r.cwd', lineage.worktree)})`;
-const _undelivered = (key: string): string => `from placed_rules p where p.lineage_key = ${key} and not exists (select 1 from json_each(p.told_on) where value = ${key})`;
-
-const STATE = (lineage: Lineage, to: number, chosen: Settings): string => {
-    const key = quoted(lineage.key);
-    const edited = `from ${chosen.edits.view} v where v.ts > r.f and v.ts <= ${to} and ${_under('v.cwd', lineage.worktree)}`;
-    return [
-        '.mode tabs',
-        `with r(f) as (select coalesce(max(to_ts), 0) from judged_range where kind = ${quoted(chosen.edits.kind)} and lineage_key = ${key}), o as (select delivered_on from open_findings where ${_PRESENT}) select (select count(distinct v.file_path) ${edited}), r.f, ${chosen.edits.threshold > 0 ? _elsewhere(chosen.edits.agent, lineage) : '0'}, (select count(1) from o), (select count(1) from o where not exists (select 1 from json_each(o.delivered_on) where value = ${key})), ${_elsewhere(chosen.categoryAgent, lineage)}, (select count(1) from running_agents a where a.agent_id in (select v.agent_id ${edited} and v.agent_id is not null)), (select count(1) ${_undelivered(key)}) from r;`,
-        `select category, sites, exists (select 1 from json_each(reported_on) where value = ${key}) from recurring_categories order by sites desc, category;`,
-    ].join('\n');
-};
-
-const JUDGE = (judging: Judging, agent: string, at: number): string =>
-    [
-        'pragma foreign_keys = on;',
-        `insert into judged_range(kind, main_worktree, worktree, branch, from_ts, to_ts, agent_id, at) select ${quoted(judging.range.trigger.kind)}, ${quoted(judging.lineage.main)}, ${quoted(judging.lineage.worktree)}, ${quoted(judging.lineage.branch)}, ${judging.range.from}, ${judging.to}, ${quoted(agent)}, ${at} where exists (select 1 from finding_transition t where t.by = ${quoted(`agent:${agent}`)}) returning rowid;`,
-    ].join('\n');
-
-const REPORT = (building: Building, agent: string, at: number): string =>
-    [
-        'pragma foreign_keys = on;',
-        `insert into finding_delivery(finding_id, lineage_key, session_id, agent_id, channel, delivered_at) select finding_id, ${quoted(building.lineage.key)}, ${quoted(building.session)}, ${quoted(agent)}, 'report', ${at} from finding where category = ${quoted(building.category)};`,
-    ].join('\n');
-
-const DELIVER = (lineage: Lineage, session: string, now: number): string => {
-    const key = quoted(lineage.key);
-    const sessionId = quoted(session);
-    const undelivered = _undelivered(key);
-    return [
-        '.mode tabs',
-        'pragma foreign_keys = on;',
-        `insert into finding_delivery(finding_id, lineage_key, session_id, agent_id, channel, delivered_at) select finding_id, ${key}, ${sessionId}, null, 'additionalContext', ${now} from open_findings where ${_PRESENT} and not exists (select 1 from json_each(delivered_on) where value = ${key}) returning 'finding', finding_id;`,
-        `select 'rule', p.category, (select group_concat(value, ', ') from json_each(p.placed)) ${undelivered};`,
-        `insert into finding_delivery(finding_id, lineage_key, session_id, agent_id, channel, delivered_at) select d.finding_id, ${key}, ${sessionId}, d.agent_id, 'additionalContext', ${now} from finding_delivery d where d.channel = 'report' and d.agent_id in (select p.agent_id ${undelivered});`,
-    ].join('\n');
-};
-
-// --- [READING] -------------------------------------------------------------------------
-
-const _cells = (stdout: string): readonly (readonly string[])[] =>
-    stdout
-        .split('\n')
-        .filter((text) => text !== '')
-        .map((text) => text.split('\t'));
-
-const _isStateCells = (cells: readonly string[]): cells is StateCells => {
-    const columns = 8;
-    return cells.length === columns;
-};
-
-const _isCategoryCells = (cells: readonly string[]): cells is CategoryCells => {
-    const columns = 3;
-    return cells.length === columns;
-};
-
-const _candidate = (cells: readonly string[]): Result<Candidate> =>
-    _isCategoryCells(cells) ? ok({ category: cells[0], sites: Number(cells[1]), reported: cells[2] === '1' }) : fault(`category line holds ${cells.length} cells`);
-
-const _state = (chosen: Settings, [count, from, running, open, undelivered, categoryRunning, holding, rules]: StateCells, rest: readonly (readonly string[])[]): Result<State> =>
-    map(all(rest.map(_candidate)), (candidates) => ({
-        edits: { trigger: chosen.edits, count: Number(count), from: Number(from), running: running === '1', holding: Number(holding) },
-        open: Number(open),
-        undelivered: Number(undelivered),
-        categoryRunning: categoryRunning === '1',
-        rules: Number(rules),
-        candidates,
-    }));
-
-const state = (stdout: string, chosen: Settings): Result<State> => {
-    const [head = [], ...rest] = _cells(stdout);
-    return _isStateCells(head) ? _state(chosen, head, rest) : fault(`state line holds ${head.length} cells`);
-};
-
-// --- [DECISIONS] -----------------------------------------------------------------------
-
-const listed = (tasks: ClassicHookInputs['Stop']['background_tasks']): Result<readonly string[]> =>
-    tasks === undefined ? fault('background_tasks absent') : ok(tasks.flatMap((task) => (task.agent_type === undefined ? [] : [task.agent_type])));
-
-const due = (range: Range, busy: readonly string[], quiet: boolean): boolean =>
-    range.trigger.threshold > 0 && range.count >= range.trigger.threshold && !range.running && quiet && !busy.includes(range.trigger.agent);
-
-const dueCategories = (seen: State, chosen: Settings, busy: readonly string[], quiet: boolean): readonly Candidate[] =>
-    chosen.categoryThreshold > 0 && quiet && !seen.categoryRunning && !busy.includes(chosen.categoryAgent)
-        ? seen.candidates.filter((candidate) => candidate.sites >= chosen.categoryThreshold && !candidate.reported)
-        : [];
-
-const delivering = (seen: State, chosen: Settings, busy: readonly string[], quiet: boolean): boolean =>
-    quiet && !seen.edits.running && !busy.includes(chosen.edits.agent) && (seen.undelivered > 0 || seen.rules > 0);
 
 // --- [TEXT] ----------------------------------------------------------------------------
 
-const prompt = (spawned: Spawned): string =>
-    spawned.kind === 'range' ? `range ${spawned.lineage.key} ${spawned.range.from} ${spawned.to}` : `category ${spawned.category} lineage ${spawned.lineage.key}`;
-
-const description = (spawned: Spawned): string => (spawned.kind === 'range' ? `judge ${spawned.range.trigger.kind}s` : 'judge category');
-const subject = (spawned: Spawned): string => (spawned.kind === 'range' ? `${spawned.range.from}..${spawned.to}` : spawned.category);
 const _plural = (count: number, singular: string, plural: string): string => `${count} ${count === 1 ? singular : plural}`;
 const _segment = (count: number, text: string): readonly string[] => (count === 0 ? [] : [text]);
 
-const context = (stdout: string, branch: string): readonly string[] => {
-    const rows = _cells(stdout);
-    const ids = rows.flatMap(([kind, id]) => (kind === 'finding' && id !== undefined ? [id] : []));
-    const rules = rows.flatMap(([kind, category, paths]) => (kind === 'rule' && category !== undefined && paths !== undefined ? [`${category} at ${paths}`] : []));
-    const apply = 'apply the delivery section of the observation skill';
+const request = (spawned: Spawned, key: string): Request =>
+    spawned.kind === 'range'
+        ? { prompt: `range ${key} ${spawned.from} ${spawned.to}`, description: 'judge edits' }
+        : { prompt: `category ${spawned.category} lineage ${key}`, description: 'build category rule' };
+
+const subject = (spawned: Spawned): string => (spawned.kind === 'range' ? `${spawned.from}..${spawned.to}` : spawned.category);
+
+const context = ({ findings, rules }: Delivered, branch: string): readonly string[] => {
+    const pointer = 'use the observation skill for delivered findings';
     return [
-        ..._segment(ids.length, `${_plural(ids.length, 'finding', 'findings')} on ${branch}, ids ${ids.join(', ')}, ${apply}`),
-        ..._segment(rules.length, `${_plural(rules.length, 'rule', 'rules')} placed on ${branch}, ${rules.join('; ')}, ${apply}`),
+        ..._segment(findings.length, `${_plural(findings.length, 'finding', 'findings')} on ${branch}, ids ${findings.join(', ')}, ${pointer}`),
+        ..._segment(rules.length, `${_plural(rules.length, 'rule', 'rules')} placed on ${branch}, ${rules.map(({ category, paths }) => `${category} at ${paths.join(', ')}`).join('; ')}, ${pointer}`),
     ];
 };
 
-const status = (seen: State): string => {
-    const waiting = seen.candidates.filter((candidate) => !candidate.reported).length;
-    return [
-        ..._segment(seen.edits.count, `${_plural(seen.edits.count, 'file', 'files')} unjudged`),
-        ..._segment(seen.edits.holding, `${_plural(seen.edits.holding, 'editor', 'editors')} running`),
+const status = (seen: State): Option<string> => {
+    const text = [
+        ..._segment(seen.count, `${_plural(seen.count, 'file', 'files')} unjudged`),
+        ..._segment(seen.editors, `${_plural(seen.editors, 'editor', 'editors')} running`),
         ..._segment(seen.open, `${_plural(seen.open, 'finding', 'findings')} open`),
-        ..._segment(waiting, _plural(waiting, 'recurring category', 'recurring categories')),
+        ..._segment(seen.categories.length, _plural(seen.categories.length, 'recurring category', 'recurring categories')),
     ].join(' · ');
+    return text === '' ? none : some(text);
 };
 
-const resolved = (spawned: Spawned, result: AgentSpawnResult): string =>
-    result.deny === undefined
-        ? `spawned ${spawned.agent}${result.agentId === undefined ? '' : ` ${result.agentId}`} over ${subject(spawned)}`
-        : `${spawned.agent} refused over ${subject(spawned)}: ${result.deny}`;
+const outcome = (spawned: Spawned, result: AgentSpawnResult): string => {
+    const over = subject(spawned);
+    return result.deny === undefined ? `spawned ${spawned.agent}${result.agentId === undefined ? '' : ` ${result.agentId}`} over ${over}` : `${spawned.agent} refused over ${over}: ${result.deny}`;
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Building, Judging, Lineage, Settings, Spawned };
-export { context, DELIVER, delivering, description, due, dueCategories, JUDGE, lineageOf, listed, prompt, REPORT, resolved, STATE, settings, state, status, subject };
+export type { Delivered, Settings, State };
+export { context, decided, outcome, request, settings, status, subject };

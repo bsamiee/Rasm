@@ -10,7 +10,7 @@ utils:
               all:
                 - has: {field: function, kind: identifier, regex: '^int$', not: {matches: python-shadowed-name}}
                 - has: {field: arguments, has: {nthChild: 1, matches: python-truth-value}, not: {has: {nthChild: 2}}}
-    literal-table:
+    sequence-literal:
         kind: list, tuple, string, concatenated_string
     comparison:
         any:
@@ -31,9 +31,7 @@ utils:
             - matches: bool-value
               not: {matches: mask}
             - matches: mask
-              inside: {kind: subscript, has: {field: value, matches: literal-table}}
-    repeated:
-        kind: list, tuple, string, concatenated_string
+              inside: {kind: subscript, has: {field: value, matches: sequence-literal}}
     bool-keyed-mapping:
         kind: identifier
         pattern: $M
@@ -59,7 +57,7 @@ rule:
           all:
             - has: {field: operator, regex: '^\*$'}
             - any:
-                - all: [{has: {field: left, matches: repeated}}, {has: {field: right, matches: bool-value}}]
-                - all: [{has: {field: right, matches: repeated}}, {has: {field: left, matches: bool-value}}]
+                - all: [{has: {field: left, matches: sequence-literal}}, {has: {field: right, matches: bool-value}}]
+                - all: [{has: {field: right, matches: sequence-literal}}, {has: {field: left, matches: bool-value}}]
 message: '`$USE` reads a boolean as an index or a repeat count'
-note: 'Select the form by `<a> if <test> else <b>`'
+note: 'Select the form with `<a> if <test> else <b>`, a boolean read as a number hides its choice'

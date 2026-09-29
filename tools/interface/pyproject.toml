@@ -4,9 +4,10 @@ version = "0.0.0"
 requires-python = ">=3.15"
 dependencies = [
     "anyio",     # Structured concurrency for application sessions and host downloads
-    "attrs",     # Frozen records of Blender's catalog and package rows, read by the host and Blender's Python alike
+    "attrs",     # Frozen installation, package, and launch records the host and Blender's Python exchange
     "cyclopts",  # CLI parser from typed signatures
     "httpx",     # HTTP client for package, library, and site downloads
+    "lxml",      # XML trees of Rhino settings and toolbar files and Adobe workspace files
     "mcp",       # MCP client for the applications' servers
     "msgspec",   # Struct types with JSON and TOML codecs for rows and reports
     "psd-tools", # Photoshop settings file action descriptors
@@ -20,4 +21,4 @@ dependencies = [
 
 [tool.ruff]
 extend = "../../pyproject.toml"
-per-file-target-version = { "!{cli,host,*/apply,adobe/rows,adobe/stores,adobe/workspaces,blender/content,blender/packages,blender/sessions,blender/userpref,rhino/packages,rhino/stores}.py" = "py313" }
+per-file-target-version = { "{roles,report,units,render,aliases,frame}.py" = "py313", "rhino/{window,markup}.py" = "py313", "blender/rows.py" = "py313", "*/script/**/*.py" = "py313", "blender/extension/**/*.py" = "py313" }

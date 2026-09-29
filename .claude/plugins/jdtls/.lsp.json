@@ -1,7 +1,6 @@
 {
     "jdtls": {
-        "command": "mise",
-        "args": ["exec", "--", "jdtls"],
+        "command": "jdtls",
         "extensionToLanguage": { ".java": "java" },
         "workspaceFolder": "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts",
         "startupTimeout": 120000,

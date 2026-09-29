@@ -1,0 +1,81 @@
+Skin.Description = Canvas colors from the shared color roles
+
+Dim.Shape.Corners                   = $CORNER_RADIUS
+Dim.Shape.Thickness                 = 0
+
+Dim.Shade.Edge.Normal               = $Node.BORDER
+Dim.Shade.Apex.Normal               = $Surface.PANEL
+Dim.Shade.Text.Normal               = $Text.PRIMARY
+Dim.Shade.Edge.Hidden               = Dim.Shade.Edge.Normal
+Dim.Shade.Apex.Hidden               = $Surface.BOX
+Dim.Shade.Text.Hidden               = Dim.Shade.Text.Normal
+Dim.Shade.Edge.Disabled             = Dim.Shade.Edge.Normal
+Dim.Shade.Apex.Disabled             = Dim.Shade.Apex.Normal
+Dim.Shade.Text.Disabled             = $Text.SECONDARY
+Dim.Shade.Overlay.Disabled          = Dim.Shade.Apex.Disabled | Opacity $VEIL_ALPHA
+Dim.Shade.Edge.Selected             = $Node.SELECTED_BORDER
+Dim.Shade.Apex.Selected             = $Selection.BODY
+Dim.Shade.Text.Selected             = Dim.Shade.Text.Normal
+Dim.Shade.Edge.Hidden+Selected      = Dim.Shade.Edge.Selected
+Dim.Shade.Apex.Hidden+Selected      = $Selection.BODY_HIDDEN
+Dim.Shade.Text.Hidden+Selected      = Dim.Shade.Text.Normal
+Dim.Shade.Edge.Disabled+Selected    = Dim.Shade.Edge.Selected
+Dim.Shade.Apex.Disabled+Selected    = Dim.Shade.Apex.Selected
+Dim.Shade.Text.Disabled+Selected    = Dim.Shade.Text.Disabled
+Dim.Shade.Overlay.Disabled+Selected = Dim.Shade.Apex.Disabled+Selected | Opacity $VEIL_ALPHA
+
+Dim.Grips.Outer.Normal              = Dim.Shade.Edge.Normal
+Dim.Grips.Inner.Normal              = $Guide.HANDLE
+Dim.Grips.Radius.Normal             = 3
+Dim.Grips.Outer.Disabled            = Dim.Grips.Outer.Normal | Opacity $Alpha.DISABLED
+Dim.Grips.Inner.Disabled            = Dim.Grips.Inner.Normal | Opacity $Alpha.DISABLED
+Dim.Grips.Radius.Disabled           = Dim.Grips.Radius.Normal
+Dim.Grips.Outer.Tentative           = $Guide.TRACKING
+Dim.Grips.Inner.Tentative           = $Guide.TRACKING_ACTIVE
+Dim.Grips.Radius.Tentative          = Dim.Grips.Radius.Normal
+
+Dim.Wires.Colour.Data               = $Wire.CORE
+Dim.Wires.Colour.Data+Selected      = $SELECTED_WIRE
+Dim.Wires.Colour.Null               = Dim.Wires.Colour.Data | Opacity $Alpha.NULL_WIRE
+Dim.Wires.Colour.Null+Selected      = Dim.Wires.Colour.Data+Selected | Opacity $Alpha.NULL_WIRE
+Dim.Wires.Colour.Disabled           = Dim.Wires.Colour.Data | Opacity $Alpha.DISABLED_WIRE
+Dim.Wires.Colour.Disabled+Selected  = $Selection.INACTIVE
+Dim.Wires.Colour.Tentative          = $Guide.TRACKING
+Dim.Wires.Glow                      = $Wire.GLOW / $Alpha.GLOW
+Dim.Wires.Width.Null                = Dim.Wires.Width.Item
+Dim.Wires.Width.Item                = 1
+Dim.Wires.Width.Twig                = 2
+Dim.Wires.InnerWidth.Twig           = 0
+Dim.Wires.Width.Tree                = 2
+Dim.Wires.Width.Disabled            = Dim.Wires.Width.Item
+Dim.Wires.Width.Tentative           = Dim.Wires.Width.Item
+
+Dim.Messaging.Info                  = $Status.INFO
+Dim.Messaging.Warning               = $Status.WARNING
+Dim.Messaging.Error                 = $Status.ERROR
+
+Dim.Canvas.Paper                    = $Surface.CANVAS
+Dim.Canvas.Background               = $Surface.FRAME
+Dim.Canvas.Edge                     = Dim.Shade.Edge.Normal
+Dim.Canvas.GridThin                 = $Line.GRID / $GRID_THIN_ALPHA
+Dim.Canvas.GridThick                = $Line.GRID / $GRID_THICK_ALPHA
+Dim.Canvas.GridColumns              = $GRID_COLUMNS
+Dim.Canvas.GridRows                 = $GRID_ROWS
+
+Dim.Icons.Input.Normal              = $Modality.INPUT.mark
+Dim.Icons.Input.Shine               = $Modality.INPUT.shine
+Dim.Icons.Input.Light               = $Modality.INPUT.token
+Dim.Icons.Input.Dark                = $Modality.INPUT.border
+Dim.Icons.Output.Normal             = $Modality.OUTPUT.mark
+Dim.Icons.Output.Shine              = $Modality.OUTPUT.shine
+Dim.Icons.Output.Light              = $Modality.OUTPUT.token
+Dim.Icons.Output.Dark               = $Modality.OUTPUT.border
+Dim.Icons.Analysis.Normal           = $Modality.ANALYSIS.mark
+Dim.Icons.Analysis.Shine            = $Modality.ANALYSIS.shine
+Dim.Icons.Analysis.Light            = $Modality.ANALYSIS.token
+Dim.Icons.Analysis.Dark             = $Modality.ANALYSIS.border
+Dim.Icons.Symbolic.Normal           = $Modality.GEOMETRY.mark
+Dim.Icons.Symbolic.Shine            = $Modality.GEOMETRY.shine
+Dim.Icons.Symbolic.Light            = $Modality.GEOMETRY.token
+Dim.Icons.Symbolic.Dark             = $Modality.GEOMETRY.border
+Dim.Icons.Filter                    = None

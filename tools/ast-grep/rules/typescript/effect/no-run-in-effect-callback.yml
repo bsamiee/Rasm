@@ -3,14 +3,13 @@ id: no-run-in-effect-callback
 language: tsx
 severity: error
 utils:
-    effect-module: {matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
     run-invocation:
         kind: call_expression
         has:
             field: function
             kind: member_expression
             all:
-                - has: {field: object, matches: effect-module}
+                - has: {field: object, matches: effect-effect-module}
                 - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
     effect-combinator:
         kind: call_expression
@@ -48,7 +47,7 @@ utils:
                 field: function
                 kind: member_expression
                 all:
-                    - has: {field: object, pattern: $M, matches: effect-module}
+                    - has: {field: object, pattern: $M, matches: effect-effect-module}
                     - has: {field: property, regex: '^(runSync|runPromise)$'}
             - has: {field: arguments, has: {pattern: $EFFECT}, not: {has: {nthChild: 2}}}
     run-callback:
@@ -64,7 +63,7 @@ utils:
     fixable-call:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, has: {field: object, matches: effect-module}}
+            - has: {field: function, kind: member_expression, has: {field: object, matches: effect-effect-module}}
             - not: {has: {field: type_arguments, kind: type_arguments}}
             - not: {has: {field: arguments, has: {nthChild: 3}}}
             - not: {has: {kind: comment, stopBy: end}}
@@ -109,6 +108,6 @@ transform:
     COMPOSED: rewrite($CALL, rewriters=[map-first, map-last, suspend])
 fix: $COMPOSED
 message: '`$RUN` starts a separate runtime inside an effect callback'
-note: 'Return the effect from the callback, the enclosing runtime supplies interruption and context'
+note: 'Return the effect from the callback, the enclosing runtime then supplies its interruption and context'
 labels:
     RUN: {style: primary}
