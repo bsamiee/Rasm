@@ -6,8 +6,14 @@ import { invocations, operands, PROGRAMS } from './invocation.ts';
 type Scanner = (text: string) => Promise<Result<string>>;
 type Marker = 'looped' | 'polled' | 'fed';
 
+interface Span {
+    readonly start: number;
+    readonly end: number;
+}
 interface Command {
     readonly words: readonly string[];
+    readonly spans: readonly Span[];
+    readonly nested: boolean;
     readonly looped: boolean;
     readonly polled: boolean;
     readonly fed: boolean;
@@ -20,7 +26,7 @@ interface Script {
 }
 interface Capture {
     readonly text: string;
-    readonly range: { readonly byteOffset: { readonly start: number } };
+    readonly range: { readonly byteOffset: Span };
 }
 interface Owned {
     readonly single: { readonly BODY: Capture; readonly DEST: Capture };
@@ -92,7 +98,7 @@ rule: {any: [{kind: variable_name, regex: '^(SECONDS|EPOCHREALTIME|EPOCHSECONDS)
 const _unquoted = (_match: string, quote: string | undefined, body: string): string => (quote === '"' ? body.replace(_ESCAPED, '$<char>') : body);
 const _owner = (hit: Hit): number => (hit.ruleId === 'operand' || hit.ruleId === 'write' || hit.ruleId === 'read' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start;
 
-const _script = (hits: readonly Hit[], enclosing: Enclosing): Script => {
+const _script = (hits: readonly Hit[], enclosing: Enclosing, nested: boolean): Script => {
     const sorted = hits.toSorted((left, right) => left.range.byteOffset.start - right.range.byteOffset.start);
     return {
         commands: [...Map.groupBy(sorted, _owner).values()].flatMap((own): readonly Command[] => {
@@ -102,11 +108,12 @@ const _script = (hits: readonly Hit[], enclosing: Enclosing): Script => {
             }
             const marked = (marker: Marker): boolean => enclosing[marker] || own.some((other) => other.ruleId === marker);
             const destinations = (id: 'write' | 'read'): readonly string[] => own.flatMap((other) => (other.ruleId === id ? [other.metaVariables.single.DEST.text.replace(_QUOTED, _unquoted)] : []));
+            const tokens = [hit.metaVariables.single.CMD, ...(hit.metaVariables.multi.ARGS ?? []), ...own.filter((other) => other.ruleId === 'operand')].filter(({ text }) => _WORD.test(text));
             return [
                 {
-                    words: [hit.metaVariables.single.CMD, ...(hit.metaVariables.multi.ARGS ?? []), ...own.filter((other) => other.ruleId === 'operand')].flatMap(({ text }) =>
-                        _WORD.test(text) ? [text.replace(_QUOTED, _unquoted)] : [],
-                    ),
+                    words: tokens.map(({ text }) => text.replace(_QUOTED, _unquoted)),
+                    spans: tokens.map(({ range }) => range.byteOffset),
+                    nested,
                     looped: marked('looped'),
                     polled: marked('polled'),
                     fed: marked('fed'),
@@ -135,7 +142,7 @@ const _body = (command: Command, depth: number): Option<string> => {
 
 const _parse = async (scan: Scanner, text: string, depth: number, enclosing: Enclosing): Promise<Result<Script>> =>
     bind(decoded<readonly Hit[]>('ast-grep', await scan(text)), async (hits): Promise<Result<Script>> => {
-        const script = _script(hits, enclosing);
+        const script = _script(hits, enclosing, depth > 0);
         const placed = await Promise.all(
             script.commands.map(async (command): Promise<Result<Script>> => {
                 const body = _body(command, depth);
@@ -151,5 +158,5 @@ const parse = (scan: Scanner, command: string): Promise<Result<Script>> => _pars
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Command, Script };
+export type { Command, Script, Span };
 export { parse, SCAN };

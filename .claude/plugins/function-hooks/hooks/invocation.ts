@@ -6,6 +6,7 @@ type Given = readonly [name: string, value: string];
 interface Program {
     readonly valued?: readonly string[];
     readonly pairs?: readonly string[];
+    readonly flags?: readonly string[];
     readonly ends?: readonly string[];
     readonly leading?: number;
     readonly supplies?: readonly string[];
@@ -157,8 +158,6 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
         ],
         leading: 1,
         supplies: ['-e', '--regexp', '-f', '--file', '--files', '--type-list'],
-        stdin: 'default',
-        sources: ['--files', '--type-list'],
     },
     grep: {
         valued: [
@@ -260,7 +259,12 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
     awk: { valued: ['-F', '-v', '-f'], leading: 1, supplies: ['-f'], stdin: 'default' },
     jq: { valued: ['-L', '--library-path', '--indent'], pairs: ['--arg', '--argjson', '--slurpfile', '--rawfile'], leading: 1, stdin: 'default', sources: ['-n', '--null-input'] },
     yq: { valued: ['-o', '-p', '-I', '--output-format', '--input-format', '--indent', '--from-file'], leading: 1, supplies: ['--from-file'], stdin: 'default', sources: ['-n', '--null-input'] },
-    sd: { valued: ['-f', '-n', '--flags', '--max-replacements'], leading: 2, stdin: 'default' },
+    sd: {
+        valued: ['-f', '-n', '--flags', '--max-replacements'],
+        flags: ['-p', '--preview', '-F', '--fixed-strings', '-s', '-A', '--across', '-h', '--help', '-V', '--version'],
+        leading: 2,
+        stdin: 'default',
+    },
     node: { stdin: 'default', sources: ['-e', '-p', '-v', '--eval', '--print', '--test', '--run'] },
     python: _PYTHON,
     python3: _PYTHON,
@@ -294,6 +298,11 @@ const option = (program: string, word: string): ParsedOption => {
     return { names: at < 0 ? names : names.slice(0, at + 1), taken, joined: word.includes('=') ? [word.slice(head.length + 1)] : [] };
 };
 
+const known = (program: string, word: string): boolean => {
+    const row = PROGRAMS[program];
+    return row?.flags === undefined || option(program, word).names.every((name) => row.flags?.includes(name) === true || _arity(row, name) > 0);
+};
+
 const _split = (program: string, args: readonly string[]): Operands => {
     const row = PROGRAMS[program];
     const empty: Operands = { inputs: [], options: [], values: [] };
@@ -304,7 +313,7 @@ const _split = (program: string, args: readonly string[]): Operands => {
     if (head === '--') {
         return { ...empty, inputs: rest };
     }
-    if (head === '-' || !(head.startsWith('-') || (head.startsWith('+') && row?.valued?.some((name) => name.startsWith('+')) === true))) {
+    if (head === '-' || !(head.startsWith('-') || (head.startsWith('+') && row?.valued?.some((name) => name.startsWith('+')) === true)) || !known(program, head)) {
         const tail = _split(program, rest);
         return { ...tail, inputs: [head, ...tail.inputs] };
     }
@@ -349,4 +358,4 @@ const invocations = (words: readonly string[]): readonly Invocation[] => {
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Invocation, Operands };
-export { basename, invocations, operands, option, PROGRAMS };
+export { basename, invocations, known, operands, option, PROGRAMS };

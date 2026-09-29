@@ -1,7 +1,7 @@
 import type { ToolCallInput } from 'claude-code';
-import type { Command, Script } from './command.ts';
-import { none, type Option, some } from './composition.ts';
-import { basename, type Invocation, invocations, type Operands, operands, option, PROGRAMS } from './invocation.ts';
+import type { Command, Script, Span } from './command.ts';
+import { fromUndefined, none, type Option, some } from './composition.ts';
+import { basename, type Invocation, invocations, known, type Operands, operands, option, PROGRAMS } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -27,6 +27,19 @@ interface Facts {
     readonly existing: readonly string[];
     readonly walk: Option<Walk>;
 }
+interface Insertion {
+    readonly at: number;
+    readonly text: string;
+    readonly note: string;
+}
+interface Rewrite {
+    readonly command: string;
+    readonly notes: readonly string[];
+}
+interface Shape {
+    readonly options: readonly string[];
+    readonly operand: number;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -42,6 +55,8 @@ const _SECOND_FILES: readonly RegExp[] = [
 ];
 const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
+const _ACROSS = ['-A', '--across'];
+const _ASKING = ['-h', '--help', '-V', '--version'];
 
 // --- [GIT] -----------------------------------------------------------------------------
 
@@ -241,6 +256,58 @@ const _walk = (commands: readonly Command[], walk: Walk): readonly string[] =>
             : [],
     );
 
+// --- [REWRITE] -------------------------------------------------------------------------
+
+const _dashed = (program: string, word: string): boolean => word !== '-' && word !== '--' && word.startsWith('-') && !known(program, word);
+
+const _shape = (program: string, args: readonly string[], index: number): Shape => {
+    const word = args[index];
+    if (word === undefined || word === '-' || word === '--' || !word.startsWith('-') || !known(program, word)) {
+        return { options: [], operand: index };
+    }
+    const { names, taken } = option(program, word);
+    const tail = _shape(program, args, index + 1 + taken);
+    return { options: [...names, ...tail.options], operand: tail.operand };
+};
+
+const _sd = (command: Command): readonly Insertion[] => {
+    const last = invocations(command.words).at(-1);
+    if (command.nested || last === undefined || last[0] !== 'sd') {
+        return [];
+    }
+    const [program, ...args] = last;
+    const span = (index: number): Option<Span> => fromUndefined(command.spans[command.words.length - last.length + index]);
+    const { options, operand } = _shape(program, args, 0);
+    const rest = args.slice(operand);
+    const across = span(0);
+    const find = span(operand + 1);
+    return [
+        ...(across.kind === 'some' && !options.some((name) => _ACROSS.includes(name) || _ASKING.includes(name))
+            ? [{ at: across.value.end, text: ' -A', note: 'sd matches inside one line unless -A is passed' }]
+            : []),
+        ...(find.kind === 'some' && !rest.includes('--') && rest.some((word) => _dashed(program, word))
+            ? [{ at: find.value.start, text: '-- ', note: 'sd reads a word opening with - as an option unless -- precedes the find' }]
+            : []),
+    ];
+};
+
+const _spliced = (text: string, insertions: readonly Insertion[]): string => {
+    const bytes = new TextEncoder().encode(text);
+    const decoder = new TextDecoder();
+    const done = insertions
+        .toSorted((left, right) => left.at - right.at)
+        .reduce<{ readonly at: number; readonly pieces: readonly string[] }>(
+            (head, { at, text: inserted }) => ({ at, pieces: [...head.pieces, decoder.decode(bytes.subarray(head.at, at)), inserted] }),
+            { at: 0, pieces: [] },
+        );
+    return [...done.pieces, decoder.decode(bytes.subarray(done.at))].join('');
+};
+
+const commandRewrite = (commands: readonly Command[], text: string): Option<Rewrite> => {
+    const insertions = commands.flatMap(_sd);
+    return insertions.length === 0 ? none : some({ command: _spliced(text, insertions), notes: [...new Set(insertions.map(({ note }) => note))] });
+};
+
 // --- [DECISION] ------------------------------------------------------------------------
 
 const callRefusal = (e: ToolCallInput): Option<string> => {
@@ -263,5 +330,5 @@ const commandRefusal = (tool: 'Bash' | 'Monitor', script: Script, facts: Facts):
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Facts, Walk };
-export { CLOUD, callRefusal, commandRefusal, gitPaths, walkStarts };
+export type { Facts, Rewrite, Walk };
+export { CLOUD, callRefusal, commandRefusal, commandRewrite, gitPaths, walkStarts };

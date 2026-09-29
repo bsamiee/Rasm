@@ -3,9 +3,10 @@
 Policies refuse tool calls. With `observation` true, hook events become database rows, and stop boundaries spawn agents and deliver findings:
 - Use `observation` skill for database reads and writes
 
-[TOOL_CALL]: Function hooks hold one decision the harness takes on every tool call before the tool runs, `deny` or `next`
+[TOOL_CALL]: Function hooks hold one decision the harness takes on every tool call before the tool runs, `deny`, `next` over the call, or `next` over its rewrite
 - ALWAYS use `plugin-authoring` skill for writing or changing a function hook
 - ALWAYS write a policy as a pure function from the parsed call to its refusal, `register.ts` alone reads `$` and answers `deny` or `next`
+- ALWAYS write a rewrite as a pure function from the parsed call and its text to byte insertions and a note, `register.ts` re-parses the rewritten command, runs every refusal policy over it, passes it to `next`, and adds the note to the `context` the model reads after the result
 - ALWAYS fold every policy under the one `tool.call` registration, the first refusing policy is the call's answer
 
 [RUNTIME]: Harness loads `hooks/register.ts` and the files it imports in an environment with no DOM and no Node
@@ -24,9 +25,13 @@ Git, stdin, and wait policies read Bash and Monitor commands, script and walker 
 - Walker policy joins the Bash policies when `walkPolicy` is true, its default false passes every walker and reads no `HOME` or path
 - Walker policy compares each start operand's real path, or its folder's when the operand does not resolve, with the real path of `~/Library/CloudStorage`
 - Stdin policy refuses a reader program of `invocation.ts` that no operand, pipe, heredoc, herestring, or input redirect on it or an enclosing statement feeds
+- Bash tool stdin is a character device in foreground and background runs, `rg` with no operand searches the working directory and is no reader
 - Wait policy refuses a program of `policies.ts` that blocks the call on time or another process
 - Wait policy refuses every command inside a `while` or `until` loop not driven by `read` and inside a `for ((;;))` loop
 - Git policy checks each operand of `git reset` and `git checkout` through `$.fs.exists`, an existing path passes `reset` and refuses `checkout`
+- Rewrite policy adds `-A` to an `sd` invocation lacking it, `sd` matches inside one line without it and exits 0 over a find spanning lines
+- Rewrite policy adds `--` before the find of an `sd` invocation whose operand opens with `-` and names no option of its `invocation.ts` row, `flags` there completes the option set
+- Rewrite policy splices top-level commands by the byte spans of their words, a command inside an inline body keeps its text
 
 ## [02]-[RECORDING]
 

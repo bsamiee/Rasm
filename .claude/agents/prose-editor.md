@@ -70,7 +70,7 @@ Rename coined names through the tool that updates every reference:
 |  [01]   | C# symbol                      | Rename through `dotnet-roslyn-codelens`                 |
 |  [02]   | Symbol of every other language | `ast-grep run -p '<old>' -r '<new>' -l <lang> -U <dir>` |
 |  [03]   | File or directory              | `git mv`, then every reference edited                   |
-|  [04]   | Configuration or markdown name | `sd -F '<old>' '<new>' $(rg -l -F '<old>')`             |
+|  [04]   | Configuration or markdown name | `sd -A -F '<old>' '<new>' $(rg -l -F '<old>')`          |
 
 </renames>
 
@@ -84,7 +84,7 @@ Rename coined names through the tool that updates every reference:
 6. Trace each number, version, path, and issue id to its declaration, report one with none with its condition
 7. Rename each coined file, identifier, or function through the renames table, one rename per edit
 8. Replace coined terms and delete filler by the word map
-9. Apply one old string found across files through `sd -F '<old>' '<new>' $(rg -l -F '<old>')`
+9. Apply one old string found across files through `sd -A -F '<old>' '<new>' $(rg -l -F '<old>')`
 10. Check each value, command, and flag against its sources row
 11. Run each checker over the scope files of its kind, fix each finding:
 - `rg -n -w because <scope>`

@@ -1,17 +1,18 @@
 import type { ClassicHookInputs, EngineInterface, Frozen, On, PluginOptions, ProcessRunInit, Register, ToolCallInput, TurnCompleteInput } from 'claude-code';
 import { atom, read, update } from 'claude-code';
-import { type Command, parse, SCAN } from './command.ts';
+import { type Command, parse, SCAN, type Script } from './command.ts';
 import { bind, decoded, fault, fromUndefined, map, none, type Option, ok, type Result, rendered, some } from './composition.ts';
 import { context, type Delivered, decided, outcome, request, type Settings, type State, settings, status, subject } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, type Payload, row, session, TURN } from './observation/row.ts';
 import { bound, DATABASE, DELIVER, DELTA, INSERT, JUDGE, open, REPORT, STATE } from './observation/sql.ts';
-import { CLOUD, callRefusal, commandRefusal, type Facts, gitPaths, type Walk, walkStarts } from './policies.ts';
+import { CLOUD, callRefusal, commandRefusal, commandRewrite, type Facts, gitPaths, type Walk, walkStarts } from './policies.ts';
 import type { Building, Judging, Spawned } from './state.d.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Argv = readonly [string, ...string[]];
 type Once<T> = (start: () => Promise<T>) => Promise<T>;
+type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'rewrite'; readonly input: ToolCallInput; readonly note: string } | { readonly kind: 'pass' };
 
 interface Database {
     readonly argv: Argv;
@@ -92,13 +93,32 @@ const _facts = async ($: EngineInterface, commands: readonly Command[], walking:
     return { existing: existing.flat(), walk };
 };
 
-const _refusal = async ($: EngineInterface, e: ToolCallInput, walking: boolean): Promise<Option<string>> => {
+const _decided = (refusal: Option<string>, passed: Decision): Decision => (refusal.kind === 'some' ? { kind: 'deny', reason: refusal.value } : passed);
+
+const _decision = async ($: EngineInterface, e: ToolCallInput, walking: boolean): Promise<Decision> => {
     if (!((e.tool === 'Bash' || e.tool === 'Monitor') && e.command !== undefined)) {
-        return callRefusal(e);
+        return _decided(callRefusal(e), { kind: 'pass' });
     }
     const { command, tool } = e;
-    const script = await parse((text) => _run($, ['ast-grep', ...SCAN], { stdin: text }), command);
-    return script.kind === 'fault' ? some(`command not parsed, ${rendered(script.fault)}`) : commandRefusal(tool, script.value, await _facts($, script.value.commands, walking && tool === 'Bash'));
+    const scan = (text: string): Promise<Result<string>> => _run($, ['ast-grep', ...SCAN], { stdin: text });
+    const refusal = async (script: Script): Promise<Option<string>> => commandRefusal(tool, script, await _facts($, script.commands, walking && tool === 'Bash'));
+    const parsed = await parse(scan, command);
+    if (parsed.kind === 'fault') {
+        return { kind: 'deny', reason: `command not parsed, ${rendered(parsed.fault)}` };
+    }
+    const rewrite = commandRewrite(parsed.value.commands, command);
+    if (rewrite.kind === 'none') {
+        return _decided(await refusal(parsed.value), { kind: 'pass' });
+    }
+    const reparsed = await parse(scan, rewrite.value.command);
+    if (reparsed.kind === 'fault') {
+        return { kind: 'deny', reason: `command not parsed, ${rendered(reparsed.fault)}` };
+    }
+    return _decided(await refusal(reparsed.value), {
+        kind: 'rewrite',
+        input: { ...e, command: rewrite.value.command },
+        note: `\`${command}\` ran as \`${rewrite.value.command}\`: ${rewrite.value.notes.join(', ')}, write the corrected form`,
+    });
 };
 
 // --- [RECORD] --------------------------------------------------------------------------
@@ -296,8 +316,12 @@ const register: Register = (on, options) => {
     const database = _once<Option<Database>>();
 
     on('tool.call', async ($, e, next) => {
-        const reason = await _refusal($, e, walking);
-        const answer = reason.kind === 'some' ? { deny: reason.value } : await next(e);
+        const decision = await _decision($, e, walking);
+        if (decision.kind === 'rewrite') {
+            $.ui.log(`${e.tool} ${decision.note}`);
+        }
+        const ran = decision.kind === 'deny' ? { deny: decision.reason } : await next(decision.kind === 'rewrite' ? decision.input : e);
+        const answer = decision.kind === 'rewrite' && ran.deny === undefined ? { ...ran, context: [...(ran.context ?? []), decision.note] } : ran;
         if (answer.deny !== undefined && observing) {
             const [db, ts] = await _stamped($, database);
             if (db.kind === 'some') {

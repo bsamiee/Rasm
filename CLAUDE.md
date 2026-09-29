@@ -7,10 +7,8 @@
 - Language idioms differ but the composition rules do not, define a result type when a language lacks one instead of adding another error mechanism
 - Fix defects at root cause, a wrapper, fallback, guard, or retry around it is a defect
 - Tests are made at the user's request alone
-- Checks run over the files a change touched, never the full tree
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections
-- Refactors become ast-grep rules, before form as pattern and after form as fix, once a second instance exists and no checker reports it
 - Audits, security scans, supply-chain pins, and approval gates are added on user request alone
 
 ## [01]-[LANGUAGE_STANDARDS]
@@ -36,8 +34,6 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `use-rhino` skill for Rhino and Grasshopper
 - ALWAYS use `use-blender` skill for Blender
-- ALWAYS read a foreground command's exit code or the completion notification of a background command or agent, no sleep, poll, or monitor loop waits
-- ALWAYS open an application so its running instance is reused, never force a new instance or relaunch before the quit one deregisters
 
 [CLI_TOOLING]:
 
@@ -49,7 +45,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 |  [04]   | `rg`        | `rg <pattern> <paths>` for literals, comments, and prose, never for code search                             |
 |  [05]   | `gh`        | Local checkout work: PR from HEAD, checks, checkout, releases, secrets, `gh api` for any uncovered endpoint |
 |  [06]   | `jq`/`yq`   | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |
-|  [07]   | `sd`        | `sd '<regex>' '<replacement>' <files>` for a literal or regex rewrite over files, `-F` for a fixed string   |
+|  [07]   | `sd`        | `sd -A '<regex>' '<replacement>' <files>` rewrites across lines, `-F` for a fixed string, `--` before a `-` |
 |  [08]   | `difft`     | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change           |
 |  [09]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times commands under the same controls, `-N` skips the shell              |
 |  [10]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output               |
@@ -98,8 +94,8 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS define a custom operator, implicit conversion, or extension method for a domain meaning, never to shorten a call the direct form states
 - ALWAYS reach a dependency through the function or runtime that supplies it, never a service locator or a layer that forwards a call unchanged
 
-[DERIVATION]: Values a system exposes (types, defaults, members, ranges) come from its API and metadata at run time instead of literals or tables
-- ALWAYS declare a fact the API hides (setter clamp, relaunch-applied value) once at its owner, every other use derives it
+[DERIVATION]: Values a system exposes come from its API and metadata at run time instead of literals or tables
+- ALWAYS declare a fact the API hides once at its owner, every other use derives it
 - ALWAYS type configuration values with their owner's range, and reach members through typed handles instead of member-name strings
 
 ## [03]-[DEPENDENCY_POLICY]
@@ -111,7 +107,6 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS pin versions in `uv.lock`, `pnpm-lock.yaml`, `Package.resolved`, and `Directory.Packages.props` alone
 - ALWAYS state a fact once in a project file, lock, or check, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
-- ALWAYS map every package id to one source in `NuGet.config`
 
 ## [04]-[FILE_ORGANIZATION]
 
