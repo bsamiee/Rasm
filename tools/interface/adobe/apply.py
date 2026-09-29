@@ -19,9 +19,10 @@ from interface.report import ABSENT, Kind, line
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Installed(msgspec.Struct, frozen=True):
+class Installed(msgspec.Struct, frozen=True, rename={"processes": "processIdentifiers"}):
     """Installed Adobe application as the `applications` tool reports it."""
 
+    identifier: str
     processes: tuple[int, ...]
     scriptable: bool
     url: str
@@ -74,13 +75,13 @@ class Request(msgspec.Struct, frozen=True):
 
 
 # --- [SERVER]
-async def chosen(product: Product, discovered: Sequence[Installed]) -> Installed | Failed:
-    """One scriptable installed application whose bundle declares the product's creator code."""
-    match [each for each in discovered if each.scriptable and (await bundle(Path.from_uri(each.url))).signature == product.signature]:
+def chosen(product: Product, discovered: Sequence[Installed]) -> Installed | Failed:
+    """One scriptable installed application with the product's bundle id."""
+    match [each for each in discovered if each.scriptable and each.identifier == product.identifier]:
         case [installed]:
             return installed
         case matches:
-            return Failed(product.name.lower(), (f"{len(matches)} installed applications declare the creator code {product.signature} and the run needs one",))
+            return Failed(product.name.lower(), (f"{len(matches)} installed applications declare the bundle id {product.identifier} and the run needs one",))
 
 
 async def execute(session: ClientSession, product: Product, prepared: Prepared, source: str, request: Request) -> str | Failed:
@@ -176,7 +177,7 @@ async def served(host: Host, parameters: StdioServerParameters) -> tuple[Applied
     async with stdio_client(parameters) as (read, write), ClientSession(read, write, read_timeout_seconds=timedelta(seconds=DEADLINE)) as session:
         await session.initialize()
         discovered = msgspec.convert((await session.call_tool("applications", {})).structuredContent, Discovery).applications
-        picks = {product: await chosen(product, discovered) for product in Product}
+        picks = {product: chosen(product, discovered) for product in Product}
         halted = dict(zip(Product, await gather(stopped(product, picks[product]) for product in Product), strict=True))
         busy = tuple(product for product, pick in picks.items() if isinstance(pick, Installed) and isinstance(halted[product], Failed))
         ready = dict(zip(Product, await gather(prepare(product, halted[product], declared[product], busy) for product in Product), strict=True))

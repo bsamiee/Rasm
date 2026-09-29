@@ -8,7 +8,7 @@ from enum import auto, Enum
 from functools import partial, reduce
 from importlib import import_module
 from importlib.util import cache_from_source
-from math import log10, radians
+from math import radians
 import os
 from pathlib import Path
 import pwd
@@ -31,7 +31,7 @@ from interface.blender.theme import Encoding, Paint
 from interface.render import DAYLIGHT, DPI, LATITUDE, LONGITUDE, MATERIALS, MOMENT, NORTH, OFFSET, stocked
 from interface.report import digest, Kind, line, Row
 from interface.roles import Alpha, Annotation, Guide, Ink, Line, Modality, POINT_WIDTH, Selection, Status, Surface, Text
-from interface.units import ANGLE_PRECISION, FOOT, INCH, MILLIMETER, Units
+from interface.units import ANGLE_PRECISION, Length, Units
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -264,7 +264,7 @@ def declared_files(modules: Mapping[str, str]) -> Iterator[Row]:
         ("operator/export_scene.gltf", "Interchange", operator, {"export_format": "GLB", "export_hierarchy_full_collections": True}),
         *(
             ("operator/import_scene.max", name, operator, {"scale_objects": scale, "use_collection": True})
-            for name, scale in (("Inches", INCH), ("Feet", FOOT), ("Millimeters", MILLIMETER), ("Centimeters", 10 * MILLIMETER), ("Meters", 1.0))
+            for name, scale in (("Inches", Length.INCHES.value), ("Feet", Length.FEET.value), ("Millimeters", Length.MILLIMETERS.value), ("Centimeters", 10 * Length.MILLIMETERS), ("Meters", 1.0))
         ),
         *(
             (
@@ -272,7 +272,7 @@ def declared_files(modules: Mapping[str, str]) -> Iterator[Row]:
                 f"{paper}_{DPI}_dpi",
                 camera,
                 {
-                    **dict(zip(("resolution_x", "resolution_y"), (round(side / INCH * DPI) for side in system.paper), strict=True)),
+                    **dict(zip(("resolution_x", "resolution_y"), (round(side / Length.INCHES * DPI) for side in system.paper), strict=True)),
                     "resolution_percentage": 100,
                     "pixel_aspect_x": 1.0,
                     "pixel_aspect_y": 1.0,
@@ -299,8 +299,8 @@ def options(
 ) -> tuple[dict[tuple[str, Store], dict[str, object]], tuple[str, ...]]:
     """Registered add-on settings by `packages.toml` id and store in the order their update callbacks need, with a skip line per absent add-on or library."""
     endpoint, grid, drawing, converter = "https://overpass-api.de/api/interpreter", 20, preferences.view.font_path_ui, make_converter()
-    denominator, standard, library = str(round(INCH / Units.IMPERIAL.resolution)), OFFSET / timedelta(hours=1), stocked(MATERIALS)
-    size, places = round(preferences.ui_styles[0].widget.points * preferences.system.ui_scale), round(-log10(Units.METRIC.resolution / MILLIMETER))
+    denominator, standard, library = str(2 ** Units.IMPERIAL.places(Length.INCHES, 2)), OFFSET / timedelta(hours=1), stocked(MATERIALS)
+    size, places = round(preferences.ui_styles[0].widget.points * preferences.system.ui_scale), Units.METRIC.places(Length.MILLIMETERS, 10)
     zone = int((LONGITUDE + 180) // 6) + 1
     epsg = (32600 if LATITUDE >= 0 else 32700) + zone
     crs, font, cache, overpass = f"EPSG:{epsg}", bpy.data.fonts.load(drawing, check_existing=True), Path(bpy.app.cachedir), urlsplit(endpoint).hostname

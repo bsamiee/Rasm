@@ -71,7 +71,7 @@ const _PROJECTS: Record<string, Configure> = {
                 root: directory,
                 name: project.name,
                 tags: ['language:python'],
-                targets: { check: {}, ...(Array.isReadonlyArrayNonEmpty(tests) ? { test: {} } : {}) },
+                targets: Array.isReadonlyArrayNonEmpty(tests) ? { check: {}, test: {} } : {},
             };
         }),
     'tsconfig.json': ({ directory }) => Effect.succeed({ root: directory, tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),

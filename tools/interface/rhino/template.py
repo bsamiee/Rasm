@@ -65,7 +65,7 @@ from interface.render import (
 from interface.report import Row
 from interface.rhino.rows import color, found
 from interface.roles import Annotation, Ink, Surface, Typography
-from interface.units import ANGLE_PRECISION, GRID_THICK_EVERY, INCH, MILLIMETER, Pen, Units
+from interface.units import ANGLE_PRECISION, GRID_THICK_EVERY, Length, Pen, Units
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -73,7 +73,6 @@ CUT_STYLE: Final = "Cut"
 SKY_SLOT: Final = "texture"
 SKY_SUN: Final = "use-document-sun"
 SKY_MULTIPLIER: Final = "rdk-texture-adjust-multiplier"
-PLOT_WEIGHT: Final = Pen.THIN / MILLIMETER
 LINETYPE_SCALE: Final = 1.0
 RENDER_KEYS: Final = MappingProxyType({
     "UseDocumentSamples": True,
@@ -92,6 +91,10 @@ RENDER_KEYS: Final = MappingProxyType({
     "CausticsRefractive": CAUSTICS,
 })
 ANNOTATION_ID: Final = Guid.Parse(str(Annotation.ID))
+
+# --- [LENGTHS] --------------------------------------------------------------------------
+
+PLOT_WEIGHT: Final = Pen.THIN / Length.MILLIMETERS
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
@@ -133,9 +136,9 @@ class DocumentUnits:
 
 
 # --- [UNITS]
-def unit_system(unit: str) -> Rhino.UnitSystem:
-    """Unit system a units token names."""
-    return System.Enum.Parse(clr.GetClrType(Rhino.UnitSystem), unit, ignoreCase=True)
+def unit_system(unit: Length) -> Rhino.UnitSystem:
+    """Unit system of the length unit."""
+    return System.Enum.Parse(clr.GetClrType(Rhino.UnitSystem), unit.name, ignoreCase=True)
 
 
 def rounded(value: float) -> float:
@@ -165,11 +168,9 @@ def length_display(system: Rhino.UnitSystem) -> DimensionStyle.LengthDisplay:
             return DimensionStyle.LengthDisplay.ModelUnits
 
 
-def precision(units: Units, system: Rhino.UnitSystem, mode: Rhino.UI.DistanceDisplayMode) -> int:
-    """Display precision reaching the declared resolution."""
-    decimal = mode == Rhino.UI.DistanceDisplayMode.Decimal
-    unit = 1 / Rhino.RhinoMath.UnitScale(Rhino.UnitSystem.Meters, system) if decimal else INCH
-    return round(math.log(unit / units.resolution, 10 if decimal else 2))
+def precision(units: Units, unit: Length, mode: Rhino.UI.DistanceDisplayMode) -> int:
+    """Display precision stating the declared resolution in the unit, decimal digits under decimal display and the inch fraction's power of two otherwise."""
+    return units.places(unit, 10) if mode == Rhino.UI.DistanceDisplayMode.Decimal else units.places(Length.INCHES, 2)
 
 
 def document_units(units: Units) -> DocumentUnits:
@@ -178,7 +179,7 @@ def document_units(units: Units) -> DocumentUnits:
     model, page, alternate = unit_system(units.length), unit_system(units.page), unit_system(other.length)
     scale, paper = (Rhino.RhinoMath.UnitScale(Rhino.UnitSystem.Meters, system) for system in (model, page))
     model_display, page_display = distance_display(model, page=False), distance_display(page, page=True)
-    model_precision, ratio = precision(units, model, model_display), units.resolution / MILLIMETER
+    model_precision, ratio = precision(units, units.length, model_display), units.resolution / Length.MILLIMETERS
     linetypes = {"Hidden": ((4, -2), Pen.FINE), "Center": ((16, -2, 2, -2), Pen.THIN), "Phantom": ((16, -2, 2, -2, 2, -2), Pen.FINE), "Construction": ((2, -2), Pen.FINE)}
     sizes = {
         "TextHeight": units.text,
@@ -201,7 +202,7 @@ def document_units(units: Units) -> DocumentUnits:
             "ModelDistanceDisplayPrecision": model_precision,
             "PageAbsoluteTolerance": rounded(units.tolerance * paper),
             "PageDistanceDisplayMode": page_display,
-            "PageDistanceDisplayPrecision": precision(units, page, page_display),
+            "PageDistanceDisplayPrecision": precision(units, units.page, page_display),
             "ModelSpaceAnnotationScalingEnabled": True,
             "LayoutSpaceAnnotationScalingEnabled": True,
             "ModelSpaceTextScale": 1.0,
@@ -216,7 +217,7 @@ def document_units(units: Units) -> DocumentUnits:
             "DimensionLengthDisplay": length_display(model),
             "LengthResolution": model_precision,
             "AlternateDimensionLengthDisplay": length_display(alternate),
-            "AlternateLengthResolution": precision(other, alternate, distance_display(alternate, page=False)),
+            "AlternateLengthResolution": precision(other, other.length, distance_display(alternate, page=False)),
             "AlternateUnitsDisplay": False,
             "DrawTextMask": False,
             "ArrowType1": DimensionStyle.ArrowType.Tick,
@@ -224,10 +225,10 @@ def document_units(units: Units) -> DocumentUnits:
             "LeaderArrowType": DimensionStyle.ArrowType.SolidTriangle,
             "AngleResolution": ANGLE_PRECISION,
             "Font": Font.FromQuartetProperties(Typography.INTERFACE.family, bold=False, italic=False),
-            "DimensionScale": rounded(units.sheet_scale * units.page_unit * scale),
+            "DimensionScale": rounded(units.sheet_scale * units.page * scale),
             **{name: rounded(size * paper) for name, size in sizes.items()},
         },
-        linetypes={name: (tuple(rounded(steps * ratio) for steps in lengths), pen / MILLIMETER) for name, (lengths, pen) in linetypes.items()},
+        linetypes={name: (tuple(rounded(steps * ratio) for steps in lengths), pen / Length.MILLIMETERS) for name, (lengths, pen) in linetypes.items()},
         paper=(width, height),
         margin=rounded(units.margin * paper),
     )
@@ -248,7 +249,7 @@ def segments(linetype: Linetype) -> tuple[float, ...]:
 def cut_style() -> SectionStyle:
     """Cut section style filling the section surface of solid objects, its boundary at the cut pen weight."""
     style = SectionStyle()
-    style.Name, style.BoundaryWidthScale, style.BoundaryPlotWeightMillimeters = CUT_STYLE, 1.0, Pen.MEDIUM / MILLIMETER
+    style.Name, style.BoundaryWidthScale, style.BoundaryPlotWeightMillimeters = CUT_STYLE, 1.0, Pen.MEDIUM / Length.MILLIMETERS
     style.BackgroundFillMode, style.SectionFillRule = SectionBackgroundFillMode.SolidColor, ObjectSectionFillRule.SolidObjects
     style.BackgroundFillColor = style.BackgroundFillPrintColor = color(Surface.SECTION)
     return style

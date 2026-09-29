@@ -46,7 +46,7 @@ from interface.adobe.rows import (
 from interface.adobe.workspaces import Frame, hex_string
 from interface.render import DPI
 from interface.report import ABSENT, digest, Kind, line
-from interface.units import POINT
+from interface.units import Length
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -519,7 +519,7 @@ def profiles(access: Profiles, presets: DocumentPresets, held: bytes, folder: st
         return msgspec.Raw(msgspec.json.encode(item))
 
     def made(index: int, paper: Paper) -> bytes:
-        width, height = (ctypes.c_float(side / POINT).value for side in paper.size)
+        width, height = (ctypes.c_float(side / Length.POINTS).value for side in paper.size)
         size = f"{round(width, 2):g} x {round(height, 2):g} pt"
         extent = {"height": raw(height), "width": raw(width)}
         scoped = {**specific, "rasterEffectSettings": raw(float(DPI)), "settingsFile": raw(profile)}
@@ -531,7 +531,7 @@ def profiles(access: Profiles, presets: DocumentPresets, held: bytes, folder: st
             "id": raw(f"{origin.source}_{count + index}"),
             "tip": raw(f"Start a new {paper.name} document - {size}"),
             "title": raw(paper.name),
-            "units": raw(paper.unit.identifier),
+            "units": raw(paper.unit.preset_id),
         })
 
     return b"[" + b",".join((*(row for row, _ in kept), *starmap(made, enumerate(presets.papers)))) + b"]"
@@ -587,7 +587,7 @@ def sizes(presets: DocumentPresets) -> bytes:
     """New Document presets file holding the user section alone, one preset per paper grouped in that section, in its unit at the render resolution per inch, indented as Photoshop writes it."""
     section = "user"
     user = tuple(
-        Size(name=paper.name, group=section, width=width / paper.unit, height=height / paper.unit, units=paper.unit.identifier, resolution=float(DPI), resolution_units=Unit.INCHES.identifier)
+        Size(name=paper.name, group=section, width=width / paper.unit, height=height / paper.unit, units=paper.unit.preset_id, resolution=float(DPI), resolution_units=Unit.INCHES.preset_id)
         for paper in presets.papers
         for width, height in (paper.size,)
     )

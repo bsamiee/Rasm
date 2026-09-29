@@ -60,10 +60,14 @@ def changes(label: str, before: object, target: object) -> Iterator[str]:
 
 
 def converged(row: Row, plain: Callable[[object], object] = lambda value: value) -> Iterator[str]:
-    """Change lines of the row, its target written when the plain form of its value differs."""
-    before, target = plain(row.read()), plain(row.target)
-    if before != target:
-        row.write()
+    """Change lines of the row, its target written when the plain form of its value differs, and the label noted on an exception its read or write raises."""
+    target = plain(row.target)
+    try:
+        if (before := plain(row.read())) != target:
+            row.write()
+    except Exception as error:
+        error.add_note(row.label)
+        raise
     return changes(row.label, before, target)
 
 

@@ -48,5 +48,6 @@ Covers project files, targets, tools, workflows, infra rows, and desktop applica
 
 ## [02]-[CHECKS]
 
-- Projects hold one `check` target, per-language check names, dry-run variants, and check scripts beside it go
+- Projects with a check of their own hold one `check` target, per-language check names, dry-run variants, and check scripts beside it go
+- Projects a root target alone checks declare no `check`
 - Rule, checker, or file extension rows join with a tracked file they read and the tree passing them

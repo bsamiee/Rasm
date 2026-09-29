@@ -5,8 +5,8 @@ import ctypes
 from enum import Enum, StrEnum
 from fractions import Fraction
 from functools import partial
+from itertools import starmap
 import math
-from types import MappingProxyType
 from typing import Self
 
 import msgspec
@@ -15,8 +15,8 @@ from interface.adobe import aliases, workspaces
 from interface.adobe.aliases import LABEL, Prompt
 from interface.adobe.workspaces import Frame
 from interface.render import DPI
-from interface.roles import Alpha, blend, Guide, Ink, Line, Node, POINT_WIDTH, Selection, Status, Surface, Tag, Text, Typography
-from interface.units import ANGLE_STEP, INCH, MILLIMETER, Pen, POINT, Units
+from interface.roles import Alpha, blend, Guide, Ink, Line, Node, POINT_WIDTH, Selection, Status, Surface, SWATCHES, Tag, TAGS, Text, Typography
+from interface.units import ANGLE_STEP, Length, Pen, Units
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -37,28 +37,28 @@ class Script(msgspec.Struct, frozen=True):
     """Dictionary command that runs `script.jsx` in a product with its arguments besides the source."""
 
     command: str
-    arguments: Mapping[str, str] = MappingProxyType({})
+    arguments: Mapping[str, str] = frozendict({})
 
 
 class Product(Enum):
-    """Adobe application by the creator code its bundle declares and the script command that reaches it, none for Acrobat, which the file stage alone reaches."""
+    """Adobe application by the bundle id its installed bundle declares and the script command that reaches it, none for Acrobat, which the file stage alone reaches."""
 
-    ILLUSTRATOR = ("ART5", Script("do javascript"))
-    PHOTOSHOP = ("8BIM", Script("do javascript"))
-    INDESIGN = ("InDn", Script("do script", MappingProxyType({"language": "javascript"})))
-    ACROBAT = ("CARO", None)
+    ILLUSTRATOR = ("com.adobe.illustratorBeta", Script("do javascript"))
+    PHOTOSHOP = ("com.adobe.Photoshop", Script("do javascript"))
+    INDESIGN = ("com.adobe.InDesign", Script("do script", frozendict({"language": "javascript"})))
+    ACROBAT = ("com.adobe.Acrobat.Pro", None)
 
-    def __init__(self, signature: str, script: Script | None) -> None:
+    def __init__(self, identifier: str, script: Script | None) -> None:
         """Bind the member's tuple to its named fields."""
-        self.signature, self.script = signature, script
+        self.identifier, self.script = identifier, script
 
 
 class Unit(float, Enum):
     """Length unit keyed by its length in meters, with each product's spelling of it and the rounded inch ratios Photoshop converts a held length with."""
 
-    POINTS = (POINT, 2, "POINTS", "rulerPoints", "pointsUnit", 0, Fraction(1, round(INCH / POINT)), Fraction(round(INCH / POINT)))
-    INCHES = (INCH, 0, "INCHES", "rulerInches", "inchesUnit", 1, Fraction(1), Fraction(1))
-    MILLIMETERS = (MILLIMETER, 1, "MM", "rulerMm", "millimetersUnit", 2, Fraction("0.03937"), Fraction("25.4"))
+    POINTS = (Length.POINTS, 2, "POINTS", "rulerPoints", "pointsUnit", 0, Fraction(1, round(Length.INCHES / Length.POINTS)), Fraction(round(Length.INCHES / Length.POINTS)))
+    INCHES = (Length.INCHES, 0, "INCHES", "rulerInches", "inchesUnit", 1, Fraction(1), Fraction(1))
+    MILLIMETERS = (Length.MILLIMETERS, 1, "MM", "rulerMm", "millimetersUnit", 2, Fraction("0.03937"), Fraction("25.4"))
 
     def __new__(cls, length: float, *_fields: object) -> Self:
         """Member whose value is its length in meters."""
@@ -66,9 +66,9 @@ class Unit(float, Enum):
         member._value_ = length
         return member
 
-    def __init__(self, _length: float, illustrator: int, photoshop: str, ruler: str, identifier: str, acrobat: int, inches: Fraction, per_inch: Fraction) -> None:
+    def __init__(self, _length: float, illustrator: int, photoshop: str, ruler: str, preset_id: str, acrobat: int, inches: Fraction, per_inch: Fraction) -> None:
         """Bind the member's product spellings and held-inch pair to their named fields."""
-        self.illustrator, self.photoshop, self.ruler, self.identifier, self.acrobat, self.inches, self.per_inch = illustrator, photoshop, ruler, identifier, acrobat, inches, per_inch
+        self.illustrator, self.photoshop, self.ruler, self.preset_id, self.acrobat, self.inches, self.per_inch = illustrator, photoshop, ruler, preset_id, acrobat, inches, per_inch
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -418,18 +418,18 @@ def leaf(*path: str, code: int, target: Scalar | tuple[int, int, int] | Fixed | 
 
 
 def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
-    """Every product's rows with lengths in the system's page units, strokes in millimeters, and type in points."""
-    page, increment, snap, ticks = Unit[units.page], units.resolution / POINT, units.snap / POINT, round(units.snap / units.resolution)
-    stroke_unit, type_unit, paper = Unit.MILLIMETERS, Unit.POINTS, {Units.IMPERIAL: "Letter", Units.METRIC: "A4"}
+    """Every product's rows with lengths in the system's page units, type in points, and strokes in points under IMPERIAL and millimeters under METRIC."""
+    page, increment, snap, ticks = Unit[units.page.name], units.resolution / Length.POINTS, units.snap / Length.POINTS, round(units.snap / units.resolution)
+    stroke_unit, type_unit, paper = {Units.IMPERIAL: Unit.POINTS, Units.METRIC: Unit.MILLIMETERS}[units], Unit.POINTS, {Units.IMPERIAL: "Letter", Units.METRIC: "A4"}
     presets = {member: f"{member.name.title()} {paper[member]}" for member in Units}
     lines = Enumerated("guideGridStyle", "lens")
     rgb, edges, axes, theme_alpha, app_scale = ("red", "green", "blue"), ("top", "bottom", "left", "right"), ("horizontal", "vertical"), 0.3, 1.0
     capitalized, sixteen_bit = ("Red", "Green", "Blue"), partial(channels, kind=Kind.INTEGER, scale=65535)
     anchor = min((stop for stop in range(14) if 0x2AA0 >> stop & 1), key=lambda stop: (abs(stop + 2 * int(2 * (app_scale % 1)) - POINT_WIDTH), stop))
     angles = tuple(float(index * ANGLE_STEP) for index in range(6))
-    document_presets = DocumentPresets(tuple(Paper(name, member.document, Unit[member.page]) for member, name in presets.items()))
-    swatches = tuple(Swatch("Neutral" if tag is Tag.NEUTRAL else f"Tag {slot}", tag.value) for slot, tag in enumerate(Tag, start=1))
-    tags, entry, startup = Library("Tags", (Swatch("Black", Ink.DOCUMENT), *swatches)), f"Scripts/{LABEL}.jsx", Profile("startupFileType")
+    document_presets = DocumentPresets(tuple(Paper(name, member.document, Unit[member.page.name]) for member, name in presets.items()))
+    swatches, reserved = tuple(starmap(Swatch, SWATCHES.items())), ("None", "Registration", "Paper", "Black")
+    tags, entry, startup = Library(TAGS, swatches), f"Scripts/{LABEL}.jsx", Profile("startupFileType")
     toolbox = Toolbar(
         (
             ("Adobe Select Tool", "Adobe Crop Tool"),
@@ -463,7 +463,7 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             ("Adobe Slice Tool", "Adobe Slice Select Tool"),
             ("Adobe Scroll Tool", "Adobe Zoom Tool", "Adobe Rotate Canvas Tool", "Adobe Page Tool"),
         ),
-        MappingProxyType({"CustomToolboxFillStroke": 1, "CustomToolboxColorMode": 0, "CustomToolboxDrawMode": 1, "CustomToolboxScreenMode": 0, "CustomToolboxGroupingMode": 0}),
+        frozendict({"CustomToolboxFillStroke": 1, "CustomToolboxColorMode": 0, "CustomToolboxDrawMode": 1, "CustomToolboxScreenMode": 0, "CustomToolboxGroupingMode": 0}),
     )
     toolbar = Toolbar(
         (
@@ -490,9 +490,9 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             ("hand", "rott"),
             ("zoom",),
         ),
-        MappingProxyType({"fgbg": 1, "qkmm": 1, "scmd": 1, "shov": 1, "nana": 0, "ddkb": 0}),
+        frozendict({"fgbg": 1, "qkmm": 1, "scmd": 1, "shov": 1, "nana": 0, "ddkb": 0}),
     )
-    return MappingProxyType({
+    return frozendict({
         Product.ILLUSTRATOR: (
             preference("uiBrightness", target=0.0),
             preference("uiCanvasIsWhite", target=False),
@@ -549,7 +549,7 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             *(preference(f"Grid/{axis}/Ticks", target=ticks) for axis in ("Horizontal", "Vertical")),
             Row("Tools/Tools Panel Presets", Catalog("Tools/Tools Panel Presets", "Default Toolbar"), toolbox),
             Row("PresetDocumentProfileDataV10.json", Profiles("PresetDocumentProfileDataV10.json", "print_0", "New Document Profiles"), document_presets),
-            Row("Swatches/Tags.ase", Rendered("Swatches/Tags.ase"), tags),
+            Row(f"Swatches/{TAGS}.ase", Rendered(f"Swatches/{TAGS}.ase"), tags),
             Row("startup profiles", startup, Template(Ink.DOCUMENT, float(DPI), tags)),
             Row(f"Adobe Illustrator Prefs {LABEL}", ActionSet("Adobe Illustrator Prefs", entry), aliases.ILLUSTRATOR),
             Row("Adobe Illustrator Prefs plugin/AdobeBrush/ThumbnailView", Nested("Adobe Illustrator Prefs", ("plugin", "AdobeBrush", "ThumbnailView")), 0),
@@ -595,12 +595,12 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             enumerator("preferences.typeUnits", "TypeUnits", type_unit.photoshop),
             enumerator("preferences.pointSize", "PointType", "POSTSCRIPT"),
             settings("guidesPrefs", "gridUnits", Enumerated("rulerUnits", page.ruler)),
-            settings("guidesPrefs", "gridMajor", Double(float(math.floor(Fraction(units.snap / units.page_unit) * page.inches * 10**5) * page.per_inch / 10**5))),
+            settings("guidesPrefs", "gridMajor", Double(float(math.floor(Fraction(units.snap / units.page) * page.inches * 10**5) * page.per_inch / 10**5))),
             settings("guidesPrefs", "gridMinor", Integer(ticks)),
             settings("unitsPrefs", "newDocPresetPrintResolution", UnitDouble(float(DPI * Unit.POINTS.per_inch))),
             Row("MachinePrefs.psp showAIAssistedButton", Serialized("MachinePrefs.psp", "showAIAssistedButton", "bool"), target=False),
             Row("New Doc Sizes.json", Rendered("New Doc Sizes.json"), document_presets),
-            Row("Swatches.psp Tags", Rendered("Swatches.psp"), tags),
+            Row(f"Swatches.psp {TAGS}", Rendered("Swatches.psp"), tags),
             Row("Toolbar Customization.psp", Rendered("Toolbar Customization.psp"), toolbar),
             *(
                 Row(f"{plugin} {file}", Overlay(file, "PS.json", "PHSP", plugin), Selection.ITEM)
@@ -638,7 +638,7 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             dom("galleyPreferences.displayFont", target=Typography.INTERFACE.family),
             dom("galleyPreferences.displayFontSize", target=10.0),
             dom("watermarkPreferences.watermarkFontColor", target=Ink.DOCUMENT),
-            dom("viewPreferences.pointsPerInch", target=float(round(INCH / POINT))),
+            dom("viewPreferences.pointsPerInch", target=float(round(Length.INCHES / Length.POINTS))),
             *(enumerator(f"viewPreferences.{axis}MeasurementUnits", "MeasurementUnits", page.name) for axis in (*axes, "printDialog")),
             enumerator("viewPreferences.strokeMeasurementUnits", "MeasurementUnits", stroke_unit.name),
             *(enumerator(f"viewPreferences.{kind}MeasurementUnits", "MeasurementUnits", type_unit.name) for kind in ("typographic", "textSize")),
@@ -647,12 +647,12 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             *(dom(f"gridPreferences.{axis}GridlineDivision", target=snap) for axis in axes),
             *(dom(f"gridPreferences.{axis}GridSubdivision", target=ticks) for axis in axes),
             dom("documentPreferences.pageSize", target=paper[units]),
-            *(dom(f"marginPreferences.{edge}", target=units.margin / POINT) for edge in edges),
-            dom("pageItemDefaults.strokeWeight", target=Pen.THIN / POINT),
-            *(row for member, name in presets.items() for row in (preset(name, "pageSize", paper[member]), *(preset(name, edge, member.margin / POINT) for edge in edges))),
+            *(dom(f"marginPreferences.{edge}", target=units.margin / Length.POINTS) for edge in edges),
+            dom("pageItemDefaults.strokeWeight", target=Pen.THIN / Length.POINTS),
+            *(row for member, name in presets.items() for row in (preset(name, "pageSize", paper[member]), *(preset(name, edge, member.margin / Length.POINTS) for edge in edges))),
             Row("documentPresets", Presets(("[Default]",)), tuple(presets.values())),
             *(Row(f"Pages {member}", Panel("Pages", member, "IconSizes"), "EXTRA_SMALL_ICON") for member in ("iconSize", "masterIconSize")),
-            Row("colors", Swatches(("None", "Registration", "Paper", "Black")), swatches),
+            Row("colors", Swatches(reserved), tuple(swatch for swatch in swatches if swatch.name not in reserved)),
             *(
                 Row(f"UIScalingPrefs {name}", Record("InDesign Defaults", 0x21898, 24, offset, form), value)
                 for name, offset, form, value in (("slider", 0x00, "<d", 0.0), ("user set", 0x16, "<H", True))
@@ -694,7 +694,10 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             leaf("UnitsAndGuides", "RulersVisible", code=0, target=True),
             leaf("UnitsAndGuides", "GuideColor", "ColorSpace", code=1, target=1),
             *(leaf("UnitsAndGuides", "GuideColor", f"value{index}", code=3, target=Fixed.channel(channel)) for index, channel in enumerate((*Guide.CONSTRUCTION, 0), start=1)),
-            *(leaf("Measuring", f"Leader{name}", code=1, target=round(length / POINT)) for name, length in (("Length", units.first_offset), ("Extend", units.extension), ("Offset", units.offset))),
+            *(
+                leaf("Measuring", f"Leader{name}", code=1, target=round(length / Length.POINTS))
+                for name, length in (("Length", units.first_offset), ("Extend", units.extension), ("Offset", units.offset))
+            ),
             leaf("IPM", "DoNotCheckForMessage", code=0, target=True),
             leaf("AVGeneral", "AcrobatRHPBottomBannerIPMEnabled", code=0, target=False),
             leaf("ToolRecommenderSection", "OnDocNextToolRecommendation", code=0, target=False),

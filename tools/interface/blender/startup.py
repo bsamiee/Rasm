@@ -32,14 +32,17 @@ from interface.render import (
 )
 from interface.report import Row
 from interface.roles import Annotation, Ink, Surface
-from interface.units import ANGLE_STEP, FOOT, INCH
+from interface.units import ANGLE_STEP, Length
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-EYE_HEIGHT: Final = 66 * INCH
-PLAN_DISTANCE: Final = 100 * FOOT
 ANALYSIS: Final = "Analysis"
 LIBRARY: Final = "Library"
+
+# --- [LENGTHS] --------------------------------------------------------------------------
+
+EYE_HEIGHT: Final = 66 * Length.INCHES
+PLAN_DISTANCE: Final = 100 * Length.FEET
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -152,7 +155,7 @@ def declared_scene(scene: bpy.types.Scene, preferences: bpy.types.Preferences) -
         "render.resolution_y": height,
         "render.resolution_percentage": 100,
         "render.ppm_factor": DPI,
-        "render.ppm_base": INCH,
+        "render.ppm_base": Length.INCHES,
         "render.image_settings.color_depth": "16",
         "render.ffmpeg.format": "MPEG4",
         "render.ffmpeg.codec": "H264",

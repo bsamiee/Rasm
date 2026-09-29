@@ -2,14 +2,31 @@
 """Unit systems every application shows, imperial by default and metric beside it, every length in meters."""
 
 from enum import Enum
+from fractions import Fraction
 from typing import Final, NamedTuple
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Length(float, Enum):
+    """Length units in meters."""
+
+    INCHES = 0.0254
+    FEET = 12 * INCHES
+    MILLIMETERS = 0.001
+    POINTS = INCHES / 72
+
+
+class Pen(float, Enum):
+    """Plotted line widths on the sheet in meters, by their NCS weight."""
+
+    FINE = 0.18 * Length.MILLIMETERS
+    THIN = 0.25 * Length.MILLIMETERS
+    MEDIUM = 0.35 * Length.MILLIMETERS
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-INCH: Final = 0.0254
-FOOT: Final = 12 * INCH
-MILLIMETER: Final = 0.001
-POINT: Final = INCH / 72
 GRID_THICK_EVERY: Final = 10
 ANGLE_STEP: Final = 15
 ANGLE_PRECISION: Final = 0
@@ -17,20 +34,11 @@ ANGLE_PRECISION: Final = 0
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Pen(float, Enum):
-    """Plotted line widths on the sheet in meters, by their NCS weight."""
-
-    FINE = 0.18 * MILLIMETER
-    THIN = 0.25 * MILLIMETER
-    MEDIUM = 0.35 * MILLIMETER
-
-
 class Standard(NamedTuple):
-    """Unit system's tokens, sheet scale denominator, and lengths in meters, the page unit, text cap height, sheet and document sizes, and margin on paper."""
+    """Unit system's model and page units, mass and temperature tokens, sheet scale denominator, and lengths in meters, the text cap height, sheet and document sizes, and margin on paper."""
 
-    length: str
-    page: str
-    page_unit: float
+    length: Length
+    page: Length
     mass: str
     temperature: str
     separate: bool
@@ -49,38 +57,36 @@ class Units(Standard, Enum):
     """Unit systems by the name applications store for them."""
 
     IMPERIAL = Standard(
-        length="FEET",
-        page="INCHES",
-        page_unit=INCH,
+        length=Length.FEET,
+        page=Length.INCHES,
         mass="POUNDS",
         temperature="FAHRENHEIT",
         separate=True,
-        resolution=INCH / 16,
-        grid=FOOT,
-        snap=INCH,
-        extent=250 * FOOT,
+        resolution=Length.INCHES / 16,
+        grid=Length.FEET,
+        snap=Length.INCHES,
+        extent=250 * Length.FEET,
         sheet_scale=48,
-        text=3 * INCH / 32,
-        paper=(36 * INCH, 24 * INCH),
-        document=(8.5 * INCH, 11 * INCH),
-        margin=INCH / 2,
+        text=3 * Length.INCHES / 32,
+        paper=(36 * Length.INCHES, 24 * Length.INCHES),
+        document=(8.5 * Length.INCHES, 11 * Length.INCHES),
+        margin=Length.INCHES / 2,
     )
     METRIC = Standard(
-        length="MILLIMETERS",
-        page="MILLIMETERS",
-        page_unit=MILLIMETER,
+        length=Length.MILLIMETERS,
+        page=Length.MILLIMETERS,
         mass="KILOGRAMS",
         temperature="CELSIUS",
         separate=False,
-        resolution=MILLIMETER,
-        grid=100 * MILLIMETER,
-        snap=10 * MILLIMETER,
+        resolution=Length.MILLIMETERS,
+        grid=100 * Length.MILLIMETERS,
+        snap=10 * Length.MILLIMETERS,
         extent=75.0,
         sheet_scale=50,
-        text=2.5 * MILLIMETER,
-        paper=(841 * MILLIMETER, 594 * MILLIMETER),
-        document=(210 * MILLIMETER, 297 * MILLIMETER),
-        margin=13 * MILLIMETER,
+        text=2.5 * Length.MILLIMETERS,
+        paper=(841 * Length.MILLIMETERS, 594 * Length.MILLIMETERS),
+        document=(210 * Length.MILLIMETERS, 297 * Length.MILLIMETERS),
+        margin=13 * Length.MILLIMETERS,
     )
 
     @property
@@ -118,7 +124,12 @@ class Units(Standard, Enum):
         """Paper length an extension line runs past its dimension line."""
         return 2 * self.resolution
 
+    def places(self, unit: Length, base: int) -> int:
+        """Fewest digits in the base stating the resolution in the unit exactly."""
+        ratio = Fraction(self.resolution / unit).limit_denominator()
+        return next(digits for digits in range(ratio.denominator.bit_length()) if (ratio * base**digits).denominator == 1)
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ANGLE_PRECISION", "ANGLE_STEP", "FOOT", "GRID_THICK_EVERY", "INCH", "MILLIMETER", "POINT", "Pen", "Units"]
+__all__ = ["ANGLE_PRECISION", "ANGLE_STEP", "GRID_THICK_EVERY", "Length", "Pen", "Units"]

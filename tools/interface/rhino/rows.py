@@ -9,8 +9,6 @@ import math
 from pathlib import Path
 import sys
 import traceback
-from types import MappingProxyType
-from typing import Final
 
 from Eto.Drawing import Color as EtoColor
 import Rhino
@@ -19,11 +17,6 @@ from System import Array, Guid, String
 from System.Drawing import Color as DrawingColor
 
 from interface.report import converged, Kind, line, Row
-from interface.roles import Ink, Tag
-
-# --- [SWATCHES] -------------------------------------------------------------------------
-
-SWATCHES: Final = MappingProxyType({"DOCUMENT": Ink.DOCUMENT, **{tag.name: tag.value for tag in Tag}})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -127,4 +120,4 @@ def hex_color(rgb: tuple[int, int, int]) -> str:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["SWATCHES", "absent", "color", "emit", "found", "hex_color", "internal_setting", "key", "member", "plain"]
+__all__ = ["absent", "color", "emit", "found", "hex_color", "internal_setting", "key", "member", "plain"]

@@ -61,15 +61,15 @@ class Host(msgspec.Struct, frozen=True):
         return msgspec.json.decode(self.servers[name], type=Server)
 
 
-class Bundle(msgspec.Struct, frozen=True, rename={"identifier": "CFBundleIdentifier", "name": "CFBundleName", "version": "CFBundleShortVersionString", "signature": "CFBundleSignature"}):
-    """Application bundle by its folder, main executable, and the `Info.plist` keys the host reads, the creator code absent from a bundle that declares none."""
+class Bundle(msgspec.Struct, frozen=True, rename={"identifier": "CFBundleIdentifier", "name": "CFBundleName", "version": "CFBundleShortVersionString", "channel": "RELEASECHANNEL"}):
+    """Application bundle by its folder, main executable, and the `Info.plist` keys the host reads, the release channel absent from a bundle that declares none."""
 
     path: Path
     identifier: str
     executable: Path
     name: str
     version: str
-    signature: str | None = None
+    channel: str | None = None
 
 
 class Header(msgspec.Struct, frozen=True, array_like=True, tag=Kind.HEADER.value):
@@ -187,6 +187,19 @@ def bootstrap(module: str, call: Template) -> str:
     )
 
 
+# --- [TASKS]
+@overload
+async def gather[A, B](calls: tuple[Coroutine[object, object, A], Coroutine[object, object, B]], /) -> tuple[A, B]: ...
+@overload
+async def gather[T](calls: Iterable[Coroutine[object, object, T]], /) -> tuple[T, ...]: ...
+async def gather[T](calls: Iterable[Coroutine[object, object, T]]) -> tuple[T, ...]:
+    """Results of the calls run concurrently, in call order, a pair of calls keeping each result's type."""
+    handles: list[anyio.TaskHandle[T]] = []
+    async with anyio.create_task_group() as group:
+        handles.extend(group.create_task(call) for call in calls)
+    return tuple(handle.return_value for handle in handles)
+
+
 # --- [BUNDLE]
 async def bundle(path: Path) -> Bundle:
     """Bundle at the folder from its `Info.plist`, the executable and name taken from the folder where the plist names none, as CoreFoundation resolves them."""
@@ -194,13 +207,9 @@ async def bundle(path: Path) -> Bundle:
     return msgspec.convert({"CFBundleName": path.stem, **info, "path": path, "executable": path.joinpath("Contents", "MacOS", info.get("CFBundleExecutable", path.stem))}, Bundle)
 
 
-async def located(identifier: str) -> Bundle | None:
-    """Bundle Spotlight finds first by the bundle id, None while none is installed."""
-    match (await anyio.run_process(["/usr/bin/mdfind", f"kMDItemCFBundleIdentifier == '{identifier}'"])).stdout.decode().splitlines():
-        case [found, *_]:
-            return await bundle(Path(found))
-        case _:
-            return None
+async def located(identifier: str) -> tuple[Bundle, ...]:
+    """Every bundle Spotlight finds by the bundle id, in its order."""
+    return await gather(bundle(Path(found)) for found in (await anyio.run_process(["/usr/bin/mdfind", f"kMDItemCFBundleIdentifier == '{identifier}'"])).stdout.decode().splitlines())
 
 
 # --- [PROCESS]
@@ -209,9 +218,10 @@ def running(application: Bundle) -> tuple[psutil.Process, ...]:
     return tuple(process for process in psutil.process_iter(["exe"]) if process.info["exe"] == str(application.executable))
 
 
-async def launch(application: Bundle, *arguments: str, files: Sequence[str] = ()) -> None:
-    """Start a new instance of the bundle in the background on the files with the arguments, its environment empty of the host's variables."""
-    await anyio.run_process(["/usr/bin/open", "-n", "-g", "-a", str(application.path), *files, *(("--args", *arguments) if arguments else ())], env=LAUNCH_ENVIRONMENT)
+async def launch(application: Bundle, *arguments: str, files: Sequence[str] = (), environment: Mapping[str, str] = frozendict()) -> None:
+    """Start a new background instance of the bundle on the files with the arguments, its environment the given variables and none of the host's."""
+    variables = (part for name, value in environment.items() for part in ("--env", f"{name}={value}"))
+    await anyio.run_process(["/usr/bin/open", "-n", "-g", "-a", str(application.path), *variables, *files, *(("--args", *arguments) if arguments else ())], env=LAUNCH_ENVIRONMENT)
 
 
 async def terminated(processes: Sequence[psutil.Process]) -> tuple[str, ...]:
@@ -247,19 +257,6 @@ async def reopened(application: Bundle, discovered: Sequence[psutil.Process], *f
         if discovered:
             with anyio.CancelScope(shield=True):
                 await launch(application, *arguments, files=files)
-
-
-# --- [TASKS]
-@overload
-async def gather[A, B](calls: tuple[Coroutine[object, object, A], Coroutine[object, object, B]], /) -> tuple[A, B]: ...
-@overload
-async def gather[T](calls: Iterable[Coroutine[object, object, T]], /) -> tuple[T, ...]: ...
-async def gather[T](calls: Iterable[Coroutine[object, object, T]]) -> tuple[T, ...]:
-    """Results of the calls run concurrently, in call order, a pair of calls keeping each result's type."""
-    handles: list[anyio.TaskHandle[T]] = []
-    async with anyio.create_task_group() as group:
-        handles.extend(group.create_task(call) for call in calls)
-    return tuple(handle.return_value for handle in handles)
 
 
 # --- [NETWORK]

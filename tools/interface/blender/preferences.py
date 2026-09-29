@@ -18,7 +18,7 @@ from interface.blender.theme import Paint
 from interface.render import ASSETS, DESIGN_TOOLS, LOOK_DEVELOPMENT, MATERIALS, stocked
 from interface.report import Kind, line, Row
 from interface.roles import Guide, Typography
-from interface.units import ANGLE_STEP, FOOT, INCH
+from interface.units import ANGLE_STEP, Length
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -156,9 +156,9 @@ def declared_preferences(preferences: bpy.types.Preferences, editor: str | None)
         "inputs.invert_mouse_zoom": False,
         "inputs.invert_zoom_wheel": False,
         "inputs.walk_navigation.view_height": EYE_HEIGHT,
-        "inputs.walk_navigation.walk_speed": 5 * FOOT,
+        "inputs.walk_navigation.walk_speed": 5 * Length.FEET,
         "inputs.walk_navigation.use_gravity": True,
-        "inputs.walk_navigation.jump_height": 18 * INCH,
+        "inputs.walk_navigation.jump_height": 18 * Length.INCHES,
         "edit.object_align": "WORLD",
         "edit.use_enter_edit_mode": False,
         "edit.use_auto_keying": False,

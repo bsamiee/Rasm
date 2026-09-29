@@ -12,7 +12,7 @@ import psutil
 from interface.blender import userpref
 from interface.blender.catalog import Catalog, Listed, Local
 from interface.blender.packages import Manifest, packaged
-from interface.host import Applied, bootstrap, Bundle, DEADLINE, Error, Failed, Host, joined, LAUNCH_ENVIRONMENT, located, LOOPBACK, outcome, parse, quitted, reopened, Skip, terminated
+from interface.host import Applied, bootstrap, Bundle, DEADLINE, Error, Failed, gather, Host, joined, LAUNCH_ENVIRONMENT, located, LOOPBACK, outcome, parse, quitted, reopened, Skip, terminated
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -95,8 +95,8 @@ async def session(host: Host, blender: Bundle, executable: Path, name: str, port
     crash = re.compile(r"^Writing: (?P<report>.+\.crash\.txt)$", re.MULTILINE)
     backtrace = re.compile(r"^\d+\s+.+?\s+0x[0-9a-f]+ _sigtramp \+ \d+\n\d+\s+.+?\s+0x[0-9a-f]+ (?P<frame>\S+) \+ \d+$(?s:.*)^# Python backtrace\n(?P<python>(?s:.*))", re.MULTILINE)
     identifiers = ("com.microsoft.VSCode", "org.inkscape.Inkscape")
-    bundles = [await located(identifier) for identifier in identifiers]
-    editor, inkscape = (None if found is None else str(found.path) for found in bundles)
+    bundles = await gather(located(identifier) for identifier in identifiers)
+    editor, inkscape = (next((str(installed.path) for installed in found), None) for found in bundles)
     for path in (report, part, log, stderr):
         await path.unlink(missing_ok=True)
     call = t"start({str(report)}, {name}, {port}, {msgspec.json.encode(rows).decode()}, {editor}, {inkscape})"
@@ -139,7 +139,7 @@ async def session(host: Host, blender: Bundle, executable: Path, name: str, port
     else:
         last = [match[0].splitlines() for match in STDERR.finditer(text) if match["frames"]][-1:]
         parsed = tuple(Error(error) for error in (ending, *frames, *(entry for lines in last for entry in lines)))
-    absent = (Skip(identifier) for identifier, found in zip(identifiers, bundles, strict=True) if found is None)
+    absent = (Skip(identifier) for identifier, found in zip(identifiers, bundles, strict=True) if not found)
     return joined(msgspec.structs.replace(outcome(host.app, (*parsed, *absent)), stderr=reported(text)), stuck)
 
 

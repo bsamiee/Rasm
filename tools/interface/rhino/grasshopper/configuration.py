@@ -23,9 +23,9 @@ import System
 
 from interface.frame import LOWER_EDITOR
 from interface.report import Row
-from interface.rhino.rows import hex_color, key, member, plain, SWATCHES
+from interface.rhino.rows import hex_color, key, member, plain
 from interface.rhino.window import Site
-from interface.roles import Alpha, Axis, blend, Guide, Line, Modality, Selection, substituted, Surface, Tag, Text, Typography, Wire
+from interface.roles import Alpha, Axis, blend, Guide, Line, Modality, Selection, substituted, Surface, SWATCHES, Tag, TAGS, Text, Typography, Wire
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -145,10 +145,10 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, shift: Mapping[Site, float]) -
     PlugIn.LoadPlugIn(plugin := PlugIn.IdFromName("Grasshopper2"))
     grasshopper = import_module("Grasshopper2")
     settings, skinning, snapping, ribbon, display = grasshopper.Settings, grasshopper.UI.Skinning, grasshopper.UI.Canvas.SnappingSettings, grasshopper.UI.TabbedPanel.Layout, grasshopper.Display
-    folder, palette_name, value = Path(__file__).parent, "Tags", "Value"
+    folder, value = Path(__file__).parent, "Value"
     skin_file = folder / "Nippon.ghskin"
     fonts = Path(grasshopper.Folders.ResourceFolder(grasshopper.ResourceFolder.Fonts))
-    swatch_file = Path(grasshopper.Folders.ResourceFolder(grasshopper.ResourceFolder.Colours)) / f"{palette_name}.ghdic"
+    swatch_file = Path(grasshopper.Folders.ResourceFolder(grasshopper.ResourceFolder.Colours)) / f"{TAGS}.ghdic"
     loaded_plugin = PlugIn.Find(plugin)
     command, logs, skins, reasons, scratch = loaded_plugin.CommandSettings("GH2"), loaded_plugin.Settings, skinning.SkinServer, grasshopper.Doc.AutoSaveReason, grasshopper.SpecialObjects.ScratchObject
     colors, picker, arrows = grasshopper.Types.Colour, grasshopper.UI.ColourPicker, grasshopper.UI.Canvas.Shapes.ArrowStyle
@@ -193,7 +193,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, shift: Mapping[Site, float]) -
     }
     sketch = {"Colour": int(family), "Stroke": sketch_stroke, "Double": doubling, "ArrowHead": int(arrows.End), "ArrowFactor": arrow_factor, "DefaultShape": bezier}
     rule_file, sketch_file, picker_file = (grasshopper.SettingsFile.InDefaultFolder(name) for name in ("DisplayRuleEditor", "ScratchObject", "colourpicker"))
-    choices = {"MostRecentPalette": palette_name, "MostRecentDiscrete": True, "MostRecentFormat": int(picker.ColourPickerFormat.Hexadecimal), "MostRecentSpace": int(colors.Space.Rgb)}
+    choices = {"MostRecentPalette": TAGS, "MostRecentDiscrete": True, "MostRecentFormat": int(picker.ColourPickerFormat.Hexadecimal), "MostRecentSpace": int(colors.Space.Rgb)}
     ribbon_sizes = (
         ("ItemSize", 24),
         ("ItemGap", 4),
@@ -275,8 +275,8 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, shift: Mapping[Site, float]) -
             for name, face in (("SansSerif.txt", Typography.INTERFACE), ("Serif.txt", Typography.INTERFACE), ("Script.txt", Typography.INTERFACE), ("Monospace.txt", Typography.MONOSPACE))
         ),
         Row(
-            label=f"grasshopper palette {palette_name}",
-            read=lambda: swatches(colors.NamedPalette.ImpliedPalette(palette_name)),
+            label=f"grasshopper palette {TAGS}",
+            read=lambda: swatches(colors.NamedPalette.ImpliedPalette(TAGS)),
             write=lambda _: colors.NamedPalette.WriteToFile(str(swatch_file), palette),
             target=swatches(palette),
         ),

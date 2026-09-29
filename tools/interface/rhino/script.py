@@ -37,9 +37,9 @@ from interface.render import MATERIALS, stocked
 from interface.report import Kind, line, Row
 from interface.rhino import template
 from interface.rhino.grasshopper import configuration
-from interface.rhino.rows import absent, color, emit, found, hex_color, internal_setting, key, member, SWATCHES
+from interface.rhino.rows import absent, color, emit, found, hex_color, internal_setting, key, member
 from interface.rhino.window import bands, Extent, Panel, RIGHT_BOTTOM, RIGHT_TOP, Site
-from interface.roles import Accent, Alpha, Axis, blend, Guide, Ink, Line, POINT_WIDTH, Selection, Status, Surface, Text, Typography
+from interface.roles import Accent, Alpha, Axis, blend, Guide, Ink, Line, POINT_WIDTH, Selection, Status, Surface, SWATCHES, Text, Typography
 from interface.units import ANGLE_STEP
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

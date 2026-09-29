@@ -6,7 +6,7 @@ from enum import Enum
 import math
 from operator import attrgetter
 from string import Template
-from types import SimpleNamespace
+from types import MappingProxyType, SimpleNamespace
 from typing import Final
 from uuid import NAMESPACE_URL, uuid5
 
@@ -14,6 +14,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 FILLS: Final = (17, 26, 33, 50, 57, 62, 71, 82)
 POINT_WIDTH: Final = 6
+TAGS: Final = "Tags"
 
 # --- [PALETTE] --------------------------------------------------------------------------
 
@@ -274,6 +275,9 @@ class Tag(Enum):
     NEUTRAL = Palette.NEUTRAL[9]
 
 
+SWATCHES: Final = MappingProxyType({"Black": Ink.DOCUMENT, **{"Neutral" if tag is Tag.NEUTRAL else f"Tag {slot}": tag.value for slot, tag in enumerate(Tag, 1)}})
+
+
 class Annotation:
     """Annotation layer every application shares, printed in document ink."""
 
@@ -336,6 +340,8 @@ def substituted[T](template: str, text: Callable[[T], str], **values: T) -> str:
 
 __all__ = [
     "POINT_WIDTH",
+    "SWATCHES",
+    "TAGS",
     "Accent",
     "Alpha",
     "Annotation",

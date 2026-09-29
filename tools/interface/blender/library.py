@@ -19,7 +19,7 @@ import numpy as np
 from interface.blender.addons import loaded
 from interface.render import ASSETS
 from interface.report import ABSENT, digest, Kind
-from interface.units import FOOT
+from interface.units import Length
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -97,7 +97,7 @@ def planted(module: str, name: str, preset: str, height: float, width: float) ->
     bpy.context.scene.collection.objects.link(target)
     target["trunk_factor"], target["branch_factor"] = trunk, branch
     dimensions = target.evaluated_get(bpy.context.evaluated_depsgraph_get()).dimensions
-    size = f"{name} {dimensions.z / FOOT:.1f} ft by {max(dimensions.x, dimensions.y) / FOOT:.1f} ft, {len(mesh.vertices):,} vertices, factors {trunk:.4f} and {branch:.4f}"
+    size = f"{name} {dimensions.z / Length.FEET:.1f} ft by {max(dimensions.x, dimensions.y) / Length.FEET:.1f} ft, {len(mesh.vertices):,} vertices, factors {trunk:.4f} and {branch:.4f}"
     return target, addon_utils.module_bl_info(sys.modules[module])["name"], size
 
 
@@ -113,7 +113,7 @@ def library_stamp() -> str:
 
 def assembled(stamp: str, module: str | None) -> tuple[str, ...]:
     """Mark each species as an asset in its catalog, preview it under a neutral scene, write the library with the stamp and catalog file, and return each species' size."""
-    species = (("Live Oak", "OAK", 70 * FOOT, 90 * FOOT), ("Bald Cypress", "PINE", 70 * FOOT, 30 * FOOT))
+    species = (("Live Oak", "OAK", 70 * Length.FEET, 90 * Length.FEET), ("Bald Cypress", "PINE", 70 * Length.FEET, 30 * Length.FEET))
     trees, planting = tuple(planted(module, *each) for each in species) if module else (), "Props/Site Planting"
     paths = accumulate(planting.split("/"), lambda head, name: f"{head}/{name}") if trees else ()
     catalogs, neutral = {path: str(uuid5(NAMESPACE_URL, path)) for path in paths}, bpy.data.scenes.new("Neutral Display")

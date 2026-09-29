@@ -17,7 +17,7 @@ import bpy
 from bpy.app.handlers import persistent
 from bpy.props import EnumProperty
 
-from .units import FOOT, INCH, Pen, POINT, Units
+from .units import Length, Pen, Units
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import OperatorReturnItems
@@ -62,12 +62,12 @@ def profile(units: Units, settings: bpy.types.PropertyGroup) -> dict[str, float]
     imperial = {
         member: value
         for members, value in (
-            (("arch_width", "arch_height"), 5 * INCH / 4),
-            (("arch_fillet_a", "arch_fillet_b"), INCH / 4),
-            (("arch_fascia", "arch_secondary_width", "arch_secondary_height", "arch_tread1", "arch_tread2"), 3 * INCH / 4),
-            (("arch_rise1", "arch_rise2"), INCH / 2),
-            (("parametric_width",), 2 * INCH),
-            (("parametric_height",), INCH),
+            (("arch_width", "arch_height"), 5 * Length.INCHES / 4),
+            (("arch_fillet_a", "arch_fillet_b"), Length.INCHES / 4),
+            (("arch_fascia", "arch_secondary_width", "arch_secondary_height", "arch_tread1", "arch_tread2"), 3 * Length.INCHES / 4),
+            (("arch_rise1", "arch_rise2"), Length.INCHES / 2),
+            (("parametric_width",), 2 * Length.INCHES),
+            (("parametric_height",), Length.INCHES),
         )
         for member in members
     }
@@ -88,8 +88,7 @@ def extent(units: Units, scene: bpy.types.Scene) -> dict[str, float]:
 def declared(units: Units, scene: bpy.types.Scene) -> Iterator[tuple[str, bpy.types.bpy_struct, Mapping[str, object]]]:
     """Scene settings of the unit system by struct path, struct, and rows, the system first since its write resets the unit tokens."""
     sheet, (area, volume, mass) = units.sheet_scale, ("square foot", "cubic foot", "pound") if units is Units.IMPERIAL else ("SQUARE_METRE", "CUBIC_METRE", "KILO/GRAM")
-    em = units.text / POINT / cap(bpy.context.preferences.view.font_path_ui)
-    places = next(places for places in range(5) if round(units.resolution / units.page_unit * 10**places, 9).is_integer())
+    em = units.text / Length.POINTS / cap(bpy.context.preferences.view.font_path_ui)
     groups = (
         (
             "unit_settings",
@@ -97,7 +96,7 @@ def declared(units: Units, scene: bpy.types.Scene) -> Iterator[tuple[str, bpy.ty
                 "system": units.name,
                 "scale_length": 1.0,
                 "use_separate": units.separate,
-                "length_unit": units.length,
+                "length_unit": units.length.name,
                 "mass_unit": units.mass,
                 "temperature_unit": units.temperature,
                 "time_unit": "SECONDS",
@@ -109,14 +108,17 @@ def declared(units: Units, scene: bpy.types.Scene) -> Iterator[tuple[str, bpy.ty
         ("camera.data", lambda: {"clip_start": units.snap, "clip_end": units.far, "display_size": units.grid, "ortho_scale": units.paper[0] * sheet}),
         ("camera.data.BIMCameraProperties", lambda: {"diagram_scale": preset(scene.camera.data.BIMCameraProperties, sheet), "width": units.paper[0] * sheet, "height": units.paper[1] * sheet}),
         ("cpc_settings", lambda: {"merge_tolerance": units.tolerance, **profile(units, scene.cpc_settings)}),
-        ("scale_interactive_settings", lambda: {**({"system_unit": "IMPERIAL_IN"} if units is Units.IMPERIAL else {"system_unit": "METRIC", "metric_unit": "MM"}), "decimal_precision": str(places)}),
+        (
+            "scale_interactive_settings",
+            lambda: {**({"system_unit": "IMPERIAL_IN"} if units is Units.IMPERIAL else {"system_unit": "METRIC", "metric_unit": "MM"}), "decimal_precision": str(units.places(units.page, 10))},
+        ),
         *((("blosm", lambda: extent(units, scene)),) if {"lat", "lon"} <= set(scene.keys()) else ()),
         ("BIMProperties", lambda: {"area_unit": area, "volume_unit": volume, "mass_unit": mass, "time_unit": "SECOND"}),
         (
             "dimensions_settings",
             lambda: {
                 "imperial_unit_style": "FEET_INCHES",
-                "metric_unit_style": Units.METRIC.length,
+                "metric_unit_style": Units.METRIC.length.name,
                 "output_sizing_mode": "WORLD",
                 "output_world_text_height": units.text * sheet,
                 "output_world_arrow_size": units.text * sheet,
@@ -127,16 +129,16 @@ def declared(units: Units, scene: bpy.types.Scene) -> Iterator[tuple[str, bpy.ty
         (
             "StyleGenerator",
             lambda: {
-                **{f"annotations[{index}].{name}": value for index, _ in enumerate(scene.StyleGenerator.annotations) for name, value in (("fontSize", em), ("lineWeight", Pen.THIN / POINT))},
+                **{f"annotations[{index}].{name}": value for index, _ in enumerate(scene.StyleGenerator.annotations) for name, value in (("fontSize", em), ("lineWeight", Pen.THIN / Length.POINTS))},
                 **{
                     f"alignedDimensions[{index}].{name}": value
                     for index, _ in enumerate(scene.StyleGenerator.alignedDimensions)
                     for name, value in (
                         ("fontSize", em),
-                        ("lineWeight", Pen.THIN / POINT),
+                        ("lineWeight", Pen.THIN / Length.POINTS),
                         ("dimOffset", units.first_offset * sheet),
                         ("dimLeaderOffset", units.offset * sheet),
-                        ("endcapSize", units.text / POINT / (0.8 * sqrt(2))),
+                        ("endcapSize", units.text / Length.POINTS / (0.8 * sqrt(2))),
                     )
                 },
             },
@@ -151,8 +153,8 @@ def preferred(units: Units, preferences: bpy.types.Preferences) -> Iterator[tupl
     groups = (
         ("edit", preferences.edit, lambda: {"collection_instance_empty_size": units.grid}),
         ("dimensions", addons.get("dimensions"), lambda: {"default_offset_distance": units.first_offset * units.sheet_scale, "empty_display_size": 2 * units.snap}),
-        ("cad2cube", addons.get("cad2cube"), lambda: {"default_scale": units.page_unit}),
-        ("univ", addons.get("univ"), lambda: {"texel_unit": {"FEET": "ft", "MILLIMETERS": "m"}[units.length]}),
+        ("cad2cube", addons.get("cad2cube"), lambda: {"default_scale": units.page}),
+        ("univ", addons.get("univ"), lambda: {"texel_unit": {Length.FEET: "ft", Length.MILLIMETERS: "m"}[units.length]}),
     )
     yield from ((path, struct, rows()) for path, struct, rows in groups if struct is not None)
 
@@ -160,14 +162,14 @@ def preferred(units: Units, preferences: bpy.types.Preferences) -> Iterator[tupl
 def parameters(units: Units, preferences: bpy.types.Preferences) -> Iterator[tuple[str, bpy.types.bpy_struct, Mapping[str, object]]]:
     """Bonsai's default element parameters by struct path, struct, and rows while Bonsai is enabled, declared and snapped lengths under IMPERIAL and defaults under METRIC."""
     openings = {
-        "door.overall_width": 3 * FOOT,
-        "door.overall_height": 7 * FOOT,
-        "window.overall_width": 3 * FOOT,
-        "window.overall_height": 4 * FOOT,
-        "stair.width": 3 * FOOT + 8 * INCH,
-        "stair.height": 9 * FOOT,
-        "stair.tread_run": 11 * INCH,
-        "railing.height": 3 * FOOT + 6 * INCH,
+        "door.overall_width": 3 * Length.FEET,
+        "door.overall_height": 7 * Length.FEET,
+        "window.overall_width": 3 * Length.FEET,
+        "window.overall_height": 4 * Length.FEET,
+        "stair.width": 3 * Length.FEET + 8 * Length.INCHES,
+        "stair.height": 9 * Length.FEET,
+        "stair.tread_run": 11 * Length.INCHES,
+        "railing.height": 3 * Length.FEET + 6 * Length.INCHES,
     }
     imperial = (
         openings
@@ -176,7 +178,7 @@ def parameters(units: Units, preferences: bpy.types.Preferences) -> Iterator[tup
             for order, share in (("first", 1 / 3), ("second", 2 / 3))
             for kind, dimension in (("mullion", "width"), ("transom", "height"))
         }
-        | {"stair.number_of_treads": ceil(openings["stair.height"] / (7 * INCH)) - 1}
+        | {"stair.number_of_treads": ceil(openings["stair.height"] / (7 * Length.INCHES)) - 1}
     )
     for bonsai in [addon.preferences for addon in preferences.addons if addon.module.rpartition(".")[2] == "bonsai" and addon.preferences is not None]:
         defaults = {
@@ -192,7 +194,7 @@ def parameters(units: Units, preferences: bpy.types.Preferences) -> Iterator[tup
 
 def dialogs(window_manager: bpy.types.WindowManager, preferences: bpy.types.Preferences) -> Iterator[tuple[str, bpy.types.bpy_struct, Mapping[str, object]]]:
     """BlenderGIS OSM import dialog values by operator while BlenderGIS is enabled, a 13 ft level of US mixed-use floors with one collection per tag."""
-    level = 13 * FOOT
+    level = 13 * Length.FEET
     yield from (
         (idname, window_manager.operator_properties_last(idname), {"levelHeight": level, "defaultHeight": float(round(level)), "separate": True})
         for idname in (("importgis.osm_query", "importgis.osm_file") if "BlenderGIS" in preferences.addons else ())
