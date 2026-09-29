@@ -117,10 +117,8 @@ CI's macOS job runs on the Xcode local builds use:
 
 ## [08]-[SWIFTPM]
 
-SwiftPM joins with the first Swift library, until then the `mise.toml` `SWIFTPM_BUILD_DIR` row is its one fact:
-- Every `swift package` run writes a build directory, `--help` included, the row keeps `.build` out of the tree
-- `SWIFTPM_BUILD_DIR` overrides SwiftPM's build directory flag, a package target sets `SWIFTPM_BUILD_DIR={workspaceRoot}/.cache/swiftpm/{projectRoot}` in its `env`
-- Package targets pass `--cache-path $NX_WORKSPACE_ROOT/.cache/swiftpm/cache`, the clone cache `xcodebuild` uses
+SwiftPM joins with the first Swift library:
+- Every `swift package` run writes a build directory, `--help` included
 - Apps stay `.xcodeproj`, PackageDescription has no application product, Info.plist, icon, or signing API
 - Libraries take `libs/swift/<Name>/Package.swift` at the newest tools version the installed toolchain accepts
 - Tools version 6 implies language mode 6, manifests hold no `swiftLanguageModes`

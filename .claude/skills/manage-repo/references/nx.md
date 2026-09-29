@@ -6,7 +6,6 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 
 - Plugins infer a project from each file matching their glob, a matching file that defines no project joins the plugin's `exclude`
 - `useDaemonProcess: false` computes the graph on every command
-- `cacheDirectory` relocates the task cache, `NX_WORKSPACE_DATA_DIRECTORY` workspace data
 - `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
 
 ## [02]-[TARGETS]
@@ -20,7 +19,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Commands with `cwd` at their project read the workspace root through `$NX_WORKSPACE_ROOT`
 - Targets with `options` and no `executor`, `command`, or `targetDefaults` executor resolve to `nx:noop` with a `dependsOn` and drop without one
 - Pipes, loops, conditionals, and variables in a command entry are a script, the second command takes its own entry or target
-- Tools that take files and no directory, or walk ignored trees before filtering (`yamlfmt`), run as `fd --hidden --extension <ext> --exec-batch <tool>`, one process over every file `.gitignore` leaves
+- Tools that take files and no directory, or walk ignored trees before filtering (`yamlfmt`, `yamllint`), run as `fd --hidden --extension <ext> --exec-batch <tool>`, one process over every file `.gitignore` leaves
 - `fd --exec-batch` runs nothing without a match, a row for an extension with no tracked file goes
 - `dependsOn` names a target of the project (`build`), of its dependencies (`^build`), or of named projects (`{ projects, target }`)
 - `params: forward` on a `dependsOn` entry passes its arguments to the dependency

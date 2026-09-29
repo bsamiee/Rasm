@@ -23,6 +23,6 @@ jdtls type-checks Ghidra scripts against Ghidra jars on each edit, a check no `r
 - Runtime `name` is an execution environment id jdtls requires, a name outside the ids raises an error notice
 - Compliance caps at the newest level bundled ECJ supports, syntax past the cap errors in jdtls alone
 - Runtime paths and `referencedLibraries` expand `${VAR}`, `java.home` and runtime `name` stay literal
-- Files outside the workspace folder get syntax diagnostics alone, `java.diagnostic.filter` drops `**/.cache/**` rule fixtures by absolute path
+- Files outside the workspace folder get syntax diagnostics alone
 - Workspace data stays at the Nix launcher default under `~/Library/Caches/jdtls`, a `-data` folder inside the repository root breaks the project link
 - Running sessions keep the server configuration they started with, `/reload-plugins` applies an `.lsp.json` edit

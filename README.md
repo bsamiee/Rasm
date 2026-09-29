@@ -107,7 +107,7 @@ flowchart LR
 - Workspace plugin names each project's tags and empty targets by project file, `@nx/dotnet` and `@nx/vitest` infer theirs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
-- Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through its own setting
+- Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through one setting every run reads, or its skill states why not
 
 ## [04]-[OWNERS]
 

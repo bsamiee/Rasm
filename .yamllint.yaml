@@ -1,8 +1,6 @@
 extends: default
 
-ignore-from-file: .gitignore
-
-yaml-files: ["*.yaml", "*.yml", "!pnpm-lock.yaml"]
+ignore: [pnpm-lock.yaml]
 
 rules:
     line-length: disable

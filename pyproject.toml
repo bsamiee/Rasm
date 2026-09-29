@@ -388,7 +388,6 @@ dependency-metadata = [                                   # Upstream metadata ca
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
-cache-dir = ".cache/ruff"
 preview = true
 line-length = 200
 src = [".", "libs/python", "tools"]

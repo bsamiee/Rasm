@@ -313,7 +313,7 @@ def render(file: "ResolvedExistingFile", *, frames: "Annotated[str, cyclopts.Par
     """Render the current frame, one frame, a range as `1..24`, or `all` of the scene range under the user's preferences, resuming frames an earlier run of the unchanged file wrote."""
     with file.open("rb") as handle:
         current = hashlib.file_digest(handle, "sha256").hexdigest()
-    out = artifacts("render", file.stem)
+    out = artifacts("renders", file.stem)
     log, stamp = out / f"{file.stem}.log", out / f"{current}.sha256"
     if not stamp.exists():
         shutil.rmtree(out)

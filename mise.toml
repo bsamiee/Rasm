@@ -19,6 +19,7 @@ UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
 UV_CACHE_DIR = "{{config_root}}/.cache/uv"
 PYTHONPATH = "{{config_root}}/tools"
 PYTHONPYCACHEPREFIX = "{{config_root}}/.cache/pycache"
+RUFF_CACHE_DIR = "{{config_root}}/.cache/ruff"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
 SWIFTPM_BUILD_DIR = "{{config_root}}/.cache/swiftpm"
 NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data"

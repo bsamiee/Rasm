@@ -264,6 +264,7 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
         flags: ['-p', '--preview', '-F', '--fixed-strings', '-s', '-A', '--across', '-h', '--help', '-V', '--version'],
         leading: 2,
         stdin: 'default',
+        sources: ['-h', '-V'],
     },
     node: { stdin: 'default', sources: ['-e', '-p', '-v', '--eval', '--print', '--test', '--run'] },
     python: _PYTHON,

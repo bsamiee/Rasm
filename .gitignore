@@ -1,17 +1,12 @@
 # --- [DEPENDENCIES] -----------------------------------------------------------
 
 node_modules/
-.venv/
 
 # --- [TOOL_WRITES] ------------------------------------------------------------
 
-*.timestamp-*.mjs
-__pycache__/
-*.py[cod]
 .cache/
 **/.artifacts/
 .playwright-cli/
-.nx/*
 .vs/
 
 # --- [HOST_WRITES] ------------------------------------------------------------
@@ -19,7 +14,6 @@ __pycache__/
 *.rhl
 *.3dmbak
 /Grasshopper.*
-expanded.idf
 xcuserdata/
 
 # --- [SECRETS] ----------------------------------------------------------------
@@ -42,15 +36,11 @@ credentials.json
 
 *.binlog
 *.log
-pnpm-debug.log*
 
 # --- [MACHINE] ----------------------------------------------------------------
 
 mise.local.toml
-*.sln.docstates
-*.suo
 *.user
-*.userosscache
 *.orig
 .DS_Store
 .AppleDouble

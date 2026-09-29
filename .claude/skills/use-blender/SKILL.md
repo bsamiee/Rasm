@@ -23,13 +23,13 @@ description: "Use when a task drives a Blender session, a headless Blender, or a
 - [13]-[GEOSPATIAL](references/geospatial.md): Georeferencing, GIS imports, sun position, and climate studies
 
 [SCRIPTS]:
-- [01]-[HEADLESS](scripts/headless.py): Blender processes outside the live session through `run`, `start`, `call`, `stop`, and `render`
+- [01]-[HEADLESS](scripts/headless.py): Background Blender writing under `.artifacts/blender/` through `run`, `start`, `call`, `stop`, and `render`
 - [02]-[WRAPPER](scripts/wrapper.py): Hook importing `scripts/` fresh into every live and headless call
 - [03]-[DISCOVER](scripts/discover.py): Operators, RNA types, and add-on settings matching words, operators and types naming the next tool
-- [04]-[CAPTURE](scripts/capture.py): Framed view of named or visible objects, or the user's view, to `.artifacts/blender/<name>.png` with a diff against an earlier one
+- [04]-[CAPTURE](scripts/capture.py): Framed view to `.artifacts/blender/<name>.png`, overwritten on a repeated name, diffed against an earlier one
 - [05]-[SNAPSHOT](scripts/snapshot.py): Evaluated scene state to `.artifacts/blender/<name>.json` with the changes since an earlier snapshot
 - [06]-[NODES](scripts/nodes.py): One node tree as interface, nodes with non-default values, and links by socket identifier
-- [07]-[DRAWING](scripts/drawing.py): Grease Pencil strokes through an orthographic camera as an SVG and PDF sheet at scale
+- [07]-[DRAWING](scripts/drawing.py): Grease Pencil strokes through an orthographic camera as `.artifacts/blender/<name>.svg` and `.pdf` at scale
 - [08]-[CONVERT](scripts/convert.py): Interchange files through Blender's importers and one exporter, one empty scene per file in a headless process
 - [09]-[RESULTS](scripts/results.py): Case records as `result` dicts and JSON, `.artifacts/blender/` folders, and the unknown-object case
 - [10]-[RNA](scripts/rna.py): RNA values as JSON and the function of every registered operator
@@ -192,6 +192,8 @@ python .claude/skills/use-blender/scripts/headless.py stop <name>
 
 - `Ran` holds `result`, stdout, and stderr, `Raised` the traceback with `<agent>` lines, `Failed` the exit code and the log
 - `run` and `start` open the file itself, and code that saves writes it
+- `start` writes `.artifacts/blender/session/<name>.json` and `.log`, `stop` deletes the JSON record
+- `run` sets `BLENDER_USER_EXTENSIONS` to `.artifacts/blender/extensions/` and keeps `.artifacts/blender/run-<pid>.log` after a failure
 - `run` and `start` on a path with no file open the user's startup file saved under that path
 - `bpy.ops.wm.revert_mainfile()` in a call returns a session to the file on disk
 - `stop` saves a titled file when the session's data differ from a copy taken at its last save or after the call that last loaded it
@@ -237,7 +239,6 @@ Each change ends with one picture from a chosen view, `snapshot` names what chan
 - `outside` true in a diff means geometry left the earlier frame, a capture without `since` frames it whole
 - Live captures draw offscreen through the largest 3D Viewport's shading and local view with overlays and gizmos off
 - Headless captures render Workbench under Solid mode's color management and leave every render setting as found
-- Captures under a repeated `<name>` overwrite `.artifacts/blender/<name>.png`
 - `Read` shows the PNG whole, 1280x720 or the user's view fit inside it
 
 ```python

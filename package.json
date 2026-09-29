@@ -322,7 +322,7 @@
                         "biome check --error-on-warnings",
                         "ruff check",
                         "ruff format --check",
-                        "yamllint .",
+                        "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint",
                         "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint",
                         "actionlint",
                         "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed",

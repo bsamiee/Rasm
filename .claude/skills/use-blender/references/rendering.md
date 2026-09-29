@@ -29,7 +29,7 @@ Renders through `headless.py render` in a process under the user's preferences o
 ## [02]-[COMMAND]
 
 ```bash
-# Frames of a file into .artifacts/blender/render/<stem>/<stem>_####, a video into one movie file
+# Frames of a file into .artifacts/blender/renders/<stem>/<stem>_####, a video into one movie file
 python .claude/skills/use-blender/scripts/headless.py render <file> --frames <start>..<end>
 ```
 

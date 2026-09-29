@@ -33,13 +33,13 @@ Restore reports `NU1xxx` codes and `dotnet pack` reports `NU5xxx` codes, `TreatW
 
 ## [02]-[PACK_CODES]
 
-| [INDEX] | [CODE]   | [CAUSE]                                                          | [FIX]                                                     |
-| :-----: | :------- | :--------------------------------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | `NU5017` | No assembly, dependency, or framework reference packed           | Add `lib/<tfm>/_._` and keep the dependency group         |
-|  [02]   | `NU5100` | Assembly sits outside `lib/<tfm>/`                               | `PackagePath="lib/<tfm>/"`, or drop `Pack="true"` on it   |
-|  [03]   | `NU5104` | Stable package depends on a prerelease package                   | Prerelease `Version`, or a stable dependency version      |
-|  [04]   | `NU5110` | `.ps1` file sits outside `tools/`                                | Move it under `tools/` or drop `Pack="true"`              |
-|  [05]   | `NU5111` | `.ps1` file under `tools/` is not `init.ps1`                     | Rename it, `init.ps1` alone runs                          |
-|  [06]   | `NU5118` | Items share one `PackagePath`                                    | One item per `PackagePath`                                |
-|  [07]   | `NU5128` | `lib/` or `ref/` file for a framework without a dependency group | `SuppressDependenciesWhenPacking` off, or `lib/<tfm>/_._` |
-|  [08]   | `NU5129` | `build/` file is not named `<PackageId>.props` or `.targets`     | Rename the file, another name is never imported           |
+| [INDEX] | [CODE]   | [CAUSE]                                                           | [FIX]                                                     |
+| :-----: | :------- | :---------------------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | `NU5017` | No assembly, dependency, or framework reference packed            | Add `lib/<tfm>/_._` and keep the dependency group         |
+|  [02]   | `NU5100` | Assembly sits outside `lib/<tfm>/`                                | `PackagePath="lib/<tfm>/"`, or drop `Pack="true"` on it   |
+|  [03]   | `NU5104` | Stable package depends on a prerelease package                    | Prerelease `Version`, or a stable dependency version      |
+|  [04]   | `NU5110` | `.ps1` file sits outside `tools/`                                 | Move it under `tools/` or drop `Pack="true"`              |
+|  [05]   | `NU5111` | `.ps1` file under `tools/` is not `init.ps1`                      | Rename it, `init.ps1` alone runs                          |
+|  [06]   | `NU5118` | Items share one `PackagePath`                                     | One item per `PackagePath`                                |
+|  [07]   | `NU5128` | Framework in `lib/` or `ref/` alone or in dependency groups alone | `SuppressDependenciesWhenPacking` off, or `lib/<tfm>/_._` |
+|  [08]   | `NU5129` | `build/` file is not named `<PackageId>.props` or `.targets`      | Rename the file, another name is never imported           |

@@ -9,7 +9,6 @@ Covers mapping at the host boundary with `Riok.Mapperly`.
 
 Mapperly generates each mapping at build time as ordinary member assignments, with no reflection, expression compilation, or hidden allocation:
 - Unmapped members report a diagnostic
-- `EmitCompilerGeneratedFiles` writes the generated mappings under `obj/` as C# source
 - Mapperly cannot consume another source generator's output from the same compilation, a referenced assembly exposes its generated members as metadata
 - Automatic conversions can change when a generated type moves between projects
 - Explicit mapping declarations keep project layout from choosing conversions

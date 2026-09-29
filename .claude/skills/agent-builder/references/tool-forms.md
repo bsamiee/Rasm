@@ -55,15 +55,13 @@ Forms and facts per tool an agent step names, run from repository root.
 
 ## [06]-[DOTNET]
 
+Use `dotnet-msbuild-diagnostics` for binlog capture.
+
 - `dotnet msbuild <project> -getProperty:<A>,<B>` evaluates one project, a solution path answers `MSB1063`
-- `dotnet msbuild Directory.Build.props -getProperty:ArtifactsPath` evaluates the root value without a project
-- `ArtifactsPath` prints no trailing separator, `<logs>` is `$(...)/binlog/` with the slash written
 - `dotnet msbuild <project> -getItem:PackageReference` lists every reference with `DefiningProjectFullPath`
 - `fd -e csproj . <scope> -x dotnet msbuild {} -getItem:PackageReference` evaluates a scope in one call
 - `dotnet msbuild <file> -getProperty:MSBuildProjectFile` is the parse check, a broken file answers `MSB4025`
 - `dotnet format <project> --no-restore --verify-no-changes --include <files>` is the writer's check form, a missing path prints nothing at exit 0
-- `dotnet build <build> --no-restore -t:Rebuild -check -bl:<logs><purpose>-{}.binlog` names a capture, `{}` expands to date, time, pid, and a suffix
-- `dotnet restore <solution> --artifacts-path <tempdir>` then builds under it isolate a pair from other sessions
 - `-p:LangVersion=7.3` produces a failing build without a repository edit
 - `Csc` execution count in `binlog_expensive_tasks` shows a compile, a duration shows none
 

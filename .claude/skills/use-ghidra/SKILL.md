@@ -44,7 +44,6 @@ Binary research through one Ghidra project per binary under `$GHIDRA_PROJECT_DIR
 - Files: `<out>`, `<report>`, `<macros>`, `<log>`, and a thinned binary go under `<main>/.artifacts/ghidra/<name>/`
 - Files: `<main>` is the main worktree's absolute path
 - Files: Scripts create the folder, `lipo` and redirects need `mkdir -p`
-- Files: `GHIDRA_JAVA_OPTIONS` places Ghidra settings, cache, and temp files under `<main>/.cache/ghidra/`
 - Logs: `application.log` holds import messages and `script.log` each script's printed lines, under `<main>/.cache/ghidra/settings/ghidra/<release>/`
 - Use `search-code` for a Ghidra API signature
 

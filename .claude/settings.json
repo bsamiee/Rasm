@@ -193,5 +193,5 @@
         }
     },
     "effortLevel": "high",
-    "claudeMdExcludes": ["**/.cache/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md", "**/bin/**/CLAUDE.md", "**/obj/**/CLAUDE.md", "**/.artifacts/**/CLAUDE.md"]
+    "claudeMdExcludes": ["**/.cache/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md", "**/.venv/**/CLAUDE.md", "**/.artifacts/**/CLAUDE.md"]
 }

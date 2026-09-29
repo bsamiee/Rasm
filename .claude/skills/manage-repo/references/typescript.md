@@ -46,7 +46,6 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - `useNamingConvention` takes `strictCase: false` for a host's acronym class names
 - `noUndeclaredVariables` is `off`, `tsc --build` reports an undeclared name
 - Host typings declare every host global, a `declare` statement or an empty `enum` stub in a plugin file restates a typings declaration
-- `vcs.useIgnoreFile` keeps the scanner out of ignored trees
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
 - `adobe:` host modules of a UXP plugin resolve through the `with-protocol` entry of a host typings package named in `types`
 - `paths` row maps a host module no `with-protocol` entry declares (`adobe:indesign`) to a generated module

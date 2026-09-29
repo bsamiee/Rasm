@@ -176,8 +176,10 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 - Exact id patterns beat a prefix, a longer prefix beats a shorter one, `*` is the default
 - CPM reports `NU1507` with more than one HTTP source and no mapping
 - Mapping is skipped for an id present in the global packages folder
-- `globalPackagesFolder` in a `<config>` section or `NUGET_PACKAGES` in the pipeline gives a repository its own folder
-- `globalPackagesFolder` applies to `PackageReference`, `repositoryPath` applies to `packages.config`, `NUGET_PACKAGES` overrides both
+- `globalPackagesFolder` in a `<config>` section gives a repository its own folder, a CI runner cache restores that path between jobs
+- Relative `globalPackagesFolder` and `repositoryPath` values resolve against the directory of the `NuGet.config` that sets them
+- `globalPackagesFolder` applies to `PackageReference`, `repositoryPath` applies to `packages.config`
+- `NUGET_PACKAGES` overrides `globalPackagesFolder` alone, a relative value fails restore
 - `RestoreSources` replaces the configured sources for one restore, `RestoreAdditionalProjectSources` adds to them
 - `RestoreIgnoreFailedSources` turns an unreachable source into a warning
 - `RestoreUseStaticGraphEvaluation` in `Directory.Build.props` applies to a project restore
@@ -197,66 +199,53 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 
 ## [04]-[PACKAGE_AUTHORING]
 
-`dotnet pack` reads every value from the project, a package project sets `Version`, `Description`, and `PackageLicenseExpression`, a packaging directory's `Directory.Build.props` owns shared layout. `IsPackable=false` in the root props keeps every other project out of `dotnet pack`. `packaging/Directory.Build.props` holds:
+`dotnet pack` reads every value from the project. `IsPackable=false` in root `Directory.Build.props` makes `dotnet pack` skip every project that keeps it, with no build and no message. Package projects set `IsPackable=true` with `Version`, `Description`, and `PackageLicenseExpression`. `Contoso.Native.Item/Contoso.Native.Item.csproj` holds:
 
 ```xml
-<Project>
+<Project Sdk="Microsoft.Build.NoTargets">
     <PropertyGroup>
-        <RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</RepositoryRoot>
-        <UseArtifactsOutput>true</UseArtifactsOutput>
-        <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepositoryRoot)', '.artifacts', 'packaging'))</ArtifactsPath>
-        <PackageOutputPath>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'nuget'))</PackageOutputPath>
+        <IsPackable>true</IsPackable>
+        <Version>1.0.0</Version>
+        <Description>Item shared library per runtime identifier</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <TargetFramework>netstandard2.0</TargetFramework>
-        <IncludeBuildOutput>false</IncludeBuildOutput>
         <EnableDefaultItems>false</EnableDefaultItems>
-        <DeterministicTimestamp>1735689600</DeterministicTimestamp>
     </PropertyGroup>
     <ItemGroup>
-        <None Include="$(MSBuildProjectDirectory)/runtimes/**" Pack="true" PackagePath="runtimes/" />
-        <None Include="$(MSBuildProjectDirectory)/buildTransitive/**" Pack="true" PackagePath="buildTransitive/" />
-        <None Include="$(MSBuildThisFileDirectory)_._" Pack="true" PackagePath="lib/$(TargetFramework)/" />
+        <None Include="runtimes/**" Pack="true" PackagePath="runtimes/" />
+        <None Include="buildTransitive/**" Pack="true" PackagePath="buildTransitive/" />
+        <None Include="_._" Pack="true" PackagePath="lib/$(TargetFramework)/" />
     </ItemGroup>
 </Project>
 ```
 
-`packaging/Contoso.Native.Item/Contoso.Native.Item.csproj` holds:
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <Version>1.0.0</Version>
-        <Description>Item shared library per runtime identifier</Description>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    </PropertyGroup>
-</Project>
-```
-
-- Nested `Directory.Build.props` files without a root import stop root inheritance for the tree below
-- `lib/<tfm>/_._` marks a framework the package supports, pack targets emit a matching dependency group
+- `EnableDefaultItems=false` drops the default `None` glob, each packed file is one item
+- `lib/<tfm>/_._` is an empty file on disk that marks a framework the package supports, pack targets emit a matching dependency group
 - Native libraries go under `runtimes/<rid>/native/`, the SDK copies each matching RID directory and flattens it on publish
 - Managed assemblies per RID go under `runtimes/<rid>/lib/<tfm>/` with an AnyCPU compile assembly under `ref/<tfm>/`
 - NuGet takes compile assets from `ref/` over `lib/` and runtime assets from `runtimes/` over `lib/`
 - `contentFiles/any/any/` with `PackageCopyToOutput="true"` writes `copyToOutput="true"` to the nuspec, for a data file a runtime opens by path
 - `build/<PackageId>.props` and `.targets` reach direct consumers, `buildTransitive/` reaches every consumer down the graph
 - Packed `.props` files set properties under a condition the consumer can override
-- `PackagePath` names a package folder, `Pack="true"` on `None` includes the item, `Pack="false"` on `Content` excludes it
+- `PackagePath` with the file's extension names the file, any other value names a folder that keeps each glob item's `%(RecursiveDir)`
+- `Pack="true"` on `None` includes the item, `Pack="false"` on `Content` excludes it
 - `Deterministic` gives every zip entry the `DeterministicTimestamp` time, RFC 3339 or Unix seconds
 - `SOURCE_DATE_EPOCH` fills `DeterministicTimestamp` when unset, the wall clock otherwise
 
-| [INDEX] | [PROPERTY]                                      | [EFFECT]                                                                        |
-| :-----: | :---------------------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `PackageId`, `Version`                          | Id defaults to `AssemblyName`, prefix and suffix properties compose `Version`   |
-|  [02]   | `PackageOutputPath`                             | Directory of the `.nupkg` files                                                 |
-|  [03]   | `IncludeBuildOutput=false`                      | No assembly in `lib/`, for a package of assets                                  |
-|  [04]   | `PackageReadmeFile`                             | Path inside the package of a Markdown file the project packs with `Pack="true"` |
-|  [05]   | `PackageLicenseExpression`                      | SPDX expression, `PackageLicenseFile` is the alternative for a packed file      |
-|  [06]   | `IncludeSymbols`, `SymbolPackageFormat`         | `snupkg` writes the portable PDBs beside the `.nupkg`                           |
-|  [07]   | `PublishRepositoryUrl`, `EmbedUntrackedSources` | SourceLink writes the repository URL and embeds generated sources               |
-|  [08]   | `PackAsTool`, `ToolCommandName`                 | Packs an executable as a `dotnet tool`, the SDK imports the tool pack targets   |
-|  [09]   | `DevelopmentDependency`                         | Build-time dependency, consumers exclude its compile assets                     |
-|  [10]   | `PackageType`                                   | Semicolon list of package types, `Dependency` is the default                    |
-|  [11]   | `NoPackageAnalysis`                             | Skips the `NU5xxx` analysis, for a layout the rules cannot describe             |
-|  [12]   | `NuspecFile`                                    | Packs a hand-written nuspec and ignores the project, for a non-SDK package      |
+| [INDEX] | [PROPERTY]                              | [EFFECT]                                                                            |
+| :-----: | :-------------------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `PackageId`, `Version`                  | Id defaults to `AssemblyName`, prefix and suffix properties compose `Version`       |
+|  [02]   | `PackageOutputPath`                     | Directory of the `.nupkg` files                                                     |
+|  [03]   | `IncludeBuildOutput=false`              | No assembly in `lib/`, the NoTargets default                                        |
+|  [04]   | `PackageReadmeFile`, `PackageIcon`      | Package paths of a Markdown readme and a PNG or JPEG icon packed with `Pack="true"` |
+|  [05]   | `PackageLicenseExpression`              | SPDX expression, `PackageLicenseFile` is the alternative for a packed file          |
+|  [06]   | `IncludeSymbols`, `SymbolPackageFormat` | `snupkg` writes the portable PDBs beside the `.nupkg`                               |
+|  [07]   | `PublishRepositoryUrl`                  | Source Link repository URL and branch in the nuspec, the commit goes in without it  |
+|  [08]   | `PackAsTool`, `ToolCommandName`         | Packs an executable as a `dotnet tool`, the SDK imports the tool pack targets       |
+|  [09]   | `DevelopmentDependency`                 | Build-time dependency, consumers exclude its compile assets                         |
+|  [10]   | `PackageType`                           | Semicolon list of package types, `Dependency` is the default                        |
+|  [11]   | `NoPackageAnalysis`                     | Skips the `NU5xxx` analysis, for a layout the rules cannot describe                 |
+|  [12]   | `NuspecFile`                            | Packs a hand-written nuspec and ignores the project, for a non-SDK package          |
 
 `GenerateNuspec` runs after `Build` and after `_GetPackageFiles` collects the `Pack="true"` items, a validation target takes `BeforeTargets="GenerateNuspec"`, a target that adds files sets `TargetsForTfmSpecificContentInPackage` and returns `TfmSpecificPackageFile` items with `PackagePath` metadata, or `TargetsForTfmSpecificBuildOutput` for files in `lib/`.
 
@@ -334,13 +323,13 @@ dotnet build Product.slnx --no-restore -p:CI=true -warnaserror -nodeReuse:false
 dotnet test --solution Product.slnx --no-build --report-trx
 ```
 
-| [INDEX] | [SWITCH]                        | [EFFECT]                                                                               |
-| :-----: | :------------------------------ | :------------------------------------------------------------------------------------- |
-|  [01]   | `--no-restore`, `--no-build`    | `test --no-build` implies `--no-restore`, restore once and build once per pipeline     |
-|  [02]   | `-clp:Summary;ErrorsOnly`       | Console logger parameters, `-v:m` sets the verbosity                                   |
-|  [03]   | `-m`, `-maxCpuCount`            | One node per processor, `dotnet build` passes it                                       |
-|  [04]   | `-nodeReuse:false`              | Worker nodes exit with the build, an idle node otherwise stays for the next build      |
-|  [05]   | `-p:UseSharedCompilation=false` | Compiles in process, the Roslyn server otherwise waits 10 minutes after the last build |
+| [INDEX] | [SWITCH]                        | [EFFECT]                                                                                 |
+| :-----: | :------------------------------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | `--no-restore`, `--no-build`    | `test --no-build` implies `--no-restore`, restore once and build once per pipeline       |
+|  [02]   | `-clp:Summary;ErrorsOnly`       | Console logger parameters, `-v:m` sets the verbosity                                     |
+|  [03]   | `-m`, `-maxCpuCount`            | One node per processor, `dotnet build` passes it                                         |
+|  [04]   | `-nodeReuse:false`              | Worker nodes exit with the build and no MSBuild server starts, both otherwise outlive it |
+|  [05]   | `-p:UseSharedCompilation=false` | Compiles in process, the Roslyn server otherwise waits 10 minutes after the last build   |
 
 | [INDEX] | [VARIABLE]                             | [EFFECT]                                                                 |
 | :-----: | :------------------------------------- | :----------------------------------------------------------------------- |
@@ -348,9 +337,8 @@ dotnet test --solution Product.slnx --no-build --report-trx
 |  [02]   | `DOTNET_CLI_TELEMETRY_OPTOUT=1`        | No telemetry                                                             |
 |  [03]   | `DOTNET_GENERATE_ASPNET_CERTIFICATE=0` | No development certificate on first run                                  |
 |  [04]   | `DOTNET_ADD_GLOBAL_TOOLS_TO_PATH=0`    | No `PATH` edit on first run                                              |
-|  [05]   | `NUGET_PACKAGES=<runner cache dir>`    | Global packages folder the runner cache restores between jobs            |
-|  [06]   | `DOTNET_CLI_HOME=<dir>`                | Location of first-run sentinels, workload data, and local tools          |
-|  [07]   | `MSBUILDDISABLENODEREUSE=1`            | `-nodeReuse:false` for every MSBuild process, one a tool starts included |
+|  [05]   | `DOTNET_CLI_HOME=<dir>`                | Location of first-run sentinels, workload data, and local tools          |
+|  [06]   | `MSBUILDDISABLENODEREUSE=1`            | `-nodeReuse:false` for every MSBuild process, one a tool starts included |
 
 `global.json` `test.runner: Microsoft.Testing.Platform` makes `dotnet test` run every test project as an MTP application and reject a VSTest project, `--report-trx` needs package `Microsoft.Testing.Extensions.TrxReport` in each test project, `--project` and `--solution` exclude each other, and exit codes are `0` for success, `2` for a failed test, `8` for zero tests, `9` for fewer tests than `--minimum-expected-tests`, and `5` for an invalid command line.
 

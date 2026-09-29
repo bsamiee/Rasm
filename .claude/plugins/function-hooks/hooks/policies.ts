@@ -55,8 +55,6 @@ const _SECOND_FILES: readonly RegExp[] = [
 ];
 const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
-const _ACROSS = ['-A', '--across'];
-const _ASKING = ['-h', '--help', '-V', '--version'];
 
 // --- [GIT] -----------------------------------------------------------------------------
 
@@ -150,12 +148,15 @@ const gitPaths = (commands: readonly Command[]): readonly string[] =>
 
 // --- [STDIN] ---------------------------------------------------------------------------
 
+const _sourced = (program: string, options: readonly string[]): boolean => options.some((name) => ['--help', '--version'].includes(name) || PROGRAMS[program]?.sources?.includes(name) === true);
+
 const _reads = (invocation: Invocation): boolean => {
     const row = PROGRAMS[invocation[0]];
     const { inputs, options } = operands(invocation);
     return (
         row?.stdin !== undefined &&
-        !options.some((name) => ['--help', '--version'].includes(name) || row.sources?.includes(name) === true || row.recursive?.includes(name) === true) &&
+        !_sourced(invocation[0], options) &&
+        !options.some((name) => row.recursive?.includes(name) === true) &&
         (row.stdin === 'always' || inputs.length === 0 || inputs.includes('-'))
     );
 };
@@ -282,7 +283,7 @@ const _sd = (command: Command): readonly Insertion[] => {
     const across = span(0);
     const find = span(operand + 1);
     return [
-        ...(across.kind === 'some' && !options.some((name) => _ACROSS.includes(name) || _ASKING.includes(name))
+        ...(across.kind === 'some' && !_sourced(program, options) && !options.some((name) => ['-A', '--across'].includes(name))
             ? [{ at: across.value.end, text: ' -A', note: 'sd matches inside one line unless -A is passed' }]
             : []),
         ...(find.kind === 'some' && !rest.includes('--') && rest.some((word) => _dashed(program, word))

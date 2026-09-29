@@ -28,7 +28,6 @@ uv owns resolution, lock, and environment of the root project file.
 - `[project.scripts]` needs a build backend and an editable install
 - Editable installs put their module root on `sys.path` of every environment process
 - Modules named in `sys.stdlib_module_names` shadow the standard library for every process with their directory on `sys.path` or `mypy_path`
-- Relative cache paths resolve against ruff's configuration file and mypy's working directory, `$MYPY_CONFIG_FILE_DIR` pins mypy's
 
 ## [04]-[CHECKERS]
 

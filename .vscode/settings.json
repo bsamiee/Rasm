@@ -7,10 +7,8 @@
     "explorer.compactFolders": false,
     "files.exclude": {
         "**/node_modules": true,
-        "**/__pycache__": true,
         "**/.artifacts": true,
         "**/.cache": true,
-        "**/.nx": true,
         "**/.venv": true
     },
 

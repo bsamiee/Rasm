@@ -167,10 +167,7 @@ OK in `Directory.Packages.props`:
     - SDK reads them before the project body, `ArtifactsPath` and `UseArtifactsOutput` fail `NETSDK1199`
     - `BaseIntermediateOutputPath` warns `MSB3539` after restore used the default
     - `ArtifactsProjectName` reaches `bin/` and `publish/` while `obj/` keeps the project name
-- RULE:
-    - Set the artifacts properties in `Directory.Build.props` or on the command line
-    - `ArtifactsPivots` and the output name properties stay project-level
-    - `ArtifactsPath` ends without a separator, the SDK adds one before each segment it appends
+- RULE: `ArtifactsPivots` and output name properties stay project-level
 
 BAD in `MyProject.csproj`:
 
