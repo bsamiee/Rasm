@@ -1,9 +1,10 @@
-# ty: ignore[invalid-argument-type, redundant-condition, unresolved-attribute, unresolved-import]
-# mypy: disable-error-code="arg-type, attr-defined, func-returns-value, import-not-found, no-any-return, union-attr, unreachable"
+# ty: ignore[invalid-argument-type, invalid-assignment, redundant-condition, unresolved-attribute, unresolved-import]
+# mypy: disable-error-code="arg-type, assignment, attr-defined, func-returns-value, import-not-found, no-any-return, union-attr, unreachable"
 # ruff: file-ignore[invalid-class-name, mutable-class-default, private-member-access, unnecessary-dunder-call]
-"""Add-on panels collapsed under their owners, icon sidebar tabs, stock header draws, packed toolbar columns of the workspace's owners, and one asset shelf per asset kind."""
+"""Add-on panels collapsed under their owners, icon sidebar tabs, stock header draws, packed toolbar columns of the workspace's owners for a scope, and one asset shelf per asset kind."""
 
 from collections.abc import Callable, Generator, Iterator
+from contextlib import contextmanager
 from functools import cache
 from importlib.metadata import packages_distributions
 from itertools import chain, groupby
@@ -16,6 +17,7 @@ from typing import Final, override, TYPE_CHECKING
 import addon_utils
 from bl_pkg.bl_extension_utils import PKG_MANIFEST_FILENAME_TOML
 import bl_ui
+from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 import bpy
 from packaging.utils import canonicalize_name, parse_wheel_filename
 
@@ -114,8 +116,9 @@ def owning(addons: frozenset[str]) -> Callable[[str], str | None]:
 
 
 # --- [PANELS]
-def collapse(preferences: bpy.types.Preferences) -> tuple[tuple[type[bpy.types.Panel], dict[str, object]], ...]:
-    """Re-register reordered stock panels in Blender's order and each add-on panel tree closed with a header, owned by its add-on, with its category icon, and return each re-registered class in order with the attributes it changed as they were before, None for an absent one."""
+@contextmanager
+def collapsed(preferences: bpy.types.Preferences) -> Iterator[None]:
+    """Re-register reordered stock panels in Blender's order and each add-on panel tree closed with a header, owned by its add-on, with its category icon, for the scope, then re-register each class still registered with the attributes it held before."""
     owner = owning(frozenset(preferences.addons.keys()))
 
     def place(cls: type[bpy.types.Panel]) -> tuple[str, str, str]:
@@ -168,7 +171,19 @@ def collapse(preferences: bpy.types.Preferences) -> tuple[tuple[type[bpy.types.P
             if cls in icons:
                 cls.bl_icon = icons[cls]
             bpy.utils.register_class(cls)
-    return prior
+    try:
+        yield
+    finally:
+        registered = [cls for cls, _ in prior if cls.is_registered]
+        for cls in reversed(registered):
+            bpy.utils.unregister_class(cls)
+        for cls, key, value in [(cls, key, value) for cls, held in prior for key, value in held.items()]:
+            if value is not None:
+                setattr(cls, key, value)
+            elif key in vars(cls):
+                delattr(cls, key)
+        for cls in registered:
+            bpy.utils.register_class(cls)
 
 
 def remove_appended(header: type[bpy.types.Header]) -> list[Callable[[bpy.types.Header, bpy.types.Context], None]]:
@@ -204,16 +219,32 @@ def packed(layout: bpy.types.UILayout, column_count: int, scale_y: float) -> Gen
 
 
 def placed(stock: Callable[[type, bpy.types.Context, str | None], Iterator[object]]) -> Callable[[type, bpy.types.Context, str | None], Iterator[object]]:
-    """Toolbar tool read that drops each tool of an add-on the workspace's owner filter excludes, reading the preferences from the process context."""
+    """Toolbar tool read that drops each tool of an add-on the workspace's owner filter excludes, reading the preferences from the draw's context."""
 
     def tools_from_context(cls: type, context: bpy.types.Context, mode: str | None = None) -> Iterator[object]:
         workspace = context.workspace
-        owner, passed = owning(frozenset(bpy.context.preferences.addons.keys())), {None, *(entry.name for entry in workspace.owner_ids)}
+        owner, passed = owning(frozenset(context.preferences.addons.keys())), {None, *(entry.name for entry in workspace.owner_ids)}
         owners = {id(tool._bl_tool): owner(tool.__module__) for tool in lineage(bpy.types.WorkSpaceTool) if workspace.use_filter_by_owner and "_bl_tool" in vars(tool)}
         items = (tuple(tool for tool in item if owners.get(id(tool)) in passed) if type(item) is tuple else item for item in stock(cls, context, mode))
         return (item for item in items if item != () and owners.get(id(item)) in passed)
 
     return tools_from_context
+
+
+@contextmanager
+def toolbars() -> Iterator[None]:
+    """Toolbar columns packed and each helper's tool read filtered by the workspace's owners for the scope, the stock layout and reads put back after it."""
+    columns = vars(ToolSelectPanelHelper)["_layout_generator_multi_columns"]
+    readers = {helper: members["tools_from_context"] for helper in ToolSelectPanelHelper.__subclasses__() if "tools_from_context" in (members := vars(helper))}
+    ToolSelectPanelHelper._layout_generator_multi_columns = staticmethod(packed)
+    for helper, reader in readers.items():
+        helper.tools_from_context = classmethod(placed(reader.__func__))
+    try:
+        yield
+    finally:
+        ToolSelectPanelHelper._layout_generator_multi_columns = columns
+        for helper, reader in readers.items():
+            helper.tools_from_context = reader
 
 
 # --- [SHELF]
@@ -266,4 +297,4 @@ CLASSES: Final = (VIEW3D_AST_objects, NODE_AST_materials, IMAGE_AST_worlds)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CLASSES", "collapse", "packed", "placed", "remove_appended"]
+__all__ = ["CLASSES", "collapsed", "remove_appended", "toolbars"]

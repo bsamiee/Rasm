@@ -1,9 +1,9 @@
 # mypy: disable-error-code="index, union-attr"
 # ty: ignore[unresolved-attribute]
 # ruff: file-ignore[suspicious-xml-etree-import, subprocess-without-shell-equals-true]
-"""Grease Pencil strokes an orthographic camera sees as an SVG and PDF sheet at scale in `.artifacts/blender/`, screen ink written as document ink."""
+"""Grease Pencil strokes an orthographic camera sees as an SVG and PDF sheet at scale in `.artifacts/blender/`, white screen ink written as black document ink."""
 
-from enum import StrEnum
+from enum import auto, StrEnum
 from itertools import pairwise
 import shutil
 import subprocess
@@ -15,20 +15,17 @@ from mathutils import Color
 import numpy as np
 from results import artifacts, unknown, UnknownObjects
 
-from interface.roles import Ink
-from interface.units import Length
-
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Rejection(StrEnum):
-    """Scene state no sheet draws from, each value the `kind` its result reports."""
+    """Scene state no sheet draws from."""
 
-    NO_CAMERA = "NoCamera"
-    NOT_CAMERA = "NotCamera"
-    NOT_ORTHOGRAPHIC = "NotOrthographic"
-    NOT_GREASE_PENCIL = "NotGreasePencil"
-    NO_STROKES = "NoStrokes"
+    NO_CAMERA = auto()
+    NOT_CAMERA = auto()
+    NOT_ORTHOGRAPHIC = auto()
+    NOT_GREASE_PENCIL = auto()
+    NO_STROKES = auto()
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -53,7 +50,7 @@ class Sheet:
 class Rejected:
     """Scene state the sheet refused, with the object, camera, or scene names it concerns."""
 
-    kind: Rejection
+    reason: Rejection
     names: tuple[str, ...]
 
 
@@ -86,17 +83,18 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
     to_view = view.matrix_world.normalized().inverted()
     frame = np.array([corner.xy for corner in lens.view_frame(scene=scene)])
     low, high = frame.min(axis=0), frame.max(axis=0)
-    inches = scene.unit_settings.scale_length / scale / Length.INCHES
-    digits = int(-np.log10(np.spacing(np.float32(1))))
+    inch = 0.0254
+    inches = scene.unit_settings.scale_length / scale / inch
+    digits = np.finfo(np.float32).precision
 
     def number(value: float) -> str:
         """Text of the value to the decimal digits single precision holds, the precision of Grease Pencil positions and camera frames."""
         return np.format_float_positional(value, precision=digits, unique=False, fractional=False, trim="-")
 
     def ink(style: bpy.types.MaterialGPencilStyle) -> str:
-        """Hex of the style's scene-linear stroke color in sRGB bytes, screen ink written as document ink."""
+        """Hex of the style's scene-linear stroke color in sRGB bytes, white screen ink written as black document ink."""
         srgb = (np.array(Color(style.color[:3]).from_scene_linear_to_srgb()).clip(0, 1) * 255).round().astype(np.uint8)
-        return "#" + (bytes(Ink.DOCUMENT) if (srgb == Ink.SCREEN).all() else srgb.tobytes()).hex()
+        return "#000000" if (srgb == 255).all() else f"#{srgb.tobytes().hex()}"
 
     def shown(node: bpy.types.GreasePencilLayer | bpy.types.GreasePencilLayerGroup | None) -> bool:
         """Whether neither the node nor a group holding it is hidden."""
@@ -162,7 +160,7 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
         return NoPdf(svg, None)
     page = "#set page(width: auto, height: auto, margin: 0pt)\n#image(sys.inputs.svg)\n"
     compiled = subprocess.run((typst, "compile", "--root", path.anchor, "--input", f"svg={svg}", "-", pdf), input=page, capture_output=True, text=True, check=False)
-    paper = (float(number(across * Length.INCHES)), float(number(down * Length.INCHES)))
+    paper = (float(number(across * inch)), float(number(down * inch)))
     return NoPdf(svg, compiled.stderr.strip()) if compiled.returncode else Sheet(svg, pdf, paper, scale, view.name, counts)
 
 

@@ -157,6 +157,5 @@ rule:
         - matches: fin-fold
         - matches: fin-test
         - matches: effect-answer
-    not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^ToResult$'}}}}
 message: '`$SOURCE` converts to a host `Result` by hand'
-note: Use `Answers.ToResult(<fin>, <reject>)`, with `<effect>.RunSafe()` as the `Fin` of an effect and the caller's reject sink where a `Match` or `IfFail` passes none
+note: Use `Answers.ToResult(<fin>, <reject>)`, or `Answers.ToResult(<fin>)` where the caller keeps the error, with `<effect>.RunSafe()` as the `Fin` of an effect

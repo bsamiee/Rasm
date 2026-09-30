@@ -1,5 +1,4 @@
 using System.Drawing;
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence;
 using Rhino;
@@ -7,7 +6,6 @@ using Rhino.Collections;
 using Rhino.Commands;
 using Rhino.FileIO;
 using Rhino.PlugIns;
-using Rhino.Render;
 using Rhino.UI;
 
 namespace Rasm.Rhino.Plugin;
@@ -32,113 +30,39 @@ public sealed record ArchiveCallbacks(
 public sealed record PlugInCallbacks {
     public Action<Error> Reject { get; init; } = ErrorOps.Report;
 
-    public Option<PlugInLoadTime> LoadTime { get; init; }
+    public Seq<Func<PlugIn, IO<Unit>>> Registrations { get; init; }
 
     public Seq<Func<Action<Error>, IO<IDisposable>>> Subscriptions { get; init; }
 
-    public Option<IO<Seq<Command>>> Commands { get; init; }
+    public Seq<Command> Commands { get; init; }
 
-    public Option<IO<Unit>> ResetMessageBoxes { get; init; }
+    public Seq<IO<OptionsDialogPage>> OptionsPages { get; init; }
 
-    public Option<Func<nint, IO<Unit>>> Help { get; init; }
+    public Seq<Func<RhinoDoc, IO<OptionsDialogPage>>> DocumentPages { get; init; }
 
-    public Option<object> PlugInObject { get; init; }
-
-    public Option<IO<Seq<OptionsDialogPage>>> OptionsPages { get; init; }
-
-    public Option<Func<RhinoDoc, IO<Seq<OptionsDialogPage>>>> DocumentPages { get; init; }
-
-    public Option<Func<RhinoDoc, IO<Seq<ObjectPropertiesPage>>>> ObjectPages { get; init; }
+    public Seq<Func<RhinoDoc, IO<ObjectPropertiesPage>>> ObjectPages { get; init; }
 
     public Option<ArchiveCallbacks> Archive { get; init; }
-}
-
-public sealed record ImportCallbacks(Func<FileReadOptions, IO<FileTypeList>> AddFileTypes, Func<string, int, RhinoDoc, FileReadOptions, IO<Unit>> ReadFile);
-
-public sealed record ExportCallbacks(Func<FileWriteOptions, IO<FileTypeList>> AddFileTypes, Func<string, int, RhinoDoc, FileWriteOptions, IO<Unit>> WriteFile);
-
-public sealed record RenderCallbacks(Func<RhinoDoc, RunMode, bool, IO<Unit>> Render) {
-    public Option<Func<RenderPanels, IO<Unit>>> RegisterRenderPanels { get; init; }
-
-    public Option<Func<RenderTabs, IO<Unit>>> RegisterRenderTabs { get; init; }
-
-    public Option<IO<Seq<RenderContentSerializer>>> RenderContentSerializers { get; init; }
-}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record CommandRefused(string EnglishName, Guid Id) : Expected("RegisterCommand refused {EnglishName} {Id}", ErrorOps.Code<CommandRefused>()) {
-    public static Fin<Unit> Unless(bool registered, Command command) => registered ? unit : new CommandRefused(command.EnglishName, command.Id);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class PlugInOverrides {
     // --- [LIFECYCLE]
-    internal static LoadReturnCode OnLoad(PlugInCallbacks callbacks, ref string errorMessage, out Seq<IDisposable> subscriptions) {
-        (LoadReturnCode code, Option<string> message, subscriptions) = Disposal.AcquireAll(callbacks.Subscriptions.Map(subscribe => subscribe(callbacks.Reject)))
-            .RunSafe()
-            .Match(
-                Succ: static attached => (LoadReturnCode.Success, Option<string>.None, attached),
-                Fail: static error => error.IsType<Canceled>()
-                    ? (LoadReturnCode.ErrorNoDialog, Option<string>.None, Seq<IDisposable>())
-                    : (LoadReturnCode.ErrorShowDialog, Some(ErrorOps.Localize(error)), Seq<IDisposable>()));
-        errorMessage = message.IfNone(errorMessage);
+    internal static LoadReturnCode OnLoad(PlugIn plugIn, PlugInCallbacks callbacks, ref string errorMessage, out Option<IDisposable> subscription) {
+        Fin<IDisposable> loaded = callbacks.Registrations.TraverseM(register => register(plugIn)).As()
+            .Bind(_ => Events.AttachAll(callbacks.Subscriptions.Map(subscribe => subscribe(callbacks.Reject)), callbacks.Reject))
+            .RunSafe();
+        subscription = loaded.ToOption();
+        (LoadReturnCode code, errorMessage) = loaded.Match(
+            Succ: static _ => (LoadReturnCode.Success, ""),
+            Fail: static error => (error.IsType<Canceled>() ? LoadReturnCode.ErrorNoDialog : LoadReturnCode.ErrorShowDialog, ErrorOps.Localize(error)));
         return code;
     }
 
-    internal static void OnShutdown(PlugInCallbacks callbacks, Seq<IDisposable> subscriptions) =>
-        Deliver(callbacks, Some(Disposal.Release(subscriptions)));
-
     internal static void CreateCommands(PlugInCallbacks callbacks, Func<Command, bool> register) =>
-        _ = Answers.Answer(
-            from commands in callbacks.Commands.IfNone(IO.pure(Seq<Command>()))
-            from registered in IO.lift(() => commands.TraverseM(command => CommandRefused.Unless(register(command), command)).As())
-            select registered,
-            callbacks.Reject,
-            Seq<Unit>());
+        _ = callbacks.Commands.Traverse(command => CommandRefused.Unless(register(command), command)).As().IfFail(callbacks.Reject);
 
-    internal static void Deliver(PlugInCallbacks callbacks, Option<IO<Unit>> callback) =>
-        _ = Answers.Answer(callback, callbacks.Reject, static () => unit);
-
-    // --- [QUERIES]
-    internal static bool DisplayHelp(PlugInCallbacks callbacks, nint windowHandle) =>
-        Answers.Succeeded(callbacks.Help.Map(help => help(windowHandle)), callbacks.Reject, static () => false);
-
-    // --- [PAGES]
-    internal static void OptionsDialogPages(PlugInCallbacks callbacks, List<OptionsDialogPage> pages) =>
-        AddPages(callbacks, callbacks.OptionsPages, pages.Add);
-
-    internal static void DocumentPropertiesDialogPages(PlugInCallbacks callbacks, RhinoDoc doc, List<OptionsDialogPage> pages) =>
-        AddPages(callbacks, callbacks.DocumentPages.Map(build => build(doc)), pages.Add);
-
-    internal static void ObjectPropertiesPages(PlugInCallbacks callbacks, ObjectPropertiesPageCollection collection) =>
-        AddPages(
-            callbacks,
-            callbacks.ObjectPages.Map(build =>
-                from doc in IO.lift(() => Missing.Unless(collection.Document, nameof(ObjectPropertiesPageCollection.Document)))
-                from pages in build(doc)
-                select pages),
-            collection.Add);
-
-    private static void AddPages<TPage>(PlugInCallbacks callbacks, Option<IO<Seq<TPage>>> pages, Action<TPage> add) =>
-        Answers.Answer(pages, callbacks.Reject, static () => Seq<TPage>()).Iter(add);
-
-    // --- [ARCHIVE]
-    internal static bool ShouldCallWriteDocument(PlugInCallbacks callbacks, FileWriteOptions options) =>
-        Answers.Answer(callbacks.Archive.Map(archive => archive.ShouldWrite(options)), callbacks.Reject, static () => false);
-
-    internal static void WriteDocument(PlugInCallbacks callbacks, RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) =>
-        callbacks.Archive.Iter(archived => archive.WriteErrorOccured = Answers.Answer(
-            archived.Write(doc, options).Bind(dictionary => AttachedData.WriteChunk(archive, archived.Frame, dictionary)).Map(static _ => false),
-            callbacks.Reject,
-            fallback: true));
-
-    internal static void ReadDocument(PlugInCallbacks callbacks, RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) =>
-        _ = Answers.Answer(
-            callbacks.Archive.Map(archived => AttachedData.ReadChunk(archive, archived.Frame.TypeCode, archived.SupportsVersion).Bind(read => archived.Read(doc, options, read.Frame, read.Dictionary))),
-            callbacks.Reject,
-            static () => unit);
-
-    // --- [LICENSE]
+    // --- [LICENSING]
     internal static IO<Unit> RequestLicense(
         PlugInCallbacks callbacks,
         LicenseRequest request,
@@ -157,227 +81,177 @@ internal static class PlugInOverrides {
                 state.Host.AskUser(askUser.Build, askUser.StandAlone, askUser.TextMask.ValueUnsafe(), askUser.Parent.ValueUnsafe(), state.Validator, state.Handler),
                 nameof(LicenseRequest.AskUser))));
 
-    // --- [FILES]
-    internal static FileTypeList AddFileTypes(PlugInCallbacks callbacks, IO<FileTypeList> types) =>
-        Answers.Answer(types, callbacks.Reject, new FileTypeList());
+    // --- [PAGES]
+    internal static void OptionsDialogPages(PlugInCallbacks callbacks, List<OptionsDialogPage> pages) =>
+        _ = Answered(callbacks.Reject, callbacks.OptionsPages).Iter(pages.Add);
 
-    internal static WriteFileResult WriteFile(PlugInCallbacks callbacks, IO<Unit> write) =>
+    internal static void DocumentPropertiesDialogPages(PlugInCallbacks callbacks, RhinoDoc doc, List<OptionsDialogPage> pages) =>
+        _ = Answered(callbacks.Reject, callbacks.DocumentPages.Map(page => page(doc))).Iter(pages.Add);
+
+    internal static void ObjectPropertiesPages(PlugInCallbacks callbacks, ObjectPropertiesPageCollection collection) =>
+        _ = Answered(
+                callbacks.Reject,
+                from doc in Optional(collection.Document).ToSeq()
+                from page in callbacks.ObjectPages
+                select page(doc))
+            .Iter(collection.Add);
+
+    private static Seq<TValue> Answered<TValue>(Action<Error> reject, Seq<IO<TValue>> rows) =>
+        rows.Choose(row => Answers.Answer(row.Map(static value => Some(value)), reject, Option<TValue>.None)).Strict();
+
+    // --- [ARCHIVE]
+    internal static bool ShouldCallWriteDocument(PlugInCallbacks callbacks, FileWriteOptions options) =>
+        Answers.Answer(callbacks.Archive.Map(archive => archive.ShouldWrite(options)), callbacks.Reject, static () => false);
+
+    internal static void WriteDocument(PlugInCallbacks callbacks, RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) =>
+        archive.WriteErrorOccured |= !Answers.Succeeded(
+            callbacks.Archive.Map(archived => archived.Write(doc, options).Bind(dictionary => AttachedData.WriteChunk(archive, archived.Frame, dictionary))),
+            callbacks.Reject,
+            static () => true);
+
+    internal static void ReadDocument(PlugInCallbacks callbacks, RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) =>
+        archive.ReadErrorOccured |= !Answers.Succeeded(
+            callbacks.Archive.Map(archived => AttachedData.ReadChunk(archive, archived.Frame.TypeCode, archived.SupportsVersion).Bind(read => archived.Read(doc, options, read.Frame, read.Dictionary))),
+            callbacks.Reject,
+            static () => true);
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+public abstract class CallbackPlugIn(PlugInCallbacks callbacks) : PlugIn {
+    // --- [LIFECYCLE]
+    private Option<IDisposable> subscription;
+
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(this, callbacks, ref errorMessage, out subscription);
+
+    protected sealed override void CreateCommands() {
+        base.CreateCommands();
+        PlugInOverrides.CreateCommands(callbacks, RegisterCommand);
+    }
+
+    protected sealed override void OnShutdown() => _ = subscription.Iter(static held => held.Dispose());
+
+    // --- [LICENSING]
+    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
+        PlugInOverrides.RequestLicense(callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
+
+    // --- [PAGES]
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(callbacks, pages);
+
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => PlugInOverrides.DocumentPropertiesDialogPages(callbacks, doc, pages);
+
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => PlugInOverrides.ObjectPropertiesPages(callbacks, collection);
+
+    // --- [ARCHIVE]
+    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => PlugInOverrides.ShouldCallWriteDocument(callbacks, options);
+
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => PlugInOverrides.WriteDocument(callbacks, doc, archive, options);
+
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => PlugInOverrides.ReadDocument(callbacks, doc, archive, options);
+}
+
+public abstract class CallbackImportPlugIn(PlugInCallbacks callbacks) : FileImportPlugIn {
+    // --- [LIFECYCLE]
+    private Option<IDisposable> subscription;
+
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(this, callbacks, ref errorMessage, out subscription);
+
+    protected sealed override void CreateCommands() {
+        base.CreateCommands();
+        PlugInOverrides.CreateCommands(callbacks, RegisterCommand);
+    }
+
+    protected sealed override void OnShutdown() => _ = subscription.Iter(static held => held.Dispose());
+
+    // --- [LICENSING]
+    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
+        PlugInOverrides.RequestLicense(callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
+
+    // --- [PAGES]
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(callbacks, pages);
+
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => PlugInOverrides.DocumentPropertiesDialogPages(callbacks, doc, pages);
+
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => PlugInOverrides.ObjectPropertiesPages(callbacks, collection);
+
+    // --- [ARCHIVE]
+    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => PlugInOverrides.ShouldCallWriteDocument(callbacks, options);
+
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => PlugInOverrides.WriteDocument(callbacks, doc, archive, options);
+
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => PlugInOverrides.ReadDocument(callbacks, doc, archive, options);
+}
+
+public abstract class CallbackExportPlugIn(PlugInCallbacks callbacks) : FileExportPlugIn {
+    // --- [LIFECYCLE]
+    private Option<IDisposable> subscription;
+
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(this, callbacks, ref errorMessage, out subscription);
+
+    protected sealed override void CreateCommands() {
+        base.CreateCommands();
+        PlugInOverrides.CreateCommands(callbacks, RegisterCommand);
+    }
+
+    protected sealed override void OnShutdown() => _ = subscription.Iter(static held => held.Dispose());
+
+    // --- [LICENSING]
+    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
+        PlugInOverrides.RequestLicense(callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
+
+    // --- [PAGES]
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(callbacks, pages);
+
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => PlugInOverrides.DocumentPropertiesDialogPages(callbacks, doc, pages);
+
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => PlugInOverrides.ObjectPropertiesPages(callbacks, collection);
+
+    // --- [ARCHIVE]
+    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => PlugInOverrides.ShouldCallWriteDocument(callbacks, options);
+
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => PlugInOverrides.WriteDocument(callbacks, doc, archive, options);
+
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => PlugInOverrides.ReadDocument(callbacks, doc, archive, options);
+
+    // --- [FILES]
+    protected abstract IO<Unit> Write(string filename, int index, RhinoDoc doc, FileWriteOptions options);
+
+    protected sealed override WriteFileResult WriteFile(string filename, int index, RhinoDoc doc, FileWriteOptions options) =>
         Answers.Answer(
-            write.Map(static _ => WriteFileResult.Success).IfFail(static error => error.IsType<Canceled>() ? IO.pure(WriteFileResult.Cancel) : IO.fail<WriteFileResult>(error)),
+            Write(filename, index, doc, options)
+                .Map(static _ => WriteFileResult.Success)
+                .IfFail(static error => error.IsType<Canceled>() ? IO.pure(WriteFileResult.Cancel) : IO.fail<WriteFileResult>(error)),
             callbacks.Reject,
             WriteFileResult.Failure);
 }
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract class CallbackPlugIn : PlugIn {
-    // --- [CALLBACKS]
-    protected abstract PlugInCallbacks Callbacks { get; }
-
+public abstract class CallbackRenderPlugIn(PlugInCallbacks callbacks) : RenderPlugIn {
     // --- [LIFECYCLE]
-    private Seq<IDisposable> subscriptions;
+    private Option<IDisposable> subscription;
 
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage, out subscriptions);
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(this, callbacks, ref errorMessage, out subscription);
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
-        PlugInOverrides.CreateCommands(Callbacks, RegisterCommand);
+        PlugInOverrides.CreateCommands(callbacks, RegisterCommand);
     }
 
-    protected sealed override void OnShutdown() => PlugInOverrides.OnShutdown(Callbacks, subscriptions);
+    protected sealed override void OnShutdown() => _ = subscription.Iter(static held => held.Dispose());
 
-    protected sealed override void ResetMessageBoxes() => PlugInOverrides.Deliver(Callbacks, Callbacks.ResetMessageBoxes);
-
-    // --- [QUERIES]
-    public sealed override PlugInLoadTime LoadTime => Callbacks.LoadTime.IfNone(base.LoadTime);
-
-    public sealed override bool AddToHelpMenu => Callbacks.Help.IsSome;
-
-    public sealed override bool DisplayHelp(nint windowHandle) => PlugInOverrides.DisplayHelp(Callbacks, windowHandle);
-
-    public sealed override object? GetPlugInObject() => Callbacks.PlugInObject.ValueUnsafe();
+    // --- [LICENSING]
+    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
+        PlugInOverrides.RequestLicense(callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
 
     // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(Callbacks, pages);
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(callbacks, pages);
 
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => PlugInOverrides.DocumentPropertiesDialogPages(Callbacks, doc, pages);
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => PlugInOverrides.DocumentPropertiesDialogPages(callbacks, doc, pages);
 
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => PlugInOverrides.ObjectPropertiesPages(Callbacks, collection);
-
-    // --- [ARCHIVE]
-    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => PlugInOverrides.ShouldCallWriteDocument(Callbacks, options);
-
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => PlugInOverrides.WriteDocument(Callbacks, doc, archive, options);
-
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => PlugInOverrides.ReadDocument(Callbacks, doc, archive, options);
-
-    // --- [LICENSE]
-    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
-        PlugInOverrides.RequestLicense(Callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
-}
-
-public abstract class CallbackImportPlugIn : FileImportPlugIn {
-    // --- [CALLBACKS]
-    protected abstract PlugInCallbacks Callbacks { get; }
-
-    protected abstract ImportCallbacks Import { get; }
-
-    // --- [LIFECYCLE]
-    private Seq<IDisposable> subscriptions;
-
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage, out subscriptions);
-
-    protected sealed override void CreateCommands() {
-        base.CreateCommands();
-        PlugInOverrides.CreateCommands(Callbacks, RegisterCommand);
-    }
-
-    protected sealed override void OnShutdown() => PlugInOverrides.OnShutdown(Callbacks, subscriptions);
-
-    protected sealed override void ResetMessageBoxes() => PlugInOverrides.Deliver(Callbacks, Callbacks.ResetMessageBoxes);
-
-    // --- [QUERIES]
-    public sealed override PlugInLoadTime LoadTime => Callbacks.LoadTime.IfNone(base.LoadTime);
-
-    public sealed override bool AddToHelpMenu => Callbacks.Help.IsSome;
-
-    public sealed override bool DisplayHelp(nint windowHandle) => PlugInOverrides.DisplayHelp(Callbacks, windowHandle);
-
-    public sealed override object? GetPlugInObject() => Callbacks.PlugInObject.ValueUnsafe();
-
-    // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(Callbacks, pages);
-
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => PlugInOverrides.DocumentPropertiesDialogPages(Callbacks, doc, pages);
-
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => PlugInOverrides.ObjectPropertiesPages(Callbacks, collection);
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => PlugInOverrides.ObjectPropertiesPages(callbacks, collection);
 
     // --- [ARCHIVE]
-    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => PlugInOverrides.ShouldCallWriteDocument(Callbacks, options);
+    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => PlugInOverrides.ShouldCallWriteDocument(callbacks, options);
 
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => PlugInOverrides.WriteDocument(Callbacks, doc, archive, options);
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => PlugInOverrides.WriteDocument(callbacks, doc, archive, options);
 
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => PlugInOverrides.ReadDocument(Callbacks, doc, archive, options);
-
-    // --- [LICENSE]
-    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
-        PlugInOverrides.RequestLicense(Callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
-
-    // --- [FILES]
-    protected sealed override FileTypeList AddFileTypes(FileReadOptions options) => PlugInOverrides.AddFileTypes(Callbacks, Import.AddFileTypes(options));
-
-    protected sealed override bool ReadFile(string filename, int index, RhinoDoc doc, FileReadOptions options) =>
-        Answers.Succeeded(Import.ReadFile(filename, index, doc, options), Callbacks.Reject);
-}
-
-public abstract class CallbackExportPlugIn : FileExportPlugIn {
-    // --- [CALLBACKS]
-    protected abstract PlugInCallbacks Callbacks { get; }
-
-    protected abstract ExportCallbacks Export { get; }
-
-    // --- [LIFECYCLE]
-    private Seq<IDisposable> subscriptions;
-
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage, out subscriptions);
-
-    protected sealed override void CreateCommands() {
-        base.CreateCommands();
-        PlugInOverrides.CreateCommands(Callbacks, RegisterCommand);
-    }
-
-    protected sealed override void OnShutdown() => PlugInOverrides.OnShutdown(Callbacks, subscriptions);
-
-    protected sealed override void ResetMessageBoxes() => PlugInOverrides.Deliver(Callbacks, Callbacks.ResetMessageBoxes);
-
-    // --- [QUERIES]
-    public sealed override PlugInLoadTime LoadTime => Callbacks.LoadTime.IfNone(base.LoadTime);
-
-    public sealed override bool AddToHelpMenu => Callbacks.Help.IsSome;
-
-    public sealed override bool DisplayHelp(nint windowHandle) => PlugInOverrides.DisplayHelp(Callbacks, windowHandle);
-
-    public sealed override object? GetPlugInObject() => Callbacks.PlugInObject.ValueUnsafe();
-
-    // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(Callbacks, pages);
-
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => PlugInOverrides.DocumentPropertiesDialogPages(Callbacks, doc, pages);
-
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => PlugInOverrides.ObjectPropertiesPages(Callbacks, collection);
-
-    // --- [ARCHIVE]
-    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => PlugInOverrides.ShouldCallWriteDocument(Callbacks, options);
-
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => PlugInOverrides.WriteDocument(Callbacks, doc, archive, options);
-
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => PlugInOverrides.ReadDocument(Callbacks, doc, archive, options);
-
-    // --- [LICENSE]
-    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
-        PlugInOverrides.RequestLicense(Callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
-
-    // --- [FILES]
-    protected sealed override FileTypeList AddFileTypes(FileWriteOptions options) => PlugInOverrides.AddFileTypes(Callbacks, Export.AddFileTypes(options));
-
-    protected sealed override WriteFileResult WriteFile(string filename, int index, RhinoDoc doc, FileWriteOptions options) =>
-        PlugInOverrides.WriteFile(Callbacks, Export.WriteFile(filename, index, doc, options));
-}
-
-public abstract class CallbackRenderPlugIn : RenderPlugIn {
-    // --- [CALLBACKS]
-    protected abstract PlugInCallbacks Callbacks { get; }
-
-    protected abstract RenderCallbacks Rendering { get; }
-
-    // --- [LIFECYCLE]
-    private Seq<IDisposable> subscriptions;
-
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage, out subscriptions);
-
-    protected sealed override void CreateCommands() {
-        base.CreateCommands();
-        PlugInOverrides.CreateCommands(Callbacks, RegisterCommand);
-    }
-
-    protected sealed override void OnShutdown() => PlugInOverrides.OnShutdown(Callbacks, subscriptions);
-
-    protected sealed override void ResetMessageBoxes() => PlugInOverrides.Deliver(Callbacks, Callbacks.ResetMessageBoxes);
-
-    // --- [QUERIES]
-    public sealed override PlugInLoadTime LoadTime => Callbacks.LoadTime.IfNone(base.LoadTime);
-
-    public sealed override bool AddToHelpMenu => Callbacks.Help.IsSome;
-
-    public sealed override bool DisplayHelp(nint windowHandle) => PlugInOverrides.DisplayHelp(Callbacks, windowHandle);
-
-    public sealed override object? GetPlugInObject() => Callbacks.PlugInObject.ValueUnsafe();
-
-    // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(Callbacks, pages);
-
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => PlugInOverrides.DocumentPropertiesDialogPages(Callbacks, doc, pages);
-
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => PlugInOverrides.ObjectPropertiesPages(Callbacks, collection);
-
-    // --- [ARCHIVE]
-    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => PlugInOverrides.ShouldCallWriteDocument(Callbacks, options);
-
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => PlugInOverrides.WriteDocument(Callbacks, doc, archive, options);
-
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => PlugInOverrides.ReadDocument(Callbacks, doc, archive, options);
-
-    // --- [LICENSE]
-    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
-        PlugInOverrides.RequestLicense(Callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
-
-    // --- [RENDER]
-    protected sealed override Result Render(RhinoDoc doc, RunMode mode, bool fastPreview) =>
-        Answers.ToResult(Rendering.Render(doc, mode, fastPreview).RunSafe(), Callbacks.Reject);
-
-    protected sealed override void RegisterRenderPanels(RenderPanels panels) => PlugInOverrides.Deliver(Callbacks, Rendering.RegisterRenderPanels.Map(register => register(panels)));
-
-    protected sealed override void RegisterRenderTabs(RenderTabs tabs) => PlugInOverrides.Deliver(Callbacks, Rendering.RegisterRenderTabs.Map(register => register(tabs)));
-
-    protected sealed override IEnumerable<RenderContentSerializer> RenderContentSerializers() =>
-        Answers.Answer(Rendering.RenderContentSerializers, Callbacks.Reject, static () => Seq<RenderContentSerializer>());
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => PlugInOverrides.ReadDocument(callbacks, doc, archive, options);
 }

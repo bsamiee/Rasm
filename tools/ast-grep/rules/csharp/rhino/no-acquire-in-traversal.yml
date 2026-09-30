@@ -22,9 +22,11 @@ utils:
             - not: {inside: {stopBy: {kind: lambda_expression}, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}}}
     element-scope:
         kind: invocation_expression
-        all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Disposal\s*\.\s*(Using|Bracketed)(\s*<.+>)?$'}
-            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: element}}}
+        any:
+            - all:
+                - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?DisposalOps\s*\.\s*Using(\s*<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: element}}}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bracket$'}}, {has: {field: expression, matches: element}}]}
     sequence-type:
         regex: '^((global::)?(LanguageExt\.|System\.Collections\.Generic\.)?(Seq|Lst|Arr|IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List)\s*<|\[\]\??$)'
     sequence:
@@ -88,4 +90,4 @@ rule:
     kind: invocation_expression
     matches: traversal
 message: '`$SEQ` acquires a disposable per element of a traversal'
-note: Use `Disposal.AcquireAll(<items>.Map(<acquire>))` or `Disposal.Using(<IO<Seq<T>>>, <body>)` over the whole sequence, `AcquireAll` releases earlier handles when a later acquisition fails
+note: Use `DisposalOps.AcquireAll(<items>.Map(<acquire>))` or `DisposalOps.Using(<IO<Seq<T>>>, <body>)` over the whole sequence, `AcquireAll` releases earlier handles when a later acquisition fails

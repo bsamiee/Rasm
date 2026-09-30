@@ -101,6 +101,7 @@ flowchart LR
 - `nx run <project>:install` installs a project's Release product into its host
 - `nx run <project>:pack` builds a Rhino plug-in's yak package under `.artifacts/rhino/` with a manifest `yak spec` derives from its build
 - `nx run rasm:upgrade` moves catalogs, Swift package locks, tool binaries, and application packages to their newest builds
+- `nx run rasm:clean` clears .NET build outputs and all tool cache folders
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
 - `nx run rasm:interface` applies each `tools/interface/<app>/apply.py`, `-- <app>` one, and prints every outcome as one JSON document

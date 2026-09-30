@@ -43,4 +43,4 @@ rule:
             - has: {field: arguments, has: {nthChild: 1, pattern: $KEPT}}
 fix: $KEPT$UNFIXED
 message: '`$CALL` converts `$VALUE` to `$TYPE`, the type its annotation declares'
-note: 'Read `<value>` directly and delete a rebinding to its own name, keep a `str` or `int` conversion when its source can pass a subclass the conversion changes (a `(str, Enum)` member, a `bool`)'
+note: 'Use `<value>` with no rebinding to its own name, and keep a `str` or `int` conversion where its source can pass a subclass the conversion changes (a `(str, Enum)` member, a `bool`)'

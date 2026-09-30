@@ -1,5 +1,5 @@
+using System.Diagnostics;
 using System.Globalization;
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
 using Rhino.Render;
 using Rhino.Render.Fields;
@@ -44,11 +44,13 @@ public abstract partial record FieldValue {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldPresentation {
-    public sealed record Plain() : FieldPresentation;
+    public sealed record DataOnly() : FieldPresentation;
 
-    public sealed record Textured(bool TreatAsLinear) : FieldPresentation;
+    public sealed record Plain(string Prompt, int SectionId) : FieldPresentation;
 
-    public sealed record Filename() : FieldPresentation;
+    public sealed record Textured(string Prompt, int SectionId, bool TreatAsLinear) : FieldPresentation;
+
+    public sealed record Filename(string Prompt, int SectionId) : FieldPresentation;
 }
 
 public sealed record DynamicFieldSpec(string InternalName, string LocalName, string EnglishName, FieldValue Value, Option<(FieldValue Min, FieldValue Max)> Bounds, int SectionId);
@@ -65,20 +67,22 @@ public sealed record FieldState(string Name, FieldValue Value, double TextureAmo
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentFields {
     // --- [DICTIONARY]
-    public static IO<Field> Declare(FieldDictionary fields, string name, FieldValue value, string prompt, int sectionId, FieldPresentation presentation) =>
+    public static IO<Field> Declare(FieldDictionary fields, string name, FieldValue value, FieldPresentation presentation) =>
         from absent in IO.lift(() => Invalid.Unless(!fields.ContainsField(name), nameof(FieldDictionary.ContainsField)))
-        from field in IO.lift(() => presentation.Switch<(FieldDictionary Fields, string Name, FieldValue Value, string Prompt, int Section), Fin<Field>>(
-            (fields, name, value, prompt, sectionId),
-            plain: static (state, _) => Added(state.Fields, state.Name, state.Value, state.Prompt, state.Section, Option<bool>.None),
-            textured: static (state, textured) => Added(state.Fields, state.Name, state.Value, state.Prompt, state.Section, Some(textured.TreatAsLinear)),
-            filename: static (state, _) => state.Value is FieldValue.String text
-                ? state.Fields.AddFilename(state.Name, text.Value, state.Prompt, state.Section)
+        from field in IO.lift(() => presentation.Switch<(FieldDictionary Fields, string Name, FieldValue Value), Fin<Field>>(
+            (fields, name, value),
+            dataOnly: static (state, _) => state.Value is FieldValue.ByteArray bytes
+                ? state.Fields.Add(state.Name, [.. bytes.Value])
+                : Added(state.Fields, state.Name, state.Value, "", 0),
+            plain: static (state, plain) => Added(state.Fields, state.Name, state.Value, plain.Prompt, plain.SectionId),
+            textured: static (state, textured) => AddedTextured(state.Fields, state.Name, state.Value, textured.Prompt, textured.SectionId, textured.TreatAsLinear),
+            filename: static (state, filename) => state.Value is FieldValue.String text
+                ? state.Fields.AddFilename(state.Name, text.Value, filename.Prompt, filename.SectionId)
                 : new Invalid(nameof(FieldDictionary.AddFilename))))
         select field;
 
     public static IO<Unit> Write(FieldDictionary fields, string name, FieldValue value) =>
-        from present in IO.lift(() => Missing.Unless(fields.ContainsField(name), nameof(FieldDictionary.ContainsField)))
-        from written in value.Switch<(FieldDictionary Fields, string Name), IO<Unit>>(
+        value.Switch<(FieldDictionary Fields, string Name), IO<Unit>>(
             (fields, name),
             @bool: static (state, flag) => IO.lift(() => state.Fields.Set(state.Name, flag.Value)),
             @int: static (state, whole) => IO.lift(() => state.Fields.Set(state.Name, whole.Value)),
@@ -96,71 +100,57 @@ public static class ContentFields {
             xform: static (state, xform) => IO.lift(() => state.Fields.Set(state.Name, xform.Value)),
             byteArray: static (state, bytes) => IO.lift(() => state.Fields.Set(state.Name, [.. bytes.Value])),
             @null: static (_, _) => IO.fail<Unit>(new Invalid(nameof(FieldValue.Null))))
-        select written;
+        | @catch(static error => error.HasException<InvalidOperationException>(), static _ => IO.fail<Unit>(new Refused(nameof(FieldDictionary.Set))));
 
     public static IO<Option<FieldValue>> Read(FieldDictionary fields, string name) =>
-        IO.lift(() => Optional(fields.GetField(name)).Traverse(ValueOf).As());
+        IO.lift(() => Optional(fields.GetField(name)).Map(ValueOf));
 
     public static IO<Seq<FieldState>> Fields(FieldDictionary fields) =>
         IO.lift(() => toSeq(fields.Cast<Field>())
-            .TraverseM(static field =>
-                from value in ValueOf(field)
-                select new FieldState(field.Name, value, field.TextureAmountMin, field.TextureAmountMax, field.UseTextureOn, field.UseTextureAmount, field.IsHiddenInAutoUI))
-            .As());
+            .Map(static field => new FieldState(field.Name, ValueOf(field), field.TextureAmountMin, field.TextureAmountMax, field.UseTextureOn, field.UseTextureAmount, field.IsHiddenInAutoUI))
+            .Strict());
 
-    private static Fin<Field> Added(FieldDictionary fields, string name, FieldValue value, string prompt, int sectionId, Option<bool> linear) =>
-        value.Switch<(FieldDictionary Fields, string Name, string Prompt, int Section, Option<bool> Linear), Fin<Field>>(
-            (fields, name, prompt, sectionId, linear),
-            @bool: static (state, flag) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, flag.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, flag.Value, state.Prompt, state.Section)),
-            @int: static (state, whole) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, whole.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, whole.Value, state.Prompt, state.Section)),
-            @float: static (state, single) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, single.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, single.Value, state.Prompt, state.Section)),
-            @double: static (state, wide) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, wide.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, wide.Value, state.Prompt, state.Section)),
-            color4f: static (state, color) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, color.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, color.Value, state.Prompt, state.Section)),
-            vector2d: static (state, vector) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, vector.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, vector.Value, state.Prompt, state.Section)),
-            vector3d: static (state, vector) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, vector.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, vector.Value, state.Prompt, state.Section)),
-            point2d: static (state, point) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, point.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, point.Value, state.Prompt, state.Section)),
-            point3d: static (state, point) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, point.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, point.Value, state.Prompt, state.Section)),
-            point4d: static (state, point) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, point.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, point.Value, state.Prompt, state.Section)),
-            @string: static (state, text) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, text.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, text.Value, state.Prompt, state.Section)),
-            dateTime: static (state, date) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, date.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, date.Value, state.Prompt, state.Section)),
-            guid: static (state, id) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, id.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, id.Value, state.Prompt, state.Section)),
-            xform: static (state, xform) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, xform.Value, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, xform.Value, state.Prompt, state.Section)),
-            byteArray: static (state, bytes) => state.Linear.IsNone && (state.Prompt.Length == 0) && (state.Section == 0)
-                ? state.Fields.Add(state.Name, bytes.Value.ToArray())
-                : new Invalid(nameof(FieldDictionary.Add)),
-            @null: static (state, _) => state.Linear.Match(
-                Some: treatAsLinear => state.Fields.AddTextured(state.Name, state.Prompt, treatAsLinear, state.Section),
-                None: () => state.Fields.Add(state.Name, state.Prompt, state.Section)));
+    private static Fin<Field> Added(FieldDictionary fields, string name, FieldValue value, string prompt, int sectionId) =>
+        value.Switch<(FieldDictionary Fields, string Name, string Prompt, int Section), Fin<Field>>(
+            (fields, name, prompt, sectionId),
+            @bool: static (state, flag) => state.Fields.Add(state.Name, flag.Value, state.Prompt, state.Section),
+            @int: static (state, whole) => state.Fields.Add(state.Name, whole.Value, state.Prompt, state.Section),
+            @float: static (state, single) => state.Fields.Add(state.Name, single.Value, state.Prompt, state.Section),
+            @double: static (state, wide) => state.Fields.Add(state.Name, wide.Value, state.Prompt, state.Section),
+            color4f: static (state, color) => state.Fields.Add(state.Name, color.Value, state.Prompt, state.Section),
+            vector2d: static (state, vector) => state.Fields.Add(state.Name, vector.Value, state.Prompt, state.Section),
+            vector3d: static (state, vector) => state.Fields.Add(state.Name, vector.Value, state.Prompt, state.Section),
+            point2d: static (state, point) => state.Fields.Add(state.Name, point.Value, state.Prompt, state.Section),
+            point3d: static (state, point) => state.Fields.Add(state.Name, point.Value, state.Prompt, state.Section),
+            point4d: static (state, point) => state.Fields.Add(state.Name, point.Value, state.Prompt, state.Section),
+            @string: static (state, text) => state.Fields.Add(state.Name, text.Value, state.Prompt, state.Section),
+            dateTime: static (state, date) => state.Fields.Add(state.Name, date.Value, state.Prompt, state.Section),
+            guid: static (state, id) => state.Fields.Add(state.Name, id.Value, state.Prompt, state.Section),
+            xform: static (state, xform) => state.Fields.Add(state.Name, xform.Value, state.Prompt, state.Section),
+            byteArray: static (_, _) => new Invalid(nameof(FieldDictionary.Add)),
+            @null: static (state, _) => state.Fields.Add(state.Name, state.Prompt, state.Section));
 
-    private static Fin<FieldValue> ValueOf(Field field) =>
+    private static Fin<Field> AddedTextured(FieldDictionary fields, string name, FieldValue value, string prompt, int sectionId, bool treatAsLinear) =>
+        value.Switch<(FieldDictionary Fields, string Name, string Prompt, int Section, bool Linear), Fin<Field>>(
+            (fields, name, prompt, sectionId, treatAsLinear),
+            @bool: static (state, flag) => state.Fields.AddTextured(state.Name, flag.Value, state.Prompt, state.Linear, state.Section),
+            @int: static (state, whole) => state.Fields.AddTextured(state.Name, whole.Value, state.Prompt, state.Linear, state.Section),
+            @float: static (state, single) => state.Fields.AddTextured(state.Name, single.Value, state.Prompt, state.Linear, state.Section),
+            @double: static (state, wide) => state.Fields.AddTextured(state.Name, wide.Value, state.Prompt, state.Linear, state.Section),
+            color4f: static (state, color) => state.Fields.AddTextured(state.Name, color.Value, state.Prompt, state.Linear, state.Section),
+            vector2d: static (state, vector) => state.Fields.AddTextured(state.Name, vector.Value, state.Prompt, state.Linear, state.Section),
+            vector3d: static (state, vector) => state.Fields.AddTextured(state.Name, vector.Value, state.Prompt, state.Linear, state.Section),
+            point2d: static (state, point) => state.Fields.AddTextured(state.Name, point.Value, state.Prompt, state.Linear, state.Section),
+            point3d: static (state, point) => state.Fields.AddTextured(state.Name, point.Value, state.Prompt, state.Linear, state.Section),
+            point4d: static (state, point) => state.Fields.AddTextured(state.Name, point.Value, state.Prompt, state.Linear, state.Section),
+            @string: static (state, text) => state.Fields.AddTextured(state.Name, text.Value, state.Prompt, state.Linear, state.Section),
+            dateTime: static (state, date) => state.Fields.AddTextured(state.Name, date.Value, state.Prompt, state.Linear, state.Section),
+            guid: static (state, id) => state.Fields.AddTextured(state.Name, id.Value, state.Prompt, state.Linear, state.Section),
+            xform: static (state, xform) => state.Fields.AddTextured(state.Name, xform.Value, state.Prompt, state.Linear, state.Section),
+            byteArray: static (_, _) => new Invalid(nameof(FieldDictionary.AddTextured)),
+            @null: static (state, _) => state.Fields.AddTextured(state.Name, state.Prompt, state.Linear, state.Section));
+
+    private static FieldValue ValueOf(Field field) =>
         field switch {
             BoolField typed => new FieldValue.Bool(typed.Value),
             IntField typed => new FieldValue.Int(typed.Value),
@@ -178,24 +168,25 @@ public static class ContentFields {
             TransformField typed => new FieldValue.Xform(typed.Value),
             ByteArrayField typed => new FieldValue.ByteArray(toSeq(typed.Value)),
             NullField => new FieldValue.Null(),
-            _ => new UnsupportedField(field.Name, field.GetType()),
+            _ => throw new UnreachableException(),
         };
 
     // --- [DYNAMIC]
     public static IO<Unit> DeclareDynamic(RenderContent content, bool automatic, Seq<DynamicFieldSpec> rows) =>
-        Disposal.Bracketed(() => content.BeginCreateDynamicFields(automatic), content.EndCreateDynamicFields, rows.TraverseM(row => Created(content, row)).As().Map(static _ => unit));
-
-    private static IO<Unit> Created(RenderContent content, DynamicFieldSpec row) =>
-        IO.lift(() => Refused.Unless(
-            content.CreateDynamicField(
-                row.InternalName,
-                row.LocalName,
-                row.EnglishName,
-                Boxed(row.Value).ValueUnsafe(),
-                row.Bounds.Bind(static bounds => Boxed(bounds.Min)).ValueUnsafe(),
-                row.Bounds.Bind(static bounds => Boxed(bounds.Max)).ValueUnsafe(),
-                row.SectionId),
-            nameof(RenderContent.CreateDynamicField)));
+        IO.lift(() => content.BeginCreateDynamicFields(automatic)).Bracket(
+            Use: _ => rows.TraverseM(row => IO.lift(() => Refused.Unless(
+                    content.CreateDynamicField(
+                        row.InternalName,
+                        row.LocalName,
+                        row.EnglishName,
+                        Boxed(row.Value).ValueUnsafe(),
+                        (from bounds in row.Bounds from min in Boxed(bounds.Min) select min).ValueUnsafe(),
+                        (from bounds in row.Bounds from max in Boxed(bounds.Max) select max).ValueUnsafe(),
+                        row.SectionId),
+                    nameof(RenderContent.CreateDynamicField))))
+                .As()
+                .Map(static _ => unit),
+            Fin: _ => IO.lift(content.EndCreateDynamicFields));
 
     private static Option<object> Boxed(FieldValue value) =>
         value.Switch(
@@ -218,24 +209,25 @@ public static class ContentFields {
 
     // --- [PARAMETERS]
     public static IO<Option<TValue>> ReadParameter<TValue>(RenderContent content, ParameterRef parameter) =>
-        Disposal.Bracketed(
-            IO.lift(() => parameter.Switch(
+        IO.lift(() => parameter.Switch(
                 content,
                 named: static (target, named) => Optional(target.GetParameter(named.Parameter)),
-                extraRequirement: static (target, extra) => Optional(target.GetExtraRequirementParameter(extra.Parameter, extra.Requirement)))),
-            static held => Disposal.Release(held.Bind(static data => Optional(data as IDisposable)).ToSeq()),
-            static answer => IO.lift(() => answer.Map(static data => (TValue)Convert.ChangeType(data, typeof(TValue), CultureInfo.InvariantCulture)))
-                .Catch(static error => error.HasException<NotImplementedException>(), static _ => IO.fail<Option<TValue>>(new Invalid(nameof(IConvertible.ToType)))));
+                extraRequirement: static (target, extra) => Optional(target.GetExtraRequirementParameter(extra.Parameter, extra.Requirement))))
+            .Bracket(
+                Use: static answer => IO.lift(() => answer.Map(static data => (TValue)Convert.ChangeType(data, typeof(TValue), CultureInfo.InvariantCulture)))
+                    .Catch(static error => error.HasException<NotImplementedException>(), static _ => IO.fail<Option<TValue>>(new Invalid(nameof(IConvertible.ToType)))),
+                Fin: static held => DisposalOps.Release(held.Bind(static data => Optional(data as IDisposable)).ToSeq()));
 
     public static IO<Unit> WriteParameter(RenderContent content, string parameter, FieldValue value) =>
         from data in IO.lift(() => Boxed(value).ToFin(new Invalid(nameof(FieldValue.Null))))
         from written in IO.lift(() => Refused.Unless(content.SetParameter(parameter, data), nameof(RenderContent.SetParameter)))
         select written;
 
-    public static IO<Unit> BindParameter(RenderContent content, string parameter, Option<string> childSlot, Field field, RenderContent.ChangeContexts setEvent) =>
+    public static IO<Unit> BindParameter(RenderContent content, ParameterRef parameter, Field field) =>
         from managed in IO.lift(() => Invalid.Unless(content.GetType().Assembly != typeof(RenderContent).Assembly, nameof(RenderContent.BindParameterToField)))
-        from bound in IO.lift(() => childSlot.Match(
-            Some: slot => content.BindParameterToField(parameter, slot, field, setEvent),
-            None: () => content.BindParameterToField(parameter, field, setEvent)))
+        from bound in IO.lift(() => parameter.Switch(
+            (Content: content, Field: field),
+            named: static (state, named) => state.Content.BindParameterToField(named.Parameter, state.Field, RenderContent.ChangeContexts.Program),
+            extraRequirement: static (state, extra) => state.Content.BindParameterToField(extra.Parameter, extra.Requirement, state.Field, RenderContent.ChangeContexts.Program)))
         select bound;
 }

@@ -31,24 +31,26 @@ function rounded(channels) {
 
 // --- [ACCESSORS] -----------------------------------------------------------------------
 
-var Member = {
-    holder: function (access) {
-        var owner = app[access.owner];
-        if (access.item === null) return owner;
-        var item = owner.itemByName(access.item);
-        return item.isValid ? item : null;
-    },
-    read: function (access) {
-        var holder = Member.holder(access);
-        if (holder === null) return null;
-        var value = holder[access.name];
-        return access.enumeration === null ? value : String(value);
-    },
-    wanted: function (access, target) {
-        return access.enumeration === null ? target : String($.global[access.enumeration][target]);
-    },
-    write: function (access, target) {
-        var holder = Member.holder(access);
-        (holder === null ? app[access.owner].add({ name: access.item }) : holder)[access.name] = access.enumeration === null ? target : $.global[access.enumeration][target];
-    }
-};
+function member(found, made) {
+    return {
+        read: function (access) {
+            var holder = found(access);
+            if (holder === null) return null;
+            var value = holder[access.name];
+            return access.enumeration === null ? value : String(value);
+        },
+        wanted: function (access, target) {
+            return access.enumeration === null ? target : String($.global[access.enumeration][target]);
+        },
+        write: function (access, target) {
+            var holder = found(access);
+            (holder === null ? made(access) : holder)[access.name] = access.enumeration === null ? target : $.global[access.enumeration][target];
+        }
+    };
+}
+
+function owner(access) {
+    return app[access.owner];
+}
+
+var Member = member(owner, owner);

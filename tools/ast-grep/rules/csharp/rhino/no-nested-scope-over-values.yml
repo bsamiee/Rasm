@@ -23,7 +23,7 @@ utils:
     value-scope:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Disposal\s*\.\s*Using(\s*<.+>)?$'}
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?DisposalOps\s*\.\s*Using(\s*<.+>)?$'}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: value}}}
 rule:
     kind: invocation_expression
@@ -36,4 +36,4 @@ rule:
         nthChild: 2
         inside: {kind: argument_list, inside: {matches: value-scope}}
 message: '`$VALUES` opens a second scope inside a scope over acquired values'
-note: Use one `Disposal.Using(IO.pure(<first>.Map<IDisposable>(...) + <second>.Map<IDisposable>(...)), <body>)`, or `Disposal.Release` over the sequence where no body follows
+note: Use `DisposalOps.Using(IO.pure((<first>, <second>)), <member>, <body>)` for sequences paired by position, `DisposalOps.Using(IO.pure<Seq<IDisposable>>([.. <first>, .. <second>]), <body>)` otherwise, or `DisposalOps.Release<IDisposable>([.. <first>, .. <second>])` where no body follows

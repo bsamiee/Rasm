@@ -5,7 +5,6 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
-using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 
 [assembly: UseStaticMapper(typeof(Answers))]
@@ -16,320 +15,261 @@ namespace Rasm.Rhino.Blocks;
 public enum ReferenceScope { TopLevel = 0, TopLevelAndNested = 1, FromOtherDefinitions = 2 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record BlockUsage(int Total, int TopLevel, int Nested);
+public sealed record BlockUsage(int TopLevel, int Nested) {
+    public int Total => TopLevel + Nested;
+}
 
 public sealed record BlockPlacement(Guid Id, Transform Xform);
+
+public sealed record Hyperlink(string Address, Option<string> Tag) {
+    public Option<string> Tag { get; } = Tag.Bind(Answers.Present);
+}
+
+public sealed record BlockMetadata(string Name, Option<string> Description, Option<Hyperlink> Link) {
+    public Option<string> Description { get; } = Description.Bind(Answers.Present);
+
+    public Option<Hyperlink> Link { get; } = Link.Filter(static link => link.Address.Length > 0);
+}
+
+public sealed record SourceReference(string FullPath, Option<string> RelativePath);
 
 public sealed record BlockState(
     Guid Id,
     int Index,
-    string Name,
-    string Description,
+    BlockMetadata Metadata,
     InstanceDefinitionUpdateType UpdateType,
+    Option<SourceReference> Archive,
     InstanceDefinitionArchiveFileStatus ArchiveFileStatus,
     InstanceDefinitionLayerStyle LayerStyle,
-    Option<string> SourceArchive,
-    Option<string> SourceArchiveRelativePath,
-    bool IsTenuous,
     bool SkipNestedLinkedDefinitions,
+    bool IsTenuous,
+    bool IsReference,
     UnitSystem UnitSystem,
     Seq<Guid> MemberIds,
-    ReferenceScope Scope,
-    Seq<BlockPlacement> Placements,
     BlockUsage Usage,
-    Seq<Guid> ContainerIds,
-    uint GeometryCrc);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Dependency {
-    public sealed record OnLayer(int LayerIndex) : Dependency;
-
-    public sealed record WithLinetype(int LinetypeIndex) : Dependency;
+    HashMap<string, string> UserStrings) {
+    public bool Hidden => Metadata.Name.StartsWith('*');
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PreviewMethod {
-    public sealed record DisplayMode(DefinedViewportProjection Projection, global::Rhino.DocObjects.DisplayMode Mode, Size Size, bool ApplyDpiScaling) : PreviewMethod;
+    public sealed record ByMode(DefinedViewportProjection Projection, DisplayMode DisplayMode, Size Size, bool ApplyDpiScaling) : PreviewMethod;
 
-    public sealed record Isometric(Guid DisplayModeId, DefinedViewportProjection Projection, IsometricCamera Camera, bool DrawDecorations, Size Size, bool ApplyDpiScaling) : PreviewMethod;
+    public sealed record ByCamera(Guid DisplayModeId, DefinedViewportProjection Projection, IsometricCamera Camera, bool DrawDecorations, Size Size, bool ApplyDpiScaling) : PreviewMethod;
 }
-
-public sealed record LinkState(
-    InstanceDefinitionUpdateType UpdateType,
-    LinkedInstanceDefinitionUpdateStyle LinkedInstanceDefinitionUpdate,
-    InstanceDefinitionArchiveFileStatus ArchiveFileStatus,
-    bool SkipNestedLinkedDefinitions);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Hyperlink {
-    public sealed record Keep() : Hyperlink;
+public abstract partial record DefinitionEdit {
+    public sealed record Modify(BlockMetadata Metadata) : DefinitionEdit;
 
-    public sealed record Clear() : Hyperlink;
+    public sealed record ModifyGeometry(Seq<GeometryPair> Members) : DefinitionEdit;
 
-    public sealed record Set(Uri Url, string Tag) : Hyperlink;
+    public sealed record ModifyInsertionPlane(Plane Plane) : DefinitionEdit;
+
+    public sealed record ModifySourceArchive(SourceReference Source, InstanceDefinitionUpdateType UpdateType, InstanceDefinitionLayerStyle LayerStyle) : DefinitionEdit;
+
+    public sealed record DestroySourceArchive() : DefinitionEdit;
+
+    public sealed record RefreshLinkedBlock() : DefinitionEdit;
+
+    public sealed record UpdateLinked(string Path, bool UpdateNestedLinks) : DefinitionEdit;
+
+    public sealed record SetLayerStyle(InstanceDefinitionLayerStyle Style) : DefinitionEdit;
+
+    public sealed record SetSkipNested(bool Skip) : DefinitionEdit;
+
+    public sealed record Delete(bool DeleteReferences) : DefinitionEdit;
 }
 
-public sealed record BlockMetadata(string Name, string Description, Hyperlink Hyperlink);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DefinitionOp {
+    public sealed record Add(BlockMetadata Metadata, Point3d BasePoint, Seq<GeometryPair> Members, bool OverrideExisting) : DefinitionOp;
 
-public sealed record SourceReference(string FullPath, Option<string> RelativePath);
+    public sealed record CreateFromFile(
+        string Path,
+        BlockMetadata Metadata,
+        InstanceDefinitionUpdateType UpdateType,
+        InstanceDefinitionLayerStyle LayerStyle,
+        InstanceDefinitionNameConflictResolution Conflict,
+        bool SkipNestedLinkedDefinitions) : DefinitionOp;
+
+    public sealed record Edit(ComponentRef Key, DefinitionEdit Change) : DefinitionOp;
+
+    public sealed record Undelete(ComponentRef Key) : DefinitionOp;
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Definitions {
-    // --- [RESOLUTION]
-    public static IO<Option<InstanceDefinition>> Resolve(RhinoDoc doc, ComponentRef key, bool includeDeleted) =>
-        TableOps.Find<InstanceDefinition>(
-            key,
-            id => Optional(doc.InstanceDefinitions.Find(id, ignoreDeletedInstanceDefinitions: !includeDeleted)),
-            index => Some(index).Filter(found => found < doc.InstanceDefinitions.Count).Bind(found => Live(Optional(doc.InstanceDefinitions[found]), includeDeleted)),
-            name => Live(Optional(doc.InstanceDefinitions.Find(name)), includeDeleted));
-
-    public static IO<Seq<InstanceDefinition>> Rows(RhinoDoc doc, bool includeDeleted) =>
-        IO.lift(() => Answers.Present(doc.InstanceDefinitions.GetList(ignoreDeleted: !includeDeleted)));
-
-    internal static IO<InstanceDefinition> Require(RhinoDoc doc, ComponentRef key, bool includeDeleted) =>
-        Resolve(doc, key, includeDeleted).Bind(found => IO.lift(found.ToFin(new DefinitionMissing(key))));
-
-    private static Option<InstanceDefinition> Live(Option<InstanceDefinition> found, bool includeDeleted) =>
-        found.Filter(definition => includeDeleted || !definition.IsDeleted);
-
-    // --- [READS]
-    public static IO<Seq<BlockPlacement>> References(RhinoDoc doc, ComponentRef key, ReferenceScope scope) =>
-        Require(doc, key, includeDeleted: false).Bind(definition => Placements(definition, scope));
-
-    public static IO<Seq<Guid>> Containers(RhinoDoc doc, ComponentRef key) =>
-        Require(doc, key, includeDeleted: false).Bind(ContainerIds);
-
-    public static IO<BlockState> Snapshot(RhinoDoc doc, ComponentRef key, ReferenceScope scope) =>
-        from definition in Require(doc, key, includeDeleted: false)
-        from members in IO.lift(() => Answers.Present(definition.GetObjects()))
-        from ids in IO.lift(() => members.TraverseM(member =>
-            (member.Geometry.IsValidWithLog(out string geometryLog), member.Attributes.IsValidWithLog(out string attributesLog)) switch {
-                (false, _) => new MemberInvalid(key, member.Id, geometryLog),
-                (_, false) => new MemberInvalid(key, member.Id, attributesLog),
-                _ => Answers.NonEmpty(member.Id, nameof(RhinoObject.Id)),
-            }).As())
-        from crc in IO.lift(() => members.Fold(0u, static (remainder, member) => member.Geometry.DataCRC(remainder)))
-        from placements in Placements(definition, scope)
-        from usage in IO.lift(() => new BlockUsage(definition.UseCount(out int topLevel, out int nested), topLevel, nested))
-        from containers in ContainerIds(definition)
-        from snapshot in IO.lift(() => new BlockState(
-            definition.Id,
-            definition.Index,
-            definition.Name,
-            definition.Description,
-            definition.UpdateType,
-            definition.ArchiveFileStatus,
-            definition.LayerStyle,
-            Answers.Present(definition.SourceArchive),
-            Answers.Present(definition.SourceArchiveRelativePath),
-            definition.IsTenuous,
-            definition.SkipNestedLinkedDefinitions,
-            definition.UnitSystem,
-            ids,
-            scope,
-            placements,
-            usage,
-            containers,
-            crc))
-        select snapshot;
-
-    public static IO<Option<int>> Nesting(RhinoDoc doc, ComponentRef outer, ComponentRef inner) =>
-        from container in Require(doc, outer, includeDeleted: false)
-        from nested in Require(doc, inner, includeDeleted: false)
-        from depth in IO.lift(() => container.UsesDefinition(nested.Index))
-        select Some(depth).Filter(static levels => levels > 0);
-
-    public static IO<bool> Uses(RhinoDoc doc, ComponentRef key, Dependency dependency) =>
-        from definition in Require(doc, key, includeDeleted: false)
-        from used in IO.lift(() => dependency.Switch(
-            (Doc: doc, Definition: definition),
-            onLayer: static (state, layer) =>
-                IndexOutOfRange.Unless(layer.LayerIndex, state.Doc.Layers.Count, nameof(Dependency.OnLayer.LayerIndex)).Map(_ => state.Definition.UsesLayer(layer.LayerIndex)),
-            withLinetype: static (state, linetype) =>
-                IndexOutOfRange.Unless(linetype.LinetypeIndex, state.Doc.Linetypes.Count, nameof(Dependency.WithLinetype.LinetypeIndex)).Map(_ => state.Definition.UsesLinetype(linetype.LinetypeIndex))))
-        select used;
-
-    public static IO<string> UnusedName(RhinoDoc doc, Option<string> root) =>
-        TableOps.UnusedName(() => root.Match(
-            Some: name => doc.InstanceDefinitions.GetUnusedInstanceDefinitionName(name),
-            None: () => doc.InstanceDefinitions.GetUnusedInstanceDefinitionName()));
-
-    internal static IO<Seq<BlockPlacement>> Placements(InstanceDefinition definition, ReferenceScope scope) =>
-        IO.lift(() =>
-            Answers.Present(definition.GetReferences((int)scope)).Map(static reference => DefinitionMapper.ToPlacement(reference)).Strict());
-
-    internal static IO<Seq<Guid>> ContainerIds(InstanceDefinition definition) =>
-        IO.lift(() => toSeq(definition.GetContainers()).Map(static container => container.Id).Strict());
-
-    // --- [PREVIEW]
-    public static IO<TValue> Preview<TValue>(RhinoDoc doc, ComponentRef key, PreviewMethod method, Func<Bitmap, IO<TValue>> body) =>
-        from definition in Require(doc, key, includeDeleted: false)
-        from value in Disposal.Using(IO.lift(() => method.Switch(
-            definition,
-            displayMode: static (target, displayMode) =>
-                from projected in Invalid.Unless(displayMode.Projection != DefinedViewportProjection.None, nameof(PreviewMethod))
-                from bitmap in Missing.Unless(target.CreatePreviewBitmap(displayMode.Projection, displayMode.Mode, displayMode.Size, displayMode.ApplyDpiScaling), nameof(InstanceDefinition.CreatePreviewBitmap))
-                select bitmap,
-            isometric: static (target, isometric) =>
-                from projected in Invalid.Unless((isometric.Projection != DefinedViewportProjection.None) && (isometric.Camera != IsometricCamera.None), nameof(PreviewMethod))
-                from bitmap in Missing.Unless(
-                    target.CreatePreviewBitmap(isometric.DisplayModeId, isometric.Projection, isometric.Camera, isometric.DrawDecorations, isometric.Size, isometric.ApplyDpiScaling),
-                    nameof(InstanceDefinition.CreatePreviewBitmap))
-                select bitmap)), body)
-        select value;
-
-    // --- [LINK]
-    public static IO<LinkState> ReadLink(RhinoDoc doc, ComponentRef key) =>
-        Require(doc, key, includeDeleted: false).Bind(definition => IO.lift(() =>
-            new LinkState(definition.UpdateType, doc.LinkedInstanceDefinitionUpdate, definition.ArchiveFileStatus, definition.SkipNestedLinkedDefinitions)));
-
-    public static IO<Unit> SetLinkedInstanceDefinitionUpdate(RhinoDoc doc, LinkedInstanceDefinitionUpdateStyle style) =>
-        IO.lift(() => {
-            doc.LinkedInstanceDefinitionUpdate = style;
-            return Mismatch.Unless(doc.LinkedInstanceDefinitionUpdate == style, nameof(RhinoDoc.LinkedInstanceDefinitionUpdate));
-        });
-
-    // --- [WRITES]
-    public static IO<int> Add(RhinoDoc doc, BlockMetadata metadata, Point3d basePoint, Seq<GeometryPair> members, InstanceDefinitionNameConflictResolution conflict, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Add block"), redraw,
-            from existing in IO.lift(() => Optional(doc.InstanceDefinitions.Find(metadata.Name)).Map(static found => found.Index))
-            from name in existing.IsSome && (conflict == InstanceDefinitionNameConflictResolution.KeepBoth) ? UnusedName(doc, Some(metadata.Name)) : IO.pure(metadata.Name)
-            let link = UrlAndTag(metadata.Hyperlink)
-            let geometry = members.Map(static member => member.Geometry)
-            from index in existing.Filter(_ => conflict == InstanceDefinitionNameConflictResolution.KeepCurrent).Match(
-                Some: static kept => IO.pure(kept),
-                None: () => TableOps.WithAttributes(doc, members.Map(static member => member.Attributes), attributes => IO.lift(() => Answers.NonNegative(
-                    doc.InstanceDefinitions.Add(
-                        name,
-                        metadata.Description,
-                        link.Url,
-                        link.Tag,
-                        basePoint,
-                        geometry,
-                        attributes,
-                        overrideExisting: existing.IsSome && (conflict == InstanceDefinitionNameConflictResolution.Redefine)),
-                    nameof(InstanceDefinitionTable.Add)))))
-            select index);
-
-    public static IO<int> CreateFromFile(
-        RhinoDoc doc,
-        string filename,
-        BlockMetadata metadata,
-        InstanceDefinitionUpdateType updateType,
-        InstanceDefinitionLayerStyle layerStyle,
-        InstanceDefinitionNameConflictResolution conflict,
-        bool skipNested,
-        RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Create block from file"), redraw,
-            IO.pure(UrlAndTag(metadata.Hyperlink)).Bind(link => IO.lift(() => Answers.NonNegative(
-                doc.InstanceDefinitions.CreateFromFile(filename, metadata.Name, metadata.Description, link.Url, link.Tag, updateType, layerStyle, conflict, skipNested),
-                nameof(InstanceDefinitionTable.CreateFromFile)))));
-
-    public static IO<Unit> Modify(RhinoDoc doc, ComponentRef key, BlockMetadata metadata, bool quiet, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Modify block"), redraw, Call(
-            doc,
-            key,
-            includeDeleted: false,
-            definition => metadata.Hyperlink.Switch(
-                (Table: doc.InstanceDefinitions, definition.Index, Metadata: metadata, Quiet: quiet),
-                keep: static (state, _) => state.Table.Modify(state.Index, state.Metadata.Name, state.Metadata.Description, state.Quiet),
-                clear: static (state, _) => state.Table.Modify(state.Index, state.Metadata.Name, state.Metadata.Description, "", "", state.Quiet),
-                set: static (state, set) => state.Table.Modify(state.Index, state.Metadata.Name, state.Metadata.Description, set.Url.OriginalString, set.Tag, state.Quiet)),
-            nameof(InstanceDefinitionTable.Modify)));
-
-    public static IO<Unit> ModifyGeometry(RhinoDoc doc, ComponentRef key, Seq<GeometryPair> members, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Modify block geometry"), redraw,
-            from definition in Require(doc, key, includeDeleted: false)
-            from updateType in IO.lift(() => definition.UpdateType)
-            from embedded in IO.lift(() => WrongUpdateType.Unless(key, updateType, Seq(InstanceDefinitionUpdateType.Static)))
-            from replaced in TableOps.WithAttributes(doc, members.Map(static member => member.Attributes), attributes => IO.lift(() => Refused.Unless(
-                doc.InstanceDefinitions.ModifyGeometry(definition.Index, members.Map(static member => member.Geometry), attributes),
-                nameof(InstanceDefinitionTable.ModifyGeometry))))
-            select replaced);
-
-    private static (string? Url, string? Tag) UrlAndTag(Hyperlink link) =>
-        link.Switch<(string? Url, string? Tag)>(
-            keep: static _ => (null, null),
-            clear: static _ => ("", ""),
-            set: static set => (set.Url.OriginalString, set.Tag));
-
-    // --- [SOURCE]
-    public static IO<Unit> ModifySourceArchive(RhinoDoc doc, ComponentRef key, SourceReference source, InstanceDefinitionUpdateType updateType, InstanceDefinitionLayerStyle layerStyle, bool quiet, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Modify block source archive"), redraw,
-            from definition in Require(doc, key, includeDeleted: false)
-            from bound in Disposal.Using(
-                () => source.RelativePath.Match(
-                    Some: relative => FileReference.CreateFromFullAndRelativePaths(source.FullPath, relative),
-                    None: () => FileReference.CreateFromFullPath(source.FullPath)),
-                reference => IO.lift(() => Refused.Unless(
-                    doc.InstanceDefinitions.ModifySourceArchive(definition.Index, reference, updateType, layerStyle, quiet),
-                    nameof(InstanceDefinitionTable.ModifySourceArchive))))
-            select bound);
-
-    public static IO<Unit> DestroySourceArchive(RhinoDoc doc, ComponentRef key, bool quiet, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Destroy block source archive"), redraw,
-            Call(doc, key, includeDeleted: false, definition => doc.InstanceDefinitions.DestroySourceArchive(definition, quiet), nameof(InstanceDefinitionTable.DestroySourceArchive)));
-
-    public static IO<Unit> RefreshLinkedBlock(RhinoDoc doc, ComponentRef key, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Refresh linked block"), redraw,
-            from definition in Require(doc, key, includeDeleted: false)
-            from state in IO.lift(() => (Tenuous: definition.IsTenuous, definition.UpdateType))
-            from firm in when(state.Tenuous, IO.fail<Unit>(new TenuousDefinition(key)))
-            from linked in IO.lift(() => WrongUpdateType.Unless(key, state.UpdateType, Seq(InstanceDefinitionUpdateType.Linked, InstanceDefinitionUpdateType.LinkedAndEmbedded)))
-            from refreshed in IO.lift(() => Refused.Unless(doc.InstanceDefinitions.RefreshLinkedBlock(definition), nameof(InstanceDefinitionTable.RefreshLinkedBlock)))
-            select refreshed);
-
-    public static IO<Unit> UpdateLinked(RhinoDoc doc, ComponentRef key, string filename, bool updateNestedLinks, bool quiet, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Update linked block"), redraw, Call(
-            doc,
-            key,
-            includeDeleted: false,
-            definition => doc.InstanceDefinitions.UpdateLinkedInstanceDefinition(definition.Index, filename, updateNestedLinks, quiet),
-            nameof(InstanceDefinitionTable.UpdateLinkedInstanceDefinition)));
-
-    public static IO<Unit> SetLayerStyle(RhinoDoc doc, ComponentRef key, InstanceDefinitionLayerStyle style, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Set block layer style"), redraw,
-            from definition in Require(doc, key, includeDeleted: false)
-            from updateType in IO.lift(() => definition.UpdateType)
-            from linked in IO.lift(() => WrongUpdateType.Unless(key, updateType, Seq(InstanceDefinitionUpdateType.Linked)))
-            from valid in when(style == InstanceDefinitionLayerStyle.None, IO.fail<Unit>(new InvalidLayerStyle(key, style)))
-            from written in IO.lift(() => {
-                definition.LayerStyle = style;
-                return Mismatch.Unless(definition.LayerStyle == style, nameof(InstanceDefinition.LayerStyle));
-            })
-            select written);
-
-    public static IO<Unit> SetSkipNested(RhinoDoc doc, ComponentRef key, bool skip, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Set block skip nested"), redraw,
-            Require(doc, key, includeDeleted: false).Bind(definition => IO.lift(() => {
-                definition.SkipNestedLinkedDefinitions = skip;
-                return Mismatch.Unless(definition.SkipNestedLinkedDefinitions == skip, nameof(InstanceDefinition.SkipNestedLinkedDefinitions));
-            })));
-
-    // --- [LIFECYCLE]
-    public static IO<Unit> Delete(RhinoDoc doc, ComponentRef key, bool deleteReferences, bool quiet, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Delete block"), redraw,
-            Call(doc, key, includeDeleted: false, definition => doc.InstanceDefinitions.Delete(definition.Index, deleteReferences, quiet), nameof(InstanceDefinitionTable.Delete)));
-
-    public static IO<Unit> Undelete(RhinoDoc doc, ComponentRef key, RedrawPolicy redraw) =>
-        Commits.Commit(doc, LOC.STR("Undelete block"), redraw,
-            Call(doc, key, includeDeleted: true, definition => doc.InstanceDefinitions.Undelete(definition.Index), nameof(InstanceDefinitionTable.Undelete)));
-
-    public static IO<Unit> Purge(RhinoDoc doc, ComponentRef key) =>
-        Call(doc, key, includeDeleted: true, definition => doc.InstanceDefinitions.Purge(definition.Index), nameof(InstanceDefinitionTable.Purge));
-
-    public static IO<Unit> Export(RhinoDoc doc, ComponentRef key, string path) =>
-        Call(doc, key, includeDeleted: false, definition => doc.InstanceDefinitions.Export(definition.Index, path), nameof(InstanceDefinitionTable.Export));
-
-    private static IO<Unit> Call(RhinoDoc doc, ComponentRef key, bool includeDeleted, Func<InstanceDefinition, bool> call, string member) =>
-        Require(doc, key, includeDeleted).Bind(definition => IO.lift(() => Refused.Unless(call(definition), member)));
-}
-
 [Mapper]
 internal static partial class DefinitionMapper {
     [MapProperty(nameof(InstanceObject.InstanceXform), nameof(BlockPlacement.Xform))]
     internal static partial BlockPlacement ToPlacement(InstanceObject reference);
 
-    [MapValue(nameof(DefinitionNode.MembersUnread), false)]
-    internal static partial DefinitionNode ToNode(InstanceDefinition definition);
+    [MapPropertyFromSource(nameof(BlockState.Metadata), Use = nameof(MetadataOf))]
+    [MapPropertyFromSource(nameof(BlockState.Archive), Use = nameof(ArchiveOf))]
+    [MapPropertyFromSource(nameof(BlockState.MemberIds), Use = nameof(MemberIdsOf))]
+    [MapPropertyFromSource(nameof(BlockState.Usage), Use = nameof(UsageOf))]
+    internal static partial BlockState ToState(InstanceDefinition definition, HashMap<string, string> userStrings);
+
+    [MapProperty(nameof(InstanceDefinitionGeometry.IsLinkedType), nameof(DefinitionNode.Linked))]
+    [MapPropertyFromSource(nameof(DefinitionNode.Members), Use = nameof(MemberIdsOf))]
+    internal static partial DefinitionNode ToNode(InstanceDefinitionGeometry definition);
+
+    internal static BlockMetadata MetadataOf(InstanceDefinition definition) =>
+        new(
+            definition.Name,
+            Answers.Present(definition.Description),
+            Answers.Present(definition.Url).Map(address => new Hyperlink(address, Answers.Present(definition.UrlDescription))));
+
+    private static Option<SourceReference> ArchiveOf(InstanceDefinition definition) =>
+        Answers.Present(definition.SourceArchive).Map(path => new SourceReference(path, Answers.Present(definition.SourceArchiveRelativePath)));
+
+    private static Seq<Guid> MemberIdsOf<TDefinition>(TDefinition definition) where TDefinition : InstanceDefinitionGeometry =>
+        toSeq(definition.GetObjectIds());
+
+    private static BlockUsage UsageOf(InstanceDefinition definition) {
+        _ = definition.UseCount(out int topLevel, out int nested);
+        return new BlockUsage(topLevel, nested);
+    }
+}
+
+public static class Definitions {
+    // --- [READS]
+    public static IO<BlockState> Snapshot(RhinoDoc doc, ComponentRef key) =>
+        TableOps.Find(doc.InstanceDefinitions, key, includeDeleted: false).Bind(State);
+
+    public static IO<Seq<BlockPlacement>> References(RhinoDoc doc, ComponentRef key, ReferenceScope scope) =>
+        TableOps.Find(doc.InstanceDefinitions, key, includeDeleted: false).Map(definition =>
+            Answers.Present(definition.GetReferences((int)scope)).Map(DefinitionMapper.ToPlacement).Strict());
+
+    public static IO<Option<int>> Nesting(RhinoDoc doc, ComponentRef outer, ComponentRef inner) =>
+        from container in TableOps.Find(doc.InstanceDefinitions, outer, includeDeleted: false)
+        from nested in TableOps.Find(doc.InstanceDefinitions, inner, includeDeleted: false)
+        select container.Index == nested.Index ? Option<int>.None : Some(container.UsesDefinition(nested.Index)).Filter(static levels => levels > 0);
+
+    public static IO<bool> UsesLayer(RhinoDoc doc, ComponentRef key, int layerIndex) =>
+        TableOps.Find(doc.InstanceDefinitions, key, includeDeleted: false).Map(definition => definition.UsesLayer(layerIndex));
+
+    public static IO<bool> UsesLinetype(RhinoDoc doc, ComponentRef key, int linetypeIndex) =>
+        TableOps.Find(doc.InstanceDefinitions, key, includeDeleted: false).Map(definition => definition.UsesLinetype(linetypeIndex));
+
+    public static IO<string> UnusedName(RhinoDoc doc, Option<string> root) =>
+        IO.lift(() => root.Match(Some: doc.InstanceDefinitions.GetUnusedInstanceDefinitionName, None: doc.InstanceDefinitions.GetUnusedInstanceDefinitionName));
+
+    public static IO<TValue> Preview<TValue>(RhinoDoc doc, ComponentRef key, PreviewMethod method, Func<Bitmap, IO<TValue>> body) =>
+        TableOps.Find(doc.InstanceDefinitions, key, includeDeleted: false).Bind(definition => DisposalOps.Using(
+            IO.lift(() => Missing.Unless(
+                method.Switch(
+                    definition,
+                    byMode: static (target, mode) => target.CreatePreviewBitmap(mode.Projection, mode.DisplayMode, mode.Size, mode.ApplyDpiScaling),
+                    byCamera: static (target, camera) =>
+                        target.CreatePreviewBitmap(camera.DisplayModeId, camera.Projection, camera.Camera, camera.DrawDecorations, camera.Size, camera.ApplyDpiScaling)),
+                nameof(InstanceDefinition.CreatePreviewBitmap))),
+            body));
+
+    internal static IO<Seq<InstanceDefinition>> Rows(RhinoDoc doc) =>
+        IO.lift(() => Answers.Present(doc.InstanceDefinitions.GetList(ignoreDeleted: true)));
+
+    private static IO<BlockState> State(InstanceDefinition definition) =>
+        GeometryOps.ReadUserStrings(GeometryOps.UserStrings(definition)).Map(strings => DefinitionMapper.ToState(definition, strings));
+
+    // --- [WRITES]
+    public static IO<Seq<int>> Commit(RhinoDoc doc, string name, RedrawPolicy redraw, Seq<DefinitionOp> ops) =>
+        Commits.Commit(doc, name, redraw, ops.TraverseM(op => Apply(doc, op)).As());
+
+    public static IO<Unit> Purge(RhinoDoc doc, ComponentRef key) =>
+        TableOps.Find(doc.InstanceDefinitions, key, includeDeleted: true).Bind(definition => IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Purge(definition.Index), nameof(InstanceDefinitionTable.Purge))));
+
+    public static IO<Unit> Export(RhinoDoc doc, ComponentRef key, string path) =>
+        TableOps.Find(doc.InstanceDefinitions, key, includeDeleted: false).Bind(definition => IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Export(definition.Index, path), nameof(InstanceDefinitionTable.Export))));
+
+    public static IO<Unit> EditUserStrings(RhinoDoc doc, ComponentRef key, Seq<UserStringEdit> edits) =>
+        from definition in TableOps.Find(doc.InstanceDefinitions, key, includeDeleted: false)
+        let accessors = GeometryOps.UserStrings(definition)
+        from edited in edits.TraverseM(edit => GeometryOps.EditUserStrings(accessors, edit)).As()
+        select unit;
+
+    private static IO<int> Apply(RhinoDoc doc, DefinitionOp op) =>
+        op.Switch(
+            doc,
+            add: static (document, add) => WithMembers(document, add.Members, (geometry, attributes) => Answers.Required(
+                document.InstanceDefinitions.Add(
+                    add.Metadata.Name, Answers.Unset(add.Metadata.Description), Url(add.Metadata), UrlTag(add.Metadata), add.BasePoint, geometry, attributes, add.OverrideExisting),
+                nameof(InstanceDefinitionTable.Add))),
+            createFromFile: static (document, create) =>
+                from count in IO.lift(() => document.InstanceDefinitions.Count)
+                from index in IO.lift(() => Answers.Required(
+                    document.InstanceDefinitions.CreateFromFile(
+                        create.Path,
+                        create.Metadata.Name,
+                        Answers.Unset(create.Metadata.Description),
+                        Url(create.Metadata),
+                        UrlTag(create.Metadata),
+                        create.UpdateType,
+                        create.LayerStyle,
+                        create.Conflict,
+                        create.SkipNestedLinkedDefinitions),
+                    nameof(InstanceDefinitionTable.CreateFromFile)))
+                from row in TableOps.Row(document.InstanceDefinitions, index)
+                from created in IO.lift(() => AlreadyLinked.Unless(index >= count || TableOps.Names<InstanceDefinition>().Equals(row.Name, create.Metadata.Name), create.Path, row.Id))
+                select index,
+            edit: static (document, edit) =>
+                from definition in TableOps.Find(document.InstanceDefinitions, edit.Key, includeDeleted: false)
+                from edited in Edited(document, definition, edit.Change)
+                select definition.Index,
+            undelete: static (document, undelete) =>
+                from definition in TableOps.Find(document.InstanceDefinitions, undelete.Key, includeDeleted: true)
+                from restored in IO.lift(() => Refused.Unless(document.InstanceDefinitions.Undelete(definition.Index), nameof(InstanceDefinitionTable.Undelete)))
+                select definition.Index);
+
+    private static IO<Unit> Edited(RhinoDoc doc, InstanceDefinition definition, DefinitionEdit change) =>
+        change.Switch(
+            (Doc: doc, Definition: definition),
+            modify: static (state, modify) => IO.lift(() => Refused.Unless(
+                state.Doc.InstanceDefinitions.Modify(
+                    state.Definition.Index, modify.Metadata.Name, Answers.Unset(modify.Metadata.Description), Url(modify.Metadata), UrlTag(modify.Metadata), quiet: true),
+                nameof(InstanceDefinitionTable.Modify))),
+            modifyGeometry: static (state, modify) => WithMembers(state.Doc, modify.Members, (geometry, attributes) => Refused.Unless(
+                state.Doc.InstanceDefinitions.ModifyGeometry(state.Definition.Index, geometry, attributes),
+                nameof(InstanceDefinitionTable.ModifyGeometry))),
+            modifyInsertionPlane: static (state, modify) => IO.lift(() => Refused.Unless(
+                state.Doc.InstanceDefinitions.ModifyInsertionPlane(state.Definition.Index, modify.Plane),
+                nameof(InstanceDefinitionTable.ModifyInsertionPlane))),
+            modifySourceArchive: static (state, modify) => DisposalOps.Using(
+                IO.lift(() => Missing.Unless(
+                    FileReference.CreateFromFullAndRelativePaths(modify.Source.FullPath, modify.Source.RelativePath.ValueUnsafe()),
+                    nameof(FileReference))),
+                reference => IO.lift(() => Refused.Unless(
+                    state.Doc.InstanceDefinitions.ModifySourceArchive(state.Definition.Index, reference, modify.UpdateType, modify.LayerStyle, quiet: true),
+                    nameof(InstanceDefinitionTable.ModifySourceArchive)))),
+            destroySourceArchive: static (state, _) => IO.lift(() => Refused.Unless(
+                state.Doc.InstanceDefinitions.DestroySourceArchive(state.Definition, quiet: true),
+                nameof(InstanceDefinitionTable.DestroySourceArchive))),
+            refreshLinkedBlock: static (state, _) => IO.lift(() => Refused.Unless(
+                state.Doc.InstanceDefinitions.RefreshLinkedBlock(state.Definition),
+                nameof(InstanceDefinitionTable.RefreshLinkedBlock))),
+            updateLinked: static (state, update) => IO.lift(() => Refused.Unless(
+                state.Doc.InstanceDefinitions.UpdateLinkedInstanceDefinition(state.Definition.Index, update.Path, update.UpdateNestedLinks, quiet: true),
+                nameof(InstanceDefinitionTable.UpdateLinkedInstanceDefinition))),
+            setLayerStyle: static (state, set) =>
+                from accepted in IO.lift(() => Invalid.Unless(
+                    (state.Definition.UpdateType == InstanceDefinitionUpdateType.Linked) && (set.Style != InstanceDefinitionLayerStyle.None),
+                    nameof(InstanceDefinition.LayerStyle)))
+                from written in IO.lift(() => { state.Definition.LayerStyle = set.Style; })
+                select written,
+            setSkipNested: static (state, set) => IO.lift(() => { state.Definition.SkipNestedLinkedDefinitions = set.Skip; }),
+            delete: static (state, delete) =>
+                from free in IO.lift(() => DefinitionContained.Unless(state.Definition.Id, toSeq(state.Definition.GetContainers()).Map(static container => container.Id).Strict()))
+                from deleted in IO.lift(() => Refused.Unless(
+                    state.Doc.InstanceDefinitions.Delete(state.Definition.Index, delete.DeleteReferences, quiet: true),
+                    nameof(InstanceDefinitionTable.Delete)))
+                select deleted);
+
+    private static string Url(BlockMetadata metadata) =>
+        Answers.Unset(metadata.Link.Map(static link => link.Address));
+
+    private static string UrlTag(BlockMetadata metadata) =>
+        Answers.Unset(metadata.Link.Bind(static link => link.Tag));
+
+    private static IO<TAnswer> WithMembers<TAnswer>(RhinoDoc doc, Seq<GeometryPair> members, Func<Seq<GeometryBase>, Seq<ObjectAttributes>, Fin<TAnswer>> call) =>
+        TableOps.WithAttributes(doc, members.Map(static member => member.Attributes), attributes => IO.lift(() => call(members.Map(static member => member.Geometry), attributes)));
 }

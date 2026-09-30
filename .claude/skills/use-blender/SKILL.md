@@ -34,8 +34,9 @@ description: "Use when a task drives a Blender session, a headless Blender, or a
 - [09]-[RESULTS](scripts/results.py): Case records as `result` dicts and JSON, `.artifacts/blender/` folders, and the unknown-object case
 - [10]-[RNA](scripts/rna.py): RNA values as JSON and the function of every registered operator
 - [11]-[SCENE](scripts/scene.py): Evaluated world bounds per object and the largest 3D Viewport
+- [12]-[BRIDGE](scripts/bridge.py): Execute requests to a session's MCP extension on the loopback port
 
-`headless.py` and hook `wrapper.py` run on the host under `python`, every other script runs inside Blender imported by module name. `as_result` converts an entry point's `attrs` case record to a `result` dict with class name under `kind` at every level.
+`headless.py`, its `bridge.py`, and hook `wrapper.py` run on the host under `python`, every other script runs inside Blender imported by module name. `as_result` converts an entry point's `attrs` case record to a `result` dict with class name under `kind` at every level.
 
 ## [01]-[CONDUCT]
 
@@ -193,7 +194,8 @@ python .claude/skills/use-blender/scripts/headless.py stop <name>
 - `Ran` holds `result`, stdout, and stderr, `Raised` the traceback with `<agent>` lines, `Failed` the exit code and the log
 - `run` and `start` open the file itself, and code that saves writes it
 - `start` writes `.artifacts/blender/session/<name>.json` and `.log`, `stop` deletes the JSON record
-- `run` sets `BLENDER_USER_EXTENSIONS` to `.artifacts/blender/extensions/` and keeps `.artifacts/blender/run-<pid>.log` after a failure
+- `run` sets `BLENDER_USER_EXTENSIONS` to `.artifacts/blender/extensions/` and `BLENDER_USER_CONFIG` to `.artifacts/blender/config/`
+- `run` keeps `.artifacts/blender/run-<pid>.log` after a failure
 - `run` and `start` on a path with no file open the user's startup file saved under that path
 - `bpy.ops.wm.revert_mainfile()` in a call returns a session to the file on disk
 - `stop` saves a titled file when the session's data differ from a copy taken at its last save or after the call that last loaded it
@@ -233,13 +235,20 @@ Each change ends with one picture from a chosen view, `snapshot` names what chan
 - Snapshots hold unit and color settings, materials, datablock counts, library files, missing paths, and node trees
 - `comparison` lists objects added and removed since the earlier snapshot, and each changed value's before and after under its keys and list indexes
 - Curve bound boxes, and the snapshot bounds and capture frames read from them, grow by the point radius on every side
-- `capture("<name>", ("<Object>",), "<view>")` frames named objects or every visible one, `iso` in perspective and each axis view orthographic
-- `capture("<name>", view="user")` draws the user's own view at its aspect with no frame, live or from the file's stored view
-- `capture("<after>", since="<before>")` redraws the earlier frame, counts the pixels that differ, and writes `<after>-diff.png` with them in red
-- `outside` true in a diff means geometry left the earlier frame, a capture without `since` frames it whole
+- `capture("<name>", objects=, view=, size=, since=)` frames `objects` or every visible one, `iso` (default) in perspective, axis views orthographic
+- `view="user"` draws the user's view at its horizontal field of view with no frame, live or from the file's stored view
 - Live captures draw offscreen through the largest 3D Viewport's shading and local view with overlays and gizmos off
+- Live captures leave out objects of `display_type` `WIRE`
 - Headless captures render Workbench under Solid mode's color management and leave every render setting as found
-- `Read` shows the PNG whole, 1280x720 or the user's view fit inside it
+- Captures draw the user's view at its viewport's device pixel size and axis and iso views at the scene's render size, unless `size` names one
+- Pixel reads (levels, line widths, band edges, dither) take device pixel size, comparisons native render size, and timing a smaller `size`
+- `Read` downscales an image over 2000 px and re-encodes one over 500 KB as lossy JPEG, `magick` reads pixel values and crops details under both
+- `HiddenInViewport` names objects the largest 3D Viewport hides, `NoViewport` answers `view="user"` in a window without one
+- PNGs store their `Capture` with the drawn `view` and `frame` (`None` for the user's view)
+- `since="<before>"` redraws view, frame, and size `<before>.png` stores in place of `view` and `size`, a missing PNG returns `MissingCapture`
+- `comparison.changed` counts pixels past Blender's render-test threshold against `<before>`, `comparison` is `None` without `since`
+- `<name>-diff.png` marks changed pixels red over `<before>` at half brightness
+- `comparison.outside` true means geometry left the frame `<before>.png` stores, a capture without `since` frames it whole
 
 ```python
 # [EXECUTE_BLENDER_CODE] Snapshot and front capture of the changed object against earlier ones
@@ -247,5 +256,5 @@ from capture import capture
 from results import as_result
 from snapshot import snapshot
 
-result = {"changes": as_result(snapshot("<after>", since="<before>")), "front": as_result(capture("<after>-front", ("<Object>",), "front", since="<before>-front"))}
+result = {"changes": as_result(snapshot("<after>", since="<before>")), "front": as_result(capture("<after>-front", objects=("<Object>",), since="<before>-front"))}
 ```

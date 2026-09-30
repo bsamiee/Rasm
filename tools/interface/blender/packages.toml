@@ -1,3 +1,8 @@
+# --- [REPOSITORIES] ---------------------------------------------------------------------
+repositories = [
+    { module = "blender_lab", name = "Blender Lab", url = "https://lab.blender.org/" }, # Blender Lab extensions, the mcp listener's source
+]
+
 # --- [PACKAGES] -------------------------------------------------------------------------
 packages = [
     { id = "Cycles Render Engine" },                                           # Path-traced renderer whose panels every workspace keeps

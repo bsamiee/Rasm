@@ -28,5 +28,5 @@ rule:
                     kind: declaration_list
                     stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
                     inside: {matches: closed}
-message: Public type `$NAME` nests inside `$OWNER` outside a `[Union]` or a closed hierarchy
-note: Declare `<name>` at file level under the section of its kind, nesting holds the cases of a `[Union]` or of an abstract owner with private constructors alone
+message: Public type `$NAME` nests inside `$OWNER`, neither a `[Union]` nor an abstract owner with private constructors
+note: Use a file-level declaration under the section of its kind

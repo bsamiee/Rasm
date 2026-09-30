@@ -1,21 +1,20 @@
-# ty: ignore[invalid-argument-type, invalid-assignment, invalid-return-type, unresolved-attribute]
-# mypy: disable-error-code="arg-type, assignment, attr-defined"
+# ty: ignore[invalid-argument-type, invalid-return-type, unresolved-attribute]
+# mypy: disable-error-code="arg-type, attr-defined"
 """Blender's editor spaces per workspace, from add-on filters and tools to views, studio lights, sidebars, navigation bars, and console history."""
 
 from collections.abc import Iterator, Mapping
-from contextlib import contextmanager
 from functools import partial
 from itertools import chain
-from typing import Literal
 
 import bpy
 from mathutils import Vector
 
-from interface.blender.script.rna import Paint
+from interface.blender.rows import LOOK_DEVELOPMENT
+from interface.blender.script.rna import assigned, Paint
 from interface.blender.script.screens import area_label, CONSOLE_SIZE, Layout, leaves, MARGIN_COLUMN, override, paired, region_label, TEXT_SIZE, TICK, View, workspace_label
 from interface.blender.script.startup import HEADLAMP, PLAN_DISTANCE
-from interface.render import LENS, LOOK_DEVELOPMENT
-from interface.report import changes, converged, Row, subscript
+from interface.render import FRAME_SIZE, LENS
+from interface.report import Action, changes, converged, Row, subscript
 from interface.roles import Alpha, Ink, Line, Surface
 from interface.units import GRID_THICK_EVERY, Units
 
@@ -29,8 +28,9 @@ def canvas(workspace: bpy.types.WorkSpace, layout: Layout) -> bpy.types.Area:
 
 
 def viewpoint(view: View, *, reach: bool, units: Units) -> dict[str, object]:
-    """Declared view of a 3D Viewport by path: the perspective over two thick grid cells, the plan over the modeling extent where it reaches that far, or the camera."""
-    distance_per_span = LENS / bpy.types.Camera.bl_rna.properties["sensor_width"].default
+    """Declared view of a 3D Viewport by path: a lens framing a render-sized region as the camera frames the render, and the perspective over two thick grid cells, the plan over the modeling extent where it reaches that far, or the camera."""
+    camera, (width, height) = bpy.types.Camera.bl_rna.properties, FRAME_SIZE
+    distance_per_span = LENS * height / (camera["sensor_height"].default * width)
     match view:
         case View.PERSPECTIVE:
             projection, framed = (
@@ -45,10 +45,10 @@ def viewpoint(view: View, *, reach: bool, units: Units) -> dict[str, object]:
             projection, framed = ("ORTHO", {"region_3d.view_location": (0.0, 0.0, 0.0), "region_3d.view_distance": 2 * units.extent * distance_per_span if reach else PLAN_DISTANCE})
         case View.CAMERA:
             projection, framed = "CAMERA", {}
-    return {"region_3d.view_perspective": projection, **framed}
+    return {"lens": 2 * camera["sensor_width"].default * distance_per_span, "region_3d.view_perspective": projection, **framed}
 
 
-def axis_view(window: bpy.types.Window, area: bpy.types.Area, axis: View, _side_view: Literal[True]) -> None:
+def axis_view(window: bpy.types.Window, area: bpy.types.Area, axis: View) -> None:
     """Turn the area's view to the axis view, which marks it a side view."""
     with override(window, area, next(region for region in area.regions if region.type == "WINDOW")):
         bpy.ops.view3d.view_axis(type=axis)
@@ -61,10 +61,10 @@ def aligned(window: bpy.types.Window, layout: Layout) -> tuple[Row, ...]:
             area = canvas(window.workspace, layout)
             view = area.spaces[0].region_3d
             return (
-                Row(
+                Action(
                     label=f"{area_label(window.workspace, area)}.spaces[0].region_3d.is_orthographic_side_view",
                     read=lambda: view.is_orthographic_side_view,
-                    write=partial(axis_view, window, area, layout.view),
+                    act=partial(axis_view, window, area, layout.view),
                     target=True,
                 ),
             )
@@ -73,14 +73,15 @@ def aligned(window: bpy.types.Window, layout: Layout) -> tuple[Row, ...]:
 
 
 def fitted_cameras(window: bpy.types.Window) -> Iterator[tuple[str, bpy.types.Space, Mapping[str, object]]]:
-    """Each camera view's space on screen by label with the zoom and offset Frame Camera Bounds gives it, the view restored after the read."""
+    """Each camera view's space on screen by label with the zoom and offset Frame Camera Bounds gives it, the view held for the read."""
     for area in [area for area in window.screen.areas if area.type == "VIEW_3D" and area.spaces[0].region_3d.view_perspective == "CAMERA"]:
         space, view = area.spaces[0], area.spaces[0].region_3d
-        held = view.view_camera_zoom, tuple(view.view_camera_offset)
-        with override(window, area, next(region for region in area.regions if region.type == "WINDOW")):
+        with (
+            assigned((view, "view_camera_zoom", view.view_camera_zoom), (view, "view_camera_offset", view.view_camera_offset)),
+            override(window, area, next(region for region in area.regions if region.type == "WINDOW")),
+        ):
             bpy.ops.view3d.view_center_camera()
-        fitted = {"region_3d.view_camera_zoom": view.view_camera_zoom, "region_3d.view_camera_offset": tuple(view.view_camera_offset)}
-        view.view_camera_zoom, view.view_camera_offset = held
+            fitted = {"region_3d.view_camera_zoom": view.view_camera_zoom, "region_3d.view_camera_offset": tuple(view.view_camera_offset)}
         yield f"{area_label(window.workspace, area)}.spaces[0]", space, fitted
 
 
@@ -93,17 +94,6 @@ def slots(workspace: bpy.types.WorkSpace) -> Iterator[tuple[str, bpy.types.View3
         if isinstance(view := area.spaces[0], bpy.types.SpaceView3D)
         for kind, light, name in lights
     )
-
-
-@contextmanager
-def studio_slot(shading: bpy.types.View3DShading, kind: str, light: str) -> Iterator[None]:
-    """Select the shading type and light kind for the block and restore the shading's own after it."""
-    held = shading.type, shading.light
-    shading.type, shading.light = kind, light
-    try:
-        yield
-    finally:
-        shading.type, shading.light = held
 
 
 # --- [WORKSPACE]
@@ -150,7 +140,6 @@ def spaces(
     match space:
         case bpy.types.SpaceView3D():
             return {
-                "lens": 2 * LENS,
                 "clip_start": units.snap,
                 "clip_end": units.far,
                 "show_region_tool_header": False,
@@ -175,10 +164,15 @@ def spaces(
                 "shading.show_cavity": False,
                 "shading.single_color": Paint(Surface.SHADED),
                 "shading.object_outline_color": Paint(Ink.SCREEN),
-                "shading.background_color": Paint(Surface.CANVAS),
                 "overlay.gpencil_grid_color": Paint(Line.GRID),
                 **dict.fromkeys((f"shading.{name}" for name in ("show_object_outline", "use_scene_world_render", "use_scene_lights_render")), True),
-                **dict.fromkeys((f"shading.{name}" for name in ("use_world_space_lighting", "show_specular_highlight", "show_shadows", "show_xray", "show_backface_culling")), False),
+                **dict.fromkeys(
+                    (
+                        f"shading.{name}"
+                        for name in ("use_world_space_lighting", "use_scene_world", "use_scene_lights", "show_specular_highlight", "show_shadows", "show_xray", "show_backface_culling")
+                    ),
+                    False,
+                ),
                 "shading.studiolight_background_alpha": 0.0,
                 "shading.studiolight_background_blur": 0.5,
                 "shading.xray_alpha_wireframe": 0.0,
@@ -241,7 +235,6 @@ def spaces(
                 "overlay.xray_alpha_bone": 0.0,
                 "overlay.gpencil_grid_opacity": Alpha.GRID_MINOR,
                 "overlay.gpencil_fade_layer": 0.5,
-                "overlay.grid_lines": units.grid_lines,
                 "region_3d.lock_rotation": False,
                 **viewpoint(layout.view if main else View.CAMERA, reach=layout.reach, units=units),
             }
@@ -254,11 +247,7 @@ def spaces(
                 **shelf(space, shown=editor in layout.shelf),
                 "use_image_pin": False,
                 **dict.fromkeys(("show_gizmo", "show_annotation", "overlay.show_overlays"), True),
-                **(
-                    {"uv_editor.edge_display_type": "WHITE"}
-                    if editor == "UV"
-                    else {"image": next(image for image in bpy.data.images if image.type == "RENDER_RESULT"), "ui_mode": "VIEW", "display_channels": "COLOR_ALPHA"}
-                ),
+                **({"uv_editor.edge_display_type": "WHITE"} if editor == "UV" else {"ui_mode": "VIEW", "display_channels": "COLOR_ALPHA"}),
             }
         case bpy.types.SpaceNodeEditor():
             trees = {"GeometryNodeTree": {"node_tree_sub_type": "MODIFIER"}, "ShaderNodeTree": {"shader_type": "OBJECT"}, "CompositorNodeTree": {"node_tree_sub_type": "SCENE"}}
@@ -347,10 +336,11 @@ def declared_workspace(workspace: bpy.types.WorkSpace, layout: Layout, units: Un
     return (
         (owner, workspace, {"use_pin_scene": False, "use_filter_by_owner": True, "screens[0].name": workspace.name, "screens[0].show_statusbar": True}),
         *((subscript(f"{owner}.tools", mode), workspace.tools.from_space_view3d_mode(mode, create=True), {"idname": tool}) for mode, tool in tools.items()),
-        *chain.from_iterable(
-            ((label, area, {"show_menus": True}), (f"{label}.spaces[0]", area.spaces[0], spaces(area.spaces[0], layout, units, editor=editor, main=area == main)))
+        *(
+            row
             for editor, area in pairs
             for label in (area_label(workspace, area),)
+            for row in ((label, area, {"show_menus": True}), (f"{label}.spaces[0]", area.spaces[0], spaces(area.spaces[0], layout, units, editor=editor, main=area == main)))
         ),
         *((f"{owner}.screens[0]", screen, {f"BIMAreaProperties[{index}].tab": layout.tab}) for index, area in enumerate(screen.areas) if area.type == "PROPERTIES"),
     )
@@ -368,7 +358,7 @@ def sidebars(window: bpy.types.Window, layout: Layout) -> tuple[tuple[str, bpy.t
             return ()
 
 
-def flipped(window: bpy.types.Window, area: bpy.types.Area, bar: bpy.types.Region, _alignment: str) -> None:
+def flipped(window: bpy.types.Window, area: bpy.types.Area, bar: bpy.types.Region) -> None:
     """Flip the navigation bar to the area's other side."""
     with override(window, area, bar):
         bpy.ops.screen.region_flip()
@@ -382,7 +372,7 @@ def navigation_bar(window: bpy.types.Window, area: bpy.types.Area, bar: bpy.type
             bpy.ops.screen.region_toggle(region_type=bar.type)
         yield TICK
         yield from changes(label, "hidden", "shown")
-    yield from converged(Row(label=f"{label}.alignment", read=lambda: bar.alignment, write=partial(flipped, window, area, bar), target="RIGHT"))
+    yield from converged(Action(label=f"{label}.alignment", read=lambda: bar.alignment, act=partial(flipped, window, area, bar), target="RIGHT"))
 
 
 def navigation_bars(window: bpy.types.Window) -> Iterator[float | str]:
@@ -395,7 +385,7 @@ def typed(space: bpy.types.SpaceConsole) -> tuple[str, ...]:
     return tuple(entry.body for entry in space.history if entry.body)
 
 
-def emptied(window: bpy.types.Window, area: bpy.types.Area, _history: tuple[str, ...]) -> None:
+def emptied(window: bpy.types.Window, area: bpy.types.Area) -> None:
     """Clear the console's typed history and keep its scrollback."""
     with override(window, area, next(region for region in area.regions if region.type == "WINDOW")):
         bpy.ops.console.clear(scrollback=False, history=True)
@@ -404,7 +394,7 @@ def emptied(window: bpy.types.Window, area: bpy.types.Area, _history: tuple[str,
 def cleared_history(window: bpy.types.Window) -> tuple[Row, ...]:
     """Row emptying each console's typed history on screen, which the startup save would otherwise store."""
     return tuple(
-        Row(label=f"{area_label(window.workspace, area)}.spaces[0].history", read=partial(typed, area.spaces[0]), write=partial(emptied, window, area), target=())
+        Action(label=f"{area_label(window.workspace, area)}.spaces[0].history", read=partial(typed, area.spaces[0]), act=partial(emptied, window, area), target=())
         for area in window.screen.areas
         if area.type == "CONSOLE"
     )
@@ -412,4 +402,4 @@ def cleared_history(window: bpy.types.Window) -> tuple[Row, ...]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["aligned", "cleared_history", "declared_workspace", "filtered", "fitted_cameras", "navigation_bars", "sidebars", "slots", "spaces", "studio_slot"]
+__all__ = ["aligned", "cleared_history", "declared_workspace", "filtered", "fitted_cameras", "navigation_bars", "sidebars", "slots", "spaces"]

@@ -36,7 +36,7 @@ result = as_result(sheet("<name>", 48))
 - `update_tag()` with a depsgraph update recomputes line art after scene edits, and a result without it misses objects added since its last evaluation
 - Grease Pencil data sits in `bpy.data.grease_pencils` on `GREASEPENCIL` objects, and Line Art is the `LINEART` modifier
 - `LINEART` modifiers write into their target layer at the current frame, a layer with no frame included
-- `sheet` answers `UnknownObjects` for a missing name, `NotOrthographic` for a perspective camera, and `NoStrokes` for no Line Art in view
+- `sheet` answers `UnknownObjects` for a missing name, `Rejected` with `not_orthographic` for a perspective camera, `no_strokes` for empty Line Art
 - Line weight, color, and opacity come from the strokes, a pen of `w` mm at 1:N sets the Line Art `radius` to `w * N / 1000`
 - Screen-ink white strokes write as document black on the sheet
 - `sheet` writes `<name>.svg` in paper inches and `<name>.pdf` on a page of the paper size through `typst`, `NoPdf` holds its diagnostics

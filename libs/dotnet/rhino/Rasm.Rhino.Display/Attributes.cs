@@ -1,5 +1,5 @@
+using System.Diagnostics;
 using System.Drawing;
-using Rasm.Rhino.Document;
 using Rhino.Display;
 
 namespace Rasm.Rhino.Display;
@@ -29,16 +29,16 @@ public static class DisplayAttributes {
             target,
             defaultColor: static (attributes, _) => attributes.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.DefaultColor,
             solidColor: static (attributes, solid) => {
-                attributes.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.SolidColor;
                 attributes.SetFill(solid.Color);
+                attributes.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.SolidColor;
             },
             gradient2Color: static (attributes, gradient) => {
-                attributes.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Gradient2Color;
                 attributes.SetFill(gradient.Top, gradient.Bottom);
+                attributes.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Gradient2Color;
             },
             gradient4Color: static (attributes, gradient) => {
-                attributes.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Gradient4Color;
                 attributes.SetFill(gradient.TopLeft, gradient.BottomLeft, gradient.TopRight, gradient.BottomRight);
+                attributes.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Gradient4Color;
             },
             bitmap: static (attributes, _) => attributes.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Bitmap,
             renderer: static (attributes, _) => attributes.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Renderer,
@@ -55,7 +55,7 @@ public static class DisplayAttributes {
                 DisplayPipelineAttributes.FrameBufferFillMode.Bitmap => new FrameBufferFill.Bitmap(),
                 DisplayPipelineAttributes.FrameBufferFillMode.Renderer => new FrameBufferFill.Renderer(),
                 DisplayPipelineAttributes.FrameBufferFillMode.Transparent => new FrameBufferFill.Transparent(),
-                _ => new Invalid(nameof(DisplayPipelineAttributes.FillMode)),
+                _ => throw new UnreachableException(),
             };
         });
 }

@@ -17,6 +17,7 @@
 
     <PropertyGroup Label="Rhino Plug-In" Condition="'$(ProjectRole)' == 'apps' and '$(RhinoHost)' != ''">
         <TargetExt>.rhp</TargetExt>
+        <Authors>Bardia Samiee</Authors>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <GenerateDependencyFile>false</GenerateDependencyFile>

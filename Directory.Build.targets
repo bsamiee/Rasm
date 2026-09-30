@@ -9,7 +9,7 @@
     <ItemGroup Label="Project Usings">
         <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
         <Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" />
-        <Using Include="LanguageExt;LanguageExt.Common;LanguageExt.Effects;LanguageExt.Pretty;LanguageExt.Traits;LanguageExt.Traits.Domain" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Core'))' != ''" />
+        <Using Include="LanguageExt;LanguageExt.Common;LanguageExt.Traits;LanguageExt.UnsafeValueAccess" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Core'))' != ''" />
         <Using Include="LanguageExt.Prelude" Static="true" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Core'))' != ''" />
         <Using Include="LanguageExt.Pipes" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Streaming'))' != ''" />
         <Using Include="LanguageExt.Sys;LanguageExt.Sys.IO;LanguageExt.Sys.Traits;LanguageExt.Sys.Diag" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Sys'))' != ''" />

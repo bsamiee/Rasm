@@ -6,8 +6,6 @@ from typing import ClassVar
 
 import msgspec
 
-from interface.host import bootstrap
-
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Call = RunPython | RunCommand | CloseDoc | SaveDoc | OpenDoc
@@ -72,10 +70,21 @@ class OpenDoc(Event, frozen=True, tag="mcp__rhino-mcp-platform__open_doc"):
 
 
 def wrap(source: str) -> str:
-    """Return comment lines from the first 31 lines for RhinoCode directives, then a `document.run` of the script in an undo step its first comment line names."""
+    """Return comment lines from the first 31 lines for RhinoCode directives, then a `document.run` of the script in an undo step its first comment line names, with the skill's modules imported fresh and bytecode written under this process's cache prefix."""
     comments = [(number, line) for number, line in enumerate(source.splitlines()) if line.lstrip().startswith("#")]
     label = next(filter(None, (line.strip().lstrip("# ") for _, line in comments)), "run_python")
-    return "\n".join((*(line for number, line in comments if number < 31), bootstrap("document", t"run({source}, {f'MCP: {label}'}, globals())", Path(__file__).parent), ""))
+    folder = Path(__file__).resolve().parent
+    location, names = str(folder), tuple(path.stem for path in folder.glob("*.py"))
+    return "\n".join((
+        *(line for number, line in comments if number < 31),
+        "import sys",
+        f"sys.pycache_prefix = {sys.pycache_prefix!r}",
+        f"if {location!r} not in sys.path: sys.path.insert(0, {location!r})",
+        f"for name in {names!r}: sys.modules.pop(name, None)",
+        "import document",
+        f"document.run({source!r}, {f'MCP: {label}'!r}, globals())",
+        "",
+    ))
 
 
 def decision(event: Call) -> dict[str, object]:

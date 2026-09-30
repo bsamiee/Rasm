@@ -84,33 +84,32 @@ public abstract partial record DimensionDisplayGeometry {
     public sealed record Ordinate(Point3d BasePoint, Point3d DefPoint, Point3d LeaderPoint, Point3d KinkPoint1, Point3d KinkPoint2, Seq<Line> Lines, Seq<Point3d> TextRectangle) : DimensionDisplayGeometry;
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record MissingMember(Type Subject, string Member) : Expected("{Subject} has no {Member}", ErrorOps.Code<MissingMember>());
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 public static partial class Dimensions {
     // --- [PLACEMENT]
     public static IO<Guid> Place(RhinoDoc doc, DimensionForm form, DimensionStyle style, Option<ObjectAttributes> attributes, Option<HistoryRecord> history, bool reference) =>
-        Disposal.Using(
-            form.Switch(
+        DisposalOps.Using(
+            IO.lift(() => form.Switch(
                 style,
-                linear: static (parent, linear) =>
-                    IO.lift(() => Missing.Unless<Dimension>(LinearDimension.Create(linear.Kind, parent, linear.Plane, linear.Horizontal, linear.DefPoint1, linear.DefPoint2, linear.DimLinePoint, linear.RotationInPlane), nameof(LinearDimension.Create))),
-                angularVertex: static (parent, vertex) => IO.lift(() => Missing.Unless<Dimension>(
+                linear: static (parent, linear) => Missing.Unless<Dimension>(
+                    LinearDimension.Create(linear.Kind, parent, linear.Plane, linear.Horizontal, linear.DefPoint1, linear.DefPoint2, linear.DimLinePoint, linear.RotationInPlane),
+                    nameof(LinearDimension.Create)),
+                angularVertex: static (parent, vertex) => Missing.Unless<Dimension>(
                     AngularDimension.Create(parent, vertex.Adjustment.Plane, vertex.Horizontal, vertex.Adjustment.CenterPoint, vertex.Adjustment.DefPoint1, vertex.Adjustment.DefPoint2, vertex.Adjustment.DimLinePoint),
-                    nameof(AngularDimension.Create))),
-                angularSpread: static (parent, spread) => IO.lift(() => Missing.Unless<Dimension>(
+                    nameof(AngularDimension.Create)),
+                angularSpread: static (parent, spread) => Missing.Unless<Dimension>(
                     AngularDimension.Create(
                         parent, spread.Adjustment.Plane, spread.Horizontal, spread.Adjustment.ExtPoint1, spread.Adjustment.ExtPoint2, spread.Adjustment.DirPoint1, spread.Adjustment.DirPoint2, spread.Adjustment.DimLinePoint),
-                    nameof(AngularDimension.Create))),
-                angularLines: static (parent, lines) =>
-                    IO.lift(() => Missing.Unless<Dimension>(AngularDimension.Create(parent, lines.Line1, lines.PointOnLine1, lines.Line2, lines.PointOnLine2, lines.PointOnArc, lines.SetExtensionPoints), nameof(AngularDimension.Create))),
-                angularArc: static (parent, arc) => IO.lift<Dimension>(() => new AngularDimension(arc.Arc, arc.Offset) { ParentDimensionStyle = parent }),
-                radial: static (parent, radial) => IO.lift(() => Missing.Unless<Dimension>(
+                    nameof(AngularDimension.Create)),
+                angularLines: static (parent, lines) => Missing.Unless<Dimension>(
+                    AngularDimension.Create(parent, lines.Line1, lines.PointOnLine1, lines.Line2, lines.PointOnLine2, lines.PointOnArc, lines.SetExtensionPoints),
+                    nameof(AngularDimension.Create)),
+                angularArc: static (parent, arc) => new AngularDimension(arc.Arc, arc.Offset) { ParentDimensionStyle = parent },
+                radial: static (parent, radial) => Missing.Unless<Dimension>(
                     RadialDimension.Create(parent, radial.Kind, radial.Adjustment.Plane, radial.Adjustment.CenterPoint, radial.Adjustment.RadiusPoint, radial.Adjustment.DimLinePoint),
-                    nameof(RadialDimension.Create))),
-                ordinate: static (parent, ordinate) => IO.lift(() => Missing.Unless<Dimension>(
+                    nameof(RadialDimension.Create)),
+                ordinate: static (parent, ordinate) => Missing.Unless<Dimension>(
                     OrdinateDimension.Create(
                         parent,
                         ordinate.Adjustment.Plane,
@@ -120,17 +119,14 @@ public static partial class Dimensions {
                         ordinate.Adjustment.LeaderPoint,
                         ordinate.Adjustment.KinkOffset1,
                         ordinate.Adjustment.KinkOffset2),
-                    nameof(OrdinateDimension.Create))),
-                centermarkAt: static (parent, mark) =>
-                    IO.lift(() => Missing.Unless<Dimension>(Centermark.Create(parent, mark.Adjustment.Plane, mark.Adjustment.CenterPoint, mark.Radius), nameof(Centermark.Create))),
-                centermarkOn: static (parent, mark) =>
-                    from parameter in IO.lift(() => Invalid.Unless(mark.Curve.Domain.IncludesParameter(mark.CurveParameter), nameof(Curve.Domain)))
-                    from created in IO.lift(() => Missing.Unless<Dimension>(Centermark.Create(parent, mark.Plane, mark.Curve, mark.CurveParameter), nameof(Centermark.Create)))
-                    select created),
-            dimension =>
-                from ids in TableOps.Apply(doc, new TableOp.Add(Seq(new GeometryPair(dimension, attributes)), history, reference))
-                from id in IO.lift(() => ids.Head.ToFin(new Missing(nameof(TableOps.Apply))))
-                select id);
+                    nameof(OrdinateDimension.Create)),
+                centermarkAt: static (parent, mark) => Missing.Unless<Dimension>(
+                    Centermark.Create(parent, mark.Adjustment.Plane, mark.Adjustment.CenterPoint, mark.Radius),
+                    nameof(Centermark.Create)),
+                centermarkOn: static (parent, mark) => Missing.Unless<Dimension>(
+                    Centermark.Create(parent, mark.Plane, mark.Curve, mark.CurveParameter),
+                    nameof(Centermark.Create)))),
+            dimension => TableOps.Add(doc, new GeometryPair(dimension, attributes), history, reference));
 
     // --- [EDITS]
     public static IO<Unit> Adjust(RhinoDoc doc, Guid id, DimensionAdjustment adjustment) =>
@@ -151,7 +147,7 @@ public static partial class Dimensions {
 
     public static IO<Unit> UpdateDimensionText(RhinoDoc doc, Guid id, LengthUnit units) =>
         RhinoObjects.ReplaceGeometry<Dimension>(doc, id, dimension =>
-            Disposal.Using(() => dimension.DimensionStyle, style => IO.lift(() => dimension.UpdateDimensionText(style, units))));
+            DisposalOps.Using(() => dimension.DimensionStyle, style => IO.lift(() => dimension.UpdateDimensionText(style, units))));
 
     // --- [READS]
     public static IO<DimensionState> State(RhinoDoc doc, Guid id) =>
@@ -164,8 +160,7 @@ public static partial class Dimensions {
             Centermark mark => TypeState(mark),
             _ => throw new UnreachableException(),
         })
-        from state in IO.lift(() => Project(resolved.Geometry, resolved.Object.DisplayText, resolved.Object.HasMeasurableTextFields, typeState))
-        select state;
+        select Project(resolved.Geometry, resolved.Object.DisplayText, resolved.Object.HasMeasurableTextFields, typeState);
 
     private static partial DimensionTypeState.Linear TypeState(LinearDimension linear);
 
@@ -183,7 +178,7 @@ public static partial class Dimensions {
 
     public static IO<DimensionDisplayGeometry> DisplayGeometry(RhinoDoc doc, Guid id, double scale) =>
         from resolved in Queries.Resolve<RhinoObject, Dimension>(doc, id)
-        from display in Disposal.Using(() => resolved.Geometry.DimensionStyle, style => IO.lift(resolved.Geometry switch {
+        from display in DisposalOps.Using(() => resolved.Geometry.DimensionStyle, style => IO.lift(resolved.Geometry switch {
             LinearDimension linear => Framed(
                     linear.Get3dPoints(out Point3d extension1, out Point3d extension2, out Point3d arrow1, out Point3d arrow2, out Point3d dimLine, out Point3d text),
                     linear.GetTextRectangle(out Point3d[] corners),
@@ -218,7 +213,7 @@ public static partial class Dimensions {
 
     public static IO<string> DisplayText(RhinoDoc doc, Guid id, LengthUnit units) =>
         from resolved in Queries.Resolve<RhinoObject, Dimension>(doc, id)
-        from text in Disposal.Using(() => resolved.Geometry.DimensionStyle, style => IO.lift<string>(resolved.Geometry switch {
+        from text in DisposalOps.Using(() => resolved.Geometry.DimensionStyle, style => IO.lift<string>(resolved.Geometry switch {
             LinearDimension linear => linear.GetDistanceDisplayText(units, style),
             AngularDimension angular => angular.GetAngleDisplayText(style),
             RadialDimension radial => radial.GetDistanceDisplayText(units, style),
@@ -230,16 +225,16 @@ public static partial class Dimensions {
 
     public static IO<Transform> TextTransform(RhinoDoc doc, Guid id, Option<(ViewportTarget Target, bool DrawForward)> viewport, double textScale) =>
         from resolved in Queries.Resolve<RhinoObject, AnnotationBase>(doc, id)
-        from transform in Disposal.Using(() => resolved.Geometry.DimensionStyle, style => viewport.Match(
+        from transform in DisposalOps.Using(() => resolved.Geometry.DimensionStyle, style => viewport.Match(
             Some: view =>
-                from row in Viewports.ResolveViewport(doc, view.Target)
-                from projected in Disposal.Using(() => new ViewportInfo(row.Viewport), info => IO.lift<Transform>(resolved.Geometry switch {
-                    Dimension dimension => dimension.GetTextTransform(info, style, textScale, view.DrawForward),
-                    TextEntity text => text.GetTextTransform(info, textScale, style),
-                    Leader => new MissingMember(typeof(Leader), nameof(TextEntity.GetTextTransform)),
-                    _ => throw new UnreachableException(),
-                }))
-                select projected,
+                DisposalOps.Using(
+                    DisposalOps.Using(Viewports.ResolveViewport(doc, view.Target), static row => IO.pure(new ViewportInfo(row.Viewport))),
+                    info => IO.lift<Transform>(resolved.Geometry switch {
+                        Dimension dimension => dimension.GetTextTransform(info, style, textScale, view.DrawForward),
+                        TextEntity text => text.GetTextTransform(info, textScale, style),
+                        Leader => new MissingMember(typeof(Leader), nameof(TextEntity.GetTextTransform)),
+                        _ => throw new UnreachableException(),
+                    })),
             None: () => IO.lift<Transform>(resolved.Geometry switch {
                 TextEntity text => text.GetTextTransform(textScale, style),
                 Dimension or Leader => new MissingMember(resolved.Geometry.GetType(), nameof(TextEntity.GetTextTransform)),

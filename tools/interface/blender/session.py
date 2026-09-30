@@ -136,11 +136,10 @@ async def ran(bundle: Bundle, launch: Launch) -> tuple[Line, ...]:
 
 
 # --- [SESSION]
-async def session(host: Host, bundle: Bundle, manifest: Manifest, essentials: frozenset[str], packages: tuple[Local | Listed, ...]) -> tuple[Line, ...]:
-    """Report rows of the interface run in a scripted Blender and the stored shelves and region widths edited once it quit, the windowed Blender released, quit, and reopened on its titled file, a companion bundle not installed a skip row."""
+async def session(host: Host, port: int, bundle: Bundle, manifest: Manifest, essentials: frozenset[str], packages: tuple[Local | Listed, ...]) -> tuple[Line, ...]:
+    """Report rows of the interface run in a scripted Blender and the stored shelves and region widths edited once it quit, the windowed Blender on the bridge port released, quit, and reopened on its titled file, a companion bundle not installed a skip row."""
     companions = ("com.microsoft.VSCode", "org.inkscape.Inkscape")
     code, inkscapes = await anyio.gather(*(located(identifier) for identifier in companions))
-    port = int(host.environ["BLENDER_MCP_PORT"])
     launch = Launch(
         report=str(host.artifacts / f"{host.app}.tsv"),
         renders=str(host.artifacts / "renders"),

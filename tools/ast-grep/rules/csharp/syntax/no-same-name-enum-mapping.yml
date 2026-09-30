@@ -48,4 +48,4 @@ rule:
                                                     kind: switch_expression_arm
                                                     pattern: {context: 'var t = k switch { $A.$NAME => $B.$NAME };', selector: switch_expression_arm}
 message: Switch pairs each `$DECLARED` member with a same-named member of another enum
-note: Hold the other enum's value and delete `$DECLARED` with its switch, both enums list the same members
+note: Use the other enum's value, with the declared enum and its switch deleted

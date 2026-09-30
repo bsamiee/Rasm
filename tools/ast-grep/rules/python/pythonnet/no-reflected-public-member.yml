@@ -97,4 +97,4 @@ transform:
             rewriters: [read-attribute, read-computed, invoke-attribute, invoke-attribute-listed, invoke-attribute-spread, invoke-computed, invoke-computed-listed, invoke-computed-spread, write-attribute, write-computed]
 fix: $DIRECT
 message: '`$CALL` reaches a public member of `$O` through reflection'
-note: 'Read, call, or assign the member on the instance, on its `__implementation__` where pythonnet returns it as an interface, and keep reflection for a non-public or static member, pythonnet binds every other returned object to its runtime type'
+note: 'Use the member on the instance, or on its `__implementation__` where pythonnet returns an interface, pythonnet binds every other returned object to its runtime type'

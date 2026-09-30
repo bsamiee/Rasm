@@ -37,4 +37,4 @@ rule:
             - all: [{inside: {kind: 'assert_statement'}}, {nthChild: 1}]
             - all: [{inside: {kind: 'conditional_expression'}}, {nthChild: 2}]
 message: 'Condition tests a Blender context member for absence'
-note: 'Read the member directly, Blender sets it in every script, handler, and operator context although the stub types it Optional'
+note: 'Use the member with no `None` test, Blender sets it in every script, handler, and operator context although its stub types it `Optional`'

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-terminology-applescript-tsx
+language: tsx
+severity: error
+ignores: ['**/.archive/**']
+rule:
+    kind: string, template_string
+    regex: |-
+        (?x)
+        (?:^(?:"|'|`)|\n|\\n|\btell\ application\b[^\n]*?\bto|\})[\ \t]*
+        (?:do\ (?:javascript|script|action)
+          |(?:quit|close\b[^\n]*?)\ saving\ (?:ask|no|yes)
+          |saving\ (?:ask|no|yes)
+          |language\ (?:javascript|uxpscript|applescript\ language)
+        )\b
+message: 'AppleScript source sends an Adobe scripting command by its dictionary term'
+note: 'Use the raw event form (`«event miscDjxM»`, `«event K2  dosc» given «class doLg»:«constant ScLgJSLg»`, `«event aevtquit» given «class savo»:«constant savono  »`), compiling a dictionary term launches a quit Illustrator or InDesign to read its terminology'

@@ -1,5 +1,5 @@
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Modeling;
 
@@ -9,6 +9,8 @@ public abstract partial record RailFrame {
     public sealed record Freeform() : RailFrame;
 
     public sealed record Roadlike(Vector3d Up) : RailFrame;
+
+    public sealed record AlignWithSurface() : RailFrame;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -33,7 +35,7 @@ public abstract partial record SweepOneMode {
 public abstract partial record SweepTwoMode {
     public sealed record Direct(Option<Point3d> Start, Option<Point3d> End, CurveFit Fit, bool PreserveHeight, bool AutoAdjust) : SweepTwoMode;
 
-    public sealed record Parameterized(Seq<double> Rail1Stations, Seq<double> Rail2Stations, CurveFit Fit, bool MaintainHeight, bool AutoAdjust, bool UseLegacySweeper, double AngleToleranceRadians) : SweepTwoMode;
+    public sealed record Parameterized(Seq<double> Rail1Stations, Seq<double> Rail2Stations, CurveFit Fit, bool MaintainHeight, bool AutoAdjust, double AngleToleranceRadians) : SweepTwoMode;
 
     public sealed record Partitioned(Seq<Point2d> RailParameters) : SweepTwoMode;
 }
@@ -45,83 +47,106 @@ public abstract partial record DevelopableMethod {
     public sealed record ByRulings(NurbsCurve Rail0, NurbsCurve Rail1, Seq<Point2d> Rulings) : DevelopableMethod;
 }
 
-public sealed record PatchOptions(int USpans, int VSpans, bool Trim, bool Tangency, double PointSpacing, double Flexibility, double SurfacePull, bool FixNorth, bool FixEast, bool FixSouth, bool FixWest);
-
 public sealed record VariationalPatchResult(Brep Patch, Option<string> Warning, Option<bool> G0Int, Option<bool> G0, Option<bool> G1, Option<bool> G2);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class LoftMapper {
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapProperty(nameof(SweepOneMode.Parameterized.Miter), nameof(SweepOneRail.MiterType), Use = nameof(MiterType))]
+    [MapperIgnoreSource(nameof(SweepOneMode.Parameterized.Stations), Justification = "SweepOneRail.PerformSweep station argument")]
+    [MapperIgnoreSource(nameof(SweepOneMode.Parameterized.Fit), Justification = "Selects the PerformSweep overload")]
+    internal static partial SweepOneRail ToSweeper(SweepOneMode.Parameterized stations, double sweepTolerance, bool closedSweep);
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapValue(nameof(SweepTwoRail.UseLegacySweeper), true)]
+    [MapperIgnoreSource(nameof(SweepTwoMode.Parameterized.Rail1Stations), Justification = "SweepTwoRail.PerformSweep station argument")]
+    [MapperIgnoreSource(nameof(SweepTwoMode.Parameterized.Rail2Stations), Justification = "SweepTwoRail.PerformSweep station argument")]
+    [MapperIgnoreSource(nameof(SweepTwoMode.Parameterized.Fit), Justification = "Selects the PerformSweep overload")]
+    internal static partial SweepTwoRail ToSweeper(SweepTwoMode.Parameterized stations, double sweepTolerance, bool closedSweep);
+
+    [UserMapping]
+    private static int MiterType(SweepMiter miter) => (int)miter;
+}
+
 public static class Lofts {
     // --- [LIMITS]
-    private const int MinimumShapes = 2;
-
     private const int MinimumRebuildPoints = 2;
-
-    // --- [FRAMES]
-    internal static (SweepFrame Frame, Vector3d Up) FrameOf(RailFrame frame) =>
-        frame.Switch<(SweepFrame Frame, Vector3d Up)>(
-            freeform: static _ => (SweepFrame.Freeform, Vector3d.Unset),
-            roadlike: static roadlike => (SweepFrame.Roadlike, roadlike.Up));
 
     // --- [SWEEPS]
     public static IO<Seq<Brep>> SweepOne(Curve rail, Seq<Curve> shapes, RailFrame frame, bool closed, SweepOneMode mode, double tolerance) =>
-        from filled in IO.lift(() => Invalid.Unless(!shapes.IsEmpty, nameof(shapes)))
-        from breps in mode.Switch(
-            (Rail: rail, Shapes: shapes, Frame: FrameOf(frame), Closed: closed, Tolerance: tolerance),
-            direct: static (sweep, direct) =>
-                from fit in IO.lift(() => RebuildArguments(direct.Fit))
-                from swept in GeometryResults.Acquire(() => Brep.CreateFromSweep(sweep.Rail, sweep.Shapes, direct.Start.IfNone(Point3d.Unset), direct.End.IfNone(Point3d.Unset), sweep.Frame.Frame, sweep.Frame.Up, sweep.Closed, direct.Blend, direct.Miter, sweep.Tolerance, fit.Rebuild, fit.PointCount, fit.RefitTolerance, direct.RefitRail), nameof(Brep.CreateFromSweep))
-                select swept,
-            segmented: static (sweep, segments) =>
-                from fit in IO.lift(() => RebuildArguments(segments.Fit))
-                from swept in GeometryResults.Acquire(() => Brep.CreateFromSweepSegmented(sweep.Rail, sweep.Shapes, segments.Start.IfNone(Point3d.Unset), segments.End.IfNone(Point3d.Unset), sweep.Frame.Frame, sweep.Frame.Up, sweep.Closed, segments.Blend, segments.Miter, sweep.Tolerance, fit.Rebuild, fit.PointCount, fit.RefitTolerance), nameof(Brep.CreateFromSweepSegmented))
-                select swept,
+        mode.Switch(
+            (Rail: rail,
+             Shapes: shapes,
+             Frame: frame.Switch<(SweepFrame Frame, Vector3d Up)>(
+                 freeform: static _ => (SweepFrame.Freeform, Vector3d.Unset),
+                 roadlike: static roadlike => (SweepFrame.Roadlike, roadlike.Up),
+                 alignWithSurface: static _ => (SweepFrame.AlignWithSurface, Vector3d.Unset)),
+             Closed: closed,
+             Tolerance: tolerance),
+            direct: static (sweep, direct) => GeometryResults.Acquire(
+                () => RebuildArguments(direct.Fit).Map(fit => Brep.CreateFromSweep(
+                    sweep.Rail, sweep.Shapes, direct.Start.IfNone(Point3d.Unset), direct.End.IfNone(Point3d.Unset), sweep.Frame.Frame, sweep.Frame.Up, sweep.Closed, direct.Blend, direct.Miter, sweep.Tolerance, fit.Rebuild, fit.PointCount, fit.RefitTolerance, direct.RefitRail)),
+                nameof(Brep.CreateFromSweep),
+                emptyFails: true),
+            segmented: static (sweep, segments) => GeometryResults.Acquire(
+                () => RebuildArguments(segments.Fit).Map(fit => Brep.CreateFromSweepSegmented(
+                    sweep.Rail, sweep.Shapes, segments.Start.IfNone(Point3d.Unset), segments.End.IfNone(Point3d.Unset), sweep.Frame.Frame, sweep.Frame.Up, sweep.Closed, segments.Blend, segments.Miter, sweep.Tolerance, fit.Rebuild, fit.PointCount, fit.RefitTolerance)),
+                nameof(Brep.CreateFromSweepSegmented),
+                emptyFails: true),
             parameterized: static (sweep, stations) =>
-                from counted in IO.lift(() => CountMismatch.Unless(sweep.Shapes.Count, stations.Stations.Count, nameof(SweepOneRail.PerformSweep)))
+                from ordered in IO.lift(() =>
+                    (Invalid.Unless(!sweep.Shapes.IsEmpty, nameof(shapes)), Invalid.Unless(sweep.Frame.Frame != SweepFrame.AlignWithSurface, nameof(frame)), CountMismatch.Unless(sweep.Shapes.Count, stations.Stations.Count, nameof(SweepOneRail.PerformSweep)))
+                        .Apply((_, _, _) => toSeq(from station in sweep.Shapes.Zip(stations.Stations) orderby station.Second select station))
+                        .As())
                 from sweeper in IO.lift(() => {
-                    SweepOneRail created = new() { SweepTolerance = sweep.Tolerance, AngleToleranceRadians = stations.AngleToleranceRadians, MiterType = (int)stations.Miter, ClosedSweep = sweep.Closed, GlobalShapeBlending = stations.GlobalShapeBlending };
-                    if (sweep.Frame.Frame == SweepFrame.Roadlike)
-                        created.SetRoadlikeUpDirection(sweep.Frame.Up);
+                    SweepOneRail created = LoftMapper.ToSweeper(stations, sweep.Tolerance, sweep.Closed);
+                    created.SetRoadlikeUpDirection(sweep.Frame.Up);
                     return created;
                 })
                 from swept in stations.Fit.Switch(
-                    (Sweeper: sweeper, sweep.Rail, sweep.Shapes, stations.Stations),
-                    asIs: static (run, _) => GeometryResults.Acquire(() => run.Sweeper.PerformSweep(run.Rail, run.Shapes, run.Stations), nameof(SweepOneRail.PerformSweep)),
-                    rebuild: static (run, rebuild) =>
-                        from points in IO.lift(() => RebuildPoints(rebuild))
-                        from breps in GeometryResults.Acquire(() => run.Sweeper.PerformSweepRebuild(run.Rail, run.Shapes, run.Stations, points), nameof(SweepOneRail.PerformSweepRebuild))
-                        select breps,
-                    refit: static (run, refit) => GeometryResults.Acquire(() => run.Sweeper.PerformSweepRefit(run.Rail, run.Shapes, run.Stations, refit.Tolerance), nameof(SweepOneRail.PerformSweepRefit)))
-                select swept)
-        select breps;
+                    (Sweeper: sweeper, sweep.Rail, Shapes: ordered.Map(static station => station.First), Stations: ordered.Map(static station => station.Second)),
+                    asIs: static (at, _) => GeometryResults.Acquire(() => at.Sweeper.PerformSweep(at.Rail, at.Shapes, at.Stations), nameof(SweepOneRail.PerformSweep), emptyFails: true),
+                    rebuild: static (at, rebuild) => GeometryResults.Acquire(
+                        () => from points in RebuildPoints(rebuild) select at.Sweeper.PerformSweepRebuild(at.Rail, at.Shapes, at.Stations, points),
+                        nameof(SweepOneRail.PerformSweepRebuild),
+                        emptyFails: true),
+                    refit: static (at, refit) => GeometryResults.Acquire(() => at.Sweeper.PerformSweepRefit(at.Rail, at.Shapes, at.Stations, refit.Tolerance), nameof(SweepOneRail.PerformSweepRefit), emptyFails: true))
+                select swept);
 
     public static IO<Seq<Brep>> SweepTwo(Curve rail1, Curve rail2, Seq<Curve> shapes, bool closed, SweepTwoMode mode, double tolerance) =>
-        from filled in IO.lift(() => Invalid.Unless(!shapes.IsEmpty, nameof(shapes)))
-        from breps in mode.Switch(
+        mode.Switch(
             (Rail1: rail1, Rail2: rail2, Shapes: shapes, Closed: closed, Tolerance: tolerance),
-            direct: static (sweep, direct) =>
-                from fit in IO.lift(() => RebuildArguments(direct.Fit))
-                from swept in GeometryResults.Acquire(() => Brep.CreateFromSweep(sweep.Rail1, sweep.Rail2, sweep.Shapes, direct.Start.IfNone(Point3d.Unset), direct.End.IfNone(Point3d.Unset), sweep.Closed, sweep.Tolerance, fit.Rebuild, fit.PointCount, fit.RefitTolerance, direct.PreserveHeight, direct.AutoAdjust), nameof(Brep.CreateFromSweep))
-                select swept,
+            direct: static (sweep, direct) => GeometryResults.Acquire(
+                () => RebuildArguments(direct.Fit).Map(fit => Brep.CreateFromSweep(
+                    sweep.Rail1, sweep.Rail2, sweep.Shapes, direct.Start.IfNone(Point3d.Unset), direct.End.IfNone(Point3d.Unset), sweep.Closed, sweep.Tolerance, fit.Rebuild, fit.PointCount, fit.RefitTolerance, direct.PreserveHeight, direct.AutoAdjust)),
+                nameof(Brep.CreateFromSweep),
+                emptyFails: true),
             parameterized: static (sweep, parameterized) =>
                 from counted in IO.lift(() =>
-                    from first in CountMismatch.Unless(sweep.Shapes.Count, parameterized.Rail1Stations.Count, nameof(SweepTwoRail.PerformSweep))
-                    from second in CountMismatch.Unless(sweep.Shapes.Count, parameterized.Rail2Stations.Count, nameof(SweepTwoRail.PerformSweep))
-                    select unit)
-                from sweeper in IO.lift(() => new SweepTwoRail { SweepTolerance = sweep.Tolerance, AngleToleranceRadians = parameterized.AngleToleranceRadians, MaintainHeight = parameterized.MaintainHeight, ClosedSweep = sweep.Closed, AutoAdjust = parameterized.AutoAdjust, UseLegacySweeper = parameterized.UseLegacySweeper })
+                    (CountMismatch.Unless(sweep.Shapes.Count, parameterized.Rail1Stations.Count, nameof(SweepTwoRail.PerformSweep)), CountMismatch.Unless(sweep.Shapes.Count, parameterized.Rail2Stations.Count, nameof(SweepTwoRail.PerformSweep)))
+                        .Apply(static (_, _) => unit)
+                        .As())
                 from swept in parameterized.Fit.Switch(
-                    (Sweeper: sweeper, Sweep: sweep, Stations: parameterized),
-                    asIs: static (run, _) => GeometryResults.Acquire(() => run.Sweeper.PerformSweep(run.Sweep.Rail1, run.Sweep.Rail2, run.Sweep.Shapes, run.Stations.Rail1Stations, run.Stations.Rail2Stations), nameof(SweepTwoRail.PerformSweep)),
-                    rebuild: static (run, rebuild) =>
-                        from points in IO.lift(() => RebuildPoints(rebuild))
-                        from breps in GeometryResults.Acquire(() => run.Sweeper.PerformSweepRebuild(run.Sweep.Rail1, run.Sweep.Rail2, run.Sweep.Shapes, run.Stations.Rail1Stations, run.Stations.Rail2Stations, points), nameof(SweepTwoRail.PerformSweepRebuild))
-                        select breps,
-                    refit: static (run, refit) => GeometryResults.Acquire(() => run.Sweeper.PerformSweepRefit(run.Sweep.Rail1, run.Sweep.Rail2, run.Sweep.Shapes, run.Stations.Rail1Stations, run.Stations.Rail2Stations, refit.Tolerance), nameof(SweepTwoRail.PerformSweepRefit)))
+                    (Sweeper: LoftMapper.ToSweeper(parameterized, sweep.Tolerance, sweep.Closed), Sweep: sweep, Stations: parameterized),
+                    asIs: static (at, _) => GeometryResults.Acquire(
+                        () => at.Sweeper.PerformSweep(at.Sweep.Rail1, at.Sweep.Rail2, at.Sweep.Shapes, at.Stations.Rail1Stations, at.Stations.Rail2Stations),
+                        nameof(SweepTwoRail.PerformSweep),
+                        emptyFails: true),
+                    rebuild: static (at, rebuild) => GeometryResults.Acquire(
+                        () => from points in RebuildPoints(rebuild) select at.Sweeper.PerformSweepRebuild(at.Sweep.Rail1, at.Sweep.Rail2, at.Sweep.Shapes, at.Stations.Rail1Stations, at.Stations.Rail2Stations, points),
+                        nameof(SweepTwoRail.PerformSweepRebuild),
+                        emptyFails: true),
+                    refit: static (at, refit) => GeometryResults.Acquire(
+                        () => at.Sweeper.PerformSweepRefit(at.Sweep.Rail1, at.Sweep.Rail2, at.Sweep.Shapes, at.Stations.Rail1Stations, at.Stations.Rail2Stations, refit.Tolerance),
+                        nameof(SweepTwoRail.PerformSweepRefit),
+                        emptyFails: true))
                 select swept,
-            partitioned: static (sweep, parts) =>
-                from counted in IO.lift(() => CountMismatch.Unless(sweep.Shapes.Count, parts.RailParameters.Count, nameof(Brep.CreateFromSweepInParts)))
-                from swept in GeometryResults.Acquire(() => Brep.CreateFromSweepInParts(sweep.Rail1, sweep.Rail2, sweep.Shapes, parts.RailParameters, sweep.Closed, sweep.Tolerance), nameof(Brep.CreateFromSweepInParts))
-                select swept)
-        select breps;
+            partitioned: static (sweep, parts) => GeometryResults.Acquire(
+                () => CountMismatch.Unless(sweep.Shapes.Count, parts.RailParameters.Count, nameof(Brep.CreateFromSweepInParts))
+                    .Map(_ => Brep.CreateFromSweepInParts(sweep.Rail1, sweep.Rail2, sweep.Shapes, parts.RailParameters, sweep.Closed, sweep.Tolerance)),
+                nameof(Brep.CreateFromSweepInParts),
+                emptyFails: true));
 
     private static Fin<(SweepRebuild Rebuild, int PointCount, double RefitTolerance)> RebuildArguments(CurveFit fit) =>
         fit.Switch<Fin<(SweepRebuild Rebuild, int PointCount, double RefitTolerance)>>(
@@ -134,57 +159,69 @@ public static class Lofts {
 
     // --- [LOFTS]
     public static IO<Seq<Brep>> Loft(Seq<Curve> shapes, Option<Point3d> start, Option<Point3d> end, LoftType kind, bool closed, CurveFit fit, double angleTolerance) =>
-        from filled in IO.lift(() => Limits.AtLeast(MinimumShapes).Check(shapes.Count, nameof(shapes)))
-        from breps in fit.Switch(
+        fit.Switch(
             (Shapes: shapes, Start: start.IfNone(Point3d.Unset), End: end.IfNone(Point3d.Unset), Kind: kind, Closed: closed, Angle: angleTolerance),
-            asIs: static (loft, _) => GeometryResults.Acquire(() => Brep.CreateFromLoft(loft.Shapes, loft.Start, loft.End, loft.Kind, loft.Closed, loft.Angle), nameof(Brep.CreateFromLoft)),
-            rebuild: static (loft, rebuild) =>
-                from points in IO.lift(() => RebuildPoints(rebuild))
-                from lofted in GeometryResults.Acquire(() => Brep.CreateFromLoftRebuild(loft.Shapes, loft.Start, loft.End, loft.Kind, loft.Closed, loft.Angle, points), nameof(Brep.CreateFromLoftRebuild))
-                select lofted,
-            refit: static (loft, refit) => GeometryResults.Acquire(() => Brep.CreateFromLoftRefit(loft.Shapes, loft.Start, loft.End, loft.Kind, loft.Closed, loft.Angle, refit.Tolerance), nameof(Brep.CreateFromLoftRefit)))
-        select breps;
+            asIs: static (loft, _) => GeometryResults.Acquire(() => Brep.CreateFromLoft(loft.Shapes, loft.Start, loft.End, loft.Kind, loft.Closed, loft.Angle), nameof(Brep.CreateFromLoft), emptyFails: true),
+            rebuild: static (loft, rebuild) => GeometryResults.Acquire(
+                () => RebuildPoints(rebuild).Map(points => Brep.CreateFromLoftRebuild(loft.Shapes, loft.Start, loft.End, loft.Kind, loft.Closed, loft.Angle, points)),
+                nameof(Brep.CreateFromLoftRebuild),
+                emptyFails: true),
+            refit: static (loft, refit) => GeometryResults.Acquire(
+                () => Brep.CreateFromLoftRefit(loft.Shapes, loft.Start, loft.End, loft.Kind, loft.Closed, loft.Angle, refit.Tolerance),
+                nameof(Brep.CreateFromLoftRefit),
+                emptyFails: true));
 
     public static IO<Seq<Brep>> LoftTangent(Seq<Curve> shapes, Option<Point3d> start, Option<Point3d> end, BrepTrim startTrim, BrepTrim endTrim, bool startTangent, bool endTangent, LoftType kind, bool closed) =>
-        from filled in IO.lift(() => Limits.AtLeast(MinimumShapes).Check(shapes.Count, nameof(shapes)))
-        from breps in GeometryResults.Acquire(() => Brep.CreateFromLoft(shapes, start.IfNone(Point3d.Unset), end.IfNone(Point3d.Unset), startTangent, endTangent, startTrim, endTrim, kind, closed), nameof(Brep.CreateFromLoft))
-        select breps;
+        GeometryResults.Acquire(
+            () => Brep.CreateFromLoft(shapes, start.IfNone(Point3d.Unset), end.IfNone(Point3d.Unset), startTangent, endTangent, startTrim, endTrim, kind, closed),
+            nameof(Brep.CreateFromLoft),
+            emptyFails: true);
 
     public static IO<Seq<Brep>> Developable(DevelopableMethod method) =>
         method.Switch(
-            byDensity: static dense =>
-                from density in IO.lift(() => Limits.AtLeast(1).Check(dense.Density, nameof(DevelopableMethod.ByDensity.Density)))
-                from breps in GeometryResults.Acquire(() => Brep.CreateDevelopableLoft(dense.Curve0, dense.Curve1, dense.Reverse0, dense.Reverse1, density), nameof(Brep.CreateDevelopableLoft))
-                select breps,
-            byRulings: static ruled =>
-                from filled in IO.lift(() => Invalid.Unless(!ruled.Rulings.IsEmpty, nameof(DevelopableMethod.ByRulings.Rulings)))
-                from breps in GeometryResults.Acquire(() => Brep.CreateDevelopableLoft(ruled.Rail0, ruled.Rail1, ruled.Rulings), nameof(Brep.CreateDevelopableLoft))
-                select breps);
+            byDensity: static dense => GeometryResults.Acquire(
+                () => Brep.CreateDevelopableLoft(dense.Curve0, dense.Curve1, dense.Reverse0, dense.Reverse1, dense.Density),
+                nameof(Brep.CreateDevelopableLoft),
+                emptyFails: true),
+            byRulings: static ruled => GeometryResults.Acquire(
+                () => Invalid.Unless(!ruled.Rulings.IsEmpty, nameof(DevelopableMethod.ByRulings.Rulings)).Map(_ => Brep.CreateDevelopableLoft(ruled.Rail0, ruled.Rail1, ruled.Rulings)),
+                nameof(Brep.CreateDevelopableLoft),
+                emptyFails: true));
 
     // --- [PATCHES]
-    public static IO<Brep> Patch(Seq<GeometryBase> geometry, Option<Surface> starting, PatchOptions options, double tolerance) =>
-        from valid in IO.lift(() =>
-            from filled in Invalid.Unless(!geometry.IsEmpty, nameof(geometry))
-            from uSpanned in Limits.AtLeast(1).Check(options.USpans, nameof(PatchOptions.USpans))
-            from vSpanned in Limits.AtLeast(1).Check(options.VSpans, nameof(PatchOptions.VSpans))
-            select unit)
-        from patch in IO.lift(() => Missing.Unless(Brep.CreatePatch(
+    public static IO<Brep> Patch(
+        Seq<GeometryBase> geometry,
+        Option<Surface> starting,
+        int uSpans,
+        int vSpans,
+        bool trim,
+        bool tangency,
+        double pointSpacing,
+        double flexibility,
+        double surfacePull,
+        (bool North, bool East, bool South, bool West) fixedEdges,
+        double tolerance) =>
+        GeometryResults.Acquire(
+            () => Invalid.Unless(!geometry.IsEmpty, nameof(geometry)).Map(_ => Brep.CreatePatch(
                 geometry,
                 starting.ValueUnsafe(),
-                options.USpans,
-                options.VSpans,
-                options.Trim,
-                options.Tangency,
-                options.PointSpacing,
-                options.Flexibility,
-                options.SurfacePull,
-                [options.FixNorth, options.FixEast, options.FixSouth, options.FixWest],
-                tolerance), nameof(Brep.CreatePatch)))
-        select patch;
+                uSpans,
+                vSpans,
+                trim,
+                tangency,
+                pointSpacing,
+                flexibility,
+                surfacePull,
+                [fixedEdges.North, fixedEdges.East, fixedEdges.South, fixedEdges.West],
+                tolerance)),
+            nameof(Brep.CreatePatch));
 
     public static IO<VariationalPatchResult> Variational(Seq<(Curve Curve, Continuity Continuity)> edges, Seq<(Curve Curve, Continuity Continuity)> interior, Seq<Point3d> points, Brep.VariationalPatchSettings settings, bool multiThreading, Option<IProgress<double>> progress, CancellationToken cancel) =>
-        from filled in IO.lift(() => Invalid.Unless(!edges.IsEmpty, nameof(edges)))
-        from result in IO.lift(() => Optional(Brep.CreateVariationalPatch(
+        from bounded in DisposalOps.Using(
+            IO.lift(() => toSeq(Curve.JoinCurves(edges.Map(static edge => edge.Curve), settings.Tolerance))),
+            static loops => IO.lift(() => OpenBoundary.Unless(loops.ForAll(static loop => loop.IsClosed), nameof(edges))))
+        from answer in IO.lift(() => (
+            Patch: Brep.CreateVariationalPatch(
                 edges.Map(static edge => new Brep.CurveConstraint(edge.Curve, edge.Continuity)),
                 interior.Map(static edge => new Brep.CurveConstraint(edge.Curve, edge.Continuity)),
                 points.Map(static point => new Brep.PointConstraint(point)),
@@ -192,8 +229,10 @@ public static class Lofts {
                 multiThreading,
                 cancel,
                 progress.ValueUnsafe(),
-                out Brep.VariationalPatchResult results))
-            .ToFin(Answers.Present(results.Error).Match<VariationalPatchFailed>(Some: static reason => new VariationalPatchFailed.WithReason(reason), None: static () => new VariationalPatchFailed.WithoutReason()))
-            .Map(created => new VariationalPatchResult(created, Answers.Present(results.Warning), Optional(results.G0Int), Optional(results.G0), Optional(results.G1), Optional(results.G2))))
-        select result;
+                out Brep.VariationalPatchResult results),
+            Results: results))
+        from patch in GeometryResults.Acquire(
+            () => Optional(answer.Patch).ToFin(Answers.Present(answer.Results.Error).Match<Error>(Some: static reason => new VariationalPatchFailed(reason), None: () => cancel.IsCancellationRequested ? new Canceled() : new Missing(nameof(Brep.CreateVariationalPatch)))),
+            nameof(Brep.CreateVariationalPatch))
+        select new VariationalPatchResult(patch, Answers.Present(answer.Results.Warning), Optional(answer.Results.G0Int), Optional(answer.Results.G0), Optional(answer.Results.G1), Optional(answer.Results.G2));
 }

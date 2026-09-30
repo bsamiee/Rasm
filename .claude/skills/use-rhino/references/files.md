@@ -56,6 +56,6 @@ Use `use-blender` for Blender imports and IFC files.
 - `RhinoDoc.CreateHeadless(None)` makes an empty document in Millimeters with no window, `RhinoDoc.OpenHeadless(path)` opens a `.3dm` alone
 - Headless documents take RhinoCommon and typed writers
 - Headless documents write no lock file, stay out of `list_slots` and `documents()`, and leave the active document as it was
-- Headless documents list no render environment of their file and take no named view, `File3dm.Read(path).RenderEnvironments` lists the file's
+- Headless documents list no render environment of their file, `File3dm.Read(path).RenderEnvironments` lists the file's
 - `RhinoDoc.Create(None)` makes a document with views and no window that no close removes, work without a window takes `CreateHeadless`
 - Headless opens of an unreadable `.3dm` crash the Rhino process, `convert` and `load` refuse one through `File3dm.Read` first

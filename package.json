@@ -383,6 +383,14 @@
                     ],
                     "parallel": false
                 }
+            },
+            "clean": {
+                "executor": "nx:run-commands",
+                "parallelism": false,
+                "options": {
+                    "commands": ["dotnet clean Workspace.slnx", "dotnet nuget locals all --clear", "uv cache clean", "pulumi plugin rm --all --yes"],
+                    "parallel": false
+                }
             }
         }
     }

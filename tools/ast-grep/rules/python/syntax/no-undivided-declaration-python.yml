@@ -15,4 +15,4 @@ rule:
           has: {kind: assignment, has: {field: left, pattern: $NAME}}
     not: {follows: {stopBy: end, matches: text-section-divider}}
 message: Declaration `$NAME` sits above every section divider
-note: Open the section of its kind with `# --- [<SECTION>] ` dashed to column 90 above it, every declaration sits under a divider
+note: 'Use a `# --- [<SECTION>] ` divider dashed to column 90 above the declaration, every declaration sits under a divider'

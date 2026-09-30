@@ -3,7 +3,7 @@
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
     "files": {
         "ignoreUnknown": true,
-        "includes": ["**", "!**/*.xcassets", "!**/*.icon", "!.claude/types/claude-code.d.ts", "!tools/interface/adobe/script/*.jsx"]
+        "includes": ["**", "!!.venv", "!**/*.xcassets", "!**/*.icon", "!.claude/types/claude-code.d.ts", "!tools/interface/adobe/script/*.jsx"]
     },
     "formatter": { "useEditorconfig": true, "lineWidth": 200 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },

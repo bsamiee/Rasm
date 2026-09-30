@@ -23,8 +23,6 @@ utils:
         all:
             - pattern: $CHECK($PATH)
             - has: {field: function, regex: '^((global::)?System\.IO\.)?Path\s*\.\s*IsPathFullyQualified$'}
-    member:
-        kind: method_declaration, local_function_statement, constructor_declaration, accessor_declaration, operator_declaration, lambda_expression, query_expression
     affirmed:
         any:
             - matches: check
@@ -91,4 +89,4 @@ rule:
             - inside: {stopBy: end, matches: effect}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^QualifiedPath$'}}}}
 message: "`$CHECK($PATH)` requires a qualified path inside an effect by hand"
-note: Bind `Answers.QualifiedPath(<path>)`, `QualifiedPath` fails with `Invalid` on a path that is not fully qualified
+note: Use `Answers.QualifiedPath(<path>)` as a bind step, `QualifiedPath` fails with `Invalid` on a path that is not fully qualified

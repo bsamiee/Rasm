@@ -8,4 +8,4 @@ rule:
     precedes: {stopBy: end, matches: csharp-labeled-divider}
     not: {follows: {stopBy: end, matches: csharp-labeled-divider}}
 message: Member of a subdivided owner sits above its first family divider
-note: Use the `// --- [<FAMILY>]` divider that names what the member does above it
+note: Use a `// --- [<FAMILY>]` divider above it naming what the member does

@@ -171,5 +171,5 @@ transform:
     REST:
         replace: {source: $$$ARGS, replace: '(?s)^(.+)$', by: ', $1'}
 fix: $F$REST$UNFIXED
-message: '`$BOUND` binds arguments the runner passes to the function itself'
-note: 'Pass `<runner>(<function>, <arguments>)` and delete the binding, anyio runners forward positional `*args` to the function'
+message: '`$BOUND` binds arguments to the function an anyio runner calls'
+note: 'Use `<runner>(<function>, <arguments>)`, anyio runners forward positional `*args` to the function'

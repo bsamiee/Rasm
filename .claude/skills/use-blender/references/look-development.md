@@ -47,7 +47,7 @@ Metals reflect the world and render near black under the flat gray default world
 - `sun_elevation` (default 15°) and `sun_rotation` place the sky's sun, `altitude` (default 100 m) is meters above sea level
 - `sun_disc` lights both engines, EEVEE below Cycles through its world light
 - Site light pairs the sky with `sun_disc` False and a SUN lamp at the disc's irradiance
-- Sun to sky on a horizontal plane is 7.4:1 under the physical sky
+- Sun to sky on a horizontal plane is 7.9:1 under the physical sky
 - Added lights take physical watts, and under exposure -5.3 a 1000 W point light 5 m above a gray floor renders it dark
 - EEVEE turns world light above `world.sun_threshold` (10 by default) into a sun of its own, 0 turns the extraction off
 - Lights changed to `SUN` read again from `bpy.data.lights`, a handle taken before the change stays a point light

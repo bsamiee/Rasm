@@ -111,7 +111,7 @@ def imported_theme(context: bpy.types.Context) -> Iterator[str]:
     source = theme.filepath
     bpy.ops.preferences.reset_default_theme()
     before, wanted = read(held), {**read(exported()), **read(text)}
-    lines = tuple(chain.from_iterable(changes(label, before[label], value) for label, value in wanted.items()))
+    lines = tuple(change for label, value in wanted.items() for change in changes(label, before[label], value))
     yield from converged(Row(label=subscript("presets", f"{menu.preset_subdir}/{preset.name}"), read=stored_preset, write=partial(preset.write_text, encoding="utf-8"), target=text))
     if lines:
         bpy.ops.script.execute_preset(filepath=str(preset), menu_idname=menu.__name__)

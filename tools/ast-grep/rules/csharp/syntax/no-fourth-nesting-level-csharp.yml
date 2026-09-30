@@ -7,8 +7,12 @@ utils:
         kind: method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration, local_function_statement, lambda_expression, anonymous_method_expression
     nested-function:
         kind: local_function_statement, lambda_expression, anonymous_method_expression
-    fourth-function:
+    scope: {any: [{matches: nested-function}, {matches: control}]}
+    enclosing-function:
         matches: nested-function
+        has: {matches: scope, stopBy: end}
+    fourth-function:
+        matches: enclosing-function
         inside:
             matches: nested-function
             stopBy: end
@@ -24,11 +28,69 @@ utils:
             - kind: conditional_expression
               not: {inside: {kind: conditional_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}}
     boundary: {any: [{matches: control}, {matches: function}]}
+    helper:
+        any:
+            - kind: method_declaration
+              not: {has: {kind: modifier, regex: '^(public|protected|override|abstract|extern|partial)$'}}
+            - kind: local_function_statement
+    helper-site:
+        all:
+            - kind: identifier
+            - pattern: $HELPER
+            - not: {inside: {stopBy: end, kind: 'method_declaration, local_function_statement', has: {field: name, pattern: $HELPER}}}
+    other-site:
+        any: [{matches: helper-site}, {has: {stopBy: end, matches: helper-site}}]
+    beside-site:
+        any: [{follows: {stopBy: end, matches: other-site}}, {precedes: {stopBy: end, matches: other-site}}]
+    lone-site:
+        all:
+            - matches: helper-site
+            - pattern: $CALL
+            - not: {inside: {matches: fourth-function, stopBy: end}}
+            - not: {matches: beside-site}
+            - not: {inside: {stopBy: end, not: {kind: compilation_unit}, matches: beside-site}}
+    invoked-site:
+        any:
+            - inside: {kind: invocation_expression, field: function}
+            - inside: {kind: 'generic_name, member_access_expression', inside: {kind: invocation_expression, field: function}}
+    site-1:
+        all:
+            - matches: lone-site
+            - any:
+                - not: {matches: invoked-site}
+                - inside: {matches: nested-function, stopBy: end}
+    site-2:
+        all:
+            - matches: lone-site
+            - any:
+                - all: [{not: {matches: invoked-site}}, {inside: {matches: nested-function, stopBy: end}}]
+                - inside: {matches: nested-function, stopBy: end, inside: {matches: nested-function, stopBy: end}}
+    site-3:
+        all:
+            - matches: lone-site
+            - any:
+                - all: [{not: {matches: invoked-site}}, {inside: {matches: nested-function, stopBy: end, inside: {matches: nested-function, stopBy: end}}}]
+                - inside: {matches: nested-function, stopBy: end, inside: {matches: nested-function, stopBy: end, inside: {matches: nested-function, stopBy: end}}}
+    helper-body-1:
+        has: {matches: enclosing-function, stopBy: end}
+    helper-body-2:
+        has: {matches: nested-function, stopBy: end, has: {matches: enclosing-function, stopBy: end}}
+    helper-body-3:
+        has: {matches: nested-function, stopBy: end, has: {matches: nested-function, stopBy: end, has: {matches: enclosing-function, stopBy: end}}}
 rule:
     pattern: $SCOPE
     any:
         - matches: fourth-function
           not: {inside: {matches: fourth-function, stopBy: end}}
+        - all:
+            - matches: helper
+            - has: {field: name, pattern: $HELPER}
+            - matches: helper-body-1
+            - not: {has: {matches: fourth-function, stopBy: end}}
+            - any:
+                - all: [{matches: helper-body-3}, {inside: {kind: 'declaration_list, block, switch_section', has: {stopBy: end, matches: site-1}}}]
+                - all: [{matches: helper-body-2}, {inside: {kind: 'declaration_list, block, switch_section', has: {stopBy: end, matches: site-2}}}]
+                - inside: {kind: 'declaration_list, block, switch_section', has: {stopBy: end, matches: site-3}}
         - matches: control
           inside:
             matches: control
@@ -41,6 +103,7 @@ rule:
                     stopBy: {matches: boundary}
                     not: {inside: {matches: control, stopBy: {matches: function}}}
 message: Function or control nesting reaches a fourth level
-note: Flatten the logic upstream into a match, query, or pipeline, an extracted helper keeps the fourth level one call away
+note: Use a match, query, or pipeline of flat steps, an extracted helper keeps the fourth level one call away, and a fourth-level lambda holding no function or control of its own stands
 labels:
     SCOPE: {style: primary}
+    CALL: {style: secondary, message: One call site of the helper}

@@ -20,4 +20,4 @@ rule:
     nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
     not: {matches: export-list}
 message: Module closes with a statement in place of its `__all__` export list
-note: 'Close the file under `[EXPORTS]` with `__all__ = [<names>]`, `[]` when the module exports nothing, one literal list then holds every public name'
+note: 'Use `__all__ = [<names>]` under `[EXPORTS]` as the last statement, `[]` when the module exports nothing, one literal list holds every public name'

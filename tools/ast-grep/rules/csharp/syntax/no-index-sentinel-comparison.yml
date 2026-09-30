@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-index-sentinel-comparison
+language: csharp
+severity: error
+utils:
+    zero:
+        kind: integer_literal
+        regex: '^0$'
+    minus-one:
+        kind: prefix_unary_expression
+        regex: '^-\s*1$'
+    array-type:
+        regex: '^((global::)?System\.)?Array$'
+    arity-one:
+        kind: argument_list
+        all: [{has: {kind: argument, nthChild: 1}}, {not: {has: {kind: argument, nthChild: 2}}}]
+    arity-two:
+        kind: argument_list
+        all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]
+    search:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: expression, pattern: $RECV}
+                    - has: {field: name, pattern: $NAME, regex: '^((Last)?IndexOf(Any(Except)?(InRange)?)?|Find(Last)?Index)$'}
+            - has: {field: arguments, pattern: $ARGS}
+            - any:
+                - has: {field: function, has: {field: name, regex: '^(Last)?IndexOfAny(Except|InRange|ExceptInRange)$'}}
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^(Last)?IndexOfAny$'}}
+                    - has:
+                        field: arguments
+                        any:
+                            - matches: arity-one
+                            - has: {kind: argument, nthChild: 1, has: {kind: 'character_literal, integer_literal, real_literal'}}
+                - all:
+                    - has: {field: function, all: [{has: {field: name, regex: '^(Last)?IndexOf$'}}, {not: {has: {field: expression, matches: array-type}}}]}
+                    - has:
+                        field: arguments
+                        any:
+                            - all:
+                                - matches: arity-one
+                                - not: {has: {kind: argument, has: {kind: 'string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression'}}}
+                            - all:
+                                - matches: arity-two
+                                - has: {kind: argument, nthChild: 2, regex: '^((global::)?System\.)?StringComparison\.\w+$'}
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^Find(Last)?Index$'}}
+                    - any:
+                        - all: [{has: {field: function, has: {field: expression, matches: array-type}}}, {has: {field: arguments, matches: arity-two}}]
+                        - all: [{has: {field: function, not: {has: {field: expression, matches: array-type}}}}, {has: {field: arguments, matches: arity-one}}]
+    comparison:
+        any:
+            - kind: binary_expression
+              any:
+                - all: [{has: {field: left, matches: search}}, {has: {field: operator, regex: '^<$', pattern: $$ABSENT}}, {has: {field: right, matches: zero}}]
+                - all: [{has: {field: left, matches: search}}, {has: {field: operator, regex: '^(==|<=)$', pattern: $$ABSENT}}, {has: {field: right, matches: minus-one}}]
+                - all: [{has: {field: left, matches: zero}}, {has: {field: operator, regex: '^>$', pattern: $$ABSENT}}, {has: {field: right, matches: search}}]
+                - all: [{has: {field: left, matches: minus-one}}, {has: {field: operator, regex: '^(==|>=)$', pattern: $$ABSENT}}, {has: {field: right, matches: search}}]
+                - all: [{has: {field: left, matches: search}}, {has: {field: operator, regex: '^>=$'}}, {has: {field: right, matches: zero}}]
+                - all: [{has: {field: left, matches: search}}, {has: {field: operator, regex: '^(!=|>)$'}}, {has: {field: right, matches: minus-one}}]
+                - all: [{has: {field: left, matches: zero}}, {has: {field: operator, regex: '^<=$'}}, {has: {field: right, matches: search}}]
+                - all: [{has: {field: left, matches: minus-one}}, {has: {field: operator, regex: '^(!=|<)$'}}, {has: {field: right, matches: search}}]
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, matches: search}
+                - has:
+                    field: pattern
+                    any:
+                        - kind: relational_pattern
+                          regex: '^(<\s*0|<=\s*-\s*1)$'
+                          pattern: $ABSENT
+                        - kind: constant_pattern
+                          regex: '^-\s*1$'
+                          pattern: $ABSENT
+                        - kind: relational_pattern
+                          regex: '^(>=\s*0|>\s*-\s*1)$'
+                        - kind: negated_pattern
+                          regex: '^not\s+-\s*1$'
+rule:
+    any:
+        - kind: parenthesized_expression
+          all:
+            - has: {matches: comparison}
+            - not: {inside: {kind: 'member_access_expression, conditional_access_expression, element_access_expression'}}
+        - matches: comparison
+          not: {inside: {kind: parenthesized_expression}}
+transform:
+    ANY: {replace: {source: $NAME, replace: '^(Last)?IndexOfAny', by: ContainsAny}}
+    ELEMENT: {replace: {source: $ANY, replace: '^(Last)?IndexOf$', by: Contains}}
+    PRESENCE: {replace: {source: $ELEMENT, replace: '^Find(Last)?Index$', by: Exists}}
+    NOT: {replace: {source: $ABSENT, replace: '(?s).+', by: '!'}}
+fix: $NOT$RECV.$PRESENCE$ARGS
+message: '`$RECV.$NAME` index is compared against a not-found sentinel to test presence'
+note: Use `Contains`, `ContainsAny`, or `Exists`, a boolean member reading no index

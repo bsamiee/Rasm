@@ -26,7 +26,7 @@ Drawings and sheets come from `document.py` entry points and RhinoCommon inside 
 - Pages print from a windowed document, a headless document's page returns a `RhinoDoc` fault
 - Relative paths resolve under `.artifacts/rhino/`
 - Unknown page names return a `RhinoPageView` fault listing the pages
-- `mutool draw -r 60 -o <root>/.artifacts/rhino/<name>-%d.png <path>` draws the PDF's pages for `Read`
+- `mutool draw -r 60 -o <root>/.artifacts/rhino/<name>-%d.png <path>` draws whole pages for layout, `-r 300` for line widths and text
 - Print widths override linetype widths in pixels and show under `_PrintDisplay` alone, `Layer.PlotWeight` is millimeters with 0 as default
 
 ## [03]-[DIMENSIONS]

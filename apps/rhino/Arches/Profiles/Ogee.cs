@@ -6,7 +6,7 @@ namespace Arches.Profiles;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Ogee {
     // --- [LIMITS]
-    public static Fin<Limits<double>> ThreeCenteredRise(Span span) => Limits.AtLeast(span.HalfSpan).AtMost(span.HalfSpan * (1 + Math.Sqrt(2)), nameof(ThreeCenteredRise));
+    public static Limits<double> ThreeCenteredRise(Span span) => Limits.AtLeast(span.HalfSpan).AtMost(span.HalfSpan * (1 + Math.Sqrt(2)));
 
     // --- [PROFILES]
     public static Fin<ArchProfile> ThreeCentered(Span span, Point3d apex) {

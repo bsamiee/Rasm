@@ -1,32 +1,36 @@
 # ty: ignore[invalid-argument-type, invalid-return-type, no-matching-overload, unresolved-import]
 # mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, return-value, no-any-return, call-overload, arg-type, unreachable"
-"""Rhino settings rows by settings path, member, and internal type, and the plain form a row compares."""
+"""Rhino settings rows by settings path, member, and internal type, the scope disposing a .NET resource, and the plain form a row compares."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from enum import StrEnum
 from functools import partial, reduce
 import math
 
 from Eto.Drawing import Color as EtoColor
 import Rhino
-from Rhino.Commands import Command
+from Rhino import PersistentSettings
+from Rhino.Display import Color4f
 from Rhino.DocObjects import Font
+from Rhino.Geometry import Point3d, Vector2d, Vector3d
 from Rhino.PlugIns import PlugIn
 import System
-from System import Array, Guid, String
-from System.Drawing import Color
+from System import Array, Guid, IDisposable, UInt32
+from System.Drawing import Color, Size
 
 from interface.report import Row
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type SettingsPath = tuple[str, ...] | tuple[Command | Guid, *tuple[str, ...]]
+type SettingsPath = tuple[str, ...] | tuple[Guid, *tuple[str, ...]] | tuple[PlugIn, str, *tuple[str, ...]]
 
 
 class Internal(StrEnum):
     """Type Rhino reaches by assembly-qualified name alone."""
 
     ACTION = "System.Action`1"
+    AGX_TONE_MAPPING = "Darkroom.AgXToneMapping, Darkroom"
     AI_HOST = "Rhino.AI.RhinoAIHost, RhinoAI"
     AI_SETTINGS = "Rhino.AI.AISettings, RhinoAI"
     BASE_TAB_CONTROL = "Rhino.UI.Internal.TabPanels.Controls.BaseTabControl, Rhino.UI"
@@ -39,6 +43,7 @@ class Internal(StrEnum):
     LAYER_COLUMNS = "Rhino.UI.DialogPanels.LayerColumns, Rhino.UI"
     LAYER_COLUMN_TYPE = "Rhino.UI.DialogPanels.LayerColumns+ColumnType, Rhino.UI"
     LAYER_TREE_GRID_VIEW = "Rhino.UI.DialogPanels.LayerTreeGridView, Rhino.UI"
+    LAYOUT_COLUMN_TYPE = "Rhino.UI.DialogPanels.LayoutTreeGridView+ColumnType, Rhino.UI"
     LAYOUT_TREE_GRID_VIEW = "Rhino.UI.DialogPanels.LayoutTreeGridView, Rhino.UI"
     OPEN_COLOR = "Eto.Drawing.OpenColor, Grasshopper2"
     OSNAP_BUTTON_DISPLAY = "Rhino.UI.DialogPanels.OSnapPanel+OSnapButtonDisplay, Rhino.UI"
@@ -77,6 +82,16 @@ class Internal(StrEnum):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+# --- [SCOPES]
+@contextmanager
+def disposed[T: IDisposable](resource: T) -> Iterator[T]:
+    """Scope holding the .NET resource, disposed at its exit."""
+    try:
+        yield resource
+    finally:
+        resource.Dispose()
+
+
 # --- [SETTINGS]
 def found[T](result: tuple[bool, T]) -> T | None:
     """Value of a `TryGet` read, None when the key holds none."""
@@ -84,24 +99,24 @@ def found[T](result: tuple[bool, T]) -> T | None:
     return value if held else None
 
 
-def rooted(path: SettingsPath) -> tuple[Rhino.PersistentSettings, str, tuple[str, ...]]:
-    """Settings the path opens at, a command's, a plug-in id's, or Rhino's application settings, with its owner label and the child names under it."""
+def rooted(path: SettingsPath) -> tuple[PersistentSettings, str, tuple[str, ...]]:
+    """Settings the path opens at, a loaded plug-in's settings of the command its English name names, a plug-in id's, or Rhino's application settings, with its owner label and the child names under it."""
     match path:
-        case (Command() as command, *names):
-            return command.Settings, f'PlugIns["{command.PlugIn.Name}"].{command.EnglishName}', tuple(names)
+        case (PlugIn() as plugin, str() as command, *names):
+            return plugin.CommandSettings(command), f'PlugIns["{plugin.Name}"].{command}', tuple(names)
         case (Guid() as plugin, *names):
-            return Rhino.PersistentSettings.FromPlugInId(plugin), f'PlugIns["{PlugIn.GetPlugInInfo(plugin).Name}"]', tuple(names)
+            return PersistentSettings.FromPlugInId(plugin), f'PlugIns["{PlugIn.GetPlugInInfo(plugin).Name}"]', tuple(names)
         case names:
-            return Rhino.PersistentSettings.RhinoAppSettings, "RhinoAppSettings", tuple(names)
+            return PersistentSettings.RhinoAppSettings, "RhinoAppSettings", tuple(names)
 
 
-def located(path: SettingsPath) -> Rhino.PersistentSettings | None:
+def located(path: SettingsPath) -> PersistentSettings | None:
     """Settings child at the path as the store holds it, None while a level is absent."""
     root, _, names = rooted(path)
     return reduce(lambda held, name: None if held is None else found(held.TryGetChild(name)), names, root)
 
 
-def opened(path: SettingsPath) -> Rhino.PersistentSettings:
+def opened(path: SettingsPath) -> PersistentSettings:
     """Settings child at the path, each absent level added."""
     root, _, names = rooted(path)
     return reduce(lambda held, name: held.AddChild(name), names, root)
@@ -113,43 +128,24 @@ def labeled(path: SettingsPath, name: str) -> str:
     return ".".join((owner, *names, name))
 
 
-def key(path: SettingsPath, name: str, *, target: bool | int | str | Guid | tuple[str, ...] | Color) -> Row:
-    """Row of a settings key through the accessor pair of the target's stored type, read from the child the store holds and written into the child added on demand."""
-    accessors: dict[type, tuple[Callable[[Rhino.PersistentSettings], tuple[bool, object]], Callable[[Rhino.PersistentSettings, object], None]]] = {
-        bool: (lambda child: child.TryGetBool(name), lambda child, value: child.SetBool(name, value)),
-        int: (lambda child: child.TryGetInteger(name), lambda child, value: child.SetInteger(name, value)),
-        str: (lambda child: child.TryGetString(name), lambda child, value: child.SetString(name, value)),
-        Guid: (lambda child: child.TryGetGuid(name), lambda child, value: child.SetGuid(name, value)),
-        tuple: (lambda child: child.TryGetStringList(name), lambda child, value: child.SetStringList(name, Array[String](list(value)))),
-        Color: (lambda child: child.TryGetColor(name), lambda child, value: child.SetColor(name, value)),
+def key(path: SettingsPath, name: str, *, target: bool | int | str | Guid | tuple[str, ...] | Color, stored: type | None = None, default: bool | int | Guid | None = None) -> Row:
+    """Row of a settings key through the unbound accessor pair of its stored type, the target's own unless named, read from the child the store holds, the owner's default while the child or key is absent, and written into the child added on demand."""
+    accessors = {
+        bool: (PersistentSettings.TryGetBool, PersistentSettings.SetBool),
+        int: (PersistentSettings.TryGetInteger, PersistentSettings.SetInteger),
+        UInt32: (PersistentSettings.TryGetUnsignedInteger, PersistentSettings.SetUnsignedInteger),
+        str: (PersistentSettings.TryGetString, PersistentSettings.SetString),
+        Guid: (PersistentSettings.TryGetGuid, PersistentSettings.SetGuid),
+        tuple: (PersistentSettings.TryGetStringList, PersistentSettings.SetStringList),
+        Color: (PersistentSettings.TryGetColor, PersistentSettings.SetColor),
     }
-    get, put = accessors[type(target)]
-    return Row(label=labeled(path, name), read=lambda: None if (child := located(path)) is None else found(get(child)), write=lambda value: put(opened(path), value), target=target)
-
-
-def unsigned(path: SettingsPath, name: str, *, target: int) -> Row:
-    """Row of a settings key its owner stores as an unsigned integer."""
+    get, put = accessors[type(target) if stored is None else stored]
     return Row(
         label=labeled(path, name),
-        read=lambda: None if (child := located(path)) is None else found(child.TryGetUnsignedInteger(name)),
-        write=lambda value: opened(path).SetUnsignedInteger(name, value),
+        read=lambda: default if (child := located(path)) is None or (held := found(get(child, name))) is None else held,
+        write=lambda value: put(opened(path), name, value),
         target=target,
     )
-
-
-def defaulted(path: SettingsPath, name: str, *, target: bool | int, default: bool | int) -> Row:
-    """Row of a settings key read through the defaulting getter its owner reads with, the default while the child is absent."""
-    accessors: dict[type, tuple[Callable[[Rhino.PersistentSettings], bool | int], Callable[[Rhino.PersistentSettings, bool | int], None]]] = {
-        bool: (lambda child: child.GetBool(name, default), lambda child, value: child.SetBool(name, value)),
-        int: (lambda child: child.GetInteger(name, default), lambda child, value: child.SetInteger(name, value)),
-    }
-    get, put = accessors[type(target)]
-    return Row(label=labeled(path, name), read=lambda: default if (child := located(path)) is None else get(child), write=lambda value: put(opened(path), value), target=target)
-
-
-def absent(path: SettingsPath, name: str) -> Row:
-    """Row holding a settings key absent, deleted from its child when present."""
-    return Row(label=labeled(path, name), read=lambda: (child := located(path)) is not None and name in child.Keys, write=lambda _: opened(path).DeleteItem(name), target=False)
 
 
 def member(owner: object, name: str, *, target: object) -> Row:
@@ -183,6 +179,14 @@ def plain(value: object) -> object:
             return (value.Ab, value.Rb, value.Gb, value.Bb)
         case Font():
             return value.QuartetName
+        case Size():
+            return (value.Width, value.Height)
+        case Vector2d():
+            return (plain(value.X), plain(value.Y))
+        case Vector3d() | Point3d():
+            return (plain(value.X), plain(value.Y), plain(value.Z))
+        case Color4f():
+            return tuple(map(plain, (value.R, value.G, value.B, value.A)))
         case Guid() | System.Enum():
             return str(value)
         case float() if math.isnan(value):
@@ -205,4 +209,4 @@ def hex_color(rgb: tuple[int, int, int]) -> str:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Internal", "absent", "color", "defaulted", "found", "guid", "hex_color", "key", "labeled", "located", "member", "opened", "plain", "port", "unsigned"]
+__all__ = ["Internal", "color", "disposed", "found", "guid", "hex_color", "key", "labeled", "located", "member", "opened", "plain", "port"]

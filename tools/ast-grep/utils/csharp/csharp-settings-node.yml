@@ -1,0 +1,153 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-settings-node
+language: csharp
+utils:
+    settings-type:
+        any:
+            - regex: '^((global::)?Rhino\.)?PersistentSettings$'
+            - kind: identifier
+              pattern: $ALIAS
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: using_directive
+                    all:
+                        - has: {field: name, pattern: $ALIAS}
+                        - has: {nthChild: 2, regex: '^((global::)?Rhino\.)?PersistentSettings$'}
+    host-owner:
+        kind: class_declaration
+        has: {kind: base_list, regex: '^:\s*((global::)?Rhino\.(PlugIns|Commands)\.)?(PlugIn|Command|FileImportPlugIn|FileExportPlugIn|RenderPlugIn|DigitizerPlugIn|UtilityPlugIn)\b'}
+    host:
+        any:
+            - regex: '^this$'
+              inside: {stopBy: end, matches: host-owner}
+            - kind: member_access_expression
+              has: {field: expression, kind: identifier, pattern: $HOST}
+              inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: host-owner, has: {field: name, pattern: $HOST}}}
+            - kind: identifier
+              pattern: $OWNER
+              inside:
+                stopBy: end
+                kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, class_declaration, record_declaration
+                has:
+                    stopBy: end
+                    kind: parameter, variable_declaration, property_declaration
+                    all:
+                        - has: {field: type, regex: '^((global::)?Rhino\.(PlugIns|Commands)\.)?(PlugIn|Command)$'}
+                        - any:
+                            - has: {field: name, pattern: $OWNER}
+                            - has: {kind: variable_declarator, has: {field: name, pattern: $OWNER}}
+    container:
+        kind: identifier
+        pattern: $CONTAINER
+        inside:
+            stopBy: end
+            kind: method_declaration, local_function_statement, constructor_declaration, lambda_expression
+            has:
+                field: parameters
+                has:
+                    kind: parameter
+                    all:
+                        - has: {field: name, pattern: $CONTAINER}
+                        - has: {field: type, regex: '^((global::)?LanguageExt\.)?(Option|Seq|Lst|Arr|IO|Fin|Eff)\s*<\s*((global::)?Rhino\.)?PersistentSettings\s*>$'}
+rule:
+    any:
+        - kind: member_access_expression
+          all:
+            - has: {field: name, regex: '^RhinoAppSettings$'}
+            - has: {field: expression, matches: settings-type}
+        - kind: invocation_expression
+          has:
+            field: function
+            any:
+                - kind: member_access_expression
+                  has: {field: name, regex: '^(AddChild|GetChild|CommandSettings)$'}
+                - kind: member_access_expression
+                  all:
+                    - has: {field: name, regex: '^FromPlugInId$'}
+                    - has: {field: expression, matches: settings-type}
+                - regex: '^((global::)?Rhino\.PlugIns\.)?PlugIn\s*\.\s*GetPluginSettings$'
+        - kind: invocation_expression
+          all:
+            - has:
+                field: function
+                any:
+                    - kind: identifier
+                      pattern: $METHOD
+                    - kind: member_access_expression
+                      has: {field: name, kind: identifier, pattern: $METHOD}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: method_declaration
+                    all:
+                        - has: {field: returns, matches: settings-type}
+                        - has: {field: name, pattern: $METHOD}
+        - kind: member_access_expression
+          all:
+            - has: {field: name, regex: '^(Settings|WindowPositionSettings)$'}
+            - has: {field: expression, matches: host}
+        - kind: identifier
+          regex: '^(Settings|WindowPositionSettings)$'
+          not: {inside: {kind: member_access_expression, field: name}}
+          inside: {stopBy: end, matches: host-owner}
+        - kind: member_access_expression
+          all:
+            - has: {field: name, kind: identifier, pattern: $ELEMENT}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    any:
+                        - kind: argument
+                          inside: {kind: tuple_expression}
+                          all:
+                            - has: {field: name, pattern: $ELEMENT}
+                            - has: {nthChild: 2, matches: csharp-settings-node}
+                        - kind: property_declaration, parameter
+                          all:
+                            - has: {field: type, matches: settings-type}
+                            - has: {field: name, pattern: $ELEMENT}
+        - kind: identifier
+          pattern: $NODE
+          inside:
+            stopBy: end
+            kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, class_declaration, record_declaration
+            has:
+                stopBy: end
+                any:
+                    - kind: parameter, property_declaration, declaration_expression
+                      all:
+                        - has: {field: type, matches: settings-type}
+                        - has: {field: name, pattern: $NODE}
+                    - kind: variable_declaration
+                      all:
+                        - has: {field: type, matches: settings-type}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: $NODE}}
+                    - kind: foreach_statement
+                      all:
+                        - has: {field: type, matches: settings-type}
+                        - has: {field: left, pattern: $NODE}
+                    - kind: variable_declarator
+                      all:
+                        - has: {field: name, pattern: $NODE}
+                        - has: {nthChild: 2, matches: csharp-settings-node}
+        - kind: identifier
+          pattern: $BOUND
+          inside:
+            stopBy: end
+            kind: lambda_expression
+            all:
+                - has: {field: parameters, kind: implicit_parameter, pattern: $BOUND}
+                - inside:
+                    kind: argument
+                    inside:
+                        kind: argument_list
+                        inside:
+                            kind: invocation_expression
+                            has: {field: function, kind: member_access_expression, has: {field: expression, matches: container}}

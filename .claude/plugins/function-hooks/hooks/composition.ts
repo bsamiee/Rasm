@@ -6,6 +6,10 @@ type Fault =
     | { readonly kind: 'unstarted' | 'unwritten' | 'undecoded'; readonly subject: string; readonly cause: unknown };
 type Result<T> = { readonly kind: 'ok'; readonly value: T } | { readonly kind: 'fault'; readonly fault: Fault };
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const _LATER_LINES = /\n.*/su;
+
 // --- [CONSTRUCTORS] --------------------------------------------------------------------
 
 const none: Option<never> = { kind: 'none' };
@@ -32,8 +36,8 @@ const decoded = <T>(subject: string, printed: Result<string>): Result<T> =>
 
 const rendered = (value: Fault): string => {
     const outcomes = { unstarted: 'did not run', unwritten: 'not written', undecoded: 'output does not decode as JSON' } as const;
-    const [line = ''] = (value.kind === 'exited' ? value.stderr : String(value.cause)).split('\n');
-    return value.kind === 'exited' ? `${value.subject} exited ${value.code}, ${line}` : `${value.subject} ${outcomes[value.kind]}, ${line}`;
+    const [outcome, detail] = value.kind === 'exited' ? [`exited ${value.code}`, value.stderr] : [outcomes[value.kind], String(value.cause)];
+    return `${value.subject} ${outcome}, ${detail.replace(_LATER_LINES, '')}`;
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

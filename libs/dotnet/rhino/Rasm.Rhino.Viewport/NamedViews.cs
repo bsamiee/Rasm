@@ -2,7 +2,9 @@ using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Display;
+using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Viewport;
 
@@ -35,51 +37,9 @@ public abstract partial record RestoreAnimation {
             Milliseconds(delay).Map<RestoreAnimation>(milliseconds => new ConstantTime(frames, milliseconds));
     }
 
-    private static Fin<int> Milliseconds(Duration delay) =>
-        Invalid.Unless((delay >= Duration.Zero) && (delay.TotalMilliseconds <= int.MaxValue) && (delay == Duration.FromMilliseconds((long)delay.TotalMilliseconds)), nameof(delay))
-            .Map(_ => (int)delay.TotalMilliseconds);
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record NamedViewOp {
-    public sealed record Restore(string Name, RestoreAnimation Animation) : NamedViewOp;
-
-    public sealed record Add(string Name) : NamedViewOp;
-
-    public sealed record Rename(string Name, string NewName) : NamedViewOp;
-
-    public sealed record Delete(string Name) : NamedViewOp;
-}
-
-public sealed record DefinedViewSettings(bool CPlane, bool Projection, bool ClippingPlanes, bool DisplayMode);
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class NamedViews {
-    // --- [ROWS]
-    public static IO<int> Apply(RhinoDoc document, ViewportRef row, NamedViewOp op) =>
-        op.Switch(
-            (Doc: document, Row: row),
-            restore: static (state, restore) =>
-                from index in Resolve(state.Doc, restore.Name)
-                from restored in Navigation.ApplyToRows(state.Doc, Seq(state.Row), port => Restored(state.Doc, index, port, restore.Animation), new RedrawPolicy.Silent())
-                select index,
-            add: static (state, add) => IO.lift(() =>
-                Answers.NonNegative(state.Doc.NamedViews.Add(add.Name, state.Row.Viewport.Id), nameof(NamedViewTable.Add))),
-            rename: static (state, rename) =>
-                from index in Resolve(state.Doc, rename.Name)
-                from renamed in IO.lift(() => Refused.Unless(state.Doc.NamedViews.Rename(index, rename.NewName), nameof(NamedViewTable.Rename)))
-                select index,
-            delete: static (state, delete) =>
-                from index in Resolve(state.Doc, delete.Name)
-                from deleted in IO.lift(() => Refused.Unless(state.Doc.NamedViews.Delete(index), nameof(NamedViewTable.Delete)))
-                select index);
-
-    internal static IO<int> Resolve(RhinoDoc document, string name) =>
-        IO.lift(() => Answers.Present(document.NamedViews.FindByName(name)).ToFin(new Missing(nameof(NamedViewTable.FindByName))));
-
-    private static IO<Unit> Restored(RhinoDoc document, int index, RhinoViewport viewport, RestoreAnimation animation) =>
-        IO.lift(() => animation.Switch(
-            (Table: document.NamedViews, Index: index, Viewport: viewport),
+    public Fin<Unit> Apply(NamedViewTable table, int index, RhinoViewport viewport) =>
+        Switch(
+            (Table: table, Index: index, Viewport: viewport),
             instant: static (target, _) => Refused.Unless(target.Table.Restore(target.Index, target.Viewport), nameof(NamedViewTable.Restore)),
             matchAspect: static (target, _) => Refused.Unless(target.Table.RestoreWithAspectRatio(target.Index, target.Viewport), nameof(NamedViewTable.RestoreWithAspectRatio)),
             constantSpeed: static (target, speed) => Refused.Unless(
@@ -87,14 +47,66 @@ public static class NamedViews {
                 nameof(NamedViewTable.RestoreAnimatedConstantSpeed)),
             constantTime: static (target, time) => Refused.Unless(
                 target.Table.RestoreAnimatedConstantTime(target.Index, target.Viewport, time.Frames, time.DelayMilliseconds),
-                nameof(NamedViewTable.RestoreAnimatedConstantTime))));
+                nameof(NamedViewTable.RestoreAnimatedConstantTime)));
+
+    private static Fin<int> Milliseconds(Duration delay) =>
+        Durations.Whole(delay, Duration.FromMilliseconds(1), Limits.AtLeast(0), nameof(delay));
+}
+
+public sealed record FocalBlur(ViewInfoFocalBlurModes FocalBlurMode, double FocalBlurDistance, double FocalBlurAperture, double FocalBlurJitter, uint FocalBlurSampleCount);
+
+public sealed record DefinedViewSettings(bool CPlane, bool Projection, bool ClippingPlanes, bool DisplayMode);
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class NamedViewMapper {
+    internal static partial FocalBlur ToFocalBlur(ViewInfo view);
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    internal static partial void Update(FocalBlur value, ViewInfo view);
+}
+
+public static class NamedViews {
+    // --- [ROWS]
+    public static IO<int> Add(RhinoDoc document, RhinoViewport viewport, string name) =>
+        IO.lift(() => Answers.Required(document.NamedViews.Add(name, viewport.Id), nameof(NamedViewTable.Add)));
+
+    public static IO<Unit> Restore(RhinoDoc document, ViewportRef row, string name, RestoreAnimation animation) =>
+        from index in Resolve(document, name)
+        from restored in Navigation.ApplyToRows(
+            document,
+            Seq(row),
+            port =>
+                from held in IO.lift(() => port.Name)
+                from applied in IO.lift(() => animation.Apply(document.NamedViews, index, port))
+                from renamed in IO.lift(() => { port.Name = held; })
+                select renamed,
+            new RedrawPolicy.Silent())
+        select unit;
+
+    public static IO<Unit> Rename(RhinoDoc document, string name, string newName) =>
+        IO.lift(() => Refused.Unless(document.NamedViews.Rename(name, newName), nameof(NamedViewTable.Rename)));
+
+    private static IO<int> Resolve(RhinoDoc document, string name) =>
+        IO.lift(() => Answers.Present(document.NamedViews.FindByName(name)).ToFin(new Missing(nameof(NamedViewTable.FindByName))));
+
+    // --- [FOCAL_BLUR]
+    public static IO<FocalBlur> ReadFocalBlur(RhinoDoc document, string name) =>
+        WithView(document, name, static view => IO.lift(() => NamedViewMapper.ToFocalBlur(view)));
+
+    public static IO<int> WriteFocalBlur(RhinoDoc document, string name, FocalBlur value) =>
+        WithView(document, name, view =>
+            from updated in IO.lift(() => NamedViewMapper.Update(value, view))
+            from index in IO.lift(() => Answers.Required(document.NamedViews.Add(view), nameof(NamedViewTable.Add)))
+            select index);
+
+    private static IO<TValue> WithView<TValue>(RhinoDoc document, string name, Func<ViewInfo, IO<TValue>> body) =>
+        DisposalOps.Using(Resolve(document, name).Bind(index => IO.lift(() => Missing.Unless(document.NamedViews[index], nameof(NamedViewTable)))), body);
 
     // --- [DEFINED_VIEWS]
     public static IO<TValue> WithDefinedViewSettings<TValue>(DefinedViewSettings settings, IO<TValue> body) =>
-        Disposal.Bracketed(
-            IO.lift(static () => new DefinedViewSettings(ViewSettings.DefinedViewSetCPlane, ViewSettings.DefinedViewSetProjection, ViewSettings.DefinedViewSetClippingPlanes, ViewSettings.DefinedViewSetDisplayMode)),
-            static prior => IO.lift(() => WriteDefinedViewSettings(prior)),
-            _ => IO.lift(() => WriteDefinedViewSettings(settings)).Bind(_ => body));
+        IO.lift(static () => new DefinedViewSettings(ViewSettings.DefinedViewSetCPlane, ViewSettings.DefinedViewSetProjection, ViewSettings.DefinedViewSetClippingPlanes, ViewSettings.DefinedViewSetDisplayMode))
+            .Bracket(Use: _ => IO.lift(() => WriteDefinedViewSettings(settings)).Bind(_ => body), Fin: static prior => IO.lift(() => WriteDefinedViewSettings(prior)));
 
     private static void WriteDefinedViewSettings(DefinedViewSettings settings) {
         ViewSettings.DefinedViewSetCPlane = settings.CPlane;

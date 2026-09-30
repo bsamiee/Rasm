@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-lifted-projection-bind
+language: csharp
+severity: error
+utils:
+    overload-return:
+        regex: '(?s)^(void|((global::)?LanguageExt\.)?(Fin|Either)\s*<.+>)$'
+    declared-value:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: identifier, pattern: $METHOD}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                all:
+                    - has:
+                        stopBy: end
+                        any:
+                            - kind: method_declaration
+                              all:
+                                - has: {field: name, pattern: $METHOD}
+                                - not: {has: {field: type_parameters, pattern: $_}}
+                                - not: {has: {field: returns, matches: overload-return}}
+                            - kind: local_function_statement
+                              all:
+                                - has: {field: name, pattern: $METHOD}
+                                - not: {has: {field: type_parameters, pattern: $_}}
+                                - not: {has: {field: type, matches: overload-return}}
+                    - not:
+                        has:
+                            stopBy: end
+                            any:
+                                - kind: method_declaration
+                                  all:
+                                    - has: {field: name, pattern: $METHOD}
+                                    - any: [{has: {field: type_parameters, pattern: $_}}, {has: {field: returns, matches: overload-return}}]
+                                - kind: local_function_statement
+                                  all:
+                                    - has: {field: name, pattern: $METHOD}
+                                    - any: [{has: {field: type_parameters, pattern: $_}}, {has: {field: type, matches: overload-return}}]
+    lifted-thunk:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift$'}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has:
+                        kind: argument
+                        has:
+                            kind: lambda_expression
+                            all:
+                                - not: {has: {field: type, pattern: $_}}
+                                - not: {has: {kind: modifier, regex: '^async$'}}
+                                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                                - has:
+                                    field: body
+                                    pattern: $VALUE
+                                    any:
+                                        - kind: 'object_creation_expression, tuple_expression'
+                                        - matches: declared-value
+    lifted-value:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?(IO\s*\.\s*pure|Fin\s*\.\s*Succ|(Prelude\s*\.\s*)?(Pure|FinSucc)))$'}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {pattern: $VALUE}}
+rule:
+    kind: from_clause
+    all:
+        - has: {field: name, pattern: $RANGE}
+        - not: {has: {field: type, pattern: $_}}
+        - has: {kind: invocation_expression, pattern: $SOURCE, any: [{matches: lifted-thunk}, {matches: lifted-value}]}
+        - follows: {stopBy: end, kind: from_clause}
+        - precedes: {kind: select_clause, has: {kind: identifier, pattern: $RANGE}}
+fix:
+    template: select $VALUE
+    expandEnd: {kind: select_clause}
+message: Last `from` binds `$RANGE` to `$SOURCE` and selects it unchanged
+note: Use `select <value>` over the preceding steps, a query projection maps the previous step's value with no second lift

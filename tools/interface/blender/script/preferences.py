@@ -13,10 +13,11 @@ from typing import Literal
 
 import bpy
 
-from interface.blender.rows import Launch
+from interface.blender.rows import Launch, LOOK_DEVELOPMENT
+from interface.blender.script.library import ASSETS
 from interface.blender.script.rna import converge, Paint
 from interface.blender.script.startup import EYE_HEIGHT, HEADLAMP
-from interface.render import ASSETS, DESIGN_TOOLS, LOOK_DEVELOPMENT, MATERIALS
+from interface.render import DESIGN_TOOLS, MATERIALS
 from interface.report import converged, digest, Kind, line, Row, subscript
 from interface.roles import Guide, Typography
 from interface.units import ANGLE_STEP, Length
@@ -26,9 +27,9 @@ from interface.units import ANGLE_STEP, Length
 
 # --- [SETTINGS]
 def declared(preferences: bpy.types.Preferences, launch: Launch, memory: int) -> dict[str, object]:
-    """Declared preferences by path with the memory limits in MB and the text editor executable the host found, online access before its handled flag."""
+    """Declared preferences by path with memory limits in MB and the text editor executable the host found, online access before its handled flag."""
     caches, cycles = Path(bpy.app.cachedir), preferences.addons["cycles"].preferences
-    device = next(kind for kind, _, _, value in cycles.get_device_types(bpy.context) if value == type(cycles).default_device())
+    device = next(kind for kind, _, _, value in cycles.get_device_types(None) if value == type(cycles).default_device())
     return {
         "view.ui_scale": 0.9,
         "view.ui_line_width": "THIN",
@@ -69,7 +70,6 @@ def declared(preferences: bpy.types.Preferences, launch: Launch, memory: int) ->
         "system.memory_cache_limit": memory,
         "system.anisotropic_filter": "FILTER_16",
         "system.viewport_aa": "OFF",
-        "system.use_studio_light_edit": False,
         "system.use_overlay_smooth_wire": False,
         "system.use_edit_mode_smooth_wire": False,
         "system.audio_device": "CoreAudio",
@@ -113,7 +113,6 @@ def declared(preferences: bpy.types.Preferences, launch: Launch, memory: int) ->
         "filepaths.temporary_directory": f"{caches / 'temp'}/",
         "filepaths.texture_cache_directory": f"{caches / 'texture-cache'}/",
         "filepaths.render_output_directory": f"{launch.renders}/",
-        "filepaths.render_cache_directory": "",
         **{f"experimental.{prop.identifier}": False for prop in preferences.experimental.bl_rna.properties if prop.type == "BOOLEAN" and not prop.is_readonly},
         'addons["cycles"].preferences.compute_device_type': device,
         **{f"{subscript('extensions.repos', index)}.{name}": False for index, _ in enumerate(preferences.extensions.repos) for name in ("use_sync_on_startup", "use_cache")},
@@ -121,7 +120,7 @@ def declared(preferences: bpy.types.Preferences, launch: Launch, memory: int) ->
 
 
 def listings(preferences: bpy.types.Preferences) -> tuple[Row, ...]:
-    """Rows of the auto-run exclusion, the keyconfig every launch loads, and the asset libraries, local and remote, each with its import method."""
+    """Rows of auto-run exclusion, keyconfig every launch loads, and asset libraries, local and remote, each with its import method."""
     excluded, libraries = preferences.autoexec_paths, preferences.filepaths.asset_libraries
 
     def exclude(target: tuple[tuple[str, bool], ...]) -> None:
@@ -162,7 +161,7 @@ def listings(preferences: bpy.types.Preferences) -> tuple[Row, ...]:
 
 
 def lights(preferences: bpy.types.Preferences) -> tuple[Row, ...]:
-    """Rows of the headlamp studio light and the look-development HDRI, each a copy `studiolight_install` makes in the user studio light folder, compared by content."""
+    """Rows of headlamp studio light and look-development HDRI, each a copy `studiolight_install` makes in the user studio light folder, compared by content."""
 
     def held(kind: str, name: str) -> Path | None:
         return next((Path(light.path) for light in preferences.studio_lights if light.is_user_defined and light.type == kind and light.name == name), None)
@@ -178,7 +177,7 @@ def lights(preferences: bpy.types.Preferences) -> tuple[Row, ...]:
 
 
 def stock_edits(user: bpy.types.KeyConfig) -> Iterator[tuple[str, bpy.types.KeyMapItem, bool, dict[str, object]]]:
-    """Stock user keymap items by label with their declared values: still-click context menus, the Spreadsheet toolbar on T, Cmd+F node search, and Bonsai's Space profile edit off."""
+    """Stock user keymap items by label with declared values: context menus on click, Spreadsheet toolbar on T, Cmd+F node search, and Bonsai's Space profile edit off."""
     canvases = frozenset({"EMPTY", "VIEW_3D", "NODE_EDITOR", "IMAGE_EDITOR", "CLIP_EDITOR", "GRAPH_EDITOR", "DOPESHEET_EDITOR", "NLA_EDITOR", "SEQUENCE_EDITOR"})
     for keymap in user.keymaps:
         for index, item in enumerate(keymap.keymap_items):
@@ -198,7 +197,7 @@ def stock_edits(user: bpy.types.KeyConfig) -> Iterator[tuple[str, bpy.types.KeyM
 
 # --- [STEPS]
 def converged_preferences(unit_system: ModuleType, preferences: bpy.types.Preferences, keyconfigs: bpy.types.KeyConfigurations, launch: Launch) -> Iterator[str]:
-    """Converge the interface faces, each the one file of its name in the user font folder, the preferences, then the auto-run exclusion, keyconfig, asset libraries, studio lights, keyconfig preferences, and the Cycles devices of the declared compute type."""
+    """Converge interface font faces, each the one file of its name in the user font folder, then preferences, auto-run exclusion, keyconfig, asset libraries, studio lights, keyconfig preferences, and Cycles devices of the declared compute type."""
     folder, cycles = Path.home() / "Library" / "Fonts", preferences.addons["cycles"].preferences
     for member, face in (("font_path_ui", Typography.INTERFACE), ("font_path_ui_mono", Typography.MONOSPACE)):
         match tuple(folder.rglob(escape(face.file))):
@@ -217,7 +216,7 @@ def converged_preferences(unit_system: ModuleType, preferences: bpy.types.Prefer
 
 
 def bound_keymaps(unit_system: ModuleType, keyconfigs: bpy.types.KeyConfigurations) -> Iterator[str]:
-    """Converge the stock user keymap edits and write each moved item's active flag, which records the edit in the user keymap diff."""
+    """Converge stock user keymap edits and write each changed item's active flag to record the edit in the user keymap diff."""
     for label, item, active, edits in stock_edits(keyconfigs.user):
         if lines := tuple(converge(unit_system, label, item, {**edits, "active": active})):
             item.active = active

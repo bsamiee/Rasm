@@ -114,4 +114,4 @@ rule:
         - matches: published-tuple
           has: {matches: paired-projection}
 message: 'Construction splits `$ROWS` into one projection per argument'
-note: Use one `Seq` of the rows as the field or the result, and read the member each consumer needs from it
+note: Use one `Seq` of rows as field or result, each consumer reading the member it needs

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discarded-write-value
+language: python
+severity: error
+utils:
+    target-argument:
+        kind: keyword_argument
+        has: {field: name, regex: '^target$'}
+    unread:
+        not: {has: {field: body, has: {stopBy: end, kind: identifier, pattern: $DISCARDED}}}
+    discarding-function:
+        kind: function_definition
+        all:
+            - has: {field: name, pattern: $FN}
+            - has: {field: parameters, has: {nthChild: {position: 1, reverse: true}, matches: {python-parameter: {name: {pattern: $DISCARDED}}}}}
+            - matches: unread
+    named-write:
+        kind: identifier
+        pattern: $FN
+        inside: {kind: module, stopBy: end, has: {stopBy: end, matches: discarding-function}}
+    discarding-write:
+        pattern: $WRITE
+        any:
+            - kind: lambda
+              all:
+                - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $DISCARDED}}
+                - matches: unread
+            - matches: named-write
+            - kind: call
+              all:
+                - has: {field: function, matches: functools-partial-callee}
+                - has: {field: arguments, has: {nthChild: 1, matches: named-write}}
+rule:
+    kind: keyword_argument
+    all:
+        - has: {field: name, regex: '^write$'}
+        - has: {field: value, matches: discarding-write}
+        - inside: {kind: argument_list, has: {matches: target-argument}}
+message: '`$WRITE` discards the value the row''s `target` passes it'
+note: 'Use a write that sets the value it receives, the host setter itself where one exists (`write=<setter>`), `target` states once what the row writes'

@@ -12,6 +12,13 @@
         "**/.venv": true
     },
 
+    // --- [FILE_WATCHING] ---------------------------------------------------------------
+    "files.watcherExclude": {
+        "**/.artifacts/**": true,
+        "**/.cache/**": true,
+        "**/.venv/**": true
+    },
+
     // --- [FILE_NESTING] ----------------------------------------------------------------
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.expand": false,

@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-manual-validate-conversion
+language: csharp
+severity: error
+utils:
+    provider-argument:
+        kind: argument
+        any:
+            - has: {field: name, regex: '^provider$'}
+            - all:
+                - not: {has: {field: name, pattern: $_}}
+                - has:
+                    any:
+                        - kind: null_literal
+                        - kind: default_expression
+                        - kind: identifier
+                          regex: '^(provider|formatProvider|culture)$'
+                        - kind: member_access_expression
+                          regex: '^(global::)?(System\.Globalization\.)?CultureInfo\.\w+$'
+    item-argument:
+        kind: argument
+        all:
+            - has: {regex: '^out$'}
+            - any:
+                - has: {kind: declaration_expression, has: {field: name, pattern: $ITEM}}
+                - has: {kind: identifier, pattern: $ITEM}
+    validate-call:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                any:
+                    - kind: identifier
+                      regex: '^Validate$'
+                    - kind: member_access_expression
+                      has: {field: name, regex: '^Validate$'}
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, not: {has: {regex: '^(out|ref)$'}}, pattern: $VALUE}
+                    - has: {nthChild: 2, matches: provider-argument}
+                    - has: {nthChild: 3, matches: item-argument}
+                    - not: {has: {kind: argument, nthChild: 4}}
+    error-capture:
+        any:
+            - kind: recursive_pattern
+              all:
+                - has: {kind: property_pattern_clause, not: {has: {kind: subpattern}}}
+                - not: {has: {kind: positional_pattern_clause}}
+                - has: {field: name, pattern: $ERROR}
+            - kind: declaration_pattern
+              has: {field: name, pattern: $ERROR}
+            - kind: var_pattern
+              has: {kind: identifier, pattern: $ERROR}
+    error-arm:
+        any:
+            - kind: identifier
+              pattern: $ERROR
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '(^|\.)(Fail|FinFail)(<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {kind: identifier, pattern: $ERROR}}}
+    item-arm:
+        any:
+            - kind: identifier
+              pattern: $ITEM
+            - kind: postfix_unary_expression
+              regex: '!$'
+              has: {kind: identifier, pattern: $ITEM}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '(^|\.)(Succ|FinSucc)(<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: item-arm}}}
+    validate-check:
+        kind: is_pattern_expression
+        all:
+            - has: {field: expression, matches: validate-call}
+            - has: {field: pattern, matches: error-capture}
+rule:
+    kind: conditional_expression, switch_expression, if_statement
+    all:
+        - any:
+            - kind: conditional_expression
+              all:
+                - has: {field: condition, matches: validate-check}
+                - has: {field: consequence, matches: error-arm}
+                - has: {field: alternative, matches: item-arm}
+            - kind: switch_expression
+              all:
+                - has: {nthChild: 1, matches: validate-call}
+                - has:
+                    kind: switch_expression_arm
+                    all:
+                        - has: {nthChild: 1, matches: error-capture}
+                        - not: {has: {kind: when_clause}}
+                        - has: {nthChild: {position: 1, reverse: true}, matches: error-arm}
+                - has: {kind: switch_expression_arm, has: {nthChild: {position: 1, reverse: true}, matches: item-arm}}
+            - kind: if_statement
+              all:
+                - has: {field: condition, matches: validate-check}
+                - has:
+                    field: consequence
+                    any:
+                        - kind: return_statement
+                          has: {matches: error-arm}
+                        - kind: block
+                          has: {kind: return_statement, has: {matches: error-arm}}
+        - not:
+            matches:
+                csharp-owner-body:
+                    type: {regex: '^Answers$'}
+                    member: {regex: '^Validated$'}
+message: "Thinktecture `Validate($VALUE, ...)` answer converts to `Fin` by hand through `$ERROR` and `$ITEM`"
+note: Use `Answers.Validated<T, TValue>(<value>)` and delete any helper with the conversion as its body

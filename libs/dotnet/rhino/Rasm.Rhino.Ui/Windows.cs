@@ -5,14 +5,6 @@ using Rhino.UI;
 
 namespace Rasm.Rhino.Ui;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FormSetup {
-    public sealed record LocalizeAndRestore(bool UseRhinoStyle) : FormSetup;
-
-    public sealed record None() : FormSetup;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostWindows {
     // --- [READS]
@@ -26,15 +18,12 @@ public static class HostWindows {
         IO.lift(() => toSeq(EtoExtensions.WindowsFromDocument<TWindow>(doc)).Strict());
 
     // --- [PRESENTATION]
-    public static IO<Unit> Show(Form form, RhinoDoc doc, FormSetup setup) =>
-        from prepared in IO.lift(() => setup.Switch(
-            form,
-            localizeAndRestore: static (target, restore) => {
-                if (restore.UseRhinoStyle)
-                    target.UseRhinoStyle();
-                target.LocalizeAndRestore();
-            },
-            none: static (_, _) => { }))
+    public static IO<Unit> Show(Form form, RhinoDoc doc, Option<bool> restore) =>
+        from prepared in IO.lift(() => restore.Iter(useRhinoStyle => {
+            if (useRhinoStyle)
+                form.UseRhinoStyle();
+            form.LocalizeAndRestore();
+        }))
         from shown in IO.lift(() => form.Show(doc))
         select shown;
 

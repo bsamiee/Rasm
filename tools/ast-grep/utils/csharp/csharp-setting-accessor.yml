@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-setting-accessor
+language: csharp
+utils:
+    string-key:
+        kind: identifier
+        pattern: $TEXT
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                any:
+                    - kind: parameter
+                      all: [{has: {field: name, pattern: $TEXT}}, {has: {field: type, regex: '^((global::)?System\.)?(string|String)\??$'}}]
+                    - kind: variable_declaration
+                      all:
+                        - has: {field: type, regex: '^((global::)?System\.)?(string|String)\??$'}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: $TEXT}}
+    key-argument:
+        kind: argument
+        has:
+            nthChild: 1
+            any:
+                - kind: string_literal, interpolated_string_expression, verbatim_string_literal, raw_string_literal
+                - kind: invocation_expression
+                  has: {field: function, regex: '^nameof$'}
+                - matches: string-key
+    throwing-getter:
+        kind: invocation_expression
+        has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+        any:
+            - has: {field: function, has: {field: name, regex: '^Get(Bool|Byte|Integer|UnsignedInteger|Double|Char|String|StringList|StringDictionary|Date|Color|Guid|Point|Point3d|Size|Rectangle)$'}}
+            - all:
+                - has: {field: function, has: {field: name, regex: '^GetEnumValue\s*<.+>$'}}
+                - has: {field: arguments, has: {matches: key-argument}}
+rule:
+    kind: invocation_expression
+    all:
+        - has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^(TryGet|Get)(Bool|Byte|Integer|UnsignedInteger|Double|Char|String|StringList|StringDictionary|Date|Color|Guid|Point|Point3d|Size|Rectangle|EnumValue)(\s*<.+>)?$'}
+                - has: {field: expression, matches: csharp-settings-node}
+        - not: {matches: throwing-getter}

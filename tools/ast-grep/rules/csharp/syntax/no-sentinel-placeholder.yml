@@ -275,5 +275,5 @@ rule:
                         has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $RECEIVER}}, {has: {field: type, matches: type-name}}]}}
             - matches: file-record
             - has: {kind: with_initializer, matches: member-value}
-message: "`$TYPE` receives the sentinel `$SENTINEL` in place of a fact the path holds"
-note: Use `Option<T>` for the field, or a case that holds only the facts the path has
+message: "`$TYPE` receives sentinel `$SENTINEL` in place of a fact the path holds"
+note: Use `Option<T>` for the field, or a case holding only facts its path has

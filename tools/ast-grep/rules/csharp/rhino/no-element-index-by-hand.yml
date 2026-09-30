@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-element-index-by-hand
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    index-slot:
+        kind: argument
+        any:
+            - all:
+                - has: {field: name, pattern: $SLOT}
+                - has: {nthChild: {position: 1, reverse: true}, kind: identifier, pattern: $INDEX}
+            - all:
+                - not: {has: {field: name, kind: identifier}}
+                - has: {kind: identifier, pattern: $INDEX, all: [{pattern: $SLOT}]}
+    element-check:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless$'}}, {has: {field: expression, pattern: $RECORD}}]}
+            - has: {field: arguments, not: {has: {kind: argument, nthChild: 4}}}
+    indexed:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select)$'}}, {has: {field: expression, pattern: $ITEMS}}]}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has:
+                        kind: argument
+                        has:
+                            kind: lambda_expression
+                            all:
+                                - has:
+                                    field: parameters
+                                    kind: parameter_list
+                                    all:
+                                        - has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $INDEX}}
+                                        - not: {has: {kind: parameter, nthChild: 3}}
+                                - has:
+                                    field: body
+                                    any:
+                                        - kind: tuple_expression
+                                          all:
+                                            - has: {matches: index-slot}
+                                            - not: {has: {kind: argument, nthChild: 3}}
+                                        - matches: element-check
+                                          has: {field: arguments, has: {kind: argument, nthChild: 3, has: {kind: identifier, pattern: $INDEX}}}
+    paired:
+        matches:
+            csharp-unary-callback:
+                parameter: {pattern: $PAIR}
+                body:
+                    any:
+                        - kind: invocation_expression
+                          all:
+                            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?IO\s*\.\s*)lift$'}
+                            - has:
+                                field: arguments
+                                all:
+                                    - not: {has: {kind: argument, nthChild: 2}}
+                                    - has:
+                                        kind: argument
+                                        has:
+                                            kind: lambda_expression
+                                            all:
+                                                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                                                - has: {field: body, pattern: $REJECT}
+                        - pattern: $REJECT
+    identity:
+        regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?identity$'
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Traverse|TraverseM|Sequence|SequenceM)$'}}, {has: {field: expression, matches: indexed}}]}
+        - any:
+            - all:
+                - has: {field: arguments, all: [{not: {has: {kind: argument, nthChild: 2}}}, {has: {kind: argument, matches: paired}}]}
+                - has:
+                    field: arguments
+                    has:
+                        stopBy: end
+                        matches: element-check
+                        pattern: $REJECT
+                        has:
+                            field: arguments
+                            has:
+                                kind: argument
+                                nthChild: 3
+                                has:
+                                    kind: member_access_expression
+                                    all:
+                                        - has: {field: expression, kind: identifier, pattern: $PAIR}
+                                        - has: {field: name, pattern: $SLOT}
+            - all:
+                - has: {field: function, has: {field: expression, has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: element-check}}}}}}
+                - any:
+                    - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: identity}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+                    - has: {field: arguments, not: {has: {kind: argument}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Each$'}}}}
+message: '`$ITEMS` pairs each element with its index for `$RECORD.Unless` by hand'
+note: Use `Answers.Each(<items>, <call>, <member>)` for the indexed traversal and any private helper restating it, each `RefusedElement` it returns names the element index

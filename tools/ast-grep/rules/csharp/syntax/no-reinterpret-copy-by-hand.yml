@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-reinterpret-copy-by-hand
+language: csharp
+severity: error
+utils:
+    stride:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\*$'}
+            - any:
+                - has: {field: left, kind: integer_literal, regex: '^[234]$', pattern: $WIDTH}
+                - has: {field: right, kind: integer_literal, regex: '^[234]$', pattern: $WIDTH}
+    offset:
+        any:
+            - matches: stride
+            - kind: identifier
+              pattern: $RELAY
+              inside:
+                stopBy: end
+                kind: block
+                has:
+                    kind: local_declaration_statement
+                    has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {nthChild: 2, matches: stride}}]}}
+    vector-type:
+        any:
+            - {regex: '^((global::)?System\.Numerics\.)?Vector2$', inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, pattern: $WIDTH, regex: '^2$'}}}
+            - {regex: '^((global::)?System\.Numerics\.)?Vector3$', inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, pattern: $WIDTH, regex: '^3$'}}}
+            - {regex: '^((global::)?System\.Numerics\.)?Vector4$', inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, pattern: $WIDTH, regex: '^4$'}}}
+    vector-creation:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, matches: vector-type}
+            - kind: implicit_object_creation_expression
+              any:
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: vector-type}}}
+                - inside:
+                    kind: 'arrow_expression_clause, return_statement'
+                    inside:
+                        stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                        kind: 'method_declaration, local_function_statement'
+                        has: {field: returns, matches: vector-type}
+            - kind: invocation_expression
+              has:
+                field: function
+                kind: member_access_expression
+                all: [{has: {field: expression, matches: vector-type}}, {has: {field: name, regex: '^Create$'}}]
+    vector-value:
+        any:
+            - matches: vector-creation
+            - kind: identifier
+              pattern: $VECTOR
+              inside:
+                stopBy: end
+                any:
+                    - has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $VECTOR}}, {has: {field: type, matches: vector-type}}]}}
+                    - kind: block
+                      has: {kind: local_declaration_statement, has: {kind: variable_declaration, all: [{has: {field: type, matches: vector-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $VECTOR}}}]}}
+    vector-write:
+        kind: invocation_expression
+        has:
+            field: function
+            kind: member_access_expression
+            all: [{has: {field: expression, matches: vector-value}}, {has: {field: name, regex: '^(Try)?CopyTo$'}}]
+    chunk-creation:
+        matches: vector-creation
+        has:
+            kind: argument_list
+            all: [{has: {kind: argument, nthChild: 1, has: {kind: identifier, pattern: $CHUNK}}}, {not: {has: {kind: argument, nthChild: 2}}}]
+    first-element:
+        kind: argument
+        nthChild: 1
+        has:
+            kind: element_access_expression
+            all:
+                - has: {field: expression, pattern: $SOURCE}
+                - has: {field: subscript, has: {kind: argument, has: {matches: offset, pattern: $OFFSET}}}
+    second-element:
+        kind: argument
+        nthChild: 2
+        has:
+            kind: element_access_expression
+            all:
+                - has: {field: expression, pattern: $SOURCE}
+                - has:
+                    field: subscript
+                    has:
+                        kind: argument
+                        has:
+                            kind: binary_expression
+                            all:
+                                - has: {field: left, any: [{pattern: $OFFSET}, {kind: parenthesized_expression, has: {pattern: $OFFSET}}]}
+                                - has: {field: operator, regex: '^\+$'}
+                                - has: {field: right, kind: integer_literal, regex: '^1$'}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all: [{has: {field: expression, pattern: $SOURCE}}, {has: {field: name, regex: '^(Slice|AsSpan)$'}}]
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 2, has: {kind: integer_literal, regex: '^[234]$', pattern: $WIDTH}}
+                    - not: {has: {kind: argument, nthChild: 3}}
+                    - has: {kind: argument, nthChild: 1, has: {matches: offset}}
+            - any:
+                - inside: {kind: argument, inside: {kind: argument_list, inside: {any: [{matches: vector-creation}, {matches: vector-write}]}}}
+                - all:
+                    - inside: {kind: variable_declarator, has: {field: name, pattern: $CHUNK}}
+                    - inside: {kind: block, stopBy: end, has: {stopBy: end, matches: chunk-creation}}
+        - kind: 'object_creation_expression, implicit_object_creation_expression, invocation_expression'
+          all:
+            - has: {kind: argument_list, all: [{has: {matches: first-element}}, {has: {matches: second-element}}]}
+            - matches: vector-creation
+        - kind: invocation_expression
+          all:
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, has: {kind: identifier, pattern: $SOURCE}}
+                    - has: {kind: argument, nthChild: 2, has: {matches: offset}}
+                    - not: {has: {kind: argument, nthChild: 3}}
+            - matches: vector-write
+message: '`$SOURCE` is copied to or from `Vector$WIDTH` values one `$WIDTH`-wide slice at a time'
+note: Use `MemoryMarshal.Cast<float, <vector>>(<buffer>)`, a view of the buffer as vectors reading and writing it in place

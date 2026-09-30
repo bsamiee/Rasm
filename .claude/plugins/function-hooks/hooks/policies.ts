@@ -38,10 +38,6 @@ interface Rewrite {
     readonly note: string;
     readonly instruction: string;
 }
-interface Shape {
-    readonly options: readonly string[];
-    readonly operand: number;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -57,6 +53,7 @@ const _SECOND_FILES: readonly RegExp[] = [
 ];
 const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
+const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
 
 // --- [GIT] -----------------------------------------------------------------------------
 
@@ -263,15 +260,12 @@ const _walk = (commands: readonly Command[], walk: Walk): readonly string[] =>
 
 const _dashed = (program: string, word: string): boolean => word !== '-' && word !== '--' && word.startsWith('-') && !known(program, word);
 
-const _shape = (program: string, args: readonly string[], index: number): Shape => {
+const _operand = (program: string, args: readonly string[], index: number): number => {
     const word = args[index];
-    if (word === undefined || word === '-' || word === '--' || !word.startsWith('-') || !known(program, word)) {
-        return { options: [], operand: index };
-    }
-    const { names, taken } = option(program, word);
-    const tail = _shape(program, args, index + 1 + taken);
-    return { options: [...names, ...tail.options], operand: tail.operand };
+    return word === undefined || word === '-' || word === '--' || !word.startsWith('-') || !known(program, word) ? index : _operand(program, args, index + 1 + option(program, word).taken);
 };
+
+const _breaks = (word: string, fixed: boolean): boolean => (fixed ? word.includes('\n') : _BREAK.test(word));
 
 const _sd = (command: Command): readonly Insertion[] => {
     const last = invocations(command.words).at(-1);
@@ -280,12 +274,17 @@ const _sd = (command: Command): readonly Insertion[] => {
     }
     const [program, ...args] = last;
     const span = (index: number): Option<Span> => fromUndefined(command.spans[command.words.length - last.length + index]);
-    const { options, operand } = _shape(program, args, 0);
+    const { options } = operands(last);
+    const operand = _operand(program, args, 0);
     const rest = args.slice(operand);
+    const pattern = rest[0] === '--' ? rest[1] : rest[0];
+    const fixed = options.some((name) => ['-F', '--fixed-strings'].includes(name));
     const across = span(0);
     const find = span(operand + 1);
     return [
-        ...(across.kind === 'some' && !_sourced(program, options) && !options.some((name) => ['-A', '--across'].includes(name)) ? [{ at: across.value.end, text: ' -A', program, flag: '-A' }] : []),
+        ...(across.kind === 'some' && pattern !== undefined && _breaks(pattern, fixed) && !_sourced(program, options) && !options.some((name) => ['-A', '--across'].includes(name))
+            ? [{ at: across.value.end, text: ' -A', program, flag: '-A' }]
+            : []),
         ...(find.kind === 'some' && !rest.includes('--') && rest.some((word) => _dashed(program, word)) ? [{ at: find.value.start, text: '-- ', program, flag: '--' }] : []),
     ];
 };

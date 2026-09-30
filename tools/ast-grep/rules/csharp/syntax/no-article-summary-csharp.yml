@@ -9,4 +9,4 @@ rule:
         - regex: '^///\s*(The|A|An)\s+\S'
           follows: {kind: comment, regex: '^///\s*<summary>\s*$'}
 message: 'Doc comment summary opens with an article'
-note: 'Open the summary with the noun it names or the verb it performs'
+note: Use a first word naming what the member is or does, a noun or a verb

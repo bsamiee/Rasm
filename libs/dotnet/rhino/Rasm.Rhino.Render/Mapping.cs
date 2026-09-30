@@ -1,5 +1,4 @@
 using Rasm.Rhino.Document;
-using Rhino.DocObjects;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
@@ -34,27 +33,32 @@ public sealed record MappingState(
     Option<MappingPrimitive> Primitive);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class MappingMapper {
+    [MapProperty(nameof(TextureMapping.TextureSpace), nameof(MappingSettings.Space))]
+    [MapProperty(nameof(TextureMapping.UvwTransform), nameof(MappingSettings.Uvw))]
+    internal static partial MappingSettings ToSettings(TextureMapping mapping);
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapProperty(nameof(MappingSettings.Space), nameof(TextureMapping.TextureSpace))]
+    [MapProperty(nameof(MappingSettings.Uvw), nameof(TextureMapping.UvwTransform))]
+    internal static partial void Update(MappingSettings settings, TextureMapping mapping);
+
+    [MapProperty(nameof(TextureMapping.MappingType), nameof(MappingState.Kind))]
+    [MapPropertyFromSource(nameof(MappingState.Settings), Use = nameof(ToSettings))]
+    internal static partial MappingState ToState(TextureMapping mapping, Option<MappingPrimitive> primitive);
+}
+
 public static class Mappings {
-    // --- [MAPPINGS]
     public static IO<TValue> WithMapping<TValue>(MappingPrimitive primitive, Func<TextureMapping, IO<TValue>> body) =>
-        Disposal.Using(IO.lift(() => Created(primitive)), body);
+        DisposalOps.Using(IO.lift(() => Created(primitive)), body);
 
     public static IO<Unit> ApplySettings(TextureMapping mapping, MappingSettings settings) =>
-        IO.lift(() => {
-            mapping.TextureSpace = settings.Space;
-            mapping.Projection = settings.Projection;
-            mapping.UvwTransform = settings.Uvw;
-        });
+        IO.lift(() => MappingMapper.Update(settings, mapping));
 
     public static IO<TValue> WithSnapshot<TValue>(TextureMapping mapping, Func<MappingState, IO<TValue>> body) =>
         (from primitive in PrimitiveOf(mapping)
-         from state in IO.lift(() => new MappingState(
-             mapping.MappingType,
-             mapping.Id,
-             MappingMapper.ToSettings(mapping),
-             mapping.PrimitiveTransform,
-             mapping.NormalTransform,
-             primitive))
+         from state in IO.lift(() => MappingMapper.ToState(mapping, primitive))
          from value in body(state)
          select value)
         .Bracket();
@@ -72,6 +76,11 @@ public static class Mappings {
                 (position, scale, rotation, offset, repeat, uvwRotation),
                 nameof(TextureMapping.Decompose));
         });
+
+    public static IO<Option<(int Dim, Guid MappingId, Seq<Point3d> Coordinates)>> ReadCoordinates(Mesh mesh, Guid mappingId) =>
+        IO.lift(() => Optional(mesh.GetCachedTextureCoordinates(mappingId))
+            .Traverse(held => CountMismatch.Unless(mesh.Vertices.Count, held.Count, nameof(Mesh.Vertices)).Map(_ => (held.Dim, held.MappingId, Coordinates: toSeq(held).Strict())))
+            .As());
 
     private static Fin<TextureMapping> Created(MappingPrimitive primitive) =>
         primitive.Switch(
@@ -101,29 +110,4 @@ public static class Mappings {
 
     private static Fin<(int Side, Point3d Point)> Sided(int code, Point3d point) =>
         Refused.Unless(code != 0, (code, point), nameof(TextureMapping.Evaluate));
-
-    // --- [COORDINATES]
-    public static IO<Option<(int Dim, Guid MappingId, Seq<Point3d> Coordinates)>> ReadCoordinates(Mesh mesh, Guid mappingId) =>
-        from id in IO.lift(() => Answers.NonEmpty(mappingId, nameof(Mesh.GetCachedTextureCoordinates)))
-        from cached in IO.lift(() => Optional(mesh.GetCachedTextureCoordinates(id)))
-        from block in cached.Traverse(coordinates =>
-            Disposal.Using(() => coordinates, held =>
-                from rows in IO.lift(() =>
-                    from same in Mismatch.Unless(held.Count == mesh.Vertices.Count, nameof(Mesh.Vertices))
-                    select (held.Dim, held.MappingId, Coordinates: toSeq(held).Strict()))
-                select rows)).As()
-        select block;
-
-    public static IO<Unit> CacheCoordinates(Mesh mesh, RhinoObject o, Material material) =>
-        IO.lift(() => {
-            mesh.SetCachedTextureCoordinatesFromMaterial(o, material);
-            return Refused.Unless(mesh.HasCachedTextureCoordinates, nameof(Mesh.SetCachedTextureCoordinatesFromMaterial));
-        });
-}
-
-[Mapper]
-internal static partial class MappingMapper {
-    [MapProperty(nameof(TextureMapping.TextureSpace), nameof(MappingSettings.Space))]
-    [MapProperty(nameof(TextureMapping.UvwTransform), nameof(MappingSettings.Uvw))]
-    internal static partial MappingSettings ToSettings(TextureMapping mapping);
 }

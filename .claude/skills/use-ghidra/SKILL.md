@@ -1,11 +1,11 @@
 ---
 name: use-ghidra
-description: "Use when reading or annotating a binary through Ghidra, covering ghidra-cli, catalog, decompile, call site, stub, and header scripts."
+description: "Use when reading or annotating a binary through Ghidra, covering headless runs, catalog, decompile, call site, stub, and header scripts, and ghidra-cli edits."
 ---
 
 # [GHIDRA]
 
-Binary research through one Ghidra project per binary under `$GHIDRA_PROJECT_DIR`, program named after the binary's file. ghidra-cli starts a bridge that keeps the program resident and answers each command in place. Scripts run traversals the commands lack and write one file each.
+`analyzeHeadless` imports and analyzes each binary once into its own Ghidra project under `$GHIDRA_PROJECT_DIR`, program named after its file. Later reads run scripts on the saved program, one file per script. ghidra-cli bridges serve edits of names, comments, and functions alone.
 
 [SCRIPTS]:
 - [01]-[STUBS](scripts/Stubs.java): Every `__objc_stubs` function named after the message it sends and typed as a message send
@@ -16,78 +16,78 @@ Binary research through one Ghidra project per binary under `$GHIDRA_PROJECT_DIR
 - [06]-[ARGUMENTS](scripts/Arguments.java): Output path, seed, and setting parser that collects every argument error
 - [07]-[FUNCTIONS](scripts/Functions.java): Call graph walks through thunks and stubs, stub selectors, string referrers, and parallel decompiles
 - [08]-[REPORT](scripts/Report.java): `Result` type with `Success` and `Failure` cases, and the writer of every script's file
+- [09]-[BRIDGES](scripts/bridges.py): Session hook that stops each bridge of an ended Claude Code session and clears files dead bridges left
 
 [FACTS]:
-- Project: Every command takes `--project <name>` until `set-default project <name>`
-- Help: `ghidra <group> --help` lists subcommands and flags
+- Run: Scripts take the output path as their first argument after the script name
+- Run: Runs exit 0 after a script error, `REPORT SCRIPT ERROR` in output and a missing `<out>` mark failure
+- Help: `$GHIDRA_INSTALL_DIR/support/analyzeHeadlessREADME.html` lists every headless flag, `ghidra <group> --help` every ghidra-cli flag
 - Project: `mise.toml` names `$GHIDRA_PROJECT_DIR` outside the repository, Ghidra rejects a project path with a dot-prefixed component
-- Program: Scripts run on the bridge's current program, `program open <name>` switches the program
-- Program: Repeated imports into a project add `<file>.<n>`, the bridge then answers for the wrong program
-- Lock: One process opens a project, headless runs beside the resident bridge abort with `LockException` until `ghidra stop`
-- Lock: Crashes leave `<name>.lock` and `<name>.lock~` under `$GHIDRA_PROJECT_DIR` for removal by hand
-- Writes: Every change through the bridge persists, script renames and types included, headless runs under `-readOnly` discard every change
-- Analysis: `program list` prints `analyzed: true` for an import with no analysis run, `function_count` then counts size-1 import stubs
-- Analysis: With no analysis run, `x-ref to` prints `[]` and `decompile` answers `No function at address`
+- Project: `-deleteProject` on an `-import` deletes the project that run created with its analysis
+- Program: Repeated imports into a project add `<file>.<n>`, `-process <file>` keeps reading the first
+- Lock: One process opens a project, a second run aborts with `LockException` until the first exits, `-readOnly` included
+- Lock: Bridges hold their project until `ghidra stop --project <name>`, runs on another project start in parallel
+- Writes: Runs save every script change at exit, `-readOnly` discards them, bridges save at `ghidra stop`
 - Keys: Targets are a name, `0x<hex>`, or `FUN_<hex>`, rows print hex with no `0x`
 - Keys: Renames replace the `FUN_<hex>` name, the entry address stays the key
-- Output: TTYs print compact rows and pipes print JSON
-- Filter: `--filter 'name ~ <value>'` rejects `/` and `::` in the value, `--filter 'name=~"<regex>"'` accepts both
-- Heap: `analyzeHeadless` reads `GHIDRA_HEADLESS_MAXMEM` at bridge start, 2G by default, set on the bridge's starting command
-- Queue: Jobs run one at a time, later ones queue
-- Time: Imports, analysis, exports, and script runs take `run_in_background`
-- Time: Decompiles past the 300 s socket read take `GHIDRA_CLI_READ_TIMEOUT=0` on the command
-- Bundle: `script run <path>` compiles the scripts directory as one bundle at the JDK `JAVA_HOME` names with no release flag
-- Bundle: Subdirectories become packages, one file that fails to compile fails every load, unnamed variables need JDK 22 or later
-- Bundle: `script java` and `script python` answer unsupported through the bridge
-- Bundle: Edited bundles recompile on the next `script run` without a bridge restart
-- Scripts: Output path is the first argument, `--expect <path>` on the command fails a job with that file missing or empty
-- Files: `<out>`, `<report>`, `<macros>`, `<log>`, and a thinned binary go under `<main>/.artifacts/ghidra/<name>/`
+- Memory: Every run and bridge caps its heap at `GHIDRA_HEADLESS_MAXMEM`, the quarter of RAM `mise.toml` sets, and holds it until exit
+- Memory: Decompiles spawn one native `decompile` process per pool thread, min(cores + 1, 10), outside the heap, `-max-cpu <n>` caps one run at n + 1
+- Time: Imports, analysis, and script runs take `run_in_background`
+- Bundle: `-scriptPath` compiles the scripts directory as one bundle at the JDK `JAVA_HOME` names with no release flag
+- Bundle: Subdirectories become packages, unnamed variables need JDK 22 or later
+- Bundle: Compile failures drop the failing file and every file referencing it
+- Parallel: Runs and bridges share the settings, cache, and temp folders `mise.toml` names
+- Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
+- Files: `<out>`, `<stubs>`, `<catalog>`, `<report>`, `<macros>`, `<log>`, and `<scriptlog>` go under `<main>/.artifacts/ghidra/<name>/`
 - Files: `<main>` is the main worktree's absolute path
-- Files: Scripts create the folder, `lipo` and redirects need `mkdir -p`
-- Logs: `application.log` holds import messages and `script.log` each script's printed lines, under `<main>/.cache/ghidra/settings/ghidra/<release>/`
+- Files: Scripts and `-log` create the folder, `lipo` and redirects need `mkdir -p`
+- Logs: `<log>` holds one run's messages and its scripts' printed lines, `<scriptlog>` the printed lines alone
+- Logs: Runs without `-log` or `-scriptlog` append to `application.log` or `script.log` under `<main>/.cache/ghidra/settings/ghidra/<release>/`
+- Logs: Log4j size rollover is unreliable with concurrent runs appending to one file
+- Logs: ghidra-cli writes a daily debug log under `~/Library/Application Support/ghidra-cli/`, a folder no setting moves
 - Use `search-code` for a Ghidra API signature
 
 Numbered steps consume the step before. Bulleted cases are alternatives, one per command line in order.
 
 ## [01]-[READ]
 
-Import and analyze once, name stubs, catalog the program, then decompile seeds with their neighborhood into one file.
+Import, analyze, name stubs, and catalog the program in one run, then decompile seeds with their neighborhood into one file.
 
-Import, one line per case:
-- Analysis through the bridge started at this heap, `run_in_background`
-- One architecture of a universal Mach-O as the file to import
-- Headerless bytes without a bridge on the project, loader, base address without `0x`, and language named
+Imports:
+- Analysis, stubs, then catalog
+- One architecture of a universal Mach-O as the file the first line imports
+- Headerless bytes, loader, base address without `0x`, and language named, then catalog
 
 ```bash
-GHIDRA_HEADLESS_MAXMEM=16G ghidra import <binary> --project <name>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath <main>/.claude/skills/use-ghidra/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
 lipo -thin arm64 <binary> -output <main>/.artifacts/ghidra/<name>/<file>.arm64
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -log <log>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath <main>/.claude/skills/use-ghidra/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+```
+
+`<run>` opens the saved program without analysis:
+
+```bash
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath <main>/.claude/skills/use-ghidra/scripts -log <log> -scriptlog <scriptlog>
 ```
 
 After import:
-1. Function count against the import stubs, a stub-only count takes `ghidra analyze --project <name>` in `run_in_background`
-2. Stubs named `_objc_msgSend$<selector>` and typed as message sends, `run_in_background`
-3. Catalog of strings, imports, and functions, `run_in_background`
-4. Seeds with neighborhood into one file under a directory the script creates, `run_in_background`
-5. Block dividers with line numbers, then `Read <out>` at the line of one function
-6. Failed blocks, seeded again with `timeout=<seconds>` after a timeout and `payload=<megabytes>` after `Response buffer size exceeded`
+1. Seeds with neighborhood into one file
+2. Block dividers with line numbers, then `Read <out>` at the line of one function
+3. Failed blocks, seeded again with `timeout=<seconds>` after a timeout and `payload=<megabytes>` after `Response buffer size exceeded`
 
 ```bash
-ghidra program list --project <name>
-ghidra script run <main>/.claude/skills/use-ghidra/scripts/Stubs.java --project <name> --expect <out> -- <out>
-ghidra script run <main>/.claude/skills/use-ghidra/scripts/Catalog.java --project <name> --expect <out> -- <out>
-ghidra script run <main>/.claude/skills/use-ghidra/scripts/Decompile.java --project <name> --expect <out> -- <out> 'str:<needle>' 0x<hex> callees=1 callers=1
+<run> -readOnly -postScript Decompile.java <out> 'str:<needle>' 0x<hex> callees=1 callers=1
 rg -n '^// --- \[' <out>
 rg -n '^// failed:' <out>
 ```
 
 Alternative runs:
-- Whole program as the seed, `run_in_background`
-- Call sites of the seeds, `run_in_background`
+- Whole program as the seed
+- Call sites of the seeds
 
 ```bash
-ghidra script run <main>/.claude/skills/use-ghidra/scripts/Decompile.java --project <name> --expect <out> -- <out> 're:.'
-ghidra script run <main>/.claude/skills/use-ghidra/scripts/CallSites.java --project <name> --expect <out> -- <out> <seed>...
+<run> -readOnly -postScript Decompile.java <out> 're:.'
+<run> -readOnly -postScript CallSites.java <out> <seed>...
 ```
 
 Seeds come from the catalog:
@@ -98,7 +98,8 @@ Seeds come from the catalog:
 - Stub seeds of `CallSites.java` list one selector's sends, seed `_objc_msgSend` lists every send per selector
 
 Seeds and settings of `Decompile.java` and `CallSites.java`:
-- Seed: `0x<hex>` names the function containing the address, an address in no function takes `ghidra function create <address>` first
+- Seed: `0x<hex>` names the function containing the address
+- Seed: Addresses in no function take `ghidra function create <address> --project <name> --program <file>`, then `ghidra stop --project <name>`
 - Seed: `<name>` or `<namespace>::<name>` names functions by plain or qualified name, `re:<regex>` those with a matching plain or qualified name
 - Seed: `str:<needle>` names functions referencing a defined string holding the needle case-insensitively, through a `__cfstring` struct included
 - Seed: `tag:<tag>` names functions with the tag, `re:.` every non-external function
@@ -110,37 +111,35 @@ Seeds and settings of `Decompile.java` and `CallSites.java`:
 
 ## [02]-[LOCATE]
 
-Seeds outside the catalog from one live listing.
-
-Defined strings holding a needle case-insensitively with addresses, then the referring function per row:
-
-```bash
-ghidra find string '<needle>' --project <name>
-ghidra strings refs 0x<address> --project <name>
-```
-
-Functions by regex, or every function outside the default prefix:
+Seeds below the catalog's top rows:
+- Defined strings holding a needle case-insensitively
+- Imports and functions with a name matching a regex
 
 ```bash
-ghidra function list --filter 'name=~"<regex>"' --fields name,address,size --project <name>
-ghidra function list --filter 'NOT name ^ FUN_' --fields name,address,size --limit 0 --project <name>
+rg -n -i '<needle>' <catalog>
+rg -n '<regex>' <catalog>
 ```
 
 ## [03]-[ANNOTATE]
 
-Annotations persist in the project for every later read:
+Types and prototypes from C headers:
 1. Predefined macros of the target from clang without blocks, one file of `#define` lines
-2. Headers parsed under the macros, `run_in_background`
+2. Headers parsed under the macros
 
 ```bash
 clang -dM -E -x c /dev/null -target <triple> -fno-blocks -o <macros>
-ghidra script run <main>/.claude/skills/use-ghidra/scripts/Headers.java --project <name> --expect <report> -- <report> <header>... -I<dir>... -imacros <macros>
+<run> -postScript Headers.java <report> <header>... -I<dir>... -imacros <macros>
 ```
 
-Subcommands from a file in one connection, one per line without `ghidra` and `#` comments, split on whitespace with no quoting:
+Edits through a bridge:
+1. Subcommands from a file in one connection, one per line without `ghidra` and `#` comments, split on whitespace with no quoting
+2. Bridge stopped
+3. Catalog again when edits renamed its rows
 
 ```bash
-ghidra batch <file> --project <name>
+ghidra batch <commands> --project <name> --program <file>
+ghidra stop --project <name>
+<run> -readOnly -postScript Catalog.java <catalog>
 ```
 
 `Headers.java`:
@@ -205,9 +204,9 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 Each new traversal is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`:
 1. Bundle compiled against the install's jars with every warning on
 2. `google-java-format`, `pmd check`, and `ast-grep scan` of `<project>:lint` over the scripts directory, `jdtls@<marketplace>` diagnostics
-3. Run on a resident program, `run_in_background`
+3. Run on a saved program
 
 ```bash
 javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" <main>/.claude/skills/use-ghidra/scripts/*.java
-ghidra script run <main>/.claude/skills/use-ghidra/scripts/<Script>.java --project <name> --expect <out> -- <out> <seed>...
+<run> -readOnly -postScript <Script>.java <out> <seed>...
 ```

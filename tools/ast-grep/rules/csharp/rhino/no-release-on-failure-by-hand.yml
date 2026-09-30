@@ -2,6 +2,7 @@
 id: no-release-on-failure-by-hand
 language: csharp
 severity: error
+files: ['**/rhino/**']
 utils:
     handler-arguments:
         kind: argument_list
@@ -97,6 +98,6 @@ rule:
     any:
         - matches: caught-release
         - matches: checked-release
-    not: {matches: {csharp-owner-body: {type: {regex: '^GeometryOps$'}, member: {regex: '^OnFailure$'}}}}
+    not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^OnFailure$'}}}}
 message: '`$EFFECT` runs a release on failure and keeps its error by hand'
-note: Use `GeometryOps.OnFailure(<effect>, <release>)` with an `IO<Unit>` release, a failed release adds its error to the effect error
+note: Use `DisposalOps.OnFailure(<effect>, <release>)` with an `IO<Unit>` release, a failed release adds its error to the effect error

@@ -30,36 +30,91 @@ utils:
                         - has:
                             kind: argument
                             has:
+                                nthChild: {position: 1, reverse: true}
                                 any:
                                     - matches: fin-name
                                     - kind: 'invocation_expression, conditional_expression, switch_expression, object_creation_expression'
             - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\.fail(\s*<.+>)?$'}
-    failed-source:
+    arm:
+        any:
+            - matches: failed-value
+            - kind: lambda_expression
+              has: {field: body, matches: failed-value}
+            - kind: lambda_expression
+              has: {field: body, kind: block, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}, kind: return_statement, has: {matches: failed-value}}}
+    failed-value:
         any:
             - matches: evaluated
             - kind: invocation_expression
-              has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Bind|Select|SelectMany|MapFail|As)(\s*<.+>)?$'}}, {has: {field: expression, matches: failed-source}}]}
+              has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Bind|Select|SelectMany|MapFail|As)(\s*<.+>)?$'}}, {has: {field: expression, matches: failed-value}}]}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Switch|Match|Map)(\s*<.+>)?$'}}
+                - has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: arm}}}
             - kind: parenthesized_expression
-              has: {matches: failed-source}
+              has: {matches: failed-value}
+            - kind: conditional_expression
+              any: [{has: {field: consequence, matches: failed-value}}, {has: {field: alternative, matches: failed-value}}]
+            - kind: switch_expression
+              has: {kind: switch_expression_arm, has: {nthChild: {position: 1, reverse: true}, matches: failed-value}}
             - kind: identifier
               pattern: $HELD
               inside:
                 stopBy: end
                 kind: block
-                has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $HELD}}, {has: {nthChild: 2, matches: failed-source}}]}}}
-    predicate-arguments:
-        kind: argument_list
-        has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}
+                has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $HELD}}, {has: {nthChild: 2, matches: failed-value}}]}}}
+            - kind: identifier
+              pattern: $RELAYED
+              inside:
+                stopBy: end
+                kind: block
+                has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RELAYED}}, {has: {nthChild: 2, matches: failed-value}}]}}}
+    called:
+        kind: invocation_expression
+        has:
+            field: function
+            any:
+                - kind: identifier
+                  pattern: $METHOD
+                - kind: generic_name
+                  has: {kind: identifier, pattern: $METHOD}
+                - kind: member_access_expression
+                  has: {field: name, any: [{kind: identifier, pattern: $METHOD}, {kind: generic_name, has: {kind: identifier, pattern: $METHOD}}]}
+    passed:
+        kind: argument
+        all:
+            - not: {has: {field: name, kind: identifier}}
+            - has: {nthChild: {position: 1, reverse: true}, matches: failed-value}
+    parameter-relay:
+        kind: identifier
+        pattern: $PARAM
+        inside:
+            stopBy: end
+            kind: 'method_declaration, local_function_statement'
+            all:
+                - has: {field: name, pattern: $METHOD}
+                - not: {has: {field: parameters, has: {kind: parameter, has: {kind: modifier, regex: '^this$'}}}}
+                - any:
+                    - all:
+                        - has: {field: parameters, has: {kind: parameter, nthChild: {position: 1, ofRule: {kind: parameter}}, has: {field: name, pattern: $PARAM}}}
+                        - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: called, has: {field: arguments, has: {matches: passed, nthChild: {position: 1, ofRule: {kind: argument}}}}}}
+                    - all:
+                        - has: {field: parameters, has: {kind: parameter, nthChild: {position: 2, ofRule: {kind: parameter}}, has: {field: name, pattern: $PARAM}}}
+                        - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: called, has: {field: arguments, has: {matches: passed, nthChild: {position: 2, ofRule: {kind: argument}}}}}}
+                    - all:
+                        - has: {field: parameters, has: {kind: parameter, nthChild: {position: 3, ofRule: {kind: parameter}}, has: {field: name, pattern: $PARAM}}}
+                        - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: called, has: {field: arguments, has: {matches: passed, nthChild: {position: 3, ofRule: {kind: argument}}}}}}
+                    - all:
+                        - has: {field: parameters, has: {kind: parameter, nthChild: {position: 4, ofRule: {kind: parameter}}, has: {field: name, pattern: $PARAM}}}
+                        - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: called, has: {field: arguments, has: {matches: passed, nthChild: {position: 4, ofRule: {kind: argument}}}}}}
+    effect-handler:
+        kind: argument
+        nthChild: {position: 2, ofRule: {kind: argument}}
+        has: {kind: lambda_expression, has: {field: body, regex: '^(global::)?(LanguageExt\.)?IO\s*\.'}}
 rule:
-    any:
-        - kind: invocation_expression
-          all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, pattern: $NAME, regex: '^(Catch|CatchIO)(\s*<.+>)?$'}}, {has: {field: expression, pattern: $SOURCE, matches: failed-source}}]}
-            - has: {field: arguments, matches: predicate-arguments}
-        - kind: binary_expression
-          all:
-            - has: {field: operator, regex: '^\|$'}
-            - has: {field: left, pattern: $SOURCE, matches: failed-source}
-            - has: {field: right, kind: invocation_expression, all: [{has: {field: function, pattern: $NAME, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}}, {has: {field: arguments, matches: predicate-arguments}}]}
-message: '`$NAME` on the failed effect `$SOURCE` runs its handler for every error and ignores its predicate'
-note: Use `Catch` on the `Fin` before `IO.lift`, or `IO.lift(() => <fin>)` to defer evaluation
+    kind: invocation_expression
+    all:
+        - has: {field: arguments, all: [{has: {matches: effect-handler}}, {not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}]}
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Catch$'}}, {has: {field: expression, pattern: $SOURCE, any: [{matches: failed-value}, {matches: parameter-relay}]}}]}
+message: '`Catch` on `$SOURCE`, an `IO` that can fail at construction, runs its handler for every error and ignores its predicate'
+note: Use `<io> | @catch(<predicate>, <handler>)`, parenthesized inside a chain, the `Fallible` catch behind `|` tests its predicate on an `IO` that failed at construction

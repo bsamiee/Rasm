@@ -2,7 +2,14 @@
 id: no-traceback-print
 language: python
 severity: error
-ignores: ['.claude/skills/use-blender/scripts/**', '.claude/skills/use-rhino/scripts/**', 'tools/interface/**']
+ignores:
+    - .claude/skills/use-blender/scripts/*.py
+    - .claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py
+    - tools/interface/{roles,report,units,render,aliases,frame}.py
+    - tools/interface/rhino/{window,markup}.py
+    - tools/interface/blender/rows.py
+    - tools/interface/*/script/**
+    - tools/interface/blender/extension/**
 utils:
     exception-class: {matches: {python-member-use: {module: {regex: "^traceback$"}, name: {regex: "^TracebackException$"}}}}
     formatted-traceback:
@@ -44,4 +51,4 @@ rule:
         - matches: formatted-traceback
           inside: {stopBy: end, kind: argument_list, inside: {matches: output-sink}}
 message: '`$USE` prints a traceback outside structlog'
-note: 'Log through structlog with `logger.exception(<event>)` inside the handler, `exc_info=<exception>` outside it, and `stack_info=True` for the current stack, structlog renders each traceback inside its event'
+note: 'Use structlog''s `logger.exception(<event>)` inside the handler, `exc_info=<exception>` outside it, and `stack_info=True` for the current stack, structlog renders each traceback inside its event'

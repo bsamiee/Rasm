@@ -83,7 +83,7 @@ public abstract partial record SolidDerivation {
 
     public sealed record RemoveHoles(Seq<ComponentIndex> Loops, double Tolerance) : SolidDerivation;
 
-    public sealed record ChangeSeam(BrepFace Face, int Direction, double Parameter, double Tolerance) : SolidDerivation;
+    public sealed record ChangeSeam(BrepFace Face, SurfaceDirection Direction, double Parameter, double Tolerance) : SolidDerivation;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -92,75 +92,75 @@ public static class SolidTopology {
     public static IO<Seq<Brep>> Boolean(SolidBooleanMethod method, double tolerance) =>
         method.Switch(
             tolerance,
-            union: static (tol, union) =>
-                from filled in IO.lift(() => Invalid.Unless(!union.Breps.IsEmpty, nameof(SolidBooleanMethod.Union.Breps)))
-                from answer in IO.lift(() => (
-                    Breps: Brep.CreateBooleanUnion(union.Breps, tol, union.ManifoldOnly, out Point3d[] naked, out Point3d[] bad, out Point3d[] nonManifold),
-                    Failure: new BooleanUnionFailed(toSeq(naked), toSeq(bad), toSeq(nonManifold))))
-                from breps in answer.Breps is null
-                    ? IO.fail<Seq<Brep>>(answer.Failure)
-                    : GeometryResults.Acquire(() => answer.Breps, nameof(Brep.CreateBooleanUnion))
-                select breps,
-            intersection: static (tol, intersection) =>
-                from filled in IO.lift(() => GeometryResults.Sets((intersection.First, nameof(intersection.First)), (intersection.Second, nameof(intersection.Second))))
-                from breps in GeometryResults.Acquire(() => Brep.CreateBooleanIntersection(intersection.First, intersection.Second, tol, intersection.ManifoldOnly), nameof(Brep.CreateBooleanIntersection))
-                select breps,
-            difference: static (tol, difference) =>
-                from filled in IO.lift(() => GeometryResults.Sets((difference.First, nameof(difference.First)), (difference.Second, nameof(difference.Second))))
-                from breps in GeometryResults.Acquire(() => Brep.CreateBooleanDifference(difference.First, difference.Second, tol, difference.ManifoldOnly), nameof(Brep.CreateBooleanDifference))
-                select breps,
-            split: static (tol, split) =>
-                from filled in IO.lift(() => GeometryResults.Sets((split.First, nameof(split.First)), (split.Second, nameof(split.Second))))
-                from breps in GeometryResults.Acquire(() => Brep.CreateBooleanSplit(split.First, split.Second, tol), nameof(Brep.CreateBooleanSplit))
-                select breps);
+            union: static (tol, union) => GeometryResults.Acquire(
+                () => Invalid.Unless(!union.Breps.IsEmpty, nameof(SolidBooleanMethod.Union.Breps))
+                    .Bind(_ => Optional(Brep.CreateBooleanUnion(union.Breps, tol, union.ManifoldOnly, out Point3d[] naked, out Point3d[] bad, out Point3d[] nonManifold))
+                        .ToFin(new BooleanUnionFailed(toSeq(naked), toSeq(bad), toSeq(nonManifold)))),
+                nameof(Brep.CreateBooleanUnion),
+                emptyFails: false),
+            intersection: static (tol, intersection) => GeometryResults.Acquire(
+                () => GeometryResults.Sets((intersection.First, nameof(intersection.First)), (intersection.Second, nameof(intersection.Second)))
+                    .Map(_ => Brep.CreateBooleanIntersection(intersection.First, intersection.Second, tol, intersection.ManifoldOnly)),
+                nameof(Brep.CreateBooleanIntersection),
+                emptyFails: false),
+            difference: static (tol, difference) => GeometryResults.Acquire(
+                () => GeometryResults.Sets((difference.First, nameof(difference.First)), (difference.Second, nameof(difference.Second)))
+                    .Map(_ => Brep.CreateBooleanDifference(difference.First, difference.Second, tol, difference.ManifoldOnly)),
+                nameof(Brep.CreateBooleanDifference),
+                emptyFails: false),
+            split: static (tol, split) => GeometryResults.Acquire(
+                () => GeometryResults.Sets((split.First, nameof(split.First)), (split.Second, nameof(split.Second))).Map(_ => Brep.CreateBooleanSplit(split.First, split.Second, tol)),
+                nameof(Brep.CreateBooleanSplit),
+                emptyFails: false));
 
     public static IO<Seq<Brep>> PlanarBoolean(Plane plane, PlanarBooleanMethod method, double tolerance) =>
-        from valid in IO.lift(() => Invalid.Unless(plane.IsValid, nameof(Plane.IsValid)))
+        from valid in IO.lift(() => Invalid.Unless(plane.IsValid, nameof(plane)))
         from breps in method.Switch(
             (Plane: plane, Tolerance: tolerance),
-            union: static (section, union) =>
-                from filled in IO.lift(() => Invalid.Unless(!union.Breps.IsEmpty, nameof(PlanarBooleanMethod.Union.Breps)))
-                from result in GeometryResults.Acquire(() => Brep.CreatePlanarUnion(union.Breps, section.Plane, section.Tolerance), nameof(Brep.CreatePlanarUnion))
-                select result,
-            intersection: static (section, intersection) => GeometryResults.Acquire(() => Brep.CreatePlanarIntersection(intersection.A, intersection.B, section.Plane, section.Tolerance), nameof(Brep.CreatePlanarIntersection)),
-            difference: static (section, difference) => GeometryResults.Acquire(() => Brep.CreatePlanarDifference(difference.A, difference.B, section.Plane, section.Tolerance), nameof(Brep.CreatePlanarDifference)))
+            union: static (section, union) => GeometryResults.Acquire(
+                () => Invalid.Unless(!union.Breps.IsEmpty, nameof(PlanarBooleanMethod.Union.Breps)).Map(_ => Brep.CreatePlanarUnion(union.Breps, section.Plane, section.Tolerance)),
+                nameof(Brep.CreatePlanarUnion),
+                emptyFails: false),
+            intersection: static (section, intersection) => GeometryResults.Acquire(
+                () => Brep.CreatePlanarIntersection(intersection.A, intersection.B, section.Plane, section.Tolerance),
+                nameof(Brep.CreatePlanarIntersection),
+                emptyFails: false),
+            difference: static (section, difference) => GeometryResults.Acquire(
+                () => Brep.CreatePlanarDifference(difference.A, difference.B, section.Plane, section.Tolerance),
+                nameof(Brep.CreatePlanarDifference),
+                emptyFails: false))
         select breps;
 
     public static IO<Seq<Brep>> Solidify(Seq<Brep> breps, double tolerance) =>
-        from filled in IO.lift(() => Invalid.Unless(!breps.IsEmpty, nameof(breps)))
-        from solids in GeometryResults.Acquire(() => Brep.CreateSolid(breps, tolerance), nameof(Brep.CreateSolid))
-        select solids;
+        GeometryResults.Acquire(() => Brep.CreateSolid(breps, tolerance), nameof(Brep.CreateSolid), emptyFails: false);
 
     // --- [JOINS]
     public static IO<Seq<(Brep Brep, Seq<int> Inputs)>> Join(Seq<Brep> breps, double tolerance, double angleTolerance) =>
-        from filled in IO.lift(() => Invalid.Unless(!breps.IsEmpty, nameof(breps)))
-        from rows in GeometryResults.Acquire(() => (Brep.JoinBreps(breps, tolerance, angleTolerance, out List<int[]> map), map), nameof(Brep.JoinBreps))
-        select rows.Map(static row => (Brep: row.Result, Inputs: toSeq(row.Row)));
+        GeometryResults.Acquire(() => (Brep.JoinBreps(breps, tolerance, angleTolerance, out List<int[]> map), map), nameof(Brep.JoinBreps))
+            .Map(static rows => rows.Map(static row => (Brep: row.Result, Inputs: toSeq(row.Row))));
 
     public static IO<Brep> JoinEdges(Brep brep0, int edge0, Brep brep1, int edge1, double tolerance) =>
-        IO.lift(() =>
-            from first in IndexOutOfRange.Unless(edge0, brep0.Edges.Count, nameof(Brep.Edges))
-            from second in IndexOutOfRange.Unless(edge1, brep1.Edges.Count, nameof(Brep.Edges))
-            from joined in Missing.Unless(Brep.CreateFromJoinedEdges(brep0, edge0, brep1, edge1, tolerance), nameof(Brep.CreateFromJoinedEdges))
-            select joined);
+        GeometryResults.Acquire(
+            () => (IndexOutOfRange.Unless(edge0, brep0.Edges.Count, nameof(Brep.Edges)), IndexOutOfRange.Unless(edge1, brep1.Edges.Count, nameof(Brep.Edges)))
+                .Apply((_, _) => Brep.CreateFromJoinedEdges(brep0, edge0, brep1, edge1, tolerance))
+                .As(),
+            nameof(Brep.CreateFromJoinedEdges));
 
     public static IO<Brep> Merge(Seq<Brep> breps, double tolerance) =>
-        IO.lift(() =>
-            from filled in Invalid.Unless(!breps.IsEmpty, nameof(breps))
-            from merged in Missing.Unless(Brep.MergeBreps(breps, tolerance), nameof(Brep.MergeBreps))
-            select merged);
+        GeometryResults.Acquire(() => Brep.MergeBreps(breps, tolerance), nameof(Brep.MergeBreps));
 
     public static IO<Brep> MergeSurfaces(MergeSurfaceSource source, double tolerance, double angleTolerance) =>
-        IO.lift(() => Missing.Unless(source.Switch(
+        GeometryResults.Acquire(
+            () => source.Switch(
                 (Tolerance: tolerance, Angle: angleTolerance),
                 ofBreps: static (within, pair) => Brep.MergeSurfaces(pair.Brep0, pair.Brep1, within.Tolerance, within.Angle),
                 atPoints: static (within, at) => Brep.MergeSurfaces(at.Brep0, at.Brep1, within.Tolerance, within.Angle, at.Point0, at.Point1, at.Roundness, at.Smooth),
-                ofSurfaces: static (within, pair) => Brep.MergeSurfaces(pair.Surface0, pair.Surface1, within.Tolerance, within.Angle)), nameof(Brep.MergeSurfaces)));
+                ofSurfaces: static (within, pair) => Brep.MergeSurfaces(pair.Surface0, pair.Surface1, within.Tolerance, within.Angle)),
+            nameof(Brep.MergeSurfaces));
 
     public static IO<(Brep Matched, Brep Target)> Match(BrepEdge edge, Seq<Curve> targets, MatchSrfSettings settings) =>
-        from filled in IO.lift(() => Invalid.Unless(!targets.IsEmpty, nameof(targets)))
-        from matched in IO.lift(() => Refused.Unless(Brep.CreateFromMatch(edge, targets, settings, out Brep matchedBrep, out Brep targetBrep), (Matched: matchedBrep, Target: targetBrep), nameof(Brep.CreateFromMatch)))
-        select matched;
+        IO.lift(() => Invalid.Unless(!targets.IsEmpty, nameof(targets))
+            .Bind(_ => Refused.Unless(Brep.CreateFromMatch(edge, targets, settings, out Brep matchedBrep, out Brep targetBrep), (Matched: matchedBrep, Target: targetBrep), nameof(Brep.CreateFromMatch))));
 
     public static IO<(Brep Face0, Brep Face1)> ExtendToConnect(BrepFace face0, BrepFace face1, ConnectMethod method, double tolerance, double angleTolerance) =>
         IO.lift(() => method.Switch(
@@ -170,76 +170,66 @@ public static class SolidTopology {
 
     // --- [SPLITS]
     public static IO<Seq<Brep>> SplitDisjointPieces(Brep brep) =>
-        GeometryResults.Acquire(() => Brep.SplitDisjointPieces(brep), nameof(Brep.SplitDisjointPieces));
+        GeometryResults.Acquire(() => Brep.SplitDisjointPieces(brep), nameof(Brep.SplitDisjointPieces), emptyFails: true);
 
     public static IO<SplitResult> SplitBy(Brep brep, Brep cutter, double tolerance) =>
         from answer in IO.lift(() => (Pieces: brep.Split(cutter, tolerance, out bool raised), Raised: raised))
-        from pieces in GeometryResults.Acquire(() => answer.Pieces, nameof(Brep.Split))
+        from pieces in GeometryResults.Acquire(() => answer.Pieces, nameof(Brep.Split), emptyFails: false)
         select new SplitResult(pieces, answer.Raised);
 
     public static IO<Seq<Brep>> SplitByMany(Brep brep, BrepCutters cutters, double tolerance) =>
         cutters.Switch(
             (Brep: brep, Tolerance: tolerance),
-            byBreps: static (target, cutting) =>
-                from filled in IO.lift(() => Invalid.Unless(!cutting.Cutters.IsEmpty, nameof(BrepCutters.ByBreps.Cutters)))
-                from pieces in GeometryResults.Acquire(() => target.Brep.Split(cutting.Cutters, target.Tolerance), nameof(Brep.Split))
-                select pieces,
-            byCurves: static (target, cutting) =>
-                from filled in IO.lift(() => Invalid.Unless(!cutting.Cutters.IsEmpty, nameof(BrepCutters.ByCurves.Cutters)))
-                from pieces in GeometryResults.Acquire(() => target.Brep.Split(cutting.Cutters, target.Tolerance), nameof(Brep.Split))
-                select pieces,
-            projected: static (target, cutting) =>
-                from filled in IO.lift(() => Invalid.Unless(!cutting.Cutters.IsEmpty, nameof(BrepCutters.Projected.Cutters)))
-                from pieces in GeometryResults.Acquire(() => target.Brep.Split(cutting.Cutters, cutting.Normal, cutting.PlanView, target.Tolerance), nameof(Brep.Split))
-                select pieces);
+            byBreps: static (target, cutting) => GeometryResults.Acquire(
+                () => Invalid.Unless(!cutting.Cutters.IsEmpty, nameof(BrepCutters.ByBreps.Cutters)).Map(_ => target.Brep.Split(cutting.Cutters, target.Tolerance)),
+                nameof(Brep.Split),
+                emptyFails: false),
+            byCurves: static (target, cutting) => GeometryResults.Acquire(
+                () => Invalid.Unless(!cutting.Cutters.IsEmpty, nameof(BrepCutters.ByCurves.Cutters)).Map(_ => target.Brep.Split(cutting.Cutters, target.Tolerance)),
+                nameof(Brep.Split),
+                emptyFails: false),
+            projected: static (target, cutting) => GeometryResults.Acquire(
+                () => Invalid.Unless(!cutting.Cutters.IsEmpty, nameof(BrepCutters.Projected.Cutters)).Map(_ => target.Brep.Split(cutting.Cutters, cutting.Normal, cutting.PlanView, target.Tolerance)),
+                nameof(Brep.Split),
+                emptyFails: false));
 
     public static IO<Seq<Brep>> Trim(Brep brep, TrimCutter cutter, double tolerance) =>
         cutter.Switch(
             (Brep: brep, Tolerance: tolerance),
-            byBrep: static (target, cutting) => GeometryResults.Acquire(() => target.Brep.Trim(cutting.Cutter, target.Tolerance), nameof(Brep.Trim)),
-            byPlane: static (target, cutting) =>
-                from valid in IO.lift(() => Invalid.Unless(cutting.Cutter.IsValid, nameof(Plane.IsValid)))
-                from pieces in GeometryResults.Acquire(() => target.Brep.Trim(cutting.Cutter, target.Tolerance), nameof(Brep.Trim))
-                select pieces);
+            byBrep: static (target, cutting) => GeometryResults.Acquire(() => target.Brep.Trim(cutting.Cutter, target.Tolerance), nameof(Brep.Trim), emptyFails: false),
+            byPlane: static (target, cutting) => GeometryResults.Acquire(
+                () => Invalid.Unless(cutting.Cutter.IsValid, nameof(TrimCutter.ByPlane.Cutter)).Map(_ => target.Brep.Trim(cutting.Cutter, target.Tolerance)),
+                nameof(Brep.Trim),
+                emptyFails: false));
 
     public static IO<Seq<Brep>> CutUp(Surface surface, Seq<Curve> curves, bool flip, double fitTolerance, double keepTolerance) =>
-        from filled in IO.lift(() => Invalid.Unless(!curves.IsEmpty, nameof(curves)))
-        from pieces in GeometryResults.Acquire(() => Brep.CutUpSurface(surface, curves, flip: flip, fitTolerance: fitTolerance, keepTolerance: keepTolerance), nameof(Brep.CutUpSurface))
-        select pieces;
+        GeometryResults.Acquire(() => Brep.CutUpSurface(surface, curves, flip: flip, fitTolerance: fitTolerance, keepTolerance: keepTolerance), nameof(Brep.CutUpSurface), emptyFails: true);
 
     public static IO<Brep> CopyTrimCurves(BrepFace source, Surface target, double tolerance) =>
-        IO.lift(() => Missing.Unless(Brep.CopyTrimCurves(source, target, tolerance), nameof(Brep.CopyTrimCurves)));
+        GeometryResults.Acquire(() => Brep.CopyTrimCurves(source, target, tolerance), nameof(Brep.CopyTrimCurves));
 
     public static IO<Seq<Brep>> UnjoinEdges(Brep brep, Seq<int> edges) =>
-        from valid in IO.lift(() =>
-            from filled in Invalid.Unless(!edges.IsEmpty, nameof(edges))
-            from listed in Answers.InRange(edges, brep.Edges.Count, nameof(Brep.Edges))
-            select unit)
-        from pieces in GeometryResults.Acquire(() => brep.UnjoinEdges(edges), nameof(Brep.UnjoinEdges))
-        select pieces;
+        GeometryResults.Acquire(() => GeometryResults.InRange(edges, brep.Edges.Count, nameof(Brep.Edges)).Map(_ => brep.UnjoinEdges(edges)), nameof(Brep.UnjoinEdges), emptyFails: false);
 
-    // --- [EDITS]
+    // --- [DERIVATIONS]
     public static IO<Brep> AsBrep(GeometryBase geometry) =>
-        IO.lift(() => Optional(Brep.TryConvertBrep(geometry)).ToFin(new WrongGeometry(typeof(Brep), geometry.ObjectType)));
-
-    public static IO<Brep> Edit(Brep source, SolidEdit edit) =>
-        from apply in IO.lift(() => Validated(source, edit))
-        from edited in GeometryOps.EditCopy(source, apply)
-        select edited.Copy;
+        IO.lift(() => Optional(Brep.TryConvertBrep(geometry)).ToFin(new WrongType(typeof(Brep), geometry.GetType())));
 
     public static IO<Brep> Derive(Brep brep, SolidDerivation edit) =>
-        IO.lift(() => edit.Switch(
+        edit.Switch(
             brep,
-            capPlanarHoles: static (source, cap) => Missing.Unless(source.CapPlanarHoles(cap.Tolerance), nameof(Brep.CapPlanarHoles)),
-            removeAllHoles: static (source, holes) => Missing.Unless(source.RemoveHoles(holes.Tolerance), nameof(Brep.RemoveHoles)),
-            removeHoles: static (source, holes) =>
-                from filled in Invalid.Unless(!holes.Loops.IsEmpty, nameof(SolidDerivation.RemoveHoles.Loops))
-                from derived in Missing.Unless(source.RemoveHoles(holes.Loops, holes.Tolerance), nameof(Brep.RemoveHoles))
-                select derived,
-            changeSeam: static (_, seam) =>
-                from directed in SurfaceConstruction.Directed(seam.Direction, nameof(Brep.ChangeSeam))
-                from derived in Missing.Unless(Brep.ChangeSeam(seam.Face, seam.Direction, seam.Parameter, seam.Tolerance), nameof(Brep.ChangeSeam))
-                select derived));
+            capPlanarHoles: static (source, cap) => GeometryResults.Acquire(() => source.CapPlanarHoles(cap.Tolerance), nameof(Brep.CapPlanarHoles)),
+            removeAllHoles: static (source, holes) => GeometryResults.Acquire(() => source.RemoveHoles(holes.Tolerance), nameof(Brep.RemoveHoles)),
+            removeHoles: static (source, holes) => GeometryResults.Acquire(() => source.RemoveHoles(holes.Loops, holes.Tolerance), nameof(Brep.RemoveHoles)),
+            changeSeam: static (_, seam) => GeometryResults.Acquire(
+                () => Brep.ChangeSeam(seam.Face, (int)seam.Direction, seam.Parameter, seam.Tolerance),
+                nameof(Brep.ChangeSeam)));
+
+    // --- [EDITS]
+    public static IO<Brep> Edit(Brep source, SolidEdit edit) =>
+        from apply in IO.lift(() => Validated(source, edit))
+        from edited in GeometryResults.EditCopy(source, apply)
+        select edited.Copy;
 
     private static Fin<Func<Brep, Fin<Unit>>> Validated(Brep source, SolidEdit edit) =>
         edit.Switch(
@@ -250,8 +240,7 @@ public static class SolidTopology {
                 from inside in IndexOutOfRange.Unless(of.Face, brep.Faces.Count, nameof(Brep.Faces))
                 select fun((Brep copy) => Fin.Succ(ignore(copy.MergeCoplanarFaces(of.Face, of.Tolerance, of.AngleTolerance)))),
             mergeFacePair: static (brep, of) =>
-                from first in IndexOutOfRange.Unless(of.Face0, brep.Faces.Count, nameof(Brep.Faces))
-                from second in IndexOutOfRange.Unless(of.Face1, brep.Faces.Count, nameof(Brep.Faces))
+                from inside in GeometryResults.InRange(Seq(of.Face0, of.Face1), brep.Faces.Count, nameof(Brep.Faces))
                 select fun((Brep copy) => Fin.Succ(ignore(copy.MergeCoplanarFaces(of.Face0, of.Face1, of.Tolerance, of.AngleTolerance)))),
             removeFins: static (_, _) => fun(static (Brep copy) => Refused.Unless(copy.RemoveFins(), nameof(Brep.RemoveFins))),
             cullUnusedFaces: static (_, _) => fun(static (Brep copy) => Refused.Unless(copy.CullUnusedFaces(), nameof(Brep.CullUnusedFaces))),

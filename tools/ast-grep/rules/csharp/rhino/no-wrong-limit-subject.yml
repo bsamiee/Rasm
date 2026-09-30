@@ -9,27 +9,40 @@ utils:
         all:
             - has: {field: function, kind: identifier, regex: '^nameof$'}
             - has: {field: arguments, has: {kind: argument}}
-    traversed:
+    traversal:
         kind: lambda_expression
+        inside:
+            kind: argument
+            inside:
+                kind: argument_list
+                inside:
+                    kind: invocation_expression
+                    has:
+                        field: function
+                        kind: member_access_expression
+                        has: {field: name, regex: '^(Traverse|TraverseM)$'}
+    literal:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Seq$'}
+            - has: {field: arguments, has: {kind: argument, nthChild: 2}}
+    traversed:
+        matches: traversal
         all:
             - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $VALUE}, {has: {kind: parameter, has: {field: name, pattern: $VALUE}}}]}
+            - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, has: {field: expression, matches: literal}}}}}
+    element-member:
+        kind: member_access_expression
+        all:
+            - has: {field: expression, kind: identifier, pattern: $ELEMENT}
+            - has: {field: name, pattern: $MEMBER}
             - inside:
-                kind: argument
-                inside:
-                    kind: argument_list
-                    inside:
-                        kind: invocation_expression
-                        has:
-                            field: function
-                            kind: member_access_expression
-                            all:
-                                - has: {field: name, regex: '^(Traverse|TraverseM)$'}
-                                - has:
-                                    field: expression
-                                    kind: invocation_expression
-                                    all:
-                                        - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Seq$'}
-                                        - has: {field: arguments, has: {kind: argument, nthChild: 2}}
+                stopBy: end
+                matches: traversal
+                has: {field: parameters, any: [{kind: implicit_parameter, pattern: $ELEMENT}, {has: {kind: parameter, has: {field: name, pattern: $ELEMENT}}}]}
+    member-subject:
+        matches: subject
+        has: {field: arguments, has: {kind: argument, has: {any: [{kind: identifier, pattern: $MEMBER}, {kind: member_access_expression, has: {field: name, pattern: $MEMBER}}]}}}
     same-file-method:
         pattern: $METHOD
         inside:
@@ -48,6 +61,9 @@ rule:
         - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: subject, pattern: $SUBJECT}}}
         - any:
             - inside: {stopBy: end, matches: traversed}
+            - all:
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: element-member}}}
+                - not: {has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: member-subject}}}}
             - has:
                 field: arguments
                 has:
@@ -62,4 +78,4 @@ rule:
                                 - kind: member_access_expression
                                   has: {field: name, matches: same-file-method}
 message: '`$SUBJECT` names a member other than the checked value `$VALUE`'
-note: Use `nameof(<checked parameter or field>)` as the subject of `Check`
+note: Use `nameof(<checked parameter, field, or element member>)` as the subject of `Check` and a `(Value, Member)` row per value a `Seq` literal traverses, a subject naming another member hides which value failed

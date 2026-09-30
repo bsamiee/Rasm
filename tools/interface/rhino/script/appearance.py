@@ -2,6 +2,7 @@
 # mypy: disable-error-code="import-untyped"
 """Rhino's theme keys and appearance colors in their color roles."""
 
+from collections.abc import Mapping
 from functools import partial
 
 from Rhino.ApplicationSettings import (
@@ -13,11 +14,13 @@ from Rhino.ApplicationSettings import (
     EdgeAnalysisSettings,
     GumballSettings,
     SmartTrackSettings,
+    SoftTransformSettings,
     WidgetColor,
     ZebraAnalysisSettings,
 )
+from System.Drawing import Color
 
-from interface.report import Row
+from interface.report import Action, Row
 from interface.rhino.script.accessors import color, found, hex_color, key, labeled, located, member, opened
 from interface.roles import Accent, Alpha, Axis, blend, Guide, Ink, Line, Selection, Status, Surface, SWATCHES, Text
 
@@ -25,7 +28,7 @@ from interface.roles import Accent, Alpha, Axis, blend, Guide, Ink, Line, Select
 
 
 def rows() -> tuple[Row, ...]:
-    """Rows of each theme key a Rhino control draws, every other theme key holding a color deleted, then of each appearance color, an undrawn member at its drawn sibling's color."""
+    """Rows of each theme key a Rhino control draws and each other color key by its settings path, every other theme key holding a color deleted, then of each appearance color by its owner, an undrawn member at its drawn sibling's color."""
     path = ("UI", "ThemeSettings")
     uniform = {
         "Text.Disabled": color(Text.DISABLED),
@@ -82,7 +85,7 @@ def rows() -> tuple[Row, ...]:
     }
     declared = {f"{zone}.{suffix}": value for zone, (ground, grounded, overrides) in zones.items() for suffix, value in {**uniform, **dict.fromkeys(grounded, ground), **overrides}.items()}
     axes = tuple(color(axis) for axis in (Axis.X, Axis.Y, Axis.Z))
-    members = {
+    members: dict[object, Mapping[str, object]] = {
         AppearanceSettings: {
             "ViewportBackgroundColor": color(Surface.CANVAS),
             "PageviewPaperColor": color(Surface.PAPER),
@@ -105,6 +108,7 @@ def rows() -> tuple[Row, ...]:
             **dict.fromkeys(("CommandPromptTextColor", "CommandPromptHypertextColor"), color(Text.PRIMARY)),
             **dict(zip(("GridXAxisLineColor", "GridYAxisLineColor", "GridZAxisLineColor"), axes, strict=True)),
             **dict(zip(("WorldCoordIconXAxisColor", "WorldCoordIconYAxisColor", "WorldCoordIconZAxisColor"), axes, strict=True)),
+            "BlackWhiteSwitching": True,
         },
         SmartTrackSettings: {
             "LineColor": color(Guide.TRACKING),
@@ -113,13 +117,20 @@ def rows() -> tuple[Row, ...]:
             "PointColor": color(Guide.TRACKING),
             "ActivePointColor": color(Guide.TRACKING_ACTIVE),
         },
-        ChooseOneObjectSettings: {"HighlightColor": color(Selection.HOVER)},
+        ChooseOneObjectSettings: {"HighlightColor": color(Selection.HOVER), "UseCustomColor": True},
         GumballSettings: {"MenuBallColor": color(Guide.HANDLE), **dict(zip(("XAxisColor", "YAxisColor", "ZAxisColor"), axes, strict=True))},
         CurvatureGraphSettings: {"CurveHairColor": color(Guide.CONSTRUCTION), "SurfaceUHairColor": color(Axis.X), "SurfaceVHairColor": color(Axis.Y)},
         DirectionAnalysisSettings: {"Color": color(Guide.CONSTRUCTION)},
         EdgeAnalysisSettings: {"ShowEdgeColor": color(Status.ERROR)},
         ZebraAnalysisSettings: {"StripeColor": color(Ink.DOCUMENT)},
         CursorTooltipSettings: {"BackgroundColor": declared["Content.Background"], "TextColor": declared["Content.Text.Enabled"]},
+        SoftTransformSettings: {"FalloffColor": color(Guide.TRACKING)},
+    }
+    keys: dict[tuple[str, ...], Mapping[str, Color | tuple[str, ...]]] = {
+        path: declared,
+        ("Options", "Appearance"): dict(zip(("DirectionArrowColorU", "DirectionArrowColorV", "DirectionArrowColorW"), axes, strict=True)),
+        (): dict.fromkeys(("SelectionFilterCheckedColorDark", "SelectionFilterCheckedColorLight"), color(Accent.CONTROL_PRESSED)),
+        ("UI", "Settings"): {"ColorPanelSwatches": tuple(map(hex_color, SWATCHES.values()))},
     }
 
     def strays() -> tuple[str, ...]:
@@ -127,26 +138,20 @@ def rows() -> tuple[Row, ...]:
         theme = located(path)
         return () if theme is None else tuple(sorted(name for name in theme.Keys if name not in declared and found(theme.TryGetColor(name)) is not None))
 
-    def clear(_: object) -> None:
+    def clear() -> None:
         """Delete every undeclared theme key holding a color."""
         theme = opened(path)
         for name in strays():
             theme.DeleteItem(name)
 
     return (
-        *(key(path, name, target=target) for name, target in declared.items()),
-        Row(label=labeled(path, "Keys"), read=strays, write=clear, target=()),
+        *(key(owner, name, target=target) for owner, targets in keys.items() for name, target in targets.items()),
+        Action(label=labeled(path, "Keys"), read=strays, act=clear, target=()),
         *(member(owner, name, target=target) for owner, targets in members.items() for name, target in targets.items()),
-        member(AppearanceSettings, "BlackWhiteSwitching", target=True),
-        member(ChooseOneObjectSettings, "UseCustomColor", target=True),
         *(
             Row(label=f'AppearanceSettings.WidgetColor["{widget}"]', read=partial(AppearanceSettings.GetWidgetColor, widget), write=partial(AppearanceSettings.SetWidgetColor, widget), target=axis)
             for widget, axis in zip((WidgetColor.UAxisColor, WidgetColor.VAxisColor, WidgetColor.WAxisColor), axes, strict=True)
         ),
-        *(key(("Options", "Appearance"), name, target=axis) for name, axis in zip(("DirectionArrowColorU", "DirectionArrowColorV", "DirectionArrowColorW"), axes, strict=True)),
-        key(("SoftTransformSettings",), "FalloffColor", target=color(Guide.TRACKING)),
-        *(key((), f"SelectionFilterCheckedColor{scheme}", target=color(Accent.CONTROL_PRESSED)) for scheme in ("Dark", "Light")),
-        key(("UI", "Settings"), "ColorPanelSwatches", target=tuple(map(hex_color, SWATCHES.values()))),
     )
 
 

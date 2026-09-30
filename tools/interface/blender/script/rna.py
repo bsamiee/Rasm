@@ -1,11 +1,14 @@
 # ty: ignore[invalid-argument-type]
 # mypy: disable-error-code="arg-type"
-"""Blender's color role declaration and the one converge of declared RNA members through the installed extension's value forms."""
+"""Blender's color role declaration, the members held for a scope, and the one converge of declared RNA members through the installed extension's value forms."""
 
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import contextmanager
 from functools import partial
+from itertools import chain
 from pathlib import Path
 from types import ModuleType
+from typing import TYPE_CHECKING
 
 from attrs import frozen
 import bpy
@@ -13,6 +16,9 @@ from mathutils import Color
 
 from interface.report import converged, Row
 from interface.roles import fractions
+
+if TYPE_CHECKING:
+    from interface.blender.extension.unit_system import Group
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -46,6 +52,22 @@ def held(collection: "bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]
     return name if name in collection else None
 
 
+@contextmanager
+def assigned(*changes: "tuple[bpy.types.bpy_struct[object], str, object]") -> Iterator[None]:
+    """Members set for the scope and restored in order after it, an array member held as its values."""
+
+    def put(rows: "Iterable[tuple[bpy.types.bpy_struct[object], str, object]]") -> None:
+        for owner, key, value in rows:
+            setattr(owner, key, value)
+
+    saved = [(owner, key, tuple(value) if isinstance(value := getattr(owner, key), bpy.types.bpy_prop_array) else value) for owner, key, _ in changes]
+    try:
+        put(changes)
+        yield
+    finally:
+        put(saved)
+
+
 def converge(
     unit_system: ModuleType, label: str, owner: "bpy.types.bpy_struct[object]", declared: Mapping[str, object], assign: "Callable[[bpy.types.bpy_struct[object], str, object], object]" = setattr
 ) -> Iterator[str]:
@@ -58,6 +80,11 @@ def converge(
         yield from converged(Row(label=f"{label}.{path}", read=partial(unit_system.current, struct, name), write=partial(assign, struct, name), target=value), unit_system.stored)
 
 
+def converge_groups(unit_system: ModuleType, groups: "Iterable[Group]") -> Iterator[str]:
+    """Change lines of every group in order, each member written through its group's assignment."""
+    return chain.from_iterable(converge(unit_system, group.label, group.struct, group.values, group.assign) for group in groups)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Paint", "converge", "held"]
+__all__ = ["Paint", "assigned", "converge", "converge_groups", "held"]

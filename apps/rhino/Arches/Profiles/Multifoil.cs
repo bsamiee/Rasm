@@ -5,7 +5,9 @@ namespace Arches.Profiles;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Multifoil {
     // --- [LIMITS]
-    public static readonly Limits<int> FoilCount = Limits.AtLeast(1);
+    public const int MinimumFoilCount = 1;
+
+    public static readonly Limits<int> FoilCount = Limits.AtLeast(MinimumFoilCount);
 
     // --- [GUIDES]
     private static readonly (double Center, double Sweep) RoundedGuide = (0.0, Math.PI / 2);

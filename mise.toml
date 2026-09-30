@@ -14,6 +14,8 @@ DOTNET_NOLOGO = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 DOTNET_ROLL_FORWARD = "Major"
 DOTNET_CLI_HOME = "{{config_root}}/.cache/dotnet"
+MSBUILDDISABLENODEREUSE = "1"
+NUGET_PACKAGES = "{{config_root}}/.cache/nuget/packages"
 NUGET_HTTP_CACHE_PATH = "{{config_root}}/.cache/nuget/http-cache"
 UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
 UV_CACHE_DIR = "{{config_root}}/.cache/uv"
@@ -37,6 +39,7 @@ BLENDER_MCP_DISABLE_TELEMETRY = "true"
 PULUMI_HOME = "{{config_root}}/.cache/pulumi"
 GHIDRA_PROJECT_DIR = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
 GHIDRA_JAVA_OPTIONS = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
+GHIDRA_HEADLESS_MAXMEM = "{% if os() == 'macos' %}{{ (exec(command='sysctl -n hw.memsize') | int / 1073741824 / 4) | int }}G{% endif %}"
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 [tools]

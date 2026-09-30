@@ -34,8 +34,10 @@ from System import Array, String
 from System.Globalization import CultureInfo
 from System.Reflection import BindingFlags
 
-from interface.report import Row
+from interface.render import LIGHT_TREE
+from interface.report import Row, single
 from interface.rhino.script.accessors import Internal, key, member, opened
+from interface.rhino.script.template import SUN_LIGHT_FACTOR
 from interface.roles import Accent, TEXT_POINTS
 from interface.units import ANGLE_STEP
 
@@ -43,7 +45,7 @@ from interface.units import ANGLE_STEP
 
 
 def rows() -> tuple[Row, ...]:
-    """Rows of the application settings, then of the Alerter, Rhino Render, and default renderer."""
+    """Rows of each owner's members, the Alerter's and Rhino Render's among them, and each settings path's keys, then the internal, user default, and default renderer rows."""
     clr.AddReference("RhinoCyclesCore")
     from Commands.Commands.Alerter import AlerterCommand
     from RhinoCyclesCore.Core import RcCore
@@ -67,79 +69,116 @@ def rows() -> tuple[Row, ...]:
         state.CommandPromptFontName = family
         AppearanceSettings.UpdateFromState(state)
 
+    members = {
+        ViewSettings: {
+            **dict.fromkeys(("RotateViewAroundObjectAtMouseCursor", "AlwaysPanParallelViews", "PanPlanParallelViewsWithControlShiftRMB", "AutoAdjustTargetDepth"), True),
+            **dict.fromkeys(("RotateViewAroundAutogumball", "SingleClickMaximize", "LinkedViewports"), False),
+            "ZoomScale": 1 / math.sqrt(1.2),
+            "ViewRotation": ViewSettings.ViewRotationStyle.RotateAroundWorldAxes,
+            "RotateCircleIncrement": 360 // ANGLE_STEP,
+        },
+        GeneralSettings: {
+            "MiddleMouseMode": MiddleMouseMode.PopupToolbar,
+            "MiddleMousePopupToolbar": "Popup",
+            "MouseSelectMode": MouseSelectMode.Combo,
+            "MinimumUndoSteps": 100,
+            "MaximumUndoMemoryMb": 4096,
+            "EnableContextMenu": True,
+            "ContextMenuDelay": System.TimeSpan(0, 0, 0, 0, 300),
+        },
+        PlugIn: {"AskOnLoadProtection": False},
+        AppearanceSettings: {
+            "LanguageIdentifier": english.LCID,
+            "HelpLanguageIdentifier": 0,
+            **dict.fromkeys(("EchoCommandsToHistoryWindow", "EchoPromptsToHistoryWindow", "ShowViewportTitles", "ShowCrosshairs", "ShowCursorWhenCrosshairsVisible", "ShowOsnapBar"), True),
+            "ShowLayoutDropShadow": False,
+            "CommandPromptFontSize": TEXT_POINTS * 10,
+        },
+        FileSettings: {"ClipboardOnExit": ClipboardState.DeleteData, **dict.fromkeys(("FileLockingOpenWarning", "CreateOtherBackupFiles", "SaveViewChanges"), False)},
+        OpenGLSettings: {"AntialiasLevel": AntialiasLevel.Good},
+        GumballSettings: {**dict.fromkeys(("EnableGumball", "SnappyGumball", "MergeFacesAfterExtrude"), True), **dict.fromkeys(("AxisThickness", "ArcThickness"), 2)},
+        SmartTrackSettings: dict.fromkeys(("UseSmartTrack", "SmartOrtho", "Parallels", "UseDottedLines"), True),
+        ModelAidSettings: {
+            **dict.fromkeys(("Osnap", "Ortho", "ProjectToCPlaneInPlanParallelViews", "DragStartsWindowSelection", "AltPlusArrow"), True),
+            **dict.fromkeys(("GridSnap", "Planar", "ProjectSnapToCPlane", "SnapToFiltered", "ExtendToApparentIntersection"), False),
+            "OsnapModes": OsnapModes.End | OsnapModes.Point | OsnapModes.Midpoint | OsnapModes.Center | OsnapModes.Intersection | OsnapModes.Perpendicular | OsnapModes.Quadrant,
+            "OrthoAngle": math.radians(6 * ANGLE_STEP),
+            "NudgeMode": 1,
+        },
+        ChooseOneObjectSettings: {**dict.fromkeys(("ShowObjectLayer", "ShowObjectTypeDetails", "ShowAllOption"), True), "ShowTitlebarAndBorder": False},
+        SelectionFilterSettings: {"GlobalGeometryFilter": ObjectType.AnyObject, "Enabled": SelectionFilterSettings.GetDefaultState().Enabled},
+        CursorTooltipSettings: dict.fromkeys(("TooltipsEnabled", "DistancePane"), True),
+        toolbar.Buttons: {
+            "PanelButtonSize": max(toolbar.Buttons.PanelButtonSizesMinimum, min(toolbar.Buttons.PanelButtonSizesMaximum, tab_icon)),
+            "ButtonPadding": (tool_row - glyph) // 2,
+            "SpacerSize": 5,
+            "Cascade": Internal.CASCADE_STYLE.parsed("AsPanel"),
+            "MiddleMouseDelay": 400,
+        },
+        toolbar.ToolTips: dict.fromkeys(("IncludeShortcut", "IncludeAlias"), True),
+        AlerterCommand.Instance: {"Enabled": False},
+        RcCore.It.AllSettings: {
+            "ThrottleMs": 100,
+            "SelectedDeviceStr": "-1",
+            "IntermediateSelectedDeviceStr": "-1",
+            "PixelSize": 1,
+            "StartGpuKernelCompiler": True,
+            "UseLightTree": LIGHT_TREE,
+            "SunLightFactor": single(SUN_LIGHT_FACTOR),
+        },
+    }
+    keys: dict[tuple[str, ...], dict[str, bool | int | str]] = {
+        general: {
+            **dict.fromkeys(("MiddleMousePlainButtonRotateMode", "MiddleMouseViewManipulationMode", "EnableTrackpadScrolling", "MouseOverHighlight", "SilhouetteHighlighting"), True),
+            **dict.fromkeys(("MiddleMouseShiftControlSwap", "UsageStatisticsEnabled"), False),
+            "SilhouetteThickness": 3,
+        },
+        advanced: {
+            **dict.fromkeys(("DisableModelAndPageUnitsDifferDialog", "DisablePageUnitsNotInchesOrMMDialog", "UseEtoCommandUI"), True),
+            **dict.fromkeys(
+                (
+                    "EnableCheckForUpdates",
+                    "MacDisplayOldVersionAutosaveWarning",
+                    "DisplayNonOriginModelBasepointWarning",
+                    "UseCompressionWhenSaving",
+                    "AllowUnadornedShortcuts",
+                    "NotesUseSpacesForTabs",
+                ),
+                False,
+            ),
+            "NotesTabWidth": 8,
+        },
+        ("Warnings",): {"MissingFontWarning": False},
+        (options, "PackageManager"): {"CheckForUpdates": False},
+        (options, "FileSettings"): {"AutoSaveVersionsEnabled": True},
+        mouse: {
+            **dict.fromkeys(("EnableUnselectedObjectDrag", "EnableMouseScrollBallRotation", "EnableMagicMouseRotation", "DisableRightClickAsEnter"), False),
+            **dict.fromkeys(("EnableUnselectedGripDrag", "EnableMagicMouseGestures"), True),
+            "MouseButton4Macro": "'_Zoom _Selected",
+        },
+        appearance: {
+            **dict.fromkeys(("AutocompleteCommands", "FuzzyAutocomplete", "ShowStatusbar", "AlwaysShowGeneralObjectProperties", "ShowSideBar"), True),
+            "StatusbarInfoPaneMode": int(Internal.STATUS_BAR_INFO_PANE_MODE.parsed("selected_object_count")),
+            "DirectionArrowThickness": 2,
+        },
+        (options, "SmartTrack"): {"MaximumSmartPoints": 4},
+        (options, "Grid"): {"AxisLineWidth": 1},
+        (): {
+            "OSnapButtonDisplay": int(Internal.OSNAP_BUTTON_DISPLAY.parsed("IconAndText")),
+            "SelectionFilterButtonDisplay": int(Internal.SELECTION_FILTER_BUTTON_DISPLAY.parsed("IconAndText")),
+            **{
+                name: min(max(tab_icon, display.type.DeclaringType.GetField("MinIconSize", BindingFlags.Static | BindingFlags.NonPublic).GetValue(None)), 32)
+                for name, display in (("OSnapIconSize", Internal.OSNAP_BUTTON_DISPLAY), ("SelectionFilterIconSize", Internal.SELECTION_FILTER_BUTTON_DISPLAY))
+            },
+            **dict.fromkeys(("OSnapStretchButtons", "SelectionFilterUseCheckedColor", "SelectionFilterStretchButtons"), True),
+            "AnnotationSpellCheck": False,
+        },
+        ("PropertiesEditor", options): {"DisplayPagesOnIdle": True},
+    }
     return (
-        *(member(ViewSettings, name, target=True) for name in ("RotateViewAroundObjectAtMouseCursor", "AlwaysPanParallelViews", "PanPlanParallelViewsWithControlShiftRMB", "AutoAdjustTargetDepth")),
-        *(member(ViewSettings, name, target=False) for name in ("RotateViewAroundAutogumball", "SingleClickMaximize", "LinkedViewports")),
-        member(ViewSettings, "ZoomScale", target=1 / math.sqrt(1.2)),
-        member(ViewSettings, "ViewRotation", target=ViewSettings.ViewRotationStyle.RotateAroundWorldAxes),
-        member(ViewSettings, "RotateCircleIncrement", target=360 // ANGLE_STEP),
-        member(GeneralSettings, "MiddleMouseMode", target=MiddleMouseMode.PopupToolbar),
-        member(GeneralSettings, "MiddleMousePopupToolbar", target="Popup"),
-        member(GeneralSettings, "MouseSelectMode", target=MouseSelectMode.Combo),
-        member(GeneralSettings, "MinimumUndoSteps", target=100),
-        member(GeneralSettings, "MaximumUndoMemoryMb", target=4096),
-        member(GeneralSettings, "EnableContextMenu", target=True),
-        member(GeneralSettings, "ContextMenuDelay", target=System.TimeSpan(0, 0, 0, 0, 300)),
-        *(
-            key(general, name, target=True)
-            for name in ("MiddleMousePlainButtonRotateMode", "MiddleMouseViewManipulationMode", "EnableTrackpadScrolling", "MouseOverHighlight", "SilhouetteHighlighting")
-        ),
-        *(key(general, name, target=False) for name in ("MiddleMouseShiftControlSwap", "UsageStatisticsEnabled")),
-        key(general, "SilhouetteThickness", target=3),
-        *(key(advanced, name, target=True) for name in ("DisableModelAndPageUnitsDifferDialog", "DisablePageUnitsNotInchesOrMMDialog", "UseEtoCommandUI")),
-        *(
-            key(advanced, name, target=False)
-            for name in (
-                "EnableCheckForUpdates",
-                "MacDisplayOldVersionAutosaveWarning",
-                "DisplayNonOriginModelBasepointWarning",
-                "UseCompressionWhenSaving",
-                "AllowUnadornedShortcuts",
-                "NotesUseSpacesForTabs",
-            )
-        ),
-        key(advanced, "NotesTabWidth", target=8),
-        key(("Warnings",), "MissingFontWarning", target=False),
-        member(PlugIn, "AskOnLoadProtection", target=False),
-        key((options, "PackageManager"), "CheckForUpdates", target=False),
-        key((options, "FileSettings"), "AutoSaveVersionsEnabled", target=True),
-        *(key(mouse, name, target=False) for name in ("EnableUnselectedObjectDrag", "EnableMouseScrollBallRotation", "EnableMagicMouseRotation", "DisableRightClickAsEnter")),
-        *(key(mouse, name, target=True) for name in ("EnableUnselectedGripDrag", "EnableMagicMouseGestures")),
-        key(mouse, "MouseButton4Macro", target="'_Zoom _Selected"),
-        member(AppearanceSettings, "LanguageIdentifier", target=english.LCID),
-        member(AppearanceSettings, "HelpLanguageIdentifier", target=0),
-        *(
-            member(AppearanceSettings, name, target=True)
-            for name in ("EchoCommandsToHistoryWindow", "EchoPromptsToHistoryWindow", "ShowViewportTitles", "ShowCrosshairs", "ShowCursorWhenCrosshairsVisible", "ShowOsnapBar")
-        ),
-        member(AppearanceSettings, "ShowLayoutDropShadow", target=False),
-        member(AppearanceSettings, "CommandPromptFontSize", target=TEXT_POINTS * 10),
+        *(member(owner, name, target=target) for owner, targets in members.items() for name, target in targets.items()),
+        *(key(path, name, target=target) for path, targets in keys.items() for name, target in targets.items()),
         Row(label="AppearanceSettings.CommandPromptFontName", read=lambda: AppearanceSettings.GetCurrentState().CommandPromptFontName, write=prompt_font, target=system_family),
-        *(key(appearance, name, target=True) for name in ("AutocompleteCommands", "FuzzyAutocomplete", "ShowStatusbar", "AlwaysShowGeneralObjectProperties", "ShowSideBar")),
-        key(appearance, "StatusbarInfoPaneMode", target=int(Internal.STATUS_BAR_INFO_PANE_MODE.parsed("selected_object_count"))),
-        key(appearance, "DirectionArrowThickness", target=2),
-        member(FileSettings, "ClipboardOnExit", target=ClipboardState.DeleteData),
-        *(member(FileSettings, name, target=False) for name in ("FileLockingOpenWarning", "CreateOtherBackupFiles", "SaveViewChanges")),
-        member(OpenGLSettings, "AntialiasLevel", target=AntialiasLevel.Good),
-        *(member(GumballSettings, name, target=True) for name in ("EnableGumball", "SnappyGumball", "MergeFacesAfterExtrude")),
-        *(member(GumballSettings, name, target=2) for name in ("AxisThickness", "ArcThickness")),
-        *(member(SmartTrackSettings, name, target=True) for name in ("UseSmartTrack", "SmartOrtho", "Parallels", "UseDottedLines")),
-        key((options, "SmartTrack"), "MaximumSmartPoints", target=4),
-        *(member(ModelAidSettings, name, target=True) for name in ("Osnap", "Ortho", "ProjectToCPlaneInPlanParallelViews", "DragStartsWindowSelection", "AltPlusArrow")),
-        *(member(ModelAidSettings, name, target=False) for name in ("GridSnap", "Planar", "ProjectSnapToCPlane", "SnapToFiltered", "ExtendToApparentIntersection")),
-        member(
-            ModelAidSettings,
-            "OsnapModes",
-            target=OsnapModes.End | OsnapModes.Point | OsnapModes.Midpoint | OsnapModes.Center | OsnapModes.Intersection | OsnapModes.Perpendicular | OsnapModes.Quadrant,
-        ),
-        member(ModelAidSettings, "OrthoAngle", target=math.radians(6 * ANGLE_STEP)),
-        member(ModelAidSettings, "NudgeMode", target=1),
-        *(member(ChooseOneObjectSettings, name, target=True) for name in ("ShowObjectLayer", "ShowObjectTypeDetails", "ShowAllOption")),
-        member(ChooseOneObjectSettings, "ShowTitlebarAndBorder", target=False),
-        member(SelectionFilterSettings, "GlobalGeometryFilter", target=ObjectType.AnyObject),
-        member(SelectionFilterSettings, "Enabled", target=SelectionFilterSettings.GetDefaultState().Enabled),
-        *(member(CursorTooltipSettings, name, target=True) for name in ("TooltipsEnabled", "DistancePane")),
-        key((options, "Grid"), "AxisLineWidth", target=1),
         *(
             Internal.TAB_PANEL_SETTINGS.setting(name, target=target)
             for name, target in (
@@ -155,26 +194,6 @@ def rows() -> tuple[Row, ...]:
                 ("UseIconsInStatusBar", False),
             )
         ),
-        *(
-            member(toolbar.Buttons, name, target=target)
-            for name, target in (
-                ("PanelButtonSize", max(toolbar.Buttons.PanelButtonSizesMinimum, min(toolbar.Buttons.PanelButtonSizesMaximum, tab_icon))),
-                ("ButtonPadding", (tool_row - glyph) // 2),
-                ("SpacerSize", 5),
-                ("Cascade", Internal.CASCADE_STYLE.parsed("AsPanel")),
-                ("MiddleMouseDelay", 400),
-            )
-        ),
-        *(member(toolbar.ToolTips, name, target=True) for name in ("IncludeShortcut", "IncludeAlias")),
-        key((), "OSnapButtonDisplay", target=int(Internal.OSNAP_BUTTON_DISPLAY.parsed("IconAndText"))),
-        key((), "SelectionFilterButtonDisplay", target=int(Internal.SELECTION_FILTER_BUTTON_DISPLAY.parsed("IconAndText"))),
-        *(
-            key((), name, target=max(tab_icon, display.type.DeclaringType.GetField("MinIconSize", BindingFlags.Static | BindingFlags.NonPublic).GetValue(None)))
-            for name, display in (("OSnapIconSize", Internal.OSNAP_BUTTON_DISPLAY), ("SelectionFilterIconSize", Internal.SELECTION_FILTER_BUTTON_DISPLAY))
-        ),
-        *(key((), name, target=True) for name in ("OSnapStretchButtons", "SelectionFilterUseCheckedColor", "SelectionFilterStretchButtons")),
-        key((), "AnnotationSpellCheck", target=False),
-        key(("PropertiesEditor", options), "DisplayPagesOnIdle", target=True),
         Internal.RUNTIME_SETTINGS.setting("NotesRestoreCursorPosition", target=False),
         *(
             Row(label=f'{domain}["{name}"]', read=partial(read, name), write=lambda value, write=write, name=name: write(value, name), target=target)
@@ -193,8 +212,6 @@ def rows() -> tuple[Row, ...]:
             write=lambda value: defaults.SetValueForKey(NSArray.FromStrings(Array[String](list(value))), NSString(languages)),
             target=(english.Parent.Name,),
         ),
-        member(AlerterCommand.Instance, "Enabled", target=False),
-        *(member(RcCore.It.AllSettings, name, target=target) for name, target in (("ThrottleMs", 100), ("SelectedDeviceStr", "-1"), ("IntermediateSelectedDeviceStr", "-1"), ("PixelSize", 1))),
         Row(label="Utilities.DefaultRenderPlugInId", read=lambda: Utilities.DefaultRenderPlugInId, write=Utilities.SetDefaultRenderPlugIn, target=PlugIn.IdFromName("Rhino Render")),
     )
 

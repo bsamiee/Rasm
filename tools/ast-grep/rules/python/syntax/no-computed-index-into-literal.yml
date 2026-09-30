@@ -54,5 +54,5 @@ rule:
                 - matches: literal-table
                 - kind: identifier
                   matches: named-table
-message: 'Literal `$TABLE` is read at the computed index `$CODE`'
-note: 'Select the value with `match` over the case or an enum member holding it, a computed index breaks when table order changes'
+message: 'Computed index `$CODE` reads literal `$TABLE`'
+note: 'Use a `match` over the case or an enum member holding the value, a computed index breaks when table order changes'

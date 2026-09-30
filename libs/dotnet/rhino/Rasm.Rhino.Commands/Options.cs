@@ -1,4 +1,3 @@
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
 using Rhino.Input.Custom;
 using Rhino.UI;
@@ -6,104 +5,84 @@ using Rhino.UI;
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
+internal sealed record Registered<T>(int Index, Option<IDisposable> Holder, Func<CommandLineOption, IO<T>> Chosen);
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OptionSpec<T> {
     public abstract LocalizeStringPair Name { get; init; }
 
     public bool Varies { get; init; }
 
-    public sealed record Simple(LocalizeStringPair Name, Option<LocalizeStringPair> Value, bool Hidden, IO<T> Chosen) : OptionSpec<T>;
+    internal abstract IO<Registered<T>> Add(GetBaseClass getter);
 
-    public sealed record Toggle(LocalizeStringPair Name, bool Initial, LocalizeStringPair Off, LocalizeStringPair On, Func<bool, IO<T>> Chosen) : OptionSpec<T>;
+    public sealed record Simple(LocalizeStringPair Name, Option<LocalizeStringPair> Value, bool Hidden, IO<T> Chosen) : OptionSpec<T> {
+        internal override IO<Registered<T>> Add(GetBaseClass getter) =>
+            Held(getter, None, () => getter.AddOption(Name, Value.ValueUnsafe(), Hidden), _ => Chosen);
+    }
 
-    public sealed record Number(LocalizeStringPair Name, double Initial, Limits<double> Limits, Option<string> Prompt, Func<double, IO<T>> Chosen) : OptionSpec<T>;
+    public sealed record Toggle(LocalizeStringPair Name, bool Initial, LocalizeStringPair Off, LocalizeStringPair On, Func<bool, IO<T>> Chosen) : OptionSpec<T> {
+        internal override IO<Registered<T>> Add(GetBaseClass getter) =>
+            IO.lift(() => new OptionToggle(Initial, Off, On))
+                .Bind(holder => Held(getter, holder, () => getter.AddOptionToggle(Name, ref holder), _ => IO.lift(() => holder.CurrentValue).Bind(Chosen)));
+    }
 
-    public sealed record Integer(LocalizeStringPair Name, int Initial, Limits<int> Limits, Option<string> Prompt, Func<int, IO<T>> Chosen) : OptionSpec<T>;
+    public sealed record Number(LocalizeStringPair Name, double Initial, Option<double> Lower, Option<double> Upper, Option<string> Prompt, Func<double, IO<T>> Chosen) : OptionSpec<T> {
+        internal override IO<Registered<T>> Add(GetBaseClass getter) =>
+            IO.lift(() => Bounded(Lower, Upper, (lower, upper) => new OptionDouble(Initial, lower, upper), (setLowerLimit, limit) => new OptionDouble(Initial, setLowerLimit, limit), () => new OptionDouble(Initial)))
+                .Bind(holder => Held(getter, holder, () => getter.AddOptionDouble(Name, ref holder, Prompt.ValueUnsafe()), _ => IO.lift(() => holder.CurrentValue).Bind(Chosen)));
+    }
 
-    public sealed record String(LocalizeStringPair Name, string Initial, bool AllowEmpty, Option<string> Prompt, Func<string, IO<T>> Chosen) : OptionSpec<T>;
+    public sealed record Integer(LocalizeStringPair Name, int Initial, Option<int> Lower, Option<int> Upper, Option<string> Prompt, Func<int, IO<T>> Chosen) : OptionSpec<T> {
+        internal override IO<Registered<T>> Add(GetBaseClass getter) =>
+            IO.lift(() => Bounded(Lower, Upper, (lower, upper) => new OptionInteger(Initial, lower, upper), (setLowerLimit, limit) => new OptionInteger(Initial, setLowerLimit, limit), () => new OptionInteger(Initial)))
+                .Bind(holder => Held(getter, holder, () => getter.AddOptionInteger(Name, ref holder, Prompt.ValueUnsafe()), _ => IO.lift(() => holder.CurrentValue).Bind(Chosen)));
+    }
 
-    public sealed record Color(LocalizeStringPair Name, System.Drawing.Color Initial, Option<string> Prompt, Func<System.Drawing.Color, IO<T>> Chosen) : OptionSpec<T>;
+    public sealed record String(LocalizeStringPair Name, string Initial, bool AllowEmpty, Option<string> Prompt, Func<string, IO<T>> Chosen) : OptionSpec<T> {
+        internal override IO<Registered<T>> Add(GetBaseClass getter) =>
+            IO.lift(() => new OptionString(Initial, AllowEmpty))
+                .Bind(holder => Held(getter, holder, () => getter.AddOptionString(Name, ref holder, Prompt.ValueUnsafe()), _ => IO.lift(() => holder.CurrentValue).Bind(Chosen)));
+    }
 
-    public sealed record List(LocalizeStringPair Name, Seq<LocalizeStringPair> Values, int Current, Func<int, IO<T>> Chosen) : OptionSpec<T>;
+    public sealed record Color(LocalizeStringPair Name, System.Drawing.Color Initial, Option<string> Prompt, Func<System.Drawing.Color, IO<T>> Chosen) : OptionSpec<T> {
+        internal override IO<Registered<T>> Add(GetBaseClass getter) =>
+            IO.lift(() => new OptionColor(Initial))
+                .Bind(holder => Held(getter, holder, () => getter.AddOptionColor(Name, ref holder, Prompt.ValueUnsafe()), _ => IO.lift(() => holder.CurrentValue).Bind(Chosen)));
+    }
+
+    public sealed record List(LocalizeStringPair Name, Seq<LocalizeStringPair> Values, int Current, Func<int, IO<T>> Chosen) : OptionSpec<T> {
+        internal override IO<Registered<T>> Add(GetBaseClass getter) =>
+            Held(getter, None, () => getter.AddOptionList(Name, Values, Current), option => Chosen(option.CurrentListOptionIndex));
+    }
+
+    private IO<Registered<T>> Held(GetBaseClass getter, Option<IDisposable> holder, Func<int> add, Func<CommandLineOption, IO<T>> chosen) =>
+        DisposalOps.OnFailure(
+            from index in IO.lift(add)
+            from added in IO.lift(OptionNotAdded.Unless(index > 0, index, Name.English))
+            from varied in when(Varies, IO.lift(() => getter.SetOptionVaries(added, varies: true))).As()
+            select new Registered<T>(added, holder, chosen),
+            DisposalOps.Release(holder.ToSeq()));
+
+    private static THolder Bounded<TValue, THolder>(Option<TValue> lower, Option<TValue> upper, Func<TValue, TValue, THolder> both, Func<bool, TValue, THolder> one, Func<THolder> none) where TValue : struct =>
+        (lower.Case, upper.Case) switch {
+            (TValue low, TValue high) => both(low, high),
+            (TValue low, _) => one(true, low),
+            (_, TValue high) => one(false, high),
+            _ => none(),
+        };
 }
-
-public sealed record Registered<T>(Seq<IDisposable> Holders, Map<int, Func<CommandLineOption, IO<T>>> Bound);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CommandOptions {
-    // --- [REGISTRATION]
-    public static IO<Registered<T>> Register<T>(GetBaseClass getter, Seq<OptionSpec<T>> specs) =>
-        from named in IO.lift(() => specs.Bind(Names).Traverse(static check => check).As().ToFin())
-        from registered in specs.Fold(
-            IO.pure(new Registered<T>(Seq<IDisposable>(), Map<int, Func<CommandLineOption, IO<T>>>())),
-            (held, spec) => held.Bind(earlier => GeometryOps.OnFailure(IO.lift(() => Add(getter, spec, earlier)), Disposal.Release(earlier.Holders))))
-        select registered;
+    public static IO<TValue> Using<T, TValue>(GetBaseClass getter, Seq<OptionSpec<T>> specs, Func<IO<T>, IO<TValue>> body) =>
+        DisposalOps.AcquireAll(specs.Map(spec => spec.Add(getter)), Release).Bracket(
+            Use: registered => body(IO.lift(() =>
+                    from option in Missing.Unless(getter.Option(), nameof(GetBaseClass.Option))
+                    from held in registered.Find(row => row.Index == option.Index).ToFin(new Missing(nameof(CommandLineOption.Index)))
+                    select held.Chosen(option))
+                .Flatten()),
+            Fin: Release);
 
-    private static Seq<Validation<Error, Unit>> Names<T>(OptionSpec<T> spec) =>
-        Named(spec.Name, CommandLineOption.IsValidOptionName) + spec.Switch(
-            simple: static simple => simple.Value.ToSeq().Bind(static value => Named(value, CommandLineOption.IsValidOptionValueName)),
-            toggle: static toggle => Named(toggle.Off, CommandLineOption.IsValidOptionValueName) + Named(toggle.On, CommandLineOption.IsValidOptionValueName),
-            number: static _ => Seq<Validation<Error, Unit>>(),
-            integer: static _ => Seq<Validation<Error, Unit>>(),
-            @string: static _ => Seq<Validation<Error, Unit>>(),
-            color: static _ => Seq<Validation<Error, Unit>>(),
-            list: static list => list.Values.Bind(static value => Named(value, CommandLineOption.IsValidOptionValueName)));
-
-    private static Seq<Validation<Error, Unit>> Named(LocalizeStringPair name, Func<string, bool> valid) =>
-        Seq(name.English, name.Local).Map(text => InvalidOptionName.Unless(valid(text), text).ToValidation());
-
-    private static Fin<Registered<T>> Add<T>(GetBaseClass getter, OptionSpec<T> spec, Registered<T> registered) =>
-        spec.Switch(
-            (Getter: getter, Registered: registered),
-            simple: static (state, simple) => Held(state.Getter, state.Getter.AddOption(simple.Name, simple.Value.ValueUnsafe(), simple.Hidden), simple, None, _ => simple.Chosen, state.Registered),
-            toggle: static (state, toggle) => {
-                OptionToggle holder = new(toggle.Initial, toggle.Off, toggle.On);
-                return Held(state.Getter, state.Getter.AddOptionToggle(toggle.Name, ref holder), toggle, holder, Current(() => holder.CurrentValue, toggle.Chosen), state.Registered);
-            },
-            number: static (state, number) => number.Limits.Inclusive(nameof(OptionDouble)).Bind(limits => {
-                OptionDouble holder = limits.Fold<OptionDouble>(
-                    both: (lower, upper) => new(number.Initial, lower.Value, upper.Value),
-                    lower: lower => new(number.Initial, setLowerLimit: true, lower.Value),
-                    upper: upper => new(number.Initial, setLowerLimit: false, upper.Value),
-                    none: () => new(number.Initial));
-                return Held(state.Getter, state.Getter.AddOptionDouble(number.Name, ref holder, number.Prompt.ValueUnsafe()), number, holder, Current(() => holder.CurrentValue, number.Chosen), state.Registered);
-            }),
-            integer: static (state, integer) => integer.Limits.Inclusive(nameof(OptionInteger)).Bind(limits => {
-                OptionInteger holder = limits.Fold<OptionInteger>(
-                    both: (lower, upper) => new(integer.Initial, lower.Value, upper.Value),
-                    lower: lower => new(integer.Initial, setLowerLimit: true, lower.Value),
-                    upper: upper => new(integer.Initial, setLowerLimit: false, upper.Value),
-                    none: () => new(integer.Initial));
-                return Held(state.Getter, state.Getter.AddOptionInteger(integer.Name, ref holder, integer.Prompt.ValueUnsafe()), integer, holder, Current(() => holder.CurrentValue, integer.Chosen), state.Registered);
-            }),
-            @string: static (state, text) => {
-                OptionString holder = new(text.Initial, text.AllowEmpty);
-                return Held(state.Getter, state.Getter.AddOptionString(text.Name, ref holder, text.Prompt.ValueUnsafe()), text, holder, Current(() => holder.CurrentValue, text.Chosen), state.Registered);
-            },
-            color: static (state, color) => {
-                OptionColor holder = new(color.Initial);
-                return Held(state.Getter, state.Getter.AddOptionColor(color.Name, ref holder, color.Prompt.ValueUnsafe()), color, holder, Current(() => holder.CurrentValue, color.Chosen), state.Registered);
-            },
-            list: static (state, list) => Held(state.Getter, state.Getter.AddOptionList(list.Name, list.Values, list.Current), list, None, option => list.Chosen(option.CurrentListOptionIndex), state.Registered));
-
-    private static Func<CommandLineOption, IO<T>> Current<TValue, T>(Func<TValue> read, Func<TValue, IO<T>> chosen) =>
-        _ => IO.lift(read).Bind(chosen);
-
-    private static Fin<Registered<T>> Held<T>(GetBaseClass getter, int index, OptionSpec<T> spec, Option<IDisposable> holder, Func<CommandLineOption, IO<T>> chosen, Registered<T> registered) {
-        if (index == 0) {
-            _ = holder.Iter(static held => held.Dispose());
-            return new OptionNotAdded(spec.Name.English);
-        }
-        if (spec.Varies)
-            getter.SetOptionVaries(index, varies: true);
-        return new Registered<T>(registered.Holders + holder.ToSeq(), registered.Bound.Add(index, chosen));
-    }
-
-    // --- [READS]
-    public static IO<T> Chosen<T>(GetBaseClass getter, Map<int, Func<CommandLineOption, IO<T>>> bound) =>
-        IO.lift(() =>
-            from option in Missing.Unless(getter.Option(), nameof(GetBaseClass.Option))
-            from then in bound.Find(option.Index).ToFin(new Missing(nameof(CommandLineOption.Index)))
-            select then(option))
-            .Flatten();
+    private static IO<Unit> Release<T>(Seq<Registered<T>> registered) =>
+        DisposalOps.Release(registered.Choose(static row => row.Holder));
 }

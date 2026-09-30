@@ -14,9 +14,8 @@ from attrs import frozen
 from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 import blf
 import bpy
-from cattrs.preconf.json import make_converter
 
-from interface.blender.rows import Width
+from interface.blender.rows import JSON, Width
 from interface.blender.script.rna import converge
 from interface.frame import LOWER_EDITOR, RIGHT_COLUMN, Task, TREE_ROWS
 from interface.report import changes, Kind, line, subscript
@@ -315,8 +314,8 @@ def cut(preferences: bpy.types.Preferences, areas: Sequence[bpy.types.Area], are
     return (span - target - far - inner if side is Side.LEFT else target + inner + near - 1) / span
 
 
-def divided(window: bpy.types.Window, preferences: bpy.types.Preferences, area: bpy.types.Area, node: str | Split) -> Iterator[float]:
-    """Cut the area at each split's sized extent, the two parts ordered across the cut, splits before their parts."""
+def divided(window: bpy.types.Window, preferences: bpy.types.Preferences, area: bpy.types.Area, node: str | Split) -> Iterator[float | str]:
+    """Cut the area at each split's sized extent, the two parts ordered across the cut, splits before their parts, and an error line for a split the area refused as too small."""
     match node:
         case str():
             return
@@ -325,9 +324,13 @@ def divided(window: bpy.types.Window, preferences: bpy.types.Preferences, area: 
             with override(window, area):
                 bpy.ops.screen.area_split(direction=side.direction, factor=factor)
             yield TICK
-            upper, lower = sorted((area, next(each for each in window.screen.areas if each.as_pointer() not in before)), key=side.order)
-            yield from divided(window, preferences, upper, first)
-            yield from divided(window, preferences, lower, second)
+            match [each for each in window.screen.areas if each.as_pointer() not in before]:
+                case [added]:
+                    upper, lower = sorted((area, added), key=side.order)
+                    yield from divided(window, preferences, upper, first)
+                    yield from divided(window, preferences, lower, second)
+                case _:
+                    yield line(Kind.ERROR, f"{area_label(window.workspace, area)} refused its {side} split at factor {factor:.4f}")
 
 
 def build_screen(window: bpy.types.Window, preferences: bpy.types.Preferences, unit_system: ModuleType, layout: Layout) -> Iterator[float | str]:
@@ -352,13 +355,18 @@ def region_widths(preferences: bpy.types.Preferences) -> str:
     toolbar_margin, toolbar_column = 16, 40
     shelf, strip = (int((toolbar_margin + columns * toolbar_column) * zoom) for columns in (2, 1))
     widths = {
-        **{(area.type, "UI"): (sidebar, 1.0) for screen in bpy.data.screens for area in screen.areas if any(region.type == "UI" for region in area.regions)},
-        **{(editor, "TOOLS"): (strip, zoom) for editor in ("NODE_EDITOR", "IMAGE_EDITOR")},
+        **{
+            (area.type, region.type): (sidebar, 1.0) if region.type == "UI" else (strip, zoom)
+            for screen in bpy.data.screens
+            for area in screen.areas
+            for region in area.regions
+            if region.type in {"UI", "TOOLS"}
+        },
         ("VIEW_3D", "TOOLS"): (shelf, zoom),
         ("SPREADSHEET", "TOOLS"): (155, 1.0),
     }
     spaces, kinds = (owner.bl_rna.properties["type"].enum_items for owner in (bpy.types.Area, bpy.types.Region))
-    return line(Kind.MEASUREMENT, make_converter().dumps(tuple(Width(editor, spaces[editor].value, kind, kinds[kind].value, width, factor) for (editor, kind), (width, factor) in widths.items())))
+    return line(Kind.MEASUREMENT, JSON.dumps(tuple(Width(editor, spaces[editor].value, kind, kinds[kind].value, width, factor) for (editor, kind), (width, factor) in widths.items())))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

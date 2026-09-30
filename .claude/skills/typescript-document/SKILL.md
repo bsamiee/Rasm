@@ -1,6 +1,7 @@
 ---
 name: typescript-document
 description: "Use when writing or reviewing TSDoc on an exported TypeScript declaration, or deciding whether a signature and name already document a symbol."
+disable-model-invocation: true
 ---
 
 # [TYPESCRIPT_DOCUMENT]

@@ -12,7 +12,7 @@ description: "Use when a task drives a Rhino document, a .3dm file, or a Grassho
 - [02]-[SETTINGS](references/settings.md): Stores, writes, aliases, shortcuts, panels, template, colors, fonts, Grasshopper 2 settings
 - [03]-[FILES](references/files.md): Reading `.3dm` files on disk, opening, exporting, converting, importing, and headless documents
 - [04]-[GRASSHOPPER](references/grasshopper.md): Grasshopper 2 task documents, components, builds, values, checks, bakes, files, and libraries
-- [05]-[PRESENTATION](references/presentation.md): Materials, sun and ground, display modes, saved states, and window captures
+- [05]-[PRESENTATION](references/presentation.md): Materials, sun and ground, render tone, display modes, saved states, and window captures
 - [06]-[DRAFTING](references/drafting.md): Make2D, layout sheets with scaled details, dimensions, sections and hatches, and PDF sheets
 - [07]-[PLUGINS](references/plugins.md): Yak packages, and loading a compiled plugin or library and calling its commands and functions
 
@@ -23,7 +23,7 @@ description: "Use when a task drives a Rhino document, a .3dm file, or a Grassho
 - [04]-[CANVAS](scripts/canvas.py): Grasshopper 2 task documents, builds, layout, values, bakes, clusters, plugins, and pictures
 - [05]-[FILE3DM](scripts/file3dm.py): `uv run --script` over `.3dm` files or folders prints each file's record without Rhino
 
-Results print as records with a class naming their case. Rejected inputs return a tuple of `Fault(source, value, accepted)`, `source` the Rhino type that refused `value` and `accepted` its alternatives:
+Results print as records with a class naming their case. Rejected inputs return `Faults(items)`, each a `Fault(source, value, accepted)`, `source` the Rhino type that refused `value` and `accepted` its alternatives:
 
 ```python
 # Add tower massing on Site::Buildings
@@ -62,7 +62,7 @@ Tasks run steps in order before any change:
 3. `spawn_slot` answering `startup_timeout` names a slot that can arrive later, `list_slots` precedes any retry
 4. `documents()` in any row's slot lists every open document by `serial`, `path` (`None` untitled), `modified`, `active`, and listener `port`
 5. Files the task names that no document holds read first with `uv run --script <skill>/scripts/file3dm.py <file>...`
-6. `Fault` lines name files Rhino answers with a modal alert that holds every close in the process, and stay unopened
+6. `Faults` lines name files Rhino answers with a modal alert that holds every close in the process, and stay unopened
 7. `open -g -b com.mcneel.rhinoceros.9 <file>...` opens other files behind the user's application, each as its own slot, an open file adds no document
 8. Work in the task's named document, else in a temporary copy of its unit system's `Template Files/` template, closed unsaved and deleted at task end
 9. Record the working document's `serial`, `pid`, and `port`
@@ -146,7 +146,7 @@ Rules the hook cannot hold:
 - Out parameters take no argument and follow the return value in a tuple, `TryGetBool(key)` reads `(found, value)`, `PlugInExists(id)` a triple
 - .NET arrays reach a collection overload through `method.Overloads[IEnumerable[T]](array)`, pythonnet binds the single-item overload otherwise
 - Enum parameters take a member or `<Enum>(<int>)`, pythonnet converts no integer
-- Enum members named `None` take another spelling, `ShowContentChooserFlags.NONE` and `FontStyle(0)`, `FontStyle.None` is a syntax error
+- Enum and static members named `None` read as `NONE` (`ShowContentChooserFlags`, `Option[T]`, `CancellationToken`), `X.None` is a syntax error
 - `RenderContent.GetParameter(name)` returns a `Variant`, `.ToDouble()`, `.ToColor4f()`, or the content's `Xml` holds its value
 - Titled documents autosave into their own file when Rhino leaves the front and every 5 idle minutes, edits reach disk without `save`
 - `save` writes through the window's `NSDocument`, a new `path` becomes the document's file
@@ -184,15 +184,20 @@ Records, saved files, and captures show a document's state:
 - `file3dm.py` on a saved or exported `.3dm` shows layers, counts, and views the file on disk holds, `edited` names its last save
 - `capture` draws `.artifacts/rhino/<name>.png` through the view's pipeline without grid, axes, highlight, or Gumball
 - Clipping planes stay out of `capture`, a section cut shows in a window capture from the presentation reference
-- `viewport.DisplayMode` set in a call draws in captures from the next call, `capture(mode=)` draws a mode at once
+- `capture(mode=)` draws a mode at once, a realtime mode (Raytraced) once an earlier call's `show(mode=)` set it, else a `ViewCapture` fault
 - Every view keeps its camera, display mode, and overlays through a capture, and the selection keeps its objects
 - `zoom` takes ids, a `BoundingBox`, or `()` for every visible object, `None` draws the view unchanged
 - Captures draw at the view's device pixel size unless `size` names one
+- Pixel reads (levels, line widths, band edges, dither) take device pixel size, comparisons native render size, and timing a smaller `size`
+- `Read` downscales an image over 2000 px and re-encodes one over 500 KB as lossy JPEG, `magick` crops details under both
+- `get_viewport_image` answers a JPEG at 480x270 by default and 1280x720 at most, a picture for orientation alone
 - `viewport.WorldToClient(point)` maps a point to capture pixels, `describe(doc).current_view` names the user's view
-- `Bitmap.GetPixel` reads the frame buffer and `magick` reads a PNG through its profile, a comparison takes values from one of them alone
-- PNGs store their settings and camera, `capture(doc, "<after>", since="<before>")` redraws them and counts changed pixels
-- `Capture.changed` holds the count, `<after>-diff.png` marks changed pixels red, an unchanged scene counts 0
-- `capture`, `pdf`, and `material` return `Fault(RhinoDoc, None)` with no active document, a file `open -g` opens becomes active
+- `Bitmap.GetPixel` reads frame buffer values and `magick` reads PNG values through its profile, each comparison takes every value from one reader
+- PNGs store their `Capture` (`File.detail`) with the drawn `view` and `mode` beside the camera
+- `capture(doc, "<after>", since="<before>")` redraws view, mode, camera, and size `<before>.png` stores, a missing PNG returns a `Path` fault
+- `Capture.changed` counts pixels changed against `<before>`, 0 for an unchanged scene and `None` without `since`
+- `<after>-diff.png` marks changed pixels red over `<before>` at half brightness
+- `capture`, `pdf`, and `material` return a `RhinoDoc` fault while no document is active, a file `open -g` opens becomes active
 - Captures leave out the Grasshopper 2 preview, and baked objects show in them
 
 ## [07]-[GRASSHOPPER]

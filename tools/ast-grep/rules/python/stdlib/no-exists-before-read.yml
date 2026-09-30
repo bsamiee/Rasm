@@ -16,6 +16,14 @@ utils:
         any:
             - has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $PATH}}, {has: {field: attribute, regex: '^(read_bytes|read_text|open|readlink|iterdir)$'}}]}
             - has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}
+    guard:
+        any:
+            - matches: existence
+            - kind: boolean_operator
+              has: {field: operator, regex: '^and$'}
+              any: [{has: {field: left, matches: guard}}, {has: {field: right, matches: guard}}]
+            - kind: parenthesized_expression
+              has: {matches: guard}
     reads:
         any: [{matches: read}, {has: {stopBy: end, matches: read}}]
 rule:
@@ -23,11 +31,11 @@ rule:
     any:
         - kind: conditional_expression
           all:
-            - has: {nthChild: 2, matches: existence}
+            - has: {nthChild: 2, matches: guard}
             - has: {nthChild: 1, matches: reads}
-        - kind: if_statement
+        - kind: if_statement, elif_clause
           all:
-            - has: {field: condition, matches: existence}
+            - has: {field: condition, matches: guard}
             - has: {field: consequence, matches: reads}
-message: '`$PATH` is tested for existence before the read that raises on its absence'
-note: 'Read the file and map `FileNotFoundError` to the absent value in one `try` at the boundary, an existence test races a read and repeats its check'
+message: '`$SITE` tests `$PATH` for existence before a read that raises on its absence'
+note: 'Use one `try` that reads the file and maps `FileNotFoundError` to the absent value at the boundary, an existence test races the read and repeats its check'

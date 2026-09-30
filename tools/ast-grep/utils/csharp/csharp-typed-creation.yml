@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-typed-creation
+language: csharp
+arguments: [type]
+rule:
+    any:
+        - kind: object_creation_expression
+          has: {field: type, matches: type}
+        - kind: implicit_object_creation_expression
+          inside:
+            stopBy: {not: {kind: 'conditional_expression, parenthesized_expression, switch_expression_arm, switch_expression'}}
+            any:
+                - kind: variable_declarator
+                  inside: {kind: variable_declaration, has: {field: type, matches: type}}
+                - kind: 'arrow_expression_clause, return_statement'
+                  inside:
+                    stopBy: {kind: 'method_declaration, local_function_statement, property_declaration, lambda_expression, anonymous_method_expression'}
+                    kind: 'method_declaration, local_function_statement, property_declaration'
+                    any: [{has: {field: returns, matches: type}}, {has: {field: type, matches: type}}]

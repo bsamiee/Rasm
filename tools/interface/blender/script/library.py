@@ -1,6 +1,6 @@
 # ty: ignore[invalid-assignment, not-subscriptable, unresolved-attribute]
 # mypy: disable-error-code="func-returns-value, index, no-any-return, union-attr, var-annotated"
-"""Blender's shared asset library of site planting species, grown through Modular Tree and written into the assets folder when the stamp of its declared inputs moves."""
+"""Blender's shared asset folder and its library of site planting species, grown through Modular Tree and written into the folder when the stamp of its declared inputs moves."""
 
 from collections.abc import Callable, Iterator
 from functools import partial
@@ -17,7 +17,7 @@ import bpy
 import numpy as np
 
 from interface.blender.script.screens import TICK
-from interface.render import ASSETS
+from interface.render import DESIGN_TOOLS
 from interface.report import changes, digest, Kind, line, subscript
 from interface.units import Length
 
@@ -27,6 +27,7 @@ STAMP: Final = "Stamp"
 
 # --- [FILES] ----------------------------------------------------------------------------
 
+ASSETS: Final = DESIGN_TOOLS / "assets"
 LIBRARY: Final = ASSETS / "assets.blend"
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -202,4 +203,4 @@ def built_library(scene: bpy.types.Scene, module: str) -> Iterator[float | str]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["built_library"]
+__all__ = ["ASSETS", "built_library"]

@@ -122,4 +122,4 @@ rule:
             - has: {nthChild: 1, matches: name-value}
             - has: {kind: switch_expression_arm, has: {nthChild: 1, kind: constant_pattern, has: {kind: string_literal}}}
 message: Enum converts to another enum through its member name
-note: Map each member in an exhaustive `switch` over the source enum, or hold the source enum value
+note: Use an exhaustive `switch` mapping each source member, or hold the source enum value

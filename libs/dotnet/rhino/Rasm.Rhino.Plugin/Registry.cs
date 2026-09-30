@@ -1,6 +1,6 @@
 using System.Drawing;
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
+using Rhino;
 using Rhino.PlugIns;
 using Riok.Mapperly.Abstractions;
 
@@ -9,6 +9,37 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Plugin;
 
 // --- [MODELS] --------------------------------------------------------------------------
+public sealed record PlugInState(
+    Guid Id,
+    Option<string> Name,
+    Option<string> Description,
+    Option<string> FileName,
+    PlugInType PlugInType,
+    PlugInLoadTime PlugInLoadTime,
+    bool IsLoaded,
+    bool ShipsWithRhino,
+    bool IsDotNet,
+    Seq<string> FileTypeDescriptions,
+    Seq<string> FileTypeExtensions,
+    bool LoadSilently,
+    bool LoadProtected);
+
+public readonly record struct FileTypeRow(Guid PlugInId, string Description, Seq<string> Extensions);
+
+public sealed record LicenseState(
+    Guid PluginId,
+    Guid ProductId,
+    LicenseBuildType BuildType,
+    Option<string> LicenseTitle,
+    Option<string> SerialNumber,
+    LicenseType LicenseType,
+    Option<DateTime> ExpirationDate,
+    Option<DateTime> CheckOutExpirationDate,
+    Option<string> RegisteredOwner,
+    Option<string> RegisteredOrganization,
+    bool CloudZooLeaseIsValid,
+    Option<DateTime> CloudZooLeaseExpiration);
+
 public sealed record LeaseState(
     string LeaseId,
     Option<string> ProductId,
@@ -26,46 +57,20 @@ public sealed record LeaseState(
         IO.lift(() => Answers.Present(lease.LeaseId).Map(leaseId => RegistryMapper.ToState(lease, leaseId)));
 }
 
-public sealed record PlugInState(
-    Guid Id,
-    Option<string> Name,
-    Option<string> Description,
-    Option<string> FileName,
-    PlugInType PlugInType,
-    PlugInLoadTime PlugInLoadTime,
-    bool IsLoaded,
-    bool ShipsWithRhino,
-    bool IsDotNet,
-    Seq<string> CommandNames,
-    Seq<string> FileTypeDescriptions,
-    Seq<string> FileTypeExtensions,
-    Option<bool> LoadSilently,
-    bool LoadProtected);
+// --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class RegistryMapper {
+    internal static partial PlugInState ToState(PlugInInfo info, bool loadSilently, bool loadProtected);
 
-public sealed record LicenseState(
-    Guid PluginId,
-    Guid ProductId,
-    LicenseBuildType BuildType,
-    Option<string> LicenseTitle,
-    Option<string> SerialNumber,
-    LicenseType LicenseType,
-    Option<DateTime> ExpirationDate,
-    Option<DateTime> CheckOutExpirationDate,
-    Option<string> RegisteredOwner,
-    Option<string> RegisteredOrganization,
-    bool CloudZooLeaseIsValid,
-    Option<DateTime> CloudZooLeaseExpiration);
+    internal static partial LicenseState ToState(LicenseStatus status);
 
-public readonly record struct FileTypeRow(Guid PlugInId, string Description, Seq<string> Extensions);
+    [MapperIgnoreSource(nameof(LicenseLease.LeaseId), Justification = "Resolved to the leaseId parameter")]
+    internal static partial LeaseState ToState(LicenseLease lease, string leaseId);
 
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record LoadRefused(string Path, LoadPlugInResult Result) : Expected("LoadPlugIn returned {Result} for {Path}", ErrorOps.Code<LoadRefused>());
-
-public sealed record Unloaded(Guid Id) : Expected("Plug-in {Id} is installed and not loaded", ErrorOps.Code<Unloaded>()) {
-    public static Fin<Unit> Unless(bool loaded, Guid id) => loaded ? unit : new Unloaded(id);
+    [UserMapping]
+    private static Option<DateTime> Present(DateTime? date) => Optional(date);
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PlugInRegistry {
     // --- [LOADING]
     public static IO<(LoadPlugInResult Result, Option<Guid> Id)> LoadPlugIn(string path) =>
@@ -83,10 +88,11 @@ public static class PlugInRegistry {
 
     // --- [READS]
     public static IO<Option<PlugInState>> ReadPlugIn(Guid id) =>
-        IO.lift(() => PlugIn.PlugInExists(id, out _, out bool loadProtected)
-            ? Missing.Unless(PlugIn.GetPlugInInfo(id), nameof(PlugIn.GetPlugInInfo))
-                .Map(info => Some(RegistryMapper.ToState(info, Answers.Found(PlugIn.GetLoadProtection(id, out bool loadSilently), loadSilently), loadProtected)))
-            : Option<PlugInState>.None);
+        IO.lift(() => Optional(PlugIn.GetPlugInInfo(id)).Map(info => {
+            _ = PlugIn.PlugInExists(id, out _, out bool loadProtected);
+            _ = PlugIn.GetLoadProtection(id, out bool loadSilently);
+            return RegistryMapper.ToState(info, loadSilently, loadProtected);
+        }));
 
     public static IO<Seq<FileTypeRow>> InstalledFileTypes(PlugInType type) =>
         IO.lift(() => toSeq(PlugIn.GetInstalledPlugIns().Keys)
@@ -99,8 +105,7 @@ public static class PlugInRegistry {
 
     // --- [SETTINGS]
     public static IO<Unit> SavePluginSettings(Guid id) =>
-        from info in IO.lift(() => Missing.Unless(PlugIn.GetPlugInInfo(id), nameof(PlugIn.GetPlugInInfo)))
-        from loaded in IO.lift(() => Unloaded.Unless(info.IsLoaded, id))
+        from loaded in IO.lift(() => Unloaded.Unless(id == RhinoApp.CurrentRhinoId || (PlugIn.PlugInExists(id, out bool isLoaded, out _) && isLoaded), id))
         from saved in IO.lift(() => PlugIn.SavePluginSettings(id))
         select saved;
 
@@ -147,17 +152,4 @@ public static class PlugInRegistry {
 
     public static IO<Unit> LogoutOfCloudZoo() =>
         IO.lift(static () => Refused.Unless(LicenseUtils.LogoutOfCloudZoo(), nameof(LicenseUtils.LogoutOfCloudZoo)));
-}
-
-[Mapper]
-internal static partial class RegistryMapper {
-    internal static partial PlugInState ToState(PlugInInfo info, Option<bool> loadSilently, bool loadProtected);
-
-    internal static partial LicenseState ToState(LicenseStatus status);
-
-    [MapperIgnoreSource(nameof(LicenseLease.LeaseId), Justification = "Resolved to the leaseId parameter")]
-    internal static partial LeaseState ToState(LicenseLease lease, string leaseId);
-
-    [UserMapping]
-    private static Option<DateTime> Present(DateTime? date) => Optional(date);
 }

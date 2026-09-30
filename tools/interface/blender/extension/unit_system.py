@@ -3,7 +3,6 @@
 # ruff: file-ignore[invalid-class-name, mutable-class-default, relative-imports]
 """Scene unit systems with every setting that follows them, the RNA forms converges compare in, the switch operator, and the file-load handler."""
 
-from array import array
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from functools import cache, reduce
 from importlib import import_module
@@ -18,7 +17,7 @@ import bpy
 from bpy.app.handlers import persistent
 from bpy.props import EnumProperty
 
-from .report import subscript
+from .report import single, subscript
 from .units import Length, Pen, Units
 
 if TYPE_CHECKING:
@@ -109,31 +108,29 @@ def extent(units: Units, scene: bpy.types.Scene) -> dict[str, float]:
 # --- [SETTINGS]
 def declared(units: Units, scene: bpy.types.Scene, preferences: bpy.types.Preferences) -> Iterator[Group]:
     """Scene settings of the unit system by registered struct, the system first since its write resets the unit tokens, each group read after the one before it is written."""
-    sheet, (area, volume, mass) = units.sheet_scale, ("square foot", "cubic foot", "pound") if units is Units.IMPERIAL else ("SQUARE_METRE", "CUBIC_METRE", "KILO/GRAM")
-    scale = {"system_unit": "IMPERIAL_IN"} if units is Units.IMPERIAL else {"system_unit": "METRIC", "metric_unit": "MM"}
-    em = units.text / Length.POINTS / cap(preferences.view.font_path_ui)
+    by_units: Mapping[Units, Mapping[str, Mapping[str, object]]] = {
+        Units.IMPERIAL: {
+            "unit_settings": {"use_separate": True, "mass_unit": "POUNDS", "temperature_unit": "FAHRENHEIT"},
+            "scale_interactive_settings": {"system_unit": "IMPERIAL_IN"},
+            "BIMProperties": {"area_unit": "square foot", "volume_unit": "cubic foot", "mass_unit": "pound"},
+        },
+        Units.METRIC: {
+            "unit_settings": {"use_separate": False, "mass_unit": "KILOGRAMS", "temperature_unit": "CELSIUS"},
+            "scale_interactive_settings": {"system_unit": "METRIC", "metric_unit": "MM"},
+            "BIMProperties": {"area_unit": "SQUARE_METRE", "volume_unit": "CUBIC_METRE", "mass_unit": "KILO/GRAM"},
+        },
+    }
+    tokens, sheet, em = by_units[units], units.sheet_scale, units.text / Length.POINTS / cap(preferences.view.font_path_ui)
     groups = (
-        (
-            "unit_settings",
-            lambda: {
-                "system": units.name,
-                "scale_length": 1.0,
-                "use_separate": units.separate,
-                "length_unit": units.length.name,
-                "mass_unit": units.mass,
-                "temperature_unit": units.temperature,
-                "time_unit": "SECONDS",
-                "system_rotation": "DEGREES",
-            },
-        ),
+        ("unit_settings", lambda: {"system": units.name, "scale_length": 1.0, "length_unit": units.length.name, **tokens["unit_settings"], "time_unit": "SECONDS", "system_rotation": "DEGREES"}),
         ("tool_settings", lambda: {"double_threshold": units.tolerance, "proportional_distance": units.grid}),
         ("eevee", lambda: {"volumetric_end": units.far}),
         ("camera.data", lambda: {"clip_start": units.snap, "clip_end": units.far, "display_size": units.grid, "ortho_scale": units.paper[0] * sheet}),
         ("camera.data.BIMCameraProperties", lambda: {"diagram_scale": preset(scene.camera.data.BIMCameraProperties, sheet), "width": units.paper[0] * sheet, "height": units.paper[1] * sheet}),
         ("cpc_settings", lambda: {"merge_tolerance": units.tolerance, **profile(units, scene.cpc_settings)}),
-        ("scale_interactive_settings", lambda: {**scale, "decimal_precision": str(units.places(units.page, 10))}),
+        ("scale_interactive_settings", lambda: {**tokens["scale_interactive_settings"], "decimal_precision": str(units.places(units.page, 10))}),
         *((("blosm", lambda: extent(units, scene)),) if {"lat", "lon"} <= set(scene.keys()) else ()),
-        ("BIMProperties", lambda: {"area_unit": area, "volume_unit": volume, "mass_unit": mass, "time_unit": "SECOND"}),
+        ("BIMProperties", lambda: {**tokens["BIMProperties"], "time_unit": "SECOND"}),
         (
             "dimensions_settings",
             lambda: {
@@ -240,7 +237,7 @@ def stored(value: object) -> object:
     """Value in the form RNA stores it, a float cast to single precision and an array element by element."""
     match value:
         case float():
-            return array("f", (value,))[0]
+            return single(value)
         case tuple():
             return tuple(map(stored, value))
         case _:

@@ -10,7 +10,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Packages">
-        <ProjectReference Include="../Rasm.Rhino.Commands/Rasm.Rhino.Commands.csproj" />
         <ProjectReference Include="../Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
     </ItemGroup>
 </Project>

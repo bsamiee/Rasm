@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-sequenced-independent-check
+language: csharp
+severity: error
+utils:
+    value-arguments:
+        kind: argument_list
+        not:
+            has:
+                kind: argument
+                has:
+                    stopBy: end
+                    kind: invocation_expression
+                    not: {has: {field: function, kind: identifier, regex: '^nameof$'}}
+    lone-argument:
+        kind: argument_list
+        not: {has: {kind: argument, nthChild: 2}}
+    check-callback:
+        kind: argument_list
+        all:
+            - matches: lone-argument
+            - has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: check}}}
+    check:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|Check)(\s*<.+>)?$'}}
+                - has: {field: arguments, matches: value-arguments}
+            - all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, regex: '^(Answers|GeometryResults)$'}}, {has: {field: name, regex: '^(NonEmpty|InRange|Unique|FromResult)(\s*<.+>)?$'}}]}
+                - has: {field: arguments, matches: value-arguments}
+            - all:
+                - has: {field: function, kind: 'identifier, generic_name', regex: '^guard(\s*<.+>)?$'}
+                - has: {field: arguments, matches: value-arguments}
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|Traverse|TraverseM)(\s*<.+>)?$'}}
+                - has: {field: arguments, matches: check-callback}
+            - all:
+                - has: {field: function, kind: member_access_expression, regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<.+>)?$'}
+                - has: {field: arguments, any: [{matches: check-callback}, {all: [{matches: lone-argument}, {has: {kind: argument, has: {matches: check}}}]}]}
+            - all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: check}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    outcome:
+        kind: invocation_expression
+        any:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, regex: '^Answers$'}}, {has: {field: name, regex: '^FromResult$'}}]}
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Unless(\s*<.+>)?$'}}
+                - has:
+                    field: arguments
+                    has:
+                        kind: argument
+                        nthChild: 1
+                        has:
+                            kind: identifier
+                            pattern: $FLAG
+                            inside:
+                                stopBy: end
+                                any:
+                                    - kind: 'method_declaration, local_function_statement'
+                                      has: {field: parameters, has: {kind: parameter, all: [{has: {field: type, regex: '^bool$'}}, {has: {field: name, pattern: $FLAG}}]}}
+                                    - kind: block
+                                      has: {kind: local_declaration_statement, has: {kind: variable_declaration, all: [{has: {field: type, regex: '^bool$'}}, {has: {kind: variable_declarator, has: {field: name, pattern: $FLAG}}}]}}
+rule:
+    kind: from_clause
+    all:
+        - has: {field: name, pattern: $LATER}
+        - has: {matches: check}
+        - follows:
+            kind: from_clause
+            all:
+                - has: {field: name, pattern: $EARLIER}
+                - has: {matches: check}
+                - not: {has: {stopBy: end, matches: outcome}}
+                - not:
+                    follows:
+                        kind: from_clause
+                        all:
+                            - has: {field: name, pattern: $PRIOR}
+                            - has: {matches: check}
+                            - not: {has: {stopBy: end, matches: outcome}}
+                            - precedes: {kind: from_clause, not: {has: {stopBy: end, kind: identifier, pattern: $PRIOR}}}
+        - not: {has: {stopBy: end, kind: identifier, pattern: $EARLIER}}
+message: '`$LATER` check reads nothing `$EARLIER` bound and runs only after `$EARLIER` succeeds, a failed `$EARLIER` hides the `$LATER` error'
+note: Use `(<check>, <check>).Apply(<combine>).As()` or `Seq(<checks>).Traverse(identity).As()` over independent checks and one bind for dependent steps, `Fin` apply joins the error of every failed check

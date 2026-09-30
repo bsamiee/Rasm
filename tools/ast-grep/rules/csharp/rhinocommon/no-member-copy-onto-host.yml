@@ -3,93 +3,92 @@ id: no-member-copy-onto-host
 language: csharp
 severity: error
 utils:
-    bundle-type:
-        regex: '(Parameters|Settings|Options|Info)$'
-    bundle-creation:
-        kind: object_creation_expression
-        has: {field: type, matches: bundle-type}
-    bundle-binding:
+    source-read:
         any:
-            - kind: variable_declaration
-              all:
-                - has: {field: type, matches: bundle-type}
-                - has: {kind: variable_declarator, has: {field: name, pattern: $TARGET}}
-            - matches: created-bundle
-    created-bundle:
-        any:
-            - kind: variable_declaration
-              has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TARGET}}, {has: {matches: bundle-creation}}]}
-            - kind: variable_declaration
-              all:
-                - has: {field: type, matches: bundle-type}
-                - has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TARGET}}, {has: {kind: implicit_object_creation_expression}}]}
-            - kind: from_clause
-              all:
-                - has: {field: name, pattern: $TARGET}
-                - has: {stopBy: end, matches: bundle-creation}
-    function-owner:
-        kind: 'method_declaration, local_function_statement, lambda_expression, constructor_declaration'
-    returned-bundle:
-        inside:
-            kind: 'arrow_expression_clause, return_statement'
-            inside:
-                stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
-                any:
-                    - kind: method_declaration
-                      has: {field: returns, matches: bundle-type}
-                    - kind: local_function_statement
-                      has: {field: type, matches: bundle-type}
-    bundle-initializer:
-        kind: initializer_expression
-        inside:
-            any:
-                - matches: bundle-creation
-                - kind: implicit_object_creation_expression
-                  any:
-                    - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: bundle-type}}}
-                    - matches: returned-bundle
+            - matches: {csharp-member-read: {member: {kind: identifier}, source: {kind: identifier, regex: '^[a-z_@]', pattern: $SRC}}}
+            - kind: member_access_expression
+              has: {field: expression, kind: member_access_expression, matches: source-read}
+    target-member:
+        kind: member_access_expression
+        has: {field: expression, kind: identifier, regex: '^[a-z_@]', pattern: $TARGET}
     copy-write:
         kind: assignment_expression
         all:
             - has: {field: operator, regex: '^=$'}
-            - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, kind: identifier, pattern: $TARGET}}, {has: {field: name, pattern: $FIELD}}]}
-            - has: {field: right, kind: identifier, pattern: $VALUE}
-    copy-branch:
-        any:
-            - matches: copy-write
-            - kind: expression_statement
-              has: {matches: copy-write}
-            - kind: block
-              has: {kind: expression_statement, has: {matches: copy-write}}
-              not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-    copy-callback:
+            - has: {field: right, matches: source-read}
+            - has: {field: left, matches: target-member}
+    relay-callback:
         kind: lambda_expression
         all:
-            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $VALUE}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $VALUE}}, not: {has: {kind: parameter, nthChild: 2}}}]}
-            - has: {field: body, matches: copy-branch}
-    copy-sibling:
-        kind: expression_statement
-        has:
-            kind: assignment_expression
-            all:
-                - has: {field: operator, regex: '^=$'}
-                - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, kind: identifier, pattern: $TARGET}}, {has: {field: name, pattern: $SIBLING}}]}
-                - has: {field: right, matches: {csharp-member-read: {member: {pattern: $SIBLING}, source: {pattern: $SRC}}}}
-    bundle-owner:
-        inside: {stopBy: end, matches: function-owner, has: {stopBy: end, matches: bundle-binding}}
-    target-read:
-        kind: member_access_expression
+            - has: {field: parameters, any: [{kind: implicit_parameter}, {kind: parameter_list, not: {has: {kind: parameter, nthChild: 2}}}]}
+            - has:
+                field: body
+                any:
+                    - {kind: assignment_expression, has: {field: left, matches: target-member}}
+                    - {kind: block, has: {kind: expression_statement, has: {kind: assignment_expression, has: {field: left, matches: target-member}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}
+    relay-write:
+        kind: invocation_expression
         all:
-            - has: {field: expression, pattern: $TARGET}
-            - has: {field: name, pattern: $FIELD}
-            - any:
-                - inside: {kind: variable_declarator}
-                - inside: {kind: argument, inside: {kind: tuple_expression}}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Iter|IfSome|Do)$'}}, {has: {field: expression, matches: source-read}}]}
+            - has: {field: arguments, has: {kind: argument, has: {matches: relay-callback}}}
+    case-write:
+        kind: if_statement
+        all:
+            - has:
+                field: condition
+                kind: is_pattern_expression
+                all:
+                    - has: {field: expression, kind: member_access_expression, all: [{has: {field: name, regex: '^Case$'}}, {has: {field: expression, matches: source-read}}]}
+                    - has: {field: pattern, kind: declaration_pattern}
+            - has: {field: consequence, any: [{kind: expression_statement, has: {kind: assignment_expression, has: {field: left, matches: target-member}}}, {kind: block, has: {kind: expression_statement, has: {kind: assignment_expression, has: {field: left, matches: target-member}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
+            - not: {has: {field: alternative, pattern: $_}}
+    plain-statement:
+        kind: expression_statement
+        has: {matches: copy-write}
+    copy-statement:
+        any:
+            - matches: plain-statement
+            - kind: expression_statement
+              has:
+                any:
+                    - matches: relay-write
+                    - kind: assignment_expression
+                      all: [{has: {field: left, regex: '^_$'}}, {has: {field: right, matches: relay-write}}]
+            - matches: case-write
+    copied-member:
+        kind: assignment_expression
+        all:
+            - has: {field: left, kind: identifier}
+            - has: {field: right, matches: source-read}
+    record-type:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has: {stopBy: end, kind: record_declaration, has: {field: name, pattern: $TARGET}}
+    host-type:
+        pattern: $TARGET
+        not: {matches: record-type}
+    created-target:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, matches: host-type}
+            - kind: implicit_object_creation_expression
+              any:
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: host-type}}}
+                - inside:
+                    kind: 'arrow_expression_clause, return_statement'
+                    inside:
+                        stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                        any:
+                            - {kind: method_declaration, has: {field: returns, matches: host-type}}
+                            - {kind: local_function_statement, has: {field: type, matches: host-type}}
+    function-owner:
+        kind: 'method_declaration, local_function_statement, lambda_expression, constructor_declaration'
     source-addressed:
         kind: 'from_clause, variable_declarator'
         all:
             - has: {field: name, pattern: $TARGET}
-            - has: {stopBy: end, kind: member_access_expression, has: {field: expression, pattern: $SRC}}
+            - has: {matches: source-read}
     same-type-pair:
         kind: parameter_list
         all:
@@ -97,58 +96,56 @@ utils:
             - has: {kind: parameter, all: [{has: {field: type, pattern: $SAME}}, {has: {field: name, pattern: $TARGET}}]}
 rule:
     any:
-        - kind: invocation_expression
+        - kind: 'object_creation_expression, implicit_object_creation_expression'
           all:
             - has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: name, regex: '^(Iter|IfSome|Map|Do|Match)$'}
-                    - has: {field: expression, kind: member_access_expression, has: {field: name, pattern: $FIELD}}
-            - has: {field: arguments, has: {kind: argument, has: {matches: copy-callback}}}
-            - any:
-                - inside: {kind: 'expression_statement, arrow_expression_clause'}
-                - inside: {kind: assignment_expression, has: {field: left, regex: '^_$'}, inside: {kind: expression_statement}}
-            - matches: bundle-owner
-        - kind: if_statement
-          all:
-            - has:
-                field: condition
-                kind: is_pattern_expression
-                all:
-                    - has: {field: expression, kind: member_access_expression, all: [{has: {field: name, regex: '^Case$'}}, {has: {field: expression, kind: member_access_expression, has: {field: name, pattern: $FIELD}}}]}
-                    - has: {field: pattern, kind: declaration_pattern, has: {field: name, pattern: $VALUE}}
-            - has: {field: consequence, matches: copy-branch}
-            - not: {has: {field: alternative, pattern: $_}}
-            - matches: bundle-owner
+                kind: initializer_expression
+                has: {matches: copied-member, precedes: {stopBy: end, matches: copied-member}}
+            - matches: created-target
         - kind: assignment_expression
           all:
             - has: {field: operator, regex: '^=$'}
-            - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, kind: identifier, regex: '^[a-z_@]', pattern: $TARGET}}, {has: {field: name, pattern: $FIELD}}]}
-            - has: {field: right, matches: {csharp-member-read: {member: {pattern: $FIELD}, source: {pattern: $SRC}}}}
+            - has:
+                field: right
+                kind: tuple_expression
+                has: {kind: argument, has: {matches: source-read}, precedes: {stopBy: end, kind: argument, has: {matches: source-read}}}
+            - has:
+                field: left
+                kind: tuple_expression
+                all:
+                    - has: {kind: argument, has: {matches: target-member}}
+                    - not: {has: {kind: argument, not: {has: {matches: target-member}}}}
+            - not: {has: {field: left, has: {kind: argument, has: {has: {field: expression, pattern: $SRC}}}}}
+        - kind: assignment_expression
+          all:
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: right, kind: 'identifier, member_access_expression', regex: '^[a-z_@]', pattern: $SRC}
+            - has:
+                field: left
+                kind: tuple_expression
+                all:
+                    - has: {kind: argument, has: {matches: target-member}, precedes: {stopBy: end, kind: argument, has: {matches: target-member}}}
+                    - not: {has: {kind: argument, not: {any: [{has: {matches: target-member}}, {regex: '^_$'}]}}}
+            - not:
+                inside:
+                    kind: lambda_expression
+                    inside:
+                        kind: argument
+                        inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|Do)$'}}}}
+        - kind: 'expression_statement, if_statement'
+          all:
+            - matches: copy-statement
+            - precedes: {stopBy: end, matches: copy-statement}
+            - not: {follows: {stopBy: end, matches: copy-statement}}
             - any:
-                - matches: bundle-owner
-                - inside:
-                    kind: expression_statement
-                    all:
-                        - inside: {kind: 'block, switch_section'}
-                        - any:
-                            - follows: {stopBy: end, matches: copy-sibling}
-                            - precedes: {stopBy: end, matches: copy-sibling}
+                - matches: plain-statement
+                - precedes: {stopBy: end, matches: plain-statement}
+            - not: {has: {stopBy: end, matches: target-member, has: {field: expression, pattern: $SRC}}}
+            - not: {inside: {kind: block, has: {kind: expression_statement, has: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $TARGET}}}}}}
             - not:
                 inside:
                     stopBy: end
                     matches: function-owner
-                    has:
-                        stopBy: end
-                        any:
-                            - matches: target-read
-                            - matches: source-addressed
-                            - matches: same-type-pair
-        - kind: assignment_expression
-          all:
-            - has: {field: left, kind: identifier, pattern: $FIELD}
-            - has: {field: right, matches: {csharp-member-read: {member: {pattern: $FIELD}, source: {pattern: $SRC}}}}
-            - inside: {matches: bundle-initializer}
-message: 'Record field `$FIELD` is copied by hand onto the host member of the same name'
-note: Use a Mapperly existing-target mapping `partial void Update(<record> source, <host> target)` under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]`, or take the host object itself where the record adds no constraint the host lacks
+                    has: {stopBy: end, any: [{matches: source-addressed}, {matches: same-type-pair}]}
+message: 'Members of `$SRC` are written one by one onto `$TARGET`'
+note: Use a Mapperly `partial <host> To<host>(<record> source)` for a new host object or `partial void Update(<record> source, <host> target)` under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for an existing one, with `[MapProperty]` per renamed member, or the host object itself where the record adds no constraint the host lacks

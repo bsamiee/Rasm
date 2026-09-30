@@ -3,53 +3,117 @@ id: no-constant-actual-kind
 language: csharp
 severity: error
 utils:
-    actual-record:
-        kind: 'identifier, qualified_name'
-        regex: '^((global::)?[\w.]*\.)?(WrongGeometry|WrongKind|ProjectionMismatch|WrongUpdateType)$'
-        pattern: $RECORD
     constant-kind:
         any:
             - kind: member_access_expression
-              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(ObjectType|RenderContentKind|CameraProjection|InstanceDefinitionUpdateType)$'}
+              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(RenderContentKind|CameraProjection|LightStyle|GetResult|Result|RenderReturnCode|LoadPlugInResult)$'}
+            - kind: typeof_expression
             - kind: cast_expression
               has: {field: value, kind: 'integer_literal, prefix_unary_expression'}
             - kind: default_expression
     constant-value:
         any:
             - matches: constant-kind
+            - kind: conditional_expression
+              all:
+                - has: {field: consequence, matches: constant-value}
+                - has: {field: alternative, matches: constant-value}
             - kind: identifier
               pattern: $RELAY
               inside:
                 stopBy: end
                 kind: 'method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration'
-                has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {matches: constant-kind}}]}
+                all:
+                    - has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {matches: constant-kind}}]}
+                    - not: {has: {stopBy: end, kind: assignment_expression, has: {field: left, pattern: $RELAY}}}
+            - kind: identifier
+              pattern: $RELAY
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: field_declaration
+                    all:
+                        - has: {kind: modifier, regex: '^(const|readonly)$'}
+                        - has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {matches: constant-kind}}]}}
+            - kind: identifier
+              pattern: $NARROWED
+              any:
+                - inside:
+                    stopBy: end
+                    kind: switch_expression_arm
+                    all:
+                        - has: {nthChild: 1, kind: constant_pattern, has: {matches: constant-kind}}
+                        - inside: {kind: switch_expression, has: {nthChild: 1, pattern: $NARROWED}}
+                - inside:
+                    stopBy: end
+                    kind: switch_section
+                    all:
+                        - has: {nthChild: 1, kind: constant_pattern, has: {matches: constant-kind}}
+                        - not: {follows: {kind: switch_section, has: {nthChild: {position: 1, reverse: true}, kind: 'constant_pattern, or_pattern, and_pattern, negated_pattern, parenthesized_pattern, declaration_pattern, recursive_pattern, relational_pattern, type_pattern, var_pattern, list_pattern, discard, when_clause'}}}
+                        - inside: {kind: switch_body, inside: {kind: switch_statement, has: {field: value, pattern: $NARROWED}}}
+                - inside:
+                    stopBy: end
+                    field: consequence
+                    kind: 'conditional_expression, if_statement'
+                    has: {field: condition, matches: narrowing}
+    narrowing:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - any:
+                    - all: [{has: {field: left, pattern: $NARROWED}}, {has: {field: right, matches: constant-kind}}]
+                    - all: [{has: {field: left, matches: constant-kind}}, {has: {field: right, pattern: $NARROWED}}]
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^&&$'}
+                - has: {matches: narrowing}
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, pattern: $NARROWED}
+                - has: {field: pattern, kind: constant_pattern, has: {matches: constant-kind}}
+            - kind: parenthesized_expression
+              has: {matches: narrowing}
+    first-creation:
+        matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongLightStyle|UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}}}
+    second-creation:
+        any:
+            - matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|WrongKind|ProjectionMismatch|LoadRefused)$', pattern: $RECORD}}}
+            - kind: invocation_expression
+              has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: expression, kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|WrongKind|ProjectionMismatch|LoadRefused|WrongLightStyle|UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}
+                    - has: {field: name, regex: '^Unless$'}
+    positional:
+        kind: argument
+        not: {has: {field: name, pattern: $_}}
     actual-argument:
         kind: argument
-        any:
-            - all:
-                - has: {field: name, regex: '^[Aa]ctual$'}
-                - has: {matches: constant-value, pattern: $KIND}
-            - all:
-                - nthChild: {position: 2, ofRule: {kind: argument}}
-                - not: {has: {field: name, pattern: $_}}
-                - has: {matches: constant-value, pattern: $KIND}
-    creation:
-        any:
-            - kind: object_creation_expression
-              has: {field: type, matches: actual-record}
-            - kind: invocation_expression
-              has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: actual-record}}, {has: {field: name, regex: '^Unless$'}}]}
-            - kind: implicit_object_creation_expression
-              any:
-                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: actual-record}}}
-                - inside:
-                    kind: 'arrow_expression_clause, return_statement'
-                    inside:
-                        stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
-                        kind: 'method_declaration, local_function_statement'
-                        any: [{has: {field: returns, matches: actual-record}}, {has: {field: type, matches: actual-record}}]
+        all:
+            - has: {matches: constant-value, pattern: $KIND}
+            - any:
+                - has: {field: name, regex: '^([Aa]ctual|[Ss]tyle|[Rr]esult|[Rr]eturnCode)$'}
+                - all:
+                    - matches: positional
+                    - nthChild: {position: 1, ofRule: {kind: argument}}
+                    - inside: {kind: argument_list, inside: {matches: first-creation}}
+                - all:
+                    - matches: positional
+                    - nthChild: {position: 2, ofRule: {kind: argument}}
+                    - inside: {kind: argument_list, inside: {matches: second-creation}}
 rule:
-    matches: creation
-    has: {kind: argument_list, has: {matches: actual-argument}}
+    any:
+        - kind: 'object_creation_expression, implicit_object_creation_expression, invocation_expression'
+          all:
+            - any: [{matches: first-creation}, {matches: second-creation}]
+            - has: {kind: argument_list, has: {matches: actual-argument}}
+        - kind: with_expression
+          all:
+            - has: {nthChild: 1, pattern: $RECORD}
+            - has: {kind: with_initializer, all: [{has: {kind: identifier, nthChild: 1, regex: '^Actual$'}}, {has: {nthChild: 2, matches: constant-value, pattern: $KIND}}]}
 message: '`$RECORD` states the actual kind as the constant `$KIND`'
-note: Read the actual kind from the value, and where one kind alone can occur, return an error naming what is missing
+note: Use the kind the value reports as the actual kind, and an error naming what is missing where one kind alone can occur

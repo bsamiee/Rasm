@@ -1,7 +1,7 @@
 # mypy: disable-error-code="attr-defined"
 # ty: ignore[unresolved-attribute]
 # ruff: file-ignore[boolean-positional-value-in-call, mutable-class-default, exec-builtin]
-"""PreToolUse hook sending `execute_blender_code` and headless code through `run`, with the scripts folder and `tools` importable and one undo step closing each live call."""
+"""PreToolUse hook sending `execute_blender_code` and headless code through `run`, with the scripts folder imported fresh and one undo step closing each live call."""
 
 from pathlib import Path
 import sys
@@ -11,11 +11,7 @@ import warnings
 if TYPE_CHECKING or "bpy" in sys.modules:
     import bpy
 if TYPE_CHECKING or "bpy" not in sys.modules:
-    from string.templatelib import Interpolation, Template
-
     import msgspec
-
-    from interface.host import bootstrap
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import OperatorReturnItems
 
@@ -64,9 +60,15 @@ def run(code: str, namespace: dict[str, object]) -> None:
 
 
 def wrap(code: str) -> str:
-    """Source calling `run` on the code in the caller's namespace with the scripts folder and `tools` imported fresh."""
-    script = Path(__file__)
-    return bootstrap(script.stem, Template(f"{run.__name__}(", Interpolation(code, "code"), ", globals())"), script.parent)
+    """Source calling `run` on the code in the caller's namespace with every module of the scripts folder imported fresh and bytecode written under the host's cache prefix."""
+    script = Path(__file__).resolve()
+    folder, names = str(script.parent), sorted(path.stem for path in script.parent.glob("*.py"))
+    return (
+        f"import importlib, sys\nsys.pycache_prefix = {sys.pycache_prefix!r}\n"
+        f"for name in {names!r}:\n    sys.modules.pop(name, None)\n"
+        f"if {folder!r} not in sys.path:\n    sys.path.insert(0, {folder!r})\n"
+        f"importlib.import_module({script.stem!r}).{run.__name__}({code!r}, globals())\n"
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

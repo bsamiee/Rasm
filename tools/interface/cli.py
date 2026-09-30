@@ -3,7 +3,6 @@
 from collections.abc import Awaitable, Callable, Iterable
 from functools import partial
 from importlib import import_module
-from itertools import chain
 import os
 from pathlib import Path
 import signal
@@ -34,7 +33,7 @@ ROOT: Final = FOLDER.parents[1]
 
 def leaves(group: BaseExceptionGroup[BaseException]) -> tuple[BaseException, ...]:
     """Every exception under the group, nested groups flattened."""
-    return tuple(chain.from_iterable(leaves(error) if isinstance(error, BaseExceptionGroup) else (error,) for error in group.exceptions))
+    return tuple(leaf for error in group.exceptions for leaf in (leaves(error) if isinstance(error, BaseExceptionGroup) else (error,)))
 
 
 async def outcomes(name: str, entry: Callable[[Host], Awaitable[tuple[Applied | Failed, ...]]], units: Units, client: httpx.AsyncClient) -> tuple[Applied | Failed, ...]:

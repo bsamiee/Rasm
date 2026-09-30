@@ -24,4 +24,4 @@ rule:
         - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: enum-class}}
         - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, matches: enum-class, has: {field: body, has: {matches: unlisted-member}}}}}
 message: '`$LISTED` lists every member of `$ENUM`'
-note: 'Iterate or test membership on `<enum>` itself (`tuple(<enum>)`, `<value> in <enum>`), iteration yields every member in declaration order'
+note: 'Use `<enum>` itself for iteration and membership (`tuple(<enum>)`, `<value> in <enum>`), iteration yields every member in declaration order'

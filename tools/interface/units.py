@@ -35,13 +35,10 @@ ANGLE_PRECISION: Final = 0
 
 
 class Standard(NamedTuple):
-    """Unit system's model and page units, mass and temperature tokens, sheet scale denominator, and lengths in meters, the text cap height, sheet and document sizes, and margin on paper."""
+    """Unit system's model and page units, sheet scale denominator, and lengths in meters, the text cap height, sheet and document sizes, and margin on paper."""
 
     length: Length
     page: Length
-    mass: str
-    temperature: str
-    separate: bool
     resolution: float
     grid: float
     snap: float
@@ -59,9 +56,6 @@ class Units(Standard, Enum):
     IMPERIAL = Standard(
         length=Length.FEET,
         page=Length.INCHES,
-        mass="POUNDS",
-        temperature="FAHRENHEIT",
-        separate=True,
         resolution=Length.INCHES / 16,
         grid=Length.FEET,
         snap=Length.INCHES,
@@ -75,9 +69,6 @@ class Units(Standard, Enum):
     METRIC = Standard(
         length=Length.MILLIMETERS,
         page=Length.MILLIMETERS,
-        mass="KILOGRAMS",
-        temperature="CELSIUS",
-        separate=False,
         resolution=Length.MILLIMETERS,
         grid=100 * Length.MILLIMETERS,
         snap=10 * Length.MILLIMETERS,

@@ -3,56 +3,65 @@ import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+struct Term {
+    let name: String
+    let code: FourCharCode
+    let types: Set<String>
+    let members: [Self]
+}
+
 struct ScriptingDictionary {
     // --- [TERMS]
 
-    let commands: [XMLElement]
-    let classes: [String: XMLElement]
-    let properties: [String: XMLElement]
-    let enumerations: [String: [String: FourCharCode]]
-    let terms: [FourCharCode: String]
-    let enumerators: [FourCharCode: String]
+    let commands: [(name: String, eventClass: AEEventClass, eventID: AEEventID, parameters: [Term], result: Set<String>)]
+    let classes: [Term]
+    let properties: [Term]
+    let enumerations: [Term]
 
-    init(application: URL) throws {
-        let document: XMLDocument = try XMLDocument(data: Self.definition(of: application))
+    init(definition: Data) throws {
+        let document: XMLDocument = try XMLDocument(data: definition)
         let elements: (String) throws -> [XMLElement] = { path in try document.nodes(forXPath: path).compactMap { node in node as? XMLElement } }
-        let codes: ([XMLElement]) -> [(String, FourCharCode)] = { elements in
-            elements.compactMap { element in
-                switch (element.attribute(forName: "name")?.stringValue, Self.code(of: element)) {
-                    case (.some(let name), .some(let code)): (name, code)
-                    default: nil
-                }
-            }
+        let declarations: [XMLElement] = try elements("//class | //record-type | //value-type")
+        let named: [String: [XMLElement]] = Dictionary(
+            declarations.compactMap { element in element.attribute(forName: "name")?.stringValue.map { name in (name, [element]) } },
+            uniquingKeysWith: +,
+        )
+        func declared(_ element: XMLElement) -> [Term] {
+            Self.terms(element.elements(forName: "property")) + (element.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? []).flatMap(declared)
         }
-        let classElements: [XMLElement] = try elements("//class | //record-type | //value-type")
-        let propertyElements: [XMLElement] = try elements("//property")
-        commands = try elements("//command")
-        classes = Dictionary(
-            classElements.flatMap { element in ["name", "id"].compactMap { key in element.attribute(forName: key)?.stringValue.map { term in (term, element) } } },
-            uniquingKeysWith: { first, _ in first },
-        )
-        properties = Dictionary(
-            propertyElements.compactMap { element in element.attribute(forName: "name")?.stringValue.map { name in (name, element) } },
-            uniquingKeysWith: { first, _ in first },
-        )
-        enumerations = try Dictionary(
-            elements("//enumeration").flatMap { enumeration in
-                let enumerators: [String: FourCharCode] = Dictionary(codes(enumeration.elements(forName: "enumerator")), uniquingKeysWith: { first, _ in first })
-                return ["name", "code"].compactMap { key in enumeration.attribute(forName: key)?.stringValue.map { term in (term, enumerators) } }
-            },
-            uniquingKeysWith: { first, _ in first },
-        )
-        terms = Dictionary(codes(classElements + propertyElements).map { name, code in (code, name) }, uniquingKeysWith: { first, _ in first })
-        enumerators = try Dictionary(codes(elements("//enumerator")).map { name, code in (code, name) }, uniquingKeysWith: { first, _ in first })
+        commands = try elements("//command").compactMap { element in
+            guard let name: String = element.attribute(forName: "name")?.stringValue,
+                let code: String = element.attribute(forName: "code")?.stringValue,
+                let eventClass: AEEventClass = Self.code("'\(code.prefix(4))'"),
+                let eventID: AEEventID = Self.code("'\(code.dropFirst(4))'")
+            else { return nil }
+            let direct: [Term] = element.elements(forName: "direct-parameter").map { parameter in
+                Term(name: "direct", code: AEKeyword(keyDirectObject), types: Self.types(of: parameter), members: [])
+            }
+            return (
+                name: name,
+                eventClass: eventClass,
+                eventID: eventID,
+                parameters: Self.terms(element.elements(forName: "parameter")) + direct,
+                result: element.elements(forName: "result").first.map(Self.types(of:)) ?? [],
+            )
+        }
+        classes = Self.terms(declarations, members: declared)
+        properties = try Self.terms(elements("//property"))
+        enumerations = try Self.terms(elements("//enumeration")) { element in Self.terms(element.elements(forName: "enumerator")) }
     }
 
-    static func definition(of application: URL) throws -> Data {
-        var definition: Unmanaged<CFData>?
-        let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(application as CFURL, 0, &definition)
-        guard status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() else {
-            throw ScriptingFailure.definitionUnavailable(application, status)
+    static func read(_ application: Application) -> Result<Self, Failures> {
+        definition(of: application).flatMap { definition in Result { try Self(definition: definition) }.mapError { error in Failures(.unreadable(code: (error as NSError).code)) } }
+    }
+
+    static func definition(of application: Application) -> Result<Data, Failures> {
+        guard !application.processIdentifiers.isEmpty || Bundle(url: application.url)?.object(forInfoDictionaryKey: "OSAScriptingDefinition") != nil else {
+            return .failure(Failures(.runningInstances(count: 0)))
         }
-        return data as Data
+        var definition: Unmanaged<CFData>?
+        let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(application.url as CFURL, 0, &definition)
+        return if status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() { .success(data as Data) } else { .failure(Failures(.unreadable(code: Int(status)))) }
     }
 
     static func code(_ text: String) -> FourCharCode? {
@@ -60,69 +69,94 @@ struct ScriptingDictionary {
         return code == 0 ? nil : code
     }
 
-    static func code(of element: XMLElement) -> FourCharCode? {
-        element.attribute(forName: "code")?.stringValue.flatMap { code in Self.code("'\(code)'") }
-    }
-
     static func types(of element: XMLElement) -> Set<String> {
         Set(([element.attribute(forName: "type")] + element.elements(forName: "type").map { type in type.attribute(forName: "type") }).compactMap { attribute in attribute?.stringValue })
     }
 
-    func declarations(of className: String?) -> [XMLElement] {
-        className.flatMap { name in classes[name] }.map { element in element.elements(forName: "property") + declarations(of: element.attribute(forName: "inherits")?.stringValue) } ?? []
+    static func terms(_ elements: [XMLElement], members: (XMLElement) -> [Term] = { _ in [] }) -> [Term] {
+        elements.compactMap { element in
+            switch (element.attribute(forName: "name")?.stringValue, element.attribute(forName: "code")?.stringValue.flatMap { code in Self.code("'\(code)'") }) {
+                case (.some(let name), .some(let code)): Term(name: name, code: code, types: types(of: element), members: members(element))
+                default: nil
+            }
+        }
     }
 
-    func property(_ name: String, of className: String?) -> XMLElement? {
-        declarations(of: className).first { element in element.attribute(forName: "name")?.stringValue == name } ?? properties[name]
+    static func matches(in scopes: [[Term]], where predicate: (Term) -> Bool) -> [Term] {
+        scopes.first { scope in scope.contains(where: predicate) }?.filter(predicate) ?? []
     }
 
-    func term(_ code: FourCharCode, of className: String?) -> String {
-        declarations(of: className).first { element in Self.code(of: element) == code }?.attribute(forName: "name")?.stringValue ?? terms[code] ?? NSFileTypeForHFSTypeCode(code)
+    static func resolve(_ name: String, in scopes: [[Term]]) -> Result<Term, Failures> {
+        let raw: FourCharCode? = code(name)
+        let found: [Term] = matches(in: scopes) { term in raw.map { code in term.code == code } ?? (term.name == name) }
+        let codes: [FourCharCode] = raw.map { code in [code] } ?? Set(found.map(\.code)).sorted()
+        return switch (codes.first, codes.count) {
+            case (.some(let code), 1): .success(Term(name: name, code: code, types: Set(found.flatMap(\.types)), members: []))
+            case (.none, _): .failure(Failures(.unknownTerm(name: name)))
+            case (.some, _): .failure(Failures(.ambiguousTerm(name: name, codes: codes.compactMap(NSFileTypeForHFSTypeCode))))
+        }
+    }
+
+    static func term(_ code: FourCharCode, in scopes: [[Term]]) -> Term {
+        let found: [Term] = matches(in: scopes) { term in term.code == code }
+        let name: String? = found.map(\.name).filter { name in if case .success(let term) = resolve(name, in: scopes) { term.code == code } else { false } }.min()
+        return Term(name: name ?? NSFileTypeForHFSTypeCode(code), code: code, types: Set(found.flatMap(\.types)), members: [])
+    }
+
+    func scope(_ code: FourCharCode?) -> [[Term]] {
+        [classes.filter { term in term.code == code }.flatMap(\.members), properties]
+    }
+
+    func classCode(_ want: Descriptor?) -> FourCharCode? {
+        if case .text(let name) = want, case .success(let term) = Self.resolve(name, in: [classes]) { term.code } else { nil }
+    }
+
+    func enumerators(of types: Set<String>) -> [Term] {
+        enumerations.filter { enumeration in types.contains("any") || types.contains(enumeration.name) }.flatMap(\.members)
     }
 
     // --- [ENCODING]
 
-    func event(_ command: String, arguments: [String: Descriptor], target: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, any Error> {
-        let parameters: (XMLElement) -> [String: XMLElement] = { declaration in
-            Dictionary(
-                (declaration.elements(forName: "parameter") + declaration.elements(forName: "direct-parameter")).map { parameter in
-                    (parameter.attribute(forName: "name")?.stringValue ?? "direct", parameter)
-                },
-                uniquingKeysWith: { first, _ in first },
-            )
-        }
-        let candidates: [XMLElement] = commands.filter { declaration in declaration.attribute(forName: "name")?.stringValue == command }
-        let accepting: [XMLElement] = candidates.filter { declaration in Set(arguments.keys).isSubset(of: parameters(declaration).keys) }
-        let direct: String? = if case .record(let fields) = arguments["direct"], case .text(let want) = fields["want"] { want } else { nil }
-        let overload: XMLElement? = direct.flatMap { want in
-            accepting.first { declaration in declaration.elements(forName: "direct-parameter").contains { parameter in Self.types(of: parameter).contains(want) } }
-        }
-        guard let declaration: XMLElement = overload ?? accepting.first ?? candidates.first,
-            let eventCode: String = declaration.attribute(forName: "code")?.stringValue,
-            let eventClass: AEEventClass = Self.code("'\(eventCode.prefix(4))'"),
-            let eventID: AEEventID = Self.code("'\(eventCode.dropFirst(4))'")
-        else {
-            return .failure(ScriptingFailure.absentCommand(command))
-        }
-        let table: [String: XMLElement] = parameters(declaration)
-        let event: NSAppleEventDescriptor = NSAppleEventDescriptor(
-            eventClass: eventClass,
-            eventID: eventID,
-            targetDescriptor: target,
-            returnID: AEReturnID(kAutoGenerateReturnID),
-            transactionID: AETransactionID(kAnyTransactionID),
-        )
-        event.setAttribute(.null(), forKeyword: AEKeyword(keySubjectAttr))
+    func events(
+        _ command: String,
+        arguments: [String: Descriptor],
+        target: NSAppleEventDescriptor,
+    ) -> Result<[(event: NSAppleEventDescriptor, result: Set<String>)], Failures> {
+        let skipWarnings: [(String, [String: Descriptor])] =
+            classes.contains { term in term.code == FourCharCode(cApplication) && term.members.contains { member in member.name == "skip warnings" } }
+            ? [("set", ["direct": .record(["want": .text("'prop'"), "form": .text("'prop'"), "seld": .text("skip warnings")]), "to": .boolean(true)])] : []
         return collect(
-            arguments.sorted { left, right in left.key < right.key }.map { name, argument in
-                table[name].map { parameter in encode(argument, as: Self.types(of: parameter)).map { value in (Self.code(of: parameter) ?? AEKeyword(keyDirectObject), value) } }
-                    ?? .failure(ScriptingFailure.unknownParameter(name))
-            },
-            into: event,
+            (skipWarnings + [(command, arguments)]).map { command, arguments in
+                let wanted: Set<String> = if case .record(let fields) = arguments["direct"], case .text(let want) = fields["want"] { [want] } else { [] }
+                func fit(_ parameters: [Term]) -> Int {
+                    (Set(arguments.keys).isSubset(of: parameters.map(\.name)) ? 2 : 0)
+                        + (parameters.contains { parameter in parameter.name == "direct" && !parameter.types.isDisjoint(with: wanted) } ? 1 : 0)
+                }
+                return commands.filter { declaration in declaration.name == command }.max { left, right in fit(left.parameters) < fit(right.parameters) }.map { declaration in
+                    let event: NSAppleEventDescriptor = NSAppleEventDescriptor(
+                        eventClass: declaration.eventClass,
+                        eventID: declaration.eventID,
+                        targetDescriptor: target,
+                        returnID: AEReturnID(kAutoGenerateReturnID),
+                        transactionID: AETransactionID(kAnyTransactionID),
+                    )
+                    event.setAttribute(.null(), forKeyword: AEKeyword(keySubjectAttr))
+                    return encode(arguments, in: [declaration.parameters], into: event).map { event in (event: event, result: declaration.result) }
+                } ?? .failure(Failures(.absentCommand))
+            }
         )
     }
 
-    func encode(_ value: Descriptor, as types: Set<String>) -> Result<NSAppleEventDescriptor, any Error> {
+    func encode(_ fields: [String: Descriptor], in scopes: [[Term]], into descriptor: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, Failures> {
+        collect(
+            fields.sorted { left, right in left.key < right.key }.map { key, value in
+                Self.resolve(key, in: scopes).flatMap { term in encode(value, as: term.types).map { encoded in (term.code, encoded) } }
+            }
+        )
+        .map { items in put(items, into: descriptor) }
+    }
+
+    func encode(_ value: Descriptor, as types: Set<String>) -> Result<NSAppleEventDescriptor, Failures> {
         switch value {
             case .null:
                 .success(.null())
@@ -131,68 +165,62 @@ struct ScriptingDictionary {
             case .number(let value):
                 .success((types.contains("integer") ? Int32(exactly: value) : nil).map(NSAppleEventDescriptor.init(int32:)) ?? NSAppleEventDescriptor(double: value))
             case .text(let text):
-                .success(
-                    types.lazy.compactMap { type in enumerations[type]?[text] }.first.map(NSAppleEventDescriptor.init(enumCode:))
-                        ?? (types.contains("type") ? (classes[text] ?? properties[text]).flatMap(Self.code(of:)) ?? Self.code(text) : nil).map(NSAppleEventDescriptor.init(typeCode:))
-                        ?? (types == ["text"] ? nil : URL(string: text)).flatMap { url in url.isFileURL ? NSAppleEventDescriptor(fileURL: url) : nil }
-                        ?? NSAppleEventDescriptor(string: text)
-                )
+                encode(text: text, as: types)
             case .list(let items):
                 collect(items.map { item in encode(item, as: types) }).map { descriptors in
                     descriptors.reduce(into: .list()) { list, descriptor in list.insert(descriptor, at: list.numberOfItems + 1) }
                 }
             case .record(let fields):
-                fields["want"].map { want in specifier(want, fields) } ?? record(fields)
+                if let want: Descriptor = fields["want"], case .text(let form) = fields["form"] {
+                    specifier(want, form: form, fields)
+                } else {
+                    encode(fields, in: scope(classCode(fields["class"])), into: .record())
+                }
         }
     }
 
-    func record(_ fields: [String: Descriptor]) -> Result<NSAppleEventDescriptor, any Error> {
-        let className: String? = if case .text(let name) = fields["class"] { name } else { nil }
-        return collect(
-            fields.sorted { left, right in left.key < right.key }.map { key, value in
-                let declaration: XMLElement? = property(key, of: className)
-                return (declaration.flatMap(Self.code(of:)) ?? Self.code(key)).map { keyword in
-                    encode(value, as: declaration.map(Self.types(of:)) ?? []).map { descriptor in (keyword, descriptor) }
-                }
-                    ?? .failure(ScriptingFailure.unknownProperty(key))
-            },
-            into: .record(),
-        )
+    func encode(text: String, as types: Set<String>) -> Result<NSAppleEventDescriptor, Failures> {
+        let enumerators: [Term] = enumerators(of: types)
+        let file: URL? = URL(string: text).flatMap { url in url.isFileURL && !types.isDisjoint(with: ["file", "alias", "file specification"]) ? url : nil }
+        return if !enumerators.isEmpty, enumerators.contains(where: { term in term.name == text }) || Self.code(text) != nil {
+            Self.resolve(text, in: [enumerators]).map { term in NSAppleEventDescriptor(enumCode: term.code) }
+        } else if types.contains("type") {
+            Self.resolve(text, in: [classes, properties]).map { term in NSAppleEventDescriptor(typeCode: term.code) }
+        } else {
+            .success(file.map(NSAppleEventDescriptor.init(fileURL:)) ?? NSAppleEventDescriptor(string: text))
+        }
     }
 
-    func specifier(_ want: Descriptor, _ fields: [String: Descriptor]) -> Result<NSAppleEventDescriptor, any Error> {
-        let form: FourCharCode? = if case .text(let text) = fields["form"] { Self.code(text) } else { nil }
-        let container: String? = if case .record(let from) = fields["from"], case .text(let name) = from["want"] { name } else { nil }
-        let key: Result<NSAppleEventDescriptor, any Error> =
-            switch (form, fields["seld"]) {
+    func specifier(_ want: Descriptor, form: String, _ fields: [String: Descriptor]) -> Result<NSAppleEventDescriptor, Failures> {
+        let code: FourCharCode? = Self.code(form)
+        let container: FourCharCode? = if case .record(let from) = fields["from"] { classCode(from["want"]) } else { FourCharCode(cApplication) }
+        let key: Result<NSAppleEventDescriptor, Failures> =
+            switch (code, fields["seld"]) {
                 case (FourCharCode(formPropertyID), .text(let name)):
-                    property(name, of: container).flatMap(Self.code(of:)).map { code in .success(NSAppleEventDescriptor(typeCode: code)) }
-                        ?? .failure(ScriptingFailure.unknownProperty(name))
+                    Self.resolve(name, in: scope(container)).map { term in NSAppleEventDescriptor(typeCode: term.code) }
                 case (FourCharCode(formAbsolutePosition), .text(let ordinal)):
                     Self.code(ordinal).flatMap { code in NSAppleEventDescriptor(descriptorType: DescType(typeAbsoluteOrdinal), data: NSAppleEventDescriptor(enumCode: code).data) }
-                        .map(Result.success) ?? .failure(ScriptingFailure.unknownOrdinal(ordinal))
+                        .map(Result.success) ?? .failure(Failures(.unknownTerm(name: ordinal)))
                 case (_, let seld):
                     encode(seld ?? .null, as: ["integer"])
             }
-        let keywords: [(AEKeyword, Result<NSAppleEventDescriptor, any Error>)] = [
+        let keywords: [(AEKeyword, Result<NSAppleEventDescriptor, Failures>)] = [
             (AEKeyword(keyAEDesiredClass), encode(want, as: ["type"])),
-            (
-                AEKeyword(keyAEKeyForm),
-                form.map { code in .success(NSAppleEventDescriptor(enumCode: code)) }
-                    ?? .failure(ScriptingFailure.unquotedForm),
-            ),
+            (AEKeyword(keyAEKeyForm), code.map { code in .success(NSAppleEventDescriptor(enumCode: code)) } ?? .failure(Failures(.unknownTerm(name: form)))),
             (AEKeyword(keyAEKeyData), key),
             (AEKeyword(keyAEContainer), encode(fields["from"] ?? .null, as: [])),
         ]
-        return collect(keywords.map { keyword, result in result.map { descriptor in (keyword, descriptor) } }, into: .record()).flatMap { record in
-            record.coerce(toDescriptorType: DescType(typeObjectSpecifier)).map(Result.success)
-                ?? .failure(ScriptingFailure.notObjectSpecifier)
+        return collect(keywords.map { keyword, result in result.map { descriptor in (keyword, descriptor) } }).map { items in
+            guard let specifier: NSAppleEventDescriptor = put(items, into: .record()).coerce(toDescriptorType: DescType(typeObjectSpecifier)) else {
+                preconditionFailure("The Apple Event Manager coerces every record to an object specifier")
+            }
+            return specifier
         }
     }
 
     // --- [DECODING]
 
-    func decode(_ descriptor: NSAppleEventDescriptor) -> Descriptor {
+    func decode(_ descriptor: NSAppleEventDescriptor, as types: Set<String>) -> Descriptor {
         let value: Descriptor? =
             switch descriptor.descriptorType {
                 case DescType(typeNull):
@@ -205,9 +233,9 @@ struct ScriptingDictionary {
                     DescType(typeIEEE32BitFloatingPoint), DescType(typeIEEE64BitFloatingPoint):
                     .number(descriptor.doubleValue)
                 case DescType(typeType):
-                    .text(terms[descriptor.typeCodeValue] ?? NSFileTypeForHFSTypeCode(descriptor.typeCodeValue))
+                    .text(Self.term(descriptor.typeCodeValue, in: [classes, properties]).name)
                 case DescType(typeEnumerated):
-                    .text(enumerators[descriptor.enumCodeValue] ?? NSFileTypeForHFSTypeCode(descriptor.enumCodeValue))
+                    .text(Self.term(descriptor.enumCodeValue, in: [enumerators(of: types), enumerations.flatMap(\.members)]).name)
                 case DescType(typeAbsoluteOrdinal):
                     .text(NSFileTypeForHFSTypeCode(descriptor.enumCodeValue))
                 case DescType(typeFileURL), DescType(typeAlias):
@@ -215,7 +243,7 @@ struct ScriptingDictionary {
                 case DescType(typeLongDateTime):
                     descriptor.dateValue.map { date in .text(date.formatted(.iso8601)) }
                 case DescType(typeAEList):
-                    .list((0..<descriptor.numberOfItems).compactMap { index in descriptor.atIndex(index + 1) }.map(decode))
+                    .list((0..<descriptor.numberOfItems).compactMap { index in descriptor.atIndex(index + 1) }.map { item in decode(item, as: types) })
                 case DescType(typeObjectSpecifier):
                     specifier(descriptor)
                 case _ where descriptor.isRecordDescriptor:
@@ -227,13 +255,15 @@ struct ScriptingDictionary {
     }
 
     func record(_ descriptor: NSAppleEventDescriptor) -> Descriptor {
-        let className: String? = descriptor.forKeyword(AEKeyword(pClass)).flatMap { type in terms[type.typeCodeValue] }
+        let scopes: [[Term]] = scope(descriptor.forKeyword(AEKeyword(pClass))?.typeCodeValue)
         return .record(
             Dictionary(
-                (0..<descriptor.numberOfItems).compactMap { index in
-                    descriptor.atIndex(index + 1).map { value in (term(descriptor.keywordForDescriptor(at: index + 1), of: className), decode(value)) }
-                },
-                uniquingKeysWith: { first, _ in first },
+                uniqueKeysWithValues: (0..<descriptor.numberOfItems).compactMap { index in
+                    descriptor.atIndex(index + 1).map { value in
+                        let term: Term = Self.term(descriptor.keywordForDescriptor(at: index + 1), in: scopes)
+                        return (term.name, decode(value, as: term.types))
+                    }
+                }
             )
         )
     }
@@ -241,13 +271,15 @@ struct ScriptingDictionary {
     func specifier(_ descriptor: NSAppleEventDescriptor) -> Descriptor {
         let from: NSAppleEventDescriptor? = descriptor.forKeyword(AEKeyword(keyAEContainer))
         let form: FourCharCode? = descriptor.forKeyword(AEKeyword(keyAEKeyForm))?.enumCodeValue
-        let container: String? = from?.forKeyword(AEKeyword(keyAEDesiredClass)).flatMap { want in terms[want.typeCodeValue] }
+        let scopes: [[Term]] = scope(from?.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue ?? FourCharCode(cApplication))
         return .record(
             [
-                "want": descriptor.forKeyword(AEKeyword(keyAEDesiredClass)).map(decode),
+                "want": descriptor.forKeyword(AEKeyword(keyAEDesiredClass)).map { want in decode(want, as: []) },
                 "form": form.map { code in .text(NSFileTypeForHFSTypeCode(code)) },
-                "seld": descriptor.forKeyword(AEKeyword(keyAEKeyData)).map { key in form == FourCharCode(formPropertyID) ? .text(term(key.typeCodeValue, of: container)) : decode(key) },
-                "from": from.map(decode),
+                "seld": descriptor.forKeyword(AEKeyword(keyAEKeyData)).map { key in
+                    form == FourCharCode(formPropertyID) ? .text(Self.term(key.typeCodeValue, in: scopes).name) : decode(key, as: [])
+                },
+                "from": from.map { container in decode(container, as: []) },
             ]
             .compactMapValues(\.self)
         )
@@ -256,72 +288,44 @@ struct ScriptingDictionary {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-enum ScriptingFailure: CustomNSError {
-    case runningInstances(URL)
-    case terminated(URL)
-    case absentCommand(String)
-    case unknownParameter(String)
-    case unknownProperty(String)
-    case unknownOrdinal(String)
-    case unquotedForm
-    case notObjectSpecifier
-    case definitionUnavailable(URL, OSStatus)
-    case eventFailed(OSStatus, message: String?)
-
-    static var errorDomain: String { NSOSStatusErrorDomain }
-
-    var errorCode: Int {
-        switch self {
-            case .definitionUnavailable(_, let status), .eventFailed(let status, _): Int(status)
-            case .runningInstances, .terminated: Int(procNotFound)
-            case .absentCommand: Int(errAEEventNotHandled)
-            case .unknownParameter: Int(errAEParamMissed)
-            case .unknownProperty, .unknownOrdinal, .notObjectSpecifier: Int(errAECoercionFail)
-            case .unquotedForm: Int(errAEBadKeyForm)
-        }
-    }
-
-    var errorUserInfo: [String: Any] {
-        let description: String? =
-            switch self {
-                case .runningInstances(let url): "Execution requires exactly one running instance of \(url.path(percentEncoded: false))"
-                case .terminated(let url): "\(url.path(percentEncoded: false)) terminated before it finished launching"
-                case .absentCommand(let command): "Command is absent from the installed dictionary: \(command)"
-                case .unknownParameter(let name): "Unknown parameter: \(name)"
-                case .unknownProperty(let name): "Unknown property: \(name)"
-                case .unknownOrdinal(let ordinal): "Unknown ordinal: \(ordinal)"
-                case .unquotedForm: "Object specifiers require a quoted four-character form"
-                case .notObjectSpecifier: "Record does not coerce to an object specifier"
-                case .definitionUnavailable(let url, _): "Scripting definition is unreadable for \(url.path(percentEncoded: false))"
-                case .eventFailed(_, let message): message
-            }
-        return description.map { text in [NSLocalizedDescriptionKey: text] } ?? [:]
-    }
+enum Failure: Encodable {
+    case notApplication
+    case runningInstances(count: Int)
+    case unreadable(code: Int)
+    case absentCommand
+    case unknownTerm(name: String)
+    case ambiguousTerm(name: String, codes: [String])
+    case undelivered(status: OSStatus)
+    case unanswered(status: OSStatus)
+    case reply(status: OSStatus, message: String?, reply: Descriptor?)
 }
 
-struct AggregateError<Element: Error>: LocalizedError {
-    let first: Element
-    let remaining: [Element]
+struct Failures: Error {
+    let first: Failure
+    let remaining: [Failure]
 
-    init?(collecting errors: [Element]) {
-        guard let first: Element = errors.first else { return nil }
+    init(_ first: Failure, remaining: [Failure] = []) {
         self.first = first
-        remaining = Array(errors.dropFirst())
+        self.remaining = remaining
     }
 
-    var errorDescription: String? { ([first] + remaining).map(\.localizedDescription).joined(separator: "; ") }
+    static func + (left: Self, right: Self) -> Self {
+        Self(left.first, remaining: left.remaining + [right.first] + right.remaining)
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-func collect<Value>(_ results: [Result<Value, any Error>]) -> Result<[Value], any Error> {
-    AggregateError(collecting: results.compactMap { result in if case .failure(let error) = result { error } else { nil } }).map(Result.failure)
-        ?? .success(results.compactMap { result in if case .success(let value) = result { value } else { nil } })
+func collect<Value>(_ results: [Result<Value, Failures>]) -> Result<[Value], Failures> {
+    results.reduce(.success([])) { collected, result in
+        switch (collected, result) {
+            case (.success(let values), .success(let value)): .success(values + [value])
+            case (.failure(let failures), .success), (.success, .failure(let failures)): .failure(failures)
+            case (.failure(let left), .failure(let right)): .failure(left + right)
+        }
+    }
 }
 
-func collect(
-    _ keywords: [Result<(keyword: AEKeyword, value: NSAppleEventDescriptor), any Error>],
-    into descriptor: NSAppleEventDescriptor,
-) -> Result<NSAppleEventDescriptor, any Error> {
-    collect(keywords).map { items in items.reduce(into: descriptor) { descriptor, item in descriptor.setDescriptor(item.value, forKeyword: item.keyword) } }
+func put(_ items: [(keyword: AEKeyword, value: NSAppleEventDescriptor)], into descriptor: NSAppleEventDescriptor) -> NSAppleEventDescriptor {
+    items.reduce(into: descriptor) { descriptor, item in descriptor.setDescriptor(item.value, forKeyword: item.keyword) }
 }

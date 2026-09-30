@@ -26,8 +26,8 @@ from Grasshopper2.UI.Canvas import SnappingSettings
 from Grasshopper2.UI.Canvas.Shapes import ArrowStyle
 from Grasshopper2.UI.ColourPicker import ColourPickerFormat
 from Grasshopper2.UI.Skinning import GridSkin, PropertyId, SkinDefinition, SkinProperties, SkinServer
-from Grasshopper2.UI.TabbedPanel import Layout
 from GrasshopperIO import Name
+from GrasshopperPlugin import Grasshopper2RhinoPlugIn
 import Rhino
 from Rhino.PlugIns import PlugIn
 import System
@@ -35,8 +35,8 @@ from System import Array, Single
 from System.IO import FileNotFoundException
 
 from interface.frame import LOWER_EDITOR
-from interface.report import Row
-from interface.rhino.script.accessors import defaulted, hex_color, Internal, key, member
+from interface.report import Action, Row
+from interface.rhino.script.accessors import hex_color, Internal, key, member
 from interface.roles import Alpha, Axis, blend, Guide, Line, Modality, Selection, substituted, Surface, SWATCHES, Tag, TAGS, Text, Typography, Wire
 
 if TYPE_CHECKING:
@@ -54,7 +54,7 @@ CORNER_RADIUS: Final = 3
 
 # --- [SKIN]
 def spelled(value: object) -> str:
-    """Placeholder value in Grasshopper 2's file spelling, an opacity fraction as a whole percent and a role as `#RRGGBB`."""
+    """Placeholder value in Grasshopper 2's file spelling, an opacity fraction as the whole percent `Opacity` takes and `ToText` writes, a role as `#RRGGBB`, and a whole number as its decimal."""
     match value:
         case float():
             return f"{round(value * 100)}%"
@@ -96,13 +96,12 @@ def stored(file: str, names: Iterable[str]) -> dict[str, object]:
     return {name: None if (item := node.FindItem(Name(name))) is None else item.RawData for name in names}
 
 
-def saved(file: str, values: Mapping[str, object]) -> None:
-    """Set each value in the settings file as it sits on disk and write the file at once."""
+def saved(file: str, values: Mapping[str, object]) -> str | None:
+    """Set each value in the settings file as it sits on disk and write the file at once, else the write Grasshopper 2 refused."""
     settings = SettingsFile.InDefaultFolder(file)
     for name, value in values.items():
         settings.Set(name, value)
-    if not settings.TrySaveSettingsToFile():
-        raise OSError(f"Grasshopper 2 settings file {file} was not written")
+    return None if settings.TrySaveSettingsToFile() else f"settings file {file} was not written"
 
 
 def file_row(file: str, values: Mapping[str, object]) -> Row:
@@ -111,12 +110,11 @@ def file_row(file: str, values: Mapping[str, object]) -> Row:
 
 
 # --- [MEMBERS]
-def parts(guise: Guise) -> tuple[dict[str, GuisePoint], dict[str, GuisePlane], dict[str, GuiseCurve], dict[str, GuiseFacet]]:
-    """Parts of a guise by the constructor parameter each fills, grouped by part type."""
-    return (
-        {"points": guise.Points},
-        {"planes": guise.Planes},
-        {
+def slots(guises: Guises) -> dict[str, dict[str, dict[str, object] | None]]:
+    """Members of every part of the unresolved standard and selected guises the user default store writes, by constructor parameter name, None for a part the store left unset."""
+
+    def members(guise: Guise) -> dict[str, dict[str, object] | None]:
+        curves = {
             "curves": guise.Curves,
             "isocurves": guise.Isocurves,
             "nakedEdges": guise.NakedEdges,
@@ -124,36 +122,24 @@ def parts(guise: Guise) -> tuple[dict[str, GuisePoint], dict[str, GuisePlane], d
             "nakedTrims": guise.NakedTrims,
             "innerTrims": guise.InnerTrims,
             "nonManifold": guise.NonManifold,
-        },
-        {"planarNatural": guise.PlanarNatural, "curvedNatural": guise.CurvedNatural, "planarTrimmed": guise.PlanarTrimmed, "curvedTrimmed": guise.CurvedTrimmed},
-    )
-
-
-def slots(guises: Guises) -> dict[str, dict[str, dict[str, object]]]:
-    """Constructor arguments of every part of the resolved standard and selected guises, by parameter name at each level."""
-
-    def members(guise: Guise) -> dict[str, dict[str, object]]:
-        points, planes, curves, facets = parts(guise)
+        }
+        facets = {"planarNatural": guise.PlanarNatural, "curvedNatural": guise.CurvedNatural, "planarTrimmed": guise.PlanarTrimmed, "curvedTrimmed": guise.CurvedTrimmed}
+        point, plane = guise.Points, guise.Planes
         return {
-            **{slot: {"colour": point.Colour, "size": point.Size, "symbol": point.Symbol} for slot, point in points.items()},
+            "points": None if point is None else {"colour": point.Colour, "size": point.Size, "symbol": point.Symbol},
+            "planes": None
+            if plane is None
+            else {"colourX": plane.ColourXAxis, "colourY": plane.ColourYAxis, "colourL": plane.ColourLines, "axisStroke": plane.AxisStroke, "lineStroke": plane.LineStroke},
+            **{slot: None if curve is None else {"colour": curve.Colour, "stroke": curve.Stroke, "dashes": curve.Dashes} for slot, curve in curves.items()},
             **{
-                slot: {"colourX": plane.ColourXAxis, "colourY": plane.ColourYAxis, "colourL": plane.ColourLines, "axisStroke": plane.AxisStroke, "lineStroke": plane.LineStroke}
-                for slot, plane in planes.items()
-            },
-            **{slot: {"colour": curve.Colour, "stroke": curve.Stroke, "dashes": curve.Dashes} for slot, curve in curves.items()},
-            **{
-                slot: {"colour": facet.Colour, "luster": facet.Luster, "stripe": facet.Stripe, "wireframe": facet.Wireframe, "vigour": facet.Vigour, "emission": facet.EmissionColour}
+                slot: None
+                if facet is None
+                else {"colour": facet.Colour, "luster": facet.Luster, "stripe": facet.Stripe, "wireframe": facet.Wireframe, "vigour": facet.Vigour, "emission": facet.EmissionColour}
                 for slot, facet in facets.items()
             },
         }
 
-    return {"standard": members(guises.Standard), "selected": members(guises.Selected)}
-
-
-def dressed(held: Mapping[str, Mapping[str, Mapping[str, object]]]) -> Guises:
-    """Guises built from each side's part constructor arguments, each part of the type an empty guise holds at its parameter."""
-    kinds = {slot: type(part) for group in parts(Guise()) for slot, part in group.items()}
-    return Guises(**{side: Guise(**{slot: kinds[slot](**values) for slot, values in members.items()}) for side, members in held.items()})
+    return {"standard": members(guises.StandardUnresolved), "selected": members(guises.SelectedUnresolved)}
 
 
 def snapping(settings: SnappingSettings) -> dict[str, object]:
@@ -174,8 +160,7 @@ def snapping(settings: SnappingSettings) -> dict[str, object]:
 
 def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[Row, ...]:
     """Every Grasshopper 2 row in write order, previews at Rhino's point and curve widths and the editor docked under the document's views."""
-    plugin, scale = PlugIn.IdFromName("Grasshopper2"), Screen.PrimaryScreen.LogicalPixelSize
-    command = next(each for each in PlugIn.Find(plugin).GetCommands() if each.EnglishName == "GH2")
+    command, scale = (PlugIn.Find(PlugIn.IdFromName("Grasshopper2")), "GH2"), Screen.PrimaryScreen.LogicalPixelSize
     matched = Internal.OPEN_COLOR.type.GetMethod("MatchFamily", Array[System.Type]([clr.GetClrType(Color)]))
     skin, family = definition(scale), matched.Invoke(None, Array[System.Object]([Color.FromArgb(*Guide.CONSTRUCTION)]))
     ink, chosen = Color.FromArgb(*Modality.DISPLAY.mark), Color.FromArgb(*Selection.ITEM)
@@ -238,18 +223,18 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
 
         return Row(label=f"Settings.{setting.Name}", read=lambda: setting.Value, write=valued, target=target)
 
-    def user_default(held: Mapping[str, Mapping[str, Mapping[str, object]]]) -> None:
-        """Write the user default guises built from the held part arguments."""
-        Defaults.UserDefault = dressed(held)
+    def styled() -> None:
+        """Write the user default guises the previews draw with."""
+        Defaults.UserDefault = guises
 
     def snapped(members: Mapping[str, object]) -> None:
         """Write the current snapping settings from their constructor members."""
         SnappingSettings.Current = SnappingSettings(**members)
 
-    def sketched(values: Mapping[str, object]) -> None:
-        """Write the default sketch style through its owner, then the default shape into the same settings file."""
+    def sketched(values: Mapping[str, object]) -> str | None:
+        """Write the default sketch style through its owner, then the default shape into the same settings file, else the file write Grasshopper 2 refused."""
         ScratchObject.SetDefaultStyle(System.Enum.ToObject(matched.ReturnType, values["Colour"]), values["Stroke"], values["Double"], ArrowStyle(values["ArrowHead"]), values["ArrowFactor"])
-        saved("ScratchObject", {"DefaultShape": values["DefaultShape"]})
+        return saved("ScratchObject", {"DefaultShape": values["DefaultShape"]})
 
     def swatches() -> dict[str, tuple[Color, ColourImportance]] | None:
         """Colors of the tag palette by name with their importance, None while no palette answers the name."""
@@ -266,26 +251,16 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
     return (
         Row(label=f'SkinServer["{SKIN}"]', read=loaded, write=lambda written: SkinServer.Save(SKIN, SkinDefinition.Parse(written)[0]), target=skin.ToText()),
         *starmap(setting_row, (*decided, *((setting, setting.Default) for setting in factory))),
-        defaulted((command,), "ShowBanner", target=False, default=True),
-        defaulted((command,), "ShowEditor", target=True, default=True),
-        defaulted((command,), "LoadLevel", target=3, default=3),
-        key((plugin,), "AutoDeleteOldLogs", target=True),
-        key((plugin,), "LogDensity", target=int(Density.Verbose)),
-        member(Folders, "DocumentationAuthoringFolder", target=""),
+        key(command, "ShowBanner", target=False, default=True),
+        key(command, "ShowEditor", target=True, default=True),
+        key(command, "LoadLevel", target=3, default=3),
         *(
-            member(Layout, name, target=size)
-            for name, size in {
-                "TabRadius": CORNER_RADIUS,
-                "TabColour": 2,
-                "TabPadding": 5,
-                "TabHeight": 25,
-                "TabOverlap": 2,
-                "ItemSize": 24,
-                "ItemGap": 4,
-                "PanelGap": 5,
-                "PanelBar": 15,
-                "SizingBar": 5,
-            }.items()
+            member(owner, name, target=target)
+            for owner, targets in {Grasshopper2RhinoPlugIn: {"AutoDeleteOldLogs": True, "LogDensity": Density.Verbose}, Folders: {"DocumentationAuthoringFolder": ""}}.items()
+            for name, target in targets.items()
+        ),
+        file_row(
+            "ribbon", {"TabRadius": CORNER_RADIUS, "TabColour": 2, "TabPadding": 5, "TabHeight": 25, "TabOverlap": 2, "ItemSize": 24, "ItemGap": 4, "PanelGap": 5, "PanelBar": 15, "SizingBar": 5}
         ),
         *(
             row
@@ -301,7 +276,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
                 file_row(f"{tabs}/Control", {"CurrentRuleSet": rules, "RowCount": count, "TabPreview": True}),
             )
         ),
-        Row(label="Defaults.UserDefault", read=lambda: slots(Defaults.UserDefault), write=user_default, target=slots(guises)),
+        Action(label="Defaults.UserDefault", read=lambda: slots(Defaults.UserDefault), act=styled, target=slots(guises)),
         Row(
             label="SnappingSettings.Current",
             read=lambda: snapping(SnappingSettings.Current),

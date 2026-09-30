@@ -2,7 +2,7 @@ import AppKit
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-struct Application: Codable {
+struct Application: Encodable {
     // --- [DISCOVERY]
 
     let url: URL
@@ -25,33 +25,56 @@ struct Application: Codable {
         scriptable = try url.resourceValues(forKeys: [.applicationIsScriptableKey]).applicationIsScriptable == true
     }
 
-    init(from decoder: any Decoder) throws {
-        let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
-        let url: URL = try container.decode(URL.self)
-        let standardized: URL = URL(filePath: url.path(percentEncoded: false), directoryHint: .checkFileSystem).resolvingSymlinksInPath()
-        guard url.isFileURL, let application: Self = try Self(url: standardized, runningApplications: NSWorkspace.shared.runningApplications) else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Not an Adobe application bundle: \(url.absoluteString)")
+    static func at(_ url: URL) -> Result<Self, Failures> {
+        Result {
+            try url.isFileURL
+                ? Self(url: URL(filePath: url.path(percentEncoded: false), directoryHint: .checkFileSystem).resolvingSymlinksInPath(), runningApplications: NSWorkspace.shared.runningApplications)
+                : nil
         }
-        self = application
+        .mapError { error in Failures(.unreadable(code: (error as NSError).code)) }
+        .flatMap { application in application.map(Result.success) ?? .failure(Failures(.notApplication)) }
     }
 
-    static func all() throws -> [Self] {
-        let runningApplications: [NSRunningApplication] = NSWorkspace.shared.runningApplications
-        let installed: [URL] = try FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask).flatMap { directory in
-            try FileManager.default.enumerator(at: directory, includingPropertiesForKeys: [.isApplicationKey], options: [.skipsPackageDescendants, .skipsHiddenFiles])?
-                .allObjects.compactMap { entry in entry as? URL }
-                .filter { url in try url.resourceValues(forKeys: [.isApplicationKey]).isApplication == true } ?? []
+    static func all() -> Result<[Self], Failures> {
+        Result {
+            let runningApplications: [NSRunningApplication] = NSWorkspace.shared.runningApplications
+            let installed: [URL] = try FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask).flatMap { directory in
+                try FileManager.default.enumerator(at: directory, includingPropertiesForKeys: [.isApplicationKey], options: [.skipsPackageDescendants, .skipsHiddenFiles])?
+                    .allObjects.compactMap { entry in entry as? URL }
+                    .filter { url in try url.resourceValues(forKeys: [.isApplicationKey]).isApplication == true } ?? []
+            }
+            return try Set((installed + runningApplications.compactMap(\.bundleURL)).map { url in url.resolvingSymlinksInPath() })
+                .compactMap { url in try Self(url: url, runningApplications: runningApplications) }
+                .sorted { left, right in left.url.absoluteString < right.url.absoluteString }
         }
-        return try Set((installed + runningApplications.compactMap(\.bundleURL)).map { url in url.resolvingSymlinksInPath() })
-            .compactMap { url in try Self(url: url, runningApplications: runningApplications) }
-            .sorted { left, right in left.url.absoluteString < right.url.absoluteString }
+        .mapError { error in Failures(.unreadable(code: (error as NSError).code)) }
     }
 
     // --- [EXECUTION]
 
-    func runningApplication() -> Result<NSRunningApplication, any Error> {
+    static func send(_ event: NSAppleEventDescriptor, decoding dictionary: ScriptingDictionary) -> Result<NSAppleEventDescriptor, Failures> {
+        Result { try event.sendEvent(options: [.waitForReply, .neverInteract], timeout: TimeInterval(kNoTimeOut)) }
+            .mapError { error in
+                let status: OSStatus = OSStatus((error as NSError).code)
+                return Failures([OSStatus(procNotFound), OSStatus(errAEEventNotPermitted)].contains(status) ? .undelivered(status: status) : .unanswered(status: status))
+            }
+            .flatMap { reply in
+                switch reply.paramDescriptor(forKeyword: AEKeyword(keyErrorNumber))?.int32Value {
+                    case .some(let status) where status != noErr:
+                        let message: String? = reply.paramDescriptor(forKeyword: AEKeyword(keyErrorString))?.stringValue
+                        for keyword: AEKeyword in [AEKeyword(keyErrorNumber), AEKeyword(keyErrorString)] {
+                            reply.removeParamDescriptor(withKeyword: keyword)
+                        }
+                        return .failure(Failures(.reply(status: status, message: message, reply: reply.numberOfItems == 0 ? nil : dictionary.decode(reply, as: []))))
+                    default:
+                        return .success(reply)
+                }
+            }
+    }
+
+    func runningApplication() -> Result<NSRunningApplication, Failures> {
         guard processIdentifiers.count == 1, let runningApplication: NSRunningApplication = processIdentifiers.first.flatMap(NSRunningApplication.init(processIdentifier:)) else {
-            return .failure(ScriptingFailure.runningInstances(url))
+            return .failure(Failures(.runningInstances(count: processIdentifiers.count)))
         }
         let observations: [NSKeyValueObservation] = [\NSRunningApplication.isFinishedLaunching, \.isTerminated].map { keyPath in
             runningApplication.observe(keyPath) { _, _ in CFRunLoopStop(CFRunLoopGetMain()) }
@@ -59,36 +82,20 @@ struct Application: Codable {
         withExtendedLifetime(observations) {
             if !(runningApplication.isFinishedLaunching || runningApplication.isTerminated) { CFRunLoopRun() }
         }
-        return runningApplication.isTerminated
-            ? .failure(ScriptingFailure.terminated(url)) : .success(runningApplication)
+        return runningApplication.isTerminated ? .failure(Failures(.runningInstances(count: 0))) : .success(runningApplication)
     }
 
-    func execute(_ command: String, arguments: [String: Descriptor]) -> Result<any Encodable, Failure> {
+    func execute(_ command: String, arguments: [String: Descriptor]) -> Result<Descriptor, Failures> {
         runningApplication()
             .flatMap { runningApplication in
-                Result { try ScriptingDictionary(application: url) }.flatMap { dictionary in
-                    dictionary.event(command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: runningApplication.processIdentifier)).map { event in (dictionary, event) }
+                ScriptingDictionary.read(self).flatMap { dictionary in
+                    dictionary.events(command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: runningApplication.processIdentifier)).map { events in (dictionary, events) }
                 }
             }
-            .mapError(Failure.request)
-            .flatMap { dictionary, event in
-                Result { try event.sendEvent(options: [.waitForReply, .neverInteract], timeout: TimeInterval(kNoTimeOut)) }.mapError(Failure.send).map { reply in (dictionary, reply) }
-            }
-            .flatMap { dictionary, reply in
-                switch reply.paramDescriptor(forKeyword: AEKeyword(keyErrorNumber))?.int32Value {
-                    case .some(let status) where status != noErr:
-                        let message: String? = reply.paramDescriptor(forKeyword: AEKeyword(keyErrorString))?.stringValue
-                        for keyword: AEKeyword in [AEKeyword(keyErrorNumber), AEKeyword(keyErrorString)] {
-                            reply.removeParamDescriptor(withKeyword: keyword)
-                        }
-                        return .failure(
-                            .reply(
-                                ScriptingFailure.eventFailed(status, message: message),
-                                reply.numberOfItems == 0 ? nil : dictionary.decode(reply),
-                            )
-                        )
-                    default:
-                        return .success(reply.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)).map(dictionary.decode) ?? .null)
+            .flatMap { dictionary, events in
+                events.reduce(Result.success(.null)) { previous, request in
+                    previous.flatMap { _ in Self.send(request.event, decoding: dictionary) }
+                        .map { reply in reply.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)).map { value in dictionary.decode(value, as: request.result) } ?? .null }
                 }
             }
     }

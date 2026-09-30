@@ -93,6 +93,7 @@ utils:
                         - has: {stopBy: end, matches: mutation}
 rule:
     kind: invocation_expression
+    pattern: $WRITE
     all:
         - any:
             - matches: mutation
@@ -100,5 +101,5 @@ rule:
         - inside:
             stopBy: {matches: deferred-callback}
             matches: lock-region
-message: '`$CELL` changes under a lock that serializes it a second time'
-note: Use one serializer, the atomic cell's own operations alone or a lock over a plain field, each orders every write by itself
+message: '`$WRITE` changes an atomic cell under a lock that serializes it a second time'
+note: Use the atomic cell's operations alone or a lock over a plain field, each orders every write

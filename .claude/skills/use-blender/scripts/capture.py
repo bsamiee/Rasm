@@ -49,17 +49,16 @@ class View(StrEnum):
 
 @attrs.frozen
 class Difference:
-    """Pixels differing from the earlier capture beyond Blender's render-test threshold, marked red in a diff file, `outside` true when geometry left the earlier frame."""
+    """Count of pixels past Blender's render-test threshold against the earlier capture, the diff PNG marking them red, and whether geometry left the earlier frame."""
 
-    since: str
-    differing: int
+    changed: int
     diff: str
     outside: bool
 
 
 @attrs.frozen
 class Capture:
-    """Written file, world box an axis or iso view framed as lower and upper corners (`None` for the user's view), and comparison when `since` named an earlier capture."""
+    """Record the written PNG stores with its path, view, world box an axis or iso view framed as lower and upper corners (`None` for the user's view), and comparison against a `since` capture."""
 
     path: str
     frame: tuple[tuple[float, float, float], tuple[float, float, float]] | None
@@ -108,27 +107,22 @@ class MissingCapture:
 
 
 def capture(
-    name: str, objects: tuple[str, ...] = (), view: str | None = None, since: str | None = None
+    name: str, *, objects: tuple[str, ...] = (), view: str = View.ISO, size: tuple[int, int] | None = None, since: str | None = None
 ) -> Capture | UnknownObjects | UnknownView | HiddenInViewport | EmptyFrame | NoViewport | MissingCapture:
-    """Frame the named or every visible object from a view and write the image, `since` redrawing an earlier capture's frame and view to count differing pixels."""
-    limit_x, limit_y, margin, threshold = 1280, 720, 1.05, 0.016
-    frame_key, view_key = "capture:frame", "capture:view"
+    """Draw `.artifacts/blender/<name>.png` framing `objects` or every visible one from `view` at `size`, else the user's viewport's device pixels or the scene's render size, and `since` replays an earlier capture's view, frame, and size in their place to count changed pixels."""
+    margin, threshold = 1.05, 0.016
     path = artifacts() / f"{name}.png"
-    source = path.with_stem(since) if since is not None else None
+    source = None if since is None else path.with_stem(since)
     match source:
         case None:
-            earlier, stored, remembered = None, None, View.ISO
+            earlier, stored, requested = None, None, view
         case Path() if not source.exists():
             return MissingCapture(source.stem)
         case Path():
             image = ImageBuf(str(source))
-            text = image.spec().getattribute(frame_key)
-            earlier, stored, remembered = (
-                (source.stem, image.get_pixels(UINT8)),
-                None if text is None else JSON.loads(text, tuple[tuple[float, float, float], tuple[float, float, float]]),
-                image.spec().getattribute(view_key),
-            )
-    if (requested := view if view is not None else remembered) not in View:
+            record = JSON.loads(image.spec().getattribute(Capture.__name__), Capture)
+            earlier, stored, requested = image.get_pixels(UINT8), record.frame, record.view
+    if requested not in View:
         return UnknownView(requested, tuple(View))
     chosen, scene, layer = View(requested), bpy.context.scene, bpy.context.view_layer
     if (absent := unknown(scene.objects, objects)) is not None:
@@ -137,18 +131,19 @@ def capture(
     live, space = (None if bpy.app.background else largest), (None if largest is None else largest.space)
     if hidden := tuple(n for n in objects if not scene.objects[n].visible_get(viewport=space)):
         return HiddenInViewport(hidden)
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-    boxes = [box for owner, box in bounds(depsgraph).items() if (owner in objects if objects else scene.objects[owner].visible_get(viewport=space))]
+    depsgraph, considered = bpy.context.evaluated_depsgraph_get(), objects or tuple(o.name for o in scene.objects if o.visible_get(viewport=space))
+    boxes = [box for owner, box in bounds(depsgraph).items() if owner in considered]
     corners = np.array(boxes, dtype=np.float64).reshape(-1, 3)
-    match earlier, chosen, largest:
-        case (_, previous), _, _:
-            height, width = previous.shape[:2]
-        case None, View.USER, Viewport(region=region):
-            width, height = region.width, region.height
+    match earlier, size, chosen, largest:
+        case np.ndarray(), _, _, _:
+            resolution_y, resolution_x = earlier.shape[:2]
+        case None, (width, height), _, _:
+            resolution_x, resolution_y = width, height
+        case None, None, View.USER, Viewport(region=region):
+            resolution_x, resolution_y = region.width, region.height
         case _:
-            width, height = limit_x, limit_y
-    scale = min(limit_x / width, limit_y / height)
-    resolution_x, resolution_y = round(width * scale), round(height * scale)
+            percent = scene.render.resolution_percentage
+            resolution_x, resolution_y = scene.render.resolution_x * percent // 100, scene.render.resolution_y * percent // 100
 
     @contextmanager
     def assigned(*changes: "tuple[bpy.types.bpy_struct[object], str, object]") -> Iterator[None]:
@@ -197,10 +192,11 @@ def capture(
             return render(eye) if live is None else draw(live.space, live.region, eye.matrix_world.inverted(), eye.calc_matrix_camera(depsgraph, x=resolution_x, y=resolution_y))
 
     def viewed(found: Viewport) -> NDArray[np.uint8]:
-        """Pixels of the viewport's own view, drawn live or rendered in a background run through a camera from stored view and window matrices, an orthographic eye set back by half the clip range the viewport centers on it."""
+        """Pixels of the viewport's view at its horizontal field of view, drawn live or rendered through a camera from the stored matrices, an orthographic eye set back by half the clip range the viewport centers on it."""
         region_3d = found.space.region_3d
         if live is not None:
-            return draw(found.space, found.region, region_3d.view_matrix, region_3d.window_matrix)
+            aspect = Matrix.Diagonal((1.0, resolution_x * found.region.height / (resolution_y * found.region.width), 1.0, 1.0))
+            return draw(found.space, found.region, region_3d.view_matrix, aspect @ region_3d.window_matrix)
         projection, inverse = region_3d.window_matrix, region_3d.view_matrix.inverted()
         with temporary() as (eye, camera):
             camera.sensor_fit, camera.clip_start, camera.clip_end = "HORIZONTAL", found.space.clip_start, found.space.clip_end
@@ -240,6 +236,7 @@ def capture(
             (output, "media_type", "IMAGE"),
             (output, "file_format", "PNG"),
             (output, "color_mode", "RGB"),
+            (output, "color_depth", "8"),
             *((display_settings, p.identifier, getattr(display, p.identifier)) for p in display.bl_rna.properties if not p.is_readonly),
             (view_settings, "view_transform", GetCurrentConfig().getDefaultView(display.display_device)),
             (view_settings, "look", "None"),
@@ -248,12 +245,11 @@ def capture(
             bpy.ops.render.render(write_still=True)
         return ImageBuf(str(path)).get_pixels(UINT8)
 
-    def write(target: Path, pixels: NDArray[np.uint8]) -> None:
-        """Write the pixels as a PNG holding the view name, and the frame when the view has one, as text the next `since` reads."""
+    def write(target: Path, pixels: NDArray[np.uint8], record: Capture | None) -> None:
+        """Write the pixels as a PNG holding `record` as JSON text under its class name for the next `since`."""
         image = ImageBuf(np.ascontiguousarray(pixels))
-        if frame is not None:
-            image.specmod().attribute(frame_key, JSON.dumps(frame))
-        image.specmod().attribute(view_key, chosen.value)
+        if record is not None:
+            image.specmod().attribute(Capture.__name__, JSON.dumps(record))
         if not image.write(str(target)):
             raise RuntimeError(image.geterror())
 
@@ -263,19 +259,21 @@ def capture(
         case None:
             return NoViewport()
         case _ if stored is None and not corners.size:
-            return EmptyFrame(objects or tuple(o.name for o in scene.objects if o.visible_get(viewport=space)))
+            return EmptyFrame(considered)
         case degrees:
             frame = stored if stored is not None else (tuple(corners.min(axis=0).tolist()), tuple(corners.max(axis=0).tolist()))
             pixels = framed(Euler(np.radians(degrees).tolist()), np.array(frame, dtype=np.float64))
-    write(path, pixels)
-    if earlier is None:
-        return Capture(str(path), frame, chosen, None)
-    label, previous = earlier
-    mask = (np.abs(previous.astype(np.int16) - pixels) > threshold * 255).any(axis=-1)
-    diff = path.with_stem(f"{name}-diff")
-    write(diff, np.where(mask[..., None], np.array((255, 0, 0), dtype=np.uint8), previous // 2))
-    outside = frame is not None and bool((np.clip(corners, *frame) != corners).any())
-    return Capture(str(path), frame, chosen, Difference(label, int(mask.sum()), str(diff), outside))
+    match earlier:
+        case None:
+            comparison = None
+        case previous:
+            mask = (np.abs(previous.astype(np.int16) - pixels) > threshold * 255).any(axis=-1)
+            diff = path.with_stem(f"{name}-diff")
+            write(diff, np.where(mask[..., None], np.array((255, 0, 0), dtype=np.uint8), previous // 2), None)
+            comparison = Difference(int(mask.sum()), str(diff), frame is not None and bool((np.clip(corners, *frame) != corners).any()))
+    record = Capture(str(path), frame, chosen, comparison)
+    write(path, pixels, record)
+    return record
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

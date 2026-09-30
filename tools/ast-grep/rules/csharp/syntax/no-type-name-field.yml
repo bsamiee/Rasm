@@ -75,22 +75,104 @@ utils:
                     kind: compilation_unit
                     stopBy: end
                     has: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, pattern: $CREATED}}
+    stored:
+        any:
+            - inside:
+                kind: argument
+                stopBy: {not: {matches: value-wrapper}}
+                inside: {kind: argument_list, inside: {matches: creation}}
+            - inside:
+                kind: with_initializer
+                stopBy: {not: {matches: value-wrapper}}
+                inside: {kind: with_expression, has: {kind: identifier, nthChild: 1, pattern: $CREATED}}
+            - inside:
+                kind: assignment_expression
+                field: right
+                stopBy: {not: {matches: value-wrapper}}
+                inside: {kind: initializer_expression, inside: {matches: creation}}
+    stored-parameter:
+        kind: parameter
+        all:
+            - has: {field: name, pattern: $PARAMETER}
+            - inside:
+                kind: parameter_list
+                inside:
+                    kind: 'method_declaration, local_function_statement'
+                    has: {field: body, has: {stopBy: end, kind: identifier, pattern: $PARAMETER, matches: stored}}
+    callee-name:
+        any:
+            - kind: identifier
+              pattern: $CALLEE
+            - kind: generic_name
+              has: {kind: identifier, pattern: $CALLEE}
+    callee-parameters:
+        kind: parameter_list
+        inside:
+            kind: 'method_declaration, local_function_statement'
+            has: {field: name, pattern: $CALLEE}
+    receiver-parameters:
+        kind: parameter_list
+        has: {kind: parameter, nthChild: 1, has: {kind: modifier, regex: '^this$'}}
+    receiver-call:
+        inside:
+            kind: argument_list
+            inside:
+                kind: invocation_expression
+                has: {field: function, kind: member_access_expression, not: {has: {field: expression, kind: identifier, regex: '^[A-Z]'}}}
+    shifted:
+        all:
+            - matches: receiver-call
+            - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, all: [{matches: callee-parameters}, {matches: receiver-parameters}]}}
+    relayed-argument:
+        kind: argument
+        all:
+            - inside:
+                kind: argument_list
+                inside:
+                    kind: invocation_expression
+                    has: {field: function, any: [{matches: callee-name}, {kind: member_access_expression, has: {field: name, matches: callee-name}}]}
+            - any:
+                - has: {field: name, pattern: $PARAMETER}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {matches: stored-parameter}}}
+                - nthChild: 1
+                  not: {matches: shifted}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 1, matches: stored-parameter}}}
+                - nthChild: 2
+                  not: {matches: shifted}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 2, matches: stored-parameter}}}
+                - nthChild: 3
+                  not: {matches: shifted}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 3, matches: stored-parameter}}}
+                - nthChild: 4
+                  not: {matches: shifted}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 4, matches: stored-parameter}}}
+                - nthChild: 1
+                  matches: shifted
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 2, matches: stored-parameter}}}
+                - nthChild: 2
+                  matches: shifted
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 3, matches: stored-parameter}}}
+                - nthChild: 3
+                  matches: shifted
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 4, matches: stored-parameter}}}
 rule:
-    matches: name-read
-    pattern: $READ
-    any:
-        - inside:
-            kind: argument
-            stopBy: {not: {matches: value-wrapper}}
-            inside: {kind: argument_list, inside: {matches: creation}}
-        - inside:
-            kind: with_initializer
-            stopBy: {not: {matches: value-wrapper}}
-            inside: {kind: with_expression, has: {kind: identifier, nthChild: 1, pattern: $CREATED}}
-        - inside:
-            kind: assignment_expression
-            field: right
-            stopBy: {not: {matches: value-wrapper}}
-            inside: {kind: initializer_expression, inside: {matches: creation}}
+    all:
+        - matches: name-read
+        - pattern: $READ
+        - any:
+            - matches: stored
+            - inside:
+                kind: argument
+                stopBy: {not: {matches: value-wrapper}}
+                matches: relayed-argument
+            - inside:
+                kind: member_access_expression
+                field: expression
+                stopBy: {not: {matches: value-wrapper}}
+                has: {field: name, matches: callee-name}
+                inside:
+                    kind: invocation_expression
+                    field: function
+                    inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, all: [{matches: callee-parameters}, {matches: receiver-parameters}, {has: {nthChild: 1, matches: stored-parameter}}]}}
 message: '`$READ` stores a CLR type name in a field of `$CREATED`'
-note: Hold the `Type` or value in the field, a message template formats its name
+note: Use a field holding the `Type` or value, with a message template formatting its name

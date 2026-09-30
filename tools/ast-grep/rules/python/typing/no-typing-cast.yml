@@ -18,4 +18,4 @@ rule:
         - has: {field: arguments, has: {nthChild: 2, pattern: $VALUE}, not: {has: {nthChild: 3}}}
 fix: $VALUE
 message: '`$CALL` asserts a type the checker cannot infer'
-note: 'Pass the value typed where it is produced, a cast overrides the checker with no runtime check'
+note: 'Use a value typed where it is produced, or a `TypeIs` function that narrows it, a cast overrides the checker with no runtime check'

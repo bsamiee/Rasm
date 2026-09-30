@@ -1,6 +1,6 @@
 # ty: ignore[unresolved-attribute, invalid-assignment]
 # mypy: disable-error-code="untyped-decorator, union-attr, attr-defined"
-# ruff: file-ignore[subprocess-without-shell-equals-true, django-extra, exec-builtin, blind-except, private-member-access]
+# ruff: file-ignore[subprocess-without-shell-equals-true, exec-builtin, blind-except, private-member-access]
 """Blender processes outside the live session on a named file, as the command line on the host and as the job inside each Blender it starts."""
 
 from collections.abc import Mapping, Sequence
@@ -19,26 +19,24 @@ import sys
 import time
 import traceback
 from types import ModuleType
-from typing import Annotated
+from typing import Annotated, Final
 
 import attrs
+from cattrs.preconf.json import make_converter
 
 if "bpy" in sys.modules:
     import addon_utils
     import bpy
-    from cattrs.preconf.json import make_converter
 else:
     import anyio
     from anyio.abc import SocketAttribute
+    import bridge
     import cyclopts
     from cyclopts.types import ResolvedExistingFile, ResolvedFile
     import msgspec
     import psutil
-    from results import artifacts, as_result, repository
+    from results import artifacts, JSON, repository
     from wrapper import wrap
-
-    from interface.blender.session import Done, execute, Raised as BridgeRaised
-    from interface.host import LOOPBACK, terminated
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -206,13 +204,13 @@ def built(kind: type, value: object) -> object:
     return kind(value)
 
 
-def answered(reply: "Done | BridgeRaised", began: float) -> Ran | Raised:
+def answered(reply: "bridge.Done | bridge.Raised", began: float) -> Ran | Raised:
     """Case of one execute reply to a request begun at the monotonic time."""
     seconds = round(time.monotonic() - began, 3)
     match reply:
-        case Done(result=result, stdout=stdout, stderr=stderr):
-            return Ran(msgspec.json.decode(result, type=dict[str, object]), stdout, stderr, seconds)
-        case BridgeRaised(message=message, stdout=stdout, stderr=stderr):
+        case bridge.Done(result=result, stdout=stdout, stderr=stderr):
+            return Ran(result, stdout, stderr, seconds)
+        case bridge.Raised(message=message, stdout=stdout, stderr=stderr):
             return Raised(message, stdout, stderr, seconds)
 
 
@@ -250,7 +248,7 @@ async def exchanged(name: str, session: Session, code: str, *, strict_json: bool
     """Case of the named session's reply to the code, `Lost` with the record removed when the process ends before it answers."""
     began = time.monotonic()
     try:
-        reply = await execute(session.port, code, strict_json=strict_json)
+        reply = await bridge.execute(session.port, code, strict_json=strict_json)
     except anyio.IncompleteRead:
         record(name).unlink()
         return Lost(session)
@@ -258,24 +256,25 @@ async def exchanged(name: str, session: Session, code: str, *, strict_json: bool
 
 
 def run(file: "ResolvedFile") -> "Ran | Raised | Failed":
-    """Run the code on stdin in a fresh factory process on the file with the user's extension wheels importable, `BLENDER_USER_EXTENSIONS` under `.artifacts/blender/` leaving the user's folder unchanged."""
+    """Run the code on stdin in a fresh factory process on the file with the user's extension wheels importable, `BLENDER_USER_EXTENSIONS` and `BLENDER_USER_CONFIG` under `.artifacts/blender/` in place of the user's folders."""
     code, began, log = sys.stdin.read(), time.monotonic(), artifacts() / f"run-{os.getpid()}.log"
-    process, reply = spawn(Job.RUN, (wrap(code),), ("--factory-startup", *opening(file)), log, os.environ | {"BLENDER_USER_EXTENSIONS": str(artifacts("extensions"))})
+    redirected = {"BLENDER_USER_EXTENSIONS": str(artifacts("extensions")), "BLENDER_USER_CONFIG": str(artifacts("config"))}
+    process, reply = spawn(Job.RUN, (wrap(code),), ("--factory-startup", *opening(file)), log, os.environ | redirected)
     exit_code = process.wait()
     if not reply:
         return Failed(exit_code, log)
     log.unlink()
-    return answered(msgspec.json.decode(reply, type=Done | BridgeRaised), began)
+    return answered(msgspec.json.decode(reply, type=bridge.Done | bridge.Raised), began)
 
 
 async def start(file: "ResolvedFile", name: str) -> Session | SessionRunning | NoBridge | Failed:
     """Serve the MCP extension's execute protocol from a background Blender on the file under a copy of the user's preferences as the named session, answering once it listens."""
     if (session := running(name)) is not None:
         return SessionRunning(session)
-    async with await anyio.create_tcp_listener(local_host=LOOPBACK, local_port=0) as listener:
+    async with await anyio.create_tcp_listener(local_host=bridge.LOOPBACK, local_port=0) as listener:
         port = listener.extra(SocketAttribute.local_port)
     began, log = time.monotonic(), record(name).with_suffix(".log")
-    process, reply = spawn(Job.SERVE, (LOOPBACK, str(port)), opening(file), log, os.environ)
+    process, reply = spawn(Job.SERVE, (bridge.LOOPBACK, str(port)), opening(file), log, os.environ)
     if not reply:
         return Failed(process.wait(), log)
     if isinstance(listening := msgspec.json.decode(reply, type=tuple[Path, str] | str, dec_hook=built), str):
@@ -303,7 +302,13 @@ async def stop(name: str) -> Stopped | Diverged | Raised | Alive | Lost | NoSess
         case Ran(result={"sync": Sync.DIVERGED}):
             return Diverged(session)
         case Ran(result=result):
-            if await terminated([psutil.Process(session.pid)]):
+            try:
+                (process := psutil.Process(session.pid)).terminate()
+            except psutil.NoSuchProcess:
+                alive: list[psutil.Process] = []
+            else:
+                _, alive = psutil.wait_procs((process,), timeout=300)
+            if alive:
                 return Alive(session)
             record(name).unlink()
             return Stopped(session, result["sync"] == Sync.SAVED)
@@ -330,7 +335,7 @@ def render(file: "ResolvedExistingFile", *, frames: "Annotated[str, cyclopts.Par
 def answer(pipe: int, value: object) -> None:
     """Write the value as JSON to the host's pipe and close it to end the host's read."""
     with os.fdopen(pipe, "w", encoding="utf-8") as channel:
-        channel.write(make_converter().dumps(value, default=str))
+        channel.write(ANSWERS.dumps(value, default=str))
 
 
 def respond(pipe: int, code: str) -> None:
@@ -419,6 +424,8 @@ def rendered(output: Path, frames: Scope | tuple[int, int]) -> Rendered:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
+ANSWERS: Final = make_converter()
+
 
 def perform(job: Job, pipe: int, arguments: Sequence[str]) -> None:
     """Perform the job inside Blender on its arguments with the Cycles devices of the preferences listed, answering on the pipe."""
@@ -443,7 +450,7 @@ def perform(job: Job, pipe: int, arguments: Sequence[str]) -> None:
 def report(outcome: Ran | Session | Stopped | Rendered | Raised | Lost | Failed | SessionRunning | NoBridge | Diverged | Alive | NoSession | None) -> int:
     """Print the outcome as JSON with its case under `kind` and return the exit code, 0 for a success or help and 1 otherwise."""
     if outcome is not None:
-        sys.stdout.buffer.write(msgspec.json.format(msgspec.json.encode(as_result(outcome), enc_hook=os.fspath), indent=1) + b"\n")
+        sys.stdout.write(f"{JSON.dumps(outcome, indent=1, default=os.fspath)}\n")
     return 0 if isinstance(outcome, Ran | Session | Stopped | Rendered | None) else 1
 
 
@@ -464,6 +471,7 @@ elif __name__ == "__main__":
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "ANSWERS",
     "Alive",
     "Diverged",
     "Failed",

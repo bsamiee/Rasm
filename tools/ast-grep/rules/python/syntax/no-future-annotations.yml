@@ -2,7 +2,14 @@
 id: no-future-annotations
 language: python
 severity: error
-ignores: ['.claude/skills/use-blender/scripts/**', '.claude/skills/use-rhino/scripts/**', 'tools/interface/**']
+ignores:
+    - .claude/skills/use-blender/scripts/*.py
+    - .claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py
+    - tools/interface/{roles,report,units,render,aliases,frame}.py
+    - tools/interface/rhino/{window,markup}.py
+    - tools/interface/blender/rows.py
+    - tools/interface/*/script/**
+    - tools/interface/blender/extension/**
 utils:
     annotations-feature: {kind: dotted_name, regex: '^annotations$', inside: {kind: future_import_statement}}
 rule:
@@ -23,4 +30,4 @@ fix:
     template: $OUT$NEXT
     expandEnd: {pattern: $NEXT}
 message: '`$IMPORT` stores annotations as strings'
-note: 'Delete `annotations` from the import, Python 3.14 and later defer annotation evaluation by default'
+note: 'Use annotations without the `annotations` future import, Python 3.14 and later defer annotation evaluation by default'

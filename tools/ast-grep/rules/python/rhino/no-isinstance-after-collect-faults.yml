@@ -2,19 +2,28 @@
 id: no-isinstance-after-collect-faults
 language: python
 severity: error
+utils:
+    collected:
+        kind: call
+        all:
+            - has: {field: function, regex: '^collect_faults$'}
+            - has: {field: arguments, has: {kind: identifier, pattern: $X}}
 rule:
     kind: boolean_operator
     pattern: $TEST
     all:
         - has: {field: operator, regex: '^or$'}
-        - has: {field: right, kind: call, pattern: 'isinstance($X, tuple)'}
+        - has:
+            field: right
+            kind: call
+            all:
+                - has: {field: function, regex: '^isinstance$'}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $X}}
+                - has: {field: arguments, has: {nthChild: 2, regex: '^(Faults?|\(\s*Faults?\s*,\s*Faults?\s*\))$'}}
         - has:
             field: left
-            has:
-                stopBy: end
-                kind: call
-                all:
-                    - has: {field: function, regex: '^collect_faults$'}
-                    - has: {field: arguments, has: {kind: identifier, pattern: $X}}
-message: '`isinstance($X, tuple)` repeats the fault test `collect_faults` ran on `$X`'
-note: 'Match the independent results in one `match` with a success case naming each value and `case failed: return collect_faults(*failed)`, a success pattern narrows each value'
+            any:
+                - matches: collected
+                - has: {stopBy: end, matches: collected}
+message: '`$TEST` repeats the fault test `collect_faults` ran on `$X`'
+note: 'Use one `match` over the independent results with a success case naming each value and `case failed: return Faults.of(*failed)`, a success pattern narrows each value'

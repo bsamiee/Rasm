@@ -48,9 +48,9 @@ simulated.BackgroundColor = Color.FromArgb(<r>, <g>, <b>)
 environment = RenderEnvironment.NewBasicEnvironment(simulated, doc)
 environment.Name = "<name>"
 doc.RenderEnvironments.Add(environment)
-for usage in (RenderSettings.EnvironmentUsage.Background, RenderSettings.EnvironmentUsage.Reflection, RenderSettings.EnvironmentUsage.Skylighting):
-    settings.SetRenderEnvironmentOverride(usage, True)
-    settings.SetRenderEnvironment(usage, environment)
+settings.SetRenderEnvironment(RenderSettings.EnvironmentUsage.Background, environment)
+for usage in (RenderSettings.EnvironmentUsage.Reflection, RenderSettings.EnvironmentUsage.Skylighting):
+    settings.SetRenderEnvironmentOverride(usage, False)
 settings.BackgroundStyle = BackgroundStyle.Environment
 print(sun.Azimuth, sun.Altitude, settings.RenderEnvironment(RenderSettings.EnvironmentUsage.Background, RenderSettings.EnvironmentPurpose.Standard).Name)
 ```
@@ -65,9 +65,29 @@ print(sun.Azimuth, sun.Altitude, settings.RenderEnvironment(RenderSettings.Envir
 - `sun.ManualControlOn = True` with `sun.Azimuth` and `sun.Altitude` places the sun by angle
 - `settings.GroundPlane.AutoAltitude = False` with `Altitude` places the ground plane
 - Physical skies are `ContentUuids.PhysicalSkyTextureType` content set as the `"texture"` child of a `BasicEnvironmentType` environment
+- Reflection and skylighting overrides off take the background environment
+- Overrides on naming the background's physical sky add lighting quadratic in its `rdk-texture-adjust-multiplier`
 - `RenderSettings.RenderEnvironmentId(usage, EnvironmentPurpose.Standard)` reads a usage's environment, the one-argument form fails to bind
+- `sun` color follows its altitude with no setter, a matched Blender SUN lamp stays white
+- Template physical sky parameters fit Blender's `MULTIPLE_SCATTERING` sky at the document sun's site and moment
+- Site or moment changes take sun irradiance, sky parameters, and plane luminance per multiplier measured again
+- Template daylight folds exposure -5.3 EV into `sun.Intensity`, the sky's `rdk-texture-adjust-multiplier`, and the sample clamps
+- Render window EXRs hold the linear frame before tone mapping, a sunlit white horizontal plane reads 1.0 there and in Raytraced
+- Added lights and emissive materials take no exposure, against daylight they render `2 ** 5.3` (39) times brighter than in Blender
 
-## [03]-[DISPLAY_MODES]
+## [03]-[RENDERS]
+
+Render windows and Raytraced views tone one linear Cycles frame through separate post-effect chains:
+- Render windows run the document's selected tone mapper, templates select Darkroom's AgX (Blender's AgX Base sRGB, byte-exact) at 0 EV
+- AgX raises its output to `PostProcessGamma` under `LinearWorkflow.PostProcessGammaOn`, Rhino's Gamma effect restores it
+- Darkroom's dither runs after Gamma
+- Raytraced tone mappers come from a per-view store only Rhino's internal types write, an empty store runs Clamp whatever the document selects
+- Raytraced output then takes the document gamma while `LinearWorkflow.PostProcessGammaOn` is on
+- No display mode, RhinoCycles key, or view member selects a Raytraced tone mapper or exposure
+- Sunlit near-whites read higher in Raytraced than in the render window, Clamp holds no tone curve
+- Look questions take one render each, a read render window closes and a read Raytraced view takes a non-realtime `show(mode=)` or `close_slot`
+
+## [04]-[DISPLAY_MODES]
 
 Display modes are application settings every document and session shares, `DisplayModeDescription` owns them, and a new style copies a mode under its own name:
 
@@ -104,7 +124,9 @@ DisplayModeDescription.SaveDisplayModes()
 ```
 
 - Temporary display modes take a fresh `Guid.NewGuid()` and a name prefix, and `DeleteDisplayMode` in the `finally` of their importing call
-- `view.CaptureToBitmap(Size(w, h), mode)` draws a mode the view does not show, technical-family modes as plain wireframe
+- `view.CaptureToBitmap(Size(w, h), mode)` draws `mode` at once, technical-family modes as plain wireframe and realtime modes without their render
+- `ViewCapture` and `view.CaptureToBitmap(Size(w, h))` draw a mode set in a call from the next call on
+- `view.CaptureToBitmap(Size(w, h))` of a view showing a realtime mode returns an empty frame, `ViewCapture` draws the render
 - Technical-family modes show their lines in a window capture of a view set to the mode
 - Black-to-white switching follows the application background and skips clipping edges, black objects draw white on a white mode fill
 - Modes on a white fill draw black lines through fixed mode colors alone, black points and point clouds stay white there
@@ -114,18 +136,18 @@ DisplayModeDescription.SaveDisplayModes()
 - Display panel rows write the active viewport's whole mode and save it, its Reset copies a built-in parent over a custom mode
 - Retina wires draw 1.5 device pixels per thickness unit under antialiasing, a thickness-1 curve spans 2 device pixels in a capture
 
-## [04]-[SAVED_STATES]
+## [05]-[SAVED_STATES]
 
 - `save_view(doc, "<name>", zoom=, view=, mode=)` stores camera and display mode without moving any view, an existing name is replaced
 - `show(doc, named="<name>")` moves the user's view to it with its mode and construction plane, `show(doc, view=, zoom=, mode=)` zooms to a box or ids
 - `capture(doc, "<file>", named="<name>")` draws a named view with its mode and construction plane
 - `doc.NamedViews.Restore(index, viewport)` renames `viewport` to the named view, its own name writes back afterwards
-- `doc.NamedViews.Add(name, viewport.Id)` returns -1 in a headless document, named views need a windowed document
+- `doc.NamedViews.Add(name, viewport.Id)` stores a named view in any document, `Add` of a `ViewInfo` built from scratch returns -1
 - `position(doc, "<name>", ids)` records placements, `position(doc, "<name>")` moves the objects back after a trial transform
 - `doc.NamedLayerStates.Save("<name>")` records every layer's settings, `Restore("<name>", RestoreLayerProperties.All)` brings them back
 - Layer state restores leave layers added after the save as they are, `_-Layer _Off * _Enter` before a restore hides them
 
-## [05]-[WINDOW_CAPTURES]
+## [06]-[WINDOW_CAPTURES]
 
 Window captures show the view as drawn, clipping planes and section fills included, without activating Rhino:
 

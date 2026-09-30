@@ -66,4 +66,4 @@ rule:
                     - matches: conditional-arm
                     - matches: statement-arm
 message: '`$X` resolves None to `$D` in one arm and reaches the other arm as None'
-note: 'Resolve `<name>` once before the branch, every arm then reads the resolved value'
+note: 'Use `<name> = <default> if <name> is None else <name>` before the branch, every arm reads the resolved value'

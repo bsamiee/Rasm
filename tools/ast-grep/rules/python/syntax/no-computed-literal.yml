@@ -26,7 +26,7 @@ rule:
         - {matches: python-string-concatenation, not: {inside: {kind: binary_operator, matches: python-string-concatenation}}}
         - kind: call
           all:
-            - has: {field: function, kind: attribute, all: [{has: {field: object, any: [{matches: plain-string}, {kind: concatenated_string}, {regex: '^str$'}]}}, {not: {has: {field: attribute, regex: '^join$'}}}]}
+            - has: {field: function, kind: attribute, all: [{has: {field: object, any: [{matches: plain-string}, {kind: concatenated_string}, {regex: '^str$'}]}}, {not: {has: {field: attribute, regex: '^(join|split|rsplit)$'}}}]}
             - has: {field: arguments, matches: literal-arguments}
         - kind: call
           all:
@@ -37,4 +37,4 @@ rule:
             - has: {field: value, matches: plain-string}
             - has: {field: subscript, any: [{kind: integer}, {kind: slice, not: {has: {pattern: $_, not: {kind: 'integer, unary_operator'}}}}]}
 message: '`$S` computes a literal from literals'
-note: 'Write the result as one literal, a reader then sees the value without evaluating code'
+note: 'Use one literal holding the result, a reader sees the value without evaluating code'

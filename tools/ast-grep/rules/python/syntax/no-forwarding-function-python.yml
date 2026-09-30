@@ -106,4 +106,4 @@ rule:
 constraints:
     F: {matches: named-callee}
 message: 'Function forwards its parameters unchanged to `$F`'
-note: 'Call `<callee>` at each use, the wrapper adds a name and no fact'
+note: 'Use `<callee>` at each call site, the wrapper adds a name and no fact'

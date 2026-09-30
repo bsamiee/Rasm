@@ -11,6 +11,8 @@ mise owns tool binaries and the process environment.
 - `dotnet.isolated = true` installs each SDK under its own root and `dotnet` host, macOS kills a shared-root host a new SDK overwrote
 - Isolated roots hold the SDK's runtime alone, `DOTNET_ROLL_FORWARD = "Major"` runs an older-major tool on it
 - `MSBuildLocator` skips an SDK newer than its host runtime, a tool loading MSBuild rolls forward to the SDK's runtime
+- `MSBUILDDISABLENODEREUSE = "1"` ends MSBuild worker nodes with each command and starts no MSBuild server
+- `NUGET_PACKAGES` relocates the package folder for every run, `NuGet.config` reaches runs with a working directory inside the repository
 - Editor settings name a mise install by its `latest` link and a Homebrew install by its `opt` link, a server reading mise's environment takes neither
 - `mise upgrade` moves each `latest` row, a `pypi:` row from a GitHub repository with no release stays at the branch HEAD it installed
 

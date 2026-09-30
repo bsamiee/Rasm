@@ -1,8 +1,6 @@
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Annotation;
@@ -19,24 +17,15 @@ public sealed record HatchPatternDefinition(
     Seq<HatchLineDefinition> Lines,
     HashMap<string, string> UserStrings);
 
-public sealed record HatchPatternRow(Guid Id, int Index, bool InUse, bool IsReference, HatchPatternDefinition Definition);
+public sealed record HatchPatternRow(Guid Id, int Index, bool InUse, bool IsReference, bool IsDeleted, HatchPatternDefinition Definition);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 public static partial class HatchPatterns {
-    // --- [TABLE]
-    internal static TableAccessors<HatchPattern> Accessors(RhinoDoc doc) =>
-        new(doc.HatchPatterns, doc.HatchPatterns.Add, doc.HatchPatterns.Modify, doc.HatchPatterns.FindName, doc.HatchPatterns.FindIndex);
-
+    // --- [READS]
     public static IO<HatchPatternRow> Row(HatchPattern pattern) =>
-        from count in IO.lift(() => pattern.HatchLineCount)
-        from row in Disposal.Using(
-            Disposal.AcquireAll(toSeq(Range(0, count)).Map(index => IO.lift(() => Missing.Unless(pattern.HatchLineAt(index), nameof(HatchPattern.HatchLineAt))))),
-            lines =>
-                from userStrings in GeometryOps.ReadUserStrings(GeometryOps.UserStrings(pattern))
-                from projected in IO.lift(() => Project(pattern, lines.Map(Line).Strict(), userStrings))
-                select projected)
-        select row;
+        DisposalOps.Using(IO.lift(() => toSeq(pattern.HatchLines).Strict()), lines =>
+            GeometryOps.ReadUserStrings(GeometryOps.UserStrings(pattern)).Map(userStrings => Project(pattern, lines.Map(Line).Strict(), userStrings)));
 
     [MapPropertyFromSource(nameof(HatchPatternRow.Definition), Use = nameof(Definition))]
     private static partial HatchPatternRow Project(HatchPattern pattern, Seq<HatchLineDefinition> lines, HashMap<string, string> userStrings);
@@ -49,48 +38,35 @@ public static partial class HatchPatterns {
     private static Seq<double> Dashes(HatchLine line) =>
         toSeq(line.GetDashes).Strict();
 
-    // --- [ROWS]
-    public static IO<int> Add(RhinoDoc doc, HatchPatternDefinition definition) =>
-        TableOps.AddRow(Accessors(doc), IO.lift(static () => new HatchPattern()), staged => Written(staged, definition));
-
-    public static IO<Unit> Modify(RhinoDoc doc, int index, HatchPatternDefinition definition, bool quiet) =>
-        TableOps.ModifyRow(Accessors(doc), index, static live => new HatchPattern(live), staged => Written(staged, definition), quiet);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapperIgnoreSource(nameof(HatchPatternDefinition.Name), Justification = "Written under the table name lock")]
-    [MapperIgnoreSource(nameof(HatchPatternDefinition.Lines), Justification = "Written through SetHatchLines")]
-    [MapperIgnoreSource(nameof(HatchPatternDefinition.UserStrings), Justification = "Written through the user string table")]
-    [MapProperty(nameof(HatchPatternDefinition.Description), nameof(HatchPattern.Description), Use = nameof(Description))]
-    private static partial void Update(HatchPatternDefinition definition, HatchPattern staged);
-
-    private static string? Description(Option<string> description) => description.ValueUnsafe();
-
-    private static IO<Unit> Written(HatchPattern staged, HatchPatternDefinition definition) =>
-        Disposal.Using(
-            Disposal.AcquireAll(definition.Lines.Map(static line => IO.lift(() => {
-                HatchLine created = new() { Angle = line.Angle, BasePoint = line.BasePoint, Offset = line.Offset };
+    // --- [WRITES]
+    public static IO<Unit> Written(HatchPattern staged, HatchPatternDefinition definition) =>
+        DisposalOps.Using(
+            DisposalOps.AcquireAll(definition.Lines.Map(static line => IO.lift(() => {
+                HatchLine created = ToLine(line);
                 created.SetDashes(line.Dashes);
                 return created;
             }))),
             lines =>
-                from named in TableOps.Locked(IO.lift(() => definition.Name.Iter(name => staged.Name = name)), nameof(HatchPattern.Name))
-                from written in IO.lift(() => Update(definition, staged))
-                from lined in IO.lift(() => Mismatch.Unless(staged.SetHatchLines(lines) == lines.Count, nameof(HatchPattern.SetHatchLines)))
-                from stored in GeometryOps.WriteUserStrings(GeometryOps.UserStrings(staged), definition.UserStrings)
+                from named in TableOps.Named(staged, definition.Name)
+                from settings in IO.lift(() => Update(definition, staged))
+                from lined in IO.lift(() => CountMismatch.Unless(lines.Count, staged.SetHatchLines(lines), nameof(HatchPattern.SetHatchLines)))
+                from stored in Appearance.WriteUserStrings(GeometryOps.UserStrings(staged), definition.UserStrings)
                 select unit);
 
-    public static IO<Unit> Delete(RhinoDoc doc, Seq<int> indices, bool quiet) =>
-        IO.lift(() => CountMismatch.Unless(indices.Count, doc.HatchPatterns.Delete(indices, quiet), nameof(HatchPatternTable.Delete)));
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapperIgnoreSource(nameof(HatchPatternDefinition.Name), Justification = "TableOps.Named")]
+    [MapperIgnoreSource(nameof(HatchPatternDefinition.Lines), Justification = "HatchPattern.SetHatchLines")]
+    [MapperIgnoreSource(nameof(HatchPatternDefinition.UserStrings), Justification = "Appearance.WriteUserStrings")]
+    private static partial void Update(HatchPatternDefinition definition, HatchPattern staged);
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapperIgnoreSource(nameof(HatchLineDefinition.Dashes), Justification = "HatchLine.SetDashes")]
+    private static partial HatchLine ToLine(HatchLineDefinition line);
 
     public static IO<Unit> SetCurrent(RhinoDoc doc, int index) =>
-        from found in IO.lift(() => Missing.Unless(doc.HatchPatterns.FindIndex(index), nameof(HatchPatternTable.FindIndex)))
-        from current in IO.lift(() => doc.HatchPatterns.CurrentHatchPatternIndex = index)
-        select unit;
-
-    public static IO<Option<HatchPatternRow>> Find(RhinoDoc doc, ComponentRef address) =>
-        from found in TableOps.Find(Accessors(doc), address)
-        from row in found.Traverse(static pattern => Row(pattern)).As()
-        select row;
+        from live in TableOps.Row(doc.HatchPatterns, index)
+        from current in IO.lift(() => { doc.HatchPatterns.CurrentHatchPatternIndex = live.Index; })
+        select current;
 
     // --- [FILES]
     public static IO<Seq<HatchPatternRow>> Defaults() =>
@@ -103,11 +79,7 @@ public static partial class HatchPatterns {
 
     public static IO<Unit> WriteFile(RhinoDoc doc, string path, Seq<int> indices) =>
         from qualified in Answers.QualifiedPath(path)
-        from rows in indices.TraverseM(index => IO.lift(() => Missing.Unless(doc.HatchPatterns.FindIndex(index), nameof(HatchPatternTable.FindIndex)))).As()
+        from rows in indices.TraverseM(index => TableOps.Row(doc.HatchPatterns, index)).As()
         from written in IO.lift(() => Refused.Unless(HatchPattern.WriteToFile(qualified, rows), nameof(HatchPattern.WriteToFile)))
         select written;
-
-    public static IO<Seq<Line>> Preview(RhinoDoc doc, int index, int width, int height, double angle) =>
-        IO.lift(() => Missing.Unless(doc.HatchPatterns.FindIndex(index), nameof(HatchPatternTable.FindIndex))
-            .Map(pattern => toSeq(pattern.CreatePreviewGeometry(width, height, angle))));
 }

@@ -1,9 +1,8 @@
 # ty: ignore[unresolved-attribute, unresolved-import, invalid-argument-type, invalid-return-type, invalid-exception-caught]
-# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, misc, no-any-return"
-"""Rows of Rhino's imperial default template, the metric one beside it, and the default template setting naming the imperial one."""
+# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, misc, no-any-return, call-overload"
+"""Rows of Rhino's imperial default template, the metric one beside it, and the default template setting naming the imperial one, and the texts each template's documents show in the Layers and Layouts grids."""
 
 from collections.abc import Iterable, Mapping
-from contextlib import ExitStack
 import ctypes
 from datetime import datetime, timedelta
 from functools import partial
@@ -15,7 +14,8 @@ from uuid import UUID
 import clr
 import Rhino
 from Rhino.ApplicationSettings import FileSettings
-from Rhino.Display import BackgroundStyle, DisplayModeDescription, RhinoPageView, ViewTypeFilter
+from Rhino.Collections import ArchivableDictionary
+from Rhino.Display import BackgroundStyle, Color4f, DisplayModeDescription, RhinoPageView, ViewTypeFilter
 from Rhino.DocObjects import (
     ActiveSpace,
     DimensionStyle,
@@ -31,23 +31,28 @@ from Rhino.DocObjects import (
     ViewInfo,
 )
 from Rhino.FileIO import File3dm, File3dmWriteOptions, FileWriteOptions
-from Rhino.Geometry import BoundingBox, MeshingParameterStyle, Plane, Point3d, Rectangle3d, Vector3d
-from Rhino.Render import ContentUuids, RenderContent, RenderContentType, RenderSettings
+from Rhino.Geometry import BoundingBox, MeshingParameterStyle, Plane, Point3d, Rectangle3d, Vector2d, Vector3d
+from Rhino.Render import ContentUuids, ParameterNames, RenderChannels, RenderContent, RenderContentType, RenderSettings, RenderWindow, Sun
+from Rhino.Render.PostEffects import PostEffectType
 import System
 from System import Array, DateTime, DateTimeKind, Guid
-from System.Drawing import Size
+from System.Drawing import Color, Size
+from System.Globalization import CultureInfo
 from System.IO import FileNotFoundException
 
 from interface.render import (
+    ADAPTIVE_MIN_SAMPLES,
     CAUSTICS,
     DAYLIGHT,
     DIFFUSE_BOUNCES,
+    DIRECT_CLAMP,
     DPI,
     ELEVATION,
     EXPOSURE,
     FILTER_GLOSSY,
     FRAME_SIZE,
     GLOSSY_BOUNCES,
+    GROUND_ALBEDO,
     INDIRECT_CLAMP,
     LATITUDE,
     LENS,
@@ -57,28 +62,28 @@ from interface.render import (
     NOISE_THRESHOLD,
     NORTH,
     OFFSET,
+    Pass,
     SAMPLES,
-    SKY_RADIANCE,
     SUN_IRRADIANCE,
     TRANSMISSION_BOUNCES,
     TRANSPARENT_BOUNCES,
     VOLUME_BOUNCES,
 )
-from interface.report import Row
-from interface.rhino.script.accessors import color, found, member, plain
+from interface.report import Row, single
+from interface.rhino.script.accessors import color, disposed, found, Internal, member, plain
 from interface.roles import Annotation, Ink, Surface, Typography
 from interface.units import ANGLE_PRECISION, GRID_THICK_EVERY, Length, Pen, Units
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 SKY_SLOT: Final = "texture"
-SKY_SUN: Final = "use-document-sun"
-SKY_MULTIPLIER: Final = "rdk-texture-adjust-multiplier"
+SUN_LIGHT_FACTOR: Final = 3.2
 
 # --- [HOST] -----------------------------------------------------------------------------
 
 ANNOTATION_ID: Final = Guid.Parse(str(Annotation.ID))
 SKY_USAGES: Final = tuple(System.Enum.GetValues(clr.GetClrType(RenderSettings.EnvironmentUsage)))
+TONE_MAPPING_NODE: Final = PostEffectType(int(PostEffectType.ToneMapping) + 1)
 PROCESS: Final = ctypes.CDLL(None)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -90,25 +95,42 @@ class UuidStruct(ctypes.Structure):
     _fields_ = (("data", ctypes.c_ubyte * 16),)
 
 
-class Render(TypedDict):
-    """Document render settings by RhinoCommon member, the dithering and ground plane as their `Enabled` flags."""
+class Content(TypedDict):
+    """Render content by its type and the parameters set on it in one program change."""
 
-    ImageUnitSystem: Rhino.UnitSystem
-    UseViewportSize: bool
-    ImageSize: tuple[int, int]
-    ImageDpi: int
-    Dithering: bool
-    GroundPlane: bool
-    UserDictionary: Mapping[str, object]
+    TypeId: Guid
+    Parameters: Mapping[str, object]
+
+
+class Material(Content):
+    """Render material content under its name."""
+
+    Name: str
 
 
 class Environment(TypedDict):
-    """Background style, the background environment's sky texture, and the environment counts."""
+    """Reflection and skylighting overrides, the background environment's sky texture, and the environment counts."""
 
-    BackgroundStyle: Rhino.Display.BackgroundStyle
-    Texture: Mapping[str, object]
+    Overrides: Mapping[RenderSettings.EnvironmentUsage, bool]
+    Texture: Content
     UsageEnvironments: int
     FileEnvironments: int
+
+
+class LayerFacts(TypedDict):
+    """Colors, print width in millimeters, and section style name of a layer."""
+
+    Color: Color
+    PlotColor: Color
+    PlotWeight: float
+    SectionStyle: str | None
+
+
+class AnnotationFacts(LayerFacts):
+    """Layer facts of the annotation layer with its id and name."""
+
+    Id: Guid
+    Name: str
 
 
 class Dashes(TypedDict):
@@ -128,7 +150,7 @@ class Page(TypedDict):
 
 
 class Template(TypedDict):
-    """Template facts by group, each generic group's members named as RhinoCommon names them."""
+    """Template facts by group, each generic group's members named as RhinoCommon names them, a nested mapping naming a member's own members."""
 
     unit_systems: Mapping[str, Rhino.UnitSystem]
     units: Mapping[str, object]
@@ -140,20 +162,29 @@ class Template(TypedDict):
     camera: Mapping[str, object]
     perspective_lens: float
     dimension_styles: int
-    render: Render
+    render: Mapping[str, object]
+    render_channels: Mapping[str, object]
+    render_dictionary: Mapping[str, object]
     render_mesh: MeshingParameterStyle
-    sun: Mapping[str, object]
     sun_moment: datetime
-    earth_anchor: Mapping[str, float]
-    model_axes: Mapping[str, tuple[float, float]]
+    earth_anchor: Mapping[str, object]
     environment: Environment
-    layers: tuple[Mapping[str, object], Mapping[str, object]]
+    ground_material: Material
+    tone_mapper: Guid
+    layers: tuple[AnnotationFacts, LayerFacts]
     dimension_layer: tuple[bool, UUID]
     layout: tuple[Page, ...]
-    section_styles: tuple[Mapping[str, object], ...]
+    section_styles: Mapping[str, Mapping[str, object]]
     saved_states: tuple[str, ...]
     hatch_patterns: tuple[str, ...]
     linetypes: Mapping[str, Dashes]
+
+
+class Labels(TypedDict):
+    """Texts a template's documents show in the Layers grid's and the Layouts grid's columns, by column name."""
+
+    layers: Mapping[str, tuple[str, ...]]
+    layouts: Mapping[str, tuple[str, ...]]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -225,6 +256,11 @@ def route_annotation(doc: Rhino.RhinoDoc, route: tuple[bool, UUID]) -> None:
 
 
 # --- [DOCUMENT]
+def bundled(units: Units) -> str:
+    """Path of the bundled template the unit system's template is built on."""
+    return str(Path(FileSettings.TemplateFolder) / {Units.IMPERIAL: "Large Objects - Feet, Feet & Inches.3dm", Units.METRIC: "Large Objects - Millimeters.3dm"}[units])
+
+
 def new_hatches() -> tuple[HatchPattern, ...]:
     """Rhino's current hatch pattern set without the system patterns `HatchPattern.Defaults` names, Solid kept."""
     system = frozenset(str(prop.GetValue(None).Id) for prop in clr.GetClrType(HatchPattern.Defaults).GetProperties()) - {str(HatchPattern.Defaults.Solid.Id)}
@@ -257,13 +293,6 @@ def saved_states(doc: Rhino.RhinoDoc) -> tuple[tuple[object, tuple[str, ...]], .
     )
 
 
-def model_axes() -> dict[str, tuple[float, float]]:
-    """Model north and east axes of the site's north as x and y components."""
-    north = math.radians(NORTH)
-    sine, cosine = math.sin(north), math.cos(north)
-    return {"ModelNorth": (-sine, cosine), "ModelEast": (cosine, sine)}
-
-
 # --- [TARGET]
 def target(units: Units) -> Template:
     """Every template fact the unit system decides, lengths in model or page units."""
@@ -271,7 +300,26 @@ def target(units: Units) -> Template:
     page_system, model_display, page_display = unit_system(units.page), distance_display(units.length, page=False), distance_display(units.page, page=True)
     model_precision, (width, height), margin = precision(units, units.length, model_display), (side / units.page for side in units.paper), units.margin / units.page
     grid = {"GridSpacing": units.grid / units.length, "SnapSpacing": units.snap / units.length, "GridLineCount": units.grid_lines}
-    sun_light_factor, sun_color_luminance, sky_radiance_per_multiplier = 3.2, 0.97436, 0.013955
+    gamma, zone, saving, north = 2.2, OFFSET / timedelta(hours=1), DAYLIGHT // timedelta(minutes=1), math.radians(NORTH)
+    sine, cosine, exposed = math.sin(north), math.cos(north), 2**EXPOSURE
+    sky_radiance, sky_radiance_per_multiplier, base = 4.5126, 0.26625, GROUND_ALBEDO ** (1 / gamma)
+    hue = Sun.ColorFromAltitude(Sun.AltitudeFromValues(LATITUDE, LONGITUDE, zone, saving, DateTime(MOMENT.year, MOMENT.month, MOMENT.day), MOMENT.hour + MOMENT.minute / 60, fast=False))
+    red, green, blue = ((level / 255) ** gamma for level in (hue.R, hue.G, hue.B))
+
+    def channel(kind: Pass) -> RenderWindow.StandardChannels:
+        """Render channel carrying the render pass."""
+        match kind:
+            case Pass.DEPTH:
+                return RenderWindow.StandardChannels.DistanceFromCamera
+            case Pass.NORMAL:
+                return RenderWindow.StandardChannels.NormalXYZ
+            case Pass.ALBEDO:
+                return RenderWindow.StandardChannels.AlbedoRGB
+            case Pass.MATERIAL_INDEX:
+                return RenderWindow.StandardChannels.MaterialIds
+            case Pass.OBJECT_INDEX:
+                return RenderWindow.StandardChannels.ObjectIds
+
     sizes = {
         "TextHeight": units.text,
         "BaselineSpacing": 4 * units.text,
@@ -319,70 +367,132 @@ def target(units: Units) -> Template:
         },
         "linetype_table": {"LinetypeScale": 1.0},
         "view_mode": DisplayModeDescription.ShadedId,
-        "camera": {"MaximizedMatchesPerspective": True, "TargetPoint": (0.0, 0.0, 0.0)},
+        "camera": {"MaximizedMatchesPerspective": True, "TargetPoint": Point3d.Origin},
         "perspective_lens": LENS,
         "dimension_styles": 1,
         "render": {
             "ImageUnitSystem": page_system,
             "UseViewportSize": False,
-            "ImageSize": FRAME_SIZE,
+            "ImageSize": Size(*FRAME_SIZE),
             "ImageDpi": DPI,
-            "Dithering": True,
-            "GroundPlane": False,
-            "UserDictionary": {
-                "UseDocumentSamples": True,
-                "Samples": SAMPLES,
-                "AdaptiveThreshold": NOISE_THRESHOLD,
-                "MaxBounce": MAX_BOUNCES,
-                "MaxDiffuseBounce": DIFFUSE_BOUNCES,
-                "MaxGlossyBounce": GLOSSY_BOUNCES,
-                "MaxTransmissionBounce": TRANSMISSION_BOUNCES,
-                "MaxVolumeBounce": VOLUME_BOUNCES,
-                "TransparentMaxBounce": TRANSPARENT_BOUNCES,
-                "SampleClampDirect": 0.0,
-                "SampleClampIndirect": INDIRECT_CLAMP,
-                "FilterGlossy": FILTER_GLOSSY,
-                "CausticsReflective": CAUSTICS,
-                "CausticsRefractive": CAUSTICS,
+            "AmbientLight": color(Surface.SHADOW),
+            "UseHiddenLights": False,
+            "RenderCurves": False,
+            "RenderIsoparams": False,
+            "RenderPoints": False,
+            "RenderAnnotations": False,
+            "RenderMeshEdges": False,
+            "BackgroundStyle": BackgroundStyle.Environment,
+            "TransparentBackground": False,
+            "Skylight": {"Enabled": True},
+            "LinearWorkflow": {"PreProcessColors": True, "PostProcessGamma": single(gamma), "PostProcessGammaOn": True},
+            "Dithering": {"Enabled": False},
+            "GroundPlane": {
+                "Enabled": True,
+                "ShadowOnly": False,
+                "AutoAltitude": False,
+                "Altitude": 0.0,
+                "ShowUnderside": False,
+                "TextureOffsetLocked": False,
+                "TextureOffset": Vector2d.Zero,
+                "TextureSizeLocked": True,
+                "TextureSize": Vector2d(1 / units.length, 1 / units.length),
+                "TextureRotation": 0.0,
+            },
+            "Sun": {
+                "Enabled": True,
+                "ManualControlOn": False,
+                "Latitude": LATITUDE,
+                "Longitude": LONGITUDE,
+                "TimeZone": zone,
+                "DaylightSavingOn": saving > 0,
+                "DaylightSavingMinutes": saving,
+                "North": 90 + NORTH,
+                "Intensity": SUN_IRRADIANCE * exposed / (SUN_LIGHT_FACTOR * (0.2126 * red + 0.7152 * green + 0.0722 * blue)),
             },
         },
-        "render_mesh": MeshingParameterStyle.Quality,
-        "sun": {
-            "Enabled": True,
-            "Latitude": LATITUDE,
-            "Longitude": LONGITUDE,
-            "TimeZone": OFFSET / timedelta(hours=1),
-            "DaylightSavingOn": timedelta() < DAYLIGHT,
-            "DaylightSavingMinutes": DAYLIGHT // timedelta(minutes=1),
-            "North": 90 + NORTH,
-            "Intensity": SUN_IRRADIANCE * 2**EXPOSURE / (sun_light_factor * sun_color_luminance),
+        "render_channels": {
+            "CustomList": Array[Guid](sorted((RenderWindow.ChannelId(each) for each in (RenderWindow.StandardChannels.RGBA, *map(channel, Pass))), key=str)),
+            "Mode": RenderChannels.Modes.Custom,
         },
+        "render_dictionary": {
+            "RenderPreset": 0,
+            "UseDocumentSamples": True,
+            "Samples": SAMPLES,
+            "UseAdaptiveSampling": True,
+            "AdaptiveThreshold": NOISE_THRESHOLD,
+            "AdaptiveMinSamples": ADAPTIVE_MIN_SAMPLES,
+            "Seed": 128,
+            "MaxBounce": MAX_BOUNCES,
+            "MaxDiffuseBounce": DIFFUSE_BOUNCES,
+            "MaxGlossyBounce": GLOSSY_BOUNCES,
+            "MaxTransmissionBounce": TRANSMISSION_BOUNCES,
+            "MaxVolumeBounce": VOLUME_BOUNCES,
+            "TransparentMaxBounce": TRANSPARENT_BOUNCES,
+            "SampleClampDirect": DIRECT_CLAMP,
+            "SampleClampIndirect": INDIRECT_CLAMP,
+            "FilterGlossy": FILTER_GLOSSY,
+            "CausticsReflective": CAUSTICS,
+            "CausticsRefractive": CAUSTICS,
+            "UseDirectLight": True,
+            "UseIndirectLight": True,
+            "AoBounces": 0,
+            "TextureBakeQuality": 1,
+        },
+        "render_mesh": MeshingParameterStyle.Quality,
         "sun_moment": MOMENT,
-        "earth_anchor": {"EarthBasepointLatitude": LATITUDE, "EarthBasepointLongitude": LONGITUDE, "EarthBasepointElevation": ELEVATION},
-        "model_axes": model_axes(),
+        "earth_anchor": {
+            "EarthBasepointLatitude": LATITUDE,
+            "EarthBasepointLongitude": LONGITUDE,
+            "EarthBasepointElevation": ELEVATION,
+            "ModelNorth": Vector3d(-sine, cosine, 0.0),
+            "ModelEast": Vector3d(cosine, sine, 0.0),
+        },
         "environment": {
-            "BackgroundStyle": BackgroundStyle.Environment,
-            "Texture": {"TypeId": ContentUuids.PhysicalSkyTextureType, SKY_SUN: True, SKY_MULTIPLIER: SKY_RADIANCE * 2**EXPOSURE / sky_radiance_per_multiplier},
+            "Overrides": dict.fromkeys((usage for usage in SKY_USAGES if usage != RenderSettings.EnvironmentUsage.Background), False),
+            "Texture": {
+                "TypeId": ContentUuids.PhysicalSkyTextureType,
+                "Parameters": {
+                    "use-document-sun": True,
+                    "light-scattering": single(2.3),
+                    "particle-scattering": single(40.0),
+                    "atmospheric-density": single(556.0),
+                    "sun-brightness": single(110.0),
+                    "sun-size": single(4.5),
+                    "light-wavelengths": Vector3d(0.661, 0.582, 0.496),
+                    "rdk-texture-adjust-multiplier": sky_radiance * exposed / sky_radiance_per_multiplier,
+                },
+            },
             "UsageEnvironments": 1,
             "FileEnvironments": 1,
         },
+        "ground_material": {
+            "Name": "Ground",
+            "TypeId": ContentUuids.PhysicallyBasedMaterialType,
+            "Parameters": {
+                ParameterNames.PhysicallyBased.BaseColor: Color4f(base, base, base, 1.0),
+                ParameterNames.PhysicallyBased.Roughness: 0.5,
+                ParameterNames.PhysicallyBased.Metallic: 0.0,
+                ParameterNames.PhysicallyBased.Specular: 0.0,
+            },
+        },
+        "tone_mapper": Internal.AGX_TONE_MAPPING.type.GUID,
         "layers": (
             {"Id": ANNOTATION_ID, "Name": Annotation.NAME, "Color": color(Annotation.TAG.value), "PlotColor": ink, "PlotWeight": weight, "SectionStyle": None},
             {"Color": ink, "PlotColor": ink, "PlotWeight": weight, "SectionStyle": cut},
         ),
         "dimension_layer": (True, Annotation.ID),
         "layout": ({"PageWidth": width, "PageHeight": height, "Objects": ((Annotation.NAME, (margin, margin), (width - margin, height - margin)),)},),
-        "section_styles": (
-            {
-                "Name": cut,
+        "section_styles": {
+            cut: {
                 "BoundaryWidthScale": 1.0,
                 "BoundaryPlotWeightMillimeters": Pen.MEDIUM / Length.MILLIMETERS,
                 "BackgroundFillMode": SectionBackgroundFillMode.SolidColor,
                 "BackgroundFillColor": color(Surface.SECTION),
                 "BackgroundFillPrintColor": color(Surface.SECTION),
                 "SectionFillRule": ObjectSectionFillRule.SolidObjects,
-            },
-        ),
+            }
+        },
         "saved_states": (),
         "hatch_patterns": tuple(sorted(pattern.Name for pattern in new_hatches())),
         "linetypes": {
@@ -392,10 +502,35 @@ def target(units: Units) -> Template:
     }
 
 
+def plot_width(weight: float) -> str:
+    """Text the Layers grid shows for a print width in millimeters, the default for zero and the invariant general form rounded to three places otherwise."""
+    return "Default" if weight == 0 else System.Convert.ToString(System.Math.Round(weight, 3), CultureInfo.InvariantCulture)
+
+
+def labels(units: Units, template: Template) -> Labels:
+    """Texts the unit system's template documents show in the Layers and Layouts grids, the current layer's name, the continuous linetype's, and each page's paper name read from a headless document on its bundled source with the template's page units."""
+    with disposed(Rhino.RhinoDoc.CreateHeadless(bundled(units))) as doc:
+        doc.AdjustPageUnitSystem(template["unit_systems"]["PageUnitSystem"], scale=False)
+        current, continuous = doc.Layers.CurrentLayer.Name, doc.Linetypes[-1].Name
+        papers = tuple(doc.Views.AddPageView(None, page["PageWidth"], page["PageHeight"]).PaperName for page in template["layout"])
+    (annotation, _), widths = template["layers"], tuple(plot_width(layer["PlotWeight"]) for layer in template["layers"])
+    return {
+        "layers": {
+            "Name": (annotation["Name"], current),
+            "Material": (),
+            "Linetype": (*template["linetypes"], continuous),
+            "PrintWidth": widths,
+            "ViewportPrintWidth": widths,
+            "Section": (*template["section_styles"], "None"),
+        },
+        "layouts": {"PageNumber": tuple(str(number) for number in range(1, len(papers) + 1)), "PageSize": papers},
+    }
+
+
 # --- [READS]
-def properties(owner: object, names: Iterable[str]) -> dict[str, object]:
-    """Owner's members of the names by name."""
-    return {name: getattr(owner, name) for name in names}
+def properties(owner: object, targets: Mapping[str, object]) -> dict[str, object]:
+    """Owner's members the targets name by name, a member whose target is a mapping read as its own members."""
+    return {name: properties(getattr(owner, name), value) if isinstance(value, Mapping) else getattr(owner, name) for name, value in targets.items()}
 
 
 def uniform(values: Iterable[object]) -> object:
@@ -408,26 +543,42 @@ def uniform(values: Iterable[object]) -> object:
             return several
 
 
-def file_sky(file: File3dm) -> dict[str, object]:
-    """Background style, the background environment's sky texture from the file's render content, and the environment counts."""
+def content_facts(held: RenderContent, target: Content) -> dict[str, object]:
+    """Type of the render content and each parameter the target names, converted to the type of the target's value."""
+    return {"TypeId": held.TypeId, "Parameters": {name: System.Convert.ChangeType(held.GetParameter(name), clr.GetClrType(type(value))) for name, value in target["Parameters"].items()}}
+
+
+def file_sky(file: File3dm, target: Environment) -> dict[str, object]:
+    """Overrides the target names, the background environment's sky texture from the file's render content, and the environment counts."""
     settings = file.Settings.RenderSettings
     ids = {usage: settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.Standard) for usage in SKY_USAGES}
     background = ids[RenderSettings.EnvironmentUsage.Background]
     held = next((child for environment in file.RenderEnvironments if environment.Id == background for child in environment.Children if child.ChildSlotName == SKY_SLOT), None)
     return {
-        "BackgroundStyle": settings.BackgroundStyle,
-        "Texture": None
-        if held is None
-        else {"TypeId": held.TypeId, SKY_SUN: System.Convert.ToBoolean(held.GetParameter(SKY_SUN)), SKY_MULTIPLIER: System.Convert.ToDouble(held.GetParameter(SKY_MULTIPLIER))},
+        "Overrides": {usage: settings.RenderEnvironmentOverride(usage) for usage in target["Overrides"]},
+        "Texture": None if held is None else content_facts(held, target["Texture"]),
         "UsageEnvironments": len(set(ids.values())),
         "FileEnvironments": len(tuple(file.RenderEnvironments)),
     }
 
 
+def file_ground(file: File3dm, target: Material) -> dict[str, object] | None:
+    """Name, type, and the parameters the target names of the render material the file's ground plane names, None when the file holds no such material."""
+    named = file.Settings.RenderSettings.GroundPlane.MaterialInstanceId
+    held = next((material for material in file.RenderMaterials if material.Id == named), None)
+    return None if held is None else {"Name": held.Name, **content_facts(held, target)}
+
+
+def typed(dictionary: ArchivableDictionary, targets: Mapping[str, object]) -> dict[str, object]:
+    """Each target's entry read through the unbound typed getter of the target's type the engine reads it with, None where the entry is absent or holds another type."""
+    getters = {bool: ArchivableDictionary.TryGetBool, int: ArchivableDictionary.TryGetInteger, float: ArchivableDictionary.TryGetDouble}
+    return {name: found(getters[type(value)](dictionary, name)) for name, value in targets.items()}
+
+
 def layer_facts(doc: Rhino.RhinoDoc, layer: Layer) -> dict[str, object]:
     """Colors, plot weight, and section style name of a layer, with its id and name for the annotation layer."""
-    held = {**properties(layer, ("Color", "PlotColor", "PlotWeight")), "SectionStyle": doc.SectionStyles[layer.SectionStyleIndex].Name if layer.SectionStyleIndex >= 0 else None}
-    return {**properties(layer, ("Id", "Name")), **held} if layer.Id == ANNOTATION_ID else held
+    held = {**properties(layer, dict.fromkeys(("Color", "PlotColor", "PlotWeight"))), "SectionStyle": doc.SectionStyles[layer.SectionStyleIndex].Name if layer.SectionStyleIndex >= 0 else None}
+    return {**properties(layer, dict.fromkeys(("Id", "Name"))), **held} if layer.Id == ANNOTATION_ID else held
 
 
 def page_facts(doc: Rhino.RhinoDoc, page: RhinoPageView) -> dict[str, object]:
@@ -437,7 +588,7 @@ def page_facts(doc: Rhino.RhinoDoc, page: RhinoPageView) -> dict[str, object]:
     boxes = (
         (doc.Layers[each.Attributes.LayerIndex].Name, each.Geometry.GetBoundingBox(accurate=True)) for each in doc.Objects.GetObjectList(settings) if each.Attributes.ViewportId == page.MainViewport.Id
     )
-    return {**properties(page, ("PageWidth", "PageHeight")), "Objects": tuple((name, (box.Min.X, box.Min.Y), (box.Max.X, box.Max.Y)) for name, box in boxes)}
+    return {**properties(page, dict.fromkeys(("PageWidth", "PageHeight"))), "Objects": tuple((name, (box.Min.X, box.Min.Y), (box.Max.X, box.Max.Y)) for name, box in boxes)}
 
 
 def read(path: str, template: Template) -> dict[str, object] | None:
@@ -446,11 +597,8 @@ def read(path: str, template: Template) -> dict[str, object] | None:
         file = File3dm.Read(path)
     except FileNotFoundException:
         return None
-    with ExitStack() as scope:
-        scope.callback(file.Dispose)
-        doc = Rhino.RhinoDoc.CreateHeadless(path)
-        scope.callback(doc.Dispose)
-        settings, anchor, viewports = doc.RenderSettings, doc.EarthAnchorPoint, tuple(view.ActiveViewport for view in doc.Views.GetViewList(ViewTypeFilter.Model))
+    with disposed(file), disposed(Rhino.RhinoDoc.CreateHeadless(path)) as doc:
+        settings, viewports = doc.RenderSettings, tuple(view.ActiveViewport for view in doc.Views.GetViewList(ViewTypeFilter.Model))
         cameras, moment = tuple((view.Maximized, view.Viewport.IsPerspectiveProjection, view.Viewport.TargetPoint) for view in model_views(file, path)), settings.Sun.GetDateTime(DateTimeKind.Local)
         return {
             "unit_systems": properties(doc, template["unit_systems"]),
@@ -460,37 +608,37 @@ def read(path: str, template: Template) -> dict[str, object] | None:
             "dimension_style": properties(doc.DimStyles.Current, template["dimension_style"]),
             "linetype_table": properties(doc.Linetypes, template["linetype_table"]),
             "view_mode": uniform(viewport.DisplayMode.Id for viewport in viewports),
-            "camera": uniform({"MaximizedMatchesPerspective": maximized == perspective, "TargetPoint": (point.X, point.Y, point.Z)} for maximized, perspective, point in cameras),
+            "camera": uniform({"MaximizedMatchesPerspective": maximized == perspective, "TargetPoint": point} for maximized, perspective, point in cameras),
             "perspective_lens": uniform(viewport.Camera35mmLensLength for viewport in viewports if viewport.IsPerspectiveProjection),
             "dimension_styles": doc.DimStyles.Count,
-            "render": {
-                **properties(settings, ("ImageUnitSystem", "UseViewportSize", "ImageDpi")),
-                "ImageSize": (settings.ImageSize.Width, settings.ImageSize.Height),
-                "Dithering": settings.Dithering.Enabled,
-                "GroundPlane": settings.GroundPlane.Enabled,
-                "UserDictionary": {name: found(settings.UserDictionary.TryGetValue(name)) for name in template["render"]["UserDictionary"]},
-            },
+            "render": properties(settings, template["render"]),
+            "render_channels": {"CustomList": tuple(sorted(settings.RenderChannels.CustomList, key=str)), "Mode": settings.RenderChannels.Mode},
+            "render_dictionary": typed(settings.UserDictionary, template["render_dictionary"]),
             "render_mesh": doc.MeshingParameterStyle,
-            "sun": properties(settings.Sun, template["sun"]),
             "sun_moment": datetime(moment.Year, moment.Month, moment.Day, moment.Hour, moment.Minute, tzinfo=template["sun_moment"].tzinfo),
-            "earth_anchor": properties(anchor, template["earth_anchor"]),
-            "model_axes": {name: (axis.X, axis.Y) for name, axis in properties(anchor, template["model_axes"]).items()},
-            "environment": file_sky(file),
+            "earth_anchor": properties(doc.EarthAnchorPoint, template["earth_anchor"]),
+            "environment": file_sky(file, template["environment"]),
+            "ground_material": file_ground(file, template["ground_material"]),
+            "tone_mapper": found(settings.PostEffects.GetSelectedPostEffect(TONE_MAPPING_NODE)),
             "layers": tuple(layer_facts(doc, layer) for layer in sorted((layer for layer in doc.Layers if not layer.IsDeleted), key=lambda layer: layer.SortIndex)),
             "dimension_layer": dimension_layer(doc),
             "layout": tuple(page_facts(doc, page) for page in doc.Views.GetPageViews()),
-            "section_styles": tuple(properties(style, dict.fromkeys(name for facts in template["section_styles"] for name in facts)) for style in section_styles(doc)),
+            "section_styles": {style.Name: properties(style, dict.fromkeys(name for facts in template["section_styles"].values() for name in facts)) for style in section_styles(doc)},
             "saved_states": tuple(name for _, names in saved_states(doc) for name in names),
             "hatch_patterns": tuple(sorted(pattern.Name for pattern in doc.HatchPatterns if not pattern.IsDeleted)),
-            "linetypes": {linetype.Name: {"Segments": segments(linetype), **properties(linetype, ("Width", "WidthUnits"))} for linetype in doc.Linetypes if not linetype.IsDeleted},
+            "linetypes": {linetype.Name: {"Segments": segments(linetype), **properties(linetype, dict.fromkeys(("Width", "WidthUnits")))} for linetype in doc.Linetypes if not linetype.IsDeleted},
         }
 
 
 # --- [WRITES]
-def assign(owner: object, members: Mapping[str, object]) -> None:
-    """Set each named member of the owner to its value."""
-    for name, value in members.items():
-        setattr(owner, name, value)
+def assign(owner: object, targets: Mapping[str, object]) -> None:
+    """Set each member the targets name to its value, a member whose target is a mapping set through its own members."""
+    for name, value in targets.items():
+        match value:
+            case Mapping():
+                assign(getattr(owner, name), value)
+            case _:
+                setattr(owner, name, value)
 
 
 def write_units(doc: Rhino.RhinoDoc, template: Template) -> None:
@@ -520,35 +668,42 @@ def write_units(doc: Rhino.RhinoDoc, template: Template) -> None:
 
 
 def write_render(doc: Rhino.RhinoDoc, template: Template) -> None:
-    """Write the render, sun, sky, and earth anchor settings."""
-    render, environment_facts, settings = template["render"], template["environment"], doc.RenderSettings
+    """Write the render settings, the ground material, sun moment, sky, tone mapper, and earth anchor."""
+    environment_facts, ground, settings = template["environment"], template["ground_material"], doc.RenderSettings
+
+    def content(facts: Content) -> RenderContent:
+        """New render content of the type with its parameters set in one program change."""
+        made = RenderContentType.NewContentFromTypeId(facts["TypeId"], doc)
+        made.BeginChange(RenderContent.ChangeContexts.Program)
+        for name, value in facts["Parameters"].items():
+            made.SetParameter(name, value=value)
+        made.EndChange()
+        return made
+
     doc.MeshingParameterStyle = template["render_mesh"]
-    settings.ImageUnitSystem, settings.UseViewportSize, settings.ImageSize, settings.ImageDpi = render["ImageUnitSystem"], render["UseViewportSize"], Size(*render["ImageSize"]), render["ImageDpi"]
-    settings.Dithering.Enabled, settings.GroundPlane.Enabled = render["Dithering"], render["GroundPlane"]
-    for name, value in render["UserDictionary"].items():
+    assign(settings, template["render"])
+    assign(settings.RenderChannels, template["render_channels"])
+    for name, value in template["render_dictionary"].items():
         settings.UserDictionary.Set(name, val=value)
-    assign(settings.Sun, template["sun"])
+    material = content(ground)
+    material.Name = ground["Name"]
+    doc.RenderMaterials.Add(material)
+    settings.GroundPlane.MaterialInstanceId = material.Id
     settings.Sun.SetDateTime(DateTime(*template["sun_moment"].timetuple()[:6]), DateTimeKind.Local)
     for held in tuple(doc.RenderEnvironments):
         doc.RenderEnvironments.Remove(held)
     environment = RenderContentType.NewContentFromTypeId(ContentUuids.BasicEnvironmentType, doc)
     environment.Name = "Sky"
-    sky = environment_facts["Texture"]
-    texture = RenderContentType.NewContentFromTypeId(sky["TypeId"], doc)
-    texture.BeginChange(RenderContent.ChangeContexts.Program)
-    for name in (SKY_SUN, SKY_MULTIPLIER):
-        texture.SetParameter(name, value=sky[name])
-    texture.EndChange()
-    environment.SetChild(texture, SKY_SLOT)
+    environment.SetChild(content(environment_facts["Texture"]), SKY_SLOT)
     doc.RenderEnvironments.Add(environment)
-    settings.BackgroundStyle = environment_facts["BackgroundStyle"]
     for usage in SKY_USAGES:
         settings.SetRenderEnvironmentId(usage, environment.Id)
+    for usage, on in environment_facts["Overrides"].items():
+        settings.SetRenderEnvironmentOverride(usage, on)
     doc.RenderSettings = settings
+    doc.RenderSettings.PostEffects.SetSelectedPostEffect(TONE_MAPPING_NODE, template["tone_mapper"])
     anchor = doc.EarthAnchorPoint
     assign(anchor, template["earth_anchor"])
-    for name, (x, y) in template["model_axes"].items():
-        setattr(anchor, name, Vector3d(x, y, 0))
     doc.EarthAnchorPoint = anchor
 
 
@@ -560,10 +715,11 @@ def write_tables(doc: Rhino.RhinoDoc, template: Template) -> None:
     held = {pattern.Name for pattern in doc.HatchPatterns if not pattern.IsDeleted}
     for pattern in [pattern for pattern in HatchPattern.GetDefaultHatchPatterns() if pattern.Name in hatches and pattern.Name not in held]:
         doc.HatchPatterns.Add(pattern)
-    for facts in styles:
+    for name, facts in styles.items():
         style = SectionStyle()
+        style.Name = name
         assign(style, facts)
-        if (index := doc.SectionStyles.Find(style.Name)) < 0:
+        if (index := doc.SectionStyles.Find(name)) < 0:
             doc.SectionStyles.Add(style)
         else:
             doc.SectionStyles.Modify(style, index, quiet=True)
@@ -572,13 +728,13 @@ def write_tables(doc: Rhino.RhinoDoc, template: Template) -> None:
         doc.Layers.Delete(layer.Index, quiet=True)
     annotation, layer = Layer(), doc.Layers.CurrentLayer
     annotation.LinetypeIndex, annotation.IsVisible, annotation.IsLocked = -1, True, False
-    for held, facts in ((annotation, annotation_facts), (layer, current_facts)):
-        assign(held, {name: value for name, value in facts.items() if name != "SectionStyle"})
-        held.SectionStyleIndex = -1 if facts["SectionStyle"] is None else doc.SectionStyles.Find(facts["SectionStyle"])
+    for owner, facts in ((annotation, annotation_facts), (layer, current_facts)):
+        assign(owner, {name: value for name, value in facts.items() if name != "SectionStyle"})
+        owner.SectionStyleIndex = -1 if facts["SectionStyle"] is None else doc.SectionStyles.Find(facts["SectionStyle"])
     doc.Layers.Modify(layer, current, quiet=True)
     doc.Layers.Sort([doc.Layers.Add(annotation), current])
     route_annotation(doc, template["dimension_layer"])
-    for other in [other for other in section_styles(doc) if other.Name not in {facts["Name"] for facts in styles}]:
+    for other in [other for other in section_styles(doc) if other.Name not in styles]:
         doc.SectionStyles.Delete(other.Index, quiet=True)
     linetypes = template["linetypes"]
     doc.Linetypes.LoadDefaultLinetypes()
@@ -609,44 +765,38 @@ def write_layout(doc: Rhino.RhinoDoc, pages: tuple[Page, ...]) -> None:
             doc.Objects.AddRectangle(Rectangle3d(Plane.WorldXY, Point3d(left, bottom, 0), Point3d(right, top, 0)), attributes)
 
 
-def write(path: str, source: str, template: Template) -> None:
-    """Write the template through a headless document on the bundled source template, Perspective alone maximized in the file."""
-    doc = Rhino.RhinoDoc.CreateHeadless(source)
-    try:
+def write(path: str, source: str, template: Template) -> str | None:
+    """Write the template through a headless document on the bundled source template, Perspective alone maximized in the file, else the write Rhino refused."""
+    with disposed(Rhino.RhinoDoc.CreateHeadless(source)) as doc:
         write_units(doc, template)
         write_render(doc, template)
         write_tables(doc, template)
         write_layout(doc, template["layout"])
         written = doc.WriteFile(path, FileWriteOptions())
-    finally:
-        doc.Dispose()
     if not written:
-        raise OSError(f"the headless document was not written to {path}")
-    file = File3dm.Read(path)
-    try:
+        return f"headless document was not written to {path}"
+    with disposed(File3dm.Read(path)) as file:
         for view in model_views(file, path):
             view.Maximized = view.Viewport.IsPerspectiveProjection
-        rewritten = file.Write(path, File3dmWriteOptions())
-    finally:
-        file.Dispose()
-    if not rewritten:
-        raise OSError(f"the template file was not rewritten to {path}")
+        return None if file.Write(path, File3dmWriteOptions()) else f"template file was not rewritten to {path}"
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def rows() -> tuple[Row, ...]:
+def rows(targets: Mapping[Units, Template]) -> tuple[Row, ...]:
     """Rows of the imperial default template and the metric one in the user template folder, each built on a bundled template of its units, then the default template setting naming the imperial one."""
-    folder, bundle = template_folder(), Path(FileSettings.TemplateFolder)
-    default = str(folder / "Default.3dm")
-    templates = ((default, "Large Objects - Feet, Feet & Inches.3dm", target(Units.IMPERIAL)), (str(folder / "Metric.3dm"), "Large Objects - Millimeters.3dm", target(Units.METRIC)))
+    folder = template_folder()
+    paths = {Units.IMPERIAL: folder / "Default.3dm", Units.METRIC: folder / "Metric.3dm"}
     return (
-        *(Row(label=f'templates["{Path(path).name}"]', read=partial(read, path, facts), write=partial(write, path, str(bundle / source)), target=facts) for path, source, facts in templates),
-        member(FileSettings, "TemplateFile", target=default),
+        *(
+            Row(label=f'templates["{paths[units].name}"]', read=partial(read, (path := str(paths[units])), facts), write=partial(write, path, bundled(units)), target=facts)
+            for units, facts in targets.items()
+        ),
+        member(FileSettings, "TemplateFile", target=str(paths[Units.IMPERIAL])),
     )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["rows"]
+__all__ = ["SUN_LIGHT_FACTOR", "Labels", "Template", "labels", "rows", "target"]

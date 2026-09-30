@@ -16,9 +16,9 @@ public static class Circular {
 
 public static class Gothic {
     // --- [LIMITS]
-    public static Fin<Limits<double>> LancetRise(Span span) => Limits.AtLeast(span.EquilateralHeight);
+    public static Limits<double> LancetRise(Span span) => Limits.AtLeast(span.EquilateralHeight);
 
-    public static Fin<Limits<double>> DepressedRise(Span span) => Limits.AtLeast(span.HalfSpan).AtMost(span.EquilateralHeight, nameof(DepressedRise));
+    public static Limits<double> DepressedRise(Span span) => Limits.AtLeast(span.HalfSpan).AtMost(span.EquilateralHeight);
 
     // --- [PROFILES]
     public static Fin<ArchProfile> Equilateral(Span span) => ArchProfile.Mirrored(span, Seq(EquilateralArc(span)));
@@ -30,7 +30,7 @@ public static class Gothic {
 
 public static class Horseshoe {
     // --- [LIMITS]
-    public static Fin<Limits<double>> PointedRise(Span span) => Limits.AtLeast(span.Length * Math.Sqrt(5.0 / 12.0));
+    public static Limits<double> PointedRise(Span span) => Limits.AtLeast(span.Length * Math.Sqrt(5.0 / 12.0));
 
     // --- [PROFILES]
     public static Fin<ArchProfile> Pointed(Span span, Point3d apex) {

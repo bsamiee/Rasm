@@ -1,7 +1,7 @@
 # ruff: file-ignore[import-private-name, private-member-access]
 # ty: ignore[invalid-argument-type, not-iterable, redundant-condition, unresolved-attribute, unresolved-import]
 # mypy: disable-error-code="arg-type, attr-defined, func-returns-value, import-not-found, no-any-return, union-attr, unreachable"
-"""Blender's add-on packages: the loaded modules by package id and the rows installing each declared package and removing each undeclared one."""
+"""Blender's add-on packages: the declared remote repositories, the loaded modules by package id, and the rows installing each declared package and removing each undeclared one."""
 
 from functools import partial, reduce
 from importlib import metadata
@@ -14,12 +14,20 @@ import zlib
 
 from _bpy_internal.assets.remote_library.listing_asset_catalogs import parse_catalogs
 import addon_utils
-from bl_pkg.cli.blender_ext import PKG_MANIFEST_FILENAME_TOML, PKG_REPO_LIST_FILENAME, platform_from_this_system, platform_machine_replace, platform_system_replace_for_wheels, REPO_LOCAL_PRIVATE_DIR
+from bl_pkg.cli.blender_ext import (
+    pkg_is_legacy_addon,
+    PKG_MANIFEST_FILENAME_TOML,
+    PKG_REPO_LIST_FILENAME,
+    pkg_zipfile_detect_subdir_or_none,
+    platform_from_this_system,
+    platform_machine_replace,
+    platform_system_replace_for_wheels,
+    REPO_LOCAL_PRIVATE_DIR,
+)
 import bpy
-from cattrs.preconf.json import make_converter
 
-from interface.blender.rows import Archive, Installation, Listed, Local, stamp
-from interface.report import Kind, line, Row, subscript
+from interface.blender.rows import Archive, Installation, JSON, Listed, Local, Repository, stamp
+from interface.report import converged, Kind, line, Row, subscript
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -94,22 +102,40 @@ def user_repository(preferences: bpy.types.Preferences) -> bpy.types.UserExtensi
     return next(repo for repo in preferences.extensions.repos if repo.source == "USER" and not repo.use_remote_url)
 
 
-def repository_index(preferences: bpy.types.Preferences, module: str) -> int:
-    """Index of the repository with the module name."""
-    return next(index for index, repo in enumerate(preferences.extensions.repos) if repo.module == module)
+def module_repository(preferences: bpy.types.Preferences, module: str) -> bpy.types.UserExtensionRepo | None:
+    """Repository with the module name, None while the preferences hold none."""
+    return next((repo for repo in preferences.extensions.repos if repo.module == module), None)
+
+
+def remote(preferences: bpy.types.Preferences, declared: Repository) -> Row:
+    """Row holding the declared remote repository enabled at its address, added where the preferences hold none."""
+
+    def read() -> dict[str, object] | None:
+        match module_repository(preferences, declared.module):
+            case None:
+                return None
+            case repo:
+                return {"enabled": repo.enabled, "use_remote_url": repo.use_remote_url, "remote_url": repo.remote_url}
+
+    def write(target: dict[str, object]) -> None:
+        repo = module_repository(preferences, declared.module) or preferences.extensions.repos.new(name=declared.name, module=declared.module)
+        for name, value in target.items():
+            setattr(repo, name, value)
+
+    return Row(label=subscript("extensions.repos", declared.module), read=read, write=write, target={"enabled": True, "use_remote_url": True, "remote_url": declared.url})
 
 
 def archived(repository: str, name: str, archive: Archive) -> tuple[tuple[str, str | None, bool], ...] | str:
-    """Enabled module a staged archive installs at its stamp, an extension of the user repository when its root holds a manifest and else its one top entry, or why neither holds."""
+    """Enabled module a staged archive installs at its stamp, an extension of the user repository when bl_pkg finds its manifest and else the legacy add-on of its one top entry, or why neither holds."""
     with zipfile.ZipFile(archive.path) as packed:
-        names = packed.namelist()
-    match sorted({PurePosixPath(each).parts[0] for each in names}):
-        case _ if PKG_MANIFEST_FILENAME_TOML in names:
+        subdir, tops = pkg_zipfile_detect_subdir_or_none(packed), sorted({PurePosixPath(each).parts[0] for each in packed.namelist()})
+    match tops:
+        case _ if subdir is not None:
             return ((f"bl_ext.{repository}.{name}", archive.stamp, True),)
-        case [top]:
+        case [top] if pkg_is_legacy_addon(archive.path):
             return ((PurePosixPath(top).stem, archive.stamp, True),)
-        case tops:
-            return f"archive {archive.path} holds {', '.join(tops)} at its root, neither a manifest nor one add-on"
+        case _:
+            return f"archive {archive.path} holds {', '.join(tops)} at its root, neither an extension nor one legacy add-on"
 
 
 def core_module(name: str) -> tuple[tuple[str, str | None, bool], ...] | str:
@@ -139,7 +165,7 @@ def removed(window: bpy.types.Window, preferences: bpy.types.Preferences, module
     """Uninstall an extension, disable a bundled add-on, or delete a legacy add-on."""
     match module.__name__.split("."):
         case ["bl_ext", repository, package_id]:
-            bpy.ops.extensions.package_uninstall(repo_index=repository_index(preferences, repository), pkg_id=package_id)
+            bpy.ops.extensions.package_uninstall(repo_directory=module_repository(preferences, repository).directory, pkg_id=package_id)
         case _ if core_addon(module):
             addon_utils.disable(module.__name__, default_set=True)
         case _:
@@ -148,18 +174,16 @@ def removed(window: bpy.types.Window, preferences: bpy.types.Preferences, module
 
 
 def install(preferences: bpy.types.Preferences, row: Declaration, module: str) -> None:
-    """Install the module's package from its remote repository or staged archive, a loaded legacy add-on disabled and evicted first so its modules load from the new files."""
+    """Install the module's package from its remote repository or staged archive, which bl_pkg routes to the user repository or the legacy add-on folder, a loaded module disabled and evicted first so its modules load from the new files."""
     match row:
         case Listed(identity=name, repository=repository):
-            bpy.ops.extensions.package_install(repo_index=repository_index(preferences, repository), pkg_id=name, enable_on_install=False)
-        case Local(archive=Archive(path=path)) if addon_utils.check_extension(module):
-            bpy.ops.extensions.package_install_files(filepath=path, repo=user_repository(preferences).module, enable_on_install=False)
+            bpy.ops.extensions.package_install(repo_directory=module_repository(preferences, repository).directory, pkg_id=name, enable_on_install=False)
         case Local(archive=Archive(path=path)):
             if addon_utils.check(module)[1]:
                 addon_utils.disable(module)
             for key in [key for key in sys.modules if key == module or key.startswith(f"{module}.")]:
                 del sys.modules[key]
-            bpy.ops.preferences.addon_install(filepath=path, overwrite=True)
+            bpy.ops.extensions.package_install_files(filepath=path, repo=user_repository(preferences).module, enable_on_install=False)
         case Local() | None:
             pass
 
@@ -206,13 +230,15 @@ def unloaded_packages(declared: tuple[Local | Listed, ...]) -> tuple[str, ...]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def installation(path: str) -> None:
-    """Write Blender's installation facts as JSON at the path: version, remote repository index files, core add-on ids, Essentials catalog paths, manifest file name, platform, machine name replacements, wheel platform systems, interpreter, and numpy version."""
+def installation(path: str, declared: str) -> None:
+    """Converge the declared repositories, saving the preferences once one changed, then write the installation facts as JSON at the path: change lines, version, index files, core ids, catalogs, manifest name, platform, machines, systems, interpreter, and numpy."""
+    preferences = bpy.context.preferences
+    if report := "".join(f"{entry}\n" for row in JSON.loads(declared, tuple[Repository, ...]) for entry in converged(remote(preferences, row))):
+        bpy.ops.wm.save_userpref()
     facts = Installation(
+        report=report,
         version=bpy.app.version_string,
-        repositories={
-            repo.module: str(Path(repo.directory, REPO_LOCAL_PRIVATE_DIR, PKG_REPO_LIST_FILENAME)) for repo in bpy.context.preferences.extensions.repos if repo.enabled and repo.use_remote_url
-        },
+        repositories={repo.module: str(Path(repo.directory, REPO_LOCAL_PRIVATE_DIR, PKG_REPO_LIST_FILENAME)) for repo in preferences.extensions.repos if repo.enabled and repo.use_remote_url},
         core=frozenset(identity(module) for module in addon_utils.modules() if core_addon(module)),
         essentials=frozenset(catalog.path for catalog in parse_catalogs(Path(bpy.utils.system_resource("DATAFILES", path="assets")))),
         manifest_filename=PKG_MANIFEST_FILENAME_TOML,
@@ -222,7 +248,7 @@ def installation(path: str) -> None:
         python=sys.executable,
         numpy=metadata.version("numpy"),
     )
-    Path(path).write_text(make_converter().dumps(facts), encoding="utf-8")
+    Path(path).write_text(JSON.dumps(facts), encoding="utf-8")
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

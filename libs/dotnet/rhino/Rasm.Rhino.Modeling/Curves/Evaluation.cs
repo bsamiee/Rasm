@@ -29,9 +29,7 @@ public sealed record CurveStation(Point3d Point, Vector3d Tangent, Vector3d Curv
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CurveEvaluation {
     // --- [LIMITS]
-    private const int MinimumFrames = 2;
-
-    private static readonly Fin<Limits<double>> Fraction = Limits.AtLeast(0.0).AtMost(1.0, nameof(Fraction));
+    private static readonly Limits<double> Fraction = Limits.AtLeast(0.0).AtMost(1.0);
 
     // --- [STATIONS]
     public static IO<double> Resolve(Curve curve, CurveAddress address, double fractionalTolerance) =>
@@ -45,7 +43,7 @@ public static class CurveEvaluation {
                 from parameter in Refused.Unless(state.Curve.LengthParameter(length, out double resolved, state.Tolerance), resolved, nameof(Curve.LengthParameter))
                 select parameter,
             normalized: static (state, at) =>
-                from fraction in Fraction.Bind(limits => limits.Check(at.Value, nameof(CurveAddress.Normalized)))
+                from fraction in Fraction.Check(at.Value, nameof(CurveAddress.Normalized))
                 from parameter in Refused.Unless(state.Curve.NormalizedLengthParameter(fraction, out double resolved, state.Tolerance), resolved, nameof(Curve.NormalizedLengthParameter))
                 select parameter));
 
@@ -54,11 +52,14 @@ public static class CurveEvaluation {
             from inside in OutOfDomain.Unless(curve.Domain, t, nameof(Curve.PointAt))
             let tangent = curve.TangentAt(t)
             let curvature = curve.CurvatureAt(t)
-            from sound in Degenerate.Unless(tangent.IsValid && !tangent.IsTiny(RhinoMath.ZeroTolerance), nameof(Curve.TangentAt))
-            from curved in Degenerate.Unless(curvature.IsValid, nameof(Curve.CurvatureAt))
-            from framed in Refused.Unless(curve.FrameAt(t, out Plane frame), frame, nameof(Curve.FrameAt))
-            from perpendicular in Refused.Unless(curve.PerpendicularFrameAt(t, out Plane perpendicularFrame), perpendicularFrame, nameof(Curve.PerpendicularFrameAt))
-            select new CurveStation(curve.PointAt(t), tangent, curvature, framed, perpendicular));
+            from station in (
+                    Degenerate.Unless(tangent, nameof(Curve.TangentAt)),
+                    Degenerate.Unless(curvature.IsValid, nameof(Curve.CurvatureAt)),
+                    Refused.Unless(curve.FrameAt(t, out Plane frame), frame, nameof(Curve.FrameAt)),
+                    Refused.Unless(curve.PerpendicularFrameAt(t, out Plane perpendicularFrame), perpendicularFrame, nameof(Curve.PerpendicularFrameAt)))
+                .Apply((_, _, framed, perpendicular) => new CurveStation(curve.PointAt(t), tangent, curvature, framed, perpendicular))
+                .As()
+            select station);
 
     public static IO<double> ArcLength(Curve curve, double t, double fractionalTolerance) =>
         IO.lift(() =>
@@ -70,35 +71,28 @@ public static class CurveEvaluation {
 
     public static IO<Seq<Vector3d>> Derivatives(Curve curve, double t, int order, CurveEvaluationSide side) =>
         IO.lift(() =>
-            from nonNegative in Limits.AtLeast(0).Check(order, nameof(order))
-            from inside in OutOfDomain.Unless(curve.Domain, t, nameof(Curve.DerivativeAt))
+            from nonNegative in (Limits.AtLeast(0).Check(order, nameof(order)), OutOfDomain.Unless(curve.Domain, t, nameof(Curve.DerivativeAt)))
+                .Apply(static (valid, _) => valid)
+                .As()
             from jet in Missing.Unless(curve.DerivativeAt(t, nonNegative, side), nameof(Curve.DerivativeAt))
             from complete in CountMismatch.Unless(nonNegative + 1, jet.Length, nameof(Curve.DerivativeAt))
             select toSeq(jet));
 
     public static IO<Seq<Plane>> PerpendicularFrames(Curve curve, Seq<double> parameters) =>
         IO.lift(() =>
-            from enough in Limits.AtLeast(MinimumFrames).Check(parameters.Count, nameof(parameters))
-            from ordered in Invalid.Unless(parameters.Zip(parameters.Tail).ForAll(static pair => pair.First < pair.Second), nameof(parameters))
-            from inside in parameters.TraverseM(parameter => OutOfDomain.Unless(curve.Domain, parameter, nameof(Curve.GetPerpendicularFrames))).As()
-            from frames in Missing.Unless(curve.GetPerpendicularFrames(parameters), nameof(Curve.GetPerpendicularFrames))
-            from complete in CountMismatch.Unless(parameters.Count, frames.Length, nameof(Curve.GetPerpendicularFrames))
-            select toSeq(frames));
+                from frames in Missing.Unless(curve.GetPerpendicularFrames(parameters), nameof(Curve.GetPerpendicularFrames))
+                from complete in CountMismatch.Unless(parameters.Count, frames.Length, nameof(Curve.GetPerpendicularFrames))
+                select toSeq(frames))
+            .Catch(static error => error.HasException<InvalidOperationException>(), static _ => IO.fail<Seq<Plane>>(new Invalid(nameof(parameters))));
 
     // --- [DIVISIONS]
     public static IO<DivideResult> Divide(Curve curve, Division division) =>
         IO.lift(() => division.Switch(
             curve,
-            count: static (source, count) =>
-                from segments in Limits.AtLeast(1).Check(count.Segments, nameof(Division.Count.Segments))
-                let answer = (Parameters: source.DivideByCount(segments, includeEnds: true, out Point3d[] points), Points: points)
-                from parameters in Missing.Unless(answer.Parameters, nameof(Curve.DivideByCount))
-                select new DivideResult(toSeq(parameters), toSeq(answer.Points)),
-            length: static (source, length) =>
-                from segment in Limits.Above(0.0).Check(length.Segment, nameof(Division.Length.Segment))
-                let answer = (Parameters: source.DivideByLength(segment, includeEnds: true, out Point3d[] points), Points: points)
-                from parameters in Missing.Unless(answer.Parameters, nameof(Curve.DivideByLength))
-                select new DivideResult(toSeq(parameters), toSeq(answer.Points)),
+            count: static (source, count) => Missing.Unless(source.DivideByCount(count.Segments, includeEnds: true, out Point3d[] points), nameof(Curve.DivideByCount))
+                .Map(parameters => new DivideResult(toSeq(parameters), toSeq(points))),
+            length: static (source, length) => Missing.Unless(source.DivideByLength(length.Segment, includeEnds: true, out Point3d[] points), nameof(Curve.DivideByLength))
+                .Map(parameters => new DivideResult(toSeq(parameters), toSeq(points))),
             chord: static (source, chord) =>
                 from distance in Limits.Above(0.0).Check(chord.Distance, nameof(Division.Chord.Distance))
                 let answer = (Points: source.DivideEquidistant(distance, out double[] parameters), Parameters: parameters)
@@ -107,7 +101,6 @@ public static class CurveEvaluation {
 
     public static IO<Seq<Point3d>> DivideAsContour(Curve curve, ContourCut.Sweep sweep) =>
         IO.lift(() =>
-            from valid in Contours.Validate(sweep)
             from points in Missing.Unless(curve.DivideAsContour(sweep.Start, sweep.End, sweep.Interval), nameof(Curve.DivideAsContour))
             from filled in Answers.NonEmpty(toSeq(points), nameof(Curve.DivideAsContour))
             select filled);
@@ -115,15 +108,14 @@ public static class CurveEvaluation {
     // --- [PLANAR]
     public static IO<CurveOrientation> Orientation(Curve curve, Plane plane) =>
         IO.lift(() =>
-            from planar in Invalid.Unless(plane.IsValid, nameof(Plane.IsValid))
+            from planar in Invalid.Unless(plane.IsValid, nameof(plane))
             let orientation = curve.ClosedCurveOrientation(plane)
             from defined in Refused.Unless(orientation != CurveOrientation.Undefined, nameof(Curve.ClosedCurveOrientation))
             select orientation);
 
     public static IO<PointContainment> Contains(Curve curve, Point3d testPoint, Plane plane, double tolerance) =>
         IO.lift(() =>
-            from planar in Invalid.Unless(plane.IsValid, nameof(Plane.IsValid))
-            from valid in Invalid.Unless(testPoint.IsValid, nameof(Point3d.IsValid))
+            from valid in (Invalid.Unless(plane.IsValid, nameof(plane)), Invalid.Unless(testPoint.IsValid, nameof(testPoint))).Apply(static (_, _) => unit).As()
             let containment = curve.Contains(testPoint, plane, tolerance)
             from set in Refused.Unless(containment != PointContainment.Unset, nameof(Curve.Contains))
             select containment);

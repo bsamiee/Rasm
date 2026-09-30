@@ -110,7 +110,7 @@ public sealed record LeaderState(
 public static partial class Texts {
     // --- [PLACEMENT]
     public static IO<Guid> Place(RhinoDoc doc, TextForm form, DimensionStyle style, Option<ObjectAttributes> attributes, Option<HistoryRecord> history, bool reference) =>
-        Disposal.Using(
+        DisposalOps.Using(
             IO.lift(() => form.Switch(
                 style,
                 textEntity: static (parent, text) => text.Content.Switch(
@@ -125,40 +125,36 @@ public static partial class Texts {
                     (Parent: parent, Form: leader),
                     plain: static (state, plain) => Missing.Unless<AnnotationBase>(Leader.Create(plain.Text, state.Form.Plane, state.Parent, [.. state.Form.Points]), nameof(Leader.Create)),
                     rich: static (state, rich) => Missing.Unless<AnnotationBase>(Leader.CreateWithRichText(rich.RichText, state.Form.Plane, state.Parent, [.. state.Form.Points]), nameof(Leader.CreateWithRichText))))),
-            annotation =>
-                from ids in TableOps.Apply(doc, new TableOp.Add(Seq(new GeometryPair(annotation, attributes)), history, reference))
-                from id in IO.lift(() => ids.Head.ToFin(new Missing(nameof(TableOps.Apply))))
-                select id);
+            annotation => TableOps.Add(doc, new GeometryPair(annotation, attributes), history, reference));
 
     // --- [EDITS]
     public static IO<Unit> Modify(RhinoDoc doc, Guid id, Seq<RunEdit> edits) =>
-        RhinoObjects.ReplaceGeometry<AnnotationBase>(doc, id, annotation => edits.TraverseM(edit => Applied(annotation, edit)).As().Map(static _ => unit));
-
-    private static IO<Unit> Applied(AnnotationBase annotation, RunEdit edit) =>
-        IO.lift(() => edit.Switch(
-            annotation,
-            replace: static (target, replace) => Refused.Unless(
-                target.RunReplace(replace.ReplaceString, replace.StartRunIndex, replace.StartRunPosition, replace.EndRunIndex, replace.EndRunPosition),
-                nameof(AnnotationBase.RunReplace)),
-            bold: static (target, bold) => Refused.Unless(target.SetBold(bold.On), nameof(AnnotationBase.SetBold)),
-            italic: static (target, italic) => Refused.Unless(target.SetItalic(italic.On), nameof(AnnotationBase.SetItalic)),
-            underline: static (target, underline) => Refused.Unless(target.SetUnderline(underline.On), nameof(AnnotationBase.SetUnderline)),
-            facename: static (target, facename) => Refused.Unless(target.SetFacename(facename.On, facename.Name), nameof(AnnotationBase.SetFacename)),
-            wrap: static (target, wrap) => {
-                target.FormatWidth = wrap.FormatWidth;
-                target.WrapText();
-                return Fin.Succ(unit);
-            },
-            content: static (target, content) => {
-                target.RichText = content.RichText;
-                return Fin.Succ(unit);
-            }));
+        RhinoObjects.ReplaceGeometry<AnnotationBase>(doc, id, annotation => IO.lift(() => edits
+            .TraverseM(edit => edit.Switch(
+                annotation,
+                replace: static (target, replace) => Refused.Unless(
+                    target.RunReplace(replace.ReplaceString, replace.StartRunIndex, replace.StartRunPosition, replace.EndRunIndex, replace.EndRunPosition),
+                    nameof(AnnotationBase.RunReplace)),
+                bold: static (target, bold) => Refused.Unless(target.SetBold(bold.On), nameof(AnnotationBase.SetBold)),
+                italic: static (target, italic) => Refused.Unless(target.SetItalic(italic.On), nameof(AnnotationBase.SetItalic)),
+                underline: static (target, underline) => Refused.Unless(target.SetUnderline(underline.On), nameof(AnnotationBase.SetUnderline)),
+                facename: static (target, facename) => Refused.Unless(target.SetFacename(facename.On, facename.Name), nameof(AnnotationBase.SetFacename)),
+                wrap: static (target, wrap) => {
+                    target.FormatWidth = wrap.FormatWidth;
+                    target.WrapText();
+                    return unit;
+                },
+                content: static (target, content) => {
+                    target.RichText = content.RichText;
+                    return unit;
+                }))
+            .IgnoreF()
+            .As()));
 
     // --- [READS]
     public static IO<TextState> State(RhinoDoc doc, Guid id) =>
         from resolved in Queries.Resolve<AnnotationObjectBase, AnnotationBase>(doc, id)
-        from state in IO.lift(() => Project(resolved.Geometry, resolved.Object.DisplayText, resolved.Object.HasMeasurableTextFields))
-        select state;
+        select Project(resolved.Geometry, resolved.Object.DisplayText, resolved.Object.HasMeasurableTextFields);
 
     [MapProperty(nameof(AnnotationBase.PlainText), nameof(TextState.PlainText), SuppressNullMismatchDiagnostic = true)]
     [MapProperty(nameof(AnnotationBase.PlainTextWithFields), nameof(TextState.PlainTextWithFields), SuppressNullMismatchDiagnostic = true)]
@@ -189,12 +185,11 @@ public static partial class Texts {
         annotation.IsAllUnderlined();
 
     private static Seq<DimensionStyle.Field> Overridden(AnnotationBase annotation) =>
-        DimensionStyles.Fields(annotation.IsPropertyOverridden);
+        DimensionStyles.Overrides(annotation.IsPropertyOverridden);
 
     public static IO<LeaderState> ReadLeader(RhinoDoc doc, Guid id) =>
         from resolved in Queries.Resolve<RhinoObject, Leader>(doc, id)
-        from state in IO.lift(() => Project(resolved.Geometry))
-        select state;
+        select Project(resolved.Geometry);
 
     [MapPropertyFromSource(nameof(LeaderState.Points2D), Use = nameof(Points2D))]
     [MapPropertyFromSource(nameof(LeaderState.Points3D), Use = nameof(Points3D))]
@@ -214,7 +209,7 @@ public static partial class Texts {
             return toSeq(map.Chunk(3))
                 .TraverseM(static triple => triple is [int run, int start, int length]
                     ? (Fin<(int Run, int Start, int Length)>)(run, start, length)
-                    : new Mismatch(nameof(AnnotationBase.GetPlainTextWithRunMap)))
+                    : new InvalidAnswer(nameof(AnnotationBase.GetPlainTextWithRunMap)))
                 .As()
                 .Map(runs => (Text: text, Runs: runs));
         })
@@ -223,14 +218,12 @@ public static partial class Texts {
     public static IO<TValue> WithOutline<TValue>(RhinoDoc doc, Guid id, OutlineOptions options, Func<Seq<Seq<GeometryBase>>, IO<TValue>> body) =>
         from resolved in Queries.Resolve<RhinoObject, TextEntity>(doc, id)
         from valid in IO.lift(() => Invalid.Unless(options.PreTransform.ForAll(static xform => xform.IsValid), nameof(Transform.IsValid)))
-        from value in Disposal.Using(() => resolved.Geometry.DimensionStyle, style => Disposal.Bracketed(
-            options.PreTransform.Match(
-                Some: xform => GeometryOps.WithGeometry(resolved.Geometry, DuplicateMode.Duplicate, copy => IO.lift(
+        from value in DisposalOps.Using(() => resolved.Geometry.DimensionStyle, style => options.PreTransform.Match(
+                Some: xform => GeometryOps.WithGeometry(resolved.Geometry, copy => IO.lift(
                     from moved in Refused.Unless(copy.Transform(xform, style), nameof(TextEntity.Transform))
                     select Outlined(copy, style, options))),
-                None: () => IO.lift(() => Outlined(resolved.Geometry, style, options))),
-            static groups => Disposal.Release(groups.Flatten()),
-            body))
+                None: () => IO.lift(() => Outlined(resolved.Geometry, style, options)))
+            .Bracket(Use: body, Fin: static groups => DisposalOps.Release(groups.Flatten())))
         select value;
 
     private static Seq<Seq<GeometryBase>> Outlined(TextEntity text, DimensionStyle style, OutlineOptions options) =>
@@ -250,14 +243,13 @@ public static partial class Texts {
 
     public static IO<Seq<Point3d>> TextCorners(RhinoDoc doc, Guid id, ViewportTarget target) =>
         from resolved in Queries.Resolve<TextObject, TextEntity>(doc, id)
-        from row in Viewports.ResolveViewport(doc, target)
-        from corners in IO.lift(() => Answers.NonEmpty(toSeq(resolved.Object.GetTextCorners(row.Viewport)), nameof(TextObject.GetTextCorners)))
+        from corners in DisposalOps.Using(
+            Viewports.ResolveViewport(doc, target),
+            row => IO.lift(() => Answers.NonEmpty(toSeq(resolved.Object.GetTextCorners(row.Viewport)), nameof(TextObject.GetTextCorners))))
         select corners;
 
     public static IO<double> DimensionScale(RhinoDoc doc, DimensionStyle style, ViewportTarget target) =>
-        from row in Viewports.ResolveViewport(doc, target)
-        from scale in IO.lift(() => AnnotationBase.GetDimensionScale(doc, style, row.Viewport))
-        select scale;
+        DisposalOps.Using(Viewports.ResolveViewport(doc, target), row => IO.lift(() => AnnotationBase.GetDimensionScale(doc, style, row.Viewport)));
 
     // --- [FIELDS]
     public static IO<string> FormatFields(RhinoDoc doc, string text) =>

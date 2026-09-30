@@ -4,6 +4,7 @@ using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.Display;
 using Rhino.FileIO;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Viewport;
 
@@ -13,8 +14,6 @@ public abstract partial record CaptureSubject {
     public sealed record View(Size Pixels, double Dpi) : CaptureSubject;
 
     public sealed record Page(double Dpi) : CaptureSubject;
-
-    public sealed record Preview(CaptureSubject Source, Size Pixels) : CaptureSubject;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -56,106 +55,60 @@ public sealed record CaptureRequest(CaptureSubject Subject, CaptureArea Area, Ca
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PdfPage {
-    public abstract Func<FilePdf, int, IO<Unit>> Draw { get; init; }
+    private PdfPage(Func<FilePdf, int, IO<Unit>> draw) => Draw = draw;
 
-    public sealed record Capture(ViewCaptureSettings Settings, Func<FilePdf, int, IO<Unit>> Draw) : PdfPage;
+    public Func<FilePdf, int, IO<Unit>> Draw { get; }
 
-    public sealed record Blank(int WidthInDots, int HeightInDots, int DotsPerInch, Func<FilePdf, int, IO<Unit>> Draw) : PdfPage;
+    public sealed record Capture(ViewCaptureSettings Settings, Func<FilePdf, int, IO<Unit>> Draw) : PdfPage(Draw);
+
+    public sealed record Blank(int WidthInDots, int HeightInDots, int DotsPerInch, Func<FilePdf, int, IO<Unit>> Draw) : PdfPage(Draw);
 }
 
-public sealed record PdfOptions(bool LayersAsOptionalContentGroups, Option<Func<FilePdf, IO<Unit>>> PreWrite, Action<Error> Reject);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DepthRequest {
-    public sealed record Stats() : DepthRequest;
-
-    public sealed record Samples(Seq<System.Drawing.Point> Pixels) : DepthRequest;
-
-    public sealed record Grayscale() : DepthRequest;
-}
+public sealed record ViewShot(Size Pixels, bool DrawGrid, bool DrawAxes, bool DrawGridAxes);
 
 public sealed record DepthSample(System.Drawing.Point Pixel, float Z, Point3d World);
 
-public sealed record DepthRange(float MinZ, float MaxZ);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DepthOutput {
-    public sealed record Stats() : DepthOutput;
-
-    public sealed record Samples(Seq<DepthSample> Values) : DepthOutput;
-
-    public sealed record Grayscale(Bitmap Image) : DepthOutput;
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DepthHits {
-    public sealed record Empty() : DepthHits;
-
-    public sealed record Hit(int Hits, DepthRange Range) : DepthHits;
-}
-
-public sealed record DepthCapture(DepthHits Hits, DepthOutput Output);
+public sealed record DepthRange(int Hits, float MinZ, float MaxZ);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class CaptureMapper {
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapProperty(nameof(@ViewShot.Pixels.Width), nameof(ViewCapture.Width))]
+    [MapProperty(nameof(@ViewShot.Pixels.Height), nameof(ViewCapture.Height))]
+    [MapValue(nameof(ViewCapture.ScaleScreenItems), false)]
+    internal static partial ViewCapture ToCapture(ViewShot shot);
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapProperty(nameof(ViewShot.DrawAxes), nameof(DisplayPipelineAttributes.ViewDisplayAttributes.DrawWorldAxes))]
+    [MapperIgnoreSource(nameof(ViewShot.Pixels), Justification = "RhinoView.CaptureToBitmap size")]
+    internal static partial void Update(ViewShot shot, DisplayPipelineAttributes.ViewDisplayAttributes overlays);
+}
+
 public static class Captures {
     // --- [SETTINGS]
     public static IO<TValue> WithSettings<TValue>(Seq<(ViewportRef Row, CaptureRequest Request)> pages, Func<Seq<ViewCaptureSettings>, IO<TValue>> body) =>
-        Disposal.Using(Disposal.AcquireAll(pages.Map(static page => Prepare(page.Row, page.Request))), body);
+        DisposalOps.Using(DisposalOps.AcquireAll(pages.Map(Prepare)), body);
 
-    // --- [MEDIA]
-    public static IO<Bitmap> ToBitmap(ViewCaptureSettings settings) =>
-        IO.lift(() => Missing.Unless(ViewCapture.CaptureToBitmap(settings), nameof(ViewCapture.CaptureToBitmap)));
+    public static IO<ViewCaptureSettings> Preview(ViewCaptureSettings basis, Size pixels) =>
+        IO.lift(() => Missing.Unless(basis.CreatePreviewSettings(pixels), nameof(ViewCaptureSettings.CreatePreviewSettings)));
 
-    public static IO<XmlDocument> ToSvg(ViewCaptureSettings settings) =>
-        IO.lift(() => Missing.Unless(ViewCapture.CaptureToSvg(settings), nameof(ViewCapture.CaptureToSvg)));
-
-    public static IO<Unit> SendToPrinter(string printerName, Seq<ViewCaptureSettings> pages, int copies) =>
-        IO.lift(() => Refused.Unless(ViewCapture.SendToPrinter(printerName, [.. pages], copies), nameof(ViewCapture.SendToPrinter)));
-
-    public static IO<Unit> ToPdf(string path, Seq<PdfPage> pages, PdfOptions options) =>
-        from pdf in IO.lift(static () => Missing.Unless(FilePdf.Create(), nameof(FilePdf.Create)))
-        from added in pages.TraverseM(page => Added(pdf, page, options.LayersAsOptionalContentGroups)).As()
-        from written in Disposal.Using(
-            options.PreWrite.Match(
-                Some: preWrite => Events.Attach(
-                    static handler => FilePdf.PreWrite += handler,
-                    static handler => FilePdf.PreWrite -= handler,
-                    Answers.Handler<FilePdfEventArgs>(args => when(ReferenceEquals(args.Pdf, pdf), preWrite(pdf)).As(), options.Reject)),
-                None: static () => IO.pure(Thinktecture.Empty.Disposable())),
-            _ => IO.lift(() => pdf.Write(path)))
-        select unit;
-
-    private static IO<Unit> Added(FilePdf pdf, PdfPage page, bool layersAsOptionalContentGroups) =>
-        page.Switch(
-            (Pdf: pdf, Layers: layersAsOptionalContentGroups),
-            capture: static (state, capture) => IO.lift(() => {
-                state.Pdf.LayersAsOptionalContentGroups = state.Layers && !capture.Settings.RasterMode;
-                return state.Pdf.AddPage(capture.Settings);
-            }).Bind(number => capture.Draw(state.Pdf, number)),
-            blank: static (state, blank) => IO.lift(() => state.Pdf.AddPage(blank.WidthInDots, blank.HeightInDots, blank.DotsPerInch))
-                .Bind(number => blank.Draw(state.Pdf, number)));
-
-    private static IO<ViewCaptureSettings> Prepare(ViewportRef row, CaptureRequest request) =>
-        from doc in IO.lift(() => Missing.Unless(row.View.Document, nameof(RhinoView.Document)))
-        from settings in request.Subject.Switch(
-            (Row: row, Doc: doc, Request: request),
-            view: static (state, view) =>
-                from settings in IO.lift(() => new ViewCaptureSettings(state.Row.View, view.Pixels, view.Dpi))
-                from configured in GeometryOps.OnFailure(Configure(state.Row, state.Doc, settings, state.Request), IO.lift(settings.Dispose))
-                select settings,
+    private static IO<ViewCaptureSettings> Prepare((ViewportRef Row, CaptureRequest Request) target) =>
+        target.Request.Subject.Switch(
+            target,
+            view: static (state, view) => Configured(state.Row, state.Request, () => new ViewCaptureSettings(state.Row.View, view.Pixels, view.Dpi)),
             page: static (state, page) =>
-                from pageView in IO.lift(() => Optional(state.Row.View as RhinoPageView).ToFin(new WrongViewKind(nameof(RhinoPageView))))
-                from settings in IO.lift(() => new ViewCaptureSettings(pageView, page.Dpi))
-                from configured in GeometryOps.OnFailure(Configure(state.Row, state.Doc, settings, state.Request), IO.lift(settings.Dispose))
-                select settings,
-            preview: static (state, preview) =>
-                Disposal.Using(
-                    Prepare(state.Row, state.Request with { Subject = preview.Source }),
-                    basis => IO.lift(() => Missing.Unless(basis.CreatePreviewSettings(preview.Pixels), nameof(ViewCaptureSettings.CreatePreviewSettings)))))
-        from valid in GeometryOps.OnFailure(IO.lift(() => Refused.Unless(settings.IsValid, nameof(ViewCaptureSettings.IsValid))), IO.lift(settings.Dispose))
-        select settings;
+                from pageView in IO.lift(() => Optional(state.Row.View as RhinoPageView).ToFin(new WrongType(typeof(RhinoPageView), state.Row.View.GetType())))
+                from settings in Configured(state.Row, state.Request, () => new ViewCaptureSettings(pageView, page.Dpi))
+                select settings);
 
-    private static IO<Unit> Configure(ViewportRef row, RhinoDoc doc, ViewCaptureSettings settings, CaptureRequest request) =>
+    private static IO<ViewCaptureSettings> Configured(ViewportRef row, CaptureRequest request, Func<ViewCaptureSettings> create) =>
+        from settings in IO.lift(create)
+        from configured in DisposalOps.OnFailure(Configure(row, settings, request), IO.lift(settings.Dispose))
+        select configured;
+
+    private static IO<ViewCaptureSettings> Configure(ViewportRef row, ViewCaptureSettings settings, CaptureRequest request) =>
+        from doc in IO.lift(() => Missing.Unless(row.View.Document, nameof(RhinoView.Document)))
         from bound in IO.lift(() => {
             settings.Document = doc;
             _ = row.Detail.Iter(_ => settings.SetViewport(row.Viewport));
@@ -189,35 +142,57 @@ public static class Captures {
             native: static (_, _) => { },
             toValue: static (target, scale) => target.SetModelScaleToValue(scale.Scale),
             toFit: static (target, _) => target.SetModelScaleToFit(promptOnChange: false)))
-        select scale;
+        from valid in IO.lift(() => Refused.Unless(settings.IsValid, nameof(ViewCaptureSettings.IsValid)))
+        select settings;
+
+    // --- [MEDIA]
+    public static IO<Bitmap> ToBitmap(ViewCaptureSettings settings) =>
+        IO.lift(() => Missing.Unless(ViewCapture.CaptureToBitmap(settings), nameof(ViewCapture.CaptureToBitmap)));
+
+    public static IO<XmlDocument> ToSvg(ViewCaptureSettings settings) =>
+        IO.lift(() => Missing.Unless(ViewCapture.CaptureToSvg(settings), nameof(ViewCapture.CaptureToSvg)));
+
+    public static IO<Unit> SendToPrinter(string printerName, Seq<ViewCaptureSettings> pages, int copies) =>
+        IO.lift(() => Refused.Unless(ViewCapture.SendToPrinter(printerName, [.. pages], copies), nameof(ViewCapture.SendToPrinter)));
+
+    public static IO<Unit> ToPdf(string path, Seq<PdfPage> pages, bool layersAsOptionalContentGroups, Option<Func<FilePdf, IO<Unit>>> beforeWrite) =>
+        from pdf in IO.lift(static () => Missing.Unless(FilePdf.Create(), nameof(FilePdf.Create)))
+        from added in pages.TraverseM(page => Added(pdf, page, layersAsOptionalContentGroups)).As()
+        from drawn in beforeWrite.Traverse(draw => draw(pdf)).As()
+        from written in IO.lift(() => pdf.Write(path))
+        select written;
+
+    private static IO<Unit> Added(FilePdf pdf, PdfPage page, bool layersAsOptionalContentGroups) =>
+        IO.lift(() => page.Switch(
+                (Pdf: pdf, Layers: layersAsOptionalContentGroups),
+                capture: static (state, capture) => {
+                    state.Pdf.LayersAsOptionalContentGroups = state.Layers && !capture.Settings.RasterMode;
+                    return state.Pdf.AddPage(capture.Settings);
+                },
+                blank: static (state, blank) => state.Pdf.AddPage(blank.WidthInDots, blank.HeightInDots, blank.DotsPerInch)))
+            .Bind(number => page.Draw(pdf, number));
 
     // --- [VIEWS]
-    public static IO<Bitmap> Capture(RhinoView view, ViewCapture capture) =>
-        IO.lift(() => Missing.Unless(capture.CaptureToBitmap(view), nameof(ViewCapture.CaptureToBitmap)));
-
-    public static IO<Bitmap> CaptureMode(RhinoView view, Option<Size> size, DisplayModeDescription mode) =>
-        IO.lift(() => Missing.Unless(size.Match(Some: pixels => view.CaptureToBitmap(pixels, mode), None: () => view.CaptureToBitmap(mode)), nameof(RhinoView.CaptureToBitmap)));
+    /// <summary>Captures <paramref name="view"/> in its main viewport's display mode, a realtime mode yields the frame shown when the host turn began</summary>
+    public static IO<Bitmap> Capture(RhinoView view, ViewShot shot) =>
+        DisposalOps.Using(
+            IO.lift(() => Missing.Unless(view.MainViewport.DisplayMode, nameof(RhinoViewport.DisplayMode))),
+            mode => IO.lift(() => Answers.Present(mode.DisplayAttributes.RealtimeDisplayId).Match(
+                Some: _ => Missing.Unless(CaptureMapper.ToCapture(shot).CaptureToBitmap(view), nameof(ViewCapture.CaptureToBitmap)),
+                None: () => {
+                    CaptureMapper.Update(shot, mode.DisplayAttributes.ViewSpecificAttributes);
+                    return Missing.Unless(view.CaptureToBitmap(shot.Pixels, mode), nameof(RhinoView.CaptureToBitmap));
+                })));
 
     // --- [DEPTH]
-    public static IO<DepthCapture> CaptureDepth(RhinoViewport viewport, Action<ZBufferCapture> configure, DepthRequest request) =>
-        from extent in IO.lift(() => viewport.Size)
-        from depth in Disposal.Using(() => new ZBufferCapture(viewport), capture =>
-            from configured in IO.lift(() => configure(capture))
-            from output in request.Switch(
-                (Capture: capture, Extent: extent),
-                stats: static (_, _) => IO.pure<DepthOutput>(new DepthOutput.Stats()),
-                samples: static (state, samples) => Sampled(state.Capture, state.Extent, samples.Pixels),
-                grayscale: static (state, _) => IO.lift(() => Missing.Unless(state.Capture.GrayscaleDib(), nameof(ZBufferCapture.GrayscaleDib)))
-                    .Map<DepthOutput>(static image => new DepthOutput.Grayscale(image)))
-            from stats in IO.lift(() => (Hits: capture.HitCount(), MinZ: capture.MinZ(), MaxZ: capture.MaxZ()))
-            select new DepthCapture(
-                stats.Hits > 0 ? new DepthHits.Hit(stats.Hits, new DepthRange(stats.MinZ, stats.MaxZ)) : new DepthHits.Empty(),
-                output))
-        select depth;
+    public static IO<Option<DepthRange>> Hits(ZBufferCapture capture) =>
+        IO.lift(() => Some(new DepthRange(capture.HitCount(), capture.MinZ(), capture.MaxZ())).Filter(static range => range.Hits > 0));
 
-    private static IO<DepthOutput> Sampled(ZBufferCapture capture, Size extent, Seq<System.Drawing.Point> pixels) =>
-        IO.lift(() => pixels.TraverseM(pixel =>
-                SampleOutsideExtent.Unless(pixel, extent).Map(_ => new DepthSample(pixel, capture.ZValueAt(pixel.X, pixel.Y), capture.WorldPointAt(pixel.X, pixel.Y))))
+    public static IO<Seq<DepthSample>> Samples(RhinoViewport viewport, ZBufferCapture capture, Seq<System.Drawing.Point> pixels) =>
+        from extent in IO.lift(() => viewport.Size)
+        from samples in IO.lift(() => pixels
+            .Traverse(pixel => SampleOutsideExtent.Unless(pixel, extent)
+                .Map(_ => new DepthSample(pixel, capture.ZValueAt(pixel.X, pixel.Y), capture.WorldPointAt(pixel.X, pixel.Y))))
             .As())
-            .Map<DepthOutput>(static values => new DepthOutput.Samples(values));
+        select samples;
 }

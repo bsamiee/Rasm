@@ -36,8 +36,13 @@ public sealed record Span {
     public Point3d Raised(Point3d candidate, Limits<double> limits) {
         Point3d pulled = CenterLine.ClosestPoint(candidate, limitToFiniteSegment: false);
         Vector3d side = ((pulled - Midpoint) * Frame.YAxis) < 0 ? -Frame.YAxis : Frame.YAxis;
-        return Midpoint + (side * limits.Clamp(pulled.DistanceTo(Midpoint), Tolerance));
+        return Midpoint + (side * Clamped(limits, pulled.DistanceTo(Midpoint), Tolerance));
     }
+
+    private static double Clamped(Limits<double> limits, double value, double inset) =>
+        limits.Upper.Fold(
+            limits.Lower.Fold(value, (low, bound) => Math.Max(low, bound.Exclusive ? bound.Value + inset : bound.Value)),
+            (high, bound) => Math.Min(high, bound.Exclusive ? bound.Value - inset : bound.Value));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -66,7 +71,7 @@ public abstract partial record ArchProfile {
     public IO<Seq<Curve>> Joined(double tolerance) =>
         Switch(
             tolerance,
-            arcs: static (within, arcs) => Disposal.Using(
+            arcs: static (within, arcs) => DisposalOps.Using(
                 IO.lift(() => arcs.Parts.Map<Curve>(static arc => arc.ToNurbsCurve()).Strict()),
                 inputs => CurveConstruction.Join(inputs, within, preserveDirection: true, simpleJoin: false).Map(static joined => joined.Curves)),
             parabolic: static (_, parabolic) => parabolic.ToCurve().Map(static curve => Seq(curve)),
@@ -75,9 +80,7 @@ public abstract partial record ArchProfile {
     private static Fin<Arc> Image(Arc arc, Transform mirror) {
         Arc image = arc;
         bool mirrored = image.Transform(mirror);
-        return from valid in Invalid.Unless(arc.IsValid, nameof(Arc))
-               from transformed in Refused.Unless(mirrored, image, nameof(Arc.Transform))
-               select transformed;
+        return (Invalid.Unless(arc.IsValid, nameof(arc)), Refused.Unless(mirrored, image, nameof(Arc.Transform))).Apply(static (_, transformed) => transformed).As();
     }
 
     private static Arc Reversed(Arc arc) {
@@ -88,9 +91,9 @@ public abstract partial record ArchProfile {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RiseLimits {
-    public static Fin<Limits<double>> UpToSemicircle(Span span) => Limits.Above(0.0).AtMost(span.HalfSpan, nameof(UpToSemicircle));
+    public static Limits<double> UpToSemicircle(Span span) => Limits.Above(0.0).AtMost(span.HalfSpan);
 
-    public static Fin<Limits<double>> FromSemicircle(Span span) => Limits.AtLeast(span.HalfSpan);
+    public static Limits<double> FromSemicircle(Span span) => Limits.AtLeast(span.HalfSpan);
 
-    public static Fin<Limits<double>> Positive(Span _) => Limits.Above(0.0);
+    public static Limits<double> Positive(Span _) => Limits.Above(0.0);
 }

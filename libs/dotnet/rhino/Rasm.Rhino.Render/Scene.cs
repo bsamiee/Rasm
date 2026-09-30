@@ -2,27 +2,28 @@ using System.Drawing;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.Display;
-using Rhino.FileIO;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Render;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SettingsSource {
-    public sealed record Live(RhinoDoc Doc) : SettingsSource;
+[ComplexValueObject]
+[ValidationError<ValidationFailure>]
+public sealed partial class ImageOutput {
+    public Size Pixels { get; }
 
-    public sealed record Archive(File3dm File) : SettingsSource;
+    public double Dpi { get; }
 
-    public sealed record FreeFloating(RenderSettings Settings) : SettingsSource;
-}
+    public UnitSystem Units { get; }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record RenderOutput {
-    public sealed record ViewportSized() : RenderOutput;
+    public static Fin<ImageOutput> From(Size pixels, double dpi, UnitSystem units) =>
+        Validate(pixels, dpi, units, out ImageOutput? output) is { } error ? error : output!;
 
-    public sealed record Sized(Size Pixels, double Dpi, UnitSystem Units) : RenderOutput;
+    static partial void ValidateFactoryArguments(ref ValidationFailure? validationError, ref Size pixels, ref double dpi, ref UnitSystem units) =>
+        validationError = Limits.AtLeast(1).Violated(Math.Min(pixels.Width, pixels.Height), nameof(Pixels))
+            ?? Limits.Above(0.0).Violated(dpi, nameof(Dpi))
+            ?? Answers.FirstInvalid((units is not (UnitSystem.None or UnitSystem.Inches or UnitSystem.Millimeters or UnitSystem.Centimeters), nameof(Units)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -36,13 +37,8 @@ public abstract partial record RenderSource {
     public sealed record Snapshot(string Name) : RenderSource;
 }
 
-public sealed record EnvironmentBinding(Option<Guid> Content, Option<Guid> Rendering, bool Override);
-
 public sealed record RenderSettingsState(
     Color AmbientLight,
-    Color BackgroundColorTop,
-    Color BackgroundColorBottom,
-    BackgroundStyle BackgroundStyle,
     AntialiasLevel AntialiasLevel,
     int ShadowmapLevel,
     bool UseHiddenLights,
@@ -55,249 +51,114 @@ public sealed record RenderSettingsState(
     bool RenderMeshEdges,
     bool RenderAnnotations,
     bool TransparentBackground,
-    bool ScaleBackgroundToFit,
-    RenderOutput Output,
-    RenderSource Source,
-    Option<Guid> BackgroundEnvironment,
-    Map<RenderSettings.EnvironmentUsage, EnvironmentBinding> Environments);
+    Option<ImageOutput> Output,
+    RenderSource Source);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Backdrop {
+    public sealed record SolidColor(Color Color) : Backdrop;
+
+    public sealed record Gradient(Color Top, Color Bottom) : Backdrop;
+
+    public sealed record Wallpaper(bool StretchToFit) : Backdrop;
+
+    public sealed record Environment(Option<Guid> Id) : Backdrop;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EnvironmentSource {
+    public sealed record FromBackdrop() : EnvironmentSource;
+
+    public sealed record Overridden(Option<Guid> Id) : EnvironmentSource;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GroundEffect {
+    public sealed record ShadowCatcher() : GroundEffect;
+
+    public sealed record Material(Option<Guid> Instance) : GroundEffect;
+}
 
 public sealed record GroundPlaneState(
     bool Enabled,
-    bool ShadowOnly,
-    bool AutoAltitude,
     bool ShowUnderside,
-    double Altitude,
-    Option<Guid> MaterialInstanceId,
+    Option<double> Altitude,
+    GroundEffect Effect,
     Vector2d TextureOffset,
+    bool TextureOffsetLocked,
     Vector2d TextureSize,
-    double TextureRotation,
     bool TextureSizeLocked,
-    bool TextureOffsetLocked);
+    double TextureRotation);
 
-public sealed record SkylightState(bool Enabled, double ShadowIntensity);
-
-public sealed record LinearWorkflowState(bool PreProcessColors, bool PreProcessTextures, bool PostProcessFrameBuffer, bool PostProcessGammaOn, float PreProcessGamma, float PostProcessGamma);
-
-public sealed record DitheringState(Dithering.Methods Method, bool Enabled);
-
-public sealed record SafeFrameState(
+public sealed record SunState(
     bool Enabled,
-    bool PerspectiveOnly,
-    bool FieldsOn,
-    bool LiveFrameOn,
-    bool ActionFrameOn,
-    bool ActionFrameLinked,
-    double ActionFrameXScale,
-    double ActionFrameYScale,
-    bool TitleFrameOn,
-    bool TitleFrameLinked,
-    double TitleFrameXScale,
-    double TitleFrameYScale);
+    double Intensity,
+    double North,
+    double Latitude,
+    double Longitude,
+    double TimeZone,
+    Option<int> DaylightSavingMinutes,
+    DateTime LocalMoment,
+    Option<(double Azimuth, double Altitude)> Manual);
 
-public sealed record RenderChannelsState(RenderChannels.Modes Mode, Seq<Guid> CustomList);
+public sealed record LinearWorkflowState(bool PreProcessColors, float PostProcessGamma, bool PostProcessGammaOn);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SunPlacement {
-    public sealed record Automatic(double Latitude, double Longitude, double TimeZone, Option<int> DaylightSavingMinutes, DateTime LocalDateTime) : SunPlacement;
+public sealed class SceneSetting<T> {
+    internal SceneSetting(Func<RenderSettings, Fin<T>> read, Action<RenderSettings, T> write) => (Read, Write) = (read, write);
 
-    public sealed record ManualAngles(double Azimuth, double Altitude) : SunPlacement;
+    public Func<RenderSettings, Fin<T>> Read { get; }
 
-    public sealed record ManualVector(Vector3d Direction) : SunPlacement;
+    public Func<RenderSettings, IO<Unit>> Set(T value) =>
+        settings => IO.lift(() => Write(settings, value));
+
+    private Action<RenderSettings, T> Write { get; }
 }
-
-public sealed record SunState(bool Enabled, double Intensity, Sun.Accuracies Accuracy, double North, SunPlacement Placement);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Scene {
-    // --- [SETTINGS]
-    public static IO<TValue> WithSettings<TValue>(SettingsSource source, Func<RenderSettings, IO<TValue>> body) =>
-        source.Switch(
-            body,
-            live: static (work, live) => Disposal.Using(() => live.Doc.RenderSettings, work),
-            archive: static (work, archive) => work(archive.File.Settings.RenderSettings),
-            freeFloating: static (work, floating) => work(floating.Settings));
-
-    public static IO<RenderSettingsState> ReadSettings(RenderSettings settings) =>
-        IO.lift(() => SceneMapper.ToState(settings));
-
-    public static IO<Unit> WriteSettings(RenderSettings settings, RenderSettingsState state) =>
-        IO.lift(() => {
-            SceneMapper.Update(state, settings);
-            state.Output.Switch(
-                settings,
-                viewportSized: static (target, _) => target.UseViewportSize = true,
-                sized: static (target, sized) => {
-                    target.UseViewportSize = false;
-                    target.ImageSize = sized.Pixels;
-                    target.ImageDpi = sized.Dpi;
-                    target.ImageUnitSystem = sized.Units;
-                });
-            state.Source.Switch(
-                settings,
-                activeViewport: static (target, _) => target.RenderSource = RenderSettings.RenderingSources.ActiveViewport,
-                specificViewport: static (target, source) => {
-                    target.RenderSource = RenderSettings.RenderingSources.SpecificViewport;
-                    target.SpecificViewport = source.Name;
-                },
-                namedView: static (target, source) => {
-                    target.RenderSource = RenderSettings.RenderingSources.NamedView;
-                    target.NamedView = source.Name;
-                },
-                snapshot: static (target, source) => {
-                    target.RenderSource = RenderSettings.RenderingSources.SnapShot;
-                    target.Snapshot = source.Name;
-                });
-            _ = state.Environments.Iter((usage, binding) => settings.SetRenderEnvironmentOverride(usage, binding.Override));
-            settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, state.BackgroundEnvironment.IfNone(Guid.Empty));
-            _ = state.Environments.Iter((usage, binding) => settings.SetRenderEnvironmentId(usage, binding.Content.IfNone(Guid.Empty)));
-        });
-
-    // --- [SETTINGS_GROUPS]
-    public static IO<GroundPlaneState> ReadGroundPlane(RenderSettings settings) =>
-        IO.lift(() => SceneMapper.ToState(settings.GroundPlane));
-
-    public static IO<Unit> WriteGroundPlane(RenderSettings settings, GroundPlaneState state) =>
-        IO.lift(() => SceneMapper.Update(state, settings.GroundPlane));
-
-    public static IO<SkylightState> ReadSkylight(RenderSettings settings) =>
-        IO.lift(() => SceneMapper.ToState(settings.Skylight));
-
-    public static IO<Unit> WriteSkylight(RenderSettings settings, SkylightState state) =>
-        IO.lift(() => SceneMapper.Update(state, settings.Skylight));
-
-    public static IO<LinearWorkflowState> ReadLinearWorkflow(RenderSettings settings) =>
-        IO.lift(() => SceneMapper.ToState(settings.LinearWorkflow));
-
-    public static IO<Unit> WriteLinearWorkflow(RenderSettings settings, LinearWorkflowState state) =>
-        IO.lift(() => SceneMapper.Update(state, settings.LinearWorkflow));
-
-    public static IO<DitheringState> ReadDithering(RenderSettings settings) =>
-        IO.lift(() => SceneMapper.ToState(settings.Dithering));
-
-    public static IO<Unit> WriteDithering(RenderSettings settings, DitheringState state) =>
-        IO.lift(() => SceneMapper.Update(state, settings.Dithering));
-
-    public static IO<SafeFrameState> ReadSafeFrame(RenderSettings settings) =>
-        IO.lift(() => SceneMapper.ToState(settings.SafeFrame));
-
-    public static IO<Unit> WriteSafeFrame(RenderSettings settings, SafeFrameState state) =>
-        IO.lift(() => SceneMapper.Update(state, settings.SafeFrame));
-
-    public static IO<RenderChannelsState> ReadRenderChannels(RenderSettings settings) =>
-        IO.lift(() => SceneMapper.ToState(settings.RenderChannels));
-
-    public static IO<Unit> WriteRenderChannels(RenderSettings settings, RenderChannelsState state) =>
-        from channels in IO.lift(() => settings.RenderChannels)
-        from written in IO.lift(() => {
-            channels.CustomList = [.. state.CustomList];
-            channels.Mode = state.Mode;
-        })
-        select written;
-
-    // --- [SUN]
-    public static IO<SunState> ReadSun(RenderSettings settings) =>
-        IO.lift(() => SceneMapper.ToState(settings.Sun));
-
-    public static IO<Unit> WriteSun(RenderSettings settings, SunState state) =>
-        from placed in IO.lift(() => Placed(state.Placement))
-        from sun in IO.lift(() => settings.Sun)
-        from written in IO.lift(() => {
-            SceneMapper.Update(state, sun);
-            placed(sun);
-        })
-        select written;
-
-    private static Fin<Action<Sun>> Placed(SunPlacement placement) =>
-        placement.Switch(
-            automatic: static automatic => Invalid.Unless<Action<Sun>>(
-                automatic.LocalDateTime.Kind == DateTimeKind.Local,
-                target => {
-                    SceneMapper.Update(automatic, target);
-                    target.SetDateTime(automatic.LocalDateTime, DateTimeKind.Local);
-                    target.ManualControlOn = false;
-                },
-                nameof(DateTime.Kind)),
-            manualAngles: static angles => Fin.Succ<Action<Sun>>(target => {
-                target.ManualControlOn = true;
-                SceneMapper.Update(angles, target);
-            }),
-            manualVector: static vector => Fin.Succ<Action<Sun>>(target => {
-                target.ManualControlOn = true;
-                target.Vector = vector.Direction;
-            }));
-
-    public static IO<TValue> WithSunLight<TValue>(RenderSettings settings, Func<Light, IO<TValue>> body) =>
-        Disposal.Using(() => settings.Sun.Light, body);
-
-    public static IO<Option<(double Latitude, double Longitude)>> Here { get; } =
-        IO.lift(static () => Answers.Found(Sun.Here(out double latitude, out double longitude), (Latitude: latitude, Longitude: longitude)));
-}
-
 [Mapper]
-public static partial class SceneMapper {
-    [MapPropertyFromSource(nameof(RenderSettingsState.Output), Use = nameof(Output))]
+internal static partial class SceneMapper {
     [MapPropertyFromSource(nameof(RenderSettingsState.Source), Use = nameof(Source))]
-    [MapPropertyFromSource(nameof(RenderSettingsState.BackgroundEnvironment), Use = nameof(BackgroundEnvironment))]
-    [MapPropertyFromSource(nameof(RenderSettingsState.Environments), Use = nameof(Environments))]
-    internal static partial RenderSettingsState ToState(RenderSettings settings);
+    internal static partial RenderSettingsState ToState(RenderSettings settings, Option<ImageOutput> output);
 
+    [MapPropertyFromSource(nameof(GroundPlaneState.Altitude), Use = nameof(Altitude))]
+    [MapPropertyFromSource(nameof(GroundPlaneState.Effect), Use = nameof(Effect))]
     internal static partial GroundPlaneState ToState(GroundPlane ground);
 
-    internal static partial SkylightState ToState(Skylight skylight);
-
-    public static partial LinearWorkflowState ToState(LinearWorkflow workflow);
-
-    internal static partial DitheringState ToState(Dithering dithering);
-
-    internal static partial SafeFrameState ToState(SafeFrame frame);
-
-    internal static partial RenderChannelsState ToState(RenderChannels channels);
-
-    [MapPropertyFromSource(nameof(SunState.Placement), Use = nameof(Placement))]
+    [MapPropertyFromSource(nameof(SunState.DaylightSavingMinutes), Use = nameof(DaylightSaving))]
+    [MapPropertyFromSource(nameof(SunState.LocalMoment), Use = nameof(LocalMoment))]
+    [MapPropertyFromSource(nameof(SunState.Manual), Use = nameof(Manual))]
     internal static partial SunState ToState(Sun sun);
 
+    internal static partial LinearWorkflowState ToState(LinearWorkflow workflow);
+
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapperIgnoreSource(nameof(RenderSettingsState.Output), Justification = "Written through the RenderOutput cases")]
+    [MapProperty(nameof(@RenderSettingsState.Output.IsNone), nameof(RenderSettings.UseViewportSize))]
     [MapperIgnoreSource(nameof(RenderSettingsState.Source), Justification = "Written through the RenderSource cases")]
-    [MapperIgnoreSource(nameof(RenderSettingsState.BackgroundEnvironment), Justification = "Written through SetRenderEnvironmentId")]
-    [MapperIgnoreSource(nameof(RenderSettingsState.Environments), Justification = "Written through the per-usage environment setters")]
     internal static partial void Update(RenderSettingsState state, RenderSettings settings);
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapProperty(nameof(ImageOutput.Pixels), nameof(RenderSettings.ImageSize))]
+    [MapProperty(nameof(ImageOutput.Dpi), nameof(RenderSettings.ImageDpi))]
+    [MapProperty(nameof(ImageOutput.Units), nameof(RenderSettings.ImageUnitSystem))]
+    internal static partial void Update(ImageOutput output, RenderSettings settings);
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapProperty(nameof(@GroundPlaneState.Altitude.IsNone), nameof(GroundPlane.AutoAltitude))]
+    [MapperIgnoreSource(nameof(GroundPlaneState.Effect), Justification = "Written through the GroundEffect cases")]
     internal static partial void Update(GroundPlaneState state, GroundPlane ground);
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial void Update(SkylightState state, Skylight skylight);
+    [MapProperty(nameof(@SunState.DaylightSavingMinutes.IsSome), nameof(Sun.DaylightSavingOn))]
+    [MapperIgnoreSource(nameof(SunState.LocalMoment), Justification = "Written through SetDateTime")]
+    [MapperIgnoreSource(nameof(SunState.Manual), Justification = "ManualControlOn is written before the angles")]
+    internal static partial void Update(SunState state, Sun sun);
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     internal static partial void Update(LinearWorkflowState state, LinearWorkflow workflow);
 
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial void Update(DitheringState state, Dithering dithering);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial void Update(SafeFrameState state, SafeFrame frame);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapperIgnoreSource(nameof(SunState.Placement), Justification = "Written through the SunPlacement cases")]
-    internal static partial void Update(SunState state, Sun sun);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapProperty(nameof(@SunPlacement.Automatic.DaylightSavingMinutes.IsSome), nameof(Sun.DaylightSavingOn))]
-    [MapperIgnoreSource(nameof(SunPlacement.Automatic.LocalDateTime), Justification = "Written through SetDateTime")]
-    internal static partial void Update(SunPlacement.Automatic automatic, Sun sun);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial void Update(SunPlacement.ManualAngles angles, Sun sun);
-
     [UserMapping]
-    private static Guid MaterialInstanceId(Option<Guid> id) => id.IfNone(Guid.Empty);
-
-    [UserMapping]
-    private static Seq<Guid> ToSeq(Guid[]? ids) => toSeq(ids);
-
-    private static RenderOutput Output(RenderSettings settings) =>
-        settings.UseViewportSize ? new RenderOutput.ViewportSized() : new RenderOutput.Sized(settings.ImageSize, settings.ImageDpi, settings.ImageUnitSystem);
+    private static T Kept<T>(Option<T> value, [MappingTargetOriginalValue] T current) where T : struct =>
+        value.IfNone(current);
 
     private static RenderSource Source(RenderSettings settings) =>
         settings.RenderSource switch {
@@ -307,27 +168,168 @@ public static partial class SceneMapper {
             RenderSettings.RenderingSources.SnapShot => new RenderSource.Snapshot(settings.Snapshot),
         };
 
-    private static Option<Guid> BackgroundEnvironment(RenderSettings settings) =>
-        Answers.Present(settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, RenderSettings.EnvironmentPurpose.Standard));
+    private static Option<double> Altitude(GroundPlane ground) =>
+        Answers.Found(!ground.AutoAltitude, ground.Altitude);
 
-    private static Map<RenderSettings.EnvironmentUsage, EnvironmentBinding> Environments(RenderSettings settings) =>
-        toMap(toSeq(Enum.GetValues<RenderSettings.EnvironmentUsage>())
-            .Filter(static usage => usage != RenderSettings.EnvironmentUsage.Background)
-            .Map(usage => (Usage: usage, Binding: new EnvironmentBinding(
-                Answers.Present(settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.Standard)),
-                Answers.Present(settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.ForRendering)),
-                settings.RenderEnvironmentOverride(usage)))));
+    private static GroundEffect Effect(GroundPlane ground) =>
+        ground.ShadowOnly
+            ? new GroundEffect.ShadowCatcher()
+            : new GroundEffect.Material(Answers.Present(ground.MaterialInstanceId).Filter(static id => id != ContentUuids.DefaultMaterialInstance));
 
-    private static SunPlacement Placement(Sun sun) =>
-        sun.ManualControlOn
-            ? new SunPlacement.ManualAngles(sun.Azimuth, sun.Altitude)
-            : new SunPlacement.Automatic(
-                sun.Latitude,
-                sun.Longitude,
-                sun.TimeZone,
-                sun.DaylightSavingOn ? Some(sun.DaylightSavingMinutes) : Option<int>.None,
-                sun.GetDateTime(DateTimeKind.Local));
+    private static Option<int> DaylightSaving(Sun sun) =>
+        Answers.Found(sun.DaylightSavingOn, sun.DaylightSavingMinutes);
 
-    [UserMapping]
-    private static int DaylightSavingMinutes(Option<int> minutes, [MappingTargetOriginalValue] int current) => minutes.IfNone(current);
+    private static DateTime LocalMoment(Sun sun) =>
+        sun.GetDateTime(DateTimeKind.Local);
+
+    private static Option<(double Azimuth, double Altitude)> Manual(Sun sun) =>
+        Answers.Found(sun.ManualControlOn, (sun.Azimuth, sun.Altitude));
+}
+
+public static class Scene {
+    // --- [SETTINGS]
+    public static readonly SceneSetting<RenderSettingsState> Settings = new(
+        static settings => (settings.UseViewportSize
+                ? Option<ImageOutput>.None
+                : ImageOutput.From(settings.ImageSize, settings.ImageDpi, settings.ImageUnitSystem).Map(static output => Some(output)))
+            .Map(output => SceneMapper.ToState(settings, output)),
+        static (settings, state) => {
+            SceneMapper.Update(state, settings);
+            _ = state.Output.Iter(output => SceneMapper.Update(output, settings));
+            state.Source.Switch(
+                settings,
+                activeViewport: static (target, _) => target.RenderSource = RenderSettings.RenderingSources.ActiveViewport,
+                specificViewport: static (target, source) => (target.RenderSource, target.SpecificViewport) = (RenderSettings.RenderingSources.SpecificViewport, source.Name),
+                namedView: static (target, source) => (target.RenderSource, target.NamedView) = (RenderSettings.RenderingSources.NamedView, source.Name),
+                snapshot: static (target, source) => (target.RenderSource, target.Snapshot) = (RenderSettings.RenderingSources.SnapShot, source.Name));
+        });
+
+    public static readonly SceneSetting<Backdrop> Background = new(
+        static settings => settings.BackgroundStyle switch {
+            BackgroundStyle.SolidColor => new Backdrop.SolidColor(settings.BackgroundColorTop),
+            BackgroundStyle.WallpaperImage => new Backdrop.Wallpaper(settings.ScaleBackgroundToFit),
+            BackgroundStyle.Gradient => new Backdrop.Gradient(settings.BackgroundColorTop, settings.BackgroundColorBottom),
+            BackgroundStyle.Environment => new Backdrop.Environment(Answers.Present(settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, RenderSettings.EnvironmentPurpose.Standard))),
+        },
+        static (settings, backdrop) => backdrop.Switch(
+            settings,
+            solidColor: static (target, solid) => (target.BackgroundStyle, target.BackgroundColorTop) = (BackgroundStyle.SolidColor, solid.Color),
+            gradient: static (target, gradient) => (target.BackgroundStyle, (target.BackgroundColorTop, target.BackgroundColorBottom)) = (BackgroundStyle.Gradient, gradient),
+            wallpaper: static (target, wallpaper) => (target.BackgroundStyle, target.ScaleBackgroundToFit) = (BackgroundStyle.WallpaperImage, wallpaper.StretchToFit),
+            environment: static (target, environment) => {
+                target.BackgroundStyle = BackgroundStyle.Environment;
+                target.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, Answers.Unset(environment.Id));
+            }));
+
+    public static readonly SceneSetting<EnvironmentSource> Reflection = Channel(RenderSettings.EnvironmentUsage.Reflection);
+
+    public static readonly SceneSetting<EnvironmentSource> Skylighting = Channel(RenderSettings.EnvironmentUsage.Skylighting);
+
+    public static readonly SceneSetting<LinearWorkflowState> LinearWorkflow = new(
+        static settings => SceneMapper.ToState(settings.LinearWorkflow),
+        static (settings, state) => SceneMapper.Update(state, settings.LinearWorkflow));
+
+    public static readonly SceneSetting<Dithering.Methods> Dither = new(
+        static settings => settings.Dithering.Enabled ? settings.Dithering.Method : Dithering.Methods.None,
+        static (settings, method) => {
+            Dithering dithering = settings.Dithering;
+            dithering.Enabled = method != Dithering.Methods.None;
+            if (method != Dithering.Methods.None)
+                dithering.Method = method;
+        });
+
+    public static readonly SceneSetting<Option<Set<Guid>>> Channels = new(
+        static settings => Answers.Found(settings.RenderChannels.Mode == RenderChannels.Modes.Custom, toSet(settings.RenderChannels.CustomList)),
+        static (settings, custom) => {
+            RenderChannels channels = settings.RenderChannels;
+            _ = custom.Iter(ids => channels.CustomList = [.. ids]);
+            channels.Mode = custom.IsSome ? RenderChannels.Modes.Custom : RenderChannels.Modes.Automatic;
+        });
+
+    public static readonly SceneSetting<GroundPlaneState> GroundPlane = new(
+        static settings => SceneMapper.ToState(settings.GroundPlane),
+        static (settings, state) => {
+            GroundPlane ground = settings.GroundPlane;
+            SceneMapper.Update(state, ground);
+            state.Effect.Switch(
+                ground,
+                shadowCatcher: static (target, _) => target.ShadowOnly = true,
+                material: static (target, material) => (target.ShadowOnly, target.MaterialInstanceId) = (false, Answers.Unset(material.Instance)));
+        });
+
+    public static readonly SceneSetting<SunState> Sun = new(
+        static settings => SceneMapper.ToState(settings.Sun),
+        static (settings, state) => {
+            Sun sun = settings.Sun;
+            SceneMapper.Update(state, sun);
+            sun.SetDateTime(state.LocalMoment, DateTimeKind.Local);
+            sun.ManualControlOn = state.Manual.IsSome;
+            _ = state.Manual.Iter(angles => (sun.Azimuth, sun.Altitude) = angles);
+        });
+
+    public static IO<Unit> Edit(RhinoDoc doc, Seq<Func<RenderSettings, IO<Unit>>> edits) =>
+        DisposalOps.Using(() => doc.RenderSettings, live => DisposalOps.Using(() => live.Duplicate(), staged =>
+            from edited in edits.TraverseM(edit => edit(staged)).As()
+            from committed in IO.lift(() => { doc.RenderSettings = staged; })
+            select committed));
+
+    private static SceneSetting<EnvironmentSource> Channel(RenderSettings.EnvironmentUsage usage) =>
+        new(
+            settings => settings.RenderEnvironmentOverride(usage)
+                ? new EnvironmentSource.Overridden(Answers.Present(settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.Standard)))
+                : new EnvironmentSource.FromBackdrop(),
+            (settings, source) => source.Switch(
+                (Settings: settings, Usage: usage),
+                fromBackdrop: static (state, _) => state.Settings.SetRenderEnvironmentOverride(state.Usage, on: false),
+                overridden: static (state, overridden) => {
+                    state.Settings.SetRenderEnvironmentId(state.Usage, Answers.Unset(overridden.Id));
+                    state.Settings.SetRenderEnvironmentOverride(state.Usage, on: true);
+                }));
+
+    // --- [SKYLIGHT]
+    public static IO<double> ReadSkylightIntensity(RhinoDoc doc) =>
+        SkyTexture(doc).Bind(Intensity).Map(static held => held.Value);
+
+    public static IO<Unit> WriteSkylightIntensity(RhinoDoc doc, double intensity) =>
+        from texture in SkyTexture(doc)
+        from held in Intensity(texture)
+        from written in SetParameters(texture, Seq<(string Name, FieldValue Value)>((held.Name, new FieldValue.Double(intensity))))
+        select written;
+
+    public static IO<TValue> WithPhysicalSky<TValue>(RhinoDoc doc, string name, bool useDocumentSun, double multiplier, Func<RenderEnvironment, IO<TValue>> body) =>
+        Contents.WithCreated(doc, new ContentSource.FromTypeId(ContentUuids.BasicEnvironmentType), content =>
+            from environment in IO.lift(() => Optional(content as RenderEnvironment).ToFin(new InvalidAnswer(nameof(RenderContentType.NewContentFromTypeId))))
+            from value in Contents.WithCreated(doc, new ContentSource.FromTypeId(ContentUuids.PhysicalSkyTextureType), texture =>
+                from parameters in SetParameters(texture, Seq<(string Name, FieldValue Value)>(("use-document-sun", new FieldValue.Bool(useDocumentSun)), (AdjustMultiplier, new FieldValue.Double(multiplier))))
+                from named in Contents.Apply(environment, RenderContent.ChangeContexts.Program, new ContentOp.Rename(name, RenameEvents: false, EnsureUnique: false))
+                from child in Contents.Apply(environment, RenderContent.ChangeContexts.Program, new ContentOp.SetChild(environment.TextureChildSlotName, texture))
+                from result in body(environment)
+                select result)
+            select value);
+
+    private const string AdjustMultiplier = "rdk-texture-adjust-multiplier";
+
+    /// <summary>Parameters the Rendering panel reads as a sky texture's intensity, the first one the texture holds answering</summary>
+    private static readonly Seq<string> IntensityParameters = Seq("intensity", "multiplier", AdjustMultiplier);
+
+    private static IO<Unit> SetParameters(RenderContent content, Seq<(string Name, FieldValue Value)> parameters) =>
+        Contents.WithinContentChange(
+            content,
+            RenderContent.ChangeContexts.Program,
+            parameters.TraverseM(parameter => ContentFields.WriteParameter(content, parameter.Name, parameter.Value)).As().Map(static _ => unit));
+
+    private static IO<RenderContent> SkyTexture(RhinoDoc doc) =>
+        from environment in DisposalOps.Using(() => doc.RenderSettings, static settings => IO.lift(() =>
+            Seq(RenderSettings.EnvironmentUsage.Skylighting, RenderSettings.EnvironmentUsage.Background)
+                .Find(settings.RenderEnvironmentOverride)
+                .Bind(usage => Optional(settings.RenderEnvironment(usage, RenderSettings.EnvironmentPurpose.Standard)))
+                .ToFin(new Missing(nameof(RenderSettings.RenderEnvironment)))))
+        from texture in IO.lift(() => Missing.Unless(environment.FirstChild, nameof(RenderContent.FirstChild)))
+        select texture;
+
+    private static IO<(string Name, double Value)> Intensity(RenderContent texture) =>
+        IntensityParameters.FoldBack(
+            IO.fail<(string Name, double Value)>(new Missing(nameof(RenderContent.GetParameter))),
+            (next, name) => ContentFields.ReadParameter<double>(texture, new ParameterRef.Named(name))
+                .Bind(read => read.Map(value => IO.pure((Name: name, Value: value))).IfNone(next)));
 }

@@ -202,9 +202,43 @@ utils:
             - has: {kind: where_clause, nthChild: 2, has: {matches: present}}
             - has: {kind: select_clause, nthChild: 3, has: {kind: identifier, pattern: $V}}
             - not: {has: {nthChild: 4}}
+    has-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $OWNER}}, {has: {field: name, regex: '^Has[A-Z]'}}]}
+            - has: {field: arguments, pattern: $ARGUMENTS}
+    get-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $OWNER}}, {has: {field: name, regex: '^Get[A-Z]'}}]}
+            - has: {field: arguments, pattern: $ARGUMENTS}
+    has-negated:
+        any:
+            - kind: prefix_unary_expression
+              regex: '^!'
+              has: {matches: has-call}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - has: {field: left, matches: has-call}
+                - has: {field: right, regex: '^false$'}
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, matches: has-call}
+                - has: {field: pattern, regex: '^false$'}
     ternary:
         kind: conditional_expression
         any:
+            - all:
+                - has: {field: condition, matches: has-call}
+                - has: {field: consequence, matches: lift}
+                - has: {field: consequence, matches: explicit-lift, has: {field: arguments, has: {kind: argument, has: {matches: get-call}}}}
+                - has: {field: alternative, matches: csharp-none-value}
+            - all:
+                - has: {field: condition, matches: has-negated}
+                - has: {field: alternative, matches: lift}
+                - has: {field: alternative, matches: explicit-lift, has: {field: arguments, has: {kind: argument, has: {matches: get-call}}}}
+                - has: {field: consequence, matches: csharp-none-value}
             - all:
                 - has: {field: consequence, matches: lift}
                 - has: {field: alternative, matches: csharp-none-value}
@@ -465,5 +499,5 @@ rewriters:
 fix:
     template: $OPEN$PRESENT$X$SHUT$CLOSE$SLOTS
     expandStart: {kind: local_declaration_statement}
-message: Sentinel or null test on `$X$COALESCED$UNWRAPPED$RECEIVER` rebuilds `Answers.Present` by hand
-note: Use `Answers.Present(<value or items>)`, `Present` filters each empty, negative, zero, and null host answer
+message: Sentinel, null, or `Has` predicate test on `$X$COALESCED$UNWRAPPED$RECEIVER` rebuilds `Answers.Present` by hand
+note: Use `Answers.Present(<value or items>)`, `Present` filters each empty, negative, zero, and null host answer, including the empty value `Get<X>` returns where `Has<X>` is false

@@ -25,9 +25,15 @@ public abstract partial record ViewportTarget {
     public sealed record Group(ComponentRef Address) : ViewportTarget;
 }
 
-public readonly record struct ViewportRef(RhinoView View, RhinoViewport Viewport, Option<DetailViewObject> Detail);
-
 public readonly record struct ViewportIdentity(Guid Id, string Name, uint ViewSerial);
+
+// --- [SERVICES] ------------------------------------------------------------------------
+public readonly record struct ViewportRef(RhinoView View, RhinoViewport Viewport, Option<DetailViewObject> Detail) : IDisposable {
+    public void Dispose() {
+        if (Detail.IsSome)
+            Viewport.Dispose();
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Viewports {
@@ -50,11 +56,10 @@ public static class Viewports {
             serial: static (_, serial) => IO.lift(() =>
                 Missing.Unless(RhinoView.FromRuntimeSerialNumber(serial.ViewSerial), nameof(RhinoView.FromRuntimeSerialNumber))
                     .Map(static view => Seq(Main(view)))),
-            page: static (document, page) => IO.lift(() =>
-                Pages(document, page.PageViewId).Map(static pages => pages.Map(Main).Strict())),
+            page: static (document, page) => IO.lift(() => Page(document, page.PageViewId).Map(static found => Seq(Main(found)))),
             detail: static (document, detail) =>
-                from pages in IO.lift(() => Pages(document, detail.PageViewId))
-                from rows in IO.lift(() => Answers.NonEmpty(Addressed(pages, detail.DetailId).Map(DetailRef).Strict(), nameof(RhinoPageView.GetDetailViews)))
+                from page in IO.lift(() => Page(document, detail.PageViewId))
+                from rows in IO.lift(() => Answers.NonEmpty(Addressed(Seq(page), detail.DetailId).Map(DetailRef).Strict(), nameof(RhinoPageView.GetDetailViews)))
                 select rows,
             every: static (document, every) =>
                 from views in IO.lift(() => toSeq(document.Views.GetViewList(every.Filter)))
@@ -63,12 +68,7 @@ public static class Viewports {
                     nameof(ViewTable.GetViewList)))
                 select rows,
             group: static (document, grouped) =>
-                from address in TableOps.Find<PageViewGroup>(
-                    grouped.Address,
-                    id => Optional(document.PageViewGroups.FindId(id)),
-                    index => Optional(document.PageViewGroups.FindIndex(index)),
-                    name => Optional(document.PageViewGroups.FindName(name)))
-                from found in IO.lift(() => address.ToFin(new Missing(nameof(PageViewGroupTable))))
+                from found in TableOps.Find(document.PageViewGroups, grouped.Address, includeDeleted: false)
                 from rows in IO.lift(() => Answers.NonEmpty(
                     toSeq(document.Views.GetPageViews()).Filter(page => page.IsInPageViewGroup(found.Index)).Map(Main).Strict(),
                     nameof(RhinoPageView.IsInPageViewGroup)))
@@ -76,18 +76,14 @@ public static class Viewports {
 
     public static IO<ViewportRef> ResolveViewport(RhinoDoc doc, ViewportTarget target) =>
         from rows in ResolveViewports(doc, target)
-        from row in IO.lift<ViewportRef>(() => rows is [var only] ? only : new Ambiguous(nameof(ResolveViewports), rows.Count))
+        from row in DisposalOps.OnFailure(IO.lift<ViewportRef>(() => rows is [var only] ? only : new Ambiguous(nameof(ResolveViewports), rows.Count)), DisposalOps.Release(rows))
         select row;
 
     public static IO<RhinoPageView> ResolvePage(RhinoDoc doc, Guid pageViewId) =>
-        IO.lift(() => Pages(doc, pageViewId).Bind(static pages => pages is [var only] ? Fin.Succ(only) : new Ambiguous(nameof(ResolvePage), pages.Count)));
+        IO.lift(() => Page(doc, pageViewId));
 
     public static IO<DetailViewObject> ResolveDetail(RhinoDoc doc, Guid pageViewId, Guid detailId) =>
-        IO.lift(() =>
-            from pages in Pages(doc, pageViewId)
-            from rows in Answers.NonEmpty(Addressed(pages, detailId), nameof(RhinoPageView.GetDetailViews))
-            from detail in rows is [var only] ? Fin.Succ(only.Detail) : new Ambiguous(nameof(ResolveDetail), rows.Count)
-            select detail);
+        IO.lift(() => Page(doc, pageViewId).Bind(page => Addressed(Seq(page), detailId).Head.Map(static row => row.Detail).ToFin(new Missing(nameof(RhinoPageView.GetDetailViews)))));
 
     public static ViewportIdentity Identity(RhinoView view, RhinoViewport viewport) =>
         new(viewport.Id, viewport.Name, view.RuntimeSerialNumber);
@@ -107,20 +103,23 @@ public static class Viewports {
         DetailViews(pages).Map(DetailRef).Strict();
 
     private static Seq<(RhinoPageView Page, DetailViewObject Detail)> Addressed(Seq<RhinoPageView> pages, Guid id) =>
-        DetailViews(pages).Filter(row => (row.Detail.Viewport.Id == id) || (row.Detail.Id == id));
+        DetailViews(pages).Filter(row => (row.Detail.Id == id) || (ViewportId(row.Detail) == id)).Strict();
 
-    private static Fin<Seq<RhinoPageView>> Pages(RhinoDoc doc, Guid pageViewId) =>
-        Answers.NonEmpty(toSeq(doc.Views.GetPageViews()).Filter(page => page.MainViewport.Id == pageViewId).Strict(), nameof(ViewTable.GetPageViews));
+    private static Guid ViewportId(DetailViewObject detail) {
+        using RhinoViewport viewport = detail.Viewport;
+        return viewport.Id;
+    }
+
+    private static Fin<RhinoPageView> Page(RhinoDoc doc, Guid pageViewId) =>
+        Missing.Unless(doc.Views.Find(pageViewId) as RhinoPageView, nameof(ViewTable.Find));
 
     // --- [SCOPES]
     public static IO<TValue> WithMode<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>
-        Disposal.Using(IO.lift(() => Missing.Unless(DisplayModeDescription.GetDisplayMode(id), nameof(DisplayModeDescription.GetDisplayMode))), body);
+        DisposalOps.Using(IO.lift(() => Missing.Unless(DisplayModeDescription.GetDisplayMode(id), nameof(DisplayModeDescription.GetDisplayMode))), body);
 
     public static IO<TValue> WithActiveView<TValue>(RhinoDoc doc, RhinoView view, IO<TValue> body) =>
-        Disposal.Bracketed(
-            from prior in IO.lift(() => Optional(doc.Views.ActiveView).ToFin(new NoActiveView()))
-            from activated in IO.lift(() => { doc.Views.ActiveView = view; })
-            select prior,
-            prior => IO.lift(() => { doc.Views.ActiveView = prior; }),
-            _ => body);
+        (from prior in IO.lift(() => Optional(doc.Views.ActiveView).ToFin(new NoActiveView()))
+         from activated in IO.lift(() => { doc.Views.ActiveView = view; })
+         select prior)
+        .Bracket(Use: _ => body, Fin: prior => IO.lift(() => { doc.Views.ActiveView = prior; }));
 }

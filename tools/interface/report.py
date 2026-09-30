@@ -1,6 +1,7 @@
-"""Report lines every in-application run writes and the host decodes, and the setting rows a run converges into change lines."""
+"""Report lines every in-application run writes and the host decodes, the setting rows a run converges into change lines, and the single-precision form a float32 store holds."""
 
 from collections.abc import Callable, Iterator, Mapping
+import ctypes
 from enum import auto, StrEnum
 from functools import partial
 import hashlib
@@ -28,13 +29,27 @@ ABSENT: Final = "absent"
 
 
 class Row:
-    """Setting as its label, read, target, and write of the target."""
+    """Setting as its label, read, target, and write of the target, a write returning text naming the refusal of a host that declined it."""
 
     __slots__ = ("label", "read", "target", "write")
+    label: str
+    read: Callable[[], object]
+    target: object
+    write: Callable[[], object]
 
     def __init__[T](self, *, label: str, read: Callable[[], object], write: Callable[[T], object], target: T) -> None:
         """Bind the fields with the write applied to the target."""
         self.label, self.read, self.target, self.write = label, read, target, partial(write, target)
+
+
+class Action(Row):
+    """Setting an action reaches without receiving its target, the target naming the state the action leaves."""
+
+    __slots__ = ()
+
+    def __init__(self, *, label: str, read: Callable[[], object], act: Callable[[], object], target: object) -> None:
+        """Bind the fields with the action as the write."""
+        self.label, self.read, self.target, self.write = label, read, target, act
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -55,6 +70,11 @@ def subscript(label: str, *keys: str | int) -> str:
     return label + "".join(f'["{key}"]' if isinstance(key, str) else f"[{key}]" for key in keys)
 
 
+def single(value: float) -> float:
+    """Value at the single precision a float32 store holds it in."""
+    return ctypes.c_float(value).value
+
+
 def changes(label: str, before: object, target: object) -> Iterator[str]:
     """Change line for each value a write moves off its held value, per key of either mapping at every depth, a name labeled `["name"]`, an index `[n]`, and `None` spelled `absent`."""
     match before, target:
@@ -65,17 +85,20 @@ def changes(label: str, before: object, target: object) -> Iterator[str]:
 
 
 def converged(row: Row, plain: Callable[[object], object] = lambda value: value) -> Iterator[str]:
-    """Change lines of the row, its target written when the plain form of its value differs, and the label noted on an exception its read or write raises."""
+    """Change lines of the row, its target written when the plain form of its value differs, an error line naming a refused write, and the label noted on an exception its read or write raises."""
     target = plain(row.target)
     try:
-        if (before := plain(row.read())) != target:
-            row.write()
+        written = row.write() if (before := plain(row.read())) != target else None
     except Exception as error:
         error.add_note(row.label)
         raise
-    return changes(row.label, before, target)
+    match written:
+        case str() as refused:
+            return iter((line(Kind.ERROR, f"{row.label} {refused}"),))
+        case _:
+            return changes(row.label, before, target)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ABSENT", "Kind", "Row", "changes", "converged", "digest", "line", "subscript"]
+__all__ = ["ABSENT", "Action", "Kind", "Row", "changes", "converged", "digest", "line", "single", "subscript"]

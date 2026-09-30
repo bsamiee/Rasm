@@ -49,4 +49,4 @@ rule:
             - has: {kind: with_clause, not: {has: {nthChild: 2}}, has: {kind: with_item, has: {kind: call, all: [{has: {field: function, matches: suppress-callee}}, {has: {field: arguments, has: {matches: rejection}}}]}}}
             - has: {field: body, matches: sole-write}
 message: '`$WRITE` catches its own error to test whether its target accepts the value'
-note: 'Check the value against what its owner declares before writing, `bl_rna.properties[<name>]` (`enum_items`, `hard_min`, `hard_max`, `is_readonly`) for a Blender property and `<enum>.__members__.get(<name>)` for an enum name, a checked write states the value it keeps'
+note: 'Use the target owner''s declaration to check the value before writing,`bl_rna.properties[<name>]` (`enum_items`, `hard_min`, `hard_max`, `is_readonly`) for a Blender property and `<enum>.__members__.get(<name>)` for an enum name, a checked write states the value it keeps'

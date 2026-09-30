@@ -277,4 +277,4 @@ rule:
             - has: {field: function, regex: '^next$'}
             - has: {field: arguments, has: {nthChild: 1, kind: call, all: [{has: {field: function, regex: '^(iter|reversed)$'}}, {has: {field: arguments, has: {nthChild: 1, matches: row-operand}}}]}}
 message: '`$READ` reads a field of a row by position'
-note: 'Unpack the row into named targets or a sequence pattern, or hold it as a record with named fields, a position number names no field'
+note: 'Use named targets or a sequence pattern to unpack the row, or a record with named fields, a position number names no field'

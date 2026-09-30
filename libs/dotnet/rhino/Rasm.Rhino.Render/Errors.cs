@@ -1,19 +1,21 @@
-using Rasm.Rhino.Document;
 using Rhino.Render;
 
 namespace Rasm.Rhino.Render;
 
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record WrongKind(RenderContentKind Required, RenderContentKind Actual) : Expected("Content is {Actual} where {Required} is required", ErrorOps.Code<WrongKind>());
+// --- [CONSTANTS] -----------------------------------------------------------------------
+public static class Codes {
+    public const int WrongKind = 1300;
 
-public sealed record Unattached(Guid Content) : Expected("Content {Content} belongs to no document", ErrorOps.Code<Unattached>());
+    public const int Unattached = 1301;
 
-public sealed record SlotRejected(Guid TypeId, string ChildSlotName) : Expected("Type {TypeId} is not acceptable as a child in slot {ChildSlotName}", ErrorOps.Code<SlotRejected>()) {
-    public static Fin<Unit> Unless(bool acceptable, Guid typeId, string childSlotName) => acceptable ? unit : new SlotRejected(typeId, childSlotName);
+    public const int SlotRejected = 1302;
 }
 
-public sealed record UnsupportedField(string Field, Type FieldType) : Expected("Field {Field} is a {FieldType}, which no FieldValue case holds", ErrorOps.Code<UnsupportedField>());
+// --- [ERRORS] --------------------------------------------------------------------------
+public sealed record WrongKind(RenderContentKind Required, RenderContentKind Actual) : Expected("Content is {Actual} where {Required} is required", Codes.WrongKind);
 
-public sealed record AlreadyRegistered(string Extension) : Expected("Extension {Extension} already has a serializer", ErrorOps.Code<AlreadyRegistered>()) {
-    public static Fin<Unit> Unless(bool registered, string extension) => registered ? unit : new AlreadyRegistered(extension);
+public sealed record Unattached(Guid Content) : Expected("Content {Content} belongs to no document", Codes.Unattached);
+
+public sealed record SlotRejected(Guid TypeId, string ChildSlotName) : Expected("Type {TypeId} is not acceptable as a child in slot {ChildSlotName}", Codes.SlotRejected) {
+    public static Fin<Unit> Unless(bool acceptable, Guid typeId, string childSlotName) => acceptable ? unit : new SlotRejected(typeId, childSlotName);
 }

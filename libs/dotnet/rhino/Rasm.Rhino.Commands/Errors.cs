@@ -1,13 +1,17 @@
-using Rasm.Rhino.Document;
 using Rhino.Input;
 
 namespace Rasm.Rhino.Commands;
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+public static class Codes {
+    public const int UnexpectedGetResult = 1100;
+
+    public const int OptionNotAdded = 1101;
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record UnexpectedGetResult(GetResult Result) : Expected("Getter returned the unhandled GetResult {Result}", ErrorOps.Code<UnexpectedGetResult>());
+public sealed record UnexpectedGetResult(GetResult Result) : Expected("Getter returned the unhandled GetResult {Result}", Codes.UnexpectedGetResult);
 
-public sealed record OptionNotAdded(string EnglishName) : Expected("Option {EnglishName} was not added", ErrorOps.Code<OptionNotAdded>());
-
-public sealed record InvalidOptionName(string Name) : Expected("{Name} is not a valid option name", ErrorOps.Code<InvalidOptionName>()) {
-    public static Fin<Unit> Unless(bool valid, string name) => valid ? unit : new InvalidOptionName(name);
+public sealed record OptionNotAdded(string EnglishName) : Expected("Option {EnglishName} was not added", Codes.OptionNotAdded) {
+    public static Fin<T> Unless<T>(bool added, T value, string englishName) => added ? value : new OptionNotAdded(englishName);
 }

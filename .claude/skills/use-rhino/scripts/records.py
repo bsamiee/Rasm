@@ -3,7 +3,14 @@
 # ///
 """Records and faults every script returns inside and outside Rhino."""
 
+from functools import reduce
+from typing import Self
+
 import msgspec
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Resolved[T] = T | Faults
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -63,14 +70,29 @@ class Fault(Record, frozen=True):
     accepted: tuple[object, ...] = ()
 
 
+class Faults(Record, frozen=True):
+    """Non-empty faults of one call, in the order its independent results raised them."""
+
+    items: tuple[Fault, ...]
+
+    def __add__(self, other: Self) -> Self:
+        """Join two fault sets in order."""
+        return type(self)((*self.items, *other.items))
+
+    @classmethod
+    def of(cls, *results: object) -> Self:
+        """Join every `Fault` and `Faults` among `results`, at least one of them holding a fault."""
+        return reduce(cls.__add__, (cls((result,)) if isinstance(result, Fault) else result for result in results if isinstance(result, (Fault, cls))))
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def collect_faults(*results: object) -> tuple[Fault, ...]:
-    """Return every fault among independent results, flattening nested tuples."""
-    return tuple(fault for result in results for fault in (collect_faults(*result) if isinstance(result, tuple) else (result,)) if isinstance(fault, Fault))
+def collect_faults(*results: object) -> Faults | None:
+    """Return every fault among independent results, `None` when each succeeded."""
+    return Faults.of(*results) if any(isinstance(result, (Fault, Faults)) for result in results) else None
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Fault", "File", "LayerRecord", "MaterialRecord", "Properties", "Record", "collect_faults"]
+__all__ = ["Fault", "Faults", "File", "LayerRecord", "MaterialRecord", "Properties", "Record", "Resolved", "collect_faults"]

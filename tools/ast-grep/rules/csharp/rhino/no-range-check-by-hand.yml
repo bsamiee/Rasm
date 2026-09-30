@@ -110,16 +110,25 @@ utils:
             - kind: object_creation_expression
             - kind: invocation_expression
               has: {field: function, regex: '^((IO\s*\.\s*)?[Ff]ail)(\s*<.+>)?$'}
+    failing:
+        any:
+            - kind: invocation_expression
+              has: {field: function, regex: '(^|\.)\s*[Ff]ail(\s*<.+>)?$'}
+            - has: {stopBy: end, kind: invocation_expression, has: {field: function, regex: '(^|\.)\s*[Ff]ail(\s*<.+>)?$'}}
     rejecting-call:
         kind: invocation_expression
-        has:
-            field: function
-            any:
-                - kind: member_access_expression
-                  has: {field: name, regex: '^Unless$'}
-                - regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(guard|when|unless)(\s*<.+>)?$'
-                - kind: identifier, generic_name
-                  regex: '^Unless(\s*<.+>)?$'
+        any:
+            - has:
+                field: function
+                any:
+                    - kind: member_access_expression
+                      has: {field: name, regex: '^Unless$'}
+                    - regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?guard(\s*<.+>)?$'
+                    - kind: identifier, generic_name
+                      regex: '^Unless(\s*<.+>)?$'
+            - all:
+                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(when|unless)(\s*<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: failing}}}
     rejecting-site:
         inside:
             stopBy: {not: {matches: condition-chain}}
@@ -151,6 +160,78 @@ utils:
                   any:
                     - has: {field: consequence, matches: rejection}
                     - has: {field: alternative, matches: rejection}
+    literal:
+        any:
+            - kind: integer_literal, real_literal
+            - kind: prefix_unary_expression
+              has: {kind: 'integer_literal, real_literal'}
+    emptiness:
+        any:
+            - kind: member_access_expression
+              has: {field: name, regex: '^(Length|Count)$'}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Count|Length)$'}}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    sentinel:
+        kind: invocation_expression
+        has: {field: function, regex: '(^|\.)\s*(IndexOf\w*|LastIndexOf\w*|FindIndex|FindLastIndex|BinarySearch|CompareTo|Compare|Sign)(\s*<.+>)?$'}
+    literal-bound:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^[<>]=?$'}
+            - any:
+                - all:
+                    - has: {field: left, matches: operand, pattern: $VALUE}
+                    - has: {field: right, matches: literal, pattern: $LIMIT}
+                - all:
+                    - has: {field: left, matches: literal, pattern: $LIMIT}
+                    - has: {field: right, matches: operand, pattern: $VALUE}
+            - not: {all: [{has: {pattern: $VALUE, matches: emptiness}}, {has: {pattern: $LIMIT, regex: '^[01]$'}}]}
+            - not: {has: {pattern: $VALUE, matches: sentinel}}
+    literal-pattern:
+        any:
+            - kind: relational_pattern
+              has: {matches: literal}
+            - kind: negated_pattern
+              has: {matches: literal-pattern}
+    rejecting-pattern:
+        any:
+            - kind: relational_pattern
+              has:
+                kind: conditional_expression
+                all:
+                    - has: {field: condition, matches: literal}
+                    - any: [{has: {field: consequence, matches: invalid-rejection}}, {has: {field: alternative, matches: invalid-rejection}}]
+            - kind: negated_pattern
+              has: {matches: rejecting-pattern}
+    invalid-type:
+        regex: '^((global::)?Rasm\.Rhino\.Document\.)?Invalid$'
+    invalid-rejection:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, matches: invalid-type}
+            - has: {stopBy: end, kind: object_creation_expression, has: {field: type, matches: invalid-type}}
+    invalid-site:
+        inside:
+            stopBy: {not: {matches: condition-chain}}
+            any:
+                - kind: argument
+                  nthChild: 1
+                  inside:
+                    kind: argument_list
+                    inside:
+                        kind: invocation_expression
+                        any:
+                            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: invalid-type}}, {has: {field: name, regex: '^Unless$'}}]}
+                            - all:
+                                - matches: rejecting-call
+                                - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: invalid-rejection}}}
+                - kind: conditional_expression
+                  has: {field: condition, stopBy: end, pattern: $CHECK}
+                  any:
+                    - has: {field: consequence, matches: invalid-rejection}
+                    - has: {field: alternative, matches: invalid-rejection}
     count-bound:
         kind: binary_expression
         all:
@@ -200,14 +281,9 @@ utils:
               has: {matches: index-upper-violation}
 rule:
     any:
-        - kind: object_creation_expression
+        - kind: object_creation_expression, implicit_object_creation_expression
           pattern: $CHECK
-          has: {field: type, matches: limit-error}
-        - kind: implicit_object_creation_expression
-          pattern: $CHECK
-          any:
-            - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: limit-error}}}
-            - inside: {kind: arrow_expression_clause, inside: {kind: method_declaration, has: {field: returns, matches: limit-error}}}
+          matches: {csharp-typed-creation: {type: {matches: limit-error}}}
         - kind: invocation_expression
           pattern: $CHECK
           has:
@@ -256,6 +332,22 @@ rule:
             - matches: one-bound
             - matches: rejecting-site
             - not: {inside: {stopBy: {not: {matches: condition-chain}}, matches: bound-pair}}
+        - kind: binary_expression
+          pattern: $CHECK
+          all:
+            - matches: literal-bound
+            - matches: invalid-site
+            - not: {inside: {stopBy: {not: {matches: condition-chain}}, matches: bound-pair}}
+        - kind: is_pattern_expression
+          pattern: $CHECK
+          all:
+            - not: {all: [{has: {field: expression, matches: emptiness}}, {has: {field: pattern, has: {stopBy: end, kind: integer_literal, regex: '^[01]$'}}}]}
+            - not: {has: {field: expression, matches: sentinel}}
+            - any:
+                - all:
+                    - has: {field: pattern, matches: literal-pattern}
+                    - matches: invalid-site
+                - has: {field: pattern, matches: rejecting-pattern}
         - kind: is_pattern_expression
           pattern: $CHECK
           all:
@@ -265,7 +357,7 @@ rule:
                 - has: {field: pattern, has: {stopBy: end, kind: conditional_expression, any: [{has: {field: consequence, matches: rejection}}, {has: {field: alternative, matches: rejection}}]}}
     not:
         any:
-            - matches: {csharp-owner-body: {type: {regex: '^Limits$'}, member: {regex: '^Check$'}}}
+            - matches: {csharp-owner-body: {type: {regex: '^Limits$'}, member: {regex: '^Violation$'}}}
             - inside:
                 stopBy: end
                 kind: method_declaration
@@ -273,4 +365,4 @@ rule:
                 inside: {kind: declaration_list, inside: {matches: csharp-error-record, not: {has: {field: name, matches: limit-error}}}}
             - inside: {stopBy: end, matches: csharp-validation-hook}
 message: '`$CHECK` states a numeric range check by hand'
-note: Use `Limits.AtLeast(<lo>).AtMost(<hi>, <member>)` or one of `AtLeast`, `Above`, `AtMost`, and `Below` with `Check(<value>, <subject>)`, `Check` reports each violated bound as a typed error
+note: Use `Limits.AtLeast(<lo>).AtMost(<hi>)` or one of `AtLeast`, `Above`, `AtMost`, and `Below` with `Check(<value>, <subject>)`, `Check` reports each violated bound as a typed error

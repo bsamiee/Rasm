@@ -85,4 +85,4 @@ rule:
             - has: {field: function, matches: operator-getter}
             - has: {field: arguments, has: {nthChild: 1, matches: any-name}}
 message: '`$CALL` reaches a member by a name string'
-note: 'Read, call, or assign the member on its owner, through a lambda argument for a deferred read or call and a nested `def` for a deferred assignment, type checkers read a member reached by name as `Any`'
+note: 'Use the member on its owner, a lambda for a deferred read or call, or a nested `def` for a deferred assignment, type checkers read a member reached by name as `Any`'

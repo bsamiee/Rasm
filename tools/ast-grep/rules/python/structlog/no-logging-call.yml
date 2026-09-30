@@ -2,7 +2,14 @@
 id: no-logging-call
 language: python
 severity: error
-ignores: ['.claude/skills/use-blender/scripts/**', '.claude/skills/use-rhino/scripts/**', 'tools/interface/**']
+ignores:
+    - .claude/skills/use-blender/scripts/*.py
+    - .claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py
+    - tools/interface/{roles,report,units,render,aliases,frame}.py
+    - tools/interface/rhino/{window,markup}.py
+    - tools/interface/blender/rows.py
+    - tools/interface/*/script/**
+    - tools/interface/blender/extension/**
 utils:
     event-method: {regex: "^(log|debug|info|warning|warn|error|critical|fatal|exception)$"}
 rule:

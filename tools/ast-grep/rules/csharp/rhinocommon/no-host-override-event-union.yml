@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-host-override-event-union
+language: csharp
+severity: error
+files: ['libs/**']
+utils:
+    union-case:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, kind: qualified_name, has: {field: qualifier, kind: identifier, pattern: $UNION}}
+            - kind: conditional_expression
+              all:
+                - has: {field: consequence, matches: union-case}
+                - has: {field: alternative, matches: union-case}
+    union-delegate:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: generic_name
+                regex: '^(Func|Action)\s*<'
+                has: {kind: type_argument_list, has: {nthChild: 1, kind: identifier, pattern: $UNION}}
+    send:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: 'identifier, member_access_expression'}
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, has: {matches: union-case}}
+                    - not: {has: {kind: argument, nthChild: 2}}
+            - matches: union-delegate
+    ran-send:
+        any:
+            - matches: send
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^RunSafe$'}}, {has: {field: expression, matches: send}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    answered-send:
+        kind: invocation_expression
+        all:
+            - matches: {csharp-owner-call: {type: {regex: '^[A-Z]\w*$'}, member: {regex: '^(Answer|Succeeded|ToResult)$'}}}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: ran-send}}}
+    interface-member:
+        all:
+            - has: {kind: modifier, regex: '^public$'}
+            - not: {has: {kind: modifier, regex: '^static$'}}
+            - inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: base_list, has: {regex: '^((global::)?[\w.]*\.)?I[A-Z]\w*(<.*>)?$'}}}}
+    override-send:
+        kind: method_declaration
+        all:
+            - any:
+                - has: {kind: modifier, regex: '^override$'}
+                - has: {kind: explicit_interface_specifier}
+                - matches: interface-member
+            - has: {field: body, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}, matches: send}}
+    callback-send:
+        kind: 'lambda_expression, anonymous_method_expression'
+        has:
+            field: body
+            any:
+                - matches: answered-send
+                - kind: assignment_expression
+                  all:
+                    - has: {field: left, regex: '^_$'}
+                    - has: {field: right, matches: answered-send}
+rule:
+    any:
+        - matches: override-send
+        - matches: callback-send
+message: 'Host callback sends a `$UNION` case to one delegate'
+note: Use an application override of the host member or an application handler on its event, each with one `Answers.Answer`, `Answers.Succeeded`, or `Answers.ToResult` line, a union restates host overrides and hides their base members

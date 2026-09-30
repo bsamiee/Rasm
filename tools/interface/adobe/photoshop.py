@@ -1,5 +1,5 @@
 # ruff: file-ignore[private-member-access]
-"""Photoshop's rows, toolbar, alias commands, and Essentials frame, with the settings, swatch, toolbar, action, and workspace files they render."""
+"""Photoshop's rows, toolbar, and Essentials frame, with the settings, swatch, toolbar, and workspace files they render."""
 
 import base64
 import codecs
@@ -23,11 +23,10 @@ from psd_tools.psd.tagged_blocks import TaggedBlock
 
 from interface import host
 from interface.adobe import window
-from interface.adobe.rows import ActionSet, member, Menu, Paper, papers, PROMPT_NAME, prompt_source, Row, Tool, Toolbar
+from interface.adobe.rows import member, Paper, papers, Row, Toolbar
 from interface.adobe.session import Scripted
 from interface.adobe.stores import File, Folder, Plugin
-from interface.aliases import Alias
-from interface.frame import Role
+from interface.adobe.window import Role
 from interface.render import DPI
 from interface.roles import Guide, Line, Selection, Status, Surface, SWATCHES, TAGS, TEXT_POINTS
 from interface.units import Length, Units
@@ -36,27 +35,11 @@ from interface.units import Length, Units
 
 HEADER_8BPF: Final = b"8BPF" + (1).to_bytes(2)
 WORKSPACE_HEADER: Final = (2).to_bytes(2)
-LEADER: Final = 13
-ENTRY: Final = f"{PROMPT_NAME}.jsx"
 MACHINE_PREFS: Final = "MachinePrefs.psp"
 SWATCH_LIST: Final = "Swatches.psp"
 WORKSPACE_PREFS: Final = "Workspace Prefs.psp"
 ESSENTIALS: Final = f"WorkSpaces (Modified)/{window.WORKSPACE}.psw"
 BLOCK: Final = "photoshop-panel-configuration/workspace"
-COMMANDS: Final[frozendict[Alias, Tool | Menu]] = frozendict({
-    Alias.Q: Tool("lineTool"),
-    Alias.QQ: Tool("penTool"),
-    Alias.W1: Tool("rectangleTool"),
-    Alias.WQ: Tool("polygonTool"),
-    Alias.E: Tool("ellipseTool"),
-    Alias.T: Tool("typeCreateOrEditTool"),
-    Alias.D: Tool("rulerTool"),
-    Alias.G: Menu("groupLayersEvent", selection=True),
-    Alias.GU: Menu("ungroupLayersEvent", selection=True),
-    Alias.Z: Tool("zoomTool"),
-    Alias.V: Tool("moveTool"),
-    Alias.VO: Menu("selectAllLayers", selection=False),
-})
 TOOLBAR: Final = Toolbar(
     (
         ("arwT", "ArtT"),
@@ -175,24 +158,6 @@ def swatch_list(held: bytes | None) -> bytes | host.Error:
     return b"".join((*(struct.pack(">2H", version, len(items)) + b"".join(items) for version, items in versions), TaggedBlock(key=b"phry", data=hierarchy.tobytes(padding=1)).tobytes()))
 
 
-def atn(key: int) -> bytes:
-    """Alias action set on the function key, its one action playing a Scripts event that evaluates the alias entry file in the settings folder."""
-    name = String(f"{PROMPT_NAME}\0").tobytes()
-    source = host.rendered(t"$.evalFile(new File(app.preferencesFolder.fsName + {f'/{ENTRY}'}));")
-    event = described(b"dJsc", {b"jsTx": String(f"{source}\0"), b"jsMs": String("undefined\0")})
-    return b"".join((
-        struct.pack(">I", 16),
-        name,
-        struct.pack(">BIH2BH", 0, 1, key, 0, 0, 0),
-        name,
-        struct.pack(">BI4B4s", 0, 1, 0, 1, 0, 0, b"TEXT"),
-        RawData(b"AdobeScriptAutomation Scripts").tobytes(),
-        RawData(b"Scripts").tobytes(),
-        struct.pack(">i", -1),
-        event.tobytes(),
-    ))
-
-
 def sizes(presets: Sequence[Paper]) -> bytes:
     """New Document presets file of the user section alone, one preset per paper in its unit at the render resolution, indented as Photoshop writes it."""
     section = "user"
@@ -296,8 +261,8 @@ def folders(bundle: host.Bundle, base: Mapping[Folder, Path]) -> Mapping[Folder,
 
 def rows(units: Units, _: host.Bundle) -> tuple[Row | File, ...]:
     """Photoshop's rows with native panel text at the interface text size, lengths in the system's page unit, type in points, resolutions as the 16.16 fixed pixels per inch Photoshop holds, and smart guides at the magenta step its custom color store holds."""
-    page, points, actions = UNITS[units.page], round(Length.INCHES / Length.POINTS), f"{PROMPT_NAME}.atn"
-    fonts = frozendict({9: "preferTinyPaletteFontType", 10: "preferSmallPaletteFontType"})
+    page, points = UNITS[units.page], round(Length.INCHES / Length.POINTS)
+    fonts = frozendict({9: "preferTinyPaletteFontType", 10: "preferSmallPaletteFontType", 11: "preferMediumPaletteFontType", 12: "preferLargePaletteFontType"})
     grid = float(Fraction(math.floor(Fraction(units.snap / units.page) * page.inches * 10**5), 10**5) * Fraction(Length.INCHES / units.page).limit_denominator())
     resolution = float(Fraction(math.floor(Fraction(DPI, points) * 2**16), 2**16) * points**2)
     screens = ("screenModeStandard", "screenModeFullScreenWithMenubar", "screenModeArtboard", "screenModeFullScreen")
@@ -347,9 +312,6 @@ def rows(units: Units, _: host.Bundle) -> tuple[Row | File, ...]:
             },
         ),
         setting("unitsPrefs", {"newDocPresetPrintResolution": resolution}),
-        Row(f'actionSet["{PROMPT_NAME}"]', ActionSet(PROMPT_NAME, actions), target=True),
-        File(Folder.ARTIFACTS, actions, lambda _: atn(LEADER)),
-        File(Folder.SETTINGS, ENTRY, lambda _: prompt_source(PRODUCT.name, COMMANDS).encode()),
         File(Folder.SETTINGS, MACHINE_PREFS, machine_prefs),
         File(Folder.SETTINGS, "New Doc Sizes.json", lambda _: sizes(papers(units))),
         File(Folder.SETTINGS, SWATCH_LIST, swatch_list),
@@ -363,7 +325,7 @@ def rows(units: Units, _: host.Bundle) -> tuple[Row | File, ...]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-descriptor._TERMS.update({b"tver", b"tpad", *(option.encode() for option in TOOLBAR.options), b"tlst", b"oflt", b"jsTx", b"jsMs", b"dJsc"})
+descriptor._TERMS.update({b"tver", b"tpad", *(option.encode() for option in TOOLBAR.options), b"tlst", b"oflt"})
 FRAME: Final = window.Frame(
     toolbar="panelid.static.toolbar",
     bar=True,
@@ -395,4 +357,4 @@ PRODUCT: Final = Scripted(name="photoshop", identifiers=("com.adobe.Photoshop",)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COMMANDS", "FRAME", "LEADER", "PRODUCT", "folders", "rows", "workspace"]
+__all__ = ["FRAME", "PRODUCT", "folders", "rows", "workspace"]

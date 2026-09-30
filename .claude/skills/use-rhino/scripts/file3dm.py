@@ -16,7 +16,7 @@ from pathlib import Path
 import sys
 
 import msgspec
-from records import Fault, LayerRecord, MaterialRecord, Properties, Record
+from records import Fault, Faults, LayerRecord, MaterialRecord, Properties, Record, Resolved
 from rhino3dm import ActiveSpace, AnnotationBase, BoundingBox, File3dm, ObjectMode, ObjectType, UnitSystem
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -51,10 +51,10 @@ class FileRecord(Record, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def describe(path: Path) -> FileRecord | Fault:
+def describe(path: Path) -> Resolved[FileRecord]:
     """Read one `.3dm` file with counts of model-space objects outside block definitions, a view with page-space objects as a layout."""
     if (model := File3dm.Read(str(path))) is None:
-        return Fault(File3dm, str(path))
+        return Faults.of(Fault(File3dm, str(path)))
     objects = [item for item in model.Objects if not item.Attributes.IsInstanceDefinitionObject and item.Attributes.ActiveSpace == ActiveSpace.ModelSpace]
     pages = {item.Attributes.ViewportId for item in model.Objects if item.Attributes.ActiveSpace == ActiveSpace.PageSpace}
     materials = list(model.Materials)
@@ -135,7 +135,7 @@ def main() -> None:
         result = describe(path.resolve())
         sys.stdout.buffer.write(encoder.encode_lines((result,)))
         sys.stdout.buffer.flush()
-        failed |= isinstance(result, Fault)
+        failed |= isinstance(result, Faults)
     sys.exit(failed)
 
 

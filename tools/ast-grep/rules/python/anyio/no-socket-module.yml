@@ -2,7 +2,14 @@
 id: no-socket-module
 language: python
 severity: error
-ignores: ['.claude/skills/use-blender/scripts/**', '.claude/skills/use-rhino/scripts/**', 'tools/interface/**']
+ignores:
+    - .claude/skills/use-blender/scripts/*.py
+    - .claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py
+    - tools/interface/{roles,report,units,render,aliases,frame}.py
+    - tools/interface/rhino/{window,markup}.py
+    - tools/interface/blender/rows.py
+    - tools/interface/*/script/**
+    - tools/interface/blender/extension/**
 utils:
     socket-member:
         regex: '^(socket|create_connection|create_server|getaddrinfo|getnameinfo|gethostbyname|gethostbyname_ex|gethostbyaddr|getfqdn)$'
@@ -15,4 +22,4 @@ rule:
             - inside: {kind: 'import_statement, import_from_statement', stopBy: end}
             - inside: {kind: type, stopBy: end}
 message: '`$USE` names a blocking `socket` member'
-note: 'Use `anyio.connect_tcp`, `anyio.create_tcp_listener`, `anyio.getaddrinfo`, or `anyio.getnameinfo`, a blocking socket call stalls the event loop'
+note: 'Use `anyio.connect_tcp`, `anyio.create_tcp_listener`, `anyio.getaddrinfo`, or `anyio.getnameinfo`, `socket` calls stall the event loop'

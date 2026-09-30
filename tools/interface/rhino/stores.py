@@ -20,7 +20,7 @@ from interface.frame import RIGHT_COLUMN
 from interface.host import Bundle, Change
 from interface.rhino.markup import canonical, element
 from interface.rhino.packages import Package
-from interface.rhino.window import Extent, layers_height, Measured, RibbonTab, Site, upper_length
+from interface.rhino.window import Extent, layers_height, Measured, PanelId, RibbonTab, Site, upper_length
 from interface.roles import Guide, Status, Text
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -70,12 +70,17 @@ def written(path: Path, held: bytes, root: etree._Element, projection: Callable[
 
 
 # --- [SETTINGS]
-def layer_columns(columns: Mapping[str, int], visible: Sequence[str], inset: float) -> dict[str, tuple[str, ...]]:
-    """Order, Width, and Visible lists of a Layers column group showing the visible columns in order, the first taking the right column's rest."""
-    stretch, *fixed = visible
-    widths = {**columns, stretch: math.floor(RIGHT_COLUMN - inset - sum(columns[name] for name in fixed))}
+def stretched(widths: Mapping[str, int], shown: Sequence[str], stretch: str, inset: float) -> dict[str, int]:
+    """Width of each column, the stretch column taking the right column's whole points left beside the other shown columns and never less than its own width."""
+    rest = math.floor(RIGHT_COLUMN - inset - sum(widths[name] for name in shown if name != stretch))
+    return {name: max(width, rest) if name == stretch else width for name, width in widths.items()}
+
+
+def layer_columns(columns: Mapping[str, int], fitted: Mapping[str, int], visible: Sequence[str], inset: float) -> dict[str, tuple[str, ...]]:
+    """Order, Width, and Visible lists of a Layers column group showing the visible columns in order at their fitted or default widths, the first taking the right column's rest and every hidden one keeping its default."""
+    widths = stretched({name: fitted.get(name, width) if name in visible else width for name, width in columns.items()}, visible, visible[0], inset)
     order = (*visible, *(name for name in columns if name not in visible))
-    return {"Order": tuple(str(order.index(name)) for name in columns), "Width": tuple(str(widths[name]) for name in columns), "Visible": tuple(str(int(name in visible)) for name in columns)}
+    return {"Order": tuple(str(order.index(name)) for name in columns), "Width": tuple(map(str, widths.values())), "Visible": tuple(str(int(name in visible)) for name in columns)}
 
 
 def registered(root: etree._Element) -> dict[str, str]:
@@ -85,10 +90,10 @@ def registered(root: etree._Element) -> dict[str, str]:
 
 def settings(measured: Measured, registry: Mapping[str, str]) -> tuple[tuple[Child, ...], dict[str, tuple[Child, ...]]]:
     """Children of Rhino's settings file and of each plug-in settings folder by name, the keys no running owner writes."""
-    extents = measured["extents"]
+    extents, layers, layouts = measured["extents"], measured["fitted"][PanelId.LAYERS], measured["fitted"][PanelId.LAYOUTS]
     continuity = {"BadHairColor": Status.ERROR, "GoodHairColor": Status.SUCCESS, "MaxHairColor": Guide.CONSTRUCTION, "TextColor": Text.PRIMARY}
-    material_rows, layouts = 4, {"Name": 80, "PageNumber": 25, "PageSize": 50}
-    border, pitch = extents[Extent.LIBRARIES_BORDER], extents[Extent.LIBRARIES_ROW]
+    material_rows, border, pitch = 4, extents[Extent.LIBRARIES_BORDER], extents[Extent.LIBRARIES_ROW]
+    head, tail = ("Name", "Current", "Locked", "Color", "Material", "Linetype"), ("ViewportVisible", "Visible")
     span = upper_length(measured, Site.RIGHT, layers_height(extents)) - extents[Extent.LIBRARIES_CHROME]
     folders = border + pitch * min(extents[Extent.LIBRARIES_FOLDERS], math.floor((span - extents[Extent.LIBRARIES_LIST_MINIMUM] - border) / pitch))
     editors = {
@@ -100,13 +105,13 @@ def settings(measured: Measured, registry: Mapping[str, str]) -> tuple[tuple[Chi
         (
             Child(path=("LayersPanel",), entries={"ColumnSorting": False}),
             *(
-                Child(path=("LayersPanel", group), entries=layer_columns(measured["columns"], visible, extents[Extent.LAYERS_INSET]))
+                Child(path=("LayersPanel", group), entries=layer_columns(measured["columns"], layers, visible, extents[Extent.LAYERS_INSET]))
                 for group, visible in (
-                    ("LayerColumnGroup.Model", ("Name", "Current", "Locked", "Color", "Material", "ViewportVisible", "Visible")),
-                    ("LayerColumnGroup.Viewport", ("Name", "Current", "ViewportVisible", "NewDetailOn", "Locked", "Color", "ViewportColor", "ViewportPrintColor", "Visible")),
+                    ("LayerColumnGroup.Model", (*head, "PrintColor", "PrintWidth", "Section", *tail)),
+                    ("LayerColumnGroup.Viewport", (*head, "ViewportColor", "ViewportPrintColor", "ViewportPrintWidth", "Section", "NewDetailOn", *tail)),
                 )
             ),
-            Child(path=("LayoutsPanel",), entries={"Width": tuple(map(str, (*layouts.values(), math.floor(RIGHT_COLUMN - extents[Extent.LAYOUTS_INSET] - sum(layouts.values()))))), "Expanded": True}),
+            Child(path=("LayoutsPanel",), entries={"Width": tuple(map(str, stretched(layouts, tuple(layouts), "Description", extents[Extent.LAYOUTS_INSET]).values())), "Expanded": True}),
             Child(path=("Options", "EdgeContinuity"), entries={name: ",".join(map(str, (255, *rgb))) for name, rgb in continuity.items()}),
             Child(path=(), entries={"Thumbnails": False}, command="NamedView"),
             *(Child(path=("Options", group), factory=frozenset({key})) for group, key in (("General", "StartupCommands"), ("Display", "MSAASampleCount"))),
@@ -230,7 +235,6 @@ def toolbars(bundled: bytes, packages: Sequence[Package], cache: Path) -> etree.
     (group,) = (group for group in rui.iterfind("tool_bar_groups/tool_bar_group") if group.xpath("tool_bar_group_item/tool_bar_id = $tab", tab=RibbonTab.STANDARD))
     items = {item.findtext("tool_bar_id"): item for item in group.iterfind("tool_bar_group_item")}
     group[:] = [*(each for each in group if each not in items.values()), *(items[tab] for tab in RibbonTab)]
-    group.set("active_tool_bar_group", RibbonTab.STANDARD)
     sources = {package.id: toolbar_roots(package.archive(cache)) for package in packages if package.commands}
     placed = [(tab, package.id, commands) for package in packages for tab, commands in package.commands.items()]
     for tab in dict.fromkeys(tab for tab, *_ in placed):

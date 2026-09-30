@@ -1,5 +1,6 @@
 """Acrobat's preference leaves, each a typecode and value under the `DC` hive of its domain, and the crash reporter's send choice."""
 
+from collections.abc import Iterator, Mapping
 from enum import IntEnum
 import math
 import struct
@@ -11,6 +12,8 @@ from interface.roles import Alpha, blend, fractions, Guide, Line, Selection, Sta
 from interface.units import Length, Units
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+type Tree = Mapping[str, Tree | tuple[Typecode, object]]
 
 
 class Typecode(IntEnum):
@@ -43,91 +46,36 @@ def atom(name: str) -> tuple[Typecode, bytes]:
     return (Typecode.ATOM, f"{name}\0".encode())
 
 
-def leaf(*keys: str, node: tuple[object, ...]) -> Default:
-    """Leaf at the keys under the `DC` hive, each key between the section and the last a cabinet."""
-    section, *nested, key = keys
-    below = (section, *(step for name in nested for step in (name, (Typecode.CABINET,))), key)
-    return Default(DOMAIN, ("DC", *below), node)
+def leaves(tree: Tree, *keys: str) -> Iterator[Default]:
+    """Leaf of each node in the tree at its keys under the `DC` hive, each key between the section and the node's own a cabinet."""
+    for key, held in tree.items():
+        match held:
+            case Mapping():
+                yield from leaves(held, *keys, key)
+            case node:
+                section, *nested = keys
+                below = (section, *(step for name in nested for step in (name, (Typecode.CABINET,))), key)
+                yield Default(DOMAIN, ("DC", *below), node)
 
 
 # --- [ROWS]
 def rows(units: Units) -> tuple[Default, ...]:
-    """Acrobat's leaves for the unit system, its page unit shown and its grid and leader lengths in points."""
-    rgb_space = 1
-    return (
-        leaf("AVGeneral", "HonorOSTheme", node=(Typecode.BOOLEAN, False)),
-        leaf("AVGeneral", "ActiveUITheme", node=atom("DarkTheme")),
-        leaf("AVGeneral", "AV2ViewerLHPState", node=(Typecode.TEXT, b"hidden\0")),
-        leaf("AVGeneral", "Dockables", "GenTechAcrobatAI", "TabVisible", node=(Typecode.BOOLEAN, False)),
-        *(leaf("AVGeneral", "Dockables", panel, "TabVisible", node=(Typecode.BOOLEAN, True)) for panel in ("OCGs", "FileAttachmentDockable")),
-        leaf("Selection", "EnableContextualToolbar", node=(Typecode.BOOLEAN, False)),
-        leaf("AVGeneral", "ShowPageHoverMenu", node=(Typecode.BOOLEAN, False)),
-        leaf("AVGeneral", "AlwaysUseFileNameAsDocTitle", node=(Typecode.BOOLEAN, True)),
-        leaf("AVGeneral", "ToolHotkeys", node=(Typecode.BOOLEAN, True)),
-        leaf("AVGeneral", "PromptBeforeClosingMultipleTabs", node=(Typecode.BOOLEAN, False)),
-        leaf("HandTool", "MouseWheelZooms", node=(Typecode.BOOLEAN, True)),
-        *(
-            leaf("Originals", key, node=node)
-            for key, node in (
-                ("PageViewLayoutMode", (Typecode.INTEGER, 2)),
-                ("DefaultZoomType", (Typecode.INTEGER, 1)),
-                ("PageUnits", (Typecode.INTEGER, frozendict({Length.INCHES: 1, Length.MILLIMETERS: 2})[units.page])),
-                *((f"Grid{side}", (Typecode.INTEGER, fixed(units.snap / Length.POINTS))) for side in ("Width", "Height")),
-                *((f"Grid{axis}Offset", (Typecode.INTEGER, 0)) for axis in ("H", "V")),
-                ("GridSubdivisions", (Typecode.INTEGER, round(units.snap / units.resolution))),
-            )
-        ),
-        *(
-            leaf(section, key, f"{key}{name}", node=(Typecode.INTEGER, value))
-            for section, key, rgb in (
-                ("Originals", "GridColor", Line.PAPER_GRID),
-                ("Originals", "GridMinorColor", blend(Line.PAPER_GRID, Surface.PAPER, Alpha.GRID_MINOR)),
-                ("Measuring", "HintColor", Guide.TRACKING),
-            )
-            for name, value in (*zip(("Red", "Green", "Blue"), map(fixed, fractions(rgb)), strict=True), ("Space", rgb_space))
-        ),
-        leaf("UnitsAndGuides", "RulersVisible", node=(Typecode.BOOLEAN, True)),
-        leaf("UnitsAndGuides", "GuideColor", "ColorSpace", node=(Typecode.INTEGER, rgb_space)),
-        *(leaf("UnitsAndGuides", "GuideColor", f"value{index}", node=(Typecode.REAL, math.ldexp(fixed(channel), -16))) for index, channel in enumerate((*fractions(Guide.CONSTRUCTION), 0), start=1)),
-        *(
-            leaf("Measuring", f"Leader{name}", node=(Typecode.INTEGER, round(length / Length.POINTS)))
-            for name, length in (("Length", units.first_offset), ("Extend", units.extension), ("Offset", units.offset))
-        ),
-        leaf("IPM", "DoNotCheckForMessage", node=(Typecode.BOOLEAN, True)),
-        leaf("AVGeneral", "AcrobatRHPBottomBannerIPMEnabled", node=(Typecode.BOOLEAN, False)),
-        leaf("AVGeneral", "DisableStudioHome", node=(Typecode.BOOLEAN, True)),
-        leaf("HomeWelcome", "LastShowStatus", node=(Typecode.BOOLEAN, False)),
-        leaf("DocumentStatus", "HomeScreenOptionWhenDocClosed", node=(Typecode.BOOLEAN, False)),
-        leaf("ScanOCRDMB", "NumberOfTimesDMBCrossClicked", node=(Typecode.INTEGER, 3)),
-        *(
-            leaf(*keys, node=(Typecode.BOOLEAN, False))
-            for keys in (
-                ("FTEDialog", "ShowInstallFTE"),
-                ("AVGeneral", "IsNewUser"),
-                ("AVGeneral", "WhatsNewEnabled"),
-                ("IPM", "ShowMsgAtLaunch"),
-                ("ToolSuggestion", "IsNewUser"),
-                ("QuickToolsFrequent", "FrequentlyUsedToolsVisibility", "Visible"),
-                ("AVPrivate", "AIVideoStripExpUserPref"),
-                *(("HelpAndLearn", key) for key in ("IsNewUserForContextualHelp", "HelpAndLearnV2NewUsers")),
-                *(
-                    ("Gentech", key)
-                    for key in (
-                        "ConsentProvided",
-                        "AutoOpenPanel",
-                        "EnableNBA",
-                        "SummaryDMBEnabled",
-                        "SLModelOverviewEnabledPref",
-                        "SmartHighlightsEnabledPref",
-                        "ShouldShowGTPromotionForCommentsPanel",
-                    )
-                ),
-            )
-        ),
-        leaf(
-            "AVGeneral",
-            "AV2FavoritesCommandsDesktop",
-            node=(
+    """Acrobat's leaves for the unit system by section, its page unit shown and its grid and leader lengths in points, then the crash reporter's send choice."""
+    rgb_space, off, on = 1, (Typecode.BOOLEAN, False), (Typecode.BOOLEAN, True)
+
+    def channels(key: str, rgb: tuple[int, int, int]) -> Tree:
+        """Color cabinet of the key: each channel's 16.16 fraction and the RGB space, named after the cabinet."""
+        return {f"{key}{name}": (Typecode.INTEGER, value) for name, value in (*zip(("Red", "Green", "Blue"), map(fixed, fractions(rgb)), strict=True), ("Space", rgb_space))}
+
+    tree: Tree = {
+        "AVGeneral": {
+            "HonorOSTheme": off,
+            "ActiveUITheme": atom("DarkTheme"),
+            "AV2ViewerLHPState": (Typecode.TEXT, b"hidden\0"),
+            "Dockables": {"GenTechAcrobatAI": {"TabVisible": off}, **{panel: {"TabVisible": on} for panel in ("OCGs", "FileAttachmentDockable")}},
+            **dict.fromkeys(("ShowPageHoverMenu", "PromptBeforeClosingMultipleTabs", "AcrobatRHPBottomBannerIPMEnabled", "IsNewUser", "WhatsNewEnabled"), off),
+            **dict.fromkeys(("AlwaysUseFileNameAsDocTitle", "ToolHotkeys", "DisableStudioHome"), on),
+            "AV2FavoritesCommandsDesktop": (
                 Typecode.CABINET,
                 {
                     str(index): atom(name)
@@ -145,12 +93,46 @@ def rows(units: Units) -> tuple[Default, ...]:
                     ))
                 },
             ),
+        },
+        "Selection": {"EnableContextualToolbar": off},
+        "HandTool": {"MouseWheelZooms": on},
+        "Originals": {
+            "PageViewLayoutMode": (Typecode.INTEGER, 2),
+            "DefaultZoomType": (Typecode.INTEGER, 1),
+            "PageUnits": (Typecode.INTEGER, frozendict({Length.INCHES: 1, Length.MILLIMETERS: 2})[units.page]),
+            **dict.fromkeys((f"Grid{side}" for side in ("Width", "Height")), (Typecode.INTEGER, fixed(units.snap / Length.POINTS))),
+            **dict.fromkeys((f"Grid{axis}Offset" for axis in ("H", "V")), (Typecode.INTEGER, 0)),
+            "GridSubdivisions": (Typecode.INTEGER, round(units.snap / units.resolution)),
+            "GridColor": channels("GridColor", Line.PAPER_GRID),
+            "GridMinorColor": channels("GridMinorColor", blend(Line.PAPER_GRID, Surface.PAPER, Alpha.GRID_MINOR)),
+        },
+        "Measuring": {
+            "HintColor": channels("HintColor", Guide.TRACKING),
+            **{f"Leader{name}": (Typecode.INTEGER, round(length / Length.POINTS)) for name, length in (("Length", units.first_offset), ("Extend", units.extension), ("Offset", units.offset))},
+        },
+        "UnitsAndGuides": {
+            "RulersVisible": on,
+            "GuideColor": {
+                "ColorSpace": (Typecode.INTEGER, rgb_space),
+                **{f"value{index}": (Typecode.REAL, math.ldexp(fixed(channel), -16)) for index, channel in enumerate((*fractions(Guide.CONSTRUCTION), 0), start=1)},
+            },
+        },
+        "IPM": {"DoNotCheckForMessage": on, "ShowMsgAtLaunch": off},
+        "HomeWelcome": {"LastShowStatus": off},
+        "DocumentStatus": {"HomeScreenOptionWhenDocClosed": off},
+        "ScanOCRDMB": {"NumberOfTimesDMBCrossClicked": (Typecode.INTEGER, 3)},
+        "FTEDialog": {"ShowInstallFTE": off},
+        "ToolSuggestion": {"IsNewUser": off},
+        "QuickToolsFrequent": {"FrequentlyUsedToolsVisibility": {"Visible": off}},
+        "AVPrivate": {"AIVideoStripExpUserPref": off},
+        "HelpAndLearn": dict.fromkeys(("IsNewUserForContextualHelp", "HelpAndLearnV2NewUsers"), off),
+        "Gentech": dict.fromkeys(
+            ("ConsentProvided", "AutoOpenPanel", "EnableNBA", "SummaryDMBEnabled", "SLModelOverviewEnabledPref", "SmartHighlightsEnabledPref", "ShouldShowGTPromotionForCommentsPanel"), off
         ),
-        leaf("Intl", "TranslateBannerSuggestedPromptsPref", node=(Typecode.BOOLEAN, False)),
-        *(leaf("Intl", key, node=(Typecode.BOOLEAN, True)) for key in ("Ligature", "ComplexScript")),
-        leaf("Annots", "Prefs", "copyTextToMarkupAnnot", node=(Typecode.BOOLEAN, True)),
-        *(
-            leaf("FormsPrefs", key, "Data", node=(Typecode.BINARY, struct.pack("<B3x4i", rgb_space, *map(fixed, fractions(rgb)), 0)))
+        "Intl": {"TranslateBannerSuggestedPromptsPref": off, **dict.fromkeys(("Ligature", "ComplexScript"), on)},
+        "Annots": {"Prefs": {"copyTextToMarkupAnnot": on}},
+        "FormsPrefs": {
+            key: {"Data": (Typecode.BINARY, struct.pack("<B3x4i", rgb_space, *map(fixed, fractions(rgb)), 0))}
             for key, rgb in (
                 ("RequiredFieldHLColor", Status.ERROR),
                 ("RuntimeBGIdleColor", Surface.FORM_FIELD),
@@ -159,9 +141,9 @@ def rows(units: Units) -> tuple[Default, ...]:
                 ("RuntimeBorderFocusColor", Selection.ACTIVE),
                 ("RuntimeBorderRolloverColor", Selection.HOVER),
             )
-        ),
-        Default("com.adobe.crashreporter", ("always_never_send",), 2),
-    )
+        },
+    }
+    return (*leaves(tree), Default("com.adobe.crashreporter", ("always_never_send",), 2))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

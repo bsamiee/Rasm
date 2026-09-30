@@ -3,7 +3,7 @@
 from collections import ChainMap
 from collections.abc import Callable, Mapping, Sequence
 import copy
-from enum import StrEnum
+from enum import auto, Enum, StrEnum
 from typing import Final
 
 from lxml import etree
@@ -11,9 +11,32 @@ from lxml.builder import E
 import msgspec
 
 from interface import host
-from interface.frame import RIGHT_COLUMN, Role
+from interface.frame import RIGHT_COLUMN
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Role(Enum):
+    """Right dock tab group roles each product maps to its own panels, COLOR holding swatch editors, DOCUMENT sheet and link lists, and STRUCTURE the document tree."""
+
+    PROPERTIES = auto()
+    ALIGNMENT = auto()
+    DOCUMENT = auto()
+    COLOR = auto()
+    AUTOMATION = auto()
+    LIBRARIES = auto()
+    TRANSFORM = auto()
+    CHARACTER = auto()
+    STYLES = auto()
+    GLYPHS = auto()
+    ASSETS = auto()
+    PATTERN = auto()
+    BLEND = auto()
+    EFFECTS = auto()
+    EXPORT = auto()
+    INFORMATION = auto()
+    OUTPUT = auto()
+    STRUCTURE = auto()
 
 
 class Markup(StrEnum):
@@ -203,4 +226,4 @@ def arranged(frame: Frame, root: etree._Element, factory: Sequence[etree._Elemen
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["WORKSPACE", "Attribute", "Frame", "Markup", "arranged", "docked", "floated", "indented", "parsed", "serialized", "sized"]
+__all__ = ["WORKSPACE", "Attribute", "Frame", "Markup", "Role", "arranged", "docked", "floated", "indented", "parsed", "serialized", "sized"]

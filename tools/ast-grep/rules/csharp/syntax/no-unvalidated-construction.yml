@@ -61,6 +61,16 @@ rule:
             - has: {field: arguments, matches: non-public-flag}
         - kind: member_access_expression
           has: {field: name, pattern: $CALLEE, regex: '^DeclaredConstructors$'}
+        - kind: method_declaration
+          all:
+            - has: {field: name, pattern: $CALLEE}
+            - has:
+                kind: attribute_list
+                has:
+                    kind: attribute
+                    all:
+                        - has: {field: name, regex: '^((global::)?System\.Runtime\.CompilerServices\.)?UnsafeAccessor(Attribute)?$'}
+                        - has: {stopBy: end, kind: attribute_argument, nthChild: 1, regex: '(^|\.)UnsafeAccessorKind\.Constructor$'}
         - kind: invocation_expression
           has:
             field: function
@@ -70,7 +80,14 @@ rule:
                     field: name
                     kind: generic_name
                     pattern: $CALLEE
-                    has: {kind: type_argument_list, not: {has: {nthChild: {position: 1, reverse: true}, kind: predefined_type}}}
+                    has:
+                        kind: type_argument_list
+                        not:
+                            has:
+                                nthChild: {position: 1, reverse: true}
+                                any:
+                                    - kind: predefined_type
+                                    - regex: '^((global::)?System\.Numerics\.)?(Vector[234]|Quaternion|Matrix3x2|Matrix4x4|Complex)$'
                 - any:
                     - all:
                         - has: {field: expression, regex: '^(global::)?(System\.)?(Runtime\.CompilerServices\.)?Unsafe$'}

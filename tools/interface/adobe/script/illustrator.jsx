@@ -9,14 +9,6 @@ function slots(access) {
     return indexes;
 }
 
-function savedSet(name) {
-    for (var index = 1; index <= app.preferences.getIntegerPreference('plugin/Action/SavedSetCount'); index++) {
-        var set = 'plugin/Action/SavedSets/set-' + index;
-        if (app.preferences.getStringPreference(set + '/name') === name) return set;
-    }
-    return null;
-}
-
 // --- [PROFILES]
 function profiles(access) {
     var seen = {};
@@ -142,20 +134,10 @@ var accessors = {
         wanted: function (access, target, record) {
             return wanted(record.space, target);
         },
-        write: function (access, target, artifacts, record) {
+        write: function (access, target, record) {
             var document = app.open(new File(access.file));
             written(document, record.space, target);
             document.close(SaveOptions.SAVECHANGES);
-        }
-    },
-    ActionSet: {
-        read: function (access) {
-            var set = savedSet(access.name);
-            return set === null ? null : app.preferences.getIntegerPreference(set + '/action-1/keyIndex');
-        },
-        write: function (access, target, artifacts, stored) {
-            if (stored !== null) app.unloadAction(access.name, '');
-            app.loadAction(new File(artifacts + '/' + access.file));
         }
     },
     Active: {

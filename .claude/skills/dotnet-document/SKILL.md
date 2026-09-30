@@ -1,6 +1,7 @@
 ---
 name: dotnet-document
 description: "Use when adding or reviewing XML doc comments on a C# member, or a build fails on a compiler or Roslynator doc-comment diagnostic."
+disable-model-invocation: true
 ---
 
 # [DOTNET_DOCUMENT]

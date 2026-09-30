@@ -1,214 +1,58 @@
-using System.Diagnostics.CodeAnalysis;
+using System.Drawing;
+using System.Globalization;
+using System.Numerics;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.PlugIns;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-public interface ISettingRead<TSelf> where TSelf : SettingValue {
-    public static abstract Option<TSelf> Read(PersistentSettings node, string key, Seq<string> legacy);
-}
-
-public interface ISettingDefaultWrite<TSelf> where TSelf : SettingValue {
-    public static abstract IO<Unit> SetDefault(PersistentSettings node, string key, TSelf value);
-}
-
-public interface ISettingDefault<TSelf> : ISettingRead<TSelf>, ISettingDefaultWrite<TSelf> where TSelf : SettingValue {
-    public static abstract Option<TSelf> ReadDefault(PersistentSettings node, string key);
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SettingValue {
-    public sealed record Bool(bool Value) : SettingValue, ISettingDefault<Bool> {
-        public static Option<Bool> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetBool(key, out bool stored, legacy), stored).Map(static found => new Bool(found));
-
-        public static Option<Bool> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out bool stored), stored).Map(static found => new Bool(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Bool value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record Byte(byte Value) : SettingValue, ISettingDefault<Byte> {
-        public static Option<Byte> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetByte(key, out byte stored, legacy), stored).Map(static found => new Byte(found));
-
-        public static Option<Byte> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out byte stored), stored).Map(static found => new Byte(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Byte value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record Integer(int Value) : SettingValue, ISettingDefault<Integer> {
-        public static Option<Integer> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetInteger(key, out int stored, legacy), stored).Map(static found => new Integer(found));
-
-        public static Option<Integer> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out int stored), stored).Map(static found => new Integer(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Integer value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record UnsignedInteger(uint Value) : SettingValue, ISettingRead<UnsignedInteger> {
-        public static Option<UnsignedInteger> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetUnsignedInteger(key, out uint stored, legacy), stored).Map(static found => new UnsignedInteger(found));
-    }
-
-    public sealed record Double(double Value) : SettingValue, ISettingDefault<Double> {
-        public static Option<Double> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetDouble(key, out double stored, legacy), stored).Map(static found => new Double(found));
-
-        public static Option<Double> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out double stored), stored).Map(static found => new Double(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Double value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record Char(char Value) : SettingValue, ISettingDefault<Char> {
-        public static Option<Char> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetChar(key, out char stored, legacy), stored).Map(static found => new Char(found));
-
-        public static Option<Char> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out char stored), stored).Map(static found => new Char(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Char value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record String(string Value) : SettingValue, ISettingDefault<String> {
-        public static Option<String> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetString(key, out string stored, legacy), stored).Map(static found => new String(found));
-
-        public static Option<String> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out string stored), stored).Map(static found => new String(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, String value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record StringList(Seq<string> Values) : SettingValue, ISettingDefault<StringList> {
-        public static Option<StringList> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetStringList(key, out string[] stored, legacy), stored).Map(static found => new StringList(toSeq(found)));
-
-        public static Option<StringList> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out string[] stored), stored).Map(static found => new StringList(toSeq(found)));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, StringList value) =>
-            IO.lift(() => node.SetDefault(key, [.. value.Values]));
-    }
-
-    public sealed record StringDictionary(Seq<(string Key, string Value)> Pairs) : SettingValue, ISettingRead<StringDictionary>, ISettingDefaultWrite<StringDictionary> {
-        public static Option<StringDictionary> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetStringDictionary(key, out KeyValuePair<string, string>[] stored, legacy), stored).Map(static found => new StringDictionary(toSeq(found).Map(static pair => (pair.Key, pair.Value))));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, StringDictionary value) =>
-            IO.lift(() => node.SetDefault(key, PlugInSettings.Pairs(value.Pairs)));
-    }
-
-    public sealed record Date(DateTime Value) : SettingValue, ISettingDefault<Date> {
-        public static Option<Date> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetDate(key, out DateTime stored, legacy), stored).Map(static found => new Date(found));
-
-        public static Option<Date> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out DateTime stored), stored).Map(static found => new Date(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Date value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record Color(System.Drawing.Color Value) : SettingValue, ISettingDefault<Color> {
-        public static Option<Color> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetColor(key, out System.Drawing.Color stored, legacy), stored).Map(static found => new Color(found));
-
-        public static Option<Color> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out System.Drawing.Color stored), stored).Map(static found => new Color(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Color value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-
-        public bool Equals([NotNullWhen(true)] Color? other) => other is not null && (other.Value.ToArgb() == Value.ToArgb());
-
-        public override int GetHashCode() => Value.ToArgb();
-    }
-
-    public sealed record OptionalColor(Option<System.Drawing.Color> Value) : SettingValue, ISettingRead<OptionalColor>, ISettingDefaultWrite<OptionalColor> {
-        public static Option<OptionalColor> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetColor(key, out System.Drawing.Color? stored, legacy), stored).Map(static found => new OptionalColor(Optional(found)));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, OptionalColor value) =>
-            IO.lift(() => node.SetDefault(key, value.Value.ToNullable()));
-
-        public bool Equals([NotNullWhen(true)] OptionalColor? other) => other is not null && (other.Value.Map(static color => color.ToArgb()) == Value.Map(static color => color.ToArgb()));
-
-        public override int GetHashCode() => Value.Map(static color => color.ToArgb()).GetHashCode();
-    }
-
-    public sealed record Guid(System.Guid Value) : SettingValue, ISettingRead<Guid>, ISettingDefaultWrite<Guid> {
-        public static Option<Guid> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetGuid(key, out System.Guid stored, legacy), stored).Map(static found => new Guid(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Guid value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record Point(System.Drawing.Point Value) : SettingValue, ISettingRead<Point>, ISettingDefaultWrite<Point> {
-        public static Option<Point> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetPoint(key, out System.Drawing.Point stored, legacy), stored).Map(static found => new Point(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Point value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record Point3d(global::Rhino.Geometry.Point3d Value) : SettingValue, ISettingDefault<Point3d> {
-        public static Option<Point3d> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetPoint3d(key, out global::Rhino.Geometry.Point3d stored, legacy), stored).Map(static found => new Point3d(found));
-
-        public static Option<Point3d> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out global::Rhino.Geometry.Point3d stored), stored).Map(static found => new Point3d(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Point3d value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record Size(System.Drawing.Size Value) : SettingValue, ISettingDefault<Size> {
-        public static Option<Size> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetSize(key, out System.Drawing.Size stored, legacy), stored).Map(static found => new Size(found));
-
-        public static Option<Size> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out System.Drawing.Size stored), stored).Map(static found => new Size(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Size value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
-
-    public sealed record Rectangle(System.Drawing.Rectangle Value) : SettingValue, ISettingDefault<Rectangle> {
-        public static Option<Rectangle> Read(PersistentSettings node, string key, Seq<string> legacy) =>
-            Answers.Found(node.TryGetRectangle(key, out System.Drawing.Rectangle stored, legacy), stored).Map(static found => new Rectangle(found));
-
-        public static Option<Rectangle> ReadDefault(PersistentSettings node, string key) =>
-            Answers.Found(node.TryGetDefault(key, out System.Drawing.Rectangle stored), stored).Map(static found => new Rectangle(found));
-
-        public static IO<Unit> SetDefault(PersistentSettings node, string key, Rectangle value) =>
-            IO.lift(() => node.SetDefault(key, value.Value));
-    }
+public sealed record SettingType<T>(Func<string, Option<T>> Parse, Action<PersistentSettings, string, T> Write) {
+    public Fin<Option<T>> Read(PersistentSettings node, string key) =>
+        SettingType.Text(node, key).Traverse(text => Parse(text).ToFin(new TypeMismatch(key, text, typeof(T)))).As();
 }
 
-public sealed record SettingState(Type SettingType, bool ReadOnly, bool HiddenFromUserInterface);
+public static class SettingType {
+    public static readonly SettingType<bool> Bool = new(static text => Answers.Found(bool.TryParse(text, out bool value), value), static (node, key, value) => node.SetBool(key, value));
+
+    public static readonly SettingType<int> Integer = new(Number<int>, static (node, key, value) => node.SetInteger(key, value));
+
+    public static readonly SettingType<uint> UnsignedInteger = new(Number<uint>, static (node, key, value) => node.SetUnsignedInteger(key, value));
+
+    public static readonly SettingType<double> Double = new(Number<double>, static (node, key, value) => node.SetDouble(key, value));
+
+    public static readonly SettingType<string> String = new(static text => Some(text), static (node, key, value) => node.SetString(key, value));
+
+    public static readonly SettingType<Color> Color = new(
+        static text => text.Split(',') is [var alpha, var red, var green, var blue]
+            ? from a in Number<byte>(alpha) from r in Number<byte>(red) from g in Number<byte>(green) from b in Number<byte>(blue) select System.Drawing.Color.FromArgb(a, r, g, b)
+            : Option<Color>.None,
+        static (node, key, value) => node.SetColor(key, value));
+
+    public static SettingType<T> Enumeration<T>() where T : struct, Enum =>
+        new(static text => Answers.Found(Enum.TryParse(text, ignoreCase: false, out T value), value), static (node, key, value) => node.SetEnumValue(key, value));
+
+    public static Option<string> Text(PersistentSettings node, string key) =>
+        Answers.Found(node.TryGetString(key, out string text), text).Bind(static text => Answers.Present(text));
+
+    private static Option<T> Number<T>(string text) where T : struct, INumberBase<T> =>
+        Answers.Found(T.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out T value), value);
+}
+
+public sealed record SettingKey<T>(string Name, SettingType<T> Type);
 
 public sealed record SettingsState(Seq<string> Keys, Seq<string> ChildKeys, bool HiddenFromUserInterface);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class PlugInSettingsMapper {
+    internal static partial SettingsState ToState(PersistentSettings node);
+}
+
 public static class PlugInSettings {
     // --- [NODES]
-    public static IO<PersistentSettings> FromPlugInId(Guid plugInId) =>
-        IO.lift(() => Answers.NonEmpty(plugInId, nameof(PersistentSettings.FromPlugInId)).Map(PersistentSettings.FromPlugInId));
-
     public static IO<Option<PersistentSettings>> TryGetChild(PersistentSettings root, Seq<string> path) =>
         IO.lift(() => path.Fold(Some(root), static (node, key) => node.Bind(found => Answers.Found(found.TryGetChild(key, out PersistentSettings child), child))));
 
@@ -216,79 +60,29 @@ public static class PlugInSettings {
         IO.lift(() => path.Fold(root, static (node, key) => node.AddChild(key)));
 
     public static IO<SettingsState> Describe(PersistentSettings node) =>
-        IO.lift(() => SettingsMapper.ToState(node));
+        IO.lift(() => PlugInSettingsMapper.ToState(node));
 
     // --- [READS]
-    public static IO<Option<TValue>> Find<TValue>(PersistentSettings node, string key, Seq<string> legacy) where TValue : SettingValue, ISettingRead<TValue> =>
-        IO.lift(() => Present(TValue.Read(node, key, legacy), node, key, typeof(TValue)));
-
-    public static IO<Option<T>> FindEnum<T>(PersistentSettings node, string key) where T : struct, Enum =>
-        from keyed in IO.lift(() => Invalid.Unless(key.Length > 0, nameof(PersistentSettings.TryGetEnumValue)))
-        from present in IO.lift(() => Present(Answers.Found(node.TryGetEnumValue(key, out T value), value), node, key, typeof(T)))
-        select present;
-
-    public static IO<Option<TValue>> FindDefault<TValue>(PersistentSettings node, string key) where TValue : SettingValue, ISettingDefault<TValue> =>
-        IO.lift(() => TValue.ReadDefault(node, key));
-
-    public static IO<int> GetInteger(PersistentSettings node, string key, int fallback, Limits<int> limits) =>
-        IO.lift(() => limits.Inclusive(nameof(PersistentSettings.GetInteger)).Map(inclusive => inclusive.Fold(
-            both: (lower, upper) => node.GetInteger(key, fallback, lower.Value, upper.Value),
-            lower: lower => node.GetInteger(key, fallback, lower.Value, boundIsLower: true),
-            upper: upper => node.GetInteger(key, fallback, upper.Value, boundIsLower: false),
-            none: () => node.GetInteger(key, fallback))));
-
-    public static IO<Option<SettingState>> Inspect(PersistentSettings node, string key) =>
-        IO.lift(() => node.TryGetSettingType(key, out Type stored) && node.TryGetSettingIsReadOnly(key, out bool readOnly) && node.TryGetSettingIsHiddenFromUserInterface(key, out bool hidden)
-            ? Some(new SettingState(stored, readOnly, hidden))
-            : Option<SettingState>.None);
-
-    private static Fin<Option<A>> Present<A>(Option<A> found, PersistentSettings node, string key, Type requested) =>
-        found.IsSome || !node.TryGetSettingType(key, out Type stored) ? found : new TypeMismatch(key, stored, requested);
+    public static IO<Option<T>> Find<T>(PersistentSettings node, SettingKey<T> key) =>
+        IO.lift(() => key.Type.Read(node, key.Name));
 
     // --- [WRITES]
-    public static IO<Unit> Set(PersistentSettings node, string key, SettingValue value) =>
-        from writable in IO.lift(() => Writable(node, key))
-        from written in IO.lift(() => value.Switch(
-            (Node: node, Key: key),
-            @bool: static (scope, item) => scope.Node.SetBool(scope.Key, item.Value),
-            @byte: static (scope, item) => scope.Node.SetByte(scope.Key, item.Value),
-            integer: static (scope, item) => scope.Node.SetInteger(scope.Key, item.Value),
-            unsignedInteger: static (scope, item) => scope.Node.SetUnsignedInteger(scope.Key, item.Value),
-            @double: static (scope, item) => scope.Node.SetDouble(scope.Key, item.Value),
-            @char: static (scope, item) => scope.Node.SetChar(scope.Key, item.Value),
-            @string: static (scope, item) => scope.Node.SetString(scope.Key, item.Value),
-            stringList: static (scope, item) => scope.Node.SetStringList(scope.Key, [.. item.Values]),
-            stringDictionary: static (scope, item) => scope.Node.SetStringDictionary(scope.Key, Pairs(item.Pairs)),
-            date: static (scope, item) => scope.Node.SetDate(scope.Key, item.Value),
-            color: static (scope, item) => scope.Node.SetColor(scope.Key, item.Value),
-            optionalColor: static (scope, item) => scope.Node.SetColor(scope.Key, item.Value.ToNullable()),
-            guid: static (scope, item) => scope.Node.SetGuid(scope.Key, item.Value),
-            point: static (scope, item) => scope.Node.SetPoint(scope.Key, item.Value),
-            point3d: static (scope, item) => scope.Node.SetPoint3d(scope.Key, item.Value),
-            size: static (scope, item) => scope.Node.SetSize(scope.Key, item.Value),
-            rectangle: static (scope, item) => scope.Node.SetRectangle(scope.Key, item.Value)))
+    public static IO<Unit> Set<T>(PersistentSettings node, SettingKey<T> key, T value) =>
+        from writable in IO.lift(() => Writable(node, key.Name))
+        from written in IO.lift(() => key.Type.Write(node, key.Name, value))
         select written;
 
-    public static IO<Unit> SetEnum<T>(PersistentSettings node, string key, T value) where T : struct, Enum =>
-        from keyed in IO.lift(() => Invalid.Unless(key.Length > 0, nameof(PersistentSettings.SetEnumValue)))
+    public static IO<Unit> Delete(PersistentSettings node, string key) =>
         from writable in IO.lift(() => Writable(node, key))
-        from written in IO.lift(() => node.SetEnumValue(key, value))
-        select written;
-
-    public static IO<Unit> Hide(PersistentSettings node, string key) =>
-        from flagged in IO.lift(() => Answers.Found(node.TryGetSettingIsHiddenFromUserInterface(key, out bool hidden), hidden).ToFin(new Missing(nameof(PersistentSettings.TryGetSettingIsHiddenFromUserInterface))))
-        from hidden in unless(flagged, IO.lift(() => node.HideSettingFromUserInterface(key))).As()
-        select hidden;
+        from deleted in IO.lift(() => node.DeleteItem(key))
+        select deleted;
 
     private static Fin<Unit> Writable(PersistentSettings node, string key) =>
         ReadOnlyKey.Unless(!(node.TryGetSettingIsReadOnly(key, out bool readOnly) && readOnly), key);
 
-    internal static KeyValuePair<string, string>[] Pairs(Seq<(string Key, string Value)> pairs) =>
-        [.. pairs.Map(static pair => new KeyValuePair<string, string>(pair.Key, pair.Value))];
-
     // --- [VALIDATORS]
-    public static IO<Unit> RegisterSettingsValidator<T>(PersistentSettings node, string key, Func<T, T, bool> accept) =>
-        IO.lift(() => node.RegisterSettingsValidator<T>(key, (_, args) => args.Cancel = !accept(args.CurrentValue, args.NewValue)));
+    public static IO<Unit> RegisterSettingsValidator<T>(PersistentSettings node, SettingKey<T> key, Func<T, T, bool> accept) =>
+        IO.lift(() => node.RegisterSettingsValidator<T>(key.Name, (_, args) => args.Cancel = !accept(args.CurrentValue, args.NewValue)));
 
     // --- [EVENTS]
     public static IO<IDisposable> OnSaved(PlugIn plugIn, Func<PersistentSettingsSavedEventArgs, IO<Unit>> deliver, Action<Error> reject) =>

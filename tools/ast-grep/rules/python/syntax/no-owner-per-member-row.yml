@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-owner-per-member-row
+language: python
+severity: error
+utils:
+    plain-string:
+        kind: string
+        not: {has: {stopBy: end, kind: interpolation}}
+    name-table:
+        kind: 'tuple, list'
+        has: {kind: string}
+        not: {has: {pattern: $_, not: {matches: plain-string}}}
+    member-call:
+        kind: call
+        all:
+            - has: {field: function, pattern: $F}
+            - has: {field: arguments, has: {kind: identifier, pattern: $N}}
+            - has: {field: arguments, has: {kind: keyword_argument, has: {field: value, not: {has: {stopBy: end, kind: identifier, pattern: $N}}}}}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {pattern: $N}, has: {stopBy: end, kind: identifier, pattern: $N}}}}
+    member-comprehension:
+        kind: 'generator_expression, list_comprehension, set_comprehension'
+        all:
+            - has: {kind: for_in_clause, all: [{has: {field: left, kind: identifier, pattern: $N}}, {has: {field: right, matches: name-table}}]}
+            - not: {has: {kind: 'if_clause, for_in_clause', nthChild: 3}}
+            - has: {field: body, matches: member-call}
+    same-callee:
+        any:
+            - kind: call
+              has: {field: function, pattern: $F}
+            - kind: list_splat
+              has: {has: {field: body, kind: call, has: {field: function, pattern: $F}}}
+    sibling: {regex: '^[^,#]'}
+    named-argument:
+        has:
+            field: arguments
+            has: {matches: plain-string, precedes: {stopBy: {matches: sibling}, kind: keyword_argument}}
+    run-call:
+        kind: call
+        matches: named-argument
+        any:
+            - pattern: $F($S, $KW=$V)
+            - pattern: $F($O, $S, $KW=$V)
+    next-run-call:
+        kind: call
+        matches: named-argument
+        any:
+            - pattern: $F($_S, $KW=$_V)
+            - pattern: $F($O, $_S, $KW=$_V)
+rule:
+    any:
+        - kind: list_splat
+          all:
+            - has: {matches: member-comprehension}
+            - any:
+                - precedes: {stopBy: end, matches: same-callee}
+                - follows: {stopBy: end, matches: same-callee}
+        - matches: run-call
+          all:
+            - inside: {kind: 'tuple, list, set, argument_list, expression_list'}
+            - precedes:
+                stopBy: {matches: sibling}
+                matches: next-run-call
+                precedes: {stopBy: {matches: sibling}, matches: next-run-call}
+            - not: {follows: {stopBy: {matches: sibling}, matches: next-run-call}}
+message: 'Calls to `$F` repeat their other arguments once per member name'
+note: 'Use one owner mapping `{<owner>: {**dict.fromkeys((<names>), <value>), <name>: <value>}}` read by one comprehension, each owner is stated once'

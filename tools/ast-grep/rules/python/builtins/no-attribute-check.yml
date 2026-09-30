@@ -208,5 +208,5 @@ rule:
             - inside: {kind: 'tuple, parenthesized_expression', inside: {kind: as_pattern, inside: {kind: except_clause, field: value}}}
             - inside: {kind: argument_list, inside: {matches: suppress-call}}
           not: {inside: {stopBy: {kind: except_clause}, kind: except_clause, has: {kind: block, has: {kind: raise_statement}}}}
-message: '`$CHECK` tests for an attribute in place of its declaring type'
-note: 'Narrow with `isinstance` or a class pattern to the declaring type and read its attribute, a test by name hides declaring types from type checkers'
+message: '`$CHECK` tests an object for an attribute by name'
+note: 'Use `isinstance` or a class pattern narrowing to the declaring type before each attribute read, a name test hides declaring types from type checkers'

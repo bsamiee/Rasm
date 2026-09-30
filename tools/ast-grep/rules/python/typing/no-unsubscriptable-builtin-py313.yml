@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unsubscriptable-builtin-py313
+language: python
+severity: error
+files:
+    - .claude/skills/use-blender/scripts/*.py
+    - .claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py
+    - tools/interface/{roles,report,units,render,aliases,frame}.py
+    - tools/interface/rhino/{window,markup}.py
+    - tools/interface/blender/rows.py
+    - tools/interface/*/script/**
+    - tools/interface/blender/extension/**
+rule:
+    pattern: $G
+    matches: {python-subscripted-builtin: {name: {regex: '^(classmethod|staticmethod|memoryview|slice)$'}}}
+message: '`$G` defines no `__class_getitem__` on Python 3.13 and its subscript raises `TypeError` at evaluation'
+note: 'Use the unsubscripted class or the `collections.abc` protocol the value satisfies (`Callable`, `Sequence`), each evaluates on Python 3.13'

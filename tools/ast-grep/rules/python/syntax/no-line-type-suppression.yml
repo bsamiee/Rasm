@@ -10,4 +10,4 @@ rule:
         - follows: {stopBy: end, not: {kind: comment}}
         - not: {inside: {kind: module}}
 message: 'Checker suppression sits on one line of a host or skill script'
-note: 'Move the code into the file-top `# ty: ignore[<code>]`, `# mypy: disable-error-code="<code>"`, or `# ruff: file-ignore[<name>]` directive, one list then holds the script''s exemptions'
+note: 'Use the file-top `# ty: ignore[<code>]`, `# mypy: disable-error-code="<code>"`, or `# ruff: file-ignore[<name>]` directive, one list holds the script''s exemptions'

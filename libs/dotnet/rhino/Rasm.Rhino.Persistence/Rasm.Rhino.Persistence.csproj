@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Rhino archive dictionaries, settings, user data, user text, and named document states as IO effects over RhinoCommon</Description>
+        <Description>Rhino archive dictionaries, settings, user data, user text, and saved document states as IO effects over RhinoCommon</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Dependencies">
@@ -15,6 +15,6 @@
 
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
-        <ProjectReference Include="../Rasm.Rhino.Objects/Rasm.Rhino.Objects.csproj" />
+        <ProjectReference Include="../Rasm.Rhino.Viewport/Rasm.Rhino.Viewport.csproj" />
     </ItemGroup>
 </Project>

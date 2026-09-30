@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-precheck-lift
+language: csharp
+severity: error
+files: ['**/Rasm.Rhino.Modeling/**']
+utils:
+    lift:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<.+>)?$'}
+            - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+    thunk-body:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+            - not: {has: {kind: modifier, regex: '^async$'}}
+    value-arguments:
+        kind: argument_list
+        not:
+            has:
+                kind: argument
+                has:
+                    stopBy: end
+                    kind: invocation_expression
+                    not: {has: {field: function, kind: identifier, regex: '^nameof$'}}
+    check:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|Check|NonEmpty|InRange|Unique)(\s*<.+>)?$'}}
+                - has: {field: arguments, matches: value-arguments}
+            - kind: invocation_expression
+              all:
+                - has: {field: arguments, not: {has: {kind: argument}}}
+                - has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: {field: name, regex: '^As$'}
+                        - has: {field: expression, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Traverse|Sequence|Apply)$'}}}
+            - kind: query_expression
+              has: {kind: from_clause, nthChild: 1, has: {matches: check}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: identifier, pattern: $METHOD}
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has:
+                        stopBy: end
+                        any:
+                            - kind: method_declaration
+                              all: [{has: {field: name, pattern: $METHOD}}, {has: {field: returns, regex: '^((global::)?LanguageExt\.)?Fin\s*<'}}]
+                            - kind: local_function_statement
+                              all: [{has: {field: name, pattern: $METHOD}}, {has: {field: type, regex: '^((global::)?LanguageExt\.)?Fin\s*<'}}]
+    precheck:
+        matches: lift
+        has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - has: {matches: check}
+                    - has: {matches: thunk-body, has: {field: body, matches: check}}
+    missing-host:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Missing\s*\.\s*Unless$'}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {kind: invocation_expression}}}, {not: {has: {kind: argument, nthChild: 3}}}]}
+    host-step:
+        any:
+            - kind: invocation_expression
+              has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Modeling\.)?GeometryResults\s*\.\s*Acquire(\s*<.+>)?$'}
+            - matches: lift
+              has: {field: arguments, has: {kind: argument, has: {matches: thunk-body, has: {field: body, matches: missing-host}}}}
+rule:
+    kind: from_clause
+    all:
+        - has: {field: name, pattern: $CHECKED}
+        - has: {matches: precheck}
+        - precedes:
+            kind: from_clause
+            all:
+                - has: {field: name, pattern: $BUILT}
+                - has: {matches: host-step}
+message: '`$CHECKED` lifts a `Fin` check apart from the host call `$BUILT` lifts next'
+note: Use one `GeometryResults.Acquire(() => <check>.Map(<checked> => <host call>), <member>)`, its `Fin` thunk overload lifts the check and the host answer in one effect

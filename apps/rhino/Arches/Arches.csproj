@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Rhino commands drawing historical arch profiles from picked span, apex, and foil inputs</Description>
-        <Authors>Bardia Samiee</Authors>
     </PropertyGroup>
 
     <ItemGroup Label="Core Dependencies">
@@ -16,6 +15,5 @@
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Modeling/Rasm.Rhino.Modeling.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Persistence/Rasm.Rhino.Persistence.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Plugin/Rasm.Rhino.Plugin.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Viewport/Rasm.Rhino.Viewport.csproj" />
     </ItemGroup>
 </Project>

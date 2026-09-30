@@ -24,4 +24,4 @@ rule:
                 - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: target-write}
                 - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
 message: '`$WRITE` writes `$TARGET` after a `!=` test with no change line'
-note: 'Declare `Row(label=<label>, read=<read>, write=<write>, target=<target>)` and `yield from converged(<row>)`, `converged` alone compares, writes on difference, and returns change lines'
+note: 'Use `yield from converged(Row(label=<label>, read=<read>, write=<write>, target=<target>))`, `converged` alone compares, writes on difference, and returns change lines'

@@ -135,7 +135,7 @@ Solves with zero errors pass value faults in silence:
 - `seconds` names the objects a slow solve spends its time in
 - Output `labels` show the first paths a graft or flatten produced
 
-`image(definition, "<name>")` draws every group, wire, and object at 1:1 into `<name>.png` beside `capture`'s pictures, `detail` the count drawn.
+`image(definition, "<name>")` draws every group, wire, and object at one pixel per canvas unit into `<name>.png` beside `capture`'s pictures, `detail` the count drawn. Window captures hold the editor's device pixels.
 
 ## [07]-[BAKE]
 

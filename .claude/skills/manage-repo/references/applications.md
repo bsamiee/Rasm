@@ -5,10 +5,12 @@ Hosts apply declared rows to each desktop application through its own stores.
 ## [01]-[ARCHIVE]
 
 One `.archive/` in the interface folder holds knowledge of every application:
-- `facts/` holds one text file per topic, each fact with its evidence, and `facts/index.txt` names each file's topic
+- `facts/` holds one text file per topic, one fact per line, and `facts/index.txt` names each file's topic, product, version, and form
 - `decompiled/` holds managed assemblies and native binaries as source, `inventories/` store dumps and factory baselines
-- `color/` holds seed provenance and generator rule of every hue family
-- Evidence is the application's own: source file and line at installed tag, decompiled path, dated documentation URL, or live read and result
+- `color/` holds the generator rule of every hue family
+- Facts state the member, key, value, order, limit, or answer a row uses, a paraphrase or general claim stays out
+- Facts record the installed build alone, older versions, their differences, and their guidance stay out
+- Citations, source paths, line numbers, URLs, versions, provenance, narration, and coined terms stay out of fact lines
 - Session, agent, decision, and task ids, transcript and temporary paths, work dates, interface code references, reports, plans, and notes stay out
 - Work reads `facts/index.txt`, then each facts file on its topic
 - Archived facts are used as written, a missing fact is read from the application before any row uses it
@@ -17,7 +19,9 @@ One `.archive/` in the interface folder holds knowledge of every application:
 ## [02]-[STORES]
 
 Every setting is written through its owning store and API:
-- Settings a document holds go in the application's template or startup file, settings the application holds go in its own store
+- Settings every user of a file needs go in the template or startup document (units, layers, styles, render quality, environment, sun, ground, views)
+- Settings one user keeps across files go in the application store (layout, navigation, keys, compute device, libraries, updates, dialogs)
+- Settings take one declaration in one store, a document key overrides its application duplicate
 - Rows read each value and write on difference alone
 - Rows report each written value as read before the write and as written
 - Reruns that report no change show every write persisted, a write the application dropped reports again
@@ -34,7 +38,6 @@ Every setting is written through its owning store and API:
 - Update checks, repository sync at startup, and telemetry take their off value, license and server settings take no row
 - Promotional, AI, tip, and suggestion features take their off value wherever a store reaches them
 - Settings a platform mechanism replaces (an autosave timer under system document versions) take no row
-- Styles an application keeps per project or per object (a layer's plot weight, a note layer's thickness) take no row
 - Members with no reader in the installed source take no row
 - Rows declare the intended value, a row that offsets a defect elsewhere goes and the defect is fixed at its source
 - Content libraries (assets, materials, textures, environments) join through the application's own library integration as declared rows
@@ -62,7 +65,7 @@ Every setting is written through its owning store and API:
 Facts come from the application's source, decompile, documentation, stores, or pixels:
 - Behavior (poll order, event routing, draw and scale formulas) comes from source at the installed tag
 - Managed code is read through a decompiler, native code through `use-ghidra`
-- Documentation of the installed release decides over older posts, community sources are dated
+- Documentation of the installed release decides over older posts and community sources
 - Every store the application reads or rewrites at quit is dumped whole and diffed against a factory-startup instance before a row is written
 - Store dumps follow the property metadata recursively
 - Factory values come from a factory-startup instance, a property's declared default misreports them
@@ -82,7 +85,8 @@ Facts come from the application's source, decompile, documentation, stores, or p
 - Comparisons read drawn values against their roles and against their counterpart in the other applications
 - Line and fill visibility is judged by L* difference on the drawn ground, contrast ratios are recorded
 - One apply writes a change whole, and confirmation is a visual pass over a 1:1 capture, a rerun that reports convergence confirms nothing
-- Passes crop and measure each touched strip for gaps, misalignment, and cut text, refined per application where one intent needs its own value
+- Passes crop and measure each touched strip for gaps, misalignment, and cut text
+- Passes refine a shared value per application where one application needs its own
 - Live reads resolve doubts, a doubt left as a note is a defect
 
 ## [04]-[FILES]
@@ -108,7 +112,7 @@ One folder holds every application's interface, one module per concept, and no f
 - Names avoid words the application or standard library uses
 - Hosts create the folders they write
 - Prerequisites no run creates sit once in the setup reference of each application's driving skill
-- Decisions sit in code as values and names it acts on, evidence sits in the archive, and no comment, note, or memory file restates either
+- Decisions sit in code as values and names it acts on, facts sit in the archive, and no comment, note, or memory file restates either
 - Staged packages go under `.cache/<app>/`, run outputs (captures, logs, reports, built packages) under `.artifacts/<app>/`
 - Unsaved work renders into `.artifacts/<app>/renders/`, the application's default output folder
 - Saved projects render beside themselves through the application's relative path form
@@ -190,7 +194,7 @@ Navigation and bindings follow one rule in every application, mouse and trackpad
 ## [07]-[COLOR]
 
 One role module computes one palette of named hue families and a neutral scale on shared lightness steps, and applications read colors through its roles:
-- Hue families seed from a named color with cited provenance
+- Hue families seed from a named color
 - Roles needing a missing palette color take a new named family or step
 - Neutrals are pure grays at the chrome bytes applications fix, and every application's chrome takes neutral steps
 - Elements without a meaning take the neutral scale, any hue on screen marks a meaning
@@ -337,7 +341,7 @@ Sheets print cut lines 0.35 mm, projection, annotation, center, and grid lines 0
 
 ## [09]-[TEMPLATES]
 
-Templates and startup documents hold the declared tables, views, units, and startup data:
+New documents start from a template or startup document:
 - Displays show imperial with metric configured and correct beside it (templates, unit switch, alternate units, precision)
 - Declared lengths are round imperial values stored in meters, a round metric literal shows as an odd imperial value
 - Quantities with no imperial form (a lens length, irradiance) keep their native unit
@@ -353,21 +357,20 @@ Templates and startup documents hold the declared tables, views, units, and star
 - Current table entries name a template entry, set from the index its add call returns, a missing index raises a modal
 - Template steps write through an API reaching every template table
 - New documents open with every view in the declared display mode, and their modeling view targets origin at a declared plan distance
-- Startup documents hold no object every task deletes, no add-on log or secret, and add-on keys for unit rows alone
+- Startup documents hold no object every task deletes, add-on log, or secret
 - Templates and startup documents start every project with declared layers in the application's own layer construct beside its default container
 - Declared layers keep their order and tag slot, object kinds routed to a layer reach it through the application's default target setting
 - New objects go in the container an application creates under its own name
-- Saved states (views, visibility sets, work planes, positions, snapshots) belong to the project document
 - Organization names are domain terms interchange keeps, one per level and the same in every application
 - Definitions from another file insert embedded by default, a link is chosen per insert
 - Commands that ungroup or remove objects from a set leave every object in the document
 
 ## [10]-[RENDER]
 
-Render, sun, location, and materials serve one output, and each application holds the settings that output needs from it:
+Each application declares the render, sun, location, and material settings one shared output needs:
 - Render settings (frame size, sample limit, noise threshold, pixel density, caustics) hold one value in every application
 - Photometric values (exposure, sun irradiance, sky radiance) come from one calibration render of one scene per application
-- Location and moment come from a cited survey record and a fixed clock time, the machine's location and clock stay unread
+- Location and moment come from a survey record and a fixed clock time, the machine's location and clock stay unread
 - Sun stores take the standard offset and a daylight flag, and north conventions convert per application to one sun vector
 - Add-on fields with update callbacks that rewrite related fields are written as raw items, a callback chain overwrites the declared values
 - Materials use the metallic-roughness model every application shares, built through each material editor's typed content path
@@ -384,14 +387,15 @@ Extensions stay by daily use and key on stable ids:
 - Dropped plug-ins and add-ons are uninstalled with their files and user data, a dropped core add-on is disabled
 - Plug-ins and add-ons load on demand, at startup only when a startup task uses them
 - Add-ons that start a GUI toolkit on import register a background instance as the running application, and load on demand or go
-- Staged archives take third-party add-on fixes and role colors before packing, each an exact replacement of text its file holds once
+- Staged archives take third-party add-on fixes and role colors through `packages.toml` `patches` rows before packing
 - Rows for an optional plug-in or add-on key on its manifest id or registered name and run while enabled, a download folder name keys no row
 - Packages install on a difference of version or files, a build that reuses one version string differs by files alone
-- Applies converge each package on the build its staged archive records, the upgrade target alone stages a newest or first build
+- Applies converge each package on the build its staged archive records, `rasm:upgrade` alone stages a newest or first build
 - Own extensions hold behavior every session needs (navigation, panel collapse, aliases), the apply run holds one-time settings and installation
 
 ## [12]-[RHINO]
 
+- Rebuilt plug-ins reach Rhino through `rasm:upgrade`, then an apply
 - Window layout restores apply live, and the live layout persists to the containers store at quit
 - Runs that open a panel to measure it reselect the exported tab, layout exports record a selected tab and report a change otherwise
 - Icon size keys cache at load, a layout measured in the run that writes them sees old strip sizes and converges at relaunch
@@ -401,6 +405,7 @@ Extensions stay by daily use and key on stable ids:
 - Osnap and filter bars lay out as one row at a small height or a width that fits the row, their control grid exists under grid geometry alone
 - Viewport tab bars belong to the viewport column, status bar and resizer heights are fixed, and a bottom band derives from its stack minus both
 - Command history line pitch follows prompt font size, prompt colors drop at small sizes, and a band shows whole lines at a height the pitch divides
+- Grid column widths derive from header cell size and the widest template cell text in grid fonts, icon columns keep factory width and a blank header
 - Docked panels, tabs, status bar, tooltips, and the sidebar prompt draw the system small font with no key
 - Captions, viewport tabs, menus, and dialogs draw the system font with no key
 - Eto style flags resize whole font families, and command prompt size, in tenths of a point, is the one keyed text size and reaches history alone
@@ -421,7 +426,8 @@ Extensions stay by daily use and key on stable ids:
 - Adjacent separators left by filtered tools each open an empty block unless the layout generator collapses them
 - Instances launched with event simulation skip the idle sleep, drop every OS input event, and spin one core for the whole run
 - Area sizes take the area split operator at an exact factor
-- Region widths and toolbar zoom have no API and take a startup file edit after quit, read back exactly at launch
+- Region widths and toolbar zoom have no API and take a startup document edit after quit, read back exactly at launch
+- Scripted quits through `wm.quit_blender` write a compressed `quit.blend` over the previous one in the temporary directory
 - Incremental autosave writes a compressed copy of a titled dirty file on the main thread at each interval, and its interval keeps the factory value
 
 ## [15]-[ILLUSTRATOR]
@@ -436,7 +442,7 @@ Extensions stay by daily use and key on stable ids:
 
 ## [17]-[PHOTOSHOP]
 
-- Native panel text follows the font size option, applied at relaunch and read back through its small size member, its larger choices unread
+- Native panel text follows the font size option, applied at relaunch and read back through its small size member
 - UXP panels draw a fixed host font and the options bar has no text size key
 - Tab groups cut labels past their column width, a group holds the tabs with labels that fit and other panels join the icon column
 

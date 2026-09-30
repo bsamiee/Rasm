@@ -101,7 +101,7 @@
                 <space>
                     <ThemeSpaceGradient text="$Text.PRIMARY" text_hi="$Text.PRIMARY" header="${Surface.PANEL}ff">
                         <gradients>
-                            <ThemeGradientColors high_gradient="$solved.canvas" gradient="$solved.canvas"/>
+                            <ThemeGradientColors high_gradient="$solved.canvas"/>
                         </gradients>
                     </ThemeSpaceGradient>
                 </space>

@@ -45,7 +45,7 @@ Read in order before the first edit, with `<lang>` the scope's language director
 |  [07]   | Binary behavior a rule depends on  | Rule over one file, the command, and the exit code                                                  |
 |  [08]   | Width of a util                    | `ast-grep scan --filter '^<caller>$'` over a rule calling it through `matches: <id>`                |
 |  [09]   | Cost of a rule over the tree       | `hyperfine -N -i -r 8 "ast-grep scan --filter '^<id>$' <file>"`                                     |
-|  [10]   | Files holding an old suppressed id | `rg -l -F 'ast-grep-ignore: <old>' .`, then `sd -A -F '<old>' '<survivor>' <files>` over them       |
+|  [10]   | Files holding an old suppressed id | `rg -l -F 'ast-grep-ignore: <old>' .`, then `sd -F '<old>' '<survivor>' <files>` over them          |
 |  [11]   | Rules firing every prompt or never | `category_fires` of `observation`, `prompts_fired` per `category` against `prompts_judged`          |
 |  [12]   | Sites a rule missed                | `missed_sites` of `observation`, one row per site a rule missed                                     |
 |  [13]   | Width at a commit                  | `git show <commit>:<path> \| ast-grep scan --rule <rule> --stdin --json`, no `<utils>` util loads   |

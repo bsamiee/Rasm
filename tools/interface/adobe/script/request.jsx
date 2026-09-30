@@ -23,19 +23,19 @@ function changes(label, held, target) {
 }
 
 // --- [REQUESTS]
-function converged(row, artifacts) {
+function converged(row) {
     var accessor = accessors[row.access.type];
     return attempted(row.label, function () {
         if (accessor.rows !== undefined) {
             var lines = [];
             var rows = accessor.rows(row);
-            for (var index = 0; index < rows.length; index++) lines = lines.concat(converged(rows[index], artifacts));
+            for (var index = 0; index < rows.length; index++) lines = lines.concat(converged(rows[index]));
             return lines;
         }
-        var held = accessor.read(row.access, row.target, artifacts);
+        var held = accessor.read(row.access, row.target);
         var wanted = accessor.wanted === undefined ? row.target : accessor.wanted(row.access, row.target, held);
         if (same(held, wanted)) return [];
-        accessor.write(row.access, row.target, artifacts, held);
+        accessor.write(row.access, row.target, held);
         return changes(row.label, held, wanted);
     });
 }
@@ -44,7 +44,7 @@ function converge(request) {
     var lines = attempted('header', function () {
         return [['header'].concat(product.header()).join('\t')];
     });
-    for (var index = 0; index < request.rows.length; index++) lines = lines.concat(converged(request.rows[index], request.artifacts));
+    for (var index = 0; index < request.rows.length; index++) lines = lines.concat(converged(request.rows[index]));
     return lines;
 }
 

@@ -80,4 +80,4 @@ rule:
                         kind: 'lambda_expression, anonymous_method_expression'
                         has: {stopBy: end, kind: invocation_expression, has: {field: function, matches: effect-member}}
 message: '`$SWAP` transition runs a statement or write that each conflict reruns'
-note: Return the next state from a pure transition and run effects on what `Swap` returns
+note: Use a pure transition that returns the next state, with effects run on the value `Swap` returns

@@ -1,20 +1,37 @@
-"""Records the host and Blender's Python exchange as JSON, msgspec coding them on the host and cattrs inside Blender, and the file stamp both sides compute."""
+"""Records the host and Blender's Python exchange as JSON, msgspec coding them on the host and the one cattrs converter inside Blender, the look-development image the host downloads and Blender installs, and the file stamp both sides compute."""
 
 from collections.abc import Mapping
 from importlib.util import source_from_cache
+from typing import Final
 
 from attrs import frozen
+from cattrs.preconf.json import make_converter
 
 from interface.frame import Task
+from interface.render import MATERIALS
 from interface.report import digest
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+LOOK_DEVELOPMENT: Final = MATERIALS / "hdri" / "DaySkyHDRI069A_2K" / "DaySkyHDRI069A_2K_HDR.exr"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 @frozen
-class Installation:
-    """Blender's version, synced remote repository index files by module, bundled add-on ids, Essentials catalog paths, extension manifest file name, archive platform tag, platform system names, machine name replacements, interpreter, and bundled numpy version."""
+class Repository:
+    """Remote extension repository by module name, display name, and index address."""
 
+    module: str
+    name: str
+    url: str
+
+
+@frozen
+class Installation:
+    """Report lines of the converged repositories, Blender's version, enabled remote repository index files by module, bundled add-on ids, Essentials catalog paths, manifest file name, platform tag, system names, machine replacements, interpreter, and numpy version."""
+
+    report: str
     version: str
     repositories: Mapping[str, str]
     core: frozenset[str]
@@ -95,6 +112,10 @@ def stamp(files: Mapping[str, tuple[int, int]]) -> str:
     return digest(b"".join(f"{name}\0{crc}\0{size}\n".encode() for name, (crc, size) in sorted(files.items()) if not cached(name)))
 
 
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+JSON: Final = make_converter()
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Archive", "Installation", "Launch", "Listed", "Local", "Width", "stamp"]
+__all__ = ["JSON", "LOOK_DEVELOPMENT", "Archive", "Installation", "Launch", "Listed", "Local", "Repository", "Width", "stamp"]

@@ -1,7 +1,5 @@
 """Applies the interface to Rhino and the packages `packages.toml` declares, then edits the files Rhino reads at launch once it quit."""
 
-from itertools import chain
-
 import anyio
 import msgspec
 import psutil
@@ -46,7 +44,7 @@ async def cleared(host: Host, rhino: Rhino, discovered: tuple[psutil.Process, ..
     listening = tuple(port for port in ports if isinstance(port, int))
     reports = await anyio.gather(*(reported(port) for port in listening))
     held = (*(port.text for port in ports if isinstance(port, Error)), *(error for _, errors in reports for error in errors))
-    if errors := held or tuple(chain.from_iterable(await anyio.gather(*(released(port) for port in listening)))):
+    if errors := held or tuple(error for errors in await anyio.gather(*(released(port) for port in listening)) for error in errors):
         return outcome(host.app, tuple(map(Error, errors)))
     instances = await registered(discovered)
     async with reopened(rhino.bundle, instances, *(path for paths, _ in reports for path in paths), arguments=("-nosplash",)):

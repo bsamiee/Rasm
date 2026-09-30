@@ -1,6 +1,9 @@
+using System.Drawing;
 using System.Reflection;
 using Rhino.Commands;
 using Riok.Mapperly.Abstractions;
+
+[assembly: UseStaticMapper(typeof(Rasm.Rhino.Document.Answers))]
 
 namespace Rasm.Rhino.Document;
 
@@ -11,6 +14,7 @@ public static class Answers {
     public static Option<Guid> Present(Guid id) =>
         Some(id).Filter(static value => value != Guid.Empty);
 
+    [UserMapping]
     public static Option<int> Present(int index) =>
         Some(index).Filter(static value => value >= 0);
 
@@ -25,26 +29,52 @@ public static class Answers {
     public static Seq<T> Present<T>(IEnumerable<T?>? rows) where T : class =>
         toSeq(rows).Choose(static row => Optional(row)).Strict();
 
+    public static Guid Unset(Option<Guid> id) =>
+        id.IfNone(Guid.Empty);
+
+    public static int Unset(Option<int> index) =>
+        index.IfNone(-1);
+
+    [UserMapping]
+    public static string Unset(Option<string> text) =>
+        text.IfNone("");
+
+    public static Fin<Guid> Required(Guid id, string member) =>
+        Present(id).ToFin(new Refused(member));
+
+    public static Fin<int> Required(int index, string member) =>
+        Present(index).ToFin(new Refused(member));
+
+    public static Fin<uint> Required(uint serial, string member) =>
+        Present(serial).ToFin(new Refused(member));
+
+    public static bool Same(Color held, Color wanted) =>
+        held.ToArgb() == wanted.ToArgb();
+
     public static Option<T> Found<T>(bool found, T value) =>
         found ? Some(value) : Option<T>.None;
-
-    public static Fin<Guid> NonEmpty(Guid id, string member) =>
-        Present(id).ToFin(new EmptyGuid(member));
 
     public static Fin<Seq<TRow>> NonEmpty<TRow>(Seq<TRow> rows, string member) =>
         rows.IsEmpty ? new Missing(member) : rows;
 
-    public static Fin<int> NonNegative(int index, string member) =>
-        Present(index).ToFin(new NegativeIndex(member));
+    public static Fin<T> Validated<T, TValue>(TValue value) where T : IObjectFactory<T, TValue, ValidationFailure> where TValue : notnull =>
+        T.Validate(value, provider: null, out T? item) is { } error ? error : item!;
 
-    public static Fin<Unit> InRange(Seq<int> indices, int itemCount, string member) =>
-        indices.TraverseM(index => IndexOutOfRange.Unless(index, itemCount, member)).As().Map(static _ => unit);
+    // --- [CHECKS]
+    public static ValidationFailure? FirstInvalid(params (bool Failed, string Member)[] checks) =>
+        toSeq(checks).Find(static check => check.Failed).Map<ValidationFailure>(static check => new Invalid(check.Member)).ValueUnsafe();
 
-    public static Validation<Error, Seq<Unit>> Unique<TKey>(Seq<TKey> keys, Func<TKey, int, Error> duplicate) where TKey : notnull =>
-        toSeq(keys.CountBy(static key => key))
+    public static Validation<Error, Seq<Unit>> Unique<TKey>(Seq<TKey> keys, string member) where TKey : notnull =>
+        Unique(keys, EqualityComparer<TKey>.Default, member);
+
+    public static Validation<Error, Seq<Unit>> Unique<TKey>(Seq<TKey> keys, IEqualityComparer<TKey> comparer, string member) where TKey : notnull =>
+        toSeq(keys.CountBy(static key => key, comparer))
             .Filter(static counted => counted.Value > 1)
-            .Traverse(counted => Validation.Fail<Error, Unit>(duplicate(counted.Key, counted.Value)))
+            .Traverse(counted => Validation.Fail<Error, Unit>(new Duplicate<TKey>(member, counted.Key, counted.Value)))
             .As();
+
+    public static Fin<Unit> Each<T>(Seq<T> items, Func<T, bool> call, string member) =>
+        items.Map((item, index) => RefusedElement.Unless(call(item), member, index)).Traverse(identity).As().Map(static _ => unit);
 
     // --- [RESULTS]
     public static Fin<Unit> FromResult(Result result, string member) =>
@@ -54,7 +84,7 @@ public static class Answers {
             Result.Nothing => new NothingEntered(),
             Result.ExitRhino => new ExitRequested(),
             Result.UnknownCommand => new UnknownCommand(member),
-            _ => new UnexpectedResult(member, result),
+            Result.Failure => new Refused(member),
         };
 
     public static Result ToResult(Error error) =>
@@ -64,15 +94,15 @@ public static class Answers {
             : error.IsType<UnknownCommand>() ? Result.UnknownCommand
             : Result.Failure;
 
-    public static Result ToResult(Fin<Unit> answer, Action<Error> reject) =>
-        answer.Match(
-            Succ: static _ => Result.Success,
-            Fail: error => {
-                Result known = ToResult(error);
-                if (known == Result.Failure)
-                    reject(error);
-                return known;
-            });
+    public static Result ToResult(Fin<Unit> answer) =>
+        answer.Match(Succ: static _ => Result.Success, Fail: ToResult);
+
+    public static Result ToResult(Fin<Unit> answer, Action<Error> reject) {
+        Result known = ToResult(answer);
+        if (known == Result.Failure)
+            _ = answer.IfFail(reject);
+        return known;
+    }
 
     // --- [CALLBACKS]
     public static TValue Answer<TValue>(IO<TValue> effect, Action<Error> reject, TValue fallback) =>
@@ -85,9 +115,6 @@ public static class Answers {
                 return fallback();
             }),
             None: fallback);
-
-    public static TValue Answer<TValue>(Option<IO<TValue>> effect, Action<Error> reject, TValue refused, Func<TValue> absent) =>
-        effect.Match(Some: run => Answer(run, reject, refused), None: absent);
 
     public static bool Succeeded(IO<Unit> effect, Action<Error> reject) =>
         Answer(effect.Map(static _ => true), reject, fallback: false);
@@ -104,20 +131,13 @@ public static class Answers {
         return answer.IfNone(new CallbackSkipped(member));
     }
 
-    public static async Task<Fin<T>> CapturedAsync<T>(Func<Action<Fin<T>>, Task> host, string member) {
-        Option<Fin<T>> answer = None;
-        await host(value => answer = Some(value)).ConfigureAwait(false);
-        return answer.IfNone(new CallbackSkipped(member));
-    }
-
-    // --- [REGISTRY]
+    // --- [LOOKUPS]
     public static IO<Seq<T>> Registered<T>(Func<Assembly, Guid, T[]?> register, Assembly assembly, Guid plugInId, string member) =>
-        from id in IO.lift(() => NonEmpty(plugInId, member))
+        from id in IO.lift(() => Invalid.Unless(plugInId != Guid.Empty, plugInId, nameof(plugInId)))
         from registered in IO.lift(() => Missing.Unless(register(assembly, id), member).Map(static types => toSeq(types)))
             .Catch(static error => error.HasException<InvalidDataException>(), _ => IO.fail<Seq<T>>(new ExportMissingGuid(member)))
         select registered;
 
-    // --- [PATHS]
     public static IO<string> QualifiedPath(string path) =>
         IO.lift(() => Invalid.Unless(Path.IsPathFullyQualified(path), path, nameof(Path.IsPathFullyQualified)));
 

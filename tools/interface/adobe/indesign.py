@@ -1,4 +1,4 @@
-"""InDesign's rows, alias commands, and Essentials frame, with the defaults database, alias plug-in, and workspace file it reads."""
+"""InDesign's rows and Essentials frame, with the defaults database and workspace file it reads."""
 
 from collections.abc import Mapping, Sequence
 from enum import IntEnum
@@ -13,11 +13,10 @@ import msgspec
 
 from interface import host
 from interface.adobe import window
-from interface.adobe.rows import Active, member, Menu, papers, PROMPT_NAME, prompt_source, Row, STROKE_UNITS, text_scale, Tool
+from interface.adobe.rows import Active, member, papers, Row, STROKE_UNITS, text_scale
 from interface.adobe.session import Scripted
-from interface.adobe.stores import File, Folder, UxpPlugin
-from interface.aliases import Alias
-from interface.frame import Role
+from interface.adobe.stores import File, Folder
+from interface.adobe.window import Role
 from interface.roles import Guide, Ink, Line, Status, Surface, SWATCHES, Tag, Text, Typography
 from interface.units import Length, Pen, Units
 
@@ -53,39 +52,9 @@ class Panel(IntEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-LEADER: Final = "Ctrl+G"
 DEFAULTS: Final = "InDesign Defaults"
-CDATA_OPEN: Final = "<![CDATA["
-CDATA_CLOSE: Final = "]]>"
+BOOKMARK: Final = "PaletteWorkspace/OWLWorkspaceBookmark"
 ENTITIES: Final = frozendict({"hash": "#", "lt": "<", "quot": '"'})
-COMMANDS: Final[frozendict[Alias, Tool | Menu]] = frozendict({
-    Alias.Q: Tool("LINE_TOOL"),
-    Alias.QQ: Tool("PEN_TOOL"),
-    Alias.W1: Tool("RECTANGLE_TOOL"),
-    Alias.WQ: Tool("POLYGON_TOOL"),
-    Alias.E: Tool("ELLIPSE_TOOL"),
-    Alias.R: Tool("ROTATE_TOOL"),
-    Alias.T: Tool("TYPE_TOOL"),
-    Alias.TT: Menu(61405, selection=True),
-    Alias.T3: Tool("SCALE_TOOL"),
-    Alias.TW: Tool("SHEAR_TOOL"),
-    Alias.D: Tool("MEASURE_TOOL"),
-    Alias.FF: Menu(99621, selection=True),
-    Alias.FQ: Tool("SCISSORS_TOOL"),
-    Alias.G: Menu(118844, selection=True),
-    Alias.GU: Menu(118845, selection=True),
-    Alias.GH: Menu(118856, selection=True),
-    Alias.GJ: Menu(118857, selection=False),
-    Alias.GL: Menu(11304, selection=True),
-    Alias.GP: Menu(11395, selection=False),
-    Alias.GE: Menu(118850, selection=False),
-    Alias.Z: Tool("ZOOM_TOOL"),
-    Alias.ZE: Menu(118787, selection=False),
-    Alias.V: Tool("SELECTION_TOOL"),
-    Alias.VA: Menu(25857, selection=False),
-    Alias.VO: Menu(276, selection=False),
-    Alias.IM: Menu(113409, selection=False),
-})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -94,6 +63,15 @@ class Named(msgspec.Struct, frozen=True, tag=True):
     """Application collection converged to the sorted names of its items, every item outside them removed."""
 
     collection: str
+
+
+class Item(msgspec.Struct, frozen=True, tag=True):
+    """Member of the named item of the `app` collection the owner names, the item added when absent, holding a member of the named DOM enumeration where one is named."""
+
+    owner: str
+    item: str
+    name: str
+    enumeration: str | None
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -112,25 +90,6 @@ def identity(element: etree._Element) -> str | int:
             return extension
         case attributes:
             return int(attributes["id"])
-
-
-# --- [PLUGIN]
-def packaged(source: str) -> UxpPlugin:
-    """Alias plug-in with a manifest binding the leader to its one command and a main script running the source as ExtendScript."""
-    identifier, version, application, minimum, main = "alias", "1.0.0", "ID", "18.5.0", "index.js"
-    manifest = {
-        "manifestVersion": 5,
-        "id": identifier,
-        "name": PROMPT_NAME,
-        "version": version,
-        "main": main,
-        "host": {"app": application, "minVersion": minimum},
-        "entrypoints": [{"type": "command", "id": identifier, "label": PROMPT_NAME, "shortcut": {"mac": LEADER}}],
-    }
-    script = host.rendered(
-        t'const {{ app, ScriptLanguage }} = require("indesign");\nrequire("uxp").entrypoints.setup({{ commands: {{ {identifier}: () => app.doScript({source}, ScriptLanguage.JAVASCRIPT) }} }});\n'
-    )
-    return UxpPlugin(frozendict({"manifest.json": msgspec.json.format(msgspec.json.encode(manifest), indent=4), main: script.encode()}))
 
 
 # --- [DATABASE]
@@ -158,17 +117,22 @@ def recorded(slider: float, held: bytes | None) -> bytes | host.Error:
 
 
 # --- [WORKSPACE]
-def bookmark(document: bytes) -> etree._Element:
-    """Root of the `<workspace>` block in a workspace file's CDATA section, each newline in an attribute value kept as a character reference."""
-    block = document.decode().partition(CDATA_OPEN)[2].partition(CDATA_CLOSE)[0]
-    return window.parsed(re.sub(r'="[^"]*"', lambda found: found[0].replace("\n", "&#10;"), block).encode())
+def opened(document: bytes) -> etree._Element:
+    """Root of a workspace file with its bookmark's CDATA section kept."""
+    return etree.fromstring(document, etree.XMLParser(strip_cdata=False))
+
+
+def bookmark(document: etree._Element) -> etree._Element:
+    """Root of the `<workspace>` block in a workspace file's bookmark, each newline in an attribute value kept as a character reference the XML parser would fold to a space."""
+    return window.parsed(re.sub(r'="[^"]*"', lambda found: found[0].replace("\n", "&#10;"), document.findtext(BOOKMARK, "")).encode())
 
 
 def workspace_file(file: str, factory: Sequence[etree._Element], held: bytes | None) -> bytes | tuple[host.Skip, ...] | host.Error:
     """Workspace file with its block arranged in the frame, the Layers panel's small rows set, and InDesign's default menu set, else the skip of a file InDesign has yet to write or of each panel no workspace holds, or the error of Layers panel data without its pane options."""
     if held is None:
         return (host.Skip(file),)
-    match window.arranged(FRAME, bookmark(held), factory):
+    document = opened(held)
+    match window.arranged(FRAME, bookmark(document), factory):
         case tuple() as skipped:
             return skipped
         case arranged:
@@ -179,16 +143,18 @@ def workspace_file(file: str, factory: Sequence[etree._Element], held: bytes | N
             options.set("SmallRows", "true")
             escapes = str.maketrans({plain: f"#{name};" for name, plain in ENTITIES.items()})
             layers.set(window.Attribute.DATA, etree.tostring(data, encoding="unicode").translate(escapes) + "\n")
-            head, _, rest = held.decode().partition(CDATA_OPEN)
-            block = window.serialized(arranged).replace("&#10;", "\n").replace("&gt;", ">")
-            tail = re.sub(r'(<menu-set [^>]*name=")[^"]*', r"\g<1>InDesign Defaults", rest.partition(CDATA_CLOSE)[2])
-            return f"{head}{CDATA_OPEN}{block}\n{CDATA_CLOSE}{tail}".encode()
+            (mark,), (menus,) = document.iterfind(BOOKMARK), document.iterfind("menu-set")
+            mark.text = etree.CDATA(f"\n{window.serialized(arranged).replace('&#10;', '\n').replace('&gt;', '>')}\n\n")
+            menus.set("name", "InDesign Defaults")
+            info = document.getroottree().docinfo
+            same = etree.tostring(document, method="c14n") == etree.tostring(opened(held), method="c14n")
+            return held if same else f'<?xml version="{info.xml_version}" encoding="{info.encoding}" standalone="yes"?>\n{etree.tostring(document, encoding="unicode")}'.encode()
 
 
 def workspace(factory: Sequence[bytes]) -> tuple[File, ...]:
     """Essentials workspace file arranged over the blocks of the factory workspace files."""
     file = f"Workspaces/{window.WORKSPACE}_CurrentWorkspace.xml"
-    return (File(Folder.SETTINGS, file, partial(workspace_file, file, tuple(map(bookmark, factory)))),)
+    return (File(Folder.SETTINGS, file, partial(workspace_file, file, tuple(bookmark(opened(data)) for data in factory))),)
 
 
 # --- [ROWS]
@@ -197,70 +163,68 @@ def folders(bundle: host.Bundle, base: Mapping[Folder, Path]) -> Mapping[Folder,
     return frozendict({Folder.FACTORY: bundle.path.parent / "Presets" / "InDesign_Workspaces" / base[Folder.SETTINGS].name})
 
 
-def rows(units: Units, bundle: host.Bundle) -> tuple[Row | File | UxpPlugin, ...]:
+def rows(units: Units, bundle: host.Bundle) -> tuple[Row | File, ...]:
     """InDesign's rows with the interface scaled to draw panel text at the interface text size through the slider's quarter steps above the unscaled interface, lengths in points, the system's page unit shown on the rulers, strokes in the system's stroke unit, and type in points."""
     presets = papers(units)
     slider = (text_scale(bundle.path.parent.joinpath("Presets", "themeXMLs", "FontTheme_Panel_MAC_enUS.xml")) - 1) / 0.25
     reserved, edges, axes = ("None", "Registration", "Paper", "Black"), ("top", "bottom", "left", "right"), ("horizontal", "vertical")
     swatches = {name: rgb for name, rgb in SWATCHES.items() if name not in reserved}
+    measured = {
+        f"{kind}MeasurementUnits": unit.name
+        for unit, kinds in ((units.page, (*axes, "printDialog")), (STROKE_UNITS[units], ("stroke",)), (Length.POINTS, ("typographic", "textSize")))
+        for kind in kinds
+    }
+    enumerations = {
+        "toolsPanel": "ToolsPanelOptions",
+        "toolTips": "ToolTipOptions",
+        **dict.fromkeys(measured, "MeasurementUnits"),
+        "rulerOrigin": "RulerOrigin",
+        **dict.fromkeys(("iconSize", "masterIconSize"), "IconSizes"),
+        "model": "ColorModel",
+        "space": "ColorSpace",
+    }
+    members: dict[str, dict[str, object]] = {
+        "generalPreferences": {
+            "uiBrightnessPreference": 0.0,
+            "pasteboardColorPreference": 1,
+            **dict.fromkeys(("panelTabHeightPreference", "showStartWorkspace", "showWhatsNewOnStartup", "contextBarVisible", "showStockPurchaseAdornment"), False),
+            **dict.fromkeys(("useApplicationFrame", "enableMultiTouchGestures"), True),
+            "toolsPanel": "DOUBLE_COLUMN",
+            "toolTips": "NORMAL",
+        },
+        "gpuPerformancePreferences": {"enableAnimatedZoom": False},
+        "typeContextualUiPrefs": dict.fromkeys(("showAlternatesUi", "showFractionsUi"), False),
+        "pasteboardPreferences": {"matchPreviewBackgroundToThemeColor": False, "previewBackgroundColor": Surface.CANVAS, **dict.fromkeys(("bleedGuideColor", "slugGuideColor"), Guide.CONSTRUCTION)},
+        "guidePreferences": {"rulerGuidesColor": Guide.CONSTRUCTION},
+        "documentPreferences": {"marginGuideColor": Guide.CONSTRUCTION, "columnGuideColor": Line.DATUM_GRID, "pageSize": presets[0].sheet},
+        "smartGuidePreferences": {"guideColor": Guide.TRACKING},
+        "gridPreferences": {
+            **dict.fromkeys(("gridColor", "baselineColor"), Line.PAPER_GRID),
+            **dict.fromkeys(("documentGridShown", "baselineGridShown"), False),
+            "gridsInBack": True,
+            **{f"{axis}{key}": value for axis in axes for key, value in (("GridlineDivision", units.snap / Length.POINTS), ("GridSubdivision", round(units.snap / units.resolution)))},
+        },
+        "baselineFrameGridOptions": {"baselineFrameGridColor": Line.PAPER_GRID},
+        "spellPreferences": {"misspelledWordColor": Status.ERROR, **dict.fromkeys(("repeatedWordColor", "uncapitalizedWordColor", "uncapitalizedSentenceColor"), Status.WARNING)},
+        "xmlPreferences": {f"default{kind}TagColor": tag.value for kind, tag in zip(("Story", "Table", "Cell", "Image"), Tag, strict=False)},
+        "galleyPreferences": {"backgroundColor": Surface.WELL, "textColor": Text.PRIMARY, "displayFont": Typography.INTERFACE.family, "displayFontSize": 10.0},
+        "watermarkPreferences": {"watermarkFontColor": Ink.DOCUMENT},
+        "viewPreferences": {"pointsPerInch": float(round(Length.INCHES / Length.POINTS)), "cursorKeyIncrement": units.resolution / Length.POINTS, **measured, "rulerOrigin": "PAGE_ORIGIN"},
+        "marginPreferences": dict.fromkeys(edges, units.margin / Length.POINTS),
+        "pageItemDefaults": {"strokeWeight": Pen.THIN / Length.POINTS},
+    }
+    items: dict[tuple[str, str], dict[str, object]] = {
+        ("panels", "$ID/Pages"): dict.fromkeys(("iconSize", "masterIconSize"), "EXTRA_SMALL_ICON"),
+        **{("documentPresets", paper.title): {"pageSize": paper.sheet, **dict.fromkeys(edges, paper.value.margin / Length.POINTS)} for paper in presets},
+        **{("colors", name): {"model": "PROCESS", "space": "RGB", "colorValue": rgb} for name, rgb in swatches.items()},
+    }
     return (
-        member("generalPreferences", "uiBrightnessPreference", 0.0),
-        member("generalPreferences", "pasteboardColorPreference", 1),
-        member("generalPreferences", "toolsPanel", "DOUBLE_COLUMN", enumeration="ToolsPanelOptions"),
-        *(member("generalPreferences", key, target=False) for key in ("panelTabHeightPreference", "showStartWorkspace", "showWhatsNewOnStartup", "contextBarVisible", "showStockPurchaseAdornment")),
-        *(member("generalPreferences", key, target=True) for key in ("useApplicationFrame", "enableMultiTouchGestures")),
-        member("generalPreferences", "toolTips", "NORMAL", enumeration="ToolTipOptions"),
-        member("gpuPerformancePreferences", "enableAnimatedZoom", target=False),
-        *(member("typeContextualUiPrefs", key, target=False) for key in ("showAlternatesUi", "showFractionsUi")),
-        member("pasteboardPreferences", "matchPreviewBackgroundToThemeColor", target=False),
-        member("pasteboardPreferences", "previewBackgroundColor", Surface.CANVAS),
-        *(member(owner, key, Guide.CONSTRUCTION) for owner, key in (("guidePreferences", "rulerGuidesColor"), ("documentPreferences", "marginGuideColor"))),
-        member("documentPreferences", "columnGuideColor", Line.DATUM_GRID),
-        *(member("pasteboardPreferences", key, Guide.CONSTRUCTION) for key in ("bleedGuideColor", "slugGuideColor")),
-        member("smartGuidePreferences", "guideColor", Guide.TRACKING),
-        *(member(owner, key, Line.PAPER_GRID) for owner, key in (("gridPreferences", "gridColor"), ("gridPreferences", "baselineColor"), ("baselineFrameGridOptions", "baselineFrameGridColor"))),
-        *(member("gridPreferences", key, target=False) for key in ("documentGridShown", "baselineGridShown")),
-        member("gridPreferences", "gridsInBack", target=True),
-        member("spellPreferences", "misspelledWordColor", Status.ERROR),
-        *(member("spellPreferences", key, Status.WARNING) for key in ("repeatedWordColor", "uncapitalizedWordColor", "uncapitalizedSentenceColor")),
-        *(member("xmlPreferences", f"default{kind}TagColor", tag.value) for kind, tag in zip(("Story", "Table", "Cell", "Image"), Tag, strict=False)),
-        member("galleyPreferences", "backgroundColor", Surface.WELL),
-        member("galleyPreferences", "textColor", Text.PRIMARY),
-        member("galleyPreferences", "displayFont", Typography.INTERFACE.family),
-        member("galleyPreferences", "displayFontSize", 10.0),
-        member("watermarkPreferences", "watermarkFontColor", Ink.DOCUMENT),
-        member("viewPreferences", "pointsPerInch", float(round(Length.INCHES / Length.POINTS))),
-        *(
-            member("viewPreferences", f"{kind}MeasurementUnits", unit.name, enumeration="MeasurementUnits")
-            for unit, kinds in ((units.page, (*axes, "printDialog")), (STROKE_UNITS[units], ("stroke",)), (Length.POINTS, ("typographic", "textSize")))
-            for kind in kinds
-        ),
-        member("viewPreferences", "rulerOrigin", "PAGE_ORIGIN", enumeration="RulerOrigin"),
-        member("viewPreferences", "cursorKeyIncrement", units.resolution / Length.POINTS),
-        *(
-            member("gridPreferences", f"{axis}{key}", value)
-            for axis in axes
-            for key, value in (("GridlineDivision", units.snap / Length.POINTS), ("GridSubdivision", round(units.snap / units.resolution)))
-        ),
-        member("documentPreferences", "pageSize", presets[0].sheet),
-        *(member("marginPreferences", edge, units.margin / Length.POINTS) for edge in edges),
-        member("pageItemDefaults", "strokeWeight", Pen.THIN / Length.POINTS),
-        *(member("documentPresets", key, value, item=paper.title) for paper in presets for key, value in {"pageSize": paper.sheet, **dict.fromkeys(edges, paper.value.margin / Length.POINTS)}.items()),
+        *(member(owner, name, target, enumeration=enumerations.get(name)) for owner, targets in members.items() for name, target in targets.items()),
+        *(Row(f'{owner}["{item}"].{name}', Item(owner, item, name, enumerations.get(name)), target) for (owner, item), targets in items.items() for name, target in targets.items()),
         Row("documentPresets", Named("documentPresets"), tuple(sorted(("[Default]", *(paper.title for paper in presets))))),
-        *(member("panels", key, "EXTRA_SMALL_ICON", item="Pages", enumeration="IconSizes") for key in ("iconSize", "masterIconSize")),
-        *(
-            row
-            for name, rgb in swatches.items()
-            for row in (
-                member("colors", "model", "PROCESS", item=name, enumeration="ColorModel"),
-                member("colors", "space", "RGB", item=name, enumeration="ColorSpace"),
-                member("colors", "colorValue", rgb, item=name),
-            )
-        ),
         Row("swatches", Named("swatches"), tuple(sorted({*reserved, *SWATCHES}))),
         Row("generalPreferences.setActiveWorkspace", Active(), window.WORKSPACE),
         File(Folder.SETTINGS, DEFAULTS, partial(recorded, slider)),
-        packaged(prompt_source(PRODUCT.name, COMMANDS)),
     )
 
 
@@ -296,4 +260,4 @@ PRODUCT: Final = Scripted(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COMMANDS", "FRAME", "LEADER", "PRODUCT", "folders", "rows", "workspace"]
+__all__ = ["FRAME", "PRODUCT", "folders", "rows", "workspace"]

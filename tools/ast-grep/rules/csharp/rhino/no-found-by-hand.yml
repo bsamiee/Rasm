@@ -32,6 +32,43 @@ utils:
                 stopBy: end
                 matches: statement
                 follows: {stopBy: end, matches: statement, has: {stopBy: {matches: member}, matches: out-argument}}
+    read:
+        any:
+            - kind: identifier
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, matches: read}
+                - has: {field: name, kind: identifier}
+    root:
+        any:
+            - kind: identifier
+              pattern: $ROOT
+            - kind: member_access_expression
+              has: {field: expression, matches: root}
+    guarded:
+        any:
+            - kind: null_literal, conditional_access_expression, is_expression, declaration_expression, declaration_pattern, var_pattern, recursive_pattern
+            - kind: identifier
+              regex: '^(HasValue|IsSome|IsNone|IsEmpty|Count|Length)$'
+            - kind: argument
+              regex: '^(\w+\s*:\s*)?out\s'
+    tested:
+        kind: is_pattern_expression
+        has: {field: expression, pattern: $TESTED}
+    pure-bound:
+        all:
+            - not: {has: {field: condition, any: [{matches: guarded}, {has: {stopBy: {matches: member}, matches: guarded}}]}}
+            - not: {has: {field: condition, any: [{pattern: $V}, {has: {stopBy: end, pattern: $V}}]}}
+            - not:
+                all:
+                    - has: {field: condition, any: [{matches: tested}, {has: {stopBy: end, matches: tested}}]}
+                    - has: {stopBy: end, kind: member_access_expression, has: {field: expression, pattern: $TESTED}}
+            - has: {stopBy: end, pattern: $V, matches: root}
+            - not:
+                inside:
+                    stopBy: end
+                    matches: member
+                    has: {stopBy: end, kind: argument, regex: '^(\w+\s*:\s*)?out\s', has: {nthChild: {position: 1, reverse: true}, any: [{kind: declaration_expression, has: {field: name, pattern: $ROOT}}, {kind: identifier, pattern: $ROOT}]}}
     some:
         any:
             - kind: invocation_expression
@@ -48,12 +85,12 @@ utils:
                 - has:
                     field: arguments
                     all:
-                        - has: {kind: argument, nthChild: 1, regex: '^(value\s*:\s*)?\w+$', has: {nthChild: {position: 1, reverse: true}, kind: identifier, pattern: $V}}
+                        - has: {kind: argument, nthChild: 1, not: {has: {field: name, not: {regex: '^value$'}}}, has: {nthChild: {position: 1, reverse: true}, matches: read, pattern: $V}}
                         - not: {has: {kind: argument, nthChild: 2}}
             - kind: cast_expression
               all:
                 - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<.+>$', has: {stopBy: end, kind: type_argument_list, pattern: $TYPES}}
-                - has: {field: value, kind: identifier, pattern: $V}
+                - has: {field: value, matches: read, pattern: $V}
             - kind: identifier
               pattern: $V
             - kind: parenthesized_expression
@@ -112,7 +149,7 @@ rule:
                 - has: {field: alternative, matches: some}
                 - has: {field: consequence, matches: csharp-none-value}
                 - has: {field: condition, matches: reversed}
-        - matches: out-bound
+        - any: [{matches: out-bound}, {matches: pure-bound}]
         - not: {has: {stopBy: end, kind: comment}}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}
@@ -144,5 +181,5 @@ transform:
             replace: '(?s)^(.+)$'
             by: '!($1)'
 fix: Answers.Found$TYPES($COND$INNER$NOT_FLAG$SUBJECT$NOT_TESTED$LEFT$NOT_EQUAL$NOT_UNEQUAL$NOT_TEST, $V)
-message: Out answer `$V` lifts into an `Option` by hand
-note: Use `Answers.Found(<found>, <out value>)`
+message: '`$V` lifts into an `Option` under a found flag by hand'
+note: Use `Answers.Found(<found>, <value>)` where `<value>` is an out answer, a local, a parameter, or a member read the flag does not guard, `Found` reads `<value>` before `<found>`

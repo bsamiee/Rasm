@@ -26,4 +26,4 @@ rule:
                 follows: {stopBy: end, matches: conditional-write}
             - pattern: $READ
 message: '`$CALL` finds a host value through simulated input or a read after its own write'
-note: 'Take a value from its write and target, and set host values through a member or stored file the host reads, the written target states what simulated input or a second read finds'
+note: 'Use the write''s target as the value and a member or stored file the host reads for each host value, the written target states what simulated input or a second read finds'

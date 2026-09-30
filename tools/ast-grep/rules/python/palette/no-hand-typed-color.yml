@@ -35,7 +35,7 @@ utils:
                     - has: {kind: integer, regex: '^1$'}
                     - not: {has: {matches: channel, not: {regex: '^[01]$'}}}
                 - inside: {kind: assignment, field: right, has: {field: left, kind: pattern_list}}
-                - inside: {kind: call, has: {field: function, regex: '^(range|slice)$'}}
+                - inside: {kind: call, has: {field: function, regex: '^(range|slice|Vector3[df]|Point3[df])$'}}
     single:
         kind: 'tuple, list'
         has: {matches: channel}
@@ -93,4 +93,4 @@ rule:
     any: [{matches: channels}, {matches: repeated}, {matches: keyed-channels}, {matches: named}, {matches: spelled}]
     not: {inside: {stopBy: end, kind: class_definition, has: {field: name, regex: '^Ink$'}}}
 message: '`$COLOR` spells a color by hand'
-note: 'Read the `roles.py` role its meaning needs, `Ink` alone holds raw channel values and every other role derives from `Palette`'
+note: 'Use the `roles.py` role its meaning needs, `Ink` alone holds raw channel values and every other role derives from `Palette`'

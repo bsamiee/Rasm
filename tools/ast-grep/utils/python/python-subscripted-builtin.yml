@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-subscripted-builtin
+language: python
+arguments: [name]
+rule:
+    kind: identifier
+    matches: {python-builtin-name: {name: {matches: name}}}
+    any:
+        - nthChild: 1
+          inside:
+            kind: generic_type
+            not: {inside: {kind: assignment, field: type, stopBy: end, inside: {kind: function_definition, stopBy: {kind: 'function_definition, class_definition'}}}}
+        - inside: {kind: subscript, field: value}

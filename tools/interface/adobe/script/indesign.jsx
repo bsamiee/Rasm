@@ -4,6 +4,15 @@
 
 var accessors = {
     Member: Member,
+    Item: member(
+        function (access) {
+            var item = app[access.owner].itemByName(access.item);
+            return item.isValid ? item : null;
+        },
+        function (access) {
+            return app[access.owner].add({ name: access.item });
+        }
+    ),
     Named: {
         read: function (access) {
             var collection = app[access.collection];
@@ -11,7 +20,7 @@ var accessors = {
             for (var index = 0; index < collection.length; index++) names.push(collection[index].name);
             return names.sort();
         },
-        write: function (access, target, artifacts, held) {
+        write: function (access, target, held) {
             var kept = {};
             for (var index = 0; index < target.length; index++) kept[target[index]] = true;
             for (var name = 0; name < held.length; name++) if (!kept[held[name]]) app[access.collection].itemByName(held[name]).remove();

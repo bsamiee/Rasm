@@ -2,7 +2,6 @@
 
 from collections.abc import Iterable, Mapping, Sequence
 from io import BytesIO
-from itertools import chain
 from pathlib import Path, PurePosixPath
 import re
 from typing import Final
@@ -13,7 +12,7 @@ import httpx
 from lxml import etree
 import msgspec
 
-from interface.host import Applied, Change, downloaded, Error, Failed, Header, Host, outcome
+from interface.host import Applied, Change, downloaded, Error, executed, Failed, fetched, Header, Host, outcome
 from interface.report import ABSENT, digest, subscript
 from interface.rhino.session import Rhino
 from interface.rhino.window import RibbonTab
@@ -26,11 +25,10 @@ TABLE: Final = "packages"
 
 
 class Source(msgspec.Struct, frozen=True):
-    """GitHub repository whose newest successful run of a workflow on a branch uploads the package as an artifact, `{major}` standing for Rhino's major version."""
+    """GitHub repository whose newest workflow run on a branch uploading a named artifact holds the package, `{major}` standing for Rhino's major version."""
 
     repository: str
     branch: str
-    workflow: str
     artifact: str
 
 
@@ -119,21 +117,24 @@ async def packaged(folder: Path) -> Path | Error:
             return Error(f"{folder} holds {len(found)} yak packages in place of one")
 
 
-async def built(rhino: Rhino, source: Source, folder: Path) -> Path | Error:
-    """Yak package the newest successful run of the source's workflow on its branch uploads, downloaded into the folder, or the reason none downloads."""
+async def built(host: Host, rhino: Rhino, source: Source, folder: Path) -> Path | Error:
+    """Yak package the newest unexpired upload of the source's artifact from a run on its branch holds, downloaded into the folder, or the reason none downloads."""
     major, _ = rhino.release
-    branch = source.branch.format(major=major)
-    listed = await anyio.run_process(["gh", "run", "list", "-R", source.repository, "-w", source.workflow, "-b", branch, "-s", "success", "-L", "1", "--json", "databaseId", "-q", ".[].databaseId"])
-    match listed.stdout.decode().split():
+    branch, artifact = source.branch.format(major=major), source.artifact.format(major=major)
+    newest = f'[.artifacts[] | select((.expired | not) and .workflow_run.head_branch == "{branch}")] | max_by(.created_at) | .workflow_run.id // empty'
+    listed = await executed(("gh", "api", "-X", "GET", f"repos/{source.repository}/actions/artifacts", "-f", f"name={artifact}", "-f", "per_page=100", "--jq", newest), host.environ)
+    match listed.split() if isinstance(listed, bytes) else listed:
+        case Error() as failed:
+            return failed
         case [run]:
-            await anyio.run_process(["gh", "run", "download", run, "-R", source.repository, "-n", source.artifact.format(major=major), "-D", str(folder)])
-            return await packaged(folder)
+            saved = await executed(("gh", "run", "download", run.decode(), "-R", source.repository, "-n", artifact, "-D", str(folder)), host.environ)
+            return saved if isinstance(saved, Error) else await packaged(folder)
         case _:
-            return Error(f"{source.repository} workflow {source.workflow} has no successful run on {branch}")
+            return Error(f"{source.repository} holds no unexpired {artifact} artifact from a run on {branch}")
 
 
 async def published(client: httpx.AsyncClient, rhino: Rhino, identity: str) -> str | Error:
-    """Address of the distribution this Rhino on macOS loads best in the newest Yak server version holding one, or the reason none exists."""
+    """Address of the first distribution this Rhino on macOS loads, in server order, of the newest Yak server version holding one, as yak's non-strict compatibility test picks it, or the reason none exists."""
 
     class Distribution(msgspec.Struct, frozen=True):
         rhino_version: str
@@ -143,29 +144,23 @@ async def published(client: httpx.AsyncClient, rhino: Rhino, identity: str) -> s
     class Version(msgspec.Struct, frozen=True):
         distributions: tuple[Distribution, ...]
 
-    address = f"https://yak.rhino3d.com/versions/{identity}"
+    def loads(distribution: Distribution) -> bool:
+        """Whether this Rhino on macOS loads the distribution: any platform but Windows, and any Rhino or a release at or below this one."""
+        match distribution.platform, re.fullmatch(r"rh(\d+)(?:_(\d+))?|any", distribution.rhino_version):
+            case "win", _:
+                return False
+            case _, None:
+                return False
+            case _, tag:
+                return tag[1] is None or (int(tag[1]), int(tag[2] or 0)) <= rhino.release
 
-    def loads(distribution: Distribution) -> tuple[bool, int, int, bool] | None:
-        """Rank of a distribution this Rhino loads, a tagged release above `any` and a mac build above a platform-free one, None for one it does not."""
-        match re.fullmatch(r"rh(\d+)(?:_(\d+))?", distribution.rhino_version), distribution.rhino_version, distribution.platform:
-            case _, _, "win":
-                return None
-            case None, "any", platform:
-                return (False, 0, 0, platform == "mac")
-            case re.Match() as tag, _, platform if (int(tag[1]), int(tag[2] or 0)) <= rhino.release:
-                return (True, int(tag[1]), int(tag[2] or 0), platform == "mac")
-            case _:
-                return None
-
-    try:
-        versions = msgspec.json.decode((await client.get(address)).raise_for_status().content, type=tuple[Version, ...])
-    except httpx.HTTPError as error:
-        return Error(f"GET {address} failed with {error!r}")
-    match next((max(fits) for version in versions if (fits := [(rank, each.url) for each in version.distributions if (rank := loads(each)) is not None])), None):
-        case (_, str() as url):
-            return url
-        case _:
-            return Error(f"Yak server publishes no {identity} version Rhino {rhino.bundle.version} on macOS loads")
+    match await fetched(client, f"https://yak.rhino3d.com/versions/{identity}", tuple[Version, ...]):
+        case Error() as failed:
+            return failed
+        case versions:
+            return next(
+                (each.url for version in versions for each in version.distributions if loads(each)), Error(f"Yak server publishes no {identity} version Rhino {rhino.bundle.version} on macOS loads")
+            )
 
 
 async def staged(host: Host, rhino: Rhino, package: Package) -> tuple[Change | Error, ...]:
@@ -173,7 +168,7 @@ async def staged(host: Host, rhino: Rhino, package: Package) -> tuple[Change | E
     async with anyio.TemporaryDirectory() as temporary:
         match package:
             case Package(source=Source() as source):
-                fetched = await built(rhino, source, Path(temporary))
+                fetched = await built(host, rhino, source, Path(temporary))
             case Package(project=str() as project):
                 fetched = await packaged(host.root / ".artifacts" / "rhino" / project)
             case Package(id=identity):
@@ -232,7 +227,7 @@ async def upgrade(host: Host) -> tuple[Applied | Failed]:
         case Rhino() as rhino:
             await anyio.Path(host.cache).mkdir(parents=True, exist_ok=True)
             results = await anyio.gather(*(staged(host, rhino, package) for package in await declared()))
-            return (outcome(host.app, (Header(rhino.bundle.version, str(host.cache)), *chain.from_iterable(results))),)
+            return (outcome(host.app, (Header(rhino.bundle.version, str(host.cache)), *(line for lines in results for line in lines))),)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

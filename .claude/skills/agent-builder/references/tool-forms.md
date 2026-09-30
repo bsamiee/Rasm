@@ -22,7 +22,7 @@ Forms and facts per tool an agent step names, run from repository root.
 - `rg -n -F '<text>'` exits 1 on an absent spelling, `rg -l -F` lists files for `sd`
 - `rg` refuses look-around without `--pcre2`, `--pcre2` refuses an unknown escape (`\y`)
 - `rg -nU --pcre2 -e '^[ \t]*(#(?!!)|//|<!--|/\*)' -e '^[ \t]*(message|note):' -e '"""[\s\S]*?"""' <files>` extracts comments and rule text
-- `sd -A -F '<old>' '<new>' <files>` rewrites a fixed string, without `-A` a find spanning lines matches nothing and `sd` exits 0
+- `sd -F '<old>' '<new>' <files>` rewrites a fixed string line by line, a find spanning lines takes `-A`, without it `sd` matches nothing and exits 0
 - `sd` takes `--` before a find or replacement opening with `-`, a `$1` capture reads as `${1}` before a word character
 - `jq` and `yq` refuse a JSON file with `//` comments, `Read` reads it
 - `yq -r '[.id, .message] | join(" | ")' <rules>/*.yml` maps a rule family

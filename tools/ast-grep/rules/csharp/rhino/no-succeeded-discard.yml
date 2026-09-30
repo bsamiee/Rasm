@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-succeeded-discard
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    in-order:
+        not:
+            has:
+                field: arguments
+                any:
+                    - has: {kind: argument, nthChild: 1, has: {field: name, not: {regex: '^effect$'}}}
+                    - has: {kind: argument, nthChild: 2, has: {field: name, not: {regex: '^reject$'}}}
+                    - has: {kind: argument, nthChild: 3, has: {field: name, not: {regex: '^absent$'}}}
+    succeeded:
+        kind: invocation_expression
+        all:
+            - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^Succeeded$'}}}
+            - has: {field: function, pattern: $CALLEE}
+            - matches: in-order
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, pattern: $FIRST}
+                    - has: {kind: argument, nthChild: 2, pattern: $SECOND}
+                    - any:
+                        - not: {has: {kind: argument, nthChild: 3}}
+                          pattern: $EAGER
+                        - has: {kind: argument, nthChild: 3, pattern: $ABSENT, matches: {csharp-constant-lambda: {value: {kind: 'boolean_literal, default_expression'}}}}
+                          not: {has: {kind: argument, nthChild: 4}}
+rule:
+    any:
+        - matches: succeeded
+          inside: {kind: assignment_expression, field: right, has: {field: left, regex: '^_$'}}
+        - matches: succeeded
+          inside: {kind: expression_statement}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?ignore(\s*<.+>)?$'}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: succeeded}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+transform:
+    ANSWER:
+        replace:
+            source: $CALLEE
+            replace: 'Succeeded$'
+            by: Answer
+    EAGER_FALLBACK:
+        replace:
+            source: $EAGER
+            replace: '(?s)^.*$'
+            by: unit
+    LAZY_FALLBACK:
+        replace:
+            source: $ABSENT
+            replace: '(?s)^.*$'
+            by: static () => unit
+fix: $ANSWER($FIRST, $SECOND, $EAGER_FALLBACK$LAZY_FALLBACK)
+message: '`Answers.Succeeded` over `$FIRST` computes a success flag the caller discards'
+note: Use `Answers.Answer(<effect>, <reject>, unit)`, with `static () => unit` as the fallback of an optional effect

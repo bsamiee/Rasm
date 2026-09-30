@@ -40,4 +40,4 @@ rule:
         pattern: $TYPE
         matches: mutable-within
 message: 'Field of type `$TYPE` holds a mutable collection'
-note: Hold `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, or `LanguageExt.HashSet<A>` and copy the input with `toSeq` at the boundary
+note: Use `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, or `LanguageExt.HashSet<A>`, with input copied through `toSeq` at the boundary

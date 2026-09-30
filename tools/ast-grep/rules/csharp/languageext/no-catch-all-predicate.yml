@@ -11,7 +11,7 @@ utils:
                     - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}
                     - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^\|$'}}
             - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, has: {matches: csharp-release-handler}}}
-            - not: {matches: {csharp-owner-body: {type: {regex: '^GeometryOps$'}, member: {regex: '^OnFailure$'}}}}
+            - not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^OnFailure$'}}}}
 rule:
     kind: invocation_expression
     all:

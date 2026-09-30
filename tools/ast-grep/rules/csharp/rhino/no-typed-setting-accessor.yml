@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-typed-setting-accessor
+language: csharp
+severity: error
+files: ['**/rhino/**']
+rule:
+    kind: invocation_expression
+    all:
+        - matches: csharp-setting-accessor
+        - has: {field: function, has: {field: name, pattern: $MEMBER}}
+        - not: {inside: {kind: argument, nthChild: 1, inside: {kind: argument_list, inside: {matches: csharp-setting-found-read}}}}
+        - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^SettingType$'}}}
+message: '`$MEMBER` reads a `PersistentSettings` value outside its `SettingType` row'
+note: Use `SettingType.<Kind>.Read(<settings>, <key>)` and match its answer where the read feeds a condition or a later statement, adding a row for a missing kind, a typed `TryGet*` retypes the key and reads an integer as a bool, and writes call the host setter directly

@@ -48,4 +48,4 @@ rule:
                     - has: {field: function, matches: property-callee}
                     - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, kind: lambda, all: [{has: {field: parameters, matches: single-parameter}}, {has: {field: body, matches: forwarded-read}}]}}
 message: 'Property `$NAME` forwards `$READ` unchanged'
-note: 'Read `<owner>.<member>` at each use, the property adds a name and no fact'
+note: 'Use `<owner>.<member>` at each read, the property adds a name and no fact'

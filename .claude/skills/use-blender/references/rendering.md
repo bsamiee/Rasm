@@ -17,7 +17,8 @@ Renders through `headless.py render` in a process under the user's preferences o
 - `//` in `render.filepath` resolves against the saved file's folder, a render of an unsaved file to a `//` path fails
 - `filepaths.render_output_directory` applies to `bpy.data.scenes.new()` alone, existing scenes and `scene.new(type="EMPTY")` keep `render.filepath`
 - `render.ppm_factor` over `render.ppm_base` sets the pixel density the file records, 300 over 0.0254 writes 300 dpi
-- Under the physical sky with its sun at 53.5° elevation, exposure -5.3 puts a white ground at scene-linear 1.0
+- Site scenes stay physical under AgX, and exposure -5.3 puts a white ground under the physical sky's 53.5° sun at scene-linear 1.0
+- Rhino folds that exposure into its lights, a Rhino render EXR compares to a Blender EXR times `2 ** exposure`
 - Exposure -5.3 renders every other world 39 times darker than the physical sky
 - `cycles.sample_clamp_indirect` keeps the factory 10 under any exposure, `10 / 2 ** exposure` (394 at -5.3) keeps bounce light
 - Material Preview applies view transform and look without exposure, Rendered under the scene world or lights applies exposure with them
@@ -35,6 +36,8 @@ python .claude/skills/use-blender/scripts/headless.py render <file> --frames <st
 
 - `--frames` takes one frame, `<start>..<end>`, or `all` for the scene range, the current frame without it
 - Frames render in the file's engine, format, and resolution, `Rendered.files` lists each path `render.frame_path` names
+- `render_thumbnail_to_path` renders 320 px on the long side at 16 samples, a picture for orientation alone
+- Look questions take one render each
 - `resumed` counts image frames an earlier run of the unchanged file wrote, a changed file renders every frame again
 - `<stem>.log` beside the frames holds Blender's whole output, one `render | Saved:` line per written frame
 
@@ -55,17 +58,18 @@ layers = tree.nodes.new("CompositorNodeRLayers")
 tree.links.new(layers.outputs["Image"], tree.nodes.new("NodeGroupOutput").inputs[0])
 out = tree.nodes.new("CompositorNodeOutputFile")
 out.directory, out.file_name = "<dir>/", "passes"
-out.format.media_type = "MULTI_LAYER_IMAGE"
 for kind, name in (("RGBA", "Image"), ("FLOAT", "Depth"), ("VECTOR", "Normal")):
     out.file_output_items.new(kind, name)
     tree.links.new(layers.outputs[name], out.inputs[name])
 ```
 
-- `NodeGroupOutput` writes the render result once the tree interface holds an `Image` output socket
+- `NodeGroupOutput` writes the render result from the tree interface's first output socket, a Color socket alone
+- First interface input sockets take the Combined pass in the first effect and the previous effect's first output after it
 - `view_layer.use_pass_z` adds the `Depth` output, `use_pass_normal` adds `Normal`, Cycles-only passes sit on `view_layer.cycles`
 - File Output nodes write on every render, `mute = True` on the node skips the write
 - Renders pass through each effect with `enable_for_render` on in stack order while `scene.render.use_compositing` is true
+- Renders skip every effect while `render.use_sequencer` is on and an unmuted top-level strip other than sound exists
 - `enable_for_preview` gates an effect in the viewport
-- `scene.new_compositor_effect_node_group()` adds an effect with an `Image` input and output
+- `bpy.ops.scene.new_compositor_effect_node_group()` adds an effect with an `Image` input and output
 - Properties tab `COMPOSITOR` shows the effect stack, `show_properties_compositor` hides it per area
 - Multilayer EXRs hold one part per layer, Blender's bundled `OpenImageIO` reads every part

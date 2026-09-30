@@ -72,7 +72,6 @@
             "mcp__binlog__*",
             "mcp__blender__*",
             "mcp__claudeCodeDocs__*",
-            "mcp__computer-use__*",
             "mcp__context7__*",
             "mcp__deepwiki__*",
             "mcp__exa__*",
@@ -112,6 +111,28 @@
                         "type": "command",
                         "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/root-cause.sh",
                         "args": []
+                    }
+                ]
+            },
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "uv",
+                        "args": ["run", "--script", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py"],
+                        "timeout": 10
+                    }
+                ]
+            }
+        ],
+        "SessionEnd": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "uv",
+                        "args": ["run", "--script", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py"],
+                        "timeout": 10
                     }
                 ]
             }
@@ -193,5 +214,6 @@
         }
     },
     "effortLevel": "high",
+    "cleanupPeriodDays": 7,
     "claudeMdExcludes": ["**/.cache/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md", "**/.venv/**/CLAUDE.md", "**/.artifacts/**/CLAUDE.md"]
 }

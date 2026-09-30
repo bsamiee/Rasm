@@ -1,14 +1,15 @@
-"""Host side every application's run shares: the facts it reads, the bundle, processes, and instances it drives, the report it decodes, and the outcome it returns."""
+"""Host side every application's run shares: the facts and environment it reads, the bundle, processes, and instances it drives, the report it decodes, and the outcome it returns."""
 
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from functools import partial
-from itertools import chain
 from pathlib import Path
 import plistlib
+import shlex
 from string.templatelib import Interpolation, Template
+from subprocess import CalledProcessError
 import sys
-from typing import Final, override
+from typing import Annotated, Final, override
 
 import anyio
 from AppKit import NSRunningApplication, NSWorkspace, NSWorkspaceOpenConfiguration
@@ -17,6 +18,7 @@ from Foundation import NSDictionary, NSError, NSKeyValueChangeNewKey, NSKeyValue
 import httpx
 import msgspec
 import psutil
+from pydantic import BaseModel, DirectoryPath, Field, ValidationError
 
 from interface.report import Kind
 from interface.units import Units
@@ -100,6 +102,12 @@ class Error(msgspec.Struct, frozen=True, array_like=True, tag=Kind.ERROR.value):
     text: str
 
 
+class Home(BaseModel, frozen=True):
+    """Variables every desktop application's run reads: the home folder holding the application's preferences and data."""
+
+    home: Annotated[DirectoryPath, Field(alias="HOME")]
+
+
 class Applied(msgspec.Struct, frozen=True, tag=True, tag_field="kind"):
     """Run that reported no failure, with the store folder its changes landed in."""
 
@@ -153,6 +161,15 @@ def outcome(app: str, rows: Sequence[Line]) -> Applied | Failed:
             return Failed(app, errors, changes)
 
 
+# --- [ENVIRONMENT]
+def environment[T: BaseModel](model: type[T], environ: Mapping[str, str]) -> T | Error:
+    """Model of the variables an application's run reads, validated once over the process environment, or the error naming every variable it refused."""
+    try:
+        return model.model_validate(environ)
+    except ValidationError as error:
+        return Error("; ".join(f"{'.'.join(map(str, each['loc']))} {each['msg'].lower()}" for each in error.errors()))
+
+
 # --- [SOURCE]
 def literal(value: object) -> str:
     """Value as JSON text, a literal in AppleScript and JavaScript source."""
@@ -183,7 +200,7 @@ def bootstrap(module: str, call: Template, *folders: Path) -> str:
         t"sys.pycache_prefix = {sys.pycache_prefix}\n"
         t"for name in [name for name in sys.modules if name.partition('.')[0] in {tops}]:\n"
         t"    del sys.modules[name]\n"
-        t"sys.path[:0] = [root for root in {tuple(map(str, roots))} if root not in sys.path]\n"
+        t"sys.path[:0] = {tuple(map(str, roots))}\n"
         t"importlib.import_module({module})." + call,
         repr,
     )
@@ -203,8 +220,16 @@ async def located(identifier: str) -> tuple[Bundle, ...]:
 
 # --- [PROCESS]
 def running(application: Bundle) -> tuple[psutil.Process, ...]:
-    """Every process running the bundle's main executable, its `info` holding the executable and command line read in one snapshot."""
-    return tuple(process for process in psutil.process_iter(["exe", "cmdline"]) if process.info["exe"] == str(application.executable))
+    """Every process running the bundle's main executable, its `info` holding the executable, command line, and environment read in one snapshot."""
+    return tuple(process for process in psutil.process_iter(["exe", "cmdline", "environ"]) if process.info["exe"] == str(application.executable))
+
+
+async def executed(command: tuple[str, ...], environment: Mapping[str, str]) -> bytes | Error:
+    """Output of the command run in the environment, or the error naming its exit code and error output."""
+    try:
+        return (await anyio.run_process(command, env=environment)).stdout
+    except CalledProcessError as error:
+        return Error(f"`{shlex.join(command)}` exited with code {error.returncode}: {error.stderr.decode().strip()}")
 
 
 def performed(block: Callable[[], None]) -> None:
@@ -296,7 +321,7 @@ async def quitted(instances: Sequence[NSRunningApplication]) -> tuple[str, ...]:
                 return ()
         return (f"pid {instance.processIdentifier()} runs past its quit and forced quit",)
 
-    return tuple(chain.from_iterable(await anyio.gather(*map(errors, instances))))
+    return tuple(error for found in await anyio.gather(*map(errors, instances)) for error in found)
 
 
 @asynccontextmanager
@@ -326,6 +351,14 @@ async def downloaded(client: httpx.AsyncClient, url: str, target: Path) -> Path 
     return Path(await part.replace(target))
 
 
+async def fetched[T](client: httpx.AsyncClient, url: str, kind: type[T]) -> T | Error:
+    """JSON body at the address decoded as the type, or the failed request."""
+    try:
+        return msgspec.json.decode((await client.get(url)).raise_for_status().content, type=kind)
+    except httpx.HTTPError as error:
+        return Error(f"GET {url} failed with {error!r}")
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
@@ -338,6 +371,7 @@ __all__ = [
     "Error",
     "Failed",
     "Header",
+    "Home",
     "Host",
     "Line",
     "Measurement",
@@ -345,6 +379,9 @@ __all__ = [
     "bootstrap",
     "bundle",
     "downloaded",
+    "environment",
+    "executed",
+    "fetched",
     "launch",
     "literal",
     "located",

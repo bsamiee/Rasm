@@ -42,7 +42,8 @@ blender --factory-startup -c extension build --source-dir <source> --output-dir 
 
 ## [03]-[REGISTRATION]
 
-- Keymap items, panel re-registrations, and file data reads run in a timer `register()` adds with `first_interval=0.0`, after every add-on registered
+- Keymap items, panel re-registrations, and file data reads run in a `register()` timer, `first_interval=0.0` runs it after every add-on registers
+- `register()` timers without `persistent=True` never run in a launch naming a `.blend`
 - Startup registration sees `bpy.data` as `_RestrictData`, a read of `bpy.data.objects` inside `register()` raises `AttributeError`
 - Add-on keymap items go in `keyconfigs.addon`, one keymap per name for every add-on, and `unregister` removes the exact `(keymap, item)` pairs
 - Add-on items go to the head of the user keymap in reverse order of addition, a table written in reverse ends in the order written

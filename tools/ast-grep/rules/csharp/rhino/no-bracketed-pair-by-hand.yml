@@ -29,14 +29,6 @@ utils:
     end:
         matches: lift
         has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {matches: action, pattern: $END}}}
-    use-arm:
-        any:
-            - has: {field: name, regex: '^Use$'}
-            - all: [{nthChild: 1}, {not: {has: {field: name, pattern: $_}}}]
-    fin-arm:
-        any:
-            - has: {field: name, regex: '^Fin$'}
-            - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
     finally:
         kind: invocation_expression
         all:
@@ -44,31 +36,6 @@ utils:
             - has: {field: arguments, has: {kind: argument, has: {matches: end}}, not: {has: {kind: argument, nthChild: 2}}}
 rule:
     any:
-        - kind: invocation_expression
-          all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bracket$'}}, {has: {field: expression, matches: begin}}]}
-            - has:
-                field: arguments
-                all:
-                    - not: {has: {kind: argument, nthChild: 3}}
-                    - has:
-                        kind: argument
-                        matches: use-arm
-                        has:
-                            matches:
-                                csharp-unary-callback:
-                                    parameter: {pattern: $USED}
-                                    body: {pattern: $BODY, not: {has: {stopBy: end, kind: identifier, pattern: $USED}}}
-                    - has:
-                        kind: argument
-                        all:
-                            - matches: fin-arm
-                            - has:
-                                matches:
-                                    csharp-unary-callback:
-                                        parameter: {pattern: $HELD}
-                                        body: {matches: end, not: {has: {stopBy: end, kind: identifier, pattern: $HELD}}}
-                            - has: {stopBy: end, matches: end}
         - kind: invocation_expression
           all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bind$'}}, {has: {field: expression, matches: begin}}]}
@@ -92,6 +59,5 @@ rule:
             - has: {kind: select_clause, nthChild: 3, has: {pattern: $VALUE}}
             - not: {has: {nthChild: 4}}
             - not: {has: {kind: from_clause, nthChild: 2, has: {stopBy: end, kind: identifier, pattern: $USED}}}
-    not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^Bracketed$'}}}}
 message: '`$BEGIN` and `$END` bracket `$BODY` by hand'
-note: Use `Disposal.Bracketed(<begin>, <end>, <body>)` where `<begin>` and `<end>` return no result and building `<body>` reads no state `<begin>` changes
+note: 'Use `<acquire>.Bracket(Use: <body>, Fin: <release>)`, `Bracket` runs `<release>` after `<body>` on both paths'

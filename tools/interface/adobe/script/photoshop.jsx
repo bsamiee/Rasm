@@ -1,12 +1,7 @@
 //@include "accessors.jsx"
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-var UNAVAILABLE = -25920;
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [DESCRIPTORS]
 function descriptor(value) {
     var converted = new ActionDescriptor();
     converted.putString(stringIDToTypeID('json'), spelled(value));
@@ -45,38 +40,28 @@ function projected(held, target) {
     return values;
 }
 
+function colored(channels) {
+    return { _obj: 'RGBColor', red: channels[0], grain: channels[1], blue: channels[2] };
+}
+
 function merged(held, target) {
     var values;
+    if (held === undefined) return target.constructor === Array && typeof target[0] === 'number' ? colored(target) : target;
     if (held.constructor === Array) {
         values = [];
         for (var index = 0; index < target.length; index++) values.push(merged(held[index], target[index]));
         return values;
     }
     if (held.constructor !== Object) return target;
-    if (held._obj === 'RGBColor') return { _obj: 'RGBColor', red: target[0], grain: target[1], blue: target[2] };
+    if (held._obj === 'RGBColor') return colored(target);
     if (held.hasOwnProperty('_enum')) return { _enum: held._enum, _value: target };
     if (held.hasOwnProperty('_unit')) return { _unit: held._unit, _value: target };
     values = { _obj: held._obj };
     for (var key in target) {
         var name = typeIDToStringID(stringIDToTypeID(key));
-        values[name] = merged(held.hasOwnProperty(name) ? held[name] : { _obj: 'RGBColor' }, target[key]);
+        values[name] = merged(held[name], target[key]);
     }
     return values;
-}
-
-// --- [ACTIONS]
-function actionSetReference(name) {
-    var reference = new ActionReference();
-    reference.putName(stringIDToTypeID('actionSet'), name);
-    return reference;
-}
-
-function contents(file) {
-    file.encoding = 'BINARY';
-    file.open('r');
-    var data = file.read();
-    file.close();
-    return data;
 }
 
 // --- [ACCESSORS] -----------------------------------------------------------------------
@@ -97,26 +82,6 @@ var accessors = {
         },
         write: function (access) {
             accessors.ApplicationProperty.write({ owner: 'interfacePrefs' }, { paletteEnhancedFontTypeKey: access.option });
-        }
-    },
-    ActionSet: {
-        read: function (access, target, artifacts) {
-            try {
-                executeActionGet(actionSetReference(access.name));
-            } catch (error) {
-                if (error.number !== UNAVAILABLE) throw error;
-                return null;
-            }
-            var palette = contents(new File(app.preferencesFolder.fsName + '/Actions Palette.psp'));
-            return palette.indexOf(contents(new File(artifacts + '/' + access.file)).slice(4)) >= 0;
-        },
-        write: function (access, target, artifacts, held) {
-            if (held !== null) {
-                var removal = new ActionDescriptor();
-                removal.putReference(stringIDToTypeID('null'), actionSetReference(access.name));
-                executeAction(stringIDToTypeID('delete'), removal, DialogModes.NO);
-            }
-            app.load(new File(artifacts + '/' + access.file));
         }
     }
 };

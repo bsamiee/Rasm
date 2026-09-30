@@ -78,4 +78,3 @@ Dim.Icons.Symbolic.Normal           = $Modality.GEOMETRY.mark
 Dim.Icons.Symbolic.Shine            = $Modality.GEOMETRY.shine
 Dim.Icons.Symbolic.Light            = $Modality.GEOMETRY.token
 Dim.Icons.Symbolic.Dark             = $Modality.GEOMETRY.border
-Dim.Icons.Filter                    = None

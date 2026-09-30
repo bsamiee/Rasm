@@ -39,4 +39,4 @@ rule:
                                 - has: {field: parameters, all: [{has: {kind: parameter, has: {field: name, pattern: $VALUE}}}, {not: {has: {kind: parameter, nthChild: 2}}}]}
                                 - has: {matches: step-return}
 message: '`$BIND` callback nests a step that reads the callback value `$VALUE`'
-note: Use a query with one `from` per step, the callback value bound by the first
+note: Use a query with one `from` per step, its first `from` binding the callback value

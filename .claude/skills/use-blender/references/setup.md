@@ -9,10 +9,8 @@ Servers, startup, processes, and failures of the Blender binary `BLENDER_PATH` n
 |  [01]   | `blender`         | `blender-mcp`     | Extension `bl_ext.blender_lab.mcp`        |  9877  |
 |  [02]   | `mcp-for-blender` | `mcp-for-blender` | `blender_mcp.py` in user `scripts/addons` |  9876  |
 
-- Extension `bl_ext.blender_lab.mcp` resolves from repository `blender_lab`, absent from each `<major>.<minor>` config folder until added
-- `blender -c extension repo-add --name "Blender Lab" --url https://lab.blender.org/ blender_lab` adds the repository
-- `blender --online-mode -c extension install --sync --enable mcp` then installs the extension
-- `mcp-for-blender install-addon --addons-dir "<USER>/scripts/addons"` writes the community add-on at the server's protocol
+- `nx run rasm:interface -- blender` adds and enables repository `blender_lab` and installs its extension `mcp`
+- `nx run rasm:interface -- blender` installs the community add-on at the server's protocol
 - Extension port is an add-on preference defaulting to the community port 9876, a reset of the extension's preferences moves its listener there
 - Community port (9876), autostart (on), and asset toggles (off) are Scene properties saved per file
 - Community add-on reads each service key from its preferences, then the Scene, then a `BLENDERMCP_*` variable
@@ -26,7 +24,7 @@ Servers, startup, processes, and failures of the Blender binary `BLENDER_PATH` n
 - `bpy.app.autoexec` reads whether opened files run scripts, `bpy.app.autoexec_override` the `-y` or `-Y` value, `None` without either
 - `bpy.data.scenes.new()` starts from factory metric units, `bpy.ops.scene.new(type="EMPTY")` copies the current scene's settings
 - Blender's Python starts isolated and takes no `PYTHON*` variable, `--python-use-system-env` reads them for one launch
-- `BLENDER_USER_RESOURCES` naming a folder without a `config` subfolder reads and writes the user's own config
+- `BLENDER_USER_RESOURCES` naming a folder without a `config` subfolder and `BLENDER_USER_CONFIG` naming a missing folder use the user's own config
 - Add-ons and extensions import at startup before `--python` and `--python-expr` run
 - `--python` and `--python-expr` compile in memory into a fresh `__main__` and add no folder to `sys.path`
 
@@ -49,8 +47,7 @@ lsof -a -nP -iTCP -sTCP:LISTEN -c Blender
 - No 9877 row with the GUI open means the extension is disabled, its autostart or `bpy.app.online_access` is off, or its port preference is not 9877
 - Bind failures show their error in the extension's preferences
 - Asset tools answer `Unknown command type` while the active scene's `blendermcp_use_<library>` toggle is off
-- `get_addon_status` reports the community add-on's protocol against the server's, a mismatch takes `install-addon`
-- `install-addon` without `--addons-dir` rewrites the newest `<major>.<minor>` folder holding the add-on
+- `get_addon_status` compares community add-on and server protocols, a mismatch takes `nx run rasm:interface -- upgrade blender`, then an apply
 - `mcp-for-blender` keeps its last socket, its first call after a relaunch answers `Broken pipe` with no code run and the next reaches the new GUI
 - Temporary directory is `preferences.filepaths.temporary_directory`, `$TMPDIR` while the preference is empty
 - Crashed Blenders write `blender.crash.txt`, or `<stem>.crash.txt` with a file open, to the temporary directory

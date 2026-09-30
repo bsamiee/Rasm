@@ -52,12 +52,12 @@ utils:
     release-call:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Disposal\s*\.\s*Release(\s*<.+>)?$'}
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?DisposalOps\s*\.\s*Release(\s*<.+>)?$'}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $ITEM}}
     release-callback:
         kind: argument
         any:
-            - has: {regex: '^((global::)?Rasm\.Rhino\.Document\.)?Disposal\s*\.\s*Release$'}
+            - has: {regex: '^((global::)?Rasm\.Rhino\.Document\.)?DisposalOps\s*\.\s*Release$'}
             - has:
                 matches: element-lambda
                 has: {field: body, any: [{matches: release-call}, {has: {stopBy: end, matches: release-call}}]}
@@ -73,6 +73,8 @@ utils:
               all:
                 - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}
                 - has: {kind: variable_declarator, has: {field: name, pattern: $OPTION}}
+            - kind: field_declaration
+              has: {kind: variable_declaration, matches: option-declaration}
     option-method:
         kind: method_declaration, local_function_statement
         all:
@@ -101,7 +103,7 @@ utils:
                     - kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration
                       has: {stopBy: end, matches: option-declaration}
                     - kind: declaration_list
-                      has: {kind: property_declaration, matches: option-declaration}
+                      has: {kind: 'property_declaration, field_declaration', matches: option-declaration}
                     - kind: class_declaration, record_declaration, struct_declaration
                       has: {kind: parameter_list, has: {kind: parameter, matches: option-declaration}}
             - kind: identifier
@@ -117,6 +119,10 @@ utils:
                         kind: argument_list
                         has: {kind: argument, nthChild: 1, has: {matches: option-acquire}}
                         inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}}
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, pattern: this}
+                - has: {field: name, matches: option-value}
             - kind: parenthesized_expression
               has: {matches: option-value}
     option-acquire:
@@ -177,6 +183,5 @@ rule:
                     any:
                         - has: {field: name, regex: '^Fin$'}
                         - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
-    not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^(Using|Release)$'}}}}
 message: '`$SEQ` releases each element by hand'
-note: Use `Disposal.Using(<acquire>, <body>)` where a `use` or `Bracket` scope releases the sequence, and `Disposal.Release(<seq>)` elsewhere, with each element mapped to its disposable first
+note: Use `DisposalOps.Using(<acquire>, <body>)` where a `use` or `Bracket` scope releases the sequence, and `DisposalOps.Release(<seq>)` elsewhere, with each element mapped to its disposable first

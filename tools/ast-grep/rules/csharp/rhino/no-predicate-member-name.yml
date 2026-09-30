@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-predicate-member-name
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    value-record:
+        regex: '^((global::)?Rasm\.Rhino\.(Document|Modeling)\.)?(Invalid|Degenerate|OpenBoundary)$'
+    predicate-name:
+        kind: identifier
+        pattern: $PROP
+        regex: '^(Is|Has|Can)[A-Z]\w*$'
+    receiver:
+        kind: identifier, member_access_expression
+        regex: '^@?[a-z_]'
+        pattern: $RECEIVER
+    tested:
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: name, matches: predicate-name}
+                - has: {field: expression, matches: receiver}
+            - kind: invocation_expression
+              has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, matches: predicate-name}
+                    - has: {field: expression, matches: receiver}
+            - kind: prefix_unary_expression
+              regex: '^!'
+              has: {matches: tested}
+            - kind: parenthesized_expression
+              has: {matches: tested}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: identifier, regex: '^nameof$'}
+        - has:
+            field: arguments
+            all:
+                - not: {has: {kind: argument, nthChild: 2}}
+                - has: {kind: argument, has: {pattern: $NAMED, any: [{kind: identifier, pattern: $PROP}, {kind: member_access_expression, has: {field: name, pattern: $PROP}}]}}
+        - inside:
+            kind: argument
+            nthChild: {position: 1, reverse: true}
+            not: {nthChild: 1}
+            inside:
+                kind: argument_list
+                inside:
+                    kind: invocation_expression
+                    all:
+                        - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: value-record}}, {has: {field: name, regex: '^Unless$'}}]}
+                        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: tested, pattern: $TESTED}, not: {has: {pattern: $NAMED}}}}
+fix: nameof($RECEIVER)
+message: '`nameof($NAMED)` names the predicate `$PROP` that `$TESTED` reads in place of the checked value'
+note: Use `nameof(<receiver>)` of the value the predicate reads, a predicate name every site shares hides which input failed

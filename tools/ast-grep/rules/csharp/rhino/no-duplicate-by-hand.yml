@@ -66,6 +66,7 @@ utils:
                                   has: {kind: return_statement, has: {matches: parameter-narrowed}}
 rule:
     kind: as_expression, cast_expression, is_pattern_expression, switch_expression, invocation_expression
+    not: {matches: {csharp-owner-body: {type: {regex: '^GeometryOps$'}, member: {regex: '^Duplicated$'}}}}
     any:
         - matches: relay
         - kind: as_expression
@@ -85,4 +86,4 @@ rule:
             - has: {nthChild: 1, matches: copy-call}
             - has: {matches: narrowing-arm}
 message: "`$SOURCE.$COPY()` narrows its copy to `$T` by hand"
-note: Use `DuplicateMode.Duplicate.Acquire(<source>)`, its handle's `Value` holds the source type
+note: Use `GeometryOps.Duplicated(<source>)`, or `GeometryOps.WithGeometry(<source>, <body>)` for a scoped copy, both typed as the source

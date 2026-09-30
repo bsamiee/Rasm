@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-table-finder-lambda
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    unique-table:
+        kind: member_access_expression
+        has: {field: name, regex: '^(Linetypes|Layers|Groups|Fonts|DimStyles|HatchPatterns|InstanceDefinitions|SectionStyles|PageViewGroups)$'}
+    table-finder:
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, matches: unique-table}
+                - has: {field: name, regex: '^(Find|FindId|FindIndex|FindName|Count)$'}
+            - kind: element_access_expression
+              has: {field: expression, matches: unique-table}
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^(FindId|FindIndex|FindName)$'}
+                - any:
+                    - has: {field: expression, kind: identifier, pattern: $HOLDER}
+                    - has: {field: expression, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $HOLDER}}
+                - inside:
+                    stopBy: end
+                    kind: method_declaration
+                    has:
+                        field: parameters
+                        has:
+                            kind: parameter
+                            all:
+                                - has: {field: name, pattern: $HOLDER}
+                                - has: {field: type, kind: generic_name, has: {kind: identifier, matches: finder-holder-name}}
+    finder-parameter:
+        kind: parameter
+        all:
+            - has: {field: name, regex: '^Find(Id|Index|Name)$'}
+            - has: {field: type, regex: '^(System\.)?Func<'}
+    finder-holder:
+        kind: record_declaration
+        all:
+            - has: {kind: parameter_list, has: {kind: parameter, has: {field: type, regex: '(Common|Component)Table<'}}}
+            - has: {kind: parameter_list, has: {matches: finder-parameter}}
+    finder-holder-name:
+        pattern: $HOLDER_TYPE
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has: {stopBy: end, matches: finder-holder, has: {field: name, pattern: $HOLDER_TYPE}}
+    other-finder:
+        kind: member_access_expression
+        has: {field: name, regex: '^Find\w+$', not: {regex: '^Find(Id|Index|Name)$'}}
+    finder-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^(TableOps\s*\.\s*)?Find(\s*<.+>)?$'}
+            - not: {has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {stopBy: end, matches: other-finder}}}}}
+    holder-creation:
+        kind: implicit_object_creation_expression, object_creation_expression
+        any:
+            - has: {field: type, has: {kind: identifier, nthChild: 1, matches: finder-holder-name}}
+            - inside:
+                kind: arrow_expression_clause
+                inside:
+                    kind: method_declaration
+                    has: {field: returns, kind: generic_name, has: {kind: identifier, matches: finder-holder-name}}
+    finder-lambda:
+        kind: lambda_expression
+        all:
+            - not: {has: {field: parameters, kind: parameter_list, has: {kind: parameter, nthChild: 2}}}
+            - has: {field: parameters, any: [{kind: implicit_parameter}, {kind: parameter_list, has: {kind: parameter}}]}
+            - has: {field: body, any: [{matches: table-finder}, {has: {stopBy: end, matches: table-finder}}]}
+            - inside:
+                kind: argument
+                inside: {kind: argument_list, inside: {any: [{matches: finder-call}, {matches: holder-creation}]}}
+rule:
+    any:
+        - matches: finder-lambda
+          has: {field: parameters, any: [{kind: implicit_parameter, pattern: $KEY}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $KEY}}}]}
+        - matches: finder-parameter
+          all:
+            - inside: {kind: parameter_list, inside: {matches: finder-holder}}
+            - has: {field: name, pattern: $KEY}
+message: 'Per-table finder over `$KEY` restates the document manifest lookup'
+note: Use `TableOps.Find<T>(<table>, <address>, <includeDeleted>)`, `Find` resolves an id, an index, or a unique name through the document manifest

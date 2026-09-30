@@ -1,9 +1,10 @@
 using System.Drawing;
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
+using Rhino.Commands;
 using Rhino.Display;
 using Rhino.Input;
 using Rhino.Input.Custom;
+using Rhino.UI;
 
 namespace Rasm.Rhino.Commands;
 
@@ -24,37 +25,31 @@ public static class Modals {
             .Map(static found => Viewports.Identity(found, found.MainViewport)));
 
     public static IO<Seq<ViewportIdentity>> GetViewports(string prompt) =>
-        from viewports in IO.lift(() => Answers.FromResult(RhinoGet.GetViewports(prompt, out RhinoViewport[] found), nameof(RhinoGet.GetViewports))
-            .Bind(_ => Missing.Unless(found, nameof(RhinoGet.GetViewports))))
-        from identities in IO.lift(toSeq(viewports)
-            .TraverseM(static viewport => Missing.Unless(viewport.ParentView, nameof(RhinoViewport.ParentView))
-                .Map(parent => Viewports.Identity(parent, viewport)))
-            .As())
-        select identities;
+        IO.lift(() => Answered(RhinoGet.GetViewports(prompt, out RhinoViewport[] found), toSeq(found), nameof(RhinoGet.GetViewports))
+            .Bind(static viewports => viewports
+                .Traverse(static viewport => from view in Optional(viewport.ParentView) select Viewports.Identity(view, viewport))
+                .As()
+                .ToFin(new InvalidAnswer(nameof(RhinoViewport.ParentView)))));
 
     // --- [VALUES]
     public static IO<Color> GetColor(string prompt, bool acceptNothing, Color defaultValue) =>
         IO.lift(() => {
             Color value = defaultValue;
-            return Answers.FromResult(RhinoGet.GetColor(prompt, acceptNothing, ref value), nameof(RhinoGet.GetColor)).Map(_ => value);
+            return Answered(RhinoGet.GetColor(prompt, acceptNothing, ref value), value, nameof(RhinoGet.GetColor));
         });
 
-    public static IO<bool> GetBool(string prompt, bool acceptNothing, string offLabel, string onLabel, bool defaultValue) =>
-        from named in IO.lift(() => (
-                InvalidOptionName.Unless(CommandLineOption.IsValidOptionName(offLabel), offLabel).ToValidation()
-                & InvalidOptionName.Unless(CommandLineOption.IsValidOptionName(onLabel), onLabel).ToValidation())
-            .ToFin())
-        from answer in IO.lift(() => {
-            bool value = defaultValue;
-            return Answers.FromResult(RhinoGet.GetBool(prompt, acceptNothing, offLabel, onLabel, ref value), nameof(RhinoGet.GetBool)).Map(_ => value);
-        })
-        select answer;
+    public static IO<bool> GetBool(string prompt, bool acceptNothing, LocalizeStringPair off, LocalizeStringPair on, bool defaultValue) =>
+        Getters.GetOption(new GetterRequest<GetOption, bool>(prompt) {
+            Accept = new() { Nothing = Answers.Found(acceptNothing, IO.pure(defaultValue)) },
+            Options = [new OptionSpec<bool>.Simple(on, None, Hidden: false, IO.pure(value: true)), new OptionSpec<bool>.Simple(off, None, Hidden: false, IO.pure(value: false))],
+            Configure = getter => when(acceptNothing, IO.lift(() => getter.SetDefaultString(defaultValue ? on.Local : off.Local))).As(),
+        });
 
     public static IO<double> GetAngle(string prompt, Point3d basePoint, Point3d reference, double defaultRadians) =>
-        IO.lift(() => Answers.FromResult(RhinoGet.GetAngle(prompt, basePoint, reference, defaultRadians, out double angle), nameof(RhinoGet.GetAngle)).Map(_ => angle));
+        IO.lift(() => Answered(RhinoGet.GetAngle(prompt, basePoint, reference, defaultRadians, out double angle), angle, nameof(RhinoGet.GetAngle)));
 
     public static IO<double> GetDistance(string prompt, double defaultDistance) =>
-        IO.lift(() => Answers.FromResult(RhinoGet.GetDistance(prompt, defaultDistance, out double distance), nameof(RhinoGet.GetDistance)).Map(_ => distance));
+        IO.lift(() => Answered(RhinoGet.GetDistance(prompt, defaultDistance, out double distance), distance, nameof(RhinoGet.GetDistance)));
 
     public static IO<string> GetFileName(GetFileNameMode mode, string defaultName, FileNameMethod method) =>
         IO.lift(() => Answers.Present(method.Switch(
@@ -65,37 +60,29 @@ public static class Modals {
 
     // --- [SHAPES]
     public static IO<Plane> GetPlane() =>
-        IO.lift(static () => Answers.FromResult(RhinoGet.GetPlane(out Plane plane), nameof(RhinoGet.GetPlane))
-            .Bind(_ => Invalid.Unless(plane.IsValid, nameof(Plane.IsValid)))
-            .Map(_ => plane));
+        IO.lift(static () => Answered(RhinoGet.GetPlane(out Plane plane), plane, nameof(RhinoGet.GetPlane)));
 
     public static IO<Seq<Point3d>> GetRectangle(Option<string> firstPrompt) =>
-        from answer in IO.lift(() => firstPrompt.Match(
-            Some: static prompt => (Result: RhinoGet.GetRectangle(prompt, out Point3d[] corners), Corners: corners),
-            None: static () => (Result: RhinoGet.GetRectangle(out Point3d[] corners), Corners: corners)))
-        from corners in IO.lift(() => Answers.FromResult(answer.Result, nameof(RhinoGet.GetRectangle))
-            .Bind(_ => Missing.Unless(answer.Corners, nameof(RhinoGet.GetRectangle))))
-        select toSeq(corners);
+        IO.lift(() => firstPrompt.Match(
+            Some: static prompt => Answered(RhinoGet.GetRectangle(prompt, out Point3d[] corners), toSeq(corners), nameof(RhinoGet.GetRectangle)),
+            None: static () => Answered(RhinoGet.GetRectangle(out Point3d[] corners), toSeq(corners), nameof(RhinoGet.GetRectangle))));
 
     public static IO<Box> GetBox() =>
-        IO.lift(static () => Answers.FromResult(RhinoGet.GetBox(out Box box), nameof(RhinoGet.GetBox)).Map(_ => box));
+        IO.lift(static () => Answered(RhinoGet.GetBox(out Box box), box, nameof(RhinoGet.GetBox)));
 
     public static IO<Line> GetLine() =>
-        IO.lift(static () => Answers.FromResult(RhinoGet.GetLine(out Line line), nameof(RhinoGet.GetLine))
-            .Bind(_ => Invalid.Unless(line.IsValid, nameof(Line.IsValid)))
-            .Map(_ => line));
+        IO.lift(static () => Answered(RhinoGet.GetLine(out Line line), line, nameof(RhinoGet.GetLine)));
 
     public static IO<Polyline> GetPolyline() =>
-        IO.lift(static () => Answers.FromResult(RhinoGet.GetPolyline(out Polyline polyline), nameof(RhinoGet.GetPolyline))
-            .Bind(_ => Missing.Unless(polyline, nameof(RhinoGet.GetPolyline))));
+        IO.lift(static () => Answered(RhinoGet.GetPolyline(out Polyline polyline), polyline, nameof(RhinoGet.GetPolyline)));
 
     public static IO<Arc> GetArc() =>
-        IO.lift(static () => Answers.FromResult(RhinoGet.GetArc(out Arc arc), nameof(RhinoGet.GetArc))
-            .Bind(_ => Invalid.Unless(arc.IsValid, nameof(Arc.IsValid)))
-            .Map(_ => arc));
+        IO.lift(static () => Answered(RhinoGet.GetArc(out Arc arc), arc, nameof(RhinoGet.GetArc)));
 
     public static IO<Circle> GetCircle() =>
-        IO.lift(static () => Answers.FromResult(RhinoGet.GetCircle(out Circle circle), nameof(RhinoGet.GetCircle))
-            .Bind(_ => Invalid.Unless(circle.IsValid, nameof(Circle.IsValid)))
-            .Map(_ => circle));
+        IO.lift(static () => Answered(RhinoGet.GetCircle(out Circle circle), circle, nameof(RhinoGet.GetCircle)));
+
+    // --- [ANSWERS]
+    private static Fin<T> Answered<T>(Result result, T value, string member) =>
+        Answers.FromResult(result, member).Map(_ => value);
 }

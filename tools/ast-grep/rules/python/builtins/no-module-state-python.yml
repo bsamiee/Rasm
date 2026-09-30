@@ -48,4 +48,4 @@ rule:
 constraints:
     NAME: {not: {regex: '^__all__$'}}
 message: 'Module-level `$NAME` is a mutable container every function can write'
-note: 'Declare an immutable value and pass changing state as an argument, shared mutable state couples every function that writes it'
+note: 'Use an immutable value with changing state passed as an argument, shared mutable state couples every function that writes it'

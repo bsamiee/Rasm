@@ -8,4 +8,4 @@ rule:
         - has: {kind: assignment, all: [{has: {field: left, kind: identifier, pattern: $N}}, {has: {field: type, pattern: $T}}, {has: {field: right, pattern: $V}}]}
         - precedes: {kind: return_statement, pattern: return $N}
 message: 'Local `$N` is annotated `$T` and returned on the next line'
-note: 'Return the value, converted with `msgspec.convert(<value>, <type>)` where the callee returns an untyped value, the return annotation states the type the local restates'
+note: 'Use `return <value>`, converted with `msgspec.convert(<value>, <type>)` where the callee returns an untyped value, the return annotation states the type the local restates'

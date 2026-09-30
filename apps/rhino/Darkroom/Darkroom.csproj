@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Rhino post effects forming Blender's AgX display image under an exposure and dithering the 8-bit output</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core Dependencies">
+        <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Display/Rasm.Rhino.Display.csproj" />
+    </ItemGroup>
+</Project>

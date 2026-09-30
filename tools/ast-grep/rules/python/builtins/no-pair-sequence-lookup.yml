@@ -212,4 +212,4 @@ rule:
             - has: {field: body, has: {nthChild: 1, kind: if_statement, has: {field: consequence, has: {nthChild: 1, any: [{kind: return_statement}, {kind: expression_statement, has: {kind: assignment}}]}}}}
             - not: {has: {field: body, has: {nthChild: 2}}}
 message: '`$CALL` derives a key lookup from the pair sequence `$TABLE` on every read'
-note: 'Declare `<pairs>` as a dict literal under `MappingProxyType` at module level and index or merge it, a module-level mapping builds the lookup once'
+note: 'Use a mapping for `<pairs>` (a dict literal inside its one reader, a module-level `MappingProxyType` for several readers) and index or merge it, a mapping holds the lookup each read rebuilds'

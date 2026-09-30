@@ -12,24 +12,16 @@ namespace Rasm.Rhino.Display;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record RenderCallbacks(
     Func<IO<Unit>> Begin,
-    Option<Func<Size, IO<Unit>>> BeginQuiet,
     Func<RhinoView, Rectangle, IO<Unit>> BeginRegion,
     Func<RenderEndEventArgs, IO<Unit>> End,
     Func<IO<bool>> Continue,
-    Option<(Func<IO<Unit>> Pause, Func<IO<Unit>> Resume)> Pausing,
-    Option<Func<IO<bool>>> ProcessGeometry,
-    Option<Func<IO<bool>>> ProcessLights,
-    Option<Func<IO<bool>>> RenderEmptyScene,
-    Option<Func<RhinoObject, IO<bool>>> Ignore,
-    Option<Func<RhinoObject, Material, Mesh, IO<bool>>> AddMesh,
-    Option<Func<LightObject, IO<bool>>> AddLight,
     Action<Error> Reject);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderWindowSource {
     public sealed record Session(bool FromRenderViewSource) : RenderWindowSource;
 
-    public sealed record Viewport(ViewportInfo Info, bool FromRenderViewSource, Rectangle Region) : RenderWindowSource;
+    public sealed record Region(ViewportInfo Viewport, bool FromRenderViewSource, Rectangle Bounds) : RenderWindowSource;
 
     public sealed record Detached(Size Size, ViewInfo View) : RenderWindowSource;
 }
@@ -37,70 +29,31 @@ public abstract partial record RenderWindowSource {
 public sealed record ChannelPresence(RenderWindow.StandardChannels Channel, bool Available, bool Shown, bool Requested);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class BatchPipeline(RhinoDoc doc, RunMode mode, PlugIn plugin, Size size, string caption, RenderWindow.StandardChannels channels, bool clearLastRendering, RenderCallbacks callbacks)
+public class BatchPipeline(RhinoDoc doc, RunMode mode, PlugIn plugin, Size size, string caption, RenderWindow.StandardChannels channels, bool clearLastRendering, RenderCallbacks callbacks)
     : RenderPipeline(doc, mode, plugin, size, caption, channels, reuseRenderWindow: false, clearLastRendering) {
-    protected override bool OnRenderBegin() =>
+    public RhinoDoc Document { get; } = doc;
+
+    protected sealed override bool OnRenderBegin() =>
         Answers.Succeeded(callbacks.Begin(), callbacks.Reject);
 
-    protected override bool OnRenderBeginQuiet(Size imageSize) =>
-        Answers.Succeeded(callbacks.BeginQuiet.Map(begin => begin(imageSize)), callbacks.Reject, () => base.OnRenderBeginQuiet(imageSize));
-
-    protected override bool OnRenderWindowBegin(RhinoView view, Rectangle rectangle) =>
+    protected sealed override bool OnRenderWindowBegin(RhinoView view, Rectangle rectangle) =>
         Answers.Succeeded(callbacks.BeginRegion(view, rectangle), callbacks.Reject);
 
-    protected override void OnRenderEnd(RenderEndEventArgs e) =>
+    protected sealed override void OnRenderEnd(RenderEndEventArgs e) =>
         _ = Answers.Answer(callbacks.End(e), callbacks.Reject, unit);
 
-    protected override bool ContinueModal() =>
+    protected sealed override bool ContinueModal() =>
         Answers.Answer(callbacks.Continue(), callbacks.Reject, fallback: false);
-
-    public override bool SupportsPause() =>
-        callbacks.Pausing.IsSome;
-
-    public override void PauseRendering() {
-        base.PauseRendering();
-        _ = Answers.Answer(callbacks.Pausing.Map(static pausing => pausing.Pause()), callbacks.Reject, static () => unit);
-    }
-
-    public override void ResumeRendering() {
-        base.ResumeRendering();
-        _ = Answers.Answer(callbacks.Pausing.Map(static pausing => pausing.Resume()), callbacks.Reject, static () => unit);
-    }
-
-    protected override bool NeedToProcessGeometryTable() =>
-        Answers.Answer(callbacks.ProcessGeometry.Map(static process => process()), callbacks.Reject, refused: false, base.NeedToProcessGeometryTable);
-
-    protected override bool NeedToProcessLightTable() =>
-        Answers.Answer(callbacks.ProcessLights.Map(static process => process()), callbacks.Reject, refused: false, base.NeedToProcessLightTable);
-
-    protected override bool RenderSceneWithNoMeshes() =>
-        Answers.Answer(callbacks.RenderEmptyScene.Map(static render => render()), callbacks.Reject, refused: false, base.RenderSceneWithNoMeshes);
-
-    protected override bool IgnoreRhinoObject(RhinoObject obj) =>
-        Answers.Answer(callbacks.Ignore.Map(ignore => ignore(obj)), callbacks.Reject, refused: false, () => base.IgnoreRhinoObject(obj));
-
-    protected override bool AddRenderMeshToScene(RhinoObject obj, Material material, Mesh mesh) =>
-        Answers.Answer(callbacks.AddMesh.Map(add => add(obj, material, mesh)), callbacks.Reject, refused: false, () => base.AddRenderMeshToScene(obj, material, mesh));
-
-    protected override bool AddLightToScene(LightObject light) =>
-        Answers.Answer(callbacks.AddLight.Map(add => add(light)), callbacks.Reject, refused: false, () => base.AddLightToScene(light));
 }
 
 public sealed class AsyncContext(Option<CallbackExecutionControl> executionControl, Action<Error> reject) : AsyncRenderContext {
     private readonly CancellationTokenSource source = new();
 
     public IO<Unit> Launch(string name, Func<CancellationToken, IO<Unit>> body) =>
-        from registered in executionControl
-            .Traverse(control => IO.lift(() => Missing.Unless(RenderWindow, nameof(RenderWindow)))
-                .Bind(window => IO.lift(() => window.RegisterPostEffectExecutionControl(control))))
-            .As()
-        from started in IO.lift(() => { _ = StartRenderThread(() => Finish(body(source.Token)), name); })
-        select started;
-
-    private void Finish(IO<Unit> effect) =>
-        Optional(RenderWindow).Match(
-            Some: window => window.EndAsyncRender(Answers.Answer(effect.Map(static _ => RenderWindow.RenderSuccessCode.Completed), reject, RenderWindow.RenderSuccessCode.Failed)),
-            None: () => reject(new Missing(nameof(RenderWindow))));
+        from window in IO.lift(() => Missing.Unless(RenderWindow, nameof(RenderWindow)))
+        from registered in executionControl.Traverse(control => IO.lift(() => window.RegisterPostEffectExecutionControl(control))).As()
+        from started in IO.lift(() => StartRenderThread(() => window.EndAsyncRender(Answers.Answer(body(source.Token).Map(static _ => RenderWindow.RenderSuccessCode.Completed), reject, RenderWindow.RenderSuccessCode.Failed)), name))
+        select unit;
 
     public override void StopRendering() {
         source.Cancel();
@@ -145,14 +98,16 @@ public static class Batches {
     public static IO<TValue> WithWindow<TValue>(BatchPipeline pipeline, RenderWindowSource scope, Func<RenderWindow, IO<TValue>> body) =>
         scope.Switch(
             (Pipeline: pipeline, Body: body),
-            session: static (state, session) => Disposal.Using(
-                IO.lift(() => Missing.Unless(state.Pipeline.GetRenderWindowFromRenderViewSource(session.FromRenderViewSource), nameof(RenderPipeline.GetRenderWindowFromRenderViewSource))),
-                state.Body),
-            viewport: static (state, viewport) => Disposal.Using(
-                IO.lift(() => Missing.Unless(state.Pipeline.GetRenderWindow(viewport.Info, viewport.FromRenderViewSource, viewport.Region), nameof(RenderPipeline.GetRenderWindow))),
-                state.Body),
+            session: static (state, session) => DisposalOps.Using(Window(state.Pipeline, session.FromRenderViewSource), state.Body),
+            region: static (state, region) =>
+                DisposalOps.Using(Window(state.Pipeline, region.FromRenderViewSource), window =>
+                    from wireframe in IO.lift(() => Refused.Unless(
+                        window.AddWireframeChannel(state.Pipeline.Document, region.Viewport, RenderPipeline.RenderSize(state.Pipeline.Document, region.FromRenderViewSource), region.Bounds),
+                        nameof(RenderWindow.AddWireframeChannel)))
+                    from value in state.Body(window)
+                    select value),
             detached: static (state, detached) =>
-                Disposal.Using(IO.lift(() => Missing.Unless(RenderWindow.Create(detached.Size), nameof(RenderWindow.Create))), window =>
+                DisposalOps.Using(IO.lift(() => Missing.Unless(RenderWindow.Create(detached.Size), nameof(RenderWindow.Create))), window =>
                     from viewed in IO.lift(() => window.SetView(detached.View))
                     from value in state.Body(window)
                     select value));
@@ -174,15 +129,22 @@ public static class Batches {
         select invalidated;
 
     public static IO<Seq<float>> Read(RenderWindow window, RenderWindow.StandardChannels channel, Rectangle region, ComponentOrders order) =>
-        Disposal.Using(IO.lift(() => Missing.Unless(window.OpenChannel(channel), nameof(RenderWindow.OpenChannel))), opened =>
+        DisposalOps.Using(IO.lift(() => Missing.Unless(window.OpenChannel(channel), nameof(RenderWindow.OpenChannel))), opened =>
             from inside in IO.lift(Invalid.Unless(new Rectangle(0, 0, opened.Width, opened.Height).Contains(region), nameof(region)))
-            from values in IO.lift(() => {
-                float[] buffer = new float[region.Width * region.Height * (opened.PixelSize() / sizeof(float))];
-                opened.GetValues(region, region.Width, order, ref buffer);
-                return toSeq(buffer);
-            })
+            from values in IO.lift(() => toSeq(Values(opened, region, order)))
             select values);
 
     public static IO<TValue> WithSnapshot<TValue>(RenderWindow window, Func<Bitmap, IO<TValue>> body) =>
-        Disposal.Using(IO.lift(() => Missing.Unless(window.GetBitmap(), nameof(RenderWindow.GetBitmap))), body);
+        DisposalOps.Using(IO.lift(() => Missing.Unless(window.GetBitmap(), nameof(RenderWindow.GetBitmap))), body);
+
+    /// <summary>Reads the <paramref name="region"/> values of <paramref name="channel"/> row by row into a pinned array a <see cref="PixelBuffer"/> can address, the host taking the row stride in bytes as the width times <see cref="RenderWindow.Channel.PixelSize"/></summary>
+    internal static float[] Values(RenderWindow.Channel channel, Rectangle region, ComponentOrders order) {
+        int pixel = channel.PixelSize();
+        float[] values = GC.AllocateUninitializedArray<float>(region.Width * region.Height * pixel / sizeof(float), pinned: true);
+        channel.GetValues(region, region.Width * pixel, order, ref values);
+        return values;
+    }
+
+    private static IO<RenderWindow> Window(BatchPipeline pipeline, bool fromRenderViewSource) =>
+        IO.lift(() => Missing.Unless(pipeline.GetRenderWindowFromRenderViewSource(fromRenderViewSource), nameof(RenderPipeline.GetRenderWindowFromRenderViewSource)));
 }

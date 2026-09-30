@@ -85,7 +85,7 @@ public abstract partial record ZoomTarget {
         public Option<System.Drawing.Point> FixedPoint { get; }
 
         public static Fin<ZoomTarget> Create(double factor, bool lensZoom, Option<System.Drawing.Point> fixedPoint) =>
-            DocumentUnits.PositiveFinite(factor, nameof(Factor)).ToFin().Map<ZoomTarget>(_ => new ByFactor(factor, lensZoom, fixedPoint));
+            Limits.Above(0.0).Check(factor, nameof(Factor)).Map<ZoomTarget>(_ => new ByFactor(factor, lensZoom, fixedPoint));
     }
 
     public sealed record ToExtents() : ZoomTarget;
@@ -111,16 +111,14 @@ public abstract partial record ProjectionChange {
     }
 
     public sealed record ToTwoPoint : ProjectionChange {
-        private ToTwoPoint(Option<double> targetDistance, Option<Vector3d> up, double lensLength) => (TargetDistance, Up, LensLength) = (targetDistance, up, lensLength);
+        private ToTwoPoint(Option<(double TargetDistance, Vector3d Up)> placement, double lensLength) => (Placement, LensLength) = (placement, lensLength);
 
-        public Option<double> TargetDistance { get; }
-
-        public Option<Vector3d> Up { get; }
+        public Option<(double TargetDistance, Vector3d Up)> Placement { get; }
 
         public double LensLength { get; }
 
-        public static Fin<ProjectionChange> Create(Option<double> targetDistance, Option<Vector3d> up, double lensLength) =>
-            Lensed(targetDistance, lensLength).Map<ProjectionChange>(_ => new ToTwoPoint(targetDistance, up, lensLength));
+        public static Fin<ProjectionChange> Create(Option<(double TargetDistance, Vector3d Up)> placement, double lensLength) =>
+            Lensed(placement.Map(static placed => placed.TargetDistance), lensLength).Map<ProjectionChange>(_ => new ToTwoPoint(placement, lensLength));
     }
 
     public sealed record ToReflected() : ProjectionChange;
@@ -164,10 +162,11 @@ public abstract partial record ProjectionChange {
             Invalid.Unless<ProjectionChange>(camera != IsometricCamera.None, new Isometric(camera, viewName, updateConstructionPlane), nameof(Camera));
     }
 
-    private static Fin<Seq<Unit>> Lensed(Option<double> targetDistance, double lensLength) =>
-        (Invalid.Unless(double.IsFinite(lensLength), nameof(ToPerspective.LensLength)).ToValidation()
-         & targetDistance.Traverse(static distance => DocumentUnits.PositiveFinite(distance, nameof(ToPerspective.TargetDistance))).As().Map(static _ => unit))
-        .ToFin();
+    private static Fin<Unit> Lensed(Option<double> targetDistance, double lensLength) =>
+        (Invalid.Unless(double.IsFinite(lensLength), nameof(ToPerspective.LensLength)),
+         targetDistance.Traverse(static distance => Limits.Above(0.0).Check(distance, nameof(ToPerspective.TargetDistance))).As())
+        .Apply(static (_, _) => unit)
+        .As();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -201,8 +200,8 @@ public static class Navigation {
             dolly: static (port, dolly) => Refused.Unless(port.KeyboardDolly(dolly.LeftRight, dolly.Amount), nameof(RhinoViewport.KeyboardDolly)),
             dollyInOut: static (port, dolly) => Refused.Unless(port.KeyboardDollyInOut(dolly.Amount), nameof(RhinoViewport.KeyboardDollyInOut))));
 
-    public static IO<Unit> Rotate(RhinoViewport viewport, GeometryMotion.Rotation rotation) =>
-        IO.lift(() => Refused.Unless(viewport.Rotate(rotation.AngleRadians, rotation.Axis, rotation.Center), nameof(RhinoViewport.Rotate)));
+    public static IO<Unit> Rotate(RhinoViewport viewport, double angleRadians, Vector3d axis, Point3d center) =>
+        IO.lift(() => Refused.Unless(viewport.Rotate(angleRadians, axis, center), nameof(RhinoViewport.Rotate)));
 
     public static IO<Unit> ApplyDrag(RhinoViewport viewport, DragGesture gesture, System.Drawing.Point from, System.Drawing.Point to) =>
         IO.lift(() => gesture.Switch(
@@ -242,7 +241,9 @@ public static class Navigation {
                     None: () => port.ChangeToPerspectiveProjection(perspective.Symmetric, perspective.LensLength)),
                 nameof(RhinoViewport.ChangeToPerspectiveProjection)),
             toTwoPoint: static (port, twoPoint) => Refused.Unless(
-                port.ChangeToTwoPointPerspectiveProjection(twoPoint.TargetDistance.IfNone(RhinoMath.UnsetValue), twoPoint.Up.IfNone(Vector3d.Zero), twoPoint.LensLength),
+                twoPoint.Placement.Match(
+                    Some: placed => port.ChangeToTwoPointPerspectiveProjection(placed.TargetDistance, placed.Up, twoPoint.LensLength),
+                    None: () => port.ChangeToTwoPointPerspectiveProjection(twoPoint.LensLength)),
                 nameof(RhinoViewport.ChangeToTwoPointPerspectiveProjection)),
             toReflected: static (port, _) => Refused.Unless(port.ChangeToParallelReflectedProjection(), nameof(RhinoViewport.ChangeToParallelReflectedProjection)),
             lens: static (port, lens) => {
@@ -254,34 +255,25 @@ public static class Navigation {
                 return Fin.Succ(unit);
             },
             defined: static (port, defined) => Refused.Unless(
-                port.SetProjection(defined.Projection, defined.ViewName.IfNone(""), defined.UpdateConstructionPlane),
+                port.SetProjection(defined.Projection, Answers.Unset(defined.ViewName), defined.UpdateConstructionPlane),
                 nameof(RhinoViewport.SetProjection)),
             isometric: static (port, isometric) => Refused.Unless(
-                port.SetProjection(isometric.Camera, isometric.ViewName.IfNone(""), isometric.UpdateConstructionPlane),
+                port.SetProjection(isometric.Camera, Answers.Unset(isometric.ViewName), isometric.UpdateConstructionPlane),
                 nameof(RhinoViewport.SetProjection))));
 
     // --- [STACK]
-    public static IO<bool> ApplyStack(RhinoViewport viewport, StackOp op) =>
-        IO.lift(() => op.Switch(
+    public static IO<Unit> ApplyStack(RhinoViewport viewport, StackOp op) =>
+        op.Switch(
             viewport,
-            pushViewProjection: static (port, _) => {
-                port.PushViewProjection();
-                return true;
-            },
-            popViewProjection: static (port, _) => port.PopViewProjection(),
-            nextViewProjection: static (port, _) => port.NextViewProjection(),
-            previousViewProjection: static (port, _) => port.PreviousViewProjection(),
-            pushConstructionPlane: static (port, push) => {
-                port.PushConstructionPlane(push.CPlane);
-                return true;
-            },
-            popConstructionPlane: static (port, _) => port.PopConstructionPlane(),
-            nextConstructionPlane: static (port, _) => port.NextConstructionPlane(),
-            previousConstructionPlane: static (port, _) => port.PreviousConstructionPlane(),
-            setConstructionPlane: static (port, set) => {
-                port.SetConstructionPlane(set.CPlane);
-                return true;
-            }));
+            pushViewProjection: static (port, _) => IO.lift(port.PushViewProjection),
+            popViewProjection: static (port, _) => IO.lift(() => ignore(port.PopViewProjection())),
+            nextViewProjection: static (port, _) => IO.lift(() => Refused.Unless(port.NextViewProjection(), nameof(RhinoViewport.NextViewProjection))),
+            previousViewProjection: static (port, _) => IO.lift(() => Refused.Unless(port.PreviousViewProjection(), nameof(RhinoViewport.PreviousViewProjection))),
+            pushConstructionPlane: static (port, push) => IO.lift(() => port.PushConstructionPlane(push.CPlane)),
+            popConstructionPlane: static (port, _) => IO.lift(() => Refused.Unless(port.PopConstructionPlane(), nameof(RhinoViewport.PopConstructionPlane))),
+            nextConstructionPlane: static (port, _) => IO.lift(() => Refused.Unless(port.NextConstructionPlane(), nameof(RhinoViewport.NextConstructionPlane))),
+            previousConstructionPlane: static (port, _) => IO.lift(() => Refused.Unless(port.PreviousConstructionPlane(), nameof(RhinoViewport.PreviousConstructionPlane))),
+            setConstructionPlane: static (port, set) => IO.lift(() => port.SetConstructionPlane(set.CPlane)));
 
     // --- [ROWS]
     public static IO<Seq<(TValue Value, bool Moved)>> ApplyToRows<TValue>(RhinoDoc document, Seq<ViewportRef> rows, Func<RhinoViewport, IO<TValue>> operation, RedrawPolicy redraw) =>

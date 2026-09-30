@@ -98,4 +98,4 @@ transform:
     T77: {replace: {source: $T76, replace: '\x{1D17A}', by: '\U0001d17a'}}
 fix: $T77$UNFIXED
 message: 'String literal holds an invisible code point'
-note: 'Spell the code point as a `\uXXXX` or `\UXXXXXXXX` escape, a reader then sees every character the string holds'
+note: 'Use a `\uXXXX` or `\UXXXXXXXX` escape for the code point, a reader sees every character the string holds'

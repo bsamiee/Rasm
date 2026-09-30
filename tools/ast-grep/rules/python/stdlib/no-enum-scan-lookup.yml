@@ -12,16 +12,36 @@ utils:
                 - pattern: ($M for $M in $E if $V == $M)
                 - pattern: ($M for $M in $E if $M.$KEY == $V)
                 - pattern: ($M for $M in $E if $V == $M.$KEY)
+    filtered:
+        kind: call
+        any:
+            - pattern: 'filter(lambda $M: $M == $V, $E)'
+            - pattern: 'filter(lambda $M: $V == $M, $E)'
+            - pattern: 'filter(lambda $M: $M.$KEY == $V, $E)'
+            - pattern: 'filter(lambda $M: $V == $M.$KEY, $E)'
+    listed:
+        kind: list_comprehension
+        not: {has: {kind: 'for_in_clause, if_clause', nthChild: 4}}
+        any:
+            - pattern: '[$M for $M in $E if $M == $V]'
+            - pattern: '[$M for $M in $E if $V == $M]'
+            - pattern: '[$M for $M in $E if $M.$KEY == $V]'
+            - pattern: '[$M for $M in $E if $V == $M.$KEY]'
 rule:
-    kind: call
     pattern: $SCAN
-    all:
-        - has: {field: function, kind: identifier, regex: '^next$'}
-        - any:
-            - has: {field: arguments, kind: generator_expression, matches: scan}
-            - has: {field: arguments, kind: argument_list, has: {nthChild: 1, matches: scan}}
+    any:
+        - kind: call
+          all:
+            - has: {field: function, kind: identifier, regex: '^next$'}
+            - any:
+                - has: {field: arguments, kind: generator_expression, matches: scan}
+                - has: {field: arguments, kind: argument_list, has: {nthChild: 1, any: [{matches: scan}, {matches: filtered}]}}
+        - kind: subscript
+          all:
+            - has: {field: value, matches: listed}
+            - has: {field: subscript, regex: '^0$'}
 constraints:
     E: {kind: identifier, regex: '^_?[A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*$'}
     KEY: {regex: '^(value|name)$'}
 message: '`$SCAN` scans the members of `$E` for one member'
-note: 'Look the member up by value with `<enum>(<value>)` or by name with `<enum>[<name>]`, testing a value first with `<value> in <enum>`, an enum class maps each value and name to its member'
+note: 'Use `<enum>(<value>)` by value or `<enum>[<name>]` by name, with `<value> in <enum>` as the membership test, an enum class maps each value and name to its member'

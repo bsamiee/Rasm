@@ -1,4 +1,3 @@
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
 using Rhino.Commands;
 using Rhino.Display;
@@ -42,10 +41,14 @@ public abstract partial record MeshBatchMethod {
 public sealed record MeshBatchResult(Seq<(Mesh Mesh, ObjectAttributes Attributes)> Rows, Option<bool> SimpleDialog, Option<int> UiStyle);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Materials {
-    // --- [LIMITS]
-    private static readonly Fin<Limits<int>> UiStyle = Limits.AtLeast(-1).AtMost(2, nameof(UiStyle));
+[Mapper]
+internal static partial class MaterialMapper {
+    internal static partial MaterialIdentity ToIdentity(Material material);
 
+    internal static partial RenderMaterialIdentity ToIdentity(RenderMaterial material);
+}
+
+public static class Materials {
     // --- [RESOLUTION]
     public static IO<Option<MaterialIdentity>> ResolveMaterial(RhinoObject o, MaterialScope scope) =>
         IO.lift(() => scope.Switch(
@@ -55,7 +58,7 @@ public static class Materials {
                 componentForPlugIn: static (target, component) => target.GetMaterial(component.ComponentIndex, component.PlugInId),
                 componentWithAttributes: static (target, component) => target.GetMaterial(component.ComponentIndex, component.PlugInId, component.Attributes))
             .Map(static material => Some(material)
-                .Filter(static resolved => !resolved.IsDefaultMaterial && (resolved.Index != -1))
+                .Filter(static resolved => !resolved.IsDefaultMaterial)
                 .Map(static resolved => MaterialMapper.ToIdentity(resolved))));
 
     public static IO<Option<RenderMaterialIdentity>> ResolveRenderMaterial(RhinoObject o, MaterialScope scope) =>
@@ -69,32 +72,27 @@ public static class Materials {
 
     // --- [MAPPINGS]
     public static IO<TValue> WithMapping<TValue>(RhinoObject o, int channel, Func<TextureMapping, Transform, IO<TValue>> body) =>
-        from index in IO.lift(() => Answers.NonNegative(channel, nameof(RhinoObject.GetTextureMapping)))
-        from value in Disposal.Bracketed(
-            IO.lift(() => Missing.Unless(o.GetTextureMapping(index, out Transform xform), nameof(RhinoObject.GetTextureMapping))
-                .Map(mapping => (Mapping: mapping, Xform: xform))),
-            static held => IO.lift(held.Mapping.Dispose),
-            held => body(held.Mapping, held.Xform))
-        select value;
+        IO.lift(() => Missing.Unless(o.GetTextureMapping(channel, out Transform xform), nameof(RhinoObject.GetTextureMapping))
+                .Map(mapping => (Mapping: mapping, Xform: xform)))
+            .Bracket(Use: held => body(held.Mapping, held.Xform), Fin: static held => IO.lift(held.Mapping.Dispose));
 
     public static IO<Seq<MappingEntry>> Mappings(RhinoObject o) =>
         IO.lift(() => toSeq(o.GetTextureChannels()))
             .Bind(channels => channels.TraverseM(channel => WithMapping(o, channel, (mapping, xform) => IO.pure(new MappingEntry(channel, mapping.Id, xform)))).As());
 
     public static IO<int> SetMapping(RhinoObject o, int channel, Option<TextureMapping> mapping, Option<Transform> xform) =>
-        from index in IO.lift(() => Answers.NonNegative(channel, nameof(RhinoObject.SetTextureMapping)))
         from onChannel in IO.lift(() => Invalid.Unless(
-            mapping.ForAll(held => held.MappingType == TextureMappingType.OcsMapping == (index == ObjectAttributes.OCSMappingChannelId)),
+            mapping.ForAll(held => held.MappingType == TextureMappingType.OcsMapping == (channel == ObjectAttributes.OCSMappingChannelId)),
             nameof(ObjectAttributes.OCSMappingChannelId)))
         from answer in IO.lift(() => xform.Match(
-            Some: value => o.SetTextureMapping(index, mapping.ValueUnsafe(), value),
-            None: () => o.SetTextureMapping(index, mapping.ValueUnsafe())))
+            Some: value => o.SetTextureMapping(channel, mapping.ValueUnsafe(), value),
+            None: () => o.SetTextureMapping(channel, mapping.ValueUnsafe())))
         select answer;
 
     // --- [MESHES]
     public static IO<TValue> WithCachedMeshes<TValue>(RhinoObject o, MeshType type, Func<Seq<Mesh>, IO<TValue>> body) =>
         from cached in IO.lift(() => Answers.Present(o.GetMeshes(type)))
-        from value in Disposal.Using(Disposal.AcquireAll(cached.Map(static mesh => DuplicateMode.Duplicate.Acquire(mesh))), handles => body(handles.Map(static handle => handle.Value)))
+        from value in DisposalOps.Using(DisposalOps.AcquireAll(cached.Map(GeometryOps.Duplicated)), body)
         select value;
 
     public static IO<TValue> WithRenderMeshes<TValue>(
@@ -106,23 +104,23 @@ public static class Materials {
         Option<PlugIn> plugin,
         Option<DisplayPipelineAttributes> attributes,
         Func<RenderMeshes, RenderMeshProvider.Flags, IO<TValue>> body) =>
-        Disposal.Bracketed(
-            IO.lift(() => {
-                RenderMeshProvider.Flags answered = flags;
-                return Missing.Unless(o.RenderMeshes(type, viewport.ValueUnsafe(), [.. ancestry], ref answered, plugin.ValueUnsafe(), attributes.ValueUnsafe()), nameof(RhinoObject.Document))
-                    .Map(meshes => (Meshes: meshes, Flags: answered));
-            }),
-            static produced => IO.lift(produced.Meshes.Dispose),
-            produced => body(produced.Meshes, produced.Flags));
+        IO.lift(() => {
+            RenderMeshProvider.Flags answered = flags;
+            return Missing.Unless(o.RenderMeshes(type, viewport.ValueUnsafe(), [.. ancestry], ref answered, plugin.ValueUnsafe(), attributes.ValueUnsafe()), nameof(RhinoObject.RenderMeshes))
+                .Map(meshes => (Meshes: meshes, Flags: answered));
+        }).Bracket(Use: produced => body(produced.Meshes, produced.Flags), Fin: static produced => IO.lift(produced.Meshes.Dispose));
 
     public static IO<TValue> WithRenderMeshParameters<TValue>(RhinoObject o, bool documentFallback, Func<Option<MeshingParameters>, IO<TValue>> body) =>
-        Disposal.Bracketed(IO.lift(() => Optional(o.GetRenderMeshParameters(documentFallback))), static held => Disposal.Release(held.ToSeq()), body);
+        IO.lift(() => Optional(o.GetRenderMeshParameters(documentFallback))).Bracket(Use: body, Fin: static held => DisposalOps.Release(held.ToSeq()));
 
     public static IO<Unit> SetRenderMeshParameters(RhinoObject o, Option<MeshingParameters> parameters) =>
         IO.lift(() => Refused.Unless(o.SetRenderMeshParameters(parameters.ValueUnsafe()), nameof(RhinoObject.SetRenderMeshParameters)));
 
+    public static IO<Option<IConvertible>> CustomRenderMeshParameter(RhinoObject o, Guid provider, string name) =>
+        IO.lift(() => Optional(o.GetCustomRenderMeshParameter(provider, name)));
+
     public static IO<TValue> WithMeshBatch<TValue>(Seq<RhinoObject> objects, MeshingParameters parameters, MeshBatchMethod method, Func<MeshBatchResult, IO<TValue>> body) =>
-        from populated in IO.lift(() => Invalid.Unless(!objects.IsEmpty, nameof(RhinoObject.MeshObjects)))
+        from populated in IO.lift(() => Invalid.Unless(!objects.IsEmpty, nameof(objects)))
         from run in IO.lift(() => method.Switch(
             (Objects: objects, Parameters: parameters),
             worker: static (state, worker) => Fin.Succ(Packed(
@@ -136,17 +134,14 @@ public static class Materials {
                 Result result = RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref simple, out Mesh[] meshes, out ObjectAttributes[] attributes);
                 return Fin.Succ(Packed(result, meshes, attributes, Some(simple), Option<int>.None));
             },
-            uiStyle: static (state, uiStyle) => UiStyle.Bind(limits => limits.Check(uiStyle.Style, nameof(MeshBatchMethod.UiStyle.Style))).Map(style => {
+            uiStyle: static (state, uiStyle) => Limits.AtLeast(-1).AtMost(2).Check(uiStyle.Style, nameof(MeshBatchMethod.UiStyle.Style)).Map(style => {
                 Result result = RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref style, uiStyle.Xform, out Mesh[] meshes, out ObjectAttributes[] attributes);
                 return Packed(result, meshes, attributes, Option<bool>.None, Some(style));
             })))
-        from value in Disposal.Using(
-            IO.pure(run.Meshes.Map<IDisposable>(static mesh => mesh) + run.Attributes.Map<IDisposable>(static attributes => attributes)),
-            _ =>
-                from accepted in IO.lift(() => Answers.FromResult(run.Result, nameof(RhinoObject.MeshObjects)))
-                from paired in IO.lift(() => Mismatch.Unless(run.Meshes.Count == run.Attributes.Count, nameof(RhinoObject.MeshObjects)))
-                from value in body(new MeshBatchResult(run.Meshes.Zip(run.Attributes, static (mesh, attributes) => (mesh, attributes)), run.SimpleDialog, run.UiStyle))
-                select value)
+        from value in DisposalOps.Using(IO.pure((run.Meshes, run.Attributes)), nameof(RhinoObject.MeshObjects), rows =>
+            from accepted in IO.lift(() => Answers.FromResult(run.Result, nameof(RhinoObject.MeshObjects)))
+            from value in body(new MeshBatchResult(rows, run.SimpleDialog, run.UiStyle))
+            select value)
         select value;
 
     private static (Result Result, Seq<Mesh> Meshes, Seq<ObjectAttributes> Attributes, Option<bool> SimpleDialog, Option<int> UiStyle) Packed(
@@ -156,28 +151,4 @@ public static class Materials {
         Option<bool> simple,
         Option<int> uiStyle) =>
         (result, toSeq(meshes), toSeq(attributes), simple, uiStyle);
-
-    // --- [PROVIDERS]
-    public static IO<Option<IConvertible>> CustomRenderMeshParameter(RhinoObject o, Guid provider, string name) =>
-        from keyed in Keyed(provider, name, nameof(RhinoObject.GetCustomRenderMeshParameter))
-        from value in IO.lift(() => Optional(o.GetCustomRenderMeshParameter(keyed, name)))
-        select value;
-
-    public static IO<Unit> SetCustomRenderMeshParameter(RhinoObject o, Guid provider, string name, object value) =>
-        from keyed in Keyed(provider, name, nameof(RhinoObject.SetCustomRenderMeshParameter))
-        from written in IO.lift(() => o.SetCustomRenderMeshParameter(keyed, name, value))
-        select written;
-
-    private static IO<Guid> Keyed(Guid provider, string name, string member) =>
-        IO.lift(() =>
-            from keyed in Answers.NonEmpty(provider, member)
-            from named in Invalid.Unless(name.Length > 0, member)
-            select keyed);
-}
-
-[Mapper]
-internal static partial class MaterialMapper {
-    internal static partial MaterialIdentity ToIdentity(Material material);
-
-    internal static partial RenderMaterialIdentity ToIdentity(RenderMaterial material);
 }

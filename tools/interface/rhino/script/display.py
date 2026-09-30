@@ -1,4 +1,4 @@
-# ty: ignore[invalid-argument-type, invalid-return-type, unresolved-attribute, unresolved-import, unsupported-operator]
+# ty: ignore[invalid-argument-type, invalid-return-type, unknown-argument, unresolved-attribute, unresolved-import, unsupported-operator]
 # mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, arg-type, attr-defined, call-overload, no-any-return, operator, return-value"
 """Rhino's display modes as rows, every user mode deleted and each built-in mode's members at their roles, and the point and curve widths previews draw at."""
 
@@ -14,7 +14,7 @@ from System import Array
 from System.Drawing import Color
 from System.Reflection import BindingFlags
 
-from interface.report import Row
+from interface.report import Action, Row
 from interface.rhino.script.accessors import color, Internal, opened
 from interface.roles import Axis, Guide, Ink, Line, POINT_WIDTH, Selection, Status, Surface
 
@@ -84,7 +84,7 @@ def native(entry: str, owner: object, *arguments: object) -> object:
 
 
 def rows() -> Iterator[Row]:
-    """Rows deleting every user display mode, then each built-in mode's members from every table row whose mode set holds it, a later row's value winning, the mode saved after its last row."""
+    """Rows deleting every user display mode, then each built-in mode's menu listing, shown modes alone listed, and its display attributes from every table row whose mode set holds it, a later row's value winning, a written mode updated after its last row and saved once."""
     paper, modeling = (DisplayModeDescription.PenId, DisplayModeDescription.AmbientOcclusionId), (DisplayModeDescription.ShadedId, DisplayModeDescription.XRayId, DisplayModeDescription.GhostedId)
     rendered = (DisplayModeDescription.RenderedId, DisplayModeDescription.RaytracedId)
     custom_material = (*modeling, DisplayModeDescription.AmbientOcclusionId, DisplayModeDescription.MonochromeId)
@@ -97,16 +97,16 @@ def rows() -> Iterator[Row]:
     built_in = modes(user=False)
     screen, drawn = (tuple(mode for mode in built_in if mode not in held) for held in (paper, rendered))
     logical = point_width()
-    subd_usages = ("DisplayAttributes.SubDSmoothInteriorEdgeColorUsage", "DisplayAttributes.SubDCreaseInteriorEdgeColorUsage", "DisplayAttributes.SubDBoundaryEdgeColorUsage")
+    subd_usages = ("SubDSmoothInteriorEdgeColorUsage", "SubDCreaseInteriorEdgeColorUsage", "SubDBoundaryEdgeColorUsage")
     fills = ((Native.COLOR, "GradTopLeft"), (Native.COLOR, "GradBottomLeft"), (Native.COLOR, "GradTopRight"), (Native.COLOR, "GradBottomRight"))
     inked = (
-        "DisplayAttributes.CurveColor",
-        "DisplayAttributes.SurfaceEdgeColor",
-        "DisplayAttributes.SurfaceIsoUVColor",
-        "DisplayAttributes.SurfaceIsoUColor",
-        "DisplayAttributes.SurfaceIsoVColor",
-        "DisplayAttributes.MeshEdgeColor",
-        "DisplayAttributes.ClippingEdgeColor",
+        "CurveColor",
+        "SurfaceEdgeColor",
+        "SurfaceIsoUVColor",
+        "SurfaceIsoUColor",
+        "SurfaceIsoVColor",
+        "MeshEdgeColor",
+        "ClippingEdgeColor",
         (Native.COLOR, "MeshWireColor"),
         (Native.COLOR, "TechnicalLine"),
         (Native.COLOR, "TechnicalEdge"),
@@ -118,122 +118,107 @@ def rows() -> Iterator[Row]:
         (
             built_in,
             {
-                "InMenu": False,
-                **dict.fromkeys(("DisplayAttributes.SurfaceNakedEdgeColor", "DisplayAttributes.MeshNakedEdgeColor", "DisplayAttributes.MeshNonmanifoldEdgeColor"), color(Status.ERROR)),
-                **dict.fromkeys(("DisplayAttributes.SubDReflectionAxisLineColor", "DisplayAttributes.SubDReflectionPlaneColor"), color(Guide.CONSTRUCTION)),
-                "DisplayAttributes.ViewSpecificAttributes.WorldAxisColorX": color(Axis.X),
-                "DisplayAttributes.ViewSpecificAttributes.WorldAxisColorY": color(Axis.Y),
-                "DisplayAttributes.ViewSpecificAttributes.WorldAxisColorZ": color(Axis.Z),
-                **dict.fromkeys(
-                    ("DisplayAttributes.AmbientLightingColor", "DisplayAttributes.ShadowColor", "DisplayAttributes.FrontMaterial.Emission", "DisplayAttributes.BackMaterial.Emission"),
-                    color(Surface.SHADOW),
-                ),
-                "DisplayAttributes.ClippingFillColor": color(Surface.SECTION),
-                "DisplayAttributes.ClippingShadeColor": color(Selection.BODY),
-                "DisplayAttributes.ControlPolygonColor": color(Guide.HANDLE),
-                "DisplayAttributes.LockedColor": color(Line.LOCKED),
-                "DisplayAttributes.GridPlaneColor": color(Line.GRID),
+                **dict.fromkeys(("SurfaceNakedEdgeColor", "MeshNakedEdgeColor", "MeshNonmanifoldEdgeColor"), color(Status.ERROR)),
+                **dict.fromkeys(("SubDReflectionAxisLineColor", "SubDReflectionPlaneColor"), color(Guide.CONSTRUCTION)),
+                "ViewSpecificAttributes.WorldAxisColorX": color(Axis.X),
+                "ViewSpecificAttributes.WorldAxisColorY": color(Axis.Y),
+                "ViewSpecificAttributes.WorldAxisColorZ": color(Axis.Z),
+                **dict.fromkeys(("AmbientLightingColor", "ShadowColor", "FrontMaterial.Emission", "BackMaterial.Emission"), color(Surface.SHADOW)),
+                "ClippingFillColor": color(Surface.SECTION),
+                "ClippingShadeColor": color(Selection.BODY),
+                "ControlPolygonColor": color(Guide.HANDLE),
+                "LockedColor": color(Line.LOCKED),
+                "GridPlaneColor": color(Line.GRID),
             },
         ),
         (
             drawn,
             {
-                "DisplayAttributes.FillMode": DisplayPipelineAttributes.FrameBufferFillMode.DefaultColor,
-                "DisplayAttributes.LinearWorkflowUsage": DisplayPipelineAttributes.LinearWorkflowUsages.Custom,
-                **dict.fromkeys(("DisplayAttributes.PreProcessColors", "DisplayAttributes.PreProcessTextures", "DisplayAttributes.PostProcessFrameBuffer"), False),
-                "DisplayAttributes.ControlPolygonUseFixedSingleColor": True,
-                **dict.fromkeys(("DisplayAttributes.UseSingleCurveColor", "DisplayAttributes.SurfaceIsoSingleColor", "DisplayAttributes.SurfaceIsoColorsUsed"), False),
-                "DisplayAttributes.SurfaceEdgeColorUsage": DisplayPipelineAttributes.SurfaceEdgeColorUse.ObjectColor,
-                "DisplayAttributes.SurfaceNakedEdgeColorUsage": DisplayPipelineAttributes.SurfaceNakedEdgeColorUse.SingleColorForAll,
+                "FillMode": DisplayPipelineAttributes.FrameBufferFillMode.DefaultColor,
+                "LinearWorkflowUsage": DisplayPipelineAttributes.LinearWorkflowUsages.Custom,
+                **dict.fromkeys(("PreProcessColors", "PreProcessTextures", "PostProcessFrameBuffer"), False),
+                "ControlPolygonUseFixedSingleColor": True,
+                **dict.fromkeys(("UseSingleCurveColor", "SurfaceIsoSingleColor", "SurfaceIsoColorsUsed"), False),
+                "SurfaceEdgeColorUsage": DisplayPipelineAttributes.SurfaceEdgeColorUse.ObjectColor,
+                "SurfaceNakedEdgeColorUsage": DisplayPipelineAttributes.SurfaceNakedEdgeColorUse.SingleColorForAll,
                 **dict.fromkeys(subd_usages, DisplayPipelineAttributes.SubDEdgeColorUse.ObjectColor),
-                "DisplayAttributes.SubDNonManifoldEdgeColorUsage": DisplayPipelineAttributes.SubDEdgeColorUse.SingleColorForAll,
-                "DisplayAttributes.ClippingPlaneFillColorUsage": DisplayPipelineAttributes.ClippingPlaneFillColorUse.SolidColor,
-                "DisplayAttributes.ClippingEdgeColorUsage": DisplayPipelineAttributes.ClippingEdgeColorUse.SolidColor,
+                "SubDNonManifoldEdgeColorUsage": DisplayPipelineAttributes.SubDEdgeColorUse.SingleColorForAll,
+                "ClippingPlaneFillColorUsage": DisplayPipelineAttributes.ClippingPlaneFillColorUse.SolidColor,
+                "ClippingEdgeColorUsage": DisplayPipelineAttributes.ClippingEdgeColorUse.SolidColor,
                 (Native.SOLID_COLOR,): color(Surface.CANVAS),
                 (Native.BOOL, "SingleMeshWireColor"): False,
                 **{(Native.TECHNICAL_USAGE, kind): fixed for kind, fixed in lines.items()},
-                "DisplayAttributes.SubDNonManifoldEdgeColor": color(Status.ERROR),
+                "SubDNonManifoldEdgeColor": color(Status.ERROR),
             },
         ),
         (screen, dict.fromkeys(inked, color(Ink.SCREEN)) | dict.fromkeys(fills, color(Surface.CANVAS))),
         (
             paper,
             {
-                "DisplayAttributes.FillMode": DisplayPipelineAttributes.FrameBufferFillMode.SolidColor,
-                **dict.fromkeys(("DisplayAttributes.UseSingleCurveColor", "DisplayAttributes.SurfaceIsoSingleColor"), True),
-                "DisplayAttributes.SurfaceEdgeColorUsage": DisplayPipelineAttributes.SurfaceEdgeColorUse.SingleColorForAll,
+                "FillMode": DisplayPipelineAttributes.FrameBufferFillMode.SolidColor,
+                **dict.fromkeys(("UseSingleCurveColor", "SurfaceIsoSingleColor"), True),
+                "SurfaceEdgeColorUsage": DisplayPipelineAttributes.SurfaceEdgeColorUse.SingleColorForAll,
                 **dict.fromkeys(subd_usages, DisplayPipelineAttributes.SubDEdgeColorUse.SingleColorForAll),
                 (Native.SOLID_COLOR,): color(Surface.PAPER),
                 (Native.BOOL, "SingleMeshWireColor"): True,
                 **dict.fromkeys(((Native.TECHNICAL_USAGE, kind) for kind in lines), True),
-                **dict.fromkeys(
-                    (*inked, "DisplayAttributes.SubDSmoothInteriorEdgeColor", "DisplayAttributes.SubDCreaseInteriorEdgeColor", "DisplayAttributes.SubDBoundaryEdgeColor"), color(Ink.DOCUMENT)
-                ),
+                **dict.fromkeys((*inked, "SubDSmoothInteriorEdgeColor", "SubDCreaseInteriorEdgeColor", "SubDBoundaryEdgeColor"), color(Ink.DOCUMENT)),
                 **dict.fromkeys(fills, color(Surface.PAPER)),
             },
         ),
         (
             modeling,
             {
-                **dict.fromkeys(("DisplayAttributes.ShadingEnabled", "DisplayAttributes.UseCustomObjectMaterial", "DisplayAttributes.UseCustomObjectColor"), True),
-                "DisplayAttributes.FrontMaterialShine": 0.0,
-                "DisplayAttributes.FrontOverrideObjectTransparency": False,
-                "DisplayAttributes.BackfaceDisplayStyle": DisplayPipelineAttributes.BackfaceStyle.UseFrontFaceSettings,
-                "DisplayAttributes.LightingScheme": DisplayPipelineAttributes.LightingSchema.DefaultLighting,
+                **dict.fromkeys(("ShadingEnabled", "UseCustomObjectMaterial", "UseCustomObjectColor"), True),
+                "FrontMaterialShine": 0.0,
+                "FrontOverrideObjectTransparency": False,
+                "BackfaceDisplayStyle": DisplayPipelineAttributes.BackfaceStyle.UseFrontFaceSettings,
+                "LightingScheme": DisplayPipelineAttributes.LightingSchema.DefaultLighting,
                 (Native.PER_PIXEL_LIGHTNING,): True,
-                "DisplayAttributes.AmbientLightingColor": color(Surface.AMBIENT),
+                "AmbientLightingColor": color(Surface.AMBIENT),
                 **dict.fromkeys(
                     (
-                        "DisplayAttributes.CastShadows",
-                        "DisplayAttributes.ShowIsoCurves",
-                        "DisplayAttributes.ShowTangentEdges",
-                        "DisplayAttributes.ShowTangentSeams",
-                        "DisplayAttributes.ShowSurfaceNakedEdge",
-                        "DisplayAttributes.MeshSpecificAttributes.ShowMeshWires",
-                        "DisplayAttributes.ShowMeshNakedEdges",
-                        "DisplayAttributes.ShowSubDEdges",
-                        "DisplayAttributes.ShowSubDNonmanifoldEdges",
-                        "DisplayAttributes.ViewSpecificAttributes.DrawZAxis",
-                        "DisplayAttributes.UseSectionStyles",
+                        "CastShadows",
+                        "ShowIsoCurves",
+                        "ShowTangentEdges",
+                        "ShowTangentSeams",
+                        "ShowSurfaceNakedEdge",
+                        "MeshSpecificAttributes.ShowMeshWires",
+                        "ShowMeshNakedEdges",
+                        "ShowSubDEdges",
+                        "ShowSubDNonmanifoldEdges",
+                        "ViewSpecificAttributes.DrawZAxis",
+                        "UseSectionStyles",
                     ),
                     False,
                 ),
                 **dict.fromkeys(
                     (
-                        "DisplayAttributes.ShowSurfaceEdges",
-                        "DisplayAttributes.ShowMeshEdges",
-                        "DisplayAttributes.LayersFollowLockUsage",
-                        "DisplayAttributes.ControlPolygonUseSolidLines",
-                        "DisplayAttributes.ViewSpecificAttributes.DrawGrid",
-                        "DisplayAttributes.ViewSpecificAttributes.DrawGridAxes",
-                        "DisplayAttributes.ViewSpecificAttributes.DrawWorldAxes",
+                        "ShowSurfaceEdges",
+                        "ShowMeshEdges",
+                        "LayersFollowLockUsage",
+                        "ControlPolygonUseSolidLines",
+                        "ViewSpecificAttributes.DrawGrid",
+                        "ViewSpecificAttributes.DrawGridAxes",
+                        "ViewSpecificAttributes.DrawWorldAxes",
                     ),
                     True,
                 ),
-                **dict.fromkeys(
-                    (
-                        "DisplayAttributes.SurfaceEdgeThicknessScale",
-                        "DisplayAttributes.SubDCreaseInteriorEdgeThickness",
-                        "DisplayAttributes.SubDBoundaryEdgeThickness",
-                        "DisplayAttributes.SubDBoundaryThicknessScale",
-                        "DisplayAttributes.SubDReflectionAxisLineThickness",
-                    ),
-                    1.0,
-                ),
-                **dict.fromkeys(("DisplayAttributes.MeshEdgeThickness", "DisplayAttributes.MeshNakedEdgeThickness", "DisplayAttributes.ClippingEdgeThickness"), 1),
-                **dict.fromkeys(("DisplayAttributes.MeshEdgeColorReduction", "DisplayAttributes.GridTransparency"), 0),
-                "DisplayAttributes.ControlPolygonStyle": PointStyle.RoundDot,
-                **dict.fromkeys(("DisplayAttributes.PointStyle", "DisplayAttributes.PointCloudStyle"), PointStyle.RoundSimple),
-                **dict.fromkeys(("DisplayAttributes.PointRadius", (Native.INT, "PCGripSize")), round((logical - 1) / 2)),
-                "DisplayAttributes.PointCloudRadius": round(logical),
+                **dict.fromkeys(("SurfaceEdgeThicknessScale", "SubDCreaseInteriorEdgeThickness", "SubDBoundaryEdgeThickness", "SubDBoundaryThicknessScale", "SubDReflectionAxisLineThickness"), 1.0),
+                **dict.fromkeys(("MeshEdgeThickness", "MeshNakedEdgeThickness", "ClippingEdgeThickness"), 1),
+                **dict.fromkeys(("MeshEdgeColorReduction", "GridTransparency"), 0),
+                "ControlPolygonStyle": PointStyle.RoundDot,
+                **dict.fromkeys(("PointStyle", "PointCloudStyle"), PointStyle.RoundSimple),
+                **dict.fromkeys(("PointRadius", (Native.INT, "PCGripSize")), round((logical - 1) / 2)),
+                "PointCloudRadius": round(logical),
             },
         ),
-        ((DisplayModeDescription.GhostedId,), {"DisplayAttributes.FrontOverrideObjectTransparency": True}),
-        (custom_material, {"DisplayAttributes.FrontDiffuse": color(Surface.SHADED)}),
-        (shown, {"InMenu": True}),
+        ((*modeling, DisplayModeDescription.WireframeId), {"ViewSpecificAttributes.GridFade": 0.0078125, "ViewSpecificAttributes.GridCornerRadius": 0.9921875}),
+        ((DisplayModeDescription.GhostedId,), {"FrontOverrideObjectTransparency": True}),
+        (custom_material, {"FrontDiffuse": color(Surface.SHADED)}),
     )
 
-    def remove(_: object) -> None:
+    def remove() -> None:
         """Delete every user display mode and its stored settings, then save the display modes."""
         stored = opened(("Options", "DisplayAttributesManager"))
         for mode in modes(user=True):
@@ -241,22 +226,38 @@ def rows() -> Iterator[Row]:
             stored.DeleteChild(str(mode))
         DisplayModeDescription.SaveDisplayModes()
 
-    def row(description: DisplayModeDescription, member: str | tuple[Native, *tuple[str, ...]], target: object) -> Row:
-        """Row of one member of the mode's description, a public member by its dotted path and a native attribute by its family and internal enum member."""
-        mode = f'DisplayModeDescription["{description.EnglishName}"]'
+    written = set[System.Guid]()
+
+    def row(mode: System.Guid, owner: object, label: str, member: str | tuple[Native, *tuple[str, ...]], target: object) -> Row:
+        """Row of one member of a mode's description or display attributes under the owner's label, a public member by its dotted path and a native attribute by its family and internal enum member, its write marking the mode written."""
+        read: Callable[[], object]
+        write: Callable[[object], object]
         match member:
             case str():
                 *owners, name = member.split(".")
-                return Row(label=f"{mode}.{member}", read=partial(attrgetter(member), description), write=partial(setattr, reduce(getattr, owners, description), name), target=target)
+                label, read, write = f"{label}.{member}", partial(attrgetter(member), owner), partial(setattr, reduce(getattr, owners, owner), name)
             case (family, *names):
-                read, write = family.accessors(description.DisplayAttributes, *names)
-                return Row(label="".join((f"{mode}.DisplayAttributes.{family}", *(f'["{name}"]' for name in names))), read=read, write=write, target=target)
+                (read, write), label = family.accessors(owner, *names), "".join((f"{label}.{family}", *(f'["{name}"]' for name in names)))
 
-    yield Row(label="DisplayModeDescription.GetDisplayModes", read=partial(modes, user=True), write=remove, target=())
+        def marked(value: object) -> object:
+            written.add(mode)
+            return write(value)
+
+        return Row(label=label, read=read, write=marked, target=target)
+
+    yield Action(label="DisplayModeDescription.GetDisplayModes", read=partial(modes, user=True), act=remove, target=())
     for mode in built_in:
         description = DisplayModeDescription.GetDisplayMode(mode)
-        yield from (row(description, member, target) for member, target in {key: value for modes, mapping in table if mode in modes for key, value in mapping.items()}.items())
-        DisplayModeDescription.UpdateDisplayMode(description)
+        label = f'DisplayModeDescription["{description.EnglishName}"]'
+        yield row(mode, description, label, "InMenu", mode in shown)
+        yield from (
+            row(mode, description.DisplayAttributes, f"{label}.DisplayAttributes", member, target)
+            for member, target in {key: value for modes, mapping in table if mode in modes for key, value in mapping.items()}.items()
+        )
+        if mode in written:
+            DisplayModeDescription.UpdateDisplayMode(description, bSave=False)
+    if written:
+        DisplayModeDescription.SaveDisplayModes()
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

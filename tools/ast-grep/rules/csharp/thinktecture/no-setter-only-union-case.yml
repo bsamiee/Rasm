@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-setter-only-union-case
+language: csharp
+severity: error
+utils:
+    lift:
+        kind: invocation_expression
+        has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\.lift$'}
+    host-write:
+        kind: assignment_expression
+        all:
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: left, kind: member_access_expression}
+    present-write:
+        kind: assignment_expression
+        all:
+            - has: {field: left, regex: '^_$'}
+            - has:
+                field: right
+                kind: invocation_expression
+                all:
+                    - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome)$'}}
+                    - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: host-write}}}}
+    member-pair:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Match$'}}
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 2}
+                    - not: {has: {kind: argument, nthChild: 3}}
+                    - not: {has: {kind: argument, not: {has: {kind: member_access_expression}}}}
+    write-body:
+        any:
+            - matches: host-write
+            - matches: member-pair
+            - kind: block
+              all:
+                - has: {kind: expression_statement}
+                - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: expression_statement, has: {any: [{matches: host-write}, {matches: present-write}]}}]}}}
+    write-arm:
+        kind: lambda_expression
+        has:
+            field: body
+            matches: lift
+            has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: write-body}}}}
+    case-field:
+        kind: member_access_expression
+        has: {field: expression, kind: identifier, pattern: $CASE}
+    host-member:
+        kind: member_access_expression
+        not: {has: {stopBy: end, kind: identifier, pattern: $CASE}}
+    case-write:
+        matches: host-write
+        all:
+            - has: {field: left, matches: host-member}
+            - has: {field: right, matches: case-field}
+    case-present-write:
+        matches: present-write
+        has:
+            field: right
+            all:
+                - has: {field: function, has: {field: expression, matches: case-field}}
+                - has:
+                    field: arguments
+                    has:
+                        kind: argument
+                        has:
+                            kind: lambda_expression
+                            all:
+                                - has: {field: parameters, kind: implicit_parameter, pattern: $ITEM}
+                                - has:
+                                    field: body
+                                    all:
+                                        - has: {field: left, matches: host-member}
+                                        - has: {field: right, any: [{kind: identifier, pattern: $ITEM}, {matches: case-field}]}
+    case-member-pair:
+        matches: member-pair
+        all:
+            - has: {field: function, has: {field: expression, matches: case-field}}
+            - not: {has: {field: arguments, has: {kind: argument, has: {kind: member_access_expression, not: {matches: host-member}}}}}
+    case-body:
+        any:
+            - matches: case-write
+            - matches: case-member-pair
+            - kind: block
+              all:
+                - has: {kind: expression_statement}
+                - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: expression_statement, has: {any: [{matches: case-write}, {matches: case-present-write}]}}]}}}
+    last-parameter:
+        kind: parameter
+        nthChild: {position: 1, reverse: true}
+    setter-arm:
+        any:
+            - all:
+                - has:
+                    field: parameters
+                    any:
+                        - kind: implicit_parameter
+                          pattern: $CASE
+                          not: {regex: '^_$'}
+                        - kind: parameter_list
+                          has: {matches: last-parameter, has: {field: name, pattern: $CASE, not: {regex: '^_$'}}}
+                - has: {field: body, matches: lift, has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: case-body}}}}}
+            - all:
+                - has: {field: parameters, kind: parameter_list, has: {matches: last-parameter, regex: '^_$'}}
+                - has: {field: body, matches: lift, has: {field: arguments, has: {kind: argument, has: {kind: member_access_expression, regex: '^@?[a-z_]'}}}}
+    union-switch:
+        kind: argument_list
+        all:
+            - inside:
+                kind: invocation_expression
+                has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Switch|SwitchPartially)$'}}
+            - has: {kind: argument, has: {matches: write-arm, pattern: $WRITE}}
+            - has: {kind: argument, has: {matches: write-arm, not: {pattern: $WRITE}}}
+rule:
+    kind: lambda_expression
+    all:
+        - inside: {kind: argument, has: {field: name, kind: identifier, pattern: $ARM}}
+        - matches: setter-arm
+        - inside: {kind: argument, inside: {matches: union-switch}}
+message: '`$ARM` arm only writes host members from its case''s own fields'
+note: Use one case `Set(Action<THost> Write)` with arm `IO.lift(() => set.Write(target))`, each caller writing its setters

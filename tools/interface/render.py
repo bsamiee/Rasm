@@ -1,29 +1,46 @@
-"""Render settings, site, sun moment, and shared asset folders every application renders a scene with."""
+"""Render settings with sample clamps in exposed radiance where 1.0 is display white, render passes, site, sun moment, ground albedo, and the material folder every application renders a scene with."""
 
 from datetime import datetime, UTC
+from enum import auto, Enum
 from pathlib import Path
 from typing import Final
 from zoneinfo import ZoneInfo
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Pass(Enum):
+    """Render passes every renderer writes beside the combined image."""
+
+    DEPTH = auto()
+    NORMAL = auto()
+    ALBEDO = auto()
+    MATERIAL_INDEX = auto()
+    OBJECT_INDEX = auto()
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 FRAME_SIZE: Final = (1920, 1080)
 SAMPLES: Final = 1024
 NOISE_THRESHOLD: Final = 0.01
+ADAPTIVE_MIN_SAMPLES: Final = 0
 MAX_BOUNCES: Final = 12
 DIFFUSE_BOUNCES: Final = 4
 GLOSSY_BOUNCES: Final = 4
 TRANSMISSION_BOUNCES: Final = 12
 VOLUME_BOUNCES: Final = 0
 TRANSPARENT_BOUNCES: Final = 8
+EXPOSURE: Final = -5.3
+DIRECT_CLAMP: Final = 0.0
 INDIRECT_CLAMP: Final = 10.0
 FILTER_GLOSSY: Final = 1.0
+LIGHT_TREE: Final = True
 DPI: Final = 300
 LENS: Final = 50.0
 CAUSTICS: Final = True
-EXPOSURE: Final = -5.3
-SUN_IRRADIANCE: Final = 137.0
-SKY_RADIANCE: Final = 4.5126
+SUN_IRRADIANCE: Final = 139.3
+GROUND_ALBEDO: Final = 0.2
 LATITUDE: Final = 29.7632836
 LONGITUDE: Final = -95.3632715
 ELEVATION: Final = 11.0
@@ -39,28 +56,28 @@ DAYLIGHT: Final = MOMENT.replace(tzinfo=UTC) - MOMENT - OFFSET
 
 DESIGN_TOOLS: Final = Path.home() / "Library" / "Application Support" / "design-tools"
 MATERIALS: Final = DESIGN_TOOLS / "materials"
-LOOK_DEVELOPMENT: Final = MATERIALS / "hdri" / "DaySkyHDRI069A_2K" / "DaySkyHDRI069A_2K_HDR.exr"
-ASSETS: Final = DESIGN_TOOLS / "assets"
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "ASSETS",
+    "ADAPTIVE_MIN_SAMPLES",
     "CAUSTICS",
     "DAYLIGHT",
     "DESIGN_TOOLS",
     "DIFFUSE_BOUNCES",
+    "DIRECT_CLAMP",
     "DPI",
     "ELEVATION",
     "EXPOSURE",
     "FILTER_GLOSSY",
     "FRAME_SIZE",
     "GLOSSY_BOUNCES",
+    "GROUND_ALBEDO",
     "INDIRECT_CLAMP",
     "LATITUDE",
     "LENS",
+    "LIGHT_TREE",
     "LONGITUDE",
-    "LOOK_DEVELOPMENT",
     "MATERIALS",
     "MAX_BOUNCES",
     "MOMENT",
@@ -68,9 +85,9 @@ __all__ = [
     "NORTH",
     "OFFSET",
     "SAMPLES",
-    "SKY_RADIANCE",
     "SUN_IRRADIANCE",
     "TRANSMISSION_BOUNCES",
     "TRANSPARENT_BOUNCES",
     "VOLUME_BOUNCES",
+    "Pass",
 ]

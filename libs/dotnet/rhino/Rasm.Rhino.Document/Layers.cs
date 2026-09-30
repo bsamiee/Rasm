@@ -2,11 +2,42 @@ using System.Drawing;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
+public sealed class LayerNames : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
+    public static IEqualityComparer<string> EqualityComparer => TableOps.Names<Layer>();
+
+    public static IComparer<string> Comparer => TableOps.Names<Layer>();
+}
+
+[ValueObject<string>]
+[ValidationError<ValidationFailure>]
+[KeyMemberEqualityComparer<LayerNames, string>]
+[KeyMemberComparer<LayerNames, string>]
+public sealed partial class LayerName {
+    static partial void ValidateFactoryArguments(ref ValidationFailure? validationError, ref string value) {
+        if (!ModelComponent.IsValidComponentName(value) || value.Contains(ModelComponent.NamePathSeparator, StringComparison.Ordinal))
+            validationError = new Invalid(nameof(LayerName));
+    }
+}
+
+public sealed record LayerPath(Option<LayerPath> Parent, LayerName Leaf) {
+    public Seq<LayerPath> Ancestors => Parent.ToSeq().Bind(static parent => parent.Ancestors.Add(parent));
+
+    public string FullPath => string.Join(ModelComponent.NamePathSeparator, Ancestors.Add(this).Map(static path => (string)path.Leaf));
+
+    public static Fin<LayerPath> Parse(string text) =>
+        toSeq(text.Split(ModelComponent.NamePathSeparator))
+            .Map(static (segment, index) => (Segment: segment, Index: index))
+            .Traverse(static row => Answers.Validated<LayerName, string>(row.Segment).MapFail(_ => new InvalidElement(nameof(LayerPath), row.Index)))
+            .As()
+            .Bind(static names => names.Fold(Option<LayerPath>.None, static (parent, name) => Some(new LayerPath(parent, name))).ToFin(new Invalid(nameof(LayerPath))));
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LayerRef {
     public sealed record Row(ComponentRef Address) : LayerRef;
@@ -14,91 +45,64 @@ public abstract partial record LayerRef {
     public sealed record Current() : LayerRef;
 }
 
-public sealed record LayerAttributes(Color Color, Color PlotColor, PlotWeight Plot, int LinetypeIndex, int RenderMaterialIndex, int SectionStyleIndex);
-
-public sealed record PerViewportSettings(Guid Viewport, Color Color, Color PlotColor, PlotWeight Plot, bool Visible, bool PersistentVisibility);
+public sealed record PerViewportSettings(Guid Viewport, Color Color, Color PlotColor, PlotWeight PlotWeight, bool IsVisible, bool PersistentVisibility);
 
 public sealed record LayerNode(
     Guid Id,
     int Index,
-    string FullPath,
     string Name,
-    Option<Guid> Parent,
-    LayerAttributes Attributes,
-    bool Visible,
-    bool Locked,
+    Option<Guid> ParentLayerId,
+    Color Color,
+    Color PlotColor,
+    PlotWeight PlotWeight,
+    Option<LinetypeRef> Linetype,
+    Option<int> RenderMaterialIndex,
+    Option<int> SectionStyleIndex,
+    Option<int> IgesLevel,
+    Option<string> Description,
+    bool IsVisible,
+    bool IsLocked,
+    bool IsExpanded,
+    bool IsReference,
+    bool ModelIsVisible,
     bool PersistentVisibility,
     bool PersistentLocking,
-    bool Expanded,
-    bool Current,
-    bool Reference,
-    int SortIndex,
+    bool PerViewportIsVisibleInNewDetails,
+    bool HasCustomSectionStyle,
     Seq<PerViewportSettings> PerViewport,
-    Seq<LayerNode> Children);
+    Seq<LayerNode> Children) {
+    public Seq<LayerNode> Subtree => this.Cons(Children.Bind(static child => child.Subtree));
 
-public sealed record LayerTree(Seq<LayerNode> Roots, Guid Current);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LayerEdit {
-    public sealed record Rename(string Name) : LayerEdit;
-
-    public sealed record Color(System.Drawing.Color Value) : LayerEdit;
-
-    public sealed record PlotColor(System.Drawing.Color Value) : LayerEdit;
-
-    public sealed record Plot(PlotWeight Weight) : LayerEdit;
-
-    public sealed record LinetypeIndex(int Index) : LayerEdit;
-
-    public sealed record RenderMaterialIndex(int Index) : LayerEdit;
-
-    public sealed record SectionStyleIndex(int Index) : LayerEdit;
-
-    public sealed record IgesLevel(int Level) : LayerEdit;
-
-    public sealed record CustomSectionStyle(Option<SectionStyle> Style) : LayerEdit;
-
-    public sealed record Visible(bool On) : LayerEdit;
-
-    public sealed record Locked(bool On) : LayerEdit;
-
-    public sealed record Expanded(bool On) : LayerEdit;
-
-    public sealed record PersistentVisibility(Option<bool> Value) : LayerEdit;
-
-    public sealed record PersistentLocking(Option<bool> Value) : LayerEdit;
-
-    public sealed record Description(Option<string> Text) : LayerEdit;
-
-    public sealed record PerViewport(LayerOverride Detail) : LayerEdit;
+    public Option<PerViewportSettings> Detail(Guid viewport) => PerViewport.Find(row => row.Viewport == viewport);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LayerOverride {
-    public sealed record Color(Guid Viewport, Option<System.Drawing.Color> Value) : LayerOverride;
+public sealed record LayerTree(Seq<LayerNode> Roots, Guid Current) {
+    public Seq<LayerNode> Nodes => Roots.Bind(static root => root.Subtree);
+}
 
-    public sealed record PlotColor(Guid Viewport, Option<System.Drawing.Color> Value) : LayerOverride;
+public sealed record LayerEdit(string Name, Option<RestoreLayerProperties> Restored, Option<Guid> Viewport, Func<LayerNode, bool> Holds, Func<RhinoDoc, Layer, IO<Unit>> Write);
 
-    public sealed record Visible(Guid Viewport, Option<bool> Value) : LayerOverride;
-
-    public sealed record PersistentVisibility(Guid Viewport, Option<bool> Value) : LayerOverride;
-
-    public sealed record Plot(Guid Viewport, Option<PlotWeight> Value) : LayerOverride;
-
-    public sealed record NewDetailVisibility(bool On) : LayerOverride;
-
-    public sealed record Delete(Guid Viewport) : LayerOverride;
+public sealed record LayerProperty<TValue>(
+    string Name,
+    Option<RestoreLayerProperties> Restored,
+    Option<Guid> Viewport,
+    Func<LayerNode, TValue, bool> Holds,
+    Func<RhinoDoc, Layer, TValue, IO<Unit>> Write) {
+    public LayerEdit Set(TValue value) =>
+        new(Name, Restored, Viewport, node => Holds(node, value), (doc, staged) => Write(doc, staged, value));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LayerOp {
-    public sealed record Create(string Name, Option<LayerRef> Parent, Seq<LayerEdit> Edits) : LayerOp;
+    public sealed record Create(LayerName Name, Option<LayerRef> Parent, Option<Guid> Id, Seq<LayerEdit> Edits) : LayerOp;
 
-    public sealed record AddPath(string Path, Option<Color> Color) : LayerOp;
+    public sealed record AddPath(LayerPath Path, Option<Color> Color) : LayerOp;
 
     public sealed record Modify(LayerRef Target, Seq<LayerEdit> Edits) : LayerOp;
 
     public sealed record Reparent(LayerRef Target, Option<LayerRef> Parent) : LayerOp;
+
+    public sealed record SetRenderMaterial(LayerRef Target, Option<RenderMaterial> Material) : LayerOp;
 
     public sealed record Merge(LayerRef Source, LayerRef Target) : LayerOp;
 
@@ -118,54 +122,280 @@ public abstract partial record LayerOp {
 
     public sealed record Sort(Seq<LayerRef> Order) : LayerOp;
 
+    public sealed record SelectInPanel(Seq<LayerRef> Targets, bool Deselect) : LayerOp;
+
     public sealed record UndoModify(LayerRef Target, Option<uint> Serial) : LayerOp;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class LayerMapper {
+    [MapProperty(nameof(Layer.PlotWeight), nameof(LayerNode.PlotWeight), Use = nameof(@PlotWeight.FromHost))]
+    [MapProperty(nameof(Layer.LinetypeIndex), nameof(LayerNode.Linetype), Use = nameof(@LinetypeRef.FromHost))]
+    [MapPropertyFromSource(nameof(LayerNode.HasCustomSectionStyle), Use = nameof(HasCustomSectionStyle))]
+    [MapProperty(nameof(Layer.Name), nameof(LayerNode.Name), SuppressNullMismatchDiagnostic = true)]
+    internal static partial LayerNode ToNode(Layer layer, bool persistentLocking, Seq<PerViewportSettings> perViewport, Seq<LayerNode> children);
+
+    private static bool HasCustomSectionStyle(Layer layer) => DisposalOps.Present(layer.GetCustomSectionStyle());
+}
+
+public static class LayerProperties {
+    // --- [ATTRIBUTES]
+    public static readonly LayerProperty<LayerName> Name =
+        new(
+            nameof(Layer.Name),
+            Option<RestoreLayerProperties>.None,
+            Option<Guid>.None,
+            static (node, value) => string.Equals(node.Name, value, StringComparison.Ordinal),
+            static (_, staged, value) => TableOps.Named(staged, Some<string>(value)));
+
+    public static readonly LayerProperty<Color> Color =
+        Plain<Color>(nameof(Layer.Color), Some(RestoreLayerProperties.Color), static (node, value) => Answers.Same(node.Color, value), static (staged, value) => staged.Color = value);
+
+    public static readonly LayerProperty<Option<Color>> PlotColor =
+        Unsettable<Color>(
+            nameof(Layer.PlotColor),
+            Some(RestoreLayerProperties.PrintColor),
+            static (node, value) => value.Exists(color => Answers.Same(node.PlotColor, color)),
+            static (staged, color) => staged.PlotColor = color,
+            static staged => staged.DeletePlotColor());
+
+    public static readonly LayerProperty<PlotWeight> PlotWeight =
+        Plain<PlotWeight>(nameof(Layer.PlotWeight), Some(RestoreLayerProperties.PrintWidth), static (node, value) => node.PlotWeight == value, static (staged, value) => staged.PlotWeight = value.ToHost());
+
+    public static readonly LayerProperty<LinetypeRef> Linetype =
+        Indexed<LinetypeRef>(
+            nameof(Layer.LinetypeIndex),
+            Some(RestoreLayerProperties.Linetype),
+            static (node, value) => node.Linetype == Some(value),
+            static (doc, value) => value.Resolve(doc),
+            static (staged, index) => staged.LinetypeIndex = index);
+
+    public static readonly LayerProperty<Option<ComponentRef>> RenderMaterialIndex =
+        Indexed<Option<ComponentRef>>(
+            nameof(Layer.RenderMaterialIndex),
+            Some(RestoreLayerProperties.RenderMaterial),
+            static (node, value) => node.RenderMaterialIndex.Map<ComponentRef>(static index => new ComponentRef.ByIndex(index)) == value,
+            static (doc, value) => TableOps.Index(doc.Materials, value),
+            static (staged, index) => staged.RenderMaterialIndex = index);
+
+    public static readonly LayerProperty<Option<ComponentRef>> SectionStyleIndex =
+        Indexed<Option<ComponentRef>>(
+            nameof(Layer.SectionStyleIndex),
+            Some(RestoreLayerProperties.SectionStyle),
+            static (node, value) => node.SectionStyleIndex.Map<ComponentRef>(static index => new ComponentRef.ByIndex(index)) == value,
+            static (doc, value) => TableOps.Index(doc.SectionStyles, value),
+            static (staged, index) => staged.SectionStyleIndex = index);
+
+    public static readonly LayerProperty<Option<int>> IgesLevel =
+        Indexed<Option<int>>(
+            nameof(Layer.IgesLevel),
+            Option<RestoreLayerProperties>.None,
+            static (node, value) => node.IgesLevel == value,
+            static (_, value) => IO.lift(() => value.Traverse(static level => Limits.AtLeast(0).Check(level, nameof(Layer.IgesLevel))).As().Map(Answers.Unset)),
+            static (staged, level) => staged.IgesLevel = level);
+
+    public static readonly LayerProperty<Option<SectionStyle>> CustomSectionStyle =
+        Unsettable<SectionStyle>(
+            nameof(Layer.SetCustomSectionStyle),
+            Option<RestoreLayerProperties>.None,
+            static (node, value) => value.IsNone && !node.HasCustomSectionStyle,
+            static (staged, style) => staged.SetCustomSectionStyle(style),
+            static staged => staged.RemoveCustomSectionStyle());
+
+    public static readonly LayerProperty<Option<string>> Description =
+        Plain<Option<string>>(nameof(Layer.Description), Option<RestoreLayerProperties>.None, static (node, value) => node.Description == value, static (staged, value) => staged.Description = Answers.Unset(value));
+
+    // --- [VISIBILITY]
+    public static readonly LayerProperty<bool> IsVisible =
+        Plain<bool>(
+            nameof(Layer.IsVisible),
+            Some(RestoreLayerProperties.Visible),
+            static (node, value) => node.PersistentVisibility == value,
+            static (staged, value) => {
+                staged.IsVisible = value;
+                staged.SetPersistentVisibility(value);
+            });
+
+    public static readonly LayerProperty<bool> IsLocked =
+        Plain<bool>(
+            nameof(Layer.IsLocked),
+            Some(RestoreLayerProperties.Locked),
+            static (node, value) => node.PersistentLocking == value,
+            static (staged, value) => {
+                staged.IsLocked = value;
+                staged.SetPersistentLocking(value);
+            });
+
+    public static readonly LayerProperty<bool> IsExpanded =
+        Plain<bool>(nameof(Layer.IsExpanded), Some(RestoreLayerProperties.Expanded), static (node, value) => node.IsExpanded == value, static (staged, value) => staged.IsExpanded = value);
+
+    public static readonly LayerProperty<bool> PerViewportIsVisibleInNewDetails =
+        Plain<bool>(
+            nameof(Layer.PerViewportIsVisibleInNewDetails),
+            Some(RestoreLayerProperties.NewDetailOn),
+            static (node, value) => node.PerViewportIsVisibleInNewDetails == value,
+            static (staged, value) => staged.PerViewportIsVisibleInNewDetails = value);
+
+    public static readonly LayerProperty<Option<bool>> ModelIsVisible =
+        Unsettable<bool>(
+            nameof(Layer.ModelIsVisible),
+            Option<RestoreLayerProperties>.None,
+            static (node, value) => value == Some(node.ModelIsVisible),
+            static (staged, on) => staged.ModelIsVisible = on,
+            static staged => staged.DeleteModelVisible());
+
+    public static readonly LayerProperty<Option<bool>> PersistentVisibility =
+        Unsettable<bool>(
+            nameof(Layer.PersistentVisibility),
+            Option<RestoreLayerProperties>.None,
+            static (_, _) => false,
+            static (staged, on) => staged.SetPersistentVisibility(on),
+            static staged => staged.UnsetPersistentVisibility());
+
+    public static readonly LayerProperty<Option<bool>> ModelPersistentVisibility =
+        Unsettable<bool>(
+            nameof(Layer.ModelPersistentVisibility),
+            Option<RestoreLayerProperties>.None,
+            static (_, _) => false,
+            static (staged, on) => staged.ModelPersistentVisibility = on,
+            static staged => staged.UnsetModelPersistentVisibility());
+
+    public static readonly LayerProperty<Option<bool>> PersistentLocking =
+        Unsettable<bool>(
+            nameof(Layer.SetPersistentLocking),
+            Option<RestoreLayerProperties>.None,
+            static (_, _) => false,
+            static (staged, on) => staged.SetPersistentLocking(on),
+            static staged => staged.UnsetPersistentLocking());
+
+    // --- [DETAILS]
+    public static Fin<LayerProperty<Option<Color>>> PerViewportColor(Guid viewport) =>
+        Detail<Color>(
+            nameof(Layer.PerViewportColor),
+            Some(RestoreLayerProperties.ViewportColor),
+            viewport,
+            static (row, value) => Answers.Same(row.Color, value),
+            static (staged, id, color) => staged.SetPerViewportColor(id, color),
+            static (staged, id) => staged.DeletePerViewportColor(id));
+
+    public static Fin<LayerProperty<Option<Color>>> PerViewportPlotColor(Guid viewport) =>
+        Detail<Color>(
+            nameof(Layer.PerViewportPlotColor),
+            Some(RestoreLayerProperties.ViewportPrintColor),
+            viewport,
+            static (row, value) => Answers.Same(row.PlotColor, value),
+            static (staged, id, color) => staged.SetPerViewportPlotColor(id, color),
+            static (staged, id) => staged.DeletePerViewportPlotColor(id));
+
+    public static Fin<LayerProperty<Option<PlotWeight>>> PerViewportPlotWeight(Guid viewport) =>
+        Detail<PlotWeight>(
+            nameof(Layer.PerViewportPlotWeight),
+            Some(RestoreLayerProperties.ViewportPrintWidth),
+            viewport,
+            static (row, value) => row.PlotWeight == value,
+            static (staged, id, weight) => staged.SetPerViewportPlotWeight(id, weight.ToHost()),
+            static (staged, id) => staged.DeletePerViewportPlotWeight(id));
+
+    public static Fin<LayerProperty<Option<bool>>> PerViewportIsVisible(Guid viewport) =>
+        Detail<bool>(
+            nameof(Layer.PerViewportIsVisible),
+            Some(RestoreLayerProperties.ViewportVisible),
+            viewport,
+            static (row, value) => row.IsVisible == value,
+            static (staged, id, on) => staged.SetPerViewportVisible(id, on),
+            static (staged, id) => staged.DeletePerViewportVisible(id));
+
+    public static Fin<LayerProperty<Option<bool>>> PerViewportPersistentVisibility(Guid viewport) =>
+        Detail<bool>(
+            nameof(Layer.PerViewportPersistentVisibility),
+            Option<RestoreLayerProperties>.None,
+            viewport,
+            static (row, value) => row.PersistentVisibility == value,
+            static (staged, id, on) => staged.SetPerViewportPersistentVisibility(id, on),
+            static (staged, id) => staged.UnsetPerViewportPersistentVisibility(id));
+
+    public static Fin<LayerProperty<Unit>> DeletePerViewportSettings(Guid viewport) =>
+        from id in Addressed(viewport)
+        select new LayerProperty<Unit>(
+            nameof(Layer.DeletePerViewportSettings),
+            Option<RestoreLayerProperties>.None,
+            Some(id),
+            (node, _) => node.Detail(id).IsNone,
+            (_, staged, _) => IO.lift(() => staged.DeletePerViewportSettings(id)));
+
+    // --- [ROWS]
+    private static LayerProperty<TValue> Plain<TValue>(string name, Option<RestoreLayerProperties> restored, Func<LayerNode, TValue, bool> holds, Action<Layer, TValue> write) =>
+        new(name, restored, Option<Guid>.None, holds, (_, staged, value) => IO.lift(() => write(staged, value)));
+
+    private static LayerProperty<Option<TValue>> Unsettable<TValue>(string name, Option<RestoreLayerProperties> restored, Func<LayerNode, Option<TValue>, bool> holds, Action<Layer, TValue> set, Action<Layer> unset) =>
+        Plain(name, restored, holds, (staged, value) => value.Match(wanted => set(staged, wanted), () => unset(staged)));
+
+    private static LayerProperty<TValue> Indexed<TValue>(string name, Option<RestoreLayerProperties> restored, Func<LayerNode, TValue, bool> holds, Func<RhinoDoc, TValue, IO<int>> resolve, Action<Layer, int> assign) =>
+        new(name, restored, Option<Guid>.None, holds, (doc, staged, value) => resolve(doc, value).Bind(index => IO.lift(() => assign(staged, index))));
+
+    private static Fin<LayerProperty<Option<TValue>>> Detail<TValue>(
+        string name,
+        Option<RestoreLayerProperties> restored,
+        Guid viewport,
+        Func<PerViewportSettings, TValue, bool> holds,
+        Action<Layer, Guid, TValue> set,
+        Action<Layer, Guid> delete) =>
+        from id in Addressed(viewport)
+        select new LayerProperty<Option<TValue>>(
+            name,
+            restored,
+            Some(id),
+            (node, value) => value.Match(Some: wanted => node.Detail(id).Exists(row => holds(row, wanted)), None: () => node.Detail(id).IsNone),
+            (_, staged, value) => IO.lift(() => value.Match(Some: wanted => set(staged, id, wanted), None: () => delete(staged, id))));
+
+    private static Fin<Guid> Addressed(Guid viewport) =>
+        Answers.Present(viewport).ToFin(new Invalid(nameof(viewport)));
+}
+
 public static class Layers {
     // --- [RESOLUTION]
     public static IO<Layer> ResolveLayer(RhinoDoc doc, LayerRef address, bool includeDeleted) =>
-        from index in address.Switch(
+        address.Switch(
             (Doc: doc, IncludeDeleted: includeDeleted),
-            row: static (state, row) => TableOps.Find<int>(
-                    row.Address,
-                    id => Stored(state.Doc, state.Doc.Layers.Find(id, ignoreDeletedLayers: !state.IncludeDeleted, RhinoMath.UnsetIntIndex)),
-                    static index => Some(index),
-                    name => Stored(state.Doc, state.Doc.Layers.FindByFullPath(name, RhinoMath.UnsetIntIndex)))
-                .Bind(static found => IO.lift(found.ToFin(new Missing(nameof(LayerTable.Find))))),
-            current: static (state, _) => IO.lift(() => state.Doc.Layers.CurrentLayerIndex))
-        from row in IO.lift(() => Missing.Unless(doc.Layers.FindIndex(index), nameof(LayerTable.FindIndex)))
-        from live in IO.lift(() => Missing.Unless(includeDeleted || !row.IsDeleted, nameof(Layer.IsDeleted)))
-        select row;
+            row: static (state, row) => IO.lift(() => row.Address.Switch(
+                    state.Doc.Layers,
+                    byId: static (_, byId) => Fin.Succ<ComponentRef>(byId),
+                    byIndex: static (_, byIndex) => Fin.Succ<ComponentRef>(byIndex),
+                    byName: Pathed))
+                .Bind(address => TableOps.Find(state.Doc.Layers, address, state.IncludeDeleted)),
+            current: static (state, _) => IO.lift(() => state.Doc.Layers.CurrentLayer));
 
-    private static Option<int> Stored(RhinoDoc doc, int index) =>
-        Answers.Present(index).Filter(found => found < doc.Layers.Count);
+    private static Fin<ComponentRef> Pathed(LayerTable layers, ComponentRef.ByName byName) =>
+        layers.FindByFullPath(byName.Name, RhinoMath.UnsetIntIndex) is var index and >= 0 ? new ComponentRef.ByIndex(index) : new MissingComponent(layers.ComponentType, byName);
 
     // --- [READS]
-    public static IO<LayerTree> ReadLayers(RhinoDoc doc, Seq<Guid> detailViewports) =>
-        from rows in IO.lift(() => toSeq(doc.Layers).Filter(static layer => !layer.IsDeleted).Map(layer => Node(layer, detailViewports)).Strict())
+    public static IO<LayerTree> ReadLayers(RhinoDoc doc, Seq<Guid> viewports) =>
+        from rows in IO.lift(() => Sorted(doc).Map(order => order.Map(index => doc.Layers[index]).Strict()))
+        from roots in IO.lift(() => Tree(rows, viewports))
         from current in IO.lift(() => doc.Layers.CurrentLayer.Id)
-        from roots in IO.lift(() => Tree(rows))
         select new LayerTree(roots, current);
 
-    private static LayerNode Node(Layer layer, Seq<Guid> detailViewports) =>
-        new(
-            layer.Id,
-            layer.Index,
-            layer.FullPath,
-            layer.Name,
-            Answers.Present(layer.ParentLayerId),
-            LayerMapper.ToAttributes(layer),
-            layer.IsVisible,
-            layer.IsLocked,
-            layer.GetPersistentVisibility(),
-            layer.GetPersistentLocking(),
-            layer.IsExpanded,
-            layer.IsCurrent,
-            layer.IsReference,
-            layer.SortIndex,
-            detailViewports.Filter(layer.HasPerViewportSettings).Map(viewport => PerViewport(layer, viewport)).Strict(),
-            Seq<LayerNode>());
+    public static IO<Option<Seq<int>>> PanelSelection(RhinoDoc doc) =>
+        IO.lift(() => Answers.Found(doc.Layers.GetSelected(out List<int> indices), toSeq(indices)));
+
+    private static Fin<Seq<int>> Sorted(RhinoDoc doc) =>
+        Answers.NonEmpty(toSeq(doc.Layers.GetSorted()), nameof(LayerTable.GetSorted));
+
+    private static Fin<Seq<LayerNode>> Tree(Seq<Layer> rows, Seq<Guid> viewports) {
+        Seq<LayerNode> roots = Grown(toHashMap(rows.GroupBy(static row => row.ParentLayerId).Select(static group => (group.Key, toSeq(group).Strict()))), Guid.Empty, viewports);
+        LanguageExt.HashSet<Guid> reached = toHashSet(roots.Bind(static root => root.Subtree).Map(static node => node.Id));
+        return reached.Count == rows.Count ? roots : new LayerUnreachable(rows.Map(static row => row.Id).Filter(id => !reached.Contains(id)).Strict());
+    }
+
+    private static Seq<LayerNode> Grown(HashMap<Guid, Seq<Layer>> byParent, Guid parent, Seq<Guid> viewports) =>
+        byParent.Find(parent).ToSeq().Flatten()
+            .Map(row => LayerMapper.ToNode(
+                row,
+                row.GetPersistentLocking(),
+                viewports.Filter(row.HasPerViewportSettings).Map(viewport => PerViewport(row, viewport)).Strict(),
+                Grown(byParent, row.Id, viewports)))
+            .Strict();
 
     private static PerViewportSettings PerViewport(Layer layer, Guid viewport) =>
         new(
@@ -176,64 +406,47 @@ public static class Layers {
             layer.PerViewportIsVisible(viewport),
             layer.PerViewportPersistentVisibility(viewport));
 
-    private static Fin<Seq<LayerNode>> Tree(Seq<LayerNode> rows) =>
-        from byId in Pure(toHashMap(rows.Map(static row => (row.Id, row)))).ToFin()
-        from climbed in rows.TraverseM(row => Climb(byId, row.Id, row, HashSet(row.Id))).As()
-        select Children(rows, Option<Guid>.None);
-
-    private static Fin<Unit> Climb(HashMap<Guid, LayerNode> byId, Guid start, LayerNode node, LanguageExt.HashSet<Guid> seen) =>
-        node.Parent.Match(
-            Some: parent => seen.Contains(parent)
-                ? new LayerCycle(start)
-                : byId.Find(parent).Match(
-                    Some: above => Climb(byId, start, above, seen.Add(parent)),
-                    None: () => new LayerOrphan(node.Id, parent)),
-            None: static () => unit);
-
-    private static Seq<LayerNode> Children(Seq<LayerNode> rows, Option<Guid> parent) =>
-        toSeq(rows.Filter(row => row.Parent == parent).OrderBy(static row => row.SortIndex).ThenBy(static row => row.Name, StringComparer.OrdinalIgnoreCase))
-            .Map(row => row with { Children = Children(rows, Some(row.Id)) })
-            .Strict();
-
-    // --- [NAMES]
-    public static bool IsLeafName(string name) =>
-        ModelComponent.IsValidComponentName(name) && !name.Contains(ModelComponent.NamePathSeparator, StringComparison.Ordinal);
-
     // --- [WRITES]
-    public static IO<Unit> ModifyLayer(RhinoDoc doc, int index, Seq<LayerEdit> edits) =>
-        Staged(doc, index, staged => edits.TraverseM(edit => Edit(doc, staged, edit)).As().Map(static _ => unit));
-
     public static IO<Seq<int>> ApplyLayerOp(RhinoDoc doc, LayerOp op) =>
         op.Switch(
             doc,
             create: static (document, create) =>
-                from leaf in IO.lift(() => Invalid.Unless(IsLeafName(create.Name), nameof(ModelComponent.IsValidComponentName)))
+                from id in IO.lift(() => create.Id.Traverse(static id => Answers.Present(id).ToFin(new Invalid(nameof(LayerOp.Create.Id)))).As())
                 from parent in create.Parent.Traverse(address => ResolveLayer(document, address, includeDeleted: false)).As()
-                from index in TableOps.AddRow(
-                    Accessors(document.Layers),
-                    IO.lift(() => new Layer { Name = create.Name, ParentLayerId = ParentId(parent) }),
-                    staged => create.Edits.TraverseM(edit => Edit(document, staged, edit)).As().Map(static _ => unit))
+                from index in TableOps.AddRow(TableAccessors.Layers(document), IO.lift(() => Fresh(create.Name, ParentId(parent), id)), staged => Written(document, staged, create.Edits))
                 select Seq(index),
             addPath: static (document, add) => IO.lift(() =>
-                Answers.NonNegative(add.Color.Match(Some: color => document.Layers.AddPath(add.Path, color), None: () => document.Layers.AddPath(add.Path)), nameof(LayerTable.AddPath))
+                Answers.Required(add.Color.Match(Some: color => document.Layers.AddPath(add.Path.FullPath, color), None: () => document.Layers.AddPath(add.Path.FullPath)), nameof(LayerTable.AddPath))
                     .Map(static index => Seq(index))),
             modify: static (document, modify) =>
                 from row in ResolveLayer(document, modify.Target, includeDeleted: false)
-                from modified in ModifyLayer(document, row.Index, modify.Edits)
+                from modified in Staged(document, row.Index, staged =>
+                    from written in Written(document, staged, modify.Edits)
+                    from shown in IO.lift(() => Invalid.Unless((row.Index != document.Layers.CurrentLayerIndex) || (staged.IsVisible && !staged.IsLocked), nameof(LayerTable.CurrentLayer)))
+                    select shown)
                 select Seq(row.Index),
             reparent: static (document, reparent) =>
                 from target in ResolveLayer(document, reparent.Target, includeDeleted: false)
                 from parent in reparent.Parent.Traverse(address => ResolveLayer(document, address, includeDeleted: false)).As()
-                from acyclic in IO.lift<Unit>(() => parent.Exists(row => (row.Id == target.Id) || row.IsChildOf(target.Id)) ? new LayerCycle(target.Id) : unit)
-                from moved in Staged(document, target.Index, staged => IO.lift(() => { staged.ParentLayerId = ParentId(parent); }))
+                from acyclic in IO.lift(() => LayerCycle.Unless(!parent.Exists(row => Within(row, target)), target.Id))
+                from moved in Reparented(document, target.Index, ParentId(parent))
                 select Seq(target.Index),
+            setRenderMaterial: static (document, assign) =>
+                from owned in IO.lift(() => Invalid.Unless(
+                    assign.Material.ForAll(material => material.DocumentOwner?.RuntimeSerialNumber == document.RuntimeSerialNumber),
+                    nameof(RenderContent.DocumentOwner)))
+                from row in ResolveLayer(document, assign.Target, includeDeleted: false)
+                from assigned in IO.lift(() => { row.RenderMaterial = assign.Material.ValueUnsafe(); })
+                select Seq(row.Index),
             merge: static (document, merge) =>
                 from source in ResolveLayer(document, merge.Source, includeDeleted: false)
                 from target in ResolveLayer(document, merge.Target, includeDeleted: false)
+                from acyclic in IO.lift(() => LayerCycle.Unless(!Within(target, source), target.Id))
                 from moved in TableOps.Apply(document, new TableOp.ModifyAttributes(
-                    new ObjectTarget.Query(ObjectQuery.Default with { HiddenObjects = true, IncludeLights = true, LayerIndexFilter = Some(source.Index) }, Seq<ObjectPredicate>()),
+                    new ObjectTarget.Query(new ObjectEnumeratorSettings { HiddenObjects = true, IncludeLights = true, LayerIndexFilter = source.Index }),
                     attributes => IO.lift(() => { attributes.LayerIndex = target.Index; }),
                     Quiet: true))
+                from adopted in Answers.Present(source.GetChildren()).TraverseM(child => Reparented(document, child.Index, target.Id)).As()
                 from deleted in IO.lift(() => Refused.Unless(document.Layers.Delete(source.Index, quiet: true), nameof(LayerTable.Delete)))
                 select Seq(source.Index, target.Index),
             duplicate: static (document, duplicate) =>
@@ -243,21 +456,28 @@ public static class Layers {
                     nameof(LayerTable.Duplicate)))
                 select indices,
             delete: static (document, delete) =>
-                Call(document, delete.Target, includeDeleted: false, row => document.Layers.Delete(row.Index, delete.Quiet), nameof(LayerTable.Delete)),
+                Call(document, delete.Target, includeDeleted: false, row => document.Layers.Delete(row.Index, delete.Quiet) || row.IsDeleted, nameof(LayerTable.Delete)),
             purge: static (document, purge) =>
-                Call(document, purge.Target, includeDeleted: true, row => document.Layers.Purge(row.Index, purge.Quiet), nameof(LayerTable.Purge)),
+                Call(document, purge.Target, includeDeleted: false, row => document.Layers.Purge(row.Index, purge.Quiet), nameof(LayerTable.Purge)),
             undelete: static (document, undelete) =>
                 Call(document, undelete.Target, includeDeleted: true, row => document.Layers.Undelete(row.Index), nameof(LayerTable.Undelete)),
             setCurrent: static (document, current) =>
                 Call(document, current.Target, includeDeleted: false, row => document.Layers.SetCurrentLayerIndex(row.Index, current.Quiet), nameof(LayerTable.SetCurrentLayerIndex)),
             forceVisible: static (document, force) =>
                 Call(document, force.Target, includeDeleted: false, row => document.Layers.ForceLayerVisible(row.Id), nameof(LayerTable.ForceLayerVisible)),
-            sortByName: static (document, sort) => IO.lift(() => document.Layers.SortByLayerName(sort.Ascending)).Map(static _ => Seq<int>()),
+            sortByName: static (document, sort) =>
+                from sorted in IO.lift(() => document.Layers.SortByLayerName(sort.Ascending))
+                from order in IO.lift(() => Sorted(document))
+                select order,
             sort: static (document, sort) =>
                 from rows in sort.Order.TraverseM(address => ResolveLayer(document, address, includeDeleted: false)).As()
-                from indices in IO.lift(() => Permutation(rows.Map(static row => row.Index).Strict(), document.Layers.ActiveCount))
+                let indices = rows.Map(static row => row.Index).Strict()
                 from sorted in IO.lift(() => document.Layers.Sort(indices))
                 select indices,
+            selectInPanel: static (document, panel) =>
+                from rows in panel.Targets.TraverseM(address => ResolveLayer(document, address, includeDeleted: false)).As()
+                from shown in IO.lift(() => Refused.Unless(document.Layers.Select(rows.Map(static row => row.Index), panel.Deselect), nameof(LayerTable.Select)))
+                select rows.Map(static row => row.Index),
             undoModify: static (document, undo) =>
                 Call(
                     document,
@@ -266,78 +486,29 @@ public static class Layers {
                     row => undo.Serial.Match(Some: serial => document.Layers.UndoModify(row.Index, serial), None: () => document.Layers.UndoModify(row.Index)),
                     nameof(LayerTable.UndoModify)));
 
-    private static TableAccessors<Layer> Accessors(LayerTable layers) =>
-        new(layers, layers.Add, layers.Modify, layers.FindName, layers.FindIndex);
+    private static IO<Unit> Written(RhinoDoc doc, Layer staged, Seq<LayerEdit> edits) =>
+        edits.TraverseM(edit => edit.Write(doc, staged)).As().Map(static _ => unit);
+
+    private static Layer Fresh(LayerName name, Guid parent, Option<Guid> id) {
+        Layer row = Layer.GetDefaultLayerProperties();
+        row.Name = name;
+        row.ParentLayerId = parent;
+        _ = id.Iter(value => row.Id = value);
+        return row;
+    }
 
     private static IO<Unit> Staged(RhinoDoc doc, int index, Func<Layer, IO<Unit>> stage) =>
-        TableOps.ModifyRow(
-            Accessors(doc.Layers),
-            index,
-            static live => {
-                Layer staged = new();
-                staged.CopyAttributesFrom(live);
-                return staged;
-            },
-            stage,
-            quiet: true);
+        TableOps.ModifyRow(TableAccessors.Layers(doc), index, stage, quiet: true);
 
-    private static IO<Unit> Edit(RhinoDoc doc, Layer staged, LayerEdit edit) =>
-        edit.Switch(
-            (Row: staged, Doc: doc),
-            rename: static (state, rename) =>
-                from leaf in IO.lift(() => Invalid.Unless(IsLeafName(rename.Name), nameof(ModelComponent.IsValidComponentName)))
-                from named in TableOps.Locked(IO.lift(() => { state.Row.Name = rename.Name; }), nameof(Layer.Name))
-                select named,
-            color: static (state, color) => IO.lift(() => { state.Row.Color = color.Value; }),
-            plotColor: static (state, plotColor) => IO.lift(() => { state.Row.PlotColor = plotColor.Value; }),
-            plot: static (state, plot) => IO.lift(() => { state.Row.PlotWeight = plot.Weight.ToHost(); }),
-            linetypeIndex: static (state, linetype) => Indexed(Assignable(linetype.Index, state.Doc.Linetypes.Count, nameof(Layer.LinetypeIndex)), index => state.Row.LinetypeIndex = index),
-            renderMaterialIndex: static (state, material) => Indexed(Assignable(material.Index, state.Doc.Materials.Count, nameof(Layer.RenderMaterialIndex)), index => state.Row.RenderMaterialIndex = index),
-            sectionStyleIndex: static (state, style) => Indexed(Assignable(style.Index, state.Doc.SectionStyles.Count, nameof(Layer.SectionStyleIndex)), index => state.Row.SectionStyleIndex = index),
-            igesLevel: static (state, iges) => Indexed(Limits.AtLeast(0).Check(iges.Level, nameof(Layer.IgesLevel)), level => state.Row.IgesLevel = level),
-            customSectionStyle: static (state, custom) => IO.lift(() => custom.Style.Match(state.Row.SetCustomSectionStyle, state.Row.RemoveCustomSectionStyle)),
-            visible: static (state, visible) => IO.lift(() => { state.Row.IsVisible = visible.On; }),
-            locked: static (state, locked) => IO.lift(() => { state.Row.IsLocked = locked.On; }),
-            expanded: static (state, expanded) => IO.lift(() => { state.Row.IsExpanded = expanded.On; }),
-            persistentVisibility: static (state, persistent) => IO.lift(() => persistent.Value.Match(state.Row.SetPersistentVisibility, state.Row.UnsetPersistentVisibility)),
-            persistentLocking: static (state, persistent) => IO.lift(() => persistent.Value.Match(state.Row.SetPersistentLocking, state.Row.UnsetPersistentLocking)),
-            description: static (state, description) => IO.lift(() => { state.Row.Description = description.Text.IfNone(""); }),
-            perViewport: static (state, perViewport) => Override(state.Row, perViewport.Detail));
+    private static IO<Unit> Reparented(RhinoDoc doc, int index, Guid parent) =>
+        Staged(doc, index, staged => IO.lift(() => { staged.ParentLayerId = parent; }));
 
-    private static IO<Unit> Override(Layer staged, LayerOverride detail) =>
-        IO.lift(() => detail.Switch(
-            staged,
-            color: static (row, color) => color.Value.Match(value => row.SetPerViewportColor(color.Viewport, value), () => row.DeletePerViewportColor(color.Viewport)),
-            plotColor: static (row, plotColor) => plotColor.Value.Match(value => row.SetPerViewportPlotColor(plotColor.Viewport, value), () => row.DeletePerViewportPlotColor(plotColor.Viewport)),
-            visible: static (row, visible) => visible.Value.Match(on => row.SetPerViewportVisible(visible.Viewport, on), () => row.DeletePerViewportVisible(visible.Viewport)),
-            persistentVisibility: static (row, persistent) => persistent.Value.Match(
-                on => row.SetPerViewportPersistentVisibility(persistent.Viewport, on),
-                () => row.UnsetPerViewportPersistentVisibility(persistent.Viewport)),
-            plot: static (row, plot) => plot.Value.Match(weight => row.SetPerViewportPlotWeight(plot.Viewport, weight.ToHost()), () => row.DeletePerViewportPlotWeight(plot.Viewport)),
-            newDetailVisibility: static (row, fresh) => row.PerViewportIsVisibleInNewDetails = fresh.On,
-            delete: static (row, delete) => row.DeletePerViewportSettings(delete.Viewport)));
-
-    private static IO<Unit> Indexed(Fin<int> index, Action<int> write) =>
-        IO.lift(index).Bind(value => IO.lift(() => write(value)));
-
-    private static Fin<int> Assignable(int index, int itemCount, string member) =>
-        index == -1 ? index : IndexOutOfRange.Unless(index, itemCount, member).Map(_ => index);
+    private static bool Within(Layer row, Layer root) =>
+        (row.Id == root.Id) || row.IsChildOf(root.Id);
 
     private static Guid ParentId(Option<Layer> parent) =>
-        parent.Map(static row => row.Id).IfNone(Guid.Empty);
+        Answers.Unset(parent.Map(static row => row.Id));
 
     private static IO<Seq<int>> Call(RhinoDoc doc, LayerRef address, bool includeDeleted, Func<Layer, bool> call, string member) =>
         ResolveLayer(doc, address, includeDeleted).Bind(row => IO.lift(() => Refused.Unless(call(row), member).Map(_ => Seq(row.Index))));
-
-    private static Fin<Seq<int>> Permutation(Seq<int> indices, int active) =>
-        (Answers.Unique(indices, static (index, _) => new DuplicateIndex(nameof(LayerTable.Sort), index))
-         & CountMismatch.Unless(active, indices.Count, nameof(LayerTable.ActiveCount)).ToValidation())
-        .ToFin()
-        .Map(_ => indices);
-}
-
-[Mapper]
-internal static partial class LayerMapper {
-    [MapProperty(nameof(Layer.PlotWeight), nameof(LayerAttributes.Plot), Use = nameof(@PlotWeight.FromHost))]
-    internal static partial LayerAttributes ToAttributes(Layer layer);
 }

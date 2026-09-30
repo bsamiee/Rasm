@@ -310,19 +310,31 @@ workspace = [
 ]
 dev = [
     "annotated-types",                                    # Typed constraint metadata pydantic consumes
-    "attrs",                                              # Frozen records the use-blender skill scripts declare, bundled in Blender's Python
+    "anyio",                                              # Structured concurrency for the interface, yak installer, and tests, a required pytest plugin
+    "attrs",                                              # Frozen records use-blender skill scripts and interface Blender scripts declare, bundled in Blender's Python
     "brotli-stubs",
-    "cattrs",                                             # JSON converter over attrs records the use-blender skill scripts call, bundled in Blender's Python
+    "cattrs",                                             # JSON converter over attrs records use-blender skill scripts and interface Blender scripts call, bundled in Blender's Python
     "coverage",
+    "cyclopts",                                           # CLI parser of the interface command
     "dirty-equals",
     "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
     "fake-bpy-module-latest",                             # bpy, bmesh, mathutils, and gpu stubs from Blender's main branch for skill scripts
     "rhino-stubs-typed",                                  # RhinoCommon and Grasshopper stubs for the use-rhino skill scripts that run in Rhino's Python
     "rhino3dm",                                           # openNURBS geometry and 3dm file IO, the sdist builds its extension with the cmake build dependency
+    "httpx",                                              # HTTP client for interface downloads and the test environment fixture
     "hypothesis",
+    "lxml",                                               # XML trees of Rhino settings and toolbar files and Adobe workspace files
+    "mcp",                                                # MCP client for the applications' servers
     "moto[server]",
+    "msgspec[yaml]",                                      # Struct types with JSON, TOML, and YAML codecs for the interface, skill scripts, and test support
     "mypy",
     "netstandard-stubs",                                  # .NET System stubs typed from .NET Standard 2.0 for the Rhino interface and use-rhino skill scripts
+    "numpy",                                              # Arrays Blender scripts and test assertions build, bundled in Blender's Python
+    "packaging",                                          # Wheel filename parsing in Blender extension panels, bundled in Blender's Python
+    "psd-tools",                                          # Photoshop settings file action descriptors
+    "psutil",                                             # Process lookup, termination, and readings for the interface, skill scripts, and benchmark fixture
+    "pydantic",                                           # Model strategies in test support and the pydantic.mypy plugin
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",   # AppKit, Foundation, and CoreFoundation bindings for interface application instances
     "ruff",
     "yamllint",
     "pandas-stubs",
@@ -391,7 +403,7 @@ dependency-metadata = [                                   # Upstream metadata ca
 preview = true
 line-length = 200
 src = [".", "libs/python", "tools"]
-per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313", ".claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py" = "py313" }
+per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313", ".claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py" = "py313", "tools/interface/{roles,report,units,render,aliases,frame}.py" = "py313", "tools/interface/rhino/{window,markup}.py" = "py313", "tools/interface/blender/rows.py" = "py313", "tools/interface/*/script/**/*.py" = "py313", "tools/interface/blender/extension/**/*.py" = "py313" }
 format = { line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
@@ -414,6 +426,7 @@ ignore = [
     "implicit-namespace-package",
     "missing-copyright-notice",
     "commented-out-code",
+    "django-extra",
 ]
 per-file-ignores = { "tests/**" = ["assert"] }
 flake8-bandit = { check-typed-exception = true }

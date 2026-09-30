@@ -1,4 +1,4 @@
-"""Records the Adobe product modules share: setting rows with their shared accessors, the script argument, alias commands and their prompt source, toolbars, papers, and the interface scale a panel font theme gives."""
+"""Records the Adobe product modules share: setting rows with their shared accessors, the script argument, toolbars, papers, and the interface scale a panel font theme gives."""
 
 from collections.abc import Mapping
 from enum import Enum
@@ -8,8 +8,6 @@ from typing import Final
 from lxml import etree
 import msgspec
 
-from interface import host
-from interface.aliases import Alias, families
 from interface.roles import TEXT_POINTS
 from interface.units import Length, Units
 
@@ -36,30 +34,21 @@ class Paper(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 SCRIPT: Final = Path(__file__).with_name("script")
-PROMPT_NAME: Final = "Alias"
 STROKE_UNITS: Final = frozendict({Units.IMPERIAL: Length.POINTS, Units.METRIC: Length.MILLIMETERS})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Member(msgspec.Struct, frozen=True, tag=True):
-    """Member of the `app` property the owner names or of that collection's named item, added when absent, holding a member of the named DOM enumeration where one is named."""
+    """Member of the `app` property the owner names, holding a member of the named DOM enumeration where one is named."""
 
     owner: str
-    item: str | None
     name: str
     enumeration: str | None
 
 
 class Active(msgspec.Struct, frozen=True, tag=True):
     """Product's active workspace by name."""
-
-
-class ActionSet(msgspec.Struct, frozen=True, tag=True):
-    """Action set by name and the action file under the artifacts folder that loads it."""
-
-    name: str
-    file: str
 
 
 class Row(msgspec.Struct, frozen=True):
@@ -75,23 +64,9 @@ class Release(msgspec.Struct, frozen=True, tag=True):
 
 
 class Converge(msgspec.Struct, frozen=True, tag=True):
-    """Script argument writing the rows with each action file read from the artifacts folder."""
+    """Script argument writing the rows."""
 
     rows: tuple[Row, ...]
-    artifacts: str
-
-
-class Tool(msgspec.Struct, frozen=True, tag=True):
-    """Tool a product selects by an Illustrator tool name, a Photoshop tool class string id, or an InDesign `UITools` member."""
-
-    id: str
-
-
-class Menu(msgspec.Struct, frozen=True, tag=True):
-    """Menu command a product runs by an Illustrator command name, a Photoshop event string id, or an InDesign menu action id, and whether it acts on a selection alone."""
-
-    id: str | int
-    selection: bool
 
 
 class Toolbar(msgspec.Struct, frozen=True):
@@ -104,10 +79,9 @@ class Toolbar(msgspec.Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# --- [ROWS]
-def member(owner: str, name: str, target: object, *, item: str | None = None, enumeration: str | None = None) -> Row:
-    """Row of the DOM member of the `app` property or of its named item, labeled `owner.name` or `owner["item"].name`."""
-    return Row(f"{owner}.{name}" if item is None else f'{owner}["{item}"].{name}', Member(owner, item, name, enumeration), target)
+def member(owner: str, name: str, target: object, *, enumeration: str | None = None) -> Row:
+    """Row of the DOM member of the `app` property, labeled `owner.name`."""
+    return Row(f"{owner}.{name}", Member(owner, name, enumeration), target)
 
 
 def papers(units: Units) -> tuple[Paper, ...]:
@@ -127,36 +101,6 @@ def text_scale(theme: Path) -> float:
             return TEXT_POINTS / size
 
 
-# --- [SOURCE]
-def prompt_source(name: str, commands: Mapping[Alias, Tool | Menu]) -> str:
-    """ExtendScript source running the alias prompt in the named product over each alias's label and command and the families holding them."""
-    table = {
-        "product": name,
-        "title": PROMPT_NAME,
-        "families": {family.name: family.value for family in families(commands)},
-        "commands": {alias.name: (alias.value, command) for alias, command in commands.items()},
-    }
-    return host.rendered(t"{(SCRIPT / 'prompt.jsx').read_text(encoding='utf-8').rstrip()!s}({table});\n")
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "PROMPT_NAME",
-    "SCRIPT",
-    "STROKE_UNITS",
-    "ActionSet",
-    "Active",
-    "Converge",
-    "Member",
-    "Menu",
-    "Paper",
-    "Release",
-    "Row",
-    "Tool",
-    "Toolbar",
-    "member",
-    "papers",
-    "prompt_source",
-    "text_scale",
-]
+__all__ = ["SCRIPT", "STROKE_UNITS", "Active", "Converge", "Member", "Paper", "Release", "Row", "Toolbar", "member", "papers", "text_scale"]

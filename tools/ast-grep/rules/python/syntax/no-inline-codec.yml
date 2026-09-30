@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-inline-msgspec-codec
+id: no-inline-codec
 language: python
 severity: error
 utils:
@@ -12,6 +12,13 @@ utils:
         any:
             - has: {field: function, kind: attribute, all: [{has: {field: object, matches: codec-module}}, {has: {field: attribute, regex: '^(Encoder|Decoder)$'}}]}
             - has: {field: function, kind: identifier, matches: imported-class}
+    converter:
+        kind: call
+        has:
+            field: function
+            any:
+                - matches: {python-member-use: {module: {regex: '^cattrs\.preconf\.\w+$'}, name: {regex: '^make_converter$'}}}
+                - matches: {python-member-use: {module: {regex: '^cattrs$'}, name: {regex: '^(Converter|GenConverter)$'}}}
     paired:
         any:
             - all:
@@ -51,27 +58,30 @@ utils:
 rule:
     kind: call
     pattern: $CALL
-    all:
-        - has: {field: function, kind: attribute, all: [{has: {field: object, matches: constructor}}, {has: {field: attribute, pattern: $METHOD}}]}
-        - matches: paired
-        - has: {field: arguments, has: {nthChild: 1, pattern: $VALUE, not: {kind: 'keyword_argument, list_splat, dictionary_splat'}}, not: {has: {nthChild: 2}}}
-        - not: {has: {kind: comment, stopBy: end}}
-        - any:
-            - all:
-                - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: attribute, has: {field: object, pattern: $MODULE}}}}
-                - pattern: $MODULE_FORM
-            - all:
-                - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: identifier}}}
-                - has: {field: function, has: {field: attribute, pattern: $OPERATION}}
-                - inside:
-                    kind: module, function_definition
-                    stopBy: end
-                    all:
-                        - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: class-import}
-                        - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: function-import}
-                - not: {matches: function-shadowed}
-                - pattern: $IMPORTED_FORM
-            - pattern: $UNFIXED
+    any:
+        - all:
+            - has: {field: function, kind: attribute, all: [{has: {field: object, matches: constructor}}, {has: {field: attribute, pattern: $METHOD}}]}
+            - matches: paired
+            - has: {field: arguments, has: {nthChild: 1, pattern: $VALUE, not: {kind: 'keyword_argument, list_splat, dictionary_splat'}}, not: {has: {nthChild: 2}}}
+            - not: {has: {kind: comment, stopBy: end}}
+            - any:
+                - all:
+                    - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: attribute, has: {field: object, pattern: $MODULE}}}}
+                    - pattern: $MODULE_FORM
+                - all:
+                    - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: identifier}}}
+                    - has: {field: function, has: {field: attribute, pattern: $OPERATION}}
+                    - inside:
+                        kind: module, function_definition
+                        stopBy: end
+                        all:
+                            - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: class-import}
+                            - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: function-import}
+                    - not: {matches: function-shadowed}
+                    - pattern: $IMPORTED_FORM
+                - pattern: $UNFIXED
+        - pattern: $UNFIXED
+          has: {field: function, kind: attribute, all: [{has: {field: object, matches: converter}}, {has: {field: attribute, regex: '^(dumps|loads|structure|unstructure)$'}}]}
 rewriters:
     - id: carried-keyword
       rule: {kind: keyword_argument, pattern: $KEYWORD}
@@ -96,4 +106,4 @@ transform:
     IMPORTED_OUT: rewrite($IMPORTED_FORM, rewriters=[imported-call])
 fix: $MODULE_OUT$IMPORTED_OUT$UNFIXED
 message: '`$CALL` builds a codec for one call'
-note: 'Use `<module>.encode(<value>)` or `<module>.decode(<value>, type=<type>)`, and bind a codec once at module level for an option those functions lack, a codec built per call repeats its setup'
+note: 'Use `msgspec.<format>.encode(<value>)` or `decode(<value>, type=<type>)`, and one module-level codec or cattrs converter for an option those functions lack, a codec built per call repeats its setup'

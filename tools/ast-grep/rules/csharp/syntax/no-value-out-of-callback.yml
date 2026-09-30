@@ -116,7 +116,7 @@ utils:
                 - has: {field: operator, regex: '^=$'}
             - kind: assignment_expression
               all:
-                - has: {field: left, kind: tuple_expression, has: {stopBy: end, kind: identifier, pattern: $CELL}}
+                - has: {field: left, kind: tuple_expression, has: {kind: argument, has: {kind: identifier, pattern: $CELL}}}
                 - has: {field: operator, regex: '^=$'}
             - kind: argument
               all:
@@ -166,6 +166,6 @@ rule:
             - has: {field: name, pattern: $CELL}
             - regex: '^\w+\s*='
             - inside: {kind: variable_declaration, inside: {kind: local_declaration_statement, matches: overwritten}}
-    not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Captured(Async)?$'}}}}
+    not: {matches: {csharp-owner-body: {type: {regex: '^(Answers|Host)$'}, member: {regex: '^Captured(Async)?$'}}}}
 message: '`$CELL` passes a value out of a callback through a write outside its result'
-note: Return the value through the callback's result, a `Fin<R>` or tuple the calling operation returns, and `Answers.Captured` for a host callback that returns nothing
+note: Use the callback's result (a `Fin<R>` or tuple its operation returns), or `Answers.Captured` for a host callback returning nothing

@@ -146,4 +146,4 @@ rule:
         - all: [{matches: path-node}, {matches: path-third}]
         - all: [{matches: type-node}, {matches: type-third}]
 message: '`$S` repeats a literal spelled twice earlier in the file'
-note: 'Bind the value once, as a local where one function reads it and a module constant otherwise, or read it from its declaring owner, each fact then has one spelling'
+note: 'Use one binding of the value, a local where one function reads it and a module constant otherwise, or its declaring owner, each fact has one spelling'

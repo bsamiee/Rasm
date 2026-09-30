@@ -1,4 +1,3 @@
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
 using Rhino.DocObjects;
 using Rhino.Input.Custom;
@@ -10,7 +9,9 @@ namespace Rasm.Rhino.Display;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GumballSource {
-    public sealed record Bounds(BoundingBox Box, Option<Plane> Frame) : GumballSource;
+    public sealed record Bounds(BoundingBox Box) : GumballSource;
+
+    public sealed record FramedBounds(BoundingBox Box, Plane Frame) : GumballSource;
 
     public sealed record FromLine(Line Line) : GumballSource;
 
@@ -59,10 +60,10 @@ public sealed class GumballHandle : IDisposable {
     }
 
     public static IO<GumballHandle> Enable(GumballSource source, ActiveSpace space, Option<GumballAppearanceSettings> appearance) =>
-        IO.lift(static () => new GumballObject()).Bind(gumball => GeometryOps.OnFailure(
+        IO.lift(static () => new GumballObject()).Bind(gumball => DisposalOps.OnFailure(
             from set in IO.lift(() => SetFrom(gumball, source))
             from conduit in IO.lift(() => new GumballDisplayConduit(space))
-            from enabled in GeometryOps.OnFailure(
+            from enabled in DisposalOps.OnFailure(
                 IO.lift(() => {
                     conduit.SetBaseGumball(gumball, appearance.ValueUnsafe());
                     conduit.Enabled = true;
@@ -91,9 +92,8 @@ public sealed class GumballHandle : IDisposable {
     private static Fin<Unit> SetFrom(GumballObject gumball, GumballSource source) =>
         source.Switch(
             gumball,
-            bounds: static (target, bounds) => Refused.Unless(
-                bounds.Frame.Match(Some: frame => target.SetFromBoundingBox(frame, bounds.Box), None: () => target.SetFromBoundingBox(bounds.Box)),
-                nameof(GumballObject.SetFromBoundingBox)),
+            bounds: static (target, bounds) => Refused.Unless(target.SetFromBoundingBox(bounds.Box), nameof(GumballObject.SetFromBoundingBox)),
+            framedBounds: static (target, bounds) => Refused.Unless(target.SetFromBoundingBox(bounds.Frame, bounds.Box), nameof(GumballObject.SetFromBoundingBox)),
             fromLine: static (target, line) => Refused.Unless(target.SetFromLine(line.Line), nameof(GumballObject.SetFromLine)),
             fromPlane: static (target, plane) => Refused.Unless(target.SetFromPlane(plane.Plane), nameof(GumballObject.SetFromPlane)),
             fromArc: static (target, arc) => Refused.Unless(target.SetFromArc(arc.Arc), nameof(GumballObject.SetFromArc)),

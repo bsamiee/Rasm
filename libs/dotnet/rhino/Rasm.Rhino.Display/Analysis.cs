@@ -2,7 +2,6 @@ using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.UI;
 
 namespace Rasm.Rhino.Display;
 
@@ -16,28 +15,14 @@ public abstract partial record AnalysisKind {
     public sealed record Wireframe() : AnalysisKind;
 }
 
-public sealed record AnalysisCallbacks(
-    LocalizeStringPair Name,
-    AnalysisKind Kind,
-    bool ShowIsoCurves,
-    Option<Func<RhinoObject, IO<bool>>> Supports,
-    Option<Func<RhinoObject, Mesh, DisplayPipeline, IO<Unit>>> DrawMesh,
-    Action<Error> Reject);
+public sealed record AnalysisCallbacks(AnalysisKind Kind, Action<Error> Reject);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class CallbackAnalysisMode(AnalysisCallbacks callbacks) : VisualAnalysisMode {
-    public sealed override string Name => callbacks.Name.Local;
-
     public sealed override AnalysisStyle Style =>
         callbacks.Kind.Map(falseColor: AnalysisStyle.FalseColor, texture: AnalysisStyle.Texture, wireframe: AnalysisStyle.Wireframe);
 
-    public sealed override bool ShowIsoCurves => callbacks.ShowIsoCurves;
-
-    public sealed override bool ObjectSupportsAnalysisMode(RhinoObject obj) =>
-        Answers.Answer(callbacks.Supports.Map(supports => supports(obj)), callbacks.Reject, refused: false, () => base.ObjectSupportsAnalysisMode(obj));
-
-    protected sealed override void SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) {
-        base.SetUpDisplayAttributes(obj, attributes);
+    protected sealed override void SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) =>
         _ = Answers.Answer(
             callbacks.Kind.Switch(
                 (Object: obj, Attributes: attributes),
@@ -46,10 +31,8 @@ public abstract class CallbackAnalysisMode(AnalysisCallbacks callbacks) : Visual
                 wireframe: static (_, _) => IO.pure(unit)),
             callbacks.Reject,
             unit);
-    }
 
-    protected sealed override void UpdateVertexColors(RhinoObject obj, Mesh[] meshes) {
-        base.UpdateVertexColors(obj, meshes);
+    protected sealed override void UpdateVertexColors(RhinoObject obj, Mesh[] meshes) =>
         _ = callbacks.Kind
             .Switch(
                 (Object: obj, Meshes: meshes),
@@ -57,12 +40,6 @@ public abstract class CallbackAnalysisMode(AnalysisCallbacks callbacks) : Visual
                 texture: static (_, _) => Seq<IO<Unit>>(),
                 wireframe: static (_, _) => Seq<IO<Unit>>())
             .Iter(color => Answers.Answer(color, callbacks.Reject, unit));
-    }
-
-    protected sealed override void DrawMesh(RhinoObject obj, Mesh mesh, DisplayPipeline pipeline) {
-        base.DrawMesh(obj, mesh, pipeline);
-        _ = Answers.Answer(callbacks.DrawMesh.Map(draw => draw(obj, mesh, pipeline)), callbacks.Reject, static () => unit);
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

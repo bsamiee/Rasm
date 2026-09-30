@@ -32,7 +32,7 @@ Git, stdin, and wait policies read Bash and Monitor commands, script and walker 
 - Wait policy refuses a program of `policies.ts` that blocks the call on time or another process
 - Wait policy refuses every command inside a `while` or `until` loop not driven by `read` and inside a `for ((;;))` loop
 - Git policy checks each operand of `git reset` and `git checkout` through `$.fs.exists`, an existing path passes `reset` and refuses `checkout`
-- Rewrite policy adds `-A` to an `sd` invocation lacking it
+- Rewrite policy adds `-A` to an `sd` invocation lacking it whose find holds a line break, line mode never matches one
 - Rewrite policy adds `--` before the find of an `sd` invocation with an operand opening with `-` outside its `invocation.ts` row's `flags` and `valued` options
 - Rewrite policy splices top-level commands by the byte spans of their words, a command inside an inline body keeps its text
 

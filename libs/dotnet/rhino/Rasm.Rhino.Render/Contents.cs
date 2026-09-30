@@ -10,9 +10,6 @@ using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Render;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-public enum UngroupMode { Ungroup = 0, UngroupRecursive = 1, SmartUngroupRecursive = 2 }
-
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContentSource {
@@ -69,7 +66,11 @@ public abstract partial record ContentOp {
 
     public sealed record Replace(ContentSource Source) : ContentOp;
 
-    public sealed record Ungroup(UngroupMode Mode) : ContentOp;
+    public sealed record Ungroup() : ContentOp;
+
+    public sealed record UngroupRecursive() : ContentOp;
+
+    public sealed record SmartUngroupRecursive() : ContentOp;
 
     public sealed record SaveToFile(string Path, RenderContent.EmbedFilesChoice Embed) : ContentOp;
 }
@@ -84,6 +85,30 @@ public abstract partial record IconKind {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class ContentMapper {
+    [MapPropertyFromSource(nameof(ContentState.Kind), Use = nameof(@Contents.KindOf))]
+    [MapPropertyFromSource(nameof(ContentState.IsReference), Use = nameof(IsReference))]
+    [MapPropertyFromSource(nameof(ContentState.UseCount), Use = nameof(UseCount))]
+    [MapPropertyFromSource(nameof(ContentState.Slots), Use = nameof(Slots))]
+    internal static partial ContentState ToState(RenderContent content);
+
+    [MapProperty(nameof(RenderContentType.Id), nameof(ContentTypeState.TypeId))]
+    internal static partial ContentTypeState ToState(RenderContentType type);
+
+    [UserMapping]
+    private static Option<Guid> Parent(RenderContent? parent) => Optional(parent).Map(static present => present.Id);
+
+    private static bool IsReference(RenderContent content) => content.IsReference();
+
+    private static int UseCount(RenderContent content) => content.UseCount();
+
+    private static Seq<SlotState> Slots(RenderContent content) =>
+        Contents.Children(content)
+            .Map(child => new SlotState(child.ChildSlotName, child.Id, child.ChildSlotDisplayName, content.ChildSlotOn(child.ChildSlotName), content.ChildSlotAmount(child.ChildSlotName)))
+            .Strict();
+}
+
 public static class Contents {
     // --- [RESOLUTION]
     public static RenderContentKind KindOf(RenderContent content) =>
@@ -96,11 +121,11 @@ public static class Contents {
 
     public static IO<Option<RenderContent>> Resolve(RhinoDoc doc, RenderContentKind kind, ComponentRef row, Seq<string> slots) =>
         from table in IO.lift(() => Table(doc, kind))
-        from root in TableOps.Find(
-            row,
-            id => Optional(RenderContent.FromId(doc, id)).Traverse(content => Kinded(content, kind)).As(),
-            index => toSeq(table.Rows).At(index),
-            name => Named(toSeq(table.Rows).Filter(content => string.Equals(content.Name, name, StringComparison.Ordinal)).Strict()))
+        from root in IO.lift(() => row.Switch(
+            (Doc: doc, Kind: kind, Rows: toSeq(table.Rows)),
+            byId: static (state, byId) => Optional(RenderContent.FromId(state.Doc, byId.Id)).Traverse(content => Kinded(content, state.Kind)).As(),
+            byIndex: static (state, byIndex) => Fin.Succ(state.Rows.At(byIndex.Index)),
+            byName: static (state, byName) => Named(state.Rows.Filter(content => string.Equals(content.Name, byName.Name, StringComparison.Ordinal)).Strict())))
         from child in IO.lift(() => slots.Fold(root, static (parent, slot) => parent.Bind(content => Optional(content.FindChild(slot)))))
         select child;
 
@@ -118,14 +143,14 @@ public static class Contents {
             None: () => (flags == CrcRenderHashFlags.Normal) && excludedParameters.IsEmpty ? content.RenderHash : content.RenderHashExclude(flags, names)))
         select hash;
 
+    internal static Seq<RenderContent> Children(RenderContent parent) =>
+        toSeq(LanguageExt.List.unfold(parent.FirstChild, static child => Optional(child).Map(static c => (c, c.NextSibling))));
+
     private static Fin<RenderContent> Kinded(RenderContent content, RenderContentKind kind) =>
         KindOf(content) == kind ? content : new WrongKind(kind, KindOf(content));
 
     private static Fin<Option<RenderContent>> Named(Seq<RenderContent> rows) =>
         rows.Count > 1 ? new Ambiguous(nameof(RenderContent.Name), rows.Count) : rows.Head;
-
-    internal static Seq<RenderContent> Children(RenderContent parent) =>
-        toSeq(LanguageExt.List.unfold(parent.FirstChild, static child => Optional(child).Map(static c => (c, c.NextSibling))));
 
     private static Fin<ContentTable> Table(RhinoDoc doc, RenderContentKind kind) =>
         kind switch {
@@ -163,7 +188,7 @@ public static class Contents {
 
     // --- [HANDLES]
     public static IO<TValue> WithCreated<TValue>(RhinoDoc doc, ContentSource source, Func<RenderContent, IO<TValue>> body) =>
-        Disposal.Using(source.Switch(
+        DisposalOps.Using(source.Switch(
             doc,
             fromXml: static (document, xml) => IO.lift(() => Missing.Unless(RenderContent.FromXml(xml.Text, document), nameof(RenderContent.FromXml))),
             fromFile: static (_, file) =>
@@ -172,22 +197,20 @@ public static class Contents {
                 select content,
             groupInstance: static (_, grouped) => IO.lift(() => Missing.Unless(grouped.Source.MakeGroupInstance(), nameof(RenderContent.MakeGroupInstance))),
             fromTypeId: static (document, fromTypeId) =>
-                from id in IO.lift(() => Answers.NonEmpty(fromTypeId.TypeId, nameof(RenderContentType.NewContentFromTypeId)))
-                from content in IO.lift(() => Missing.Unless(RenderContentType.NewContentFromTypeId(id, document), nameof(RenderContentType.NewContentFromTypeId)))
-                select content), body);
+                IO.lift(() => Missing.Unless(RenderContentType.NewContentFromTypeId(fromTypeId.TypeId, document), nameof(RenderContentType.NewContentFromTypeId)))), body);
 
     public static IO<Unit> Attach(RhinoDoc doc, RenderContent content) =>
         IO.lift(() => Table(doc, KindOf(content)).Bind(table => Refused.Unless(table.Add(content), table.Member)));
 
     public static IO<TValue> WithDetached<TValue>(RhinoDoc doc, RenderContent content, Func<RenderContent, IO<TValue>> body) =>
-        Disposal.Using(IO.lift(() => Table(doc, KindOf(content)).Bind(table => Refused.Unless(table.Remove(content), table.Member)).Map(_ => content)), body);
+        DisposalOps.Using(IO.lift(() => Table(doc, KindOf(content)).Bind(table => Refused.Unless(table.Remove(content), table.Member)).Map(_ => content)), body);
 
     // --- [CHANGES]
     public static IO<TValue> WithinTableChange<TValue>(RhinoDoc doc, RenderContentKind kind, RenderContent.ChangeContexts cc, IO<TValue> body) =>
-        IO.lift(() => Table(doc, kind)).Bind(table => Disposal.Bracketed(() => table.BeginChange(cc), table.EndChange, body));
+        IO.lift(() => Table(doc, kind)).Bind(table => IO.lift(() => table.BeginChange(cc)).Bracket(Use: _ => body, Fin: _ => IO.lift(table.EndChange)));
 
     public static IO<TValue> WithinContentChange<TValue>(RenderContent content, RenderContent.ChangeContexts cc, IO<TValue> body) =>
-        Disposal.Bracketed(() => content.BeginChange(cc), content.EndChange, body);
+        IO.lift(() => content.BeginChange(cc)).Bracket(Use: _ => body, Fin: _ => IO.lift(content.EndChange));
 
     public static IO<Unit> Apply(RenderContent target, RenderContent.ChangeContexts cc, ContentOp op) =>
         op.Switch(
@@ -206,11 +229,9 @@ public static class Contents {
                 from owner in IO.lift(() => Optional(state.Target.DocumentOwner).ToFin(new Unattached(state.Target.Id)))
                 from replaced in WithCreated(owner, replace.Source, replacement => Replaced(state.Target, replacement))
                 select replaced,
-            ungroup: static (state, ungroup) => IO.lift(() => ungroup.Mode switch {
-                UngroupMode.Ungroup => Refused.Unless(state.Target.Ungroup(), nameof(RenderContent.Ungroup)),
-                UngroupMode.UngroupRecursive => Refused.Unless(state.Target.UngroupRecursive(), nameof(RenderContent.UngroupRecursive)),
-                UngroupMode.SmartUngroupRecursive => Refused.Unless(state.Target.SmartUngroupRecursive(), nameof(RenderContent.SmartUngroupRecursive)),
-            }),
+            ungroup: static (state, _) => IO.lift(() => Refused.Unless(state.Target.Ungroup(), nameof(RenderContent.Ungroup))),
+            ungroupRecursive: static (state, _) => IO.lift(() => Refused.Unless(state.Target.UngroupRecursive(), nameof(RenderContent.UngroupRecursive))),
+            smartUngroupRecursive: static (state, _) => IO.lift(() => Refused.Unless(state.Target.SmartUngroupRecursive(), nameof(RenderContent.SmartUngroupRecursive))),
             saveToFile: static (state, save) =>
                 from path in Answers.QualifiedPath(save.Path)
                 from saved in IO.lift(() => Refused.Unless(state.Target.SaveToFile(path, save.Embed), nameof(RenderContent.SaveToFile)))
@@ -227,7 +248,7 @@ public static class Contents {
 
     // --- [ICONS]
     public static IO<TValue> WithIcon<TValue>(RenderContent content, Size size, IconKind kind, Func<Option<Bitmap>, IO<TValue>> body) =>
-        Disposal.Bracketed(IO.lift(() => Rendered(content, size, kind)), static icon => Disposal.Release(icon.ToSeq()), body);
+        IO.lift(() => Rendered(content, size, kind)).Bracket(Use: body, Fin: static icon => DisposalOps.Release(icon.ToSeq()));
 
     private static Option<Bitmap> Rendered(RenderContent content, Size size, IconKind kind) =>
         kind.Switch(
@@ -235,28 +256,4 @@ public static class Contents {
             standard: static (state, _) => Answers.Found(state.Content.Icon(state.Size, out Bitmap bitmap), bitmap),
             @virtual: static (state, _) => Answers.Found(state.Content.VirtualIcon(state.Size, out Bitmap bitmap), bitmap),
             dynamicIcon: static (state, dynamic) => Answers.Found(state.Content.DynamicIcon(state.Size, out Bitmap bitmap, dynamic.Usage), bitmap));
-}
-
-[Mapper]
-internal static partial class ContentMapper {
-    [MapPropertyFromSource(nameof(ContentState.Kind), Use = nameof(@Contents.KindOf))]
-    [MapPropertyFromSource(nameof(ContentState.IsReference), Use = nameof(IsReference))]
-    [MapPropertyFromSource(nameof(ContentState.UseCount), Use = nameof(UseCount))]
-    [MapPropertyFromSource(nameof(ContentState.Slots), Use = nameof(Slots))]
-    internal static partial ContentState ToState(RenderContent content);
-
-    [MapProperty(nameof(RenderContentType.Id), nameof(ContentTypeState.TypeId))]
-    internal static partial ContentTypeState ToState(RenderContentType type);
-
-    [UserMapping]
-    private static Option<Guid> Parent(RenderContent? parent) => Optional(parent).Map(static present => present.Id);
-
-    private static bool IsReference(RenderContent content) => content.IsReference();
-
-    private static int UseCount(RenderContent content) => content.UseCount();
-
-    private static Seq<SlotState> Slots(RenderContent content) =>
-        Contents.Children(content)
-            .Map(child => new SlotState(child.ChildSlotName, child.Id, child.ChildSlotDisplayName, content.ChildSlotOn(child.ChildSlotName), content.ChildSlotAmount(child.ChildSlotName)))
-            .Strict();
 }

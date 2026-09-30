@@ -37,4 +37,4 @@ rule:
                 - has: {nthChild: 1, matches: interpolated}
                 - has: {kind: keyword_argument, all: [{has: {field: name, regex: '^(pathname|pattern)$'}}, {has: {field: value, matches: interpolated}}]}
 message: 'Glob pattern interpolates `$VALUE` unescaped'
-note: 'Pass the value through `glob.escape`, glob reads `*`, `?`, and `[` in a name as pattern syntax'
+note: 'Use `glob.escape(<value>)` in the pattern, glob reads `*`, `?`, and `[` in a name as pattern syntax'

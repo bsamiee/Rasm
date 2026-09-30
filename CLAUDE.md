@@ -6,6 +6,7 @@
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but the composition rules do not, define a result type when a language lacks one instead of adding another error mechanism
 - Fix defects at root cause, a wrapper, fallback, guard, or retry around it is a defect
+- `tools/` and `libs/`, `apps/`, or agent harness code never depend on each other, tools read project files to check and build, skills run tools
 - Tests are made at the user's request alone
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections
@@ -30,7 +31,6 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
 - ALWAYS use `playwright:playwright-cli` skill for a browser, run as `playwright cli`, `playwright` MCP when each step depends on the last snapshot
-- ALWAYS use `computer-use` MCP for a native application window, its wait and screenshot tools stand where a shell would sleep
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `use-rhino` skill for Rhino and Grasshopper
 - ALWAYS use `use-blender` skill for Blender
@@ -45,7 +45,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 |  [04]   | `rg`        | `rg <pattern> <paths>` for literals, comments, and prose, never for code search                             |
 |  [05]   | `gh`        | Local checkout work: PR from HEAD, checks, checkout, releases, secrets, `gh api` for any uncovered endpoint |
 |  [06]   | `jq`/`yq`   | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |
-|  [07]   | `sd`        | `sd -A '<regex>' '<replacement>' <files>` rewrites across lines, `-F` for a fixed string, `--` before a `-` |
+|  [07]   | `sd`        | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-` |
 |  [08]   | `difft`     | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change           |
 |  [09]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times commands under the same controls, `-N` skips the shell              |
 |  [10]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output               |

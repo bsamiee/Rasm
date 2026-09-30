@@ -8,9 +8,10 @@ Workspaces, areas, regions, panels, and views of a GUI window's screen, and pict
 - `window.workspace = <workspace>` applies after the call returns, `while window.workspace.name != name: yield 0.1` waits for it in a timer
 - Screen operators but `area_close` finish in a background process
 - Workspace switches, deletes, and area sizes apply in a GUI event loop alone
-- Screen operators (`workspace.duplicate`, `workspace.delete`, `area_split`, `area_close`) poll under `temp_override(window=, screen=)`
-- `temp_override(window=window)` derives no screen, `screen=window.screen` joins it
-- `temp_override` refuses an area outside the window's current screen, operators on another workspace's area run after the workspace activates
+- Screen operators (`workspace.duplicate`, `workspace.delete`, `area_split`, `area_close`) poll under `temp_override(window=)`
+- `temp_override(window=window)` sets the window's workspace and screen and clears area and region, operators reading them take `area=` and `region=`
+- `temp_override` refuses an area in neither its screen nor the window's global areas
+- `temp_override(screen=)` naming another workspace's screen switches the window to that workspace for the block and back at exit
 - `ui_scale` moves no area vertex and changes the header size after the next draw, sizes follow in a later tick
 
 ## [02]-[WORKSPACES]
@@ -84,7 +85,8 @@ Workspaces, areas, regions, panels, and views of a GUI window's screen, and pict
 - `region_3d.lock_rotation` holds a view's orientation, view writes set it `False` first
 - `view3d.view_axis`, `view_persportho`, `view_camera`, `view_orbit`, and `rotate` poll false under `lock_rotation`
 - `inputs.use_auto_perspective` switches an axis view to orthographic and an orbit back to perspective
-- Viewport `lens` acts on a 72 mm sensor, `space.lens` at twice a camera's `lens` shows that camera's field of view
+- Viewport `lens` acts on a 72 mm sensor width under AUTO fit, a camera view alone takes the camera's sensor and fit
+- `space.lens` at twice an AUTO-fit camera's `lens` shows that camera's field of view
 
 ## [07]-[PICTURES]
 
@@ -98,8 +100,11 @@ screencapture -x -o -l <id> <dir>/<name>.png
 - Region writes that rebuild no region (`active_panel_category`) show in a later frame, a capture follows a returned call
 - `area.tag_redraw()` on every area, then a return from the call, precedes a window capture of a theme or view write
 - Captures hold an ICC profile, byte reads convert through one tool every time (`magick -profile "sRGB Profile.icc"`)
-- `mcp-for-blender` `get_viewport_screenshot` draws offscreen without overlays
-- `wm.window_new()` under a `VIEW_3D` override opens a second window titled `3D Viewport`, `wm.window_close()` under it removes it
+- `mcp-for-blender` `get_viewport_screenshot` draws offscreen without overlays at `max_size` on the long side, a picture for orientation alone
+- `blender` area and window screenshots over 785 KB shrink bilinearly to logical pixels, then until they fit, with no note in the answer
+- Pixel reads of an area crop a window capture to its rectangle, and `Area.y` counts from the window's bottom edge
+- `wm.window_new()` opens a second window of the space type of the screen's largest area whatever area the override names
+- Second windows of a `VIEW_3D` largest area are titled `3D Viewport`, `wm.window_close()` under the new window removes it
 - Menus, panels, and pies open at the pointer from a timer through `wm.call_menu`, `wm.call_panel`, and `wm.call_menu_pie` under an area override
 - `wm.call_panel` of a Properties panel polls under a `PROPERTIES` area override alone
 - Pies close when `window.workspace` is reassigned

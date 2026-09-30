@@ -1,10 +1,8 @@
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Objects;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Annotation;
@@ -25,14 +23,14 @@ public abstract partial record HatchForm {
     public sealed record OnFace(int PatternIndex, double RotationRadians, double Scale, Brep Brep, int FaceIndex, Point3d BasePoint) : HatchForm;
 }
 
-public sealed record HatchState(int PatternIndex, Plane Plane, Point3d BasePoint, double PatternRotation, double PatternScale, ColorGradient Gradient);
+public sealed record HatchState(int PatternIndex, Plane Plane, Point3d BasePoint, double PatternRotation, double PatternScale, Option<ColorGradient> Gradient);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 public static partial class Hatches {
     // --- [PLACEMENT]
     public static IO<Seq<Guid>> Place(RhinoDoc doc, HatchForm form, Option<ObjectAttributes> attributes, Option<HistoryRecord> history, bool reference) =>
-        Disposal.Using(
+        DisposalOps.Using(
             form.Switch(
                 loops: static loops => IO.lift(() =>
                     Missing.Unless(Hatch.Create(loops.HatchPlane, loops.OuterLoop, loops.InnerLoops, loops.PatternIndex, loops.RotationRadians, loops.Scale), nameof(Hatch.Create))
@@ -53,24 +51,21 @@ public static partial class Hatches {
     // --- [READS]
     public static IO<HatchState> State(RhinoDoc doc, Guid id) =>
         from resolved in Queries.Resolve<RhinoObject, Hatch>(doc, id)
-        from state in IO.lift(() => Project(resolved.Geometry))
-        select state;
+        select Project(resolved.Geometry);
 
     [MapPropertyFromSource(nameof(HatchState.Gradient), Use = nameof(Gradient))]
     private static partial HatchState Project(Hatch hatch);
 
-    private static ColorGradient Gradient(Hatch hatch) =>
-        hatch.GetGradientFill();
+    private static Option<ColorGradient> Gradient(Hatch hatch) =>
+        Some(hatch.GetGradientFill()).Filter(static fill => fill.GradientType != GradientType.None);
 
     public static IO<TValue> WithDisplay<TValue>(RhinoDoc doc, Guid id, double patternScale, Func<(Seq<Curve> Bounds, Seq<Line> Lines, Option<Brep> Solid), IO<TValue>> body) =>
         from resolved in Queries.Resolve<RhinoObject, Hatch>(doc, id)
-        from row in IO.lift(() => Missing.Unless(doc.HatchPatterns.FindIndex(resolved.Geometry.PatternIndex), nameof(HatchPatternTable.FindIndex)))
+        from row in TableOps.Row(doc.HatchPatterns, resolved.Geometry.PatternIndex)
         from drawn in IO.lift(() => {
             resolved.Geometry.CreateDisplayGeometry(row, patternScale, out Curve[] bounds, out Line[] lines, out Brep solid);
             return (Bounds: toSeq(bounds), Lines: toSeq(lines), Solid: Optional(solid));
         })
-        from value in Disposal.Using(
-            IO.pure(drawn.Bounds.Map<IDisposable>(static curve => curve) + drawn.Solid.ToSeq().Map<IDisposable>(static brep => brep)),
-            _ => body(drawn))
+        from value in DisposalOps.Using(IO.pure<Seq<IDisposable>>([.. drawn.Bounds, .. drawn.Solid.ToSeq()]), _ => body(drawn))
         select value;
 }

@@ -9,13 +9,16 @@
 
     <ItemGroup Label="Core Dependencies">
         <PackageReference Include="LanguageExt.Core" />
-        <PackageReference Include="NodaTime" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
-        <ProjectReference Include="../Rasm.Rhino.Render/Rasm.Rhino.Render.csproj" />
+        <ProjectReference Include="../Rasm.Rhino.Persistence/Rasm.Rhino.Persistence.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Embedded Resources">
+        <EmbeddedResource Include="AgX_Base_sRGB.cube" />
     </ItemGroup>
 </Project>

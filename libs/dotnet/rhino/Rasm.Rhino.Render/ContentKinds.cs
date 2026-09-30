@@ -1,5 +1,4 @@
 using System.Drawing;
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.Display;
@@ -66,11 +65,40 @@ public abstract partial record TextureSource {
 public sealed record EnvironmentState(Color Background, SimulatedEnvironment.BackgroundProjections Projection, Option<SimulatedTextureState> Image);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class ContentKindMapper {
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapProperty(nameof(SimulatedTextureState.Projection), nameof(SimulatedTexture.ProjectionMode))]
+    [MapProperty(nameof(@SimulatedTextureState.Transparency.IsSome), nameof(SimulatedTexture.HasTransparentColor))]
+    internal static partial void Update(SimulatedTextureState state, SimulatedTexture texture);
+
+    [MapProperty(nameof(SimulatedTexture.ProjectionMode), nameof(SimulatedTextureState.Projection))]
+    [MapPropertyFromSource(nameof(SimulatedTextureState.Transparency), Use = nameof(Transparency))]
+    internal static partial SimulatedTextureState ToState(SimulatedTexture texture, string filename);
+
+    [MapProperty(nameof(SimulatedEnvironment.BackgroundColor), nameof(EnvironmentState.Background))]
+    [MapProperty(nameof(SimulatedEnvironment.BackgroundProjection), nameof(EnvironmentState.Projection))]
+    internal static partial EnvironmentState ToState(SimulatedEnvironment simulation, SimulatedTexture image);
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapProperty(nameof(EnvironmentState.Background), nameof(SimulatedEnvironment.BackgroundColor))]
+    [MapProperty(nameof(EnvironmentState.Projection), nameof(SimulatedEnvironment.BackgroundProjection))]
+    [MapperIgnoreSource(nameof(EnvironmentState.Image), Justification = "Written through the simulated background texture")]
+    internal static partial void Update(EnvironmentState state, SimulatedEnvironment simulation);
+
+    [UserMapping]
+    private static Option<SimulatedTextureState> Image(SimulatedTexture texture) =>
+        Answers.Present(texture.Filename).Map(filename => ToState(texture, filename));
+
+    private static Option<(Color4f Color, double Sensitivity)> Transparency(SimulatedTexture texture) =>
+        texture.HasTransparentColor ? Some((Color: texture.TransparentColor, Sensitivity: texture.TransparentColorSensitivity)) : None;
+}
+
 public static class ContentKinds {
     // --- [MATERIALS]
     public static IO<TValue> WithMaterial<TValue>(RhinoDoc doc, int materialIndex, RenderMaterialSource source, Func<RenderContent, IO<TValue>> body) =>
         IO.lift(() => Missing.Unless(doc.Materials.FindIndex(materialIndex), nameof(MaterialTable.FindIndex)))
-            .Bind(material => Disposal.Using(
+            .Bind(material => DisposalOps.Using(
                 IO.lift(() => source.Switch(
                     (Doc: doc, Material: material),
                     fromMaterial: static (state, _) => Missing.Unless(RenderMaterial.FromMaterial(state.Material, state.Doc), nameof(RenderMaterial.FromMaterial)),
@@ -80,10 +108,10 @@ public static class ContentKinds {
                 body));
 
     public static IO<TValue> WithBakedMaterial<TValue>(RenderMaterial material, RenderTexture.TextureGeneration textureGeneration, Func<Material, IO<TValue>> body) =>
-        Disposal.Using(() => material.ToMaterial(textureGeneration), body);
+        DisposalOps.Using(() => material.ToMaterial(textureGeneration), body);
 
     public static IO<TValue> WithPhysicallyBased<TValue>(RenderMaterial material, RenderTexture.TextureGeneration textureGeneration, Func<Material, IO<TValue>> body) =>
-        Disposal.Using(() => material.ConvertToPhysicallyBased(textureGeneration).Material, body);
+        DisposalOps.Using(() => material.ConvertToPhysicallyBased(textureGeneration).Material, body);
 
     public static IO<Option<SlotState>> ReadSlot(RenderMaterial material, RenderMaterial.StandardChildSlots slot) =>
         IO.lift(() => Optional(material.GetTextureFromUsage(slot)).Map(texture => new SlotState(
@@ -93,14 +121,20 @@ public static class ContentKinds {
             material.GetTextureOnFromUsage(slot),
             material.GetTextureAmountFromUsage(slot))));
 
-    public static IO<Unit> Assign(RhinoDoc doc, RenderMaterial material, Seq<Guid> objects, RenderMaterial.AssignToSubFaceChoices subFaces, RenderMaterial.AssignToBlockChoices blocks) =>
-        Disposal.Using(
-            Disposal.AcquireAll(objects.Map(id => IO.lift(() => new ObjRef(doc, id)))),
-            refs => IO.lift(() => Refused.Unless(material.AssignTo(refs, subFaces, blocks, bInteractive: false), nameof(RenderMaterial.AssignTo))));
+    public static IO<Unit> Assign(RhinoDoc doc, RenderMaterial material, Seq<Guid> objects, bool replaceSubFaces, bool recurseBlocks) =>
+        DisposalOps.Using(
+            DisposalOps.AcquireAll(objects.Map(id => IO.lift(() => new ObjRef(doc, id)))),
+            refs => IO.lift(() => Refused.Unless(
+                material.AssignTo(
+                    refs,
+                    replaceSubFaces ? RenderMaterial.AssignToSubFaceChoices.Remove : RenderMaterial.AssignToSubFaceChoices.Keep,
+                    recurseBlocks ? RenderMaterial.AssignToBlockChoices.Always : RenderMaterial.AssignToBlockChoices.Never,
+                    bInteractive: false),
+                nameof(RenderMaterial.AssignTo))));
 
     // --- [TEXTURES]
     public static IO<TextureState> ReadTexture(RenderTexture texture) =>
-        Disposal.Using(static () => new TextureGraphInfo(), info => IO.lift(() => {
+        DisposalOps.Using(static () => new TextureGraphInfo(), info => IO.lift(() => {
             TextureGraphInfo graph = info;
             texture.GraphInfo(ref graph);
             return new TextureState(
@@ -120,13 +154,13 @@ public static class ContentKinds {
         }));
 
     public static IO<TValue> WithEvaluator<TValue>(RenderTexture texture, RenderTexture.TextureEvaluatorFlags flags, Func<TextureEvaluator, IO<TValue>> body) =>
-        Disposal.Using(IO.lift(() => Missing.Unless(texture.CreateEvaluator(flags), nameof(RenderTexture.CreateEvaluator))), evaluator =>
+        DisposalOps.Using(IO.lift(() => Missing.Unless(texture.CreateEvaluator(flags), nameof(RenderTexture.CreateEvaluator))), evaluator =>
             from initialized in IO.lift(() => Refused.Unless(evaluator.Initialize(), nameof(TextureEvaluator.Initialize)))
             from value in body(evaluator)
             select value);
 
     public static IO<TValue> WithSimulated<TValue>(RenderTexture texture, RenderTexture.TextureGeneration generation, Option<int> size, Option<RhinoObject> obj, Func<SimulatedTexture, IO<TValue>> body) =>
-        Disposal.Using(() => size.Match(
+        DisposalOps.Using(() => size.Match(
             Some: pixels => texture.SimulatedTexture(generation, pixels, obj.ValueUnsafe()),
             None: () => texture.SimulatedTexture(generation, obj: obj.ValueUnsafe())), body);
 
@@ -148,7 +182,7 @@ public static class ContentKinds {
                 texture.SetPreviewLocalMapping(state.PreviewLocalMapping, cc);
                 texture.SetDisplayInViewport(state.DisplayInViewport, cc);
             })
-            from graphed in Disposal.Using(static () => new TextureGraphInfo(), info => IO.lift(() => {
+            from graphed in DisposalOps.Using(static () => new TextureGraphInfo(), info => IO.lift(() => {
                 info.SetAmountU(state.Graph.U);
                 info.SetAmountV(state.Graph.V);
                 info.SetAmountW(state.Graph.W);
@@ -170,7 +204,7 @@ public static class ContentKinds {
             texture.IsImageBased()));
 
     public static IO<TValue> WithTexture<TValue>(RhinoDoc doc, TextureSource source, Func<RenderContent, IO<TValue>> body) =>
-        Disposal.Using(source.Switch(
+        DisposalOps.Using(source.Switch(
             doc,
             fromBitmap: static (document, bitmap) => IO.lift(() => Missing.Unless(RenderTexture.NewBitmapTexture(bitmap.Image, document), nameof(RenderTexture.NewBitmapTexture))),
             simulated: static (document, simulated) => Simulated(document, simulated.State)), body);
@@ -179,7 +213,7 @@ public static class ContentKinds {
         Answers.QualifiedPath(path).Bind(target => IO.lift(() => Refused.Unless(texture.SaveAsImage(target, width, height, depth), nameof(RenderTexture.SaveAsImage))));
 
     private static IO<RenderTexture> Simulated(RhinoDoc doc, SimulatedTextureState state) =>
-        Disposal.Using(() => new SimulatedTexture(doc), simulation =>
+        DisposalOps.Using(() => new SimulatedTexture(doc), simulation =>
             from written in WriteSimulated(simulation, state)
             from content in IO.lift(() => Missing.Unless(RenderTexture.NewBitmapTexture(simulation, doc), nameof(RenderTexture.NewBitmapTexture)))
             select content);
@@ -187,58 +221,25 @@ public static class ContentKinds {
     private static IO<Unit> WriteSimulated(SimulatedTexture target, SimulatedTextureState state) =>
         IO.lift(() => {
             ContentKindMapper.Update(state, target);
-            target.HasTransparentColor = state.Transparency.IsSome;
-            _ = state.Transparency.Iter(transparency => {
-                target.TransparentColor = transparency.Color;
-                target.TransparentColorSensitivity = transparency.Sensitivity;
-            });
+            _ = state.Transparency.Iter(transparency => (target.TransparentColor, target.TransparentColorSensitivity) = transparency);
         });
 
     // --- [ENVIRONMENTS]
     public static IO<EnvironmentState> ReadEnvironment(RenderEnvironment environment, bool isForDataOnly) =>
-        Disposal.Using(() => environment.SimulateEnvironment(isForDataOnly), static simulation =>
-            Disposal.Using(() => simulation.BackgroundImage, texture => IO.lift(() => ContentKindMapper.ToState(simulation, texture))));
+        DisposalOps.Using(() => environment.SimulateEnvironment(isForDataOnly), static simulation =>
+            DisposalOps.Using(() => simulation.BackgroundImage, texture => IO.lift(() => ContentKindMapper.ToState(simulation, texture))));
 
     public static IO<TValue> WithEnvironment<TValue>(RhinoDoc doc, EnvironmentState state, Func<RenderContent, IO<TValue>> body) =>
-        Disposal.Using(static () => new SimulatedEnvironment(), simulation =>
-            from shaded in IO.lift(() => {
-                simulation.BackgroundColor = state.Background;
-                simulation.BackgroundProjection = state.Projection;
-            })
-            from value in state.Image.Match(
-                Some: image => Disposal.Using(() => new SimulatedTexture(doc), texture => WithBackground(doc, simulation, texture, image, body)),
-                None: () => WithBasicEnvironment(doc, simulation, body))
-            select value);
-
-    private static IO<TValue> WithBackground<TValue>(RhinoDoc doc, SimulatedEnvironment simulation, SimulatedTexture texture, SimulatedTextureState image, Func<RenderContent, IO<TValue>> body) =>
-        from written in WriteSimulated(texture, image)
-        from assigned in IO.lift(() => { simulation.BackgroundImage = texture; })
-        from created in WithBasicEnvironment(doc, simulation, body)
-        select created;
-
-    private static IO<TValue> WithBasicEnvironment<TValue>(RhinoDoc doc, SimulatedEnvironment simulation, Func<RenderContent, IO<TValue>> body) =>
-        Disposal.Using(IO.lift(() => Missing.Unless(RenderEnvironment.NewBasicEnvironment(simulation, doc), nameof(RenderEnvironment.NewBasicEnvironment))), body);
-}
-
-[Mapper]
-internal static partial class ContentKindMapper {
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapProperty(nameof(SimulatedTextureState.Projection), nameof(SimulatedTexture.ProjectionMode))]
-    [MapperIgnoreSource(nameof(SimulatedTextureState.Transparency), Justification = "Written through HasTransparentColor and its color pair")]
-    internal static partial void Update(SimulatedTextureState state, SimulatedTexture texture);
-
-    [MapProperty(nameof(SimulatedTexture.ProjectionMode), nameof(SimulatedTextureState.Projection))]
-    [MapPropertyFromSource(nameof(SimulatedTextureState.Transparency), Use = nameof(Transparency))]
-    internal static partial SimulatedTextureState ToState(SimulatedTexture texture, string filename);
-
-    [MapProperty(nameof(SimulatedEnvironment.BackgroundColor), nameof(EnvironmentState.Background))]
-    [MapProperty(nameof(SimulatedEnvironment.BackgroundProjection), nameof(EnvironmentState.Projection))]
-    internal static partial EnvironmentState ToState(SimulatedEnvironment simulation, SimulatedTexture image);
-
-    [UserMapping]
-    private static Option<SimulatedTextureState> Image(SimulatedTexture texture) =>
-        Answers.Present(texture.Filename).Map(filename => ToState(texture, filename));
-
-    private static Option<(Color4f Color, double Sensitivity)> Transparency(SimulatedTexture texture) =>
-        texture.HasTransparentColor ? Some((Color: texture.TransparentColor, Sensitivity: texture.TransparentColorSensitivity)) : None;
+        DisposalOps.Using(static () => new SimulatedEnvironment(), simulation =>
+            (from shaded in IO.lift(() => ContentKindMapper.Update(state, simulation))
+             from background in state.Image.Match(
+                 Some: image =>
+                     from texture in use(() => new SimulatedTexture(doc))
+                     from written in WriteSimulated(texture, image)
+                     from assigned in IO.lift(() => { simulation.BackgroundImage = texture; })
+                     select assigned,
+                 None: static () => IO.pure(unit))
+             from value in DisposalOps.Using(IO.lift(() => Missing.Unless(RenderEnvironment.NewBasicEnvironment(simulation, doc), nameof(RenderEnvironment.NewBasicEnvironment))), body)
+             select value)
+            .Bracket());
 }

@@ -1,25 +1,5 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
 [project]
 name = "interface"
 version = "0.0.0"
-requires-python = ">=3.15"
-dependencies = [
-    "anyio",                                            # Structured concurrency for application sessions and host downloads
-    "attrs",                                            # Frozen installation, package, and launch records the host and Blender's Python exchange
-    "cyclopts",                                         # CLI parser from typed signatures
-    "httpx",                                            # HTTP client for package, library, and site downloads
-    "lxml",                                             # XML trees of Rhino settings and toolbar files and Adobe workspace files
-    "mcp",                                              # MCP client for the applications' servers
-    "msgspec",                                          # Struct types with JSON and TOML codecs for rows and reports
-    "psd-tools",                                        # Photoshop settings file action descriptors
-    "psutil",                                           # Process lookup by executable, command line, and listening socket, and termination of a scripted instance
-    "pyobjc-framework-Cocoa; sys_platform == 'darwin'", # Application instances Launch Services lists opened, quit, and observed on the main run loop
-    "pyproj",                                           # Site origin projected into its UTM coordinate system
-    "pyyaml",                                           # YAML parser msgspec decodes yak package manifests through
-    "tifffile",                                         # GeoTIFF tie point and pixel scale reads of the site survey files
-]
-
-# --- [RUFF] -----------------------------------------------------------------------------
-
-[tool.ruff]
-extend = "../../pyproject.toml"
-per-file-target-version = { "{roles,report,units,render,aliases,frame}.py" = "py313", "rhino/{window,markup}.py" = "py313", "blender/rows.py" = "py313", "*/script/**/*.py" = "py313", "blender/extension/**/*.py" = "py313" }

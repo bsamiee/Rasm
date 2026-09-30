@@ -59,13 +59,71 @@ utils:
             - matches: {csharp-option-null-conversion: {option: {pattern: $VALUE}, element: {not: {matches: reference-type}}}}
             - not: {has: {stopBy: end, kind: default_expression}}
             - not: {kind: cast_expression, has: {field: type, not: {kind: nullable_type}}}
+    unnamed:
+        kind: argument
+        not: {has: {field: name, kind: identifier}}
+    some-argument:
+        kind: argument
+        any:
+            - has: {field: name, kind: identifier, regex: '^Some$'}
+            - all: [{nthChild: {position: 1, ofRule: {kind: argument}}}, {matches: unnamed}]
+    null-value:
+        any:
+            - kind: null_literal
+            - kind: cast_expression
+              has: {field: value, kind: null_literal}
+            - kind: postfix_unary_expression
+              regex: '!$'
+              has: {matches: null-value}
+            - kind: parenthesized_expression
+              has: {matches: null-value}
+    none-argument:
+        kind: argument
+        all:
+            - any:
+                - has: {field: name, kind: identifier, regex: '^None$'}
+                - all: [{nthChild: {position: 2, ofRule: {kind: argument}}}, {matches: unnamed}]
+            - has:
+                nthChild: {position: 1, reverse: true}
+                kind: lambda_expression
+                all:
+                    - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                    - has: {field: body, matches: null-value}
+    lifted-conversion:
+        kind: invocation_expression
+        all:
+            - has: {field: arguments, all: [{has: {matches: none-argument}}, {not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}]}
+            - any:
+                - all:
+                    - has: {field: function, kind: member_access_expression, all: [{has: {field: name, kind: identifier, regex: '^Match$'}}, {has: {field: expression, pattern: $BARE}}]}
+                    - has: {field: arguments, has: {all: [{matches: some-argument}, {matches: {csharp-unary-callback: {parameter: {pattern: $PARAMETER}, body: {pattern: $PARAMETER}}}}]}}
+                - all:
+                    - has:
+                        field: function
+                        kind: member_access_expression
+                        all:
+                            - has: {field: expression, pattern: $LIFTED}
+                            - has:
+                                field: name
+                                any:
+                                    - kind: identifier
+                                      regex: '^Match$'
+                                    - kind: generic_name
+                                      all:
+                                        - has: {kind: identifier, regex: '^Match$'}
+                                        - has: {kind: type_argument_list, pattern: $TYPE_ARGUMENTS, not: {has: {nthChild: 2}}}
+                    - has: {field: arguments, has: {matches: some-argument, has: {nthChild: {position: 1, reverse: true}, pattern: $SOME}}}
 rule:
     any:
         - matches: reference-conversion
         - matches: value-conversion
+        - matches: lifted-conversion
 transform:
     REFERENCE_READ: {replace: {source: $REFERENCE, replace: '(?s)^(.*)$', by: '${1}.ValueUnsafe()'}}
     VALUE_READ: {replace: {source: $VALUE, replace: '(?s)^(.*)$', by: '${1}.ToNullable()'}}
-fix: $REFERENCE_READ$VALUE_READ
-message: '`$REFERENCE$VALUE` converts an `Option` to a nullable by hand'
-note: Use `<option>.ValueUnsafe()` from `LanguageExt.UnsafeValueAccess` for a reference element and `<option>.ToNullable()` for a value element
+    BARE_READ: {replace: {source: $BARE, replace: '(?s)^(.*)$', by: '${1}.ValueUnsafe()'}}
+    LIFTED_MAP: {replace: {source: $LIFTED, replace: '(?s)^(.*)$', by: '${1}.Map'}}
+    SOME_READ: {replace: {source: $SOME, replace: '(?s)^(.*)$', by: '(${1}).ValueUnsafe()'}}
+fix: $REFERENCE_READ$VALUE_READ$BARE_READ$LIFTED_MAP$TYPE_ARGUMENTS$SOME_READ
+message: '`$REFERENCE$VALUE$BARE$LIFTED` converts an `Option` to a nullable by hand'
+note: Use `<option>.ValueUnsafe()` from `LanguageExt.UnsafeValueAccess` for a reference element, `<option>.ToNullable()` for a value element, and `<option>.Map<T?>(<some>).ValueUnsafe()` where `Some` maps the value or the element kind is unknown

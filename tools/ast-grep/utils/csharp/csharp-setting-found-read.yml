@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-setting-found-read
+language: csharp
+utils:
+    found-call:
+        kind: invocation_expression
+        has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^Found(\s*<.+>)?$'}
+                - has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers$'}
+    non-enum-parameter:
+        inside:
+            stopBy: end
+            kind: method_declaration, local_function_statement, class_declaration, record_declaration, struct_declaration, interface_declaration
+            all:
+                - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $TYPE}}}
+                - not:
+                    has:
+                        kind: type_parameter_constraints_clause
+                        all:
+                            - has: {kind: identifier, nthChild: 1, pattern: $TYPE}
+                            - has: {kind: type_parameter_constraint, regex: '^((global::)?System\.)?Enum$'}
+    shadowing-lambda:
+        kind: lambda_expression
+        has:
+            field: parameters
+            any:
+                - kind: implicit_parameter
+                  pattern: $V
+                - kind: parameter_list
+                  has: {kind: parameter, has: {field: name, pattern: $V}}
+    named-call:
+        kind: invocation_expression
+        has: {field: arguments, has: {kind: argument, has: {field: name, kind: identifier}}}
+    named-read:
+        kind: invocation_expression
+        any:
+            - matches: named-call
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: named-call}}}
+    scoped-out:
+        inside:
+            stopBy: {kind: 'block, arrow_expression_clause, lambda_expression'}
+            kind: block, arrow_expression_clause, lambda_expression
+            has:
+                stopBy: end
+                kind: identifier
+                pattern: $V
+                not:
+                    any:
+                        - inside: {kind: declaration_expression, field: name}
+                        - inside: {stopBy: end, matches: found-call, has: {stopBy: end, kind: declaration_expression, has: {field: name, pattern: $V}}}
+                        - inside: {stopBy: end, matches: shadowing-lambda}
+rule:
+    kind: invocation_expression
+    all:
+        - matches: found-call
+        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: csharp-setting-accessor}}}
+        - any:
+            - all:
+                - pattern: Answers.Found($STORE.$READ($ENTRY, out $TYPE $V), $V)
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {has: {field: function, has: {field: name, regex: '^TryGet(Bool|Integer|UnsignedInteger|Double|String|Color)$'}}}}}
+            - pattern: Answers.Found($STORE.TryGetColor($ENTRY, out $_ $V), Optional($V))
+            - all:
+                - any:
+                    - all:
+                        - pattern: Answers.Found($STORE.TryGetEnumValue($ENTRY, out $TYPE $V), $V)
+                        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {stopBy: end, kind: declaration_expression, has: {field: type, not: {regex: '^var$'}}}}}
+                    - pattern: Answers.Found($STORE.TryGetEnumValue<$TYPE>($ENTRY, out $_ $V), $V)
+                - not: {matches: non-enum-parameter}
+        - not: {matches: scoped-out}
+        - not: {matches: named-read}

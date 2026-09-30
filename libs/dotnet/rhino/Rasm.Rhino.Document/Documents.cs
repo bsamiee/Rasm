@@ -1,11 +1,8 @@
-using LanguageExt.UnsafeValueAccess;
 using Rhino;
 using Rhino.Collections;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 using Riok.Mapperly.Abstractions;
-
-[assembly: UseStaticMapper(typeof(Rasm.Rhino.Document.Answers))]
 
 namespace Rasm.Rhino.Document;
 
@@ -94,6 +91,26 @@ public abstract partial record WorksessionChange {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
+internal static partial class DocumentMapper {
+    [MapProperty(nameof(RhinoDoc.RuntimeSerialNumber), nameof(DocumentState.Serial))]
+    [MapPropertyFromSource(nameof(DocumentState.Phase), Use = nameof(Phase))]
+    [MapPropertyFromSource(nameof(DocumentState.InCommand), Use = nameof(InCommand))]
+    internal static partial DocumentState ToState(RhinoDoc doc);
+
+    private static DocumentPhase Phase(RhinoDoc doc) =>
+        doc switch {
+            { IsClosing: true } => DocumentPhase.Closing,
+            { IsOpening: true } => DocumentPhase.Opening,
+            { IsInitializing: true } => DocumentPhase.Initializing,
+            { IsCreating: true } => DocumentPhase.Creating,
+            { IsAvailable: true } => DocumentPhase.Ready,
+            _ => DocumentPhase.Unavailable,
+        };
+
+    private static int InCommand(RhinoDoc doc) => doc.InCommand(bIgnoreScriptRunnerCommands: true);
+}
+
 public static class DocumentHandles {
     // --- [LIFECYCLE]
     public static IO<DocumentHandle> Acquire(DocumentSource source) =>
@@ -114,12 +131,15 @@ public static class DocumentHandles {
         when(handle.Owned, IO.lift(handle.Doc.Dispose)).As();
 
     public static IO<TValue> WithDocument<TValue>(DocumentSource source, Func<RhinoDoc, IO<TValue>> body) =>
-        Disposal.Bracketed(Acquire(source), Release, handle => body(handle.Doc));
+        Acquire(source).Bracket(Use: handle => body(handle.Doc), Fin: Release);
 
     private static IO<DocumentHandle> FromPath(string path, Func<string, RhinoDoc?> open, string member, bool owned) =>
-        from existing in Answers.ExistingPath(path)
-        from doc in IO.lift(() => Missing.Unless(open(existing), member))
-        select new DocumentHandle(doc, owned);
+        AtPath(path, qualified => Missing.Unless(open(qualified), member)).Map(doc => new DocumentHandle(doc, owned));
+
+    private static IO<T> AtPath<T>(string path, Func<string, Fin<T>> call) =>
+        from qualified in Answers.QualifiedPath(path)
+        from answer in IO.lift(() => call(qualified)).Catch(static error => error.HasException<ArgumentException>(), static _ => IO.fail<T>(new Invalid(nameof(path))))
+        select answer;
 
     // --- [READS]
     public static IO<Seq<uint>> OpenDocuments(bool includeHeadless) =>
@@ -150,10 +170,10 @@ public static class DocumentHandles {
             doc,
             attach: static (target, attach) =>
                 from paths in attach.Paths.TraverseM(Answers.ExistingPath).As()
-                from attached in IO.lift(() => Each(paths, path => target.Worksession.Attach(path), nameof(Worksession.Attach)))
+                from attached in IO.lift(() => Answers.Each(paths, target.Worksession.Attach, nameof(Worksession.Attach)))
                 select target,
             detach: static (target, detach) =>
-                IO.lift(() => Each(detach.Serials, serial => target.Worksession.Detach(serial), nameof(Worksession.Detach))).Map(_ => target),
+                IO.lift(() => Answers.Each(detach.Serials, target.Worksession.Detach, nameof(Worksession.Detach))).Map(_ => target),
             update: static (target, update) => IO.lift(() => Refused.Unless(target.Worksession.Update(update.Serial), target, nameof(Worksession.Update))),
             updateAll: static (target, _) => IO.lift(() => Refused.Unless(target.Worksession.UpdateAll(), target, nameof(Worksession.UpdateAll))),
             setActiveModel: static (target, active) =>
@@ -164,25 +184,24 @@ public static class DocumentHandles {
                 from saved in IO.lift(() => Refused.Unless(target.Worksession.SaveAs(path), target, nameof(Worksession.SaveAs)))
                 select saved);
 
-    private static Fin<Unit> Each<T>(Seq<T> items, Func<T, bool> apply, string member) =>
-        items.Map(static (item, index) => (Item: item, Index: index))
-            .Traverse(row => apply(row.Item) ? Validation.Success<Error, Unit>(unit) : Validation.Fail<Error, Unit>(new RefusedElement(member, row.Index)))
-            .As()
-            .ToFin()
-            .Map(static _ => unit);
+    // --- [SCRIPTING]
+    public static IO<Unit> Scripted(RhinoDoc doc, string script) =>
+        IO.lift(() => Refused.Unless(RhinoApp.RunScript(doc.RuntimeSerialNumber, script, echo: false), nameof(RhinoApp.RunScript)))
+            .Catch(static error => error.HasException<ApplicationException>(), static _ => IO.fail<Unit>(new Refused(nameof(RhinoApp.RunScript))));
 
     // --- [FILES]
     public static IO<Unit> ApplyFileOp(RhinoDoc doc, FileOp op) =>
         op.Switch(
             doc,
             import: static (target, import) =>
-                from path in Answers.ExistingPath(import.Path)
+                from path in Answers.QualifiedPath(import.Path)
                 from imported in IO.lift(() => Refused.Unless(target.Import(path, import.Options.ValueUnsafe()), nameof(RhinoDoc.Import)))
+                    .Catch(static error => error.HasException<FileNotFoundException>(), static _ => IO.fail<Unit>(new Missing(nameof(File.Exists))))
                 select imported,
             readFile: static (target, read) =>
                 from path in Answers.ExistingPath(read.Path)
                 from active in IO.lift(() => Invalid.Unless(Serial(RhinoDoc.ActiveDoc) == Some(target.RuntimeSerialNumber), nameof(RhinoDoc.ActiveDoc)))
-                from done in Disposal.Using(read.Options, options => IO.lift(() => Refused.Unless(RhinoDoc.ReadFile(path, options), nameof(RhinoDoc.ReadFile))))
+                from done in DisposalOps.Using(read.Options, options => IO.lift(() => Refused.Unless(RhinoDoc.ReadFile(path, options), nameof(RhinoDoc.ReadFile))))
                 select done,
             export: static (target, export) =>
                 from path in Answers.QualifiedPath(export.Path)
@@ -194,57 +213,14 @@ public static class DocumentHandles {
                 select exported,
             writeFile: static (target, write) =>
                 from path in Answers.QualifiedPath(write.Path)
-                from written in Disposal.Using(write.Options, options => IO.lift(() => Refused.Unless(target.WriteFile(path, options), nameof(RhinoDoc.WriteFile))))
+                from written in DisposalOps.Using(write.Options, options => IO.lift(() => Refused.Unless(target.WriteFile(path, options), nameof(RhinoDoc.WriteFile))))
                 select written,
             write3dmFile: static (target, write) =>
                 from path in Answers.QualifiedPath(write.Path)
-                from written in Disposal.Using(write.Options, options => IO.lift(() => Refused.Unless(target.Write3dmFile(path, options), nameof(RhinoDoc.Write3dmFile))))
+                from written in DisposalOps.Using(write.Options, options => IO.lift(() => Refused.Unless(target.Write3dmFile(path, options), nameof(RhinoDoc.Write3dmFile))))
                 select written,
-            save: static (target, _) => Saved(target),
-            saveAs: static (target, saveAs) =>
-                from path in Model(saveAs.Path)
-                from saved in string.Equals(path, target.Path, StringComparison.Ordinal)
-                    ? Saved(target)
-                    : target.IsHeadless
-                        ? IO.lift(() => Refused.Unless(target.SaveAs(path), nameof(RhinoDoc.SaveAs)))
-                        : IO.lift(() => Invalid.Unless(!path.Contains('"', StringComparison.Ordinal), nameof(RhinoApp.RunScript)))
-                            .Bind(_ => Scripted(target, $"_-SaveAs \"{path}\""))
-                select saved,
-            saveAsTemplate: static (target, template) =>
-                from path in Model(template.Path)
-                from saved in IO.lift(() => Refused.Unless(target.SaveAsTemplate(path), nameof(RhinoDoc.SaveAsTemplate)))
-                select saved);
-
-    private static IO<Unit> Saved(RhinoDoc doc) =>
-        from path in IO.lift(() => Answers.Present(doc.Path).ToFin(new Missing(nameof(RhinoDoc.Path))))
-        from saved in doc.IsHeadless ? IO.lift(() => Refused.Unless(doc.Save(), nameof(RhinoDoc.Save))) : Scripted(doc, "_-Save _Enter")
-        select saved;
-
-    private static IO<string> Model(string path) =>
-        from qualified in Answers.QualifiedPath(path)
-        from model in IO.lift(() => Invalid.Unless(string.Equals(Path.GetExtension(qualified), ".3dm", StringComparison.OrdinalIgnoreCase), nameof(Path.GetExtension)))
-        select qualified;
-
-    private static IO<Unit> Scripted(RhinoDoc doc, string script) =>
-        IO.lift(() => Refused.Unless(RhinoApp.RunScript(doc.RuntimeSerialNumber, script, echo: false), nameof(RhinoApp.RunScript)));
-}
-
-[Mapper]
-internal static partial class DocumentMapper {
-    [MapProperty(nameof(RhinoDoc.RuntimeSerialNumber), nameof(DocumentState.Serial))]
-    [MapPropertyFromSource(nameof(DocumentState.Phase), Use = nameof(Phase))]
-    [MapPropertyFromSource(nameof(DocumentState.InCommand), Use = nameof(InCommand))]
-    internal static partial DocumentState ToState(RhinoDoc doc);
-
-    private static DocumentPhase Phase(RhinoDoc doc) =>
-        doc switch {
-            { IsClosing: true } => DocumentPhase.Closing,
-            { IsOpening: true } => DocumentPhase.Opening,
-            { IsInitializing: true } => DocumentPhase.Initializing,
-            { IsCreating: true } => DocumentPhase.Creating,
-            { IsAvailable: true } => DocumentPhase.Ready,
-            _ => DocumentPhase.Unavailable,
-        };
-
-    private static int InCommand(RhinoDoc doc) => doc.InCommand(bIgnoreScriptRunnerCommands: true);
+            save: static (target, _) => IO.lift(() => Refused.Unless(target.Save(), nameof(RhinoDoc.Save)))
+                .Catch(static error => error.HasException<InvalidOperationException>(), static _ => IO.fail<Unit>(new Missing(nameof(RhinoDoc.Path)))),
+            saveAs: static (target, saveAs) => AtPath(saveAs.Path, path => Refused.Unless(target.SaveAs(path), nameof(RhinoDoc.SaveAs))),
+            saveAsTemplate: static (target, template) => AtPath(template.Path, path => Refused.Unless(target.SaveAsTemplate(path), nameof(RhinoDoc.SaveAsTemplate))));
 }

@@ -244,14 +244,14 @@ rule:
         - not: {has: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, matches: overflows}}
         - not: {all: [{has: {stopBy: end, matches: registration, pattern: $SHARED}}, {has: {stopBy: end, matches: registration, not: {pattern: $SHARED}}}]}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^Using$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^Using$'}}}}
 rewriters:
     - id: second-use
       rule:
         pattern: (from $M in $SRC from $X in use($ACQ) from $V in $B select $V).Bracket()
       fix: |-
         from $M in $SRC
-        from $V in Disposal.Using($ACQ, $X => $B)
+        from $V in DisposalOps.Using($ACQ, $X => $B)
         select $V
     - id: open-scope
       rule:
@@ -259,7 +259,7 @@ rewriters:
         all:
             - matches: later-scope
             - inside: {matches: tailed-root, has: {kind: select_clause, has: {kind: identifier, pattern: $SV}}}
-      fix: from $SV in Disposal.Using($SACQ, $SX =>
+      fix: from $SV in DisposalOps.Using($SACQ, $SX =>
     - id: close-scope
       rule:
         kind: select_clause
@@ -346,7 +346,7 @@ transform:
         replace:
             source: $ACQUIRE
             replace: '(?s)^.*$'
-            by: Disposal.Using(
+            by: DisposalOps.Using(
     OPEN:
         replace:
             source: $LOCAL
@@ -366,4 +366,4 @@ fix:
     template: $OPEN$USING$ACQUIRE$SEP$MODIFIER$ARROW$BODY$PURE$BIND$GROUPED$SHUT$CLOSE$SECOND_FIXED$TAIL_FIXED
     expandStart: {kind: local_declaration_statement, has: {stopBy: end, matches: use-call}}
 message: "`$ACQUIRE_TEXT$SACQ_TEXT` scope closes through `Bracket` by hand"
-note: Use `Disposal.Using(<acquire>, <resource> => <body>)`, `Using` pairs one acquisition with its release
+note: Use `DisposalOps.Using(<acquire>, <resource> => <body>)`, `Using` pairs one acquisition with its release

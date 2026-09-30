@@ -35,7 +35,7 @@ from Grasshopper2.UI.Flex import ControlGraphics
 from Grasshopper2.UI.Skinning import Shape
 from Grasshopper2.Undo import ActionList
 import msgspec
-from records import collect_faults, Fault, File, Record
+from records import collect_faults, Fault, Faults, File, Record, Resolved
 from Rhino import RhinoDoc
 from Rhino.DocObjects import ObjectAttributes
 from Rhino.Geometry import Box, Brep, Circle, Curve, GeometryBase, Interval, Line, Mesh, Plane, Point3d, Rectangle3d, Vector3d
@@ -144,15 +144,15 @@ class Wire(Record, frozen=True):
 # --- [RESOLUTION]
 
 
-def _partition[K, V](results: Mapping[K, V | tuple[Fault, ...]]) -> tuple[dict[K, V], tuple[Fault, ...]]:
+def _partition[K, V](results: Mapping[K, Resolved[V]]) -> tuple[dict[K, V], Faults | None]:
     """Split independent results into their values and every fault among them."""
-    return {key: result for key, result in results.items() if not isinstance(result, tuple)}, collect_faults(*results.values())
+    return {key: result for key, result in results.items() if not isinstance(result, Faults)}, collect_faults(*results.values())
 
 
-def _find(document: Document, canvas_id: str) -> IDocumentObject | tuple[Fault, ...]:
+def _find(document: Document, canvas_id: str) -> Resolved[IDocumentObject]:
     """Return the document object `canvas_id` names."""
     found = document.Objects.Find(Guid.Parse(canvas_id))
-    return (Fault(IDocumentObject, canvas_id),) if found is None else found
+    return Faults.of(Fault(IDocumentObject, canvas_id)) if found is None else found
 
 
 def _parameters(document_object: object, side: Side) -> tuple[IParameter, ...]:
@@ -175,7 +175,7 @@ def _name(parameter: IParameter) -> str:
             return parameter.Nomen.Name
 
 
-def _port(parameters: Sequence[IParameter], port: Port) -> IParameter | tuple[Fault, ...]:
+def _port(parameters: Sequence[IParameter], port: Port) -> Resolved[IParameter]:
     """Return the parameter `port` names by name, user name, or index, `""` naming a lone parameter."""
     named = {key: parameter for parameter in parameters for key in (_name(parameter), parameter.UserName) if key} | ({"": parameters[0]} if len(parameters) == 1 else {})
     match port:
@@ -184,34 +184,34 @@ def _port(parameters: Sequence[IParameter], port: Port) -> IParameter | tuple[Fa
         case str() if port in named:
             return named[port]
         case _:
-            return (Fault(IParameter, port, tuple(named)),)
+            return Faults.of(Fault(IParameter, port, tuple(named)))
 
 
-def _end(objects: Mapping[str, IDocumentObject | tuple[Fault, ...]], key: str, port: Port, side: Side) -> IParameter | tuple[Fault, ...]:
-    """Return a wire end on the object `key` names, a fault for an unknown key, and no fault for an object that failed to resolve."""
+def _end(objects: Mapping[str, Resolved[IDocumentObject]], key: str, port: Port, side: Side) -> Resolved[IParameter | None]:
+    """Return a wire end on the object `key` names, a fault for an unknown key, and `None` for an object that faulted on its own."""
     match objects.get(key):
         case None:
-            return (Fault(Wire, key, tuple(objects)),)
-        case tuple():
-            return ()
+            return Faults.of(Fault(Wire, key, tuple(objects)))
+        case Faults():
+            return None
         case found:
             return _port(_parameters(found, side), port)
 
 
-def _ends(objects: Mapping[str, IDocumentObject | tuple[Fault, ...]], wires: Sequence[Wire]) -> tuple[tuple[tuple[IParameter, IParameter], ...], tuple[Fault, ...]]:
+def _ends(objects: Mapping[str, Resolved[IDocumentObject]], wires: Sequence[Wire]) -> tuple[tuple[tuple[Resolved[IParameter | None], Resolved[IParameter | None]], ...], Faults | None]:
     """Return each wire's source output and target input beside every fault among the ends."""
     ends = tuple((_end(objects, connection.source, connection.output, Side.Output), _end(objects, connection.target, connection.input, Side.Input)) for connection in wires)
-    return ends, collect_faults(*ends)
+    return ends, collect_faults(*(end for pair in ends for end in pair))
 
 
-def _converted(parameter: IParameter, items: Sequence[Item]) -> object | tuple[Fault, ...]:
+def _converted(parameter: IParameter, items: Sequence[Item]) -> Resolved[object]:
     """Return values as an array of a typed port's type through Grasshopper 2 conversions, or as a list for an untyped port."""
     match parameter.TypeAssistantWeak:
         case None:
             return list(items)
         case assistant:
             converted = [(item, *ConversionServer.Convert(item, assistant.Type)) for item in items]
-            if faults := tuple(Fault(ConversionServer, item, (assistant.Type.Name,)) for item, held, _ in converted if not held):
+            if faults := collect_faults(*(Fault(ConversionServer, item, (assistant.Type.Name,)) for item, held, _ in converted if not held)):
                 return faults
             array = Array.CreateInstance(assistant.Type, len(converted))
             for index, (_, _, value) in enumerate(converted):
@@ -225,18 +225,18 @@ def _source(document: Document, source_id: object) -> tuple[str, str]:
     return (str(source_id), "") if found is None else (str((found.ParentObject or found).InstanceId), _name(found))
 
 
-def _family(color: str) -> object | tuple[Fault, ...]:
+def _family(color: str) -> Resolved[object]:
     """Return the Open Color family `color` names in the type `GroupObject.GroupColour` holds."""
     family = clr.GetClrType(GroupObject).GetProperty("GroupColour").PropertyType
     names = tuple(Enum.GetNames(family))
-    return Enum.Parse(family, color) if color in names else (Fault(GroupObject, color, names),)
+    return Enum.Parse(family, color) if color in names else Faults.of(Fault(GroupObject, color, names))
 
 
-def _modifiers(modifiers: Sequence[Modifier]) -> Modifiers | tuple[Fault, ...]:
+def _modifiers(modifiers: Sequence[Modifier]) -> Resolved[Modifiers]:
     """Chain `With<Name>` modifiers from an empty set, `(name, depth)` as `With<Name>(depth)`."""
     accepted = tuple(sorted({method.Name.removeprefix("With") for method in clr.GetClrType(Modifiers).GetMethods() if method.Name.startswith("With") and not method.Name.startswith("Without")}))
     steps = [(modifier,) if isinstance(modifier, str) else modifier for modifier in modifiers]
-    unknown = tuple(Fault(Modifiers, name, accepted) for name, *_ in steps if name not in accepted)
+    unknown = collect_faults(*(Fault(Modifiers, name, accepted) for name, *_ in steps if name not in accepted))
 
     def applied(modifier_set: Modifiers, step: tuple[str] | tuple[str, int]) -> Modifiers:
         name, *arguments = step
@@ -248,11 +248,11 @@ def _modifiers(modifiers: Sequence[Modifier]) -> Modifiers | tuple[Fault, ...]:
 # --- [PARTS]
 
 
-def _group(document: Document, doc: RhinoDoc, name: str, family: object, members: Sequence[IDocumentObject]) -> GroupObject | tuple[Fault, ...]:
+def _group(document: Document, doc: RhinoDoc, name: str, family: object, members: Sequence[IDocumentObject]) -> Resolved[GroupObject]:
     """Add a named group of `members` pinned to `doc`'s unit system and absolute tolerance, or a fault per repeated member."""
     created = GroupObject()
     created.GroupColour, created.UserName = family, name
-    if refused := tuple(Fault(GroupObject, str(member.InstanceId)) for member in members if not created.AddContent(member.InstanceId)):
+    if refused := collect_faults(*(Fault(GroupObject, str(member.InstanceId)) for member in members if not created.AddContent(member.InstanceId))):
         return refused
     document.Objects.Add(created, PointF(0.0, 0.0))
     units, tolerance = UnitSystemPin(), AbsoluteTolerancePin()
@@ -347,18 +347,18 @@ def _node(document_object: IDocumentObject, sample: int) -> Node:
 # --- [DOCUMENTS]
 
 
-def definition(path: str | None = None) -> Document | tuple[Fault, ...]:
+def definition(path: str | None = None) -> Resolved[Document]:
     """Return the document holding `path`, opened or created behind the current canvas with its Rhino preview off, or the current canvas for `None`."""
     editor = Editor.Instance
     match editor, path:
         case None, _:
-            return (Fault(Editor, None),)
+            return Faults.of(Fault(Editor, None))
         case _, None:
             return editor.Canvas.Document
         case _, str() if (index := editor.Documents.Index(path)) >= 0:
             return editor.Documents[index].Root
         case _, str() if Path(path).exists():
-            if missing := tuple(Fault(PluginRequirement, str(requirement.Id), (str(requirement.Version),)) for requirement in PluginRequirements.FromFile(path).Missing):
+            if missing := collect_faults(*(Fault(PluginRequirement, str(requirement.Id), (str(requirement.Version),)) for requirement in PluginRequirements.FromFile(path).Missing)):
                 return missing
             reader = DocumentIO(trackFiles=False, reportErrors=False, resolvePlugins=False)
             reader.Open(path)
@@ -416,16 +416,16 @@ def plugins() -> tuple[Plugin, ...]:
 # --- [EDITS]
 
 
-def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Sequence[Wire] = ()) -> dict[str, str] | tuple[Fault, ...]:
+def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Sequence[Wire] = ()) -> Resolved[dict[str, str]]:
     """Add groups of parts laid out by flow, with values, modifiers, and wires, and map each key to its canvas id, or return every fault."""
     all_parts = [part for entry in groups for part in entry.parts]
     parts = {part.key: part for part in all_parts}
-    repeated = tuple(Fault(Part, key) for key, count in Counter(part.key for part in all_parts).items() if count > 1)
+    repeated = collect_faults(*(Fault(Part, key) for key, count in Counter(part.key for part in all_parts).items() if count > 1))
     fields = {(key, name): part for key, part in parts.items() if isinstance(part, Part) for name in dict.fromkeys((*part.values, *part.modifiers))}
 
-    def scripted(emitted: IDocumentObject, part: Part, source: str) -> IDocumentObject | tuple[Fault, ...]:
+    def scripted(emitted: IDocumentObject, part: Part, source: str) -> Resolved[IDocumentObject]:
         if not isinstance(emitted, BaseScriptComponent):
-            return (Fault(BaseScriptComponent, part.selector),)
+            return Faults.of(Fault(BaseScriptComponent, part.selector))
         component = type(emitted.__implementation__).Create(part.name or part.key, source)
         component.Context.EnforceParamsOnCreate = False
         component.Context.InitLanguages(document, component.Context.GetLanguageSpec())
@@ -439,9 +439,9 @@ def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Seq
             component.Parameters.Output(component.Parameters.OutputCount - 1).VariableName = name
         return component
 
-    def listed(emitted: IDocumentObject, part: Part) -> IDocumentObject | tuple[Fault, ...]:
+    def listed(emitted: IDocumentObject, part: Part) -> Resolved[IDocumentObject]:
         if not isinstance(emitted, ValueListObject):
-            return (Fault(ValueListObject, part.selector),)
+            return Faults.of(Fault(ValueListObject, part.selector))
         document.Objects.Add(emitted, PointF(0.0, 0.0))
         setter = clr.GetClrType(ValueListObject).GetMethod("Set", BindingFlags.Instance | BindingFlags.NonPublic)
         kind = setter.GetParameters()[0].ParameterType.GetElementType()
@@ -451,7 +451,7 @@ def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Seq
         setter.Invoke(emitted, Array[Object]([items, False]))
         return emitted
 
-    def created(part: Part | Slider) -> IDocumentObject | tuple[Fault, ...]:
+    def created(part: Part | Slider) -> Resolved[IDocumentObject]:
         match part, None if isinstance(part, Slider) else ObjectProxies.FindById(Guid.Parse(part.selector)):
             case Slider(), _:
                 slider = NumberSliderObject(part.name or part.key, UiNumber(part.decimals, *map(Convert.ToDecimal, (part.value, part.lower, part.upper))))
@@ -465,16 +465,16 @@ def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Seq
             case Part(), ObjectProxy() as proxy:
                 return listed(proxy.Emit(None), part)
             case Part(selector=selector), _:
-                return (Fault(ObjectProxy, selector),)
+                return Faults.of(Fault(ObjectProxy, selector))
 
     made = {key: created(part) for key, part in parts.items()}
     objects, object_faults = _partition(made)
     families, family_faults = _partition(dict(enumerate(_family(entry.color) for entry in groups)))
-    ports, port_faults = _partition({(key, name): _end(made, key, name, Side.Input) for key, name in fields})
+    ports, port_faults = _partition({field: end for field in fields if (end := _end(made, *field, Side.Input)) is not None})
     chains, chain_faults = _partition({(key, name): _modifiers(part.modifiers[name]) for (key, name), part in fields.items() if name in part.modifiers})
     persistent, value_faults = _partition({(key, name): _converted(ports[key, name], part.values[name]) for (key, name), part in fields.items() if name in part.values and (key, name) in ports})
     ends, end_faults = _ends(made, wires)
-    if faults := (*repeated, *object_faults, *family_faults, *port_faults, *value_faults, *chain_faults, *end_faults):
+    if faults := collect_faults(repeated, object_faults, family_faults, port_faults, value_faults, chain_faults, end_faults):
         document.Methods.DeleteObjects(Array[IDocumentObject]([item for item in objects.values() if item.Document is not None]), None, ActionList.Empty)
         return faults
     for item in (item for item in objects.values() if item.Document is None):
@@ -492,12 +492,12 @@ def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Seq
     return collect_faults(*grouped) or {key: str(item.InstanceId) for key, item in objects.items()}
 
 
-def wire(document: Document, wires: Sequence[Wire], *, replace: bool = True) -> tuple[Node, ...] | tuple[Fault, ...]:
+def wire(document: Document, wires: Sequence[Wire], *, replace: bool = True) -> Resolved[tuple[Node, ...]]:
     """Join existing objects by canvas id, `replace` dropping each target input's earlier sources, and describe each target."""
     found = {canvas_id: _find(document, canvas_id) for connection in wires for canvas_id in (connection.source, connection.target)}
     objects, object_faults = _partition(found)
     ends, end_faults = _ends(found, wires)
-    if faults := (*object_faults, *end_faults):
+    if faults := collect_faults(object_faults, end_faults):
         return faults
     for _, target in ends if replace else ():
         Connections.DisconnectAllInputs(target, None)
@@ -506,13 +506,13 @@ def wire(document: Document, wires: Sequence[Wire], *, replace: bool = True) -> 
     return tuple(_node(objects[canvas_id], 0) for canvas_id in dict.fromkeys(connection.target for connection in wires))
 
 
-def assign(document: Document, canvas_id: str, values: Sequence[Item] | None = None, input_name: str | None = None, modifiers: Sequence[Modifier] | None = None) -> Data | tuple[Fault, ...]:
+def assign(document: Document, canvas_id: str, values: Sequence[Item] | None = None, input_name: str | None = None, modifiers: Sequence[Modifier] | None = None) -> Resolved[Data]:
     """Set a value source or an unwired input and its modifiers, `()` clearing and `None` keeping, expire it for the next solve, and return the values it holds."""
     found = _find(document, canvas_id)
-    target = found if input_name is None or isinstance(found, tuple) else _port(_parameters(found, Side.Input), input_name)
+    target = found if input_name is None or isinstance(found, Faults) else _port(_parameters(found, Side.Input), input_name)
     modifier_set = None if modifiers is None else _modifiers(modifiers)
-    if isinstance(target, tuple) or isinstance(modifier_set, tuple):
-        return collect_faults(target, modifier_set)
+    if isinstance(target, Faults) or isinstance(modifier_set, Faults):
+        return Faults.of(target, modifier_set)
     match target, values:
         case NumberSliderObject(), [value, *_]:
             target.InternalSlider.Values.Assign(Convert.ToDecimal(value))
@@ -526,19 +526,19 @@ def assign(document: Document, canvas_id: str, values: Sequence[Item] | None = N
         case ValueObject(), [value, *_]:
             target.AssignTextAndValue(str(value))
             if target.ErrorMessage:
-                return (Fault(ValueObject, target.Text, (target.ErrorMessage,)),)
+                return Faults.of(Fault(ValueObject, target.Text, (target.ErrorMessage,)))
             held = (target.Text,)
         case TextInputObject(), [*_]:
             target.Contents = "\n".join(map(str, values))
             held = tuple(target.Values)
         case IParameter(), [*_] if target.Inputs.Count:
-            return (Fault(IParameter, _name(target)),)
+            return Faults.of(Fault(IParameter, _name(target)))
         case IParameter(), ():
             target.PersistentDataWeak = None
             held = ()
         case IParameter(), [*_]:
             match _converted(target, values):
-                case tuple() as refused:
+                case Faults() as refused:
                     return refused
                 case items:
                     target.Set(items)
@@ -546,20 +546,20 @@ def assign(document: Document, canvas_id: str, values: Sequence[Item] | None = N
         case IParameter(), None:
             held = () if target.PersistentDataWeak is None else tuple(target.PersistentDataWeak.NonNullItems)
         case _:
-            return (Fault(IParameter, target.Nomen.Name),)
+            return Faults.of(Fault(IParameter, target.Nomen.Name))
     if modifier_set is not None:
         target.Modifiers = modifier_set
     target.Expire()
     return Data(_name(target), int(bool(held)), len(held), tuple(_describe(value) for value in held))
 
 
-def delete(document: Document, ids: Sequence[str]) -> int | tuple[Fault, ...]:
+def delete(document: Document, ids: Sequence[str]) -> Resolved[int]:
     """Delete objects with their wires and return the count."""
     found = [_find(document, canvas_id) for canvas_id in ids]
     return collect_faults(*found) or document.Methods.DeleteObjects(Array[IDocumentObject](found), None, None)
 
 
-def group(document: Document, doc: RhinoDoc, name: str, color: str, ids: Sequence[str]) -> Node | tuple[Fault, ...]:
+def group(document: Document, doc: RhinoDoc, name: str, color: str, ids: Sequence[str]) -> Resolved[Node]:
     """Group objects under `name` in Open Color family `color`, pinned to `doc`'s units and tolerance, refused for an unknown family and a repeated object."""
     found, family = [_find(document, canvas_id) for canvas_id in ids], _family(color)
     match collect_faults(*found, family) or _group(document, doc, name, family, found):
@@ -569,7 +569,7 @@ def group(document: Document, doc: RhinoDoc, name: str, color: str, ids: Sequenc
             return faults
 
 
-def cluster(document: Document, ids: Sequence[str], name: str) -> Node | tuple[Fault, ...]:
+def cluster(document: Document, ids: Sequence[str], name: str) -> Resolved[Node]:
     """Collapse objects into one cluster named `name` that keeps their boundary wires and takes their place in each group, refused with the topology of an empty or concave set."""
     found = [_find(document, canvas_id) for canvas_id in ids]
     if faults := collect_faults(*found):
@@ -578,7 +578,7 @@ def cluster(document: Document, ids: Sequence[str], name: str) -> Node | tuple[F
     founding = {member.FoundingObject.InstanceId for member in members}
     between = {node.Id for member in founding for node in connectivity.FindAllOutputs(member)} & {node.Id for member in founding for node in connectivity.FindAllInputs(member)}
     if (topology := GraphTopology.Concave if between - founding else connectivity.SubsetTopology(Array[Guid]([*founding]))) in {GraphTopology.Empty, GraphTopology.Concave}:
-        return (Fault(Document, name, (topology,)),)
+        return Faults.of(Fault(Document, name, (topology,)))
     created, placed = document.Methods.ClusterObjects(members, None), {member.InstanceId for member in members}
     created.UserName = name
     shared = {owner: common for owner in document.Objects.Groups if (common := placed.intersection(owner.ContentIds))}
@@ -640,14 +640,14 @@ def arrange(document: Document, gap: float = 60.0) -> tuple[Node, ...]:
     return graph(document, 0)
 
 
-def bake(doc: RhinoDoc, document: Document, canvas_id: str, layer_path: str | None = None, output: str | None = None) -> Objects | tuple[Fault, ...]:
+def bake(doc: RhinoDoc, document: Document, canvas_id: str, layer_path: str | None = None, output: str | None = None) -> Resolved[Objects]:
     """Bake a solved object or one output in one undo step that deletes its earlier bake, onto `layer_path` or by each item's `Rhino.*` meta."""
     found = _find(document, canvas_id)
     outputs = _parameters(found, Side.Output)
-    source = found if output is None or isinstance(found, tuple) else _port(outputs, output)
-    bakeable = source if isinstance(source, tuple) or (isinstance(source, IBakeAware) and source.BakeCapable) else (Fault(IBakeAware, source.Nomen.Name),)
+    source = found if output is None or isinstance(found, Faults) else _port(outputs, output)
+    bakeable = source if isinstance(source, Faults) or (isinstance(source, IBakeAware) and source.BakeCapable) else Faults.of(Fault(IBakeAware, source.Nomen.Name))
 
-    def baked(target: IBakeAware, attributes: ObjectAttributes | None, meta: MetaPattern) -> Objects | tuple[Fault, ...]:
+    def baked(target: IBakeAware, attributes: ObjectAttributes | None, meta: MetaPattern) -> Resolved[Objects]:
         context = BakeContext(None, target.InstanceId, doc, attributes, UserPattern(), meta)
         owned = {parameter.InstanceId for parameter in (outputs if output is None else (target,))}
         earlier = [pair.Item2.Id for pair in BakeContext.FindBakedObjects(doc, BakeDataState.Valid | BakeDataState.Expired | BakeDataState.Invalid) if pair.Item1.ProcessGuid in owned]
@@ -668,7 +668,7 @@ def bake(doc: RhinoDoc, document: Document, canvas_id: str, layer_path: str | No
         case IBakeAware() as target, None:
             return baked(target, None, MetaPattern(enableAll=True, embed=False))
         case failed:
-            return collect_faults(*failed)
+            return Faults.of(*failed)
 
 
 # --- [PICTURES]

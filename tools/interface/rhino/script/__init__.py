@@ -17,9 +17,10 @@ import Rhino
 from Rhino.PlugIns import PlugIn
 from Rhino.UI import RhinoEtoApp
 
-from interface.report import converged, Kind, line, Row
+from interface.report import Action, converged, Kind, line, Row
 from interface.rhino.script import appearance, containers, display, keyboard, options, plugins, template
 from interface.rhino.script.accessors import plain, port as listener
+from interface.units import Units
 
 if TYPE_CHECKING:
     from Grasshopper2.Doc import Document
@@ -50,8 +51,8 @@ def emit(entries: Iterable[Row | str]) -> None:
     except Exception as error:
         root = cause(error)
         frame = traceback.extract_tb(root.__traceback__)[-1]
-        texts = chain.from_iterable(traceback.format_exception_only(each) for each in dict.fromkeys((root, error)))
-        print(line(Kind.ERROR, " ".join((*chain.from_iterable(text.split() for text in texts), f"at {frame.filename}:{frame.lineno}"))))
+        words = (word for each in dict.fromkeys((root, error)) for text in traceback.format_exception_only(each) for word in text.split())
+        print(line(Kind.ERROR, " ".join((*words, f"at {frame.filename}:{frame.lineno}"))))
 
 
 def ready(address: str, port: int) -> None:
@@ -61,13 +62,17 @@ def ready(address: str, port: int) -> None:
 
 
 def main(doc: Rhino.RhinoDoc) -> None:
-    """Converge and report the Settings window closed and every store's rows in store order, Grasshopper 2 last, then flush the settings on every path."""
+    """Converge and report the Settings window closed and every store's rows in store order over each unit system's template facts, Grasshopper 2 last once it loaded, then flush the settings on every path."""
     preferences = RhinoEtoApp.ApplicationPreferencesWindowForPage(None)
 
     def entries() -> Iterator[Row | str]:
-        yield Row(label="ApplicationPreferencesWindow.Visible", read=lambda: preferences is not None and preferences.Visible, write=lambda _: preferences.Close(), target=False)
-        yield from chain(options.rows(), appearance.rows(), keyboard.rows(), containers.rows(doc), plugins.rows(), display.rows(), template.rows())
-        PlugIn.LoadPlugIn(PlugIn.IdFromName("Grasshopper2"))
+        targets = {units: template.target(units) for units in Units}
+        if preferences is not None:
+            yield Action(label="ApplicationPreferencesWindow.Visible", read=lambda: preferences.Visible, act=preferences.Close, target=False)
+        yield from chain(options.rows(), appearance.rows(), keyboard.rows(), containers.rows(doc, targets), plugins.rows(), display.rows(), template.rows(targets))
+        if not PlugIn.LoadPlugIn(PlugIn.IdFromName("Grasshopper2")):
+            yield line(Kind.ERROR, "Grasshopper 2 did not load, its rows stay unwritten")
+            return
         from interface.rhino.script import grasshopper
 
         yield from grasshopper.rows(doc, display.point_width(), display.curve_width())

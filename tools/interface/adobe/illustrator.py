@@ -1,7 +1,6 @@
-"""Illustrator's rows, alias commands, toolbar, and Essentials frame, with the store text, New Document preset, swatch exchange, and action files it reads."""
+"""Illustrator's rows, toolbar, and Essentials frame, with the store text, New Document preset, and swatch exchange files it reads."""
 
 from collections.abc import Mapping, Sequence
-import ctypes
 from enum import StrEnum
 from functools import partial, reduce
 from itertools import accumulate, batched, starmap
@@ -15,12 +14,12 @@ import msgspec
 
 from interface import host
 from interface.adobe import window
-from interface.adobe.rows import ActionSet, Active, Menu, Paper, papers, PROMPT_NAME, prompt_source, Row, STROKE_UNITS, text_scale, Tool, Toolbar
+from interface.adobe.rows import Active, Paper, papers, Row, STROKE_UNITS, text_scale, Toolbar
 from interface.adobe.session import Scripted
-from interface.adobe.stores import Default, File, Folder, UxpPlugin
-from interface.aliases import Alias
-from interface.frame import Role
+from interface.adobe.stores import Default, File, Folder
+from interface.adobe.window import Role
 from interface.render import DPI
+from interface.report import single
 from interface.roles import Alpha, blend, Guide, Ink, Line, Node, POINT_WIDTH, Selection, Surface, SWATCHES, TAGS
 from interface.units import ANGLE_STEP, Length, Units
 
@@ -40,51 +39,10 @@ class PreferenceType(StrEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 ENCODING: Final = "latin-1"
-LEADER: Final = 9
 PREFS: Final = "Adobe Illustrator Prefs"
 PRESETS: Final = "PresetDocumentProfileDataV10.json"
 ATTRIBUTES: Final = ("collection1", "attributes")
 BOOKMARK: Final = "OWLBookMark"
-COMMANDS: Final[frozendict[Alias, Tool | Menu]] = frozendict({
-    Alias.Q: Tool("Adobe Line Tool"),
-    Alias.QQ: Tool("Adobe Pen Tool"),
-    Alias.QW: Tool("Adobe Arc Tool"),
-    Alias.QE: Tool("Adobe Curvature Tool"),
-    Alias.QR: Menu("Path Blend Make", selection=True),
-    Alias.W1: Tool("Adobe Rectangle Shape Tool"),
-    Alias.W3: Tool("Adobe Rounded Rectangle Tool"),
-    Alias.WQ: Tool("Adobe Shape Construction Regular Polygon Tool"),
-    Alias.E: Tool("Adobe Ellipse Shape Tool"),
-    Alias.R: Tool("Adobe Rotate Tool"),
-    Alias.R2: Tool("Adobe Reflect Tool"),
-    Alias.T: Tool("Adobe Type Tool"),
-    Alias.TT: Menu("outline", selection=True),
-    Alias.T3: Tool("Adobe Scale Tool"),
-    Alias.T4: Menu("Transform3", selection=True),
-    Alias.TW: Tool("Adobe Shear Tool"),
-    Alias.AQ: Tool("Adobe Shape Builder Tool"),
-    Alias.D: Tool("Adobe Measure Tool"),
-    Alias.FF: Menu("join", selection=True),
-    Alias.FQ: Tool("Adobe Scissors Tool"),
-    Alias.FD: Tool("Adobe Knife Tool"),
-    Alias.G: Menu("group", selection=True),
-    Alias.GU: Menu("ungroup", selection=True),
-    Alias.GH: Menu("hide", selection=True),
-    Alias.GJ: Menu("showAll", selection=False),
-    Alias.GL: Menu("lock", selection=True),
-    Alias.GP: Menu("unlockAll", selection=False),
-    Alias.GW: Menu("makeguide", selection=True),
-    Alias.GE: Menu("clearguide", selection=False),
-    Alias.Z: Tool("Adobe Zoom Tool"),
-    Alias.ZE: Menu("fitall", selection=False),
-    Alias.V: Tool("Adobe Select Tool"),
-    Alias.VA: Menu("AdobeAlignObjects2", selection=False),
-    Alias.VO: Menu("selectall", selection=False),
-    Alias.VI: Menu("Inverse menu item", selection=False),
-    Alias.B: Menu("Adobe New Symbol Shortcut", selection=True),
-    Alias.BE: Menu("Adobe Symbol Palette", selection=False),
-    Alias.IM: Menu("AI Place", selection=False),
-})
 TOOLBOX: Final = Toolbar(
     (
         ("Adobe Select Tool", "Adobe Crop Tool"),
@@ -307,7 +265,7 @@ def profiles(presets: tuple[Paper, ...], held: bytes | None) -> bytes | host.Err
     def made(row: msgspec.Raw, origin: Preset, index: int, paper: Paper) -> bytes:
         fields = msgspec.json.decode(row, type=dict[str, msgspec.Raw])
         specific = msgspec.json.decode(fields["appSpecificKey"], type=dict[str, msgspec.Raw])
-        width, height = (ctypes.c_float(side / Length.POINTS).value for side in paper.value.document)
+        width, height = (single(side / Length.POINTS) for side in paper.value.document)
         size = f"{round(width, 2):g} x {round(height, 2):g} pt"
         return msgspec.json.encode({
             **fields,
@@ -342,43 +300,6 @@ def exchange(name: str, swatches: Mapping[str, tuple[int, int, int]]) -> bytes:
 
     blocks = (block(0xC001, named(name)), *(block(0x0001, named(swatch) + b"RGB " + struct.pack(">3fH", *(byte / 255 for byte in color), 2)) for swatch, color in swatches.items()), block(0xC002, b""))
     return struct.pack(">4sHHI", b"ASEF", 1, 0, len(blocks)) + b"".join(blocks)
-
-
-def aia(key: int) -> bytes:
-    """Alias action set on the key index playing the Scripts menu item of the alias entry file through the Access Menu Item event."""
-    parameters = (("itnm", ""), ("lcnm", PROMPT_NAME))
-    return serialized((
-        ("version", 3),
-        ("name", PROMPT_NAME),
-        ("isOpen", 0),
-        ("actionCount", 1),
-        (
-            "action-1",
-            (
-                ("name", PROMPT_NAME),
-                ("keyIndex", key),
-                ("colorIndex", 0),
-                ("isOpen", 0),
-                ("eventCount", 1),
-                (
-                    "event-1",
-                    (
-                        ("useRulersIn1stQuadrant", 1),
-                        ("internalName", b"adobe_commandManager"),
-                        ("localizedName", "Access Menu Item"),
-                        ("isOpen", 0),
-                        ("isOn", 1),
-                        ("hasDialog", 0),
-                        ("parameterCount", len(parameters)),
-                        *(
-                            (f"parameter-{index}", (("key", int.from_bytes(name.encode())), ("showInPalette", 0xFFFFFFFF), ("type", b"ustring"), ("value", value)))
-                            for index, (name, value) in enumerate(parameters, start=1)
-                        ),
-                    ),
-                ),
-            ),
-        ),
-    ))
 
 
 # --- [WORKSPACE]
@@ -433,93 +354,92 @@ def preference(key: str, *, target: bool | float) -> Row:
         case int():
             return Row(label, Preference(key, PreferenceType.INTEGER), target)
         case float():
-            return Row(label, Preference(key, PreferenceType.REAL), round(ctypes.c_float(target).value, 10))
-
-
-def channels(template: str, names: tuple[str, str, str], target: tuple[int, int, int], *, sixteen_bit: bool = False) -> tuple[Row, ...]:
-    """Rows of a color held as one preference key per channel name the template spells, each byte over 255 as a real or scaled to 16 bits as an integer."""
-    return tuple(preference(template.format(name), target=byte * 257 if sixteen_bit else byte / 255) for name, byte in zip(names, target, strict=True))
+            return Row(label, Preference(key, PreferenceType.REAL), round(single(target), 10))
 
 
 def folders(bundle: host.Bundle, base: Mapping[Folder, Path]) -> Mapping[Folder, Path]:
-    """Illustrator's preferences folder of the reported settings folder's name and locale, and the factory workspaces and Scripts folder of that locale beside the bundle."""
-    settings = base[Folder.SETTINGS]
-    presets = bundle.path.parent.joinpath("Presets.localized", settings.name)
+    """Illustrator's settings and preferences folders of the bundle's settings name in the reported folder's locale, a Beta's name holding its version and a release's its major version, and the factory workspaces of that locale beside the bundle."""
+    beta, release = PRODUCT.identifiers
+    named, locale = {beta: f"Adobe Illustrator {bundle.version} Beta Settings", release: f"Adobe Illustrator {bundle.version.partition('.')[0]}"}[bundle.identifier], base[Folder.SETTINGS].name
     return frozendict({
-        Folder.PREFERENCES: base[Folder.HOME].joinpath("Library", "Preferences", settings.parent.name, settings.name),
-        Folder.FACTORY: presets / "Workspaces",
-        Folder.SCRIPTS: presets / "Scripts",
+        Folder.SETTINGS: base[Folder.HOME].joinpath("Library", "Application Support", "Adobe", named, locale),
+        Folder.PREFERENCES: base[Folder.HOME].joinpath("Library", "Preferences", named, locale),
+        Folder.FACTORY: bundle.path.parent.joinpath("Presets.localized", locale, "Workspaces"),
     })
 
 
-def rows(units: Units, bundle: host.Bundle) -> tuple[Row | File | Default | UxpPlugin, ...]:
-    """Illustrator's rows with the interface scaled to draw panel text at the interface text size, lengths in the system's page unit, type in points, and strokes in the system's stroke unit, the grid solved over paper at the darkest theme's grid alpha."""
+def rows(units: Units, bundle: host.Bundle) -> tuple[Row | File | Default, ...]:
+    """Illustrator's rows with the interface scaled to draw panel text at the interface text size, lengths in the system's page unit, type in points, and strokes in the system's stroke unit, the grid solved over paper at the darkest theme's grid alpha, color channels as reals or 16-bit integers."""
     rgb, capitalized, grid_alpha, anchors = ("red", "green", "blue"), ("Red", "Green", "Blue"), 0.3, 0x2AA0
     scale = text_scale(bundle.path.joinpath("Contents", "Required", "Plug-ins", "UserInterface.aip", "Contents", "Resources", "xml", "FontTheme_Panel.xml"))
     codes = frozendict({Length.INCHES: 0, Length.MILLIMETERS: 1, Length.POINTS: 2})
-    sixteen_bit = partial(channels, sixteen_bit=True)
     anchor = min((size for size in range(anchors.bit_length()) if anchors >> size & 1), key=lambda size: abs(size + 2 * int(2 * (scale % 1)) - POINT_WIDTH))
     angles = tuple(float(index * ANGLE_STEP) for index in range(6))
-    ruler, profile, actions = "rulerType", "startupFileType", f"{PROMPT_NAME}.aia"
-    return (
-        preference("uiBrightness", target=0.0),
-        preference("uiCanvasIsWhite", target=False),
-        preference("UIPreferences/appScaleFactor", target=scale),
-        preference("UIPreferences/workspaceTabsSize", target=0),
-        preference("uiShareButtonIsBlue", target=False),
-        preference("text/fontMenu/faceSizeMultiplier", target=0.0),
-        preference("Hello/ShowHomeScreenWS", target=False),
-        preference("Hello/NewDoc", target=False),
-        preference("aiShowSystemCompatibilityIssuesAtStartup", target=False),
-        preference("plugin/AIAgenticSystem/ConsentSendDataToThirdParty", target=False),
-        preference("plugin/AIMCPServer/ServerEnabled", target=True),
-        preference("plugin/AIMCPServer/ShowConnectionStatusOnHeader", target=False),
-        preference("plugin/AgenticUI/ShowAgenticUIPanelPreference2", target=False),
-        preference("showHelpBar", target=False),
-        preference("ContextualTaskBarEnabled", target=False),
-        preference("Performance/AnimZoom", target=False),
-        preference("showToolTips", target=True),
-        preference("showRichToolTips", target=False),
-        preference("zoomWithMouseWheel", target=True),
-        preference("globalRulersVisible", target=True),
-        preference("showBoundingBox", target=True),
-        preference("anchorSizePref", target=anchor),
-        preference("ReplacingLinks", target=0),
-        preference("DontShowMissingFontDialogPreference", target=True),
-        preference("AI WorldReadiness Dict Key", target=2),
-        *channels("Guide/Color/{}", rgb, Guide.CONSTRUCTION),
-        preference("Guide/Style", target=0),
-        *channels("Grid/Color/Dark/{}", ("r", "g", "b"), blend(Line.PAPER_GRID, Surface.PAPER, 1 / grid_alpha)),
-        *channels("Grid/Color/Lite/{}", ("r", "g", "b"), blend(blend(Line.PAPER_GRID, Surface.PAPER, Alpha.GRID_MINOR), Surface.PAPER, 1 / grid_alpha)),
-        preference("Grid/Style", target=0),
-        preference("Grid/Posn", target=False),
-        *channels("snapomatic/Color/{}_19_2", rgb, Guide.TRACKING),
-        *channels("snapomatic/GlyphColor/{}", rgb, Guide.TRACKING),
-        *(
-            row
+    ruler, profile, axes = "rulerType", "startupFileType", ("Horizontal", "Vertical")
+    reals = {
+        "Guide/Color/{}": (rgb, Guide.CONSTRUCTION),
+        "Grid/Color/Dark/{}": (("r", "g", "b"), blend(Line.PAPER_GRID, Surface.PAPER, 1 / grid_alpha)),
+        "Grid/Color/Lite/{}": (("r", "g", "b"), blend(blend(Line.PAPER_GRID, Surface.PAPER, Alpha.GRID_MINOR), Surface.PAPER, 1 / grid_alpha)),
+        "snapomatic/Color/{}_19_2": (rgb, Guide.TRACKING),
+        "snapomatic/GlyphColor/{}": (rgb, Guide.TRACKING),
+        "ArtboardBBColor{}": (capitalized, Node.BORDER),
+    }
+    wide = {
+        "plugin/AdobeSlicingPlugin/feedback/{}": (rgb, Guide.HANDLE),
+        "Planar/MergeTool/Highlight/StrokeColor/{}": (capitalized, Selection.HOVER),
+        **{f"Planar/{tool}/Highlight/Color/{{}}": (rgb, Selection.HOVER) for tool in ("FaceSelect", "Paintbucket")},
+        "Planar/GapDetection/GapColor/Color/{}": (rgb, Guide.TRACKING),
+    }
+    preferences = {
+        "uiBrightness": 0.0,
+        "uiCanvasIsWhite": False,
+        "UIPreferences/appScaleFactor": scale,
+        "UIPreferences/workspaceTabsSize": 1,
+        "uiShareButtonIsBlue": False,
+        "text/fontMenu/faceSizeMultiplier": 0.0,
+        "Hello/ShowHomeScreenWS": False,
+        "Hello/NewDoc": False,
+        "aiShowSystemCompatibilityIssuesAtStartup": False,
+        "plugin/AIAgenticSystem/ConsentSendDataToThirdParty": False,
+        "plugin/AIMCPServer/ServerEnabled": True,
+        "plugin/AIMCPServer/ShowConnectionStatusOnHeader": False,
+        "plugin/AgenticUI/ShowAgenticUIPanelPreference2": False,
+        "showHelpBar": False,
+        "ContextualTaskBarEnabled": False,
+        "Performance/AnimZoom": False,
+        "showToolTips": True,
+        "showRichToolTips": False,
+        "zoomWithMouseWheel": True,
+        "globalRulersVisible": True,
+        "showBoundingBox": True,
+        "anchorSizePref": anchor,
+        "DontShowMissingFontDialogPreference": True,
+        "AI WorldReadiness Dict Key": 2,
+        "Guide/Style": 0,
+        "Grid/Style": 0,
+        "Grid/Posn": False,
+        **{
+            key: value
             for group in ("angles", "customAngles")
-            for row in (preference(f"smartGuides/{group}Count", target=len(angles)), *(preference(f"smartGuides/{group}{index}", target=angle) for index, angle in enumerate(angles)))
-        ),
-        *channels("ArtboardBBColor{}", capitalized, Node.BORDER),
-        preference("ArtboardBBWidth", target=1.0),
-        *sixteen_bit("plugin/AdobeSlicingPlugin/feedback/{}", rgb, Guide.HANDLE),
-        preference("Planar/MergeTool/Highlight/StrokeColorIndex", target=0),
-        *sixteen_bit("Planar/MergeTool/Highlight/StrokeColor/{}", capitalized, Selection.HOVER),
-        *(preference(f"Planar/{tool}/Highlight", target=True) for tool in ("FaceSelect", "Paintbucket")),
-        *(row for tool in ("FaceSelect", "Paintbucket") for row in sixteen_bit(f"Planar/{tool}/Highlight/Color/{{}}", rgb, Selection.HOVER)),
-        *sixteen_bit("Planar/GapDetection/GapColor/Color/{}", rgb, Guide.TRACKING),
-        preference(ruler, target=codes[units.page]),
+            for key, value in ((f"smartGuides/{group}Count", len(angles)), *((f"smartGuides/{group}{index}", angle) for index, angle in enumerate(angles)))
+        },
+        "ArtboardBBWidth": 1.0,
+        "Planar/MergeTool/Highlight/StrokeColorIndex": 0,
+        **dict.fromkeys((f"Planar/{tool}/Highlight" for tool in ("FaceSelect", "Paintbucket")), True),
+        ruler: codes[units.page],
+        "strokeUnits": codes[STROKE_UNITS[units]],
+        "text/units": codes[Length.POINTS],
+        "cursorKeyLength": units.resolution / Length.POINTS,
+        **dict.fromkeys((f"Grid/{axis}/Spacing" for axis in axes), units.snap / Length.POINTS),
+        **dict.fromkeys((f"Grid/{axis}/Ticks" for axis in axes), round(units.snap / units.resolution)),
+        **{template.format(name): byte / 255 for template, (names, color) in reals.items() for name, byte in zip(names, color, strict=True)},
+        **{template.format(name): byte * 257 for template, (names, color) in wide.items() for name, byte in zip(names, color, strict=True)},
+    }
+    return (
+        *(preference(key, target=target) for key, target in preferences.items()),
         Row(f'preferences["{ruler}_<n>"]', Slots(ruler, profile), codes[units.page]),
-        preference("strokeUnits", target=codes[STROKE_UNITS[units]]),
-        preference("text/units", target=codes[Length.POINTS]),
-        preference("cursorKeyLength", target=units.resolution / Length.POINTS),
-        *(preference(f"Grid/{axis}/Spacing", target=units.snap / Length.POINTS) for axis in ("Horizontal", "Vertical")),
-        *(preference(f"Grid/{axis}/Ticks", target=round(units.snap / units.resolution)) for axis in ("Horizontal", "Vertical")),
         Row(f'preferences["{profile}_<n>"]', Profile(profile), {"stroke": Ink.DOCUMENT, "resolution": float(DPI), "group": TAGS, "swatches": tuple(SWATCHES.items())}),
-        Row(f'preferences["plugin/Action/SavedSets"]["{PROMPT_NAME}"].keyIndex', ActionSet(PROMPT_NAME, actions), LEADER),
         Row('preferences["plugin/WorkspacePrefix/Last Used Workspace Name"]', Active(), window.WORKSPACE),
-        File(Folder.ARTIFACTS, actions, lambda _: aia(LEADER)),
-        File(Folder.SCRIPTS, f"{PROMPT_NAME}.jsx", lambda _: prompt_source(PRODUCT.name, COMMANDS).encode()),
         File(Folder.SETTINGS, f"Swatches/{TAGS}.ase", lambda _: exchange(TAGS, SWATCHES)),
         File(Folder.PREFERENCES, "Tools/Tools Panel Presets", partial(ordered, catalog(TOOLBOX))),
         File(Folder.PREFERENCES, PRESETS, partial(profiles, papers(units))),
@@ -565,4 +485,4 @@ PRODUCT: Final = Scripted(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COMMANDS", "FRAME", "LEADER", "PRODUCT", "folders", "rows", "workspace"]
+__all__ = ["FRAME", "PRODUCT", "folders", "rows", "workspace"]
