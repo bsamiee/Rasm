@@ -499,7 +499,7 @@ require-lazy = [
 environment = { python-platform = "all", root = [".", "libs/python", "tools"] }
 analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "PyObjCTools", "PyObjCTools.**"] }
 rules = { all = "error", dynamic-function-decorator-return = "ignore", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
-overrides = [{ include = ["tools/interface/rhino"], rules = { too-many-positional-arguments = "ignore" } }]
+overrides = [{ include = ["tools/interface/rhino"], rules = { call-non-callable = "ignore", too-many-positional-arguments = "ignore" } }]
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
