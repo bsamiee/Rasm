@@ -143,7 +143,6 @@ public static class Batches {
     public static IO<TValue> WithSnapshot<TValue>(RenderWindow window, Func<Bitmap, IO<TValue>> body) =>
         DisposalOps.Using(IO.lift(() => Missing.Unless(window.GetBitmap(), nameof(RenderWindow.GetBitmap))), body);
 
-    /// <summary>Reads the <paramref name="region"/> values of <paramref name="channel"/> row by row into a pinned array a <see cref="PixelBuffer"/> can address, the host taking the row stride in bytes as the width times <see cref="RenderWindow.Channel.PixelSize"/></summary>
     internal static float[] Values(RenderWindow.Channel channel, Rectangle region, ComponentOrders order) {
         int pixel = channel.PixelSize();
         float[] values = GC.AllocateUninitializedArray<float>(region.Width * region.Height * pixel / sizeof(float), pinned: true);

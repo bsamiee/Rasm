@@ -90,5 +90,5 @@ public abstract class ParameterSection<TValue, TRaw> : EtoPostEffectCollapsibleS
 
     public sealed override bool Hidden => !(effect.IsSelected && (effect.Shown || effect.PostEffectType == PostEffectType.ToneMapping));
 
-    protected void Write(TRaw raw) => _ = effect.SetParam(ParameterEffect<TValue, TRaw>.Key, raw);
+    protected void Write(TRaw raw) => _ = SetParameter(ParameterEffect<TValue, TRaw>.Key, raw);
 }
