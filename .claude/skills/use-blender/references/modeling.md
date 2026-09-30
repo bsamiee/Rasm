@@ -1,62 +1,132 @@
 # [MODELING]
 
-Meshes built in code and the objects, modifiers, and collections holding them.
+Meshes built from dimensions in code, kept in collections, and changed in place, each change closing on evaluated values and a capture.
 
-## [01]-[MESH]
+## [01]-[NEW_PART]
+
+New parts build in one call from dimensions in meters: one mesh per member from boxes in `bmesh`, cutters in a hidden child collection, repeats and cuts as modifiers, and the evaluated dimensions with a capture in `result`:
 
 ```python
-# [EXECUTE_BLENDER_CODE] Wall from feet-and-inch dimensions with a door cut by a hidden cutter parented to it
+# [EXECUTE_BLENDER_CODE] Room of slab, walls cut by a door and a window, and a column row, each member from its dimensions
 import bmesh
 import bpy
-from mathutils import Matrix
+from capture import capture
+from mathutils import Matrix, Vector
+from results import as_result
 
 INCH = 0.0254
 FOOT = 12 * INCH
+part, cutters = bpy.data.collections.new("Room"), bpy.data.collections.new("Room Cutters")
+bpy.context.scene.collection.children.link(part)
+part.children.link(cutters)
+bpy.context.view_layer.layer_collection.children[part.name].children[cutters.name].hide_viewport = True
+cutters.hide_render = True
 
 
-def box(name: str, size: tuple[float, float, float], location: tuple[float, float, float]) -> bpy.types.Object:
+def solid(
+    name: str, boxes: list[tuple[tuple[float, float, float], tuple[float, float, float]]], owner: bpy.types.Collection, location: tuple[float, float, float], parent: bpy.types.Object | None = None
+) -> bpy.types.Object:
     mesh, bm = bpy.data.meshes.new(name), bmesh.new()
-    bmesh.ops.create_cube(bm, size=1.0, matrix=Matrix.Diagonal((*size, 1.0)))
+    for size, corner in boxes:
+        bmesh.ops.create_cube(bm, size=1.0, matrix=Matrix.Translation(Vector(corner) + Vector(size) / 2) @ Matrix.Diagonal((*size, 1.0)))
     bm.to_mesh(mesh)
     bm.free()
     obj = bpy.data.objects.new(name, mesh)
-    obj.location = location
-    bpy.context.collection.objects.link(obj)
+    obj.parent, obj.location = parent, location
+    owner.objects.link(obj)
     return obj
 
 
-wall = box("<Wall>", (20 * FOOT, 6 * INCH, 10 * FOOT), (0.0, 0.0, 5 * FOOT))
-door = box("<Door>", (3 * FOOT, FOOT, 7 * FOOT), (0.0, 0.0, 3.5 * FOOT))
-bpy.context.view_layer.update()
-door.parent, door.matrix_parent_inverse = wall, wall.matrix_world.inverted()
-door.display_type, door.hide_render = "WIRE", True
-door.hide_set(True)
-cut = wall.modifiers.new("<Door>", "BOOLEAN")
-cut.object, cut.solver = door, "EXACT"
-evaluated = wall.evaluated_get(bpy.context.evaluated_depsgraph_get())
-result = {"dimensions_ft": [d / FOOT for d in evaluated.dimensions], "faces": len(evaluated.data.polygons)}
+length, depth, height, wall, level = 24 * FOOT, 16 * FOOT, 10 * FOOT, 6 * INCH, 8 * INCH
+solid("Slab", [((length, depth, level), (0.0, 0.0, 0.0))], part, (0.0, 0.0, 0.0))
+sides = ((length, wall, height), (wall, depth - 2 * wall, height))
+walls = solid("Walls", [(sides[0], (0.0, 0.0, 0.0)), (sides[0], (0.0, depth - wall, 0.0)), (sides[1], (0.0, wall, 0.0)), (sides[1], (length - wall, wall, 0.0))], part, (0.0, 0.0, level))
+solid("Door", [((3 * FOOT, 2 * wall, 7 * FOOT), (0.0, 0.0, 0.0))], cutters, (4 * FOOT, -wall / 2, 0.0), walls)
+solid("Window", [((6 * FOOT, 2 * wall, 4 * FOOT), (0.0, 0.0, 0.0))], cutters, (14 * FOOT, -wall / 2, 3 * FOOT), walls)
+openings = walls.modifiers.new("Openings", "BOOLEAN")
+openings.operand_type, openings.collection, openings.solver = "COLLECTION", cutters, "EXACT"
+column = solid("Columns", [((8 * INCH, 8 * INCH, height), (0.0, 0.0, 0.0))], part, (2 * FOOT, depth + 4 * FOOT, level))
+row = column.modifiers.new("Row", "ARRAY")
+row.count, row.use_relative_offset, row.use_constant_offset, row.constant_offset_displace = 5, False, True, (5 * FOOT, 0.0, 0.0)
+depsgraph = bpy.context.evaluated_depsgraph_get()
+feet = {o.name: [round(d / FOOT, 4) for d in o.evaluated_get(depsgraph).dimensions] for o in part.all_objects}
+result = {"feet": feet, "iso": as_result(capture("room-iso", objects=tuple(o.name for o in part.objects)))}
 ```
 
-- `bmesh.ops.create_cube(bm, size=1.0, matrix=Matrix.Diagonal((x, y, z, 1)))` builds an `x` by `y` by `z` box centered on the origin
-- Circular primitives take `vertices=64` or more, facets meeting under 5.73° draw no wireframe edge at `overlay.wireframe_threshold` 0
-- `mesh.primitive_quad_sphere_add(segments=, radius=)` builds an all-quad sphere
-- `object.join()` under a selection override with `active_object=<target>` merges the selected objects into the target
-- `object.transform_apply(location=False, rotation=False, scale=True)` under a selection override bakes object scale into the mesh
+- `solid` puts each object origin at its member's lower corner for `location` to place, its boxes forming one mesh with no join
+- `bpy.data.objects.new` links into a named collection and keeps active object and selection, which a primitive operator changes
+- `bpy.data.collections.new` makes an unlinked collection, and `scene.collection.children.link` places it
+- Children given a parent before their location take it in parent space and move with that parent
+- One Boolean of `operand_type` `COLLECTION` cuts with every object in the cutter collection
+- Cutters stay hidden through their layer collection's `hide_viewport` and out of renders through `Collection.hide_render`
+- Arrays space by `constant_offset_displace` in meters with `use_relative_offset` off
+- Round members take `bmesh.ops.create_cone(bm, cap_ends=True, segments=64, radius1=<r>, radius2=<r>, depth=<h>)`, centered on the origin
+- 64 segments draw no facet edge under a wireframe threshold of 0, which startup viewports hold
+- `mesh.shade_smooth()` then `mesh.set_sharp_from_angle(angle=radians(30))` keeps cap rims sharp with no modifier
+- Startup files hold `Ground` at z 0, which renders and headless captures draw, so members stand on it from z 0 up
+- `feet` compares each evaluated member with its declared dimensions, and `room-iso` becomes the capture baseline
 
-## [02]-[MODIFIERS]
+## [02]-[EXISTING_PART]
 
-- Stacks evaluate top down, `object.modifier_apply(modifier=)` under `temp_override(object=, active_object=)` bakes one modifier into the mesh
-- Applies below the top of the stack print `Info: Applied modifier was not first` and bake onto the unmodified mesh, and the modifiers above stay
-- Cutters keep cutting while `hide_set(True)` hides them, `hide_render` True keeps them out of renders, and captures skip them
-- `bpy.ops.object.shade_auto_smooth(angle=<radians>)` adds a `Smooth by Angle` modifier
+Existing parts are read, then changed in one call between a baseline and its comparison:
+1. `get_objects_summary` reads collections and parents, `get_object_detail_summary` one object's modifiers and materials
+2. Edit through the edit mesh while its object is in Edit Mode, else through a `bmesh` of mesh data
+3. Move a cutter to move its opening, which its Boolean recomputes
+4. Read `changes` and the capture comparison
 
-## [03]-[EDIT_MODE]
+```python
+# [EXECUTE_BLENDER_CODE] Walls raised from 10' to 12' and the window moved 2' along the wall, against a baseline taken first
+import bmesh
+import bpy
+from capture import capture
+from results import as_result
+from snapshot import snapshot
 
-- `object.mode_set(mode="EDIT")` opens Edit Mode on `view_layer.objects.active`, and `bmesh.from_edit_mesh(<obj>.data)` returns the mesh it holds
-- `bmesh.update_edit_mesh(<obj>.data)` writes the bmesh into the edit mesh the evaluated object reads in Edit Mode
-- Calls return through `object.mode_set(mode="OBJECT")` before `result`, `obj.data` reads the edit from then on
+FOOT = 0.3048
+obj, names = bpy.data.objects["Walls"], ("Walls", "Slab")
+before = {"state": as_result(snapshot("room-before", objects=names)), "iso": as_result(capture("room-before-iso", objects=names))}
+mesh = obj.data
+editing = mesh.is_editmode
+bm = bmesh.from_edit_mesh(mesh) if editing else bmesh.new()
+if not editing:
+    bm.from_mesh(mesh)
+bmesh.ops.translate(bm, verts=[v for v in bm.verts if v.co.z > 5 * FOOT], vec=(0.0, 0.0, 2 * FOOT))
+if editing:
+    bmesh.update_edit_mesh(mesh)
+else:
+    bm.to_mesh(mesh)
+    bm.free()
+obj.modifiers["Openings"].collection.objects["Window"].location.x += 2 * FOOT
+result = {"before": before, "changes": as_result(snapshot("room-after", objects=names, since="room-before")), "iso": as_result(capture("room-after-iso", objects=names, since="room-before-iso"))}
+```
 
-## [04]-[ORGANIZATION]
+- `to_mesh` raises `ValueError` on a mesh in Edit Mode, and `update_edit_mesh` writes what evaluated objects and snapshots read
+- `obj.data` holds an Edit Mode edit once `object.mode_set(mode="OBJECT")` runs
+- Axis views show a wall's openings edge-on against the wall behind them, so walls take `iso`
+- `changes` names raised bounds and a new geometry hash, and `outside` true marks walls past their baseline frame
+- Use captures.md for each comparison reading and its next step
 
-- Operators link new objects into `bpy.context.collection`, the view layer's active collection, and `bpy.data.objects.new` links none
-- `matrix_world` of an object placed in the same call holds its transform once `bpy.context.view_layer.update()` evaluates it
+Existing objects merge into one with their stacks baked, `join` taking each other object's mesh without its modifiers:
+
+```python
+# [EXECUTE_BLENDER_CODE] <Object> merged into <Target> with its modifiers applied, its orphaned mesh removed
+import bpy
+
+target = bpy.data.objects["<Target>"]
+others = [bpy.data.objects[name] for name in ("<Object>",)]
+for obj in others:
+    for name in [modifier.name for modifier in obj.modifiers]:
+        with bpy.context.temp_override(active_object=obj, selected_objects=[obj], selected_editable_objects=[obj]):
+            bpy.ops.object.modifier_apply(modifier=name)
+meshes = [obj.data for obj in others]
+with bpy.context.temp_override(active_object=target, selected_objects=[target, *others], selected_editable_objects=[target, *others]):
+    status = bpy.ops.object.join()
+bpy.data.batch_remove(meshes)
+result = {"status": sorted(status), "faces": len(target.data.polygons)}
+```
+
+- Stacks bake top down, one `modifier_apply` per modifier name in stack order
+- Linked duplicates take `obj.data = obj.data.copy()` first, an apply on a shared mesh raising `Modifiers cannot be applied to multi-user data`
+- `join` keeps its target's origin and modifiers, removes every other object, and leaves their meshes at 0 users for `batch_remove`
+- Placed objects keep their world transform under a new parent through `child.matrix_parent_inverse = parent.matrix_world.inverted()`
+- Objects placed in the same call take `bpy.context.view_layer.update()` before that read of `matrix_world`

@@ -91,7 +91,8 @@ def trees() -> dict[str, tuple[str, bpy.types.NodeTree]]:
         for pointer in ids.fixed_type.properties
         if isinstance(pointer, bpy.types.PointerProperty) and isinstance(pointer.fixed_type, bpy.types.NodeTree) and not pointer.is_deprecated
     )
-    return {name: row for name, row in ChainMap({group.name: (type(group).__name__, group) for group in bpy.data.node_groups}, *owned).items() if type(row[1]) is not bpy.types.NodeTree}
+    chained = ChainMap({group.name: (type(group).__name__, group) for group in bpy.data.node_groups}, *owned)
+    return {name: (kind, tree) for name, (kind, tree) in chained.items() if type(tree) is not bpy.types.NodeTree}
 
 
 def record(owner: str, tree: bpy.types.NodeTree) -> Digest:

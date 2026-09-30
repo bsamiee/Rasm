@@ -1,52 +1,95 @@
 # [RENDERING]
 
-Renders through `headless.py render` in a process under the user's preferences on the saved file.
+Renders of a saved file run through `headless.py render` in a background Blender under the user's preferences, renders of the live scene through the `blender` server's render tools.
 
 ## [01]-[SETTINGS]
 
-- Engine identifiers are `BLENDER_EEVEE`, `CYCLES`, and `BLENDER_WORKBENCH`
-- Cycles GPU renders need `scene.cycles.device = "GPU"` and the add-on preference `compute_device_type` with each device's `use` flag on
-- Factory processes list no Cycles device until `refresh_devices()` and render a GPU scene on the CPU
-- Processes under the user's preferences read the stored device rows, sessions and `render` refresh them
-- First Cycles Metal frame on a cold kernel cache compiles past the `blender` server's wait, later processes reuse the cache
-- `image_settings.media_type` writes before `file_format`, and `file_format` accepts that media type's formats alone
-- Video takes `media_type = "VIDEO"`, `render.ffmpeg.format = "MPEG4"`, and `codec = "H264"`
-- Sequencer strips sit in `scene.sequence_editor.strips`
-- Renders read `scene.camera` alone, a scene camera of `None` fails with `Cannot render, no camera`
-- `scene.eevee.time_limit` caps an EEVEE render in seconds, 0 renders every sample
-- `//` in `render.filepath` resolves against the saved file's folder, a render of an unsaved file to a `//` path fails
-- `filepaths.render_output_directory` applies to `bpy.data.scenes.new()` alone, existing scenes and `scene.new(type="EMPTY")` keep `render.filepath`
-- `render.ppm_factor` over `render.ppm_base` sets the pixel density the file records, 300 over 0.0254 writes 300 dpi
-- Site scenes stay physical under AgX, and exposure -5.3 puts a white ground under the physical sky's 53.5° sun at scene-linear 1.0
-- Rhino folds that exposure into its lights, a Rhino render EXR compares to a Blender EXR times `2 ** exposure`
-- Exposure -5.3 renders every other world 39 times darker than the physical sky
-- `cycles.sample_clamp_indirect` keeps the factory 10 under any exposure, `10 / 2 ** exposure` (394 at -5.3) keeps bounce light
-- Material Preview applies view transform and look without exposure, Rendered under the scene world or lights applies exposure with them
-- Solid mode draws through the display's `Standard` view whatever the scene transform, a Workbench render takes the scene transform and exposure
-- `display_settings.display_device` writes before `view_transform`, a display lacking the current view resets it to `Standard` with no error
-- `Khronos PBR Neutral` exists on the `sRGB` display alone, and look names hold the view prefix under AgX (`AgX - Punchy`)
-- `bpy.data.colorspace.working_space` is read-only, `bpy.ops.wm.set_working_color_space` changes it
+Existing files and the factory scene `run` saves on a missing path take the declared render in constraint order, while `start` on a missing path saves the user's startup file holding it:
 
-## [02]-[COMMAND]
+```python
+# [HEADLESS_CALL] Cycles on the GPU, H.264 video beside the file, and the AgX view, each value after the value that resets it
+import bpy
+
+scene = bpy.context.scene
+settings = scene.render
+settings.engine, scene.cycles.device = "CYCLES", "GPU"
+settings.image_settings.media_type = "VIDEO"
+settings.ffmpeg.format, settings.ffmpeg.codec, settings.ffmpeg.constant_rate_factor = "MPEG4", "H264", "HIGH"
+settings.filepath = "//renders/{blend_name}/"
+scene.display_settings.display_device = "sRGB"
+scene.view_settings.view_transform = "AgX"
+scene.view_settings.look = "None"
+bpy.ops.wm.save_mainfile()
+result = {"output": settings.frame_path(frame=scene.frame_start)}
+```
+
+- `tools/interface/blender/script/startup.py` declares the startup render from the shared values in `tools/interface/render.py`
+- `media_type` (`IMAGE`, `MULTI_LAYER_IMAGE`, `VIDEO`) sets `file_format` to PNG at 8 bits, `OPEN_EXR_MULTILAYER` at 16 bits, or `FFMPEG`
+- `file_format` accepts formats of the current media type alone
+- `VIDEO` applies Blender's H.264 preset (MKV, CRF `MEDIUM`, GOP 18) over stored ffmpeg values while `ffmpeg.video_bitrate` is 0
+- `display_device` precedes `view_transform`, a display lacking the current view resets it to `Standard` with no error
+- AgX looks read `AgX - <name>` (`AgX - Punchy`)
+- `//` resolves against the saved file's folder, in the untitled GUI against `.artifacts/blender/` with `{blend_name}` reading `Unsaved`
+- `filepaths.render_output_directory` seeds `render.filepath` of scenes created after it, existing scenes keep theirs
+- Site light takes `EXPOSURE` (-5.3) and `cycles.sample_clamp_indirect` at `10 / 2 ** EXPOSURE` (394), the factory clamp of 10 cuts bounce light
+- Exposure -5.3 renders every world but the site sky 39 times darker, a file without it keeps exposure 0
+- Use `look-development.md` for the site sky and sun
+
+## [02]-[RENDER]
+
+Stills, frame ranges, and videos of a saved file run as one Bash call with `run_in_background: true`, its notification carrying one JSON outcome:
 
 ```bash
-# Frames of a file into .artifacts/blender/renders/<stem>/<stem>_####, a video into one movie file
+# Current frame of <file>, one frame, a range, or `all` of the scene range, into .artifacts/blender/renders/<stem>/
 python .claude/skills/use-blender/scripts/headless.py render <file> --frames <start>..<end>
 ```
 
-- `--frames` takes one frame, `<start>..<end>`, or `all` for the scene range, the current frame without it
-- Frames render in the file's engine, format, and resolution, `Rendered.files` lists each path `render.frame_path` names
-- `render_thumbnail_to_path` renders 320 px on the long side at 16 samples, a picture for orientation alone
-- Look questions take one render each
-- `resumed` counts image frames an earlier run of the unchanged file wrote, a changed file renders every frame again
-- `<stem>.log` beside the frames holds Blender's whole output, one `render | Saved:` line per written frame
+- `sheet` names `<stem>.jpg`, up to 12 evenly spaced frames labeled by number within Read's 2000 px and 500 KB limits
+- `output` names the frame pattern (`<stem>_####.png`) or the movie (`<stem>_<start>-<end>.mp4`) in the file's engine, format, size, and view
+- EXR frames get a display-encoded `<frame>.jpg` beside each, the sheet's source
+- `devices` names the Cycles devices of the preference compute type with `use` on, the CPU for a CPU scene or when no GPU row has `use` on
+- `resumed` counts image frames an earlier run of the unchanged file wrote, which Blender skips
+- Stopped Bash tasks end their Blender with whole frames on disk
+- File changes (any byte, a resave after a reload included) clear the folder and render every frame, movies render whole every run
+- `<stem>.log` beside the frames holds Blender's output, `rg "Saved:" <log>` lists each written file after the process clock
+- `Failed` names the log, its `Error:` line states the cause (`Cannot render, no camera` under a scene camera of `None`)
+- First renders of a new scene configuration also compile specialized Metal kernels, so a timing reads the second render
+- Compiled kernels sit in `$(getconf DARWIN_USER_CACHE_DIR)org.blenderfoundation.blender/com.apple.metal`, which macOS clears after 3 days unused
+- Full-size frames read through `magick` crops within Read's limits
 
-## [03]-[COMPOSITOR]
+## [03]-[LOOK]
 
-Compositing is a stack of effects on `scene.compositor_effects`, each holding a `CompositorNodeTree`:
+Look questions take one EEVEE preview for framing, then one Cycles render at the declared exposure under the site sky for the answer:
 
 ```python
-# [EXECUTE_BLENDER_CODE] Beauty to the result, Image, Depth, and Normal to one multilayer EXR under <dir>
+# [HEADLESS_CALL] EEVEE preview of the camera at half size as <dir>/<name>-eevee.jpg
+import bpy
+
+settings = bpy.context.scene.render
+settings.engine, settings.resolution_percentage, settings.image_settings.file_format = "BLENDER_EEVEE", 50, "JPEG"
+settings.filepath = "<dir>/<name>-eevee.jpg"
+bpy.ops.render.render(write_still=True)
+result = {"preview": settings.filepath}
+```
+
+```bash
+# Mean 8-bit color of a <w>x<h> region at <x>,<y> of a frame
+magick <frame> -crop <w>x<h>+<x>+<y> -depth 8 -format "%[fx:round(255*mean.r)],%[fx:round(255*mean.g)],%[fx:round(255*mean.b)]" info:
+```
+
+- Previews run through `run`, which leaves the file unchanged
+- Sunlit ground of albedo 0.2 reads near (122, 125, 130) and a sunlit wall of albedo 0.8 near (173, 176, 179) under the declared light and view
+- EEVEE matches Cycles in sunlight and draws faces in shadow darker, shadow questions take the Cycles render
+- Workbench renders take the scene exposure and read near black at -5.3, geometry reads through `capture.py`
+- Rhino folds the exposure into its sun and sky, so its render EXR equals Blender's times `2 ** -5.3` and its added lights render 39 times brighter
+- Rhino's integrator keys map one to one onto `scene.cycles` (samples, adaptive threshold, bounces, clamps, `blur_glossy`, caustics, light tree, seed)
+
+## [04]-[PASSES]
+
+Passes reach a file through a scene output of `MULTI_LAYER_IMAGE`, every enabled pass in each frame, or through a compositor effect whose File Output node writes chosen passes on every render:
+
+```python
+# [HEADLESS_CALL] Effect keeping the beauty and writing Image, Depth, and Normal to //passes/<stem>_####.exr
 import bpy
 
 scene, layer = bpy.context.scene, bpy.context.view_layer
@@ -57,19 +100,52 @@ scene.compositor_effects.new("<tree>").node_group = tree
 layers = tree.nodes.new("CompositorNodeRLayers")
 tree.links.new(layers.outputs["Image"], tree.nodes.new("NodeGroupOutput").inputs[0])
 out = tree.nodes.new("CompositorNodeOutputFile")
-out.directory, out.file_name = "<dir>/", "passes"
+out.format.media_type = "MULTI_LAYER_IMAGE"
+out.directory, out.file_name = "//passes/", "{blend_name}_"
 for kind, name in (("RGBA", "Image"), ("FLOAT", "Depth"), ("VECTOR", "Normal")):
     out.file_output_items.new(kind, name)
     tree.links.new(layers.outputs[name], out.inputs[name])
+bpy.ops.wm.save_mainfile()
+result = {"effects": [effect.name for effect in scene.compositor_effects]}
 ```
 
-- `NodeGroupOutput` writes the render result from the tree interface's first output socket, a Color socket alone
-- First interface input sockets take the Combined pass in the first effect and the previous effect's first output after it
-- `view_layer.use_pass_z` adds the `Depth` output, `use_pass_normal` adds `Normal`, Cycles-only passes sit on `view_layer.cycles`
-- File Output nodes write on every render, `mute = True` on the node skips the write
-- Renders pass through each effect with `enable_for_render` on in stack order while `scene.render.use_compositing` is true
-- Renders skip every effect while `render.use_sequencer` is on and an unmuted top-level strip other than sound exists
-- `enable_for_preview` gates an effect in the viewport
-- `bpy.ops.scene.new_compositor_effect_node_group()` adds an effect with an `Image` input and output
-- Properties tab `COMPOSITOR` shows the effect stack, `show_properties_compositor` hides it per area
-- Multilayer EXRs hold one part per layer, Blender's bundled `OpenImageIO` reads every part
+- Startup files enable the passes `Pass` in `tools/interface/render.py` lists, and Render Layers shows one output per enabled pass
+- Effects with `enable_for_render` on run in stack order, and each group output's Color socket replaces the render result
+- File Output nodes write on every render with the frame number after `file_name`, `mute = True` skips the write
+- File Output parts take each item's name at 32-bit float, scene output parts `<view layer>.<pass>` at 16-bit half float
+- Blender's bundled OpenImageIO reads every part:
+
+```python
+# [HEADLESS_CALL] Parts of a multilayer EXR with their channels
+import OpenImageIO
+
+image = OpenImageIO.ImageInput.open("<file>.exr")
+parts = []
+while image.seek_subimage(len(parts), 0):
+    parts.append((image.spec().getattribute("name"), list(image.spec().channelnames)))
+result = {"parts": parts}
+```
+
+## [05]-[LIVE]
+
+Renders of the user's live scene serve orientation through `render_thumbnail_to_path`, 320 px on the long side at 16 Cycles samples, or `render_viewport_to_path` at the scene's own settings:
+
+```python
+# [EXECUTE_BLENDER_CODE] Close the render view a render tool opened, the area returning to its editor
+import bpy
+
+window, area = next(
+    (window, area)
+    for window in bpy.context.window_manager.windows
+    for area in window.screen.areas
+    if area.type == "IMAGE_EDITOR" and area.spaces.active.image and area.spaces.active.image.type == "RENDER_RESULT"
+)
+with bpy.context.temp_override(window=window, area=area):
+    status = bpy.ops.render.view_cancel()
+result = {"status": sorted(status), "screen": window.screen.name}
+```
+
+- Both tools write `<bpy.app.tempdir>/blender_mcp/<basename>` whatever folder the path names, answer that path, and Blender purges it at quit
+- First thumbnails of a GUI process render at the scene's own size and samples, later ones at thumbnail size
+- Both tools open the render view `view.render_display_type` names, and the snippet closes it
+- `tools/interface/blender/script/preferences.py` declares `SCREEN`, which maximizes the area into an Image Editor

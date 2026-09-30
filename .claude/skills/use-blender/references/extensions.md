@@ -1,15 +1,15 @@
 # [EXTENSIONS]
 
-Extensions and `bl_info` add-ons from a source folder to a registered package, built and proven in a tree of their own before the user's Blender takes them.
+Extensions and `bl_info` add-ons from source folder to registered package, proven in their own tree before the user's Blender takes them.
 
 ## [01]-[PACKAGE]
 
 New extensions are one folder named after the manifest id, checked and zipped by Blender's own commands:
-- Folders hold `blender_manifest.toml` beside `__init__.py`, siblings import relatively, and the installed package imports as `bl_ext.<repository>.<id>`
-- Manifests require `schema_version`, `id`, `name`, `tagline` up to 64 characters, `version`, `type`, `maintainer`, `license`, and `blender_version_min`
+- Folders hold `blender_manifest.toml` beside `__init__.py`, siblings import relatively, and installs import as `bl_ext.<repository>.<id>`
+- Required keys are `schema_version`, `id`, `name`, `tagline`, `version`, `type`, `maintainer`, `license`, and `blender_version_min`
 - `platforms` stays absent on a pure-Python package, a listed platform hides the package on every platform the list omits
 - `wheels` lists `./wheels/<file>.whl` paths of unmodified PyPI wheels, one per dependency and platform tag, and Blender reads no wheel metadata
-- `validate` checks strictly, the loader loads a manifest `validate` refuses, so `validate` runs before every build
+- `validate` checks strictly, a `tagline` over 64 characters failing it while the loader loads it, so `validate` runs before every build
 - `build` skips linked files without a message, so a folder holding links builds from a copy that resolves them, into an existing folder
 - `validate` and `build` run on the user's tree and leave its shared wheels as they are
 - `--split-platforms` writes one `<id>-<version>-<platform>.zip` per manifest platform
@@ -25,13 +25,13 @@ blender --factory-startup -c extension build --source-dir <copy> --output-dir <d
 unzip -l <dist>/<id>-<version>.zip
 ```
 
-`tools/interface/blender/packages.py` `packaged` builds the repository's extension under `tools/interface/blender/extension` this way, its linked modules resolved in the copy.
+`packaged` in `tools/interface/blender/packages.py` builds the repository's extension this way from a copy of `extension/`.
 
 ## [02]-[ISOLATED_TREE]
 
-Processes that enable packages resync `<EXTENSIONS>/.local` to their own enabled set, so installs, enables, and registration runs take a tree apart from the user's:
-- `headless.py run` is that tree headless, a factory process with extensions, config, and scripts under `.artifacts/blender/` and the user's wheels importable
-- Runs that load saved records (a startup enable, a reinstall over an enabled copy, a GUI) take `BLENDER_USER_RESOURCES` on an existing `<tree>` folder
+Processes that enable packages resync `<EXTENSIONS>/.local` to their enabled set, so installs and registration runs take their own tree:
+- `headless.py run` is that tree headless, a factory process with extensions, config, and scripts under `.artifacts/blender/`
+- Runs that load saved records (a startup enable, a reinstall, a GUI) take `BLENDER_USER_RESOURCES` on an existing `<tree>` folder
 - GUI runs add `TMPDIR` on an existing `<tree>/tmp`, where `wm.quit_blender` writes `quit.blend` while the temporary directory preference is empty
 - GUI scripts step through one timer generator and end in `wm.quit_blender()`, the quit saving preferences into `<tree>/config`
 - Background processes run no timer, so a headless enable registers classes and draw functions with no keymap item, and keymaps read in a GUI
@@ -90,7 +90,7 @@ result = {name: addon_utils.check(name) for name in ("bl_ext.user_default.<id>",
 - `bl_info` modules take the name of the zip's top folder
 - `bl_info` add-ons that build a GPU shader at import enable in a GUI run alone
 - `addon_utils.check(<module>)` reads `(True, True)` for a recorded, loaded module
-- User-tree packages are `tools/interface/blender/packages.toml` rows, staged by `packages.py` and converged by `script/addons.py` in `nx run rasm:interface -- blender`
+- User-tree packages are `packages.toml` rows in `tools/interface/blender/`, which `nx run rasm:interface -- blender` stages and converges
 - `nx run rasm:interface -- upgrade blender` stages the newest build of every row for the next apply
 
 ## [04]-[UPGRADES]
@@ -99,7 +99,7 @@ Reinstalls over an enabled copy load the new modules in the running process:
 - Extension installs over an enabled copy disable it, drop the package and its submodules from `sys.modules`, and enable it again, preferences kept
 - `enable_on_install` decides nothing for an enabled copy, which returns enabled
 - `package_install` on an installed id takes the newest compatible version of the synced index, `-c extension update --sync` upgrades every package
-- `bl_info` reinstalls take the snippet, `addon_install` keeps loaded submodules and `package_install_files` answers `CANCELLED` over an installed module
+- `bl_info` reinstalls take the snippet, since `addon_install` keeps loaded submodules and `package_install_files` enables nothing
 - Renamed packages take `preferences.addon_disable(module=<old module>)`, the install under the new id, an enable, and `wm.save_userpref()`
 
 ```python
@@ -139,8 +139,8 @@ result = {"status": sorted(status)}
 
 ## [06]-[REGISTRATION]
 
-`register()` runs before any file loads with `bpy.context` narrowed to `window_manager` and `preferences` and `bpy.data` empty, so it registers classes and hooks and hands keymaps and data to a first tick:
-1. Register classes through `bpy.utils.register_classes_factory(<classes>)`, draw functions through `<UIClass>.prepend` or `append`, and `@persistent` load handlers
+`register()` runs before any file loads, with `bpy.context` narrowed to `window_manager` and `preferences` and `bpy.data` empty:
+1. Register classes through `bpy.utils.register_classes_factory(<classes>)`, draw functions through `prepend` or `append`, and `@persistent` handlers
 2. Register the tick as `bpy.app.timers.register(<first_tick>, first_interval=0.0, persistent=True)`, which a launch naming a `.blend` keeps
 3. In the tick, add keymap items from `keyconfigs.default`, re-register panels, and read file data, every add-on registered by then
 4. Pair each step with its reversal in one `contextlib.ExitStack`, `unregister` closing it, as `registration()` in the extension's `__init__.py` does

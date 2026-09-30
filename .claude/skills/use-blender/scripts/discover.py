@@ -10,7 +10,7 @@ from itertools import accumulate
 
 import attrs
 import bpy
-from rna import BPyOpFunction, held, operators, plain, stored
+from rna import BPyOpFunction, operators, plain, stored
 from scene import viewport
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -18,7 +18,7 @@ from scene import viewport
 
 @attrs.frozen
 class Operator:
-    """Registered operator with the facts that decide its call, `poll_in_view` `None` when no window shows a 3D Viewport."""
+    """Registered operator with the facts that decide its call, `poll_in_view` `None` in a background process or when no window shows a 3D Viewport."""
 
     call: str
     label: str
@@ -44,7 +44,7 @@ class Type:
 
 @attrs.frozen
 class Setting:
-    """Stored property an add-on registered on an ID type or in its preferences, with its value by ID name or add-on module for each owner holding one."""
+    """Stored property an add-on registered on an ID type or in its preferences, with its value by ID name or add-on module."""
 
     path: str
     type: str
@@ -68,7 +68,7 @@ def discover(*words: str) -> Discovery:
     needles = tuple(word.casefold() for word in words)
     addons = {key: addon.module for addon in bpy.context.preferences.addons for key in {addon.module, addon.module.rpartition(".")[2]}}
     members = tuple(bpy.context.copy().values())
-    largest = viewport()
+    largest = None if bpy.app.background else viewport()
     view = None if largest is None else bpy.context.temp_override(window=largest.window, area=largest.area, region=largest.region)
 
     def matches(text: str) -> bool:
@@ -121,7 +121,7 @@ def discover(*words: str) -> Discovery:
         if not (stored(prop) and matches(f"{path} {prop.name} {prop.description}")):
             return None
         kind = prop.fixed_type.identifier if isinstance(prop, bpy.types.PointerProperty | bpy.types.CollectionProperty) else prop.type
-        return Setting(path, kind, {name: plain(getattr(owned, prop.identifier)) for name, owned in owners.items() if held(owned, prop)})
+        return Setting(path, kind, {name: plain(getattr(owned, prop.identifier)) for name, owned in owners.items()})
 
     named = (cls for name in dir(bpy.types) if isinstance(cls := getattr(bpy.types, name), type) and issubclass(cls, bpy.types.bpy_struct))
     structs = sorted((cls for cls in {*named, *descendants(bpy.types.bpy_struct)} if "bl_rna" in vars(cls)), key=lambda cls: cls.bl_rna.identifier)

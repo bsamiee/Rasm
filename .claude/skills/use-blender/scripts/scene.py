@@ -72,10 +72,10 @@ def bounds(depsgraph: bpy.types.Depsgraph, *, drawn: bool) -> dict[str, NDArray[
 
     extents = np.array(
         [
-            ((instance.parent if instance.is_instance else instance.object).name, (world := found @ matrix[:3, :3].T + matrix[:3, 3]).min(axis=0), world.max(axis=0))
+            ((instance.parent if instance.is_instance else instance.object).name, (world := found @ np.array(matrix.to_3x3()).T + np.array(matrix.translation)).min(axis=0), world.max(axis=0))
             for instance in depsgraph.object_instances
             if (found := local(instance.object)).size
-            for matrix in (np.array(instance.matrix_world),)
+            for matrix in (instance.matrix_world,)
         ],
         dtype=[("owner", object), ("low", np.float64, 3), ("high", np.float64, 3)],
     )

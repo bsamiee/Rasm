@@ -21,22 +21,15 @@ Blender work runs in the user's GUI through the MCP servers of `.mcp.json` or in
 
 ## [02]-[TARGETS]
 
-Work starts from the running processes, a line without `--background` is the GUI both servers answer:
+One GUI Blender runs, driven through its MCP servers by every agent, and headless work runs through `headless.py` with no window:
 
 ```bash
-# Every Blender with its arguments
+# Every Blender with its arguments, the line without --background is the GUI both servers answer
 pgrep -lf "^$BLENDER_PATH"
-
-# GUI on <file> behind the frontmost application with login session environment, when every line holds --background
-env -i /usr/bin/open -g -a Blender <file> --args --no-window-focus
-
-# GUI apart from the user's, factory preferences over folders under <dir>, <file> after --args to load before any --python-expr
-env -i /usr/bin/open -n -g -a Blender --env BLENDER_USER_CONFIG=<dir>/config --env BLENDER_USER_EXTENSIONS=<dir>/extensions --args --no-window-focus --factory-startup <file>
 ```
 
-- `--args` passes what follows to Blender, `open -W` returns at exit, and `--stdout <log>` and `--stderr <err>` append the process output
-- `blender -c <command>` implies `--background`, a windowed run adds `--python-expr "<code>"` after `--args`
-- `<file>` before `--args` arrives by open-document event after `--python-expr` ran on the startup file
+- Scripted launches under `tools/interface` wait while another agent drives Blender
+- `blender -c <command>` implies `--background`
 - Add-ons and extensions import at startup before `--python` and `--python-expr` run
 - `--python` and `--python-expr` compile in memory into a fresh `__main__` and add no folder to `sys.path`
 
@@ -57,7 +50,7 @@ Each target takes one route, work leaving the user's GUI as found:
 - `_for_cli` tools run under the user's preferences with the file's scripts and drivers on, drop printed output and tracebacks, and stop at 120 s
 - `_for_cli` tools read a copy `<stem>_mcp_<nnnn>.blend` the GUI saves beside its own file while that file holds unsaved changes
 - Kept work saves to a named file through `bpy.ops.wm.save_as_mainfile(filepath="<dir>/<name>.blend")`
-- Each opened session ends through `stop`, each opened GUI through one quit call
+- Each opened session ends through `stop`
 
 ```python
 # [EXECUTE_BLENDER_CODE] Live file's current data as a copy a headless process opens, the GUI's file and modified flag unchanged
@@ -111,7 +104,6 @@ python .claude/skills/use-blender/scripts/headless.py stop <name>
 - `bpy.ops.wm.revert_mainfile()` in a call returns a session to the file on disk
 - `stop` saves the file the session holds when its data differ from a copy taken at the last load or save of that file
 - Sessions reject `check_is_finished`
-- Snippets tagged `[HEADLESS_CALL]` run through `call`, or through `run` when they call no extension operator
 
 ## [04]-[BACKGROUND]
 
@@ -121,7 +113,7 @@ Code in a background process sees a context no window draws:
 - Stored 3D views read through `SpaceView3D.region_3d` with the matrices of their last GUI draw, `Region.data` reads `None`
 - `system.dpi` reads 72, `ui_scale` 0.0, and `pixel_size` 1 whatever the preferences say
 - `bpy.app.timers` callbacks never fire, code meant for a timer runs inside the call
-- Data-API writes leave `bpy.data.is_dirty` `False`, and `stop` compares the data's bytes in its place
+- Data-API writes leave `bpy.data.is_dirty` `False`, and `stop` compares the saved data in its place
 - Popup operators crash the process
 - Sun Position prints an `AttributeError` traceback on `stderr` when a load or `scene.new` leaves the scene without a world, and the call finishes
 - `bpy.data.scenes.new()` starts from factory metric units, `bpy.ops.scene.new(type="EMPTY")` copies the current scene's settings
@@ -166,8 +158,6 @@ print(sorted(status))
 - `mcp-for-blender` `execute_blender_code` answers with printed output and drops `result`, a raise answers with the traceback alone
 - Quits from code skip the save prompt, and the server answers before Blender exits
 - `ps -p <pid>` in a later call reads the exit, `kill -KILL <pid>` ends a Blender `ps` lists after the quit
-- GUIs apart from the user's answer neither server, `kill -TERM <pid>` ends one at once with no save
-
 ## [07]-[FAILURES]
 
 Timeouts and refused connections start with one reading:
@@ -182,7 +172,6 @@ lsof -a -nP -iTCP -sTCP:LISTEN -c Blender
 - Asset tools answer `Unknown command type` while the active scene's `blendermcp_use_<library>` toggle is off
 - `get_addon_status` compares community add-on and server protocols, a mismatch takes `nx run rasm:interface -- upgrade blender`, then an apply
 - `mcp-for-blender` keeps its last socket, its first call after a relaunch answers `Broken pipe` with no code run and the next reaches the new GUI
-- `open` without `-n` sends the reopen event to any process LaunchServices lists for the bundle, a gone or windowless one fails with -600
 - Blender's Python starts isolated and takes no `PYTHON*` variable, `--python-use-system-env` reads them for one launch
 - `BLENDER_USER_CONFIG` naming a missing folder, or `BLENDER_USER_RESOURCES` without a `config` subfolder, falls back to the user's config
 - Temporary directory is `preferences.filepaths.temporary_directory`, `$TMPDIR` while the preference is empty or under `--factory-startup`

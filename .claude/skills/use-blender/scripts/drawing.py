@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 import attrs
 import bpy
 import numpy as np
+from numpy.typing import NDArray
 from results import artifacts, unknown, UnknownObjects
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -33,12 +34,13 @@ class Rejection(StrEnum):
 
 @attrs.frozen
 class Sheet:
-    """Written SVG, PDF, and PNG, paper size in meters, scale denominator, camera, and stroke count by paper pen width in millimeters per Grease Pencil object."""
+    """Written SVG, PDF, and PNG, paper size in meters, the paper window the PNG shows as left, top, width, and height in meters from the paper's top-left corner, scale denominator, camera, and stroke count by paper pen width in millimeters per Grease Pencil object."""
 
     svg: str
     pdf: str
     png: str
     paper: tuple[float, float]
+    window: tuple[float, float, float, float]
     scale: int
     camera: str
     strokes: dict[str, dict[float, int]]
@@ -66,13 +68,12 @@ class Uncompiled:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, ...] = ()) -> Sheet | Rejected | Uncompiled | UnknownObjects:
-    """Project the strokes of the named Grease Pencil objects, or of every visible one, through the named or scene camera onto a 1:`scale` sheet, its PNG 2000 px on the long side `Read` shows unscaled."""
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-    scene = depsgraph.scene
-    if (absent := unknown(scene.objects, objects if camera is None else (camera, *objects))) is not None:
+def sheet(name: str, scale: int, objects: tuple[str, ...] = ()) -> Sheet | Rejected | Uncompiled | UnknownObjects:
+    """Project the strokes of the named Grease Pencil objects, or of every visible one, through the scene camera at the render resolution Line Art reads onto a 1:`scale` sheet, Line Art recomputed over objects added since its last run and the PNG showing the inked window 2000 px on its long side."""
+    scene = bpy.context.scene
+    if (absent := unknown(scene.objects, objects)) is not None:
         return absent
-    if (view := scene.camera if camera is None else scene.objects[camera]) is None:
+    if (view := scene.camera) is None:
         return Rejected(Rejection.NO_CAMERA, (scene.name,))
     if not isinstance(lens := view.data, bpy.types.Camera):
         return Rejected(Rejection.NOT_CAMERA, (view.name,))
@@ -81,6 +82,9 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
     drawn = [scene.objects[n] for n in objects] or [o for o in scene.objects if isinstance(o.data, bpy.types.GreasePencil) and o.visible_get()]
     if foreign := tuple(o.name for o in drawn if not isinstance(o.data, bpy.types.GreasePencil)):
         return Rejected(Rejection.NOT_GREASE_PENCIL, foreign)
+    for owner in drawn:
+        owner.update_tag()
+    depsgraph = bpy.context.evaluated_depsgraph_get()
     to_view = view.matrix_world.normalized().inverted()
     frame = np.array([corner.xy for corner in lens.view_frame(scene=scene)])
     low, high = frame.min(axis=0), frame.max(axis=0)
@@ -96,8 +100,8 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
         """Whether neither the node nor a group holding it is hidden."""
         return node is None or (not node.hide and shown(node.parent_group))
 
-    def strokes(owner: bpy.types.Object, layer: bpy.types.GreasePencilLayer) -> list[tuple[float, ET.Element]]:
-        """Paper pen width in millimeters and element in paper inches per stroke of the layer's current drawing with two or more points and a shown material."""
+    def strokes(owner: bpy.types.Object, layer: bpy.types.GreasePencilLayer) -> list[tuple[float, ET.Element, NDArray[np.float64]]]:
+        """Paper pen width in millimeters, element, and points in paper inches per stroke of the layer's current drawing with two or more points and a shown material."""
         if (frame := layer.current_frame()) is None or (drawing := frame.drawing) is None or not len(found := drawing.strokes):
             return []
         match layer.parent:
@@ -134,6 +138,7 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
                         "stroke-width": number(width),
                     },
                 ),
+                points[start:end],
             )
             for stroke, (start, end) in zip(found, pairwise(offsets), strict=True)
             if end - start > 1 and (alpha := alphas.get(stroke.material_index)) is not None
@@ -141,7 +146,7 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
         ]
 
     layers = {owner.name: {layer.name: strokes(owner, layer) for layer in owner.data.layers if shown(layer)} for owner in (o.evaluated_get(depsgraph) for o in drawn)}
-    counts = {owner: dict(Counter(pen for placed in by_layer.values() for pen, _ in placed)) for owner, by_layer in layers.items()}
+    counts = {owner: dict(Counter(pen for placed in by_layer.values() for pen, _, _ in placed)) for owner, by_layer in layers.items()}
     if not any(counts.values()):
         return Rejected(Rejection.NO_STROKES, tuple(counts))
     across, down = (high - low) * inches
@@ -150,20 +155,31 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
     linework = ET.SubElement(root, "g", {"fill": "none", "stroke": "#000000", "stroke-linecap": "round", "stroke-linejoin": "round"})
     for owner, by_layer in layers.items():
         for layer, placed in by_layer.items():
-            ET.SubElement(linework, "g", {"id": f"{owner}/{layer}"}).extend(element for _, element in placed)
+            ET.SubElement(linework, "g", {"id": f"{owner}/{layer}"}).extend(element for _, element, _ in placed)
     path = artifacts("sheets") / f"{name}.svg"
     ET.ElementTree(root).write(path, encoding="utf-8")
     svg, pdf, png = (str(path.with_suffix(suffix)) for suffix in (".svg", ".pdf", ".png"))
     if (typst := shutil.which("typst")) is None:
         return Uncompiled(svg, None)
-    page, readable = "#set page(width: auto, height: auto, margin: 0pt)\n#image(sys.inputs.svg)\n", 2000
+    inked = np.concatenate([drawn for by_layer in layers.values() for placed in by_layer.values() for _, _, drawn in placed])
+    pad, readable = 0.025 * float(np.ptp(inked, axis=0).max()), 2000
+    corner, far = np.maximum(inked.min(axis=0) - pad, 0.0), np.minimum(inked.max(axis=0) + pad, (across, down))
+    wide, tall = far - corner
     runs = [
         subprocess.run((typst, "compile", "--root", path.anchor, "--input", f"svg={svg}", *options, "-", output), input=page, capture_output=True, text=True, check=False)
-        for output, options in ((pdf, ()), (png, ("--ppi", number(readable / max(across, down)))))
+        for output, page, options in (
+            (pdf, "#set page(width: auto, height: auto, margin: 0pt)\n#image(sys.inputs.svg)\n", ()),
+            (
+                png,
+                f"#set page(width: {number(wide)}in, height: {number(tall)}in, margin: 0pt)\n#place(dx: {number(-corner[0])}in, dy: {number(-corner[1])}in, box(width: {width}in, height: {height}in, image(sys.inputs.svg)))\n",
+                ("--ppi", number(readable / max(wide, tall))),
+            ),
+        )
     ]
     failed = "\n".join(run.stderr.strip() for run in runs if run.returncode)
     paper = (float(number(across * inch)), float(number(down * inch)))
-    return Uncompiled(svg, failed) if failed else Sheet(svg, pdf, png, paper, scale, view.name, counts)
+    left, top, shown_across, shown_down = (float(number(value * inch)) for value in (*corner, wide, tall))
+    return Uncompiled(svg, failed) if failed else Sheet(svg, pdf, png, paper, (left, top, shown_across, shown_down), scale, view.name, counts)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

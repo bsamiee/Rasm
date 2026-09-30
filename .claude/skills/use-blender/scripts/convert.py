@@ -1,4 +1,4 @@
-# mypy: disable-error-code="attr-defined"
+# mypy: disable-error-code="attr-defined, union-attr"
 # ty: ignore[unresolved-attribute, invalid-assignment]
 """Convert interchange files through Blender importers and one exporter in a headless process, one empty factory scene with a world per file."""
 
@@ -166,7 +166,7 @@ def convert(name: str, exporter: str, sources: tuple[str, ...], options: Mapping
             return failed
         corners = tuple(bounds(bpy.context.evaluated_depsgraph_get(), drawn=False).values())
         extent = tuple(np.ptp(np.concatenate(corners), axis=0).round(DIGITS).tolist()) if corners else None
-        empty = tuple(sorted(o.name for o in bpy.data.objects if o.type == "MESH" and not o.data.vertices))
+        empty = tuple(sorted(o.name for o in bpy.data.objects if isinstance(o.data, bpy.types.Mesh) and not o.data.vertices))
         before = set(out.iterdir())
         if failed := run(exporter, source, **options.get(exporter, {}), filepath=str(out / f"{source.stem}{globs[exporter][0].removeprefix('*')}")):
             return failed

@@ -1,20 +1,23 @@
-# ty: ignore[unresolved-attribute, invalid-assignment]
-# mypy: disable-error-code="untyped-decorator, union-attr, attr-defined"
-# ruff: file-ignore[subprocess-without-shell-equals-true, private-member-access]
+# ty: ignore[unresolved-attribute, invalid-assignment, redundant-condition-strict, too-many-positional-arguments]
+# mypy: disable-error-code="untyped-decorator, union-attr, attr-defined, call-arg, func-returns-value"
+# ruff: file-ignore[subprocess-without-shell-equals-true, start-process-with-partial-path, private-member-access, import-private-name]
 """Blender processes outside the live session on a named file, as the command line on the host and as the job inside each Blender it starts."""
 
 from collections.abc import Mapping, Sequence
 import contextlib
 from enum import auto, StrEnum
 import filecmp
+from functools import cache
 import hashlib
 import importlib
 import io
+from math import prod
 import os
 from pathlib import Path
 import re
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import time
@@ -25,6 +28,7 @@ import attrs
 from cattrs.preconf.json import make_converter
 
 if "bpy" in sys.modules:
+    from _blendfile_header import BlendFileHeader, BlockHeader
     import addon_utils
     import bpy
 else:
@@ -323,7 +327,7 @@ async def stop(name: str) -> Stopped | Diverged | Raised | Alive | Lost | NoSess
 
 
 def render(file: "ResolvedExistingFile", *, frames: "Annotated[str, cyclopts.Parameter(validator=lambda _type, text: span(text))]" = Scope.CURRENT) -> Rendered | Failed:
-    """Render the current frame, one frame, a range as `1..24`, or `all` of the scene range under the user's preferences, resuming frames an earlier run of the unchanged file wrote."""
+    """Render the current frame, one frame, a range as `1..24`, or `all` of the scene range under the user's preferences into `.artifacts/blender/renders/<stem>/`, resuming frames an earlier run of the unchanged file wrote and clearing the folder for a changed one."""
     with file.open("rb") as handle:
         current = hashlib.file_digest(handle, "sha256").hexdigest()
     out = artifacts("renders", file.stem)
@@ -358,9 +362,70 @@ def copied(path: Path) -> Path:
     return path
 
 
+def normalized(path: Path) -> tuple[tuple[bytes, int, int, bytes], ...]:
+    """Blocks of a `.blend` copy as code, struct index, count, and body, each pointer read as the ordinal of the block it names and zero for a runtime address, each char array blank past its terminator."""
+    blocks: list[tuple[BlockHeader, bytes]] = []
+    with path.open("rb") as file:
+        shape = BlendFileHeader(file).create_block_header_struct()
+        while (header := BlockHeader(file, shape)).code != b"ENDB":
+            blocks.append((header, file.read(header.size)))
+    dna, ordinals = next(body for header, body in blocks if header.code == b"DNA1"), {header.addr_old: index for index, (header, _) in enumerate(blocks, 1)}
+
+    def strings(start: int) -> tuple[list[str], int]:
+        (total,) = struct.unpack_from("<i", dna, start)
+        items = dna[start + 4 :].split(b"\0", total)[:total]
+        return [item.decode() for item in items], (start + 4 + sum(map(len, items)) + total + 3) & ~3
+
+    names, cursor = strings(8)
+    types, cursor = strings(cursor + 4)
+    sizes, cursor = struct.unpack_from(f"<{len(types)}H", dna, cursor + 4), (cursor + 4 + 2 * len(types) + 3) & ~3
+    fields: list[tuple[int, tuple[tuple[int, int], ...]]] = []
+    cursor += 8
+    for _ in range(struct.unpack_from("<i", dna, cursor - 4)[0]):
+        kind, width = struct.unpack_from("<hh", dna, cursor)
+        fields.append((kind, tuple(struct.iter_unpack("<hh", dna[cursor + 4 : cursor + 4 + 4 * width]))))
+        cursor += 4 + 4 * width
+    indexes = {types[kind]: index for index, (kind, _) in enumerate(fields)}
+
+    @cache
+    def flat(index: int) -> tuple[int, tuple[int, ...], tuple[tuple[int, int], ...]]:
+        offset, pointers, chars = 0, list[int](), list[tuple[int, int]]()
+        for kind, name in ((kind, names[number]) for kind, number in fields[index][1]):
+            dims = tuple(int(part.rstrip("]")) for part in name.split("[")[1:])
+            items = prod(dims)
+            match name[0], types[kind], indexes.get(types[kind]):
+                case ("*" | "(", _, _):
+                    pointers.extend(range(offset, offset + 8 * items, 8))
+                    offset += 8 * items
+                case (_, "char", _) if dims:
+                    chars.extend((at, dims[-1]) for at in range(offset, offset + items, dims[-1]))
+                    offset += items
+                case (_, _, int() as inner):
+                    size, inner_pointers, inner_chars = flat(inner)
+                    pointers.extend(start + at for start in range(offset, offset + size * items, size) for at in inner_pointers)
+                    chars.extend((start + at, width) for start in range(offset, offset + size * items, size) for at, width in inner_chars)
+                    offset += size * items
+                case _:
+                    offset += sizes[kind] * items
+        return offset, tuple(pointers), tuple(chars)
+
+    def body(header: BlockHeader, raw: bytes) -> bytes:
+        size, pointers, chars = flat(header.sdna_index)
+        data = bytearray(raw)
+        for base in range(0, len(data) - size + 1, size) if size else ():
+            for at in pointers:
+                struct.pack_into("<Q", data, base + at, ordinals.get(struct.unpack_from("<Q", data, base + at)[0], 0))
+            for at, width in chars:
+                if (end := data.find(0, base + at, base + at + width)) >= 0:
+                    data[end : base + at + width] = bytes(base + at + width - end)
+        return bytes(data)
+
+    return tuple((header.code, header.sdna_index, header.count, body(header, raw)) for header, raw in blocks)
+
+
 def synced() -> Sync:
     """Session data saved to the titled file when they differ from the reference, `DIVERGED` when the file on disk changed after the reference was written."""
-    if not bpy.data.filepath or filecmp.cmp(copied(Path(bpy.app.tempdir) / "current.blend"), reference(), shallow=False):
+    if not bpy.data.filepath or filecmp.cmp(current := copied(Path(bpy.app.tempdir) / "current.blend"), reference(), shallow=False) or normalized(current) == normalized(reference()):
         return Sync.UNCHANGED
     if Path(bpy.data.filepath).stat().st_mtime_ns > reference().stat().st_mtime_ns:
         return Sync.DIVERGED
@@ -413,13 +478,12 @@ def rendered(output: Path, frames: Scope | tuple[int, int]) -> Rendered:
     count = min(12, len(wanted))
     picks = sorted({round(index * (len(wanted) - 1) / max(count - 1, 1)) for index in range(count)})
     columns = next(side for side in range(1, count + 1) if side * side >= count)
-    width = min(2000 // columns - 4, settings.resolution_x * settings.resolution_percentage // 100)
     if movie:
         selected = "+".join(f"eq(n,{pick})" for pick in picks)
         subprocess.run(("ffmpeg", "-v", "error", "-i", str(paths[0]), "-vf", f"select='{selected}'", "-fps_mode", "vfr", str(Path(bpy.app.tempdir, "sheet_%02d.png"))), check=True)
     sources = (Path(bpy.app.tempdir, f"sheet_{index:02d}.png") if movie else paths[pick].with_suffix(".jpg") if image.use_preview else paths[pick] for index, pick in enumerate(picks, 1))
     labeled = (item for pick, source in zip(picks, sources, strict=True) for item in ("-label", str(wanted[pick]), str(source)))
-    tiles = subprocess.run(("magick", "montage", *labeled, "-tile", f"{columns}x", "-geometry", f"{width}x>+2+2", "miff:-"), capture_output=True, check=True).stdout
+    tiles = subprocess.run(("magick", "montage", *labeled, "-resize", f"{2000 // columns - 4}x>", "-tile", f"{columns}x", "-geometry", "+2+2", "miff:-"), capture_output=True, check=True).stdout
     subprocess.run(("magick", "-", "-resize", "2000x2000>", "-define", "jpeg:extent=500KB", str(sheet)), input=tiles, check=True)
     gpus = tuple(device.name for device in cycles.get_devices_for_type(cycles.compute_device_type) if device.use) if scene.cycles.device == "GPU" else ()
     devices = (gpus or tuple(device.name for device in cycles.get_devices_for_type("CPU"))) if settings.engine == "CYCLES" else ()

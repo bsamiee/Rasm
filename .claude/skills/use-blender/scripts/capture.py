@@ -5,6 +5,8 @@
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager, ExitStack
 from enum import StrEnum
+from functools import partial
+from itertools import product
 from pathlib import Path
 from typing import Self
 
@@ -49,7 +51,7 @@ class View(StrEnum):
 
 @attrs.frozen
 class Difference:
-    """Count of pixels past Blender's render-test threshold against the earlier capture, the diff PNG marking them red, and whether geometry left the earlier frame."""
+    """Count of pixels past Blender's render-test threshold against the earlier capture, the diff PNG mixing them half with red over the earlier capture, and whether geometry left the earlier frame."""
 
     changed: int
     diff: str
@@ -109,8 +111,8 @@ class MissingCapture:
 def capture(
     name: str, *, objects: tuple[str, ...] = (), view: str = View.ISO, size: tuple[int, int] | None = None, since: str | None = None
 ) -> Capture | UnknownObjects | UnknownView | HiddenInViewport | EmptyFrame | NoViewport | MissingCapture:
-    """Draw `.artifacts/blender/<name>.png` framing `objects` or every visible one from `view` at `size`, else the viewport's or render's size fit in 2000 px, `since` replaying an earlier capture's view, frame, and size to count changed pixels."""
-    margin, threshold, longest = 1.05, 0.016, 2000
+    """Draw `.artifacts/blender/<name>.png` framing `objects` or every visible one from `view` at `size`, else the viewport's size or the render's pixel count at the framed extent's aspect within 2000 px, `since` replaying an earlier capture's view, frame, and size to count changed pixels."""
+    margin, threshold, longest, held_key = 1.05, 0.016, 2000, "Boxes"
     path = artifacts() / f"{name}.png"
     source = None if since is None else path.with_stem(since)
     match source:
@@ -119,9 +121,9 @@ def capture(
         case Path() if not source.exists():
             return MissingCapture(source.stem)
         case Path():
-            image = ImageBuf(str(source))
-            record = JSON.loads(image.spec().getattribute(Capture.__name__), Capture)
-            earlier, stored, requested = image.get_pixels(UINT8), record.frame, record.view
+            spec = (image := ImageBuf(str(source))).spec()
+            record, kept = JSON.loads(spec.getattribute(Capture.__name__), Capture), spec.getattribute(held_key)
+            earlier, stored, requested = image.get_pixels(UINT8), (None if kept is None else np.array(JSON.loads(kept, list[list[list[float]]]))), record.view
     if requested not in View:
         return UnknownView(requested, tuple(View))
     chosen, scene, layer = View(requested), bpy.context.scene, bpy.context.view_layer
@@ -134,19 +136,8 @@ def capture(
     depsgraph, considered = bpy.context.evaluated_depsgraph_get(), objects or tuple(o.name for o in scene.objects if o.visible_get(viewport=space))
     boxes = [box for owner, box in bounds(depsgraph, drawn=True).items() if owner in considered]
     corners = np.array(boxes, dtype=np.float64).reshape(-1, 3)
-    match earlier, size, chosen, largest:
-        case np.ndarray(), _, _, _:
-            resolution_y, resolution_x = earlier.shape[:2]
-        case None, (width, height), _, _:
-            resolution_x, resolution_y = width, height
-        case _:
-            percent = scene.render.resolution_percentage
-            shown = (
-                (largest.region.width, largest.region.height)
-                if chosen is View.USER and largest is not None
-                else (scene.render.resolution_x * percent // 100, scene.render.resolution_y * percent // 100)
-            )
-            resolution_x, resolution_y = (round(side * min(1.0, longest / max(shown))) for side in shown)
+    rendered = np.array((scene.render.resolution_x, scene.render.resolution_y), dtype=np.float64) * scene.render.resolution_percentage / 100
+    area = float(np.prod(rendered * min(1.0, longest / rendered.max())))
 
     @contextmanager
     def assigned(*changes: "tuple[bpy.types.bpy_struct[object], str, object]") -> Iterator[None]:
@@ -177,10 +168,9 @@ def capture(
             scene.collection.objects.link(eye)
             yield eye, camera
 
-    def framed(rotation: Euler, box: NDArray[np.float64]) -> NDArray[np.uint8]:
-        """Pixels through a camera at `rotation` fit to the box grown by the margin, drawn in the live viewport or rendered in a background run."""
-        center, radius, basis = box.mean(axis=0), float(np.linalg.norm(box[1] - box[0])) / 2, rotation.to_matrix()
-        grown = np.stack(np.meshgrid(*(center + (box - center) * margin).T), axis=-1).reshape(-1, 3)
+    def framed(rotation: Euler, grown: NDArray[np.float64], seen: NDArray[np.float64]) -> NDArray[np.uint8]:
+        """Pixels through a camera at `rotation` fit to the grown box's world corners, `seen` in camera axes, drawn in the live viewport or rendered in a background run."""
+        radius, basis, lower, upper = float(np.linalg.norm(np.ptp(grown, axis=0))) / 2, rotation.to_matrix(), seen.min(axis=0), seen.max(axis=0)
         with temporary() as (eye, camera):
             eye.rotation_euler = rotation
             camera.clip_start, camera.clip_end = camera.clip_start * radius, camera.clip_end * radius
@@ -188,7 +178,6 @@ def capture(
                 depsgraph.update()
                 eye.location, _ = eye.camera_fit_coords(depsgraph, grown.ravel().tolist())
             else:
-                lower, upper = (seen := grown @ np.asarray(basis)).min(axis=0), seen.max(axis=0)
                 camera.type, camera.ortho_scale = "ORTHO", float(max((upper[:2] - lower[:2]) / (resolution_x, resolution_y))) * max(resolution_x, resolution_y)
                 eye.location = basis @ Vector((*((lower[:2] + upper[:2]) / 2), upper[2] + radius))
             depsgraph.update()
@@ -223,7 +212,7 @@ def capture(
             return np.array(offscreen.texture_color.read(), dtype=np.uint8).reshape(resolution_y, resolution_x, 4)[::-1, :, :3]
 
     def render(eye: bpy.types.Object) -> NDArray[np.uint8]:
-        """Opaque Workbench render through the camera to an RGB PNG at the capture path under the drawing viewport's Solid shading and color management, a theme background at the byte the viewport draws, rows top down, a scene shading enum that reads empty kept since no write restores it."""
+        """Opaque Workbench render to an RGB PNG at the capture path under the viewport's Solid shading, theme fill, and color management, rows top down, a Render Result it created removed and an empty-reading shading enum kept."""
         settings, output, display, shading = scene.render, scene.render.image_settings, scene.display_settings, scene.display.shading
         display_settings, view_settings = (output.display_settings, output.view_settings) if output.color_management == "OVERRIDE" else (display, scene.view_settings)
         solid = shading if space is None else space.shading
@@ -260,38 +249,53 @@ def capture(
             (view_settings, "look", "None"),
             *((view_settings, p.identifier, p.default) for p in view_settings.bl_rna.properties if p.type in {"BOOLEAN", "FLOAT"} and not (p.is_readonly or p.is_array)),
         ):
+            held = {image.name for image in bpy.data.images}
             bpy.ops.render.render(write_still=True)
+        for created in [image for image in bpy.data.images if image.name not in held]:
+            bpy.data.images.remove(created)
         return ImageBuf(str(path)).get_pixels(UINT8)
 
-    def write(target: Path, pixels: NDArray[np.uint8], record: Capture | None) -> None:
-        """Write the pixels as a PNG at the highest compression, holding `record` as JSON text under its class name for the next `since`."""
+    def write(target: Path, pixels: NDArray[np.uint8], attributes: dict[str, str]) -> None:
+        """Write the pixels as a PNG at the highest compression, holding each attribute's JSON text for the next `since`."""
         image = ImageBuf(np.ascontiguousarray(pixels))
         image.specmod().attribute("png:compressionLevel", 9)
-        if record is not None:
-            image.specmod().attribute(Capture.__name__, JSON.dumps(record))
+        for key, text in attributes.items():
+            image.specmod().attribute(key, text)
         if not image.write(str(target)):
             raise RuntimeError(image.geterror())
 
-    match chosen.rotation:
-        case None if largest is not None:
-            frame, pixels = None, viewed(largest)
-        case None:
+    match chosen.rotation, largest:
+        case None, Viewport() as found:
+            frame, held, shown, pending = None, None, np.array((found.region.width, found.region.height), dtype=np.float64), partial(viewed, found)
+        case None, _:
             return NoViewport()
         case _ if stored is None and not corners.size:
             return EmptyFrame(considered)
-        case degrees:
-            frame = stored if stored is not None else (tuple(corners.min(axis=0).tolist()), tuple(corners.max(axis=0).tolist()))
-            pixels = framed(Euler(np.radians(degrees).tolist()), np.array(frame, dtype=np.float64))
+        case tuple() as degrees, _:
+            held, rotation = (stored if stored is not None else corners.reshape(-1, 2, 3)), Euler(np.radians(degrees).tolist())
+            frame = (tuple(held[:, 0].min(axis=0).tolist()), tuple(held[:, 1].max(axis=0).tolist()))
+            pad = (margin - 1) / 2 * float(np.ptp(np.array(frame), axis=0).max())
+            grown = (held + np.array([[-pad], [pad]]))[:, np.array(list(product((0, 1), repeat=3))), np.arange(3)].reshape(-1, 3)
+            extent = np.ptp((seen := grown @ np.asarray(rotation.to_matrix()))[:, :2], axis=0)
+            shown, pending = extent * np.sqrt(area / np.prod(extent)), partial(framed, rotation, grown, seen)
+    match earlier, size:
+        case np.ndarray(), _:
+            resolution_y, resolution_x = earlier.shape[:2]
+        case None, (width, height):
+            resolution_x, resolution_y = width, height
+        case _:
+            resolution_x, resolution_y = (round(float(side) * min(1.0, longest / float(shown.max()))) for side in shown)
+    pixels = pending()
     match earlier:
         case None:
             comparison = None
         case previous:
             mask = (np.abs(previous.astype(np.int16) - pixels) > threshold * 255).any(axis=-1)
             diff = path.with_stem(f"{name}-diff")
-            write(diff, np.where(mask[..., None], np.array((255, 0, 0), dtype=np.uint8), previous // 2), None)
+            write(diff, np.where(mask[..., None], (previous.astype(np.uint16) + np.array((255, 0, 0), dtype=np.uint16)) // 2, previous // 2).astype(np.uint8), {})
             comparison = Difference(int(mask.sum()), str(diff), frame is not None and bool((np.clip(corners, *frame) != corners).any()))
     record = Capture(str(path), frame, chosen, comparison)
-    write(path, pixels, record)
+    write(path, pixels, {Capture.__name__: JSON.dumps(record), **({} if held is None else {held_key: JSON.dumps(held.tolist())})})
     return record
 
 

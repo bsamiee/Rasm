@@ -67,13 +67,8 @@ def stored(p: bpy.types.Property) -> bool:
             return not p.is_readonly
 
 
-def held(owner: "bpy.types.bpy_struct[object]", p: bpy.types.Property) -> bool:
-    """Whether the owner holds the property's value, a property group with no storage yet left out since its read creates the storage."""
-    return p.type != "POINTER" or owner.is_property_set(p.identifier)
-
-
 def plain(value: object) -> object:
-    """JSON form of an RNA value, floats rounded to `Object.location` precision, IDs by name, and structs by stored properties they hold."""
+    """JSON form of an RNA value, floats rounded to `Object.location` precision, IDs by name, and structs by stored properties."""
     match value:
         case float():
             return round(value, DIGITS)
@@ -84,7 +79,7 @@ def plain(value: object) -> object:
         case bpy.types.ID():
             return value.name
         case bpy.types.bpy_struct():
-            return {p.identifier: plain(getattr(value, p.identifier)) for p in value.bl_rna.properties if stored(p) and held(value, p)}
+            return {p.identifier: plain(getattr(value, p.identifier)) for p in value.bl_rna.properties if stored(p)}
         case _:
             return [plain(v) for v in value]
 
@@ -96,4 +91,4 @@ def operators() -> tuple[BPyOpFunction, ...]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DIGITS", "BPyOpFunction", "held", "operators", "plain", "stored"]
+__all__ = ["DIGITS", "BPyOpFunction", "operators", "plain", "stored"]
