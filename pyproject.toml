@@ -384,12 +384,13 @@ required-environments = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease = "allow"
+prerelease-package = { confluent-kafka = "disallow" }     # Prereleases compile against the unreleased librdkafka line, machine setup carries its stable line
 python-preference = "only-system"
 exclude-dependencies = ["dotnet-stubs"]                   # Untyped System-stubs on the same path as netstandard-stubs, rhino-stubs-typed requires both
 workspace = { members = ["tests/python/support", "tools/interface"] }
 sources = { blender-mcp = { git = "https://projects.blender.org/lab/blender_mcp.git", subdirectory = "mcp" } }
 extra-build-variables = { manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }, opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" } }
-extra-build-dependencies = { rhino3dm = ["cmake"] }
+extra-build-dependencies = { pyroscope-io = ["cmake"], rhino3dm = ["cmake"] }
 dependency-metadata = [                                   # Upstream metadata capped below the interpreter version, restated without the cap and without unrequested extras
     { name = "colour-cxf", version = "0.1.1", requires-python = ">=3.10", requires-dist = ["typing-extensions<5,>=4", "xsdata>25.4"] },
     { name = "colour-science", version = "0.4.7", requires-python = ">=3.11", requires-dist = ["numpy<3,>=2.0.0"] },

@@ -179,10 +179,19 @@ def settings(unit_system: ModuleType, preferences: bpy.types.Preferences, scene:
                         "decorator_color_special": Paint(Guide.CONSTRUCTION, display=True),
                         "decorator_color_error": Paint(Text.ERROR, display=True),
                         "decorator_color_background": Paint(Line.LOCKED, display=True),
-                        **{f"svg2{kind}_command": "" if launch.inkscape is None else JSON.dumps([[launch.inkscape, "svg", "-o", kind]]) for kind in ("pdf", "dxf")},
+                        "svg2pdf_command": "" if launch.inkscape is None else JSON.dumps([[launch.inkscape, "svg", "-o", "pdf"]]),
+                        "svg2dxf_command": "",
                     },
                 ),
-                (*working, {"camera.data.BIMCameraProperties.dpi": DPI, "BIMProperties.section_plane_colour": Paint(Surface.SECTION), "BIMProjectProperties.organisation_name": ""}),
+                (
+                    *working,
+                    {
+                        "camera.data.BIMCameraProperties.dpi": DPI,
+                        "BIMProperties.section_plane_colour": Paint(Surface.SECTION),
+                        "BIMProjectProperties.organisation_name": "",
+                        "BIMProjectProperties.geometry_library": "opencascade",
+                    },
+                ),
                 (
                     *working,
                     {

@@ -41,7 +41,7 @@ class LayerRecord(Record, frozen=True):
 
 
 class MaterialRecord(Record, frozen=True):
-    """Physically based render material a layer or object names."""
+    """Physically based render material a layer or object names, with the image file or texture type in each child slot a document read finds on."""
 
     name: str
     color: str
@@ -49,6 +49,7 @@ class MaterialRecord(Record, frozen=True):
     metallic: float
     opacity: float
     ior: float
+    textures: dict[str, str] | None = None
 
 
 class File[T](Record, frozen=True):

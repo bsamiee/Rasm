@@ -15,7 +15,7 @@ import numpy as np
 from numpy.typing import NDArray
 from results import artifacts, JSON, unknown, UnknownObjects
 from rna import DIGITS, plain, stored
-from scene import bounds
+from scene import bounds, drawings, points
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -191,31 +191,21 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
         inherited = frozenset(base.bl_rna.properties.keys())
         return {p.identifier: plain(getattr(struct, p.identifier)) for p in struct.bl_rna.properties if p.identifier not in inherited and stored(p)}
 
-    boxes = {owner: fixed(box).tolist() for owner, box in bounds(depsgraph).items()}
+    boxes = {owner: fixed(box).tolist() for owner, box in bounds(depsgraph, drawn=False).items()}
 
     def geometry(obj: bpy.types.Object) -> Geometry | None:
         try:
-            found = obj.evaluated_get(depsgraph).evaluated_geometry()
+            found = (evaluated := obj.evaluated_get(depsgraph)).evaluated_geometry()
         except TypeError:
             return None
-        mesh, curves, cloud, pencil, instances = found.mesh, found.curves, found.pointcloud, found.grease_pencil, found.instances_pointcloud()
-        frames = (layer.current_frame() for layer in (pencil.layers if pencil else ()))
-        drawings = [frame.drawing for frame in frames if frame and frame.drawing]
+        mesh, curves, cloud, instances = found.mesh, found.curves, found.pointcloud, found.instances_pointcloud()
         return Geometry(
-            hashed(
-                b"".join((
-                    floats(mesh.vertices, "co", 3) if mesh else b"",
-                    floats(curves.points, "position", 3) if curves else b"",
-                    floats(cloud.points, "co", 3) if cloud else b"",
-                    *(floats(drawing.attributes["position"].data, "vector", 3) for drawing in drawings),
-                    floats(instances.attributes["instance_transform"].data, "value", 16) if instances else b"",
-                ))
-            ),
+            hashed(fixed(points(evaluated, drawn=False)).tobytes() + (floats(instances.attributes["instance_transform"].data, "value", 16) if instances else b"")),
             len(mesh.vertices) if mesh else 0,
             len(mesh.polygons) if mesh else 0,
             len(curves.points) if curves else 0,
             len(cloud.points) if cloud else 0,
-            sum(len(drawing.strokes) for drawing in drawings),
+            sum(len(drawing.strokes) for drawing in drawings(found.grease_pencil)),
             len(instances.points) if instances else 0,
         )
 

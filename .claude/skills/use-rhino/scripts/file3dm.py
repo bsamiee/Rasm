@@ -4,6 +4,9 @@
 # requires-python = ">=3.13"
 # dependencies = ["msgspec", "rhino3dm"]
 #
+# [tool.uv]
+# extra-build-dependencies = { rhino3dm = ["cmake"] }
+#
 # [tool.ty.environment]
 # extra-paths = ["."]
 # ///

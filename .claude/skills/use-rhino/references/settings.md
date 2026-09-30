@@ -1,128 +1,163 @@
 # [SETTINGS]
 
-Application settings write through their owning class or `PersistentSettings` inside `run_python`.
+Application settings are one state every document, session, and the user share, reached through their owning `Rhino.ApplicationSettings` class, a `PersistentSettings` key, a plugin's settings tree, or a Grasshopper 2 `Settings` member.
 
-## [01]-[STORES]
+[OWNERS]: Each interface module under `tools/interface/rhino/` declares one family and names its owner and target:
+- `script/options.py`: `ApplicationSettings` members, `Options/*` keys, internal `TabPanelSettings` and toolbar sizes, macOS defaults
+- `script/appearance.py`: appearance, SmartTrack, gumball, and analysis colors, `UI/ThemeSettings` keys, widget colors
+- `script/keyboard.py` with `script/aliases.txt`: the alias set and the bound shortcut keys
+- `script/containers.py` with `window.py`: content panel keys, Rendering panel sections, and the window layout
+- `script/plugins.py`, `script/display.py`, `script/template.py`: load modes and plugin keys, display modes, the default templates
+- `script/grasshopper.py` with `script/Dark.ghskin`, `components.rules`, `functions.rules`: every Grasshopper 2 store
+- `stores.py`: settings XML children, plugin settings files, and `UI/default.rui`, edited once Rhino quit
 
-Paths sit under `~/Library/Application Support/McNeel/Rhinoceros/9.0/` unless absolute:
+## [01]-[READ]
 
-| [INDEX] | [STORE]                                                          | [HOLDS]                                                         |
-| :-----: | :--------------------------------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | `settings/settings-Scheme__Default.xml`                          | Options, display modes, aliases, shortcuts, plugin registry     |
-|  [02]   | `settings/Scheme__Default/containers.xml`                        | Launch layout, every dock bar the process held at its last quit |
-|  [03]   | `UI/default.rui`                                                 | Toolbar groups, toolbars, macros                                |
-|  [04]   | `Plug-ins/<name> (<guid>)/settings/settings-Scheme__Default.xml` | `PlugIn.Settings` and `<command name>` blocks of one plugin     |
-|  [05]   | `../Template Files/<name>.3dm`                                   | `FileSettings.TemplateFile` new documents open from             |
-|  [06]   | `~/Library/Preferences/com.mcneel.rhinoceros.9.plist`            | Window frames, `MRDefaultTemplateFilename`, Sparkle update keys |
-|  [07]   | `~/Library/Application Support/Grasshopper2/Settings/*.ghs`      | Grasshopper 2 settings, one binary node per file                |
+Owner, store, and live value of a setting come from the interface, the archive, and one call:
+1. `rg -n '<member or key>' tools/interface/rhino` names the module that declares it, its row form, and its target
+2. `rg -n '<member or key>' tools/interface/.archive/facts` names its key, owner, factory value, and write path
+3. `rhinocommon-crashes.txt` lists members that end the process, a class it names reads through its stored keys
+4. One `run_python` call reads the member by name, or the key through `TryGet<Type>`, `GetSettingType(key)`, and `TryGetDefault`
 
-- Settings XML stores keys that differ from their registered default alone, a key equal to its default drops at quit and reads its default
-- Colors store as `A,R,G,B`, plugin settings files delete when every value equals its default
-- Native settings objects (General, Mouse, File, Appearance, Grid, View, ContextMenu, ShortcutKeys) write the tree at quit from their own memory
-- Rhino rewrites settings XML at quit, on the idle after a `PersistentSettings` write, and on `UpdateDisplayMode(mode)` and `SaveDisplayModes()`
-- Crashes skip the quit rewrite and lose every write no idle saved
-- Rhino overwrites edits to a file it holds in memory, file edits go between a quit and a relaunch
-- `cfprefsd` rewrites the defaults domain while Rhino runs, `defaults write` runs while Rhino is closed
-- Grasshopper 2 `.ghs` files rewrite whole 1 second after each setter, never at quit, a `.ghs` edited beside a running editor is overwritten
+```python
+# Value, stored type, and registered default of one Options key
+import clr
+from Rhino import PersistentSettings
+from System import String
 
-## [02]-[WRITES]
+child = PersistentSettings.RhinoAppSettings.GetChild("Options").GetChild("<Group>")
+text = clr.GetClrType(String)
+print(child.TryGetString("<Key>"), child.GetSettingType("<Key>"), child.TryGetDefault.Overloads[text, text.MakeByRefType()]("<Key>"))
+```
 
-- `Rhino.ApplicationSettings.<Class>.<Member> = value` writes the native object at once and persists
-- `PersistentSettings.RhinoAppSettings.AddChild("Options").AddChild("<Group>")` reaches a key's child, `GetChild` raises when the child is absent
-- `child.Set<Type>(key, value)` writes, `child.TryGet<Type>(key)` reads `(found, value)`, `Get<Type>(key, default)` writes `default` into the store
-- One-argument getters (`GetBool(key)`) read a registered key and raise `NotSupportedException` when the stored text is another type
-- `SetEnumValue` and `TryGetEnumValue` take an enum type, `SetStringList(key, Array[String](...))` takes an array
-- `SetStringDictionary(key, Array[KeyValuePair[String, String]](...))` writes a dictionary, rows read as `pair.Key` and `pair.Value`
-- `child.TryGetDefault.Overloads[<clr type>, <clr type>.MakeByRefType()](key)` reads a registered default, the plain call fails to bind
-- Key writes a native object owns reach it through the idle save's reload, `PlugIn.FlushSettingsSavedQueue()` saves and reloads at once
-- Write stages end with the flush, a quit before any idle save loses unflushed key writes to each native object's loaded value
-- Internal owners write through `<Type>.GetProperty(name).SetMethod.CreateDelegate(Action[T])`, `PropertyInfo.SetValue` refuses a Python `int`
-- `System.Type.GetType("<Namespace>.<Type>, <Assembly>", throwOnError=True)` reaches an internal enum or type by its assembly-qualified name
-- `PersistentSettings.FromPlugInId(id)` and `PlugIn.Find(id).CommandSettings("<Command>")` reach a plugin's tree and one command's block
-- Settings pages rewrite whole classes on hide (Modeling Aids), tables on edit (Keyboard) or hide (Aliases), and modes on leave (Display Modes)
-- Settings windows close before a write stage, a page left open reverts the writes it snapshots
+- `TryGet<Type>` and one-argument getters read without writing, `Get<Type>(key, default)` writes `default` into the key's default slot
+- `PersistentSettings.FromPlugInId(<id>)` opens a plugin's tree and `PlugIn.Find(<id>).CommandSettings("<Command>")` one command's block
+- Internal owners read through `System.Type.GetType("<Namespace>.<Type>, <Assembly>", throwOnError=True).GetProperty("<Name>").GetValue(None)`
+- `Grasshopper2.Settings.<Name>.Value` reads after `PlugIn.LoadPlugIn(PlugIn.IdFromName("Grasshopper2"))` and `import Grasshopper2`
 
-## [03]-[CLASSES]
+## [02]-[TRIAL]
 
-- `ApplicationSettings` members read one by name, a reflection walk over its statics crashes Rhino
-- `ThicknessAnalysisSettings` state reads and `SmartTrackSettings` integer getters crash Rhino, `Options/SmartTrack` keys read the integers
-- `GetCurrentState()` misreports `OpenGLSettings.AntialiasLevel` and `ChooseOneObjectSettings.HighlightColor`, the static members read them right
-- `AppearanceSettings.ShowStatusBar` reads `False` while the bar draws, key `Options/Appearance/ShowStatusbar` holds it
-- `FileSettings.AutoSaveEnabled` reads back `False` after a `True` write, macOS autosave is `Options/FileSettings/AutoSaveVersionsEnabled`
-- `AppearanceSettings.CommandPromptFontSize` and key `CommandPromptFontHeight` hold tenths of a point, 110 is 11 pt
-- `HostUtils.ExecuteNamedCallback("Rhino.UI.Internal.DockBars.CommandLine.GetPresentationStyle", args)` reads the prompt location as `mode`
-- `Options/Advanced/DarkMode` changes nothing on macOS, chrome follows the system appearance
-- Grid and appearance color writes drop alpha, `FromArgb(153, r, g, b)` reads back `A=255`
-- `AllowUnadornedShortcuts` True runs an unmodified letter's shortcut macro at an empty prompt before any one-letter alias
+Trials read the held value, write, read back, and restore the held value in the `finally` of the same call:
+
+```python
+# Trial of one appearance color, drawn and restored in one call
+from Rhino.ApplicationSettings import AppearanceSettings
+from System.Drawing import Color
+import document
+
+held = AppearanceSettings.ViewportBackgroundColor
+try:
+    AppearanceSettings.ViewportBackgroundColor = Color.FromArgb(<r>, <g>, <b>)
+    print(held, AppearanceSettings.ViewportBackgroundColor, document.capture(__rhino_doc__, "<name>", zoom=None))
+finally:
+    AppearanceSettings.ViewportBackgroundColor = held
+```
+
+Each owner takes its own write and restore inside the same `try`:
+
+| [INDEX] | [OWNER]                        | [WRITE]                                                     | [RESTORE]                                  |
+| :-----: | :----------------------------- | :---------------------------------------------------------- | :----------------------------------------- |
+|  [01]   | `ApplicationSettings` member   | `<Class>.<Member> = value`, live at once                    | Held value                                 |
+|  [02]   | Key with a native owner        | `child.Set<Type>(key, value)`, then a flush                 | Held value, then a flush                   |
+|  [03]   | Key with no owner              | `child.Set<Type>(key, value)`                               | Held value or `DeleteItem(key)` |
+|  [04]   | Internal owner                 | `SetMethod.CreateDelegate(Action[T])` called with the value | Delegate called with the held value        |
+|  [05]   | Plugin or command setting      | `Set<Type>` on its tree, the plugin loaded                  | Held value                                 |
+|  [06]   | Grasshopper 2 `Settings` entry | `Settings.<Name>.Value = value`, the `.ghs` written at once | Held value                                 |
+
+- `PlugIn.FlushSettingsSavedQueue()` is the flush, it saves every changed key and reloads each native owner before it returns
+
+- `document.capture` inside the call shows a viewport change, a chrome or panel change shows in a window capture only after the call returns
+- `RhinoEtoApp.ApplicationPreferencesWindowForPage(None)` reads `None` while no Settings window holds a page snapshot over the trial
+
+## [03]-[DECLARED_STATE]
+
+Lasting changes edit the declaring module's target and converge it, live rows in the running Rhino and file rows through the apply.
+
+Live rows of one module converge in the running Rhino without a quit:
+
+```python
+# Declared rows of one interface module against the live values
+# env: <repository>/tools
+import sys
+
+for name in [name for name in sys.modules if name.partition(".")[0] == "interface"]:
+    del sys.modules[name]
+from interface.report import changes
+from interface.rhino.script import keyboard
+from interface.rhino.script.accessors import plain
+
+for row in keyboard.rows():
+    print(*changes(row.label, plain(row.read()), plain(row.target)), sep="\n")
+```
+
+- `changes` lines name each row off its target as label, held value, and target, no line means the store holds the declaration
+- `converged(row, plain)` in place of `changes` writes each differing row, a `PlugIn.FlushSettingsSavedQueue()` in a `finally` saves the keys
+- `template.rows({units: template.target(units) for units in Units})` takes the template targets, `Units` from `interface.units`
+- `containers.rows` restores the window layout as it yields, the layout converges through the apply
+
+File rows (`stores.py` children and toolbars) converge through `nx run rasm:interface -- rhino`:
+1. `documents()` in each slot lists every untitled document as the task's own, the apply marks untitled documents unmodified before its quit
+2. `save(doc)` saves each titled document with `modified` reading `True`, the apply fails on one holding unsaved edits
+3. `nx run rasm:interface -- rhino` quits every Rhino, converges the live rows in a fresh Rhino, quits it, edits the files, and reopens titled files
+4. Its JSON outcome lists each change as label, held value, and target, a rerun that lists none shows every write held
+
+Use the setup reference for a one-off file edit between quit and relaunch.
 
 ## [04]-[ALIASES_AND_SHORTCUTS]
 
-- `CommandAliasList.Update(List[CommandAlias]([CommandAlias(name, macro, instant=False), ...]), replaceAll=True)` converges the whole alias set
-- `CommandAliasList.Add` refuses a name that is a command name and deletes nothing, `GetDefaults()` lists the factory set a write overlays
-- Alias files hold one `alias macro` line split at the first space, as `-_Options _Aliases _Export <path>` writes them
-- `Command.IsCommand(name)` False on every alias name keeps aliases from shadowing commands
-- `ShortcutKeySettings.SetMacro(ShortcutKey.<Key>, macro)` writes one binding, `Update(..., replaceAll=True)` drops bindings `GetShortcuts()` omits
-- `ShortcutKey` names are Windows forms, `Ctrl` is Cmd on macOS, `SetMacro(KeyboardKey, ModifierKey, macro)` reaches Ctrl+Cmd chords
-- `IsAcceptableKeyCombo` refuses unmodified letters and digits, Shift-only letters, Escape, and Option with E, I, N, R, or U
-- Cmd+PageDown bindings store as Cmd+' from a keycode collision, PageUp bindings hold
+- `CommandAliasList.GetMacro("<name>")` reads an alias, `None` for none, `ToDictionary()` the set and `GetDefaults()` the factory set
+- `Command.IsCommand("<name>")` reads `False` for every alias name a trial or `aliases.txt` adds
+- Trial aliases take `Add(name, macro)` and `Delete(name)` in the `finally`, `SetMacro(name, held)` for a held alias
+- Instant flags take `Update(List[CommandAlias]([CommandAlias(name, macro, instant), ...]), replaceAll=True)` with the held rows in the `finally`
+- `aliases.txt` holds one `name macro` line per alias and one `name` line per instant alias, `keyboard.py` replaces the whole set from it
+- `ShortcutKeySettings.GetMacro(ShortcutKey.<Key>)` reads a binding, `None` unbound, `GetShortcuts()` every bound row
+- `ShortcutKeySettings.IsAcceptableKeyCombo(KeyboardKey.<Key>, ModifierKey.<Modifier>)` reads True before a trial `SetMacro`
+- Trial bindings take `SetMacro(key, macro)` and `SetMacro(key, held or "")` in the `finally`, `""` unbinding
+- `keyboard.py` holds the bound shortcut rows, each written one key at a time
 
-## [05]-[PANELS_AND_LAYOUT]
+## [05]-[PANELS_AND_TOOLBARS]
 
-- `Panels.OpenPanel(panelId, True)` opens and selects a panel, `OpenPanel(dockBarId, panelId, makeSelectedPanel=False)` appends it to a container
-- `Panels.PanelDockBar(panelId)` names the container, `Guid.Empty` for a closed panel, `GetOpenPanelIds()` returns an empty list
-- `Panels.ClosePanel` closes a floating panel and leaves a docked tab in place, a docked tab closes through `containers.xml` after a quit
-- `Rhino.UI.PanelIds` lacks Named Views, Layouts, Block Definitions, Snapshots, Layer States, and Named Positions, missing panels take literal guids
-- Panels with no `last_collection_panel_was_in` row open floating
-- Floating bars a script created join `containers.xml` at the next quit
-- Container tab order is row order under `<tabs>`, a band size sits twice, in `placement@dock_band_size` and the `dock_site` band `size`
-- `default.rui` rewrites only after an in-app toolbar edit, deleting it makes Rhino write the factory file at launch
-- Toolbar files hold no tab membership or button API, `RhinoApp.ToolbarFiles` reads groups and toolbars by name, buttons are XML
-- `TabPanelSettings.ToolBarImageSize` and `TabIconSize` cache at load and show after a relaunch, padding and cascade keys apply at the next layout
-- `LayersPanel` column lists read once at panel construction and write at panel close
-- `LayoutsPanel/Width` holds 4 widths and ignores any other count
-- `Reset` command's toolbar reset deletes every file in `settings/Scheme__Default/`, `containers.xml` included
+Panel calls act on `RhinoDoc.ActiveDoc`'s window, a task's panel trials run while its own document is active:
+- `window.PanelId` and `Rhino.UI.PanelIds` hold panel ids, `Panels.PanelDockBar(<id>)` names the holding container, `Guid.Empty` closed
+- `Panels.OpenPanel(<container>, <id>, makeSelectedPanel=False)` appends a tab, `Panels.PanelDockBars(<id>)` reads every holder
+- `HostUtils.ExecuteNamedCallback("Rhino.UI.Internal.NamedCallbacks.RhinoUiCloseDockbarTab", args)` removes the trial tab in the `finally`
+- `containers.called(doc, "<callback>", "documentSerialNumber", factoryId=<id>)` builds the callback's arguments
+- `window.Container` and `window.RETURNS` declare each container's tabs and each panel's return container, the apply restores and keeps them
+- `RhinoApp.ToolbarFiles` reads toolbar groups and toolbars by name, `stores.toolbars` declares ribbon tab order and package buttons
+- `options.py` holds the tab icon, toolbar image, and padding sizes, each showing after a relaunch
 
 ## [06]-[TEMPLATE]
 
-- `RhinoDoc.CreateHeadless(<template>)`, table edits, `doc.WriteFile(path, FileWriteOptions())`, and `Dispose()` in one call rewrite a template
-- `File3dm.Read(path)`, `view.Maximized`, and `file.Write(path, File3dmWriteOptions())` set the maximized view, a headless write reads `False`
-- `File3dm` creates no render content and holds no section style table, render content and section styles write through the headless document
-- New-document choosers list `Template Files/` before the bundle's templates, a second template needs no `TemplateFolder` change
-- `doc.GetGridDefaults()` and `SetGridDefaults(defaults)` hold the grid new viewports inherit, each view's `ConstructionPlane` holds its own spacing
-- `doc.DimStyles.BuiltInStyles` names hold the `Template ` prefix, `style.CopyFrom(<built-in>)` then `Modify(style, style.Id, True)` commits
-- Nudge steps are one application value read in the active document's model units
+- `FileSettings.TemplateFile` names the file new documents open from, `file3dm.py <file>` reads its tables without Rhino
+- Template trials copy the file under the task's scratch folder and edit the copy in one call:
 
-## [07]-[COLORS]
+```python
+# Edit a template copy through a headless document
+from Rhino import FileIO, RhinoDoc
 
-- Appearance colors write through `AppearanceSettings` members
-- `GridThinLineColor` and `GridThickLineColor` draw one device pixel wide at full color
-- Widget and direction arrow colors write through `AppearanceSettings.SetWidgetColor` and `Options/Appearance/DirectionArrowColor<U|V|W>` keys
-- Interface chrome keys sit under `UI/ThemeSettings` (`Frame.*`, `Content.*`), a macOS appearance change clears every key back to system colors
-- Native controls (Properties text fields, buttons, dropdowns) and the Layers header read no theme key
-- `BlackWhiteSwitching` True turns pure black curves white below 30% background brightness and pure white curves black above 70%
+doc = RhinoDoc.CreateHeadless("</abs/copy.3dm>")
+try:
+    doc.Layers.Add("<name>", <color>)
+    print(doc.WriteFile("</abs/copy.3dm>", FileIO.FileWriteOptions()))
+finally:
+    doc.Dispose()
+```
 
-## [08]-[FONTS]
+- `file3dm.py` on the copy shows the tables it holds, `open -g -b com.mcneel.rhinoceros.9 <copy>` shows a new document from it
+- `template.py` declares each unit system's template, its rows write `Template Files/Default.3dm` and `Metric.3dm` in the running Rhino
 
-- `Options/Appearance/CommandPromptFontName` names the prompt and history font, `AppearanceSettings.UpdateFromState(state)` writes it
-- Rhino panels draw in the macOS system font with no size or face key
-- `Resources/Fonts/SansSerif.txt` and `Monospace.txt` under the Grasshopper 2 support folder read once at startup, edited with Rhino closed
-- Each file holds one family cascade, the hidden system face cannot head one, and a named installed family resolves
-- `Grasshopper2.Folders.ResourceFolder(ResourceFolder.Fonts)` names the folder, a `Resources/version` change rewrites every file in it
-- `StandardFonts.Sans(FontSize.Normal).ControlObject.FontName` reads the resolved face, both import from `Eto.Drawing` after `import Grasshopper2`
+## [07]-[COLORS_AND_FONTS]
 
-## [09]-[GRASSHOPPER_2]
+- `appearance.py` maps every appearance, theme, and analysis color to a role of `tools/interface/roles.py`
+- Viewport colors take a trial through `AppearanceSettings` members and an in-call `document.capture`
+- `UI/ThemeSettings` keys take a trial through `PersistentSettings.RhinoAppSettings.GetChild("UI").GetChild("ThemeSettings").SetColor`
+- `options.py` writes the command prompt font through `AppearanceSettings.UpdateFromState(state)` with `state.CommandPromptFontName` set
+- `grasshopper.py` writes the Grasshopper 2 font cascades in `Folders.ResourceFolder(ResourceFolder.Fonts)`, each read at the next launch
 
-- `Grasshopper2.Settings.<Name>.Value = v` writes a setting and `.Value` reads it back, usable after `PlugIn.LoadPlugIn` without the editor
-- `Settings.SandBox` True holds every write in memory and the next write after it ends saves them all, `RevertToDefault` resets nothing
-- `SkinServer.Import(path, True)` copies a `.ghskin` under its file name, `Settings.CanvasSkin.Value = "<name>"` and `DarkMode.Value = True` apply it
-- Unbound skin keys fall back to the built-in skin's values, a skin binds every key whose meaning changes
-- `Settings.SeededSkins.Value` set to `SkinServer.StandardNames()` joined by newlines keeps the first skin load from copying stock skins
-- Status bar Solver, State, and Drag Shapes read no store, `SolutionServer.EnableSolutions` starts True and `ViewportDragging` False per launch
-- `SettingsFolder("ComponentTabs").SetText("<name>.rules", text)` writes a ribbon rule set
-- `SettingsFolder("ComponentTabs").GetSettings("Control").Set("CurrentRuleSet", "<name>.rules")` then `TrySaveSettingsToFile()` activates it
-- Rule sets named without `.rules` save as `.txt` and vanish from rule-set lists, `Cite Default` first keeps the stock layout under later rules
-- `Grasshopper2.UI.TabbedPanel.Layout.<Constant>` setters write `ribbon.ghs` and relay out the ribbon live, none clamps
-- `Grasshopper2.Display.Defaults.UserDefault = Guises(standard, selected)` sets preview guises, `Guise.WithColour` tints facets off scale
-- `SnappingSettings.Current = SnappingSettings.Current.WithFeedback(drawFeedback=True, colour=...)` writes every snapping key at once
-- `PlugIn.Find(PlugIn.IdFromName("Grasshopper2")).CommandSettings("GH2")` holds `ShowBanner`, `ShowEditor`, and `LoadLevel`
-- `Settings.UserDays.Value` only grows, 15 or more keeps object panel labels at the small font
+## [08]-[GRASSHOPPER_2]
+
+- `grasshopper.py` holds every setting value, `Dark.ghskin` the skin, and `components.rules` and `functions.rules` the ribbon rules
+- `SkinServer.Load("<name>")[0].ToText()` reads a stored skin, `Settings.CanvasSkin.Value` and `Settings.DarkMode.Value` the active one
+- `SettingsFolder("ComponentTabs").GetText("<name>.rules")` reads a rule set, `GetSettings("Control")` the active `CurrentRuleSet`
+- `Grasshopper2.UI.TabbedPanel.Layout.<Constant>` trials relay out the ribbon live and save `ribbon.ghs` 1 second after the call
+- `Defaults.UserDefault` and `SnappingSettings.Current` trials assign the held object back in the `finally`

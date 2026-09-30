@@ -1,6 +1,6 @@
 # mypy: disable-error-code="arg-type, attr-defined, union-attr, unreachable"
 # ty: ignore[invalid-argument-type, unresolved-attribute]
-"""Digest one node tree as its interface, non-default nodes, and links by socket identifier."""
+"""Digest of one node tree as its interface, non-default nodes, and links by socket identifier, and its layout through Node Arrange."""
 
 from collections import ChainMap
 from collections.abc import Iterable
@@ -37,12 +37,13 @@ class Node:
 
 @attrs.frozen
 class Link:
-    """Link from an output to an input, each named by node name and socket identifier."""
+    """Link from an output to an input, each named by node name and socket identifier, false `is_valid` on a type mismatch."""
 
     from_node: str
     from_socket: str
     to_node: str
     to_socket: str
+    is_valid: bool
     is_muted: bool
 
 
@@ -50,11 +51,17 @@ class Link:
 class Digest:
     """Tree with the RNA type of its owner, interface sockets, nodes, and links."""
 
-    tree: str
     owner: str
     interface: tuple[Socket, ...]
     nodes: tuple[Node, ...]
     links: tuple[Link, ...]
+
+
+@attrs.frozen
+class Arranged:
+    """Reroute nodes the layout added to the tree."""
+
+    reroutes: tuple[str, ...]
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -67,11 +74,16 @@ class UnknownTree:
     name: str
 
 
+@attrs.frozen
+class NoWindow:
+    """Background process with no window to draw the tree in."""
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def trees() -> dict[str, tuple[str, bpy.types.NodeTree]]:
-    """Every node tree by owner name with the owner's RNA type, a node group before an ID pointing at a tree, IDs in `bpy.data` order."""
+    """Every node tree of a registered type by owner name with the owner's RNA type, a node group before an ID pointing at a tree, IDs in `bpy.data` order."""
     owned = (
         {owner.name: (type(owner).__name__, tree) for owner in getattr(bpy.data, ids.identifier) if (tree := getattr(owner, pointer.identifier))}
         for ids in bpy.data.bl_rna.properties
@@ -79,7 +91,7 @@ def trees() -> dict[str, tuple[str, bpy.types.NodeTree]]:
         for pointer in ids.fixed_type.properties
         if isinstance(pointer, bpy.types.PointerProperty) and isinstance(pointer.fixed_type, bpy.types.NodeTree) and not pointer.is_deprecated
     )
-    return dict(ChainMap({group.name: (type(group).__name__, group) for group in bpy.data.node_groups}, *owned))
+    return {name: row for name, row in ChainMap({group.name: (type(group).__name__, group) for group in bpy.data.node_groups}, *owned).items() if type(row[1]) is not bpy.types.NodeTree}
 
 
 def record(owner: str, tree: bpy.types.NodeTree) -> Digest:
@@ -117,13 +129,13 @@ def record(owner: str, tree: bpy.types.NodeTree) -> Digest:
                 item.in_out,
                 item.socket_type,
                 None if item.parent == tree.interface.root_panel else item.parent.name,
-                changed(item, baseline.interface.new_socket(item.name, in_out=item.in_out, socket_type=item.socket_type), frozenset()),
+                changed(item, baseline.interface.new_socket(item.name, in_out=item.in_out, socket_type=item.socket_type), frozenset({"bl_socket_idname"})),
             )
             for item in tree.interface.items_tree
             if isinstance(item, bpy.types.NodeTreeInterfaceSocket)
         )
-        links = tuple(Link(link.from_node.name, link.from_socket.identifier, link.to_node.name, link.to_socket.identifier, link.is_muted) for link in tree.links)
-        return Digest(tree.name, owner, interface, nodes, links)
+        links = tuple(Link(link.from_node.name, link.from_socket.identifier, link.to_node.name, link.to_socket.identifier, link.is_valid, link.is_muted) for link in tree.links)
+        return Digest(owner, interface, nodes, links)
     finally:
         bpy.data.node_groups.remove(baseline)
 
@@ -134,6 +146,35 @@ def digest(name: str) -> Digest | UnknownTree:
     return UnknownTree(name) if hit is None else record(*hit)
 
 
+def arrange(name: str) -> Arranged | UnknownTree | NoWindow:
+    """Tree owned by `name` laid out through Node Arrange in a temporary node editor window drawn once for node sizes, node selection kept."""
+    manager = bpy.context.window_manager
+    match trees().get(name), next(iter(manager.windows), None):
+        case None, _:
+            return UnknownTree(name)
+        case _, None:
+            return NoWindow()
+        case (_, tree), window:
+            opened, held, selected = {w.as_pointer() for w in manager.windows}, set(tree.nodes.keys()), {n.name for n in tree.nodes if n.select}
+            with bpy.context.temp_override(window=window):
+                bpy.ops.wm.window_new()
+            temporary = next(w for w in manager.windows if w.as_pointer() not in opened)
+            area = temporary.screen.areas[0]
+            area.ui_type = tree.bl_idname
+            area.spaces[0].pin, area.spaces[0].node_tree = True, tree
+            for item in tree.nodes:
+                item.select = True
+            with bpy.context.temp_override(window=temporary, area=area, region=next(r for r in area.regions if r.type == "WINDOW")):
+                try:
+                    bpy.ops.wm.redraw_timer(type="DRAW", iterations=1)
+                    bpy.ops.node.na_arrange_selected()
+                finally:
+                    bpy.ops.wm.window_close()
+                    for item in tree.nodes:
+                        item.select = item.name in selected
+            return Arranged(tuple(n.name for n in tree.nodes if n.name not in held))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Digest", "Link", "Node", "Socket", "UnknownTree", "digest", "record", "trees"]
+__all__ = ["Arranged", "Digest", "Link", "Node", "NoWindow", "Socket", "UnknownTree", "arrange", "digest", "record", "trees"]

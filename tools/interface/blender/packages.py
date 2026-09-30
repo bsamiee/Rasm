@@ -418,16 +418,15 @@ async def resolution(host: Host, blender: Installation, packages: tuple[Package,
 
 # --- [CONTENT]
 async def packaged(host: Host, application: Bundle, blender: Installation) -> tuple[Manifest, Local] | Error:
-    """Manifest of the extension folder and the row of the archive Blender builds from a copy of it with its linked modules resolved, the build's extensions folder its own so the user's shared wheels stay, or the failed build."""
+    """Manifest of the extension folder and the row of the archive Blender builds from a copy of it with its linked modules resolved, or the failed build."""
     source = anyio.Path(Path(__file__).with_name("extension"))
     manifest = msgspec.toml.decode(await (source / blender.manifest_filename).read_bytes(), type=Manifest)
     target = anyio.Path(host.artifacts, f"{manifest.id}.zip")
     await target.parent.mkdir(parents=True, exist_ok=True)
     async with anyio.TemporaryDirectory() as temporary:
-        folder, extensions = await source.copy(anyio.Path(temporary, manifest.id)), anyio.Path(temporary, "extensions")
-        await extensions.mkdir()
+        folder = await source.copy(anyio.Path(temporary, manifest.id))
         command = (str(application.executable), "--factory-startup", *EXTENSION_COMMAND, "build", "--source-dir", str(folder), "--output-filepath", str(target))
-        if isinstance(failed := await executed(command, {**host.environ, "BLENDER_USER_EXTENSIONS": str(extensions)}), Error):
+        if isinstance(failed := await executed(command, host.environ), Error):
             return failed
     return manifest, Local(manifest.id, await anyio.to_thread.run_sync(sealed, Path(target)), ())
 

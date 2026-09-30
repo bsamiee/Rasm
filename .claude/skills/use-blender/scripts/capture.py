@@ -11,13 +11,13 @@ from typing import Self
 import attrs
 import bpy
 import gpu
-from mathutils import Euler, Matrix, Vector
+from mathutils import Color, Euler, Matrix, Vector
 import numpy as np
 from numpy.typing import NDArray
 from OpenImageIO import ImageBuf, UINT8
 from PyOpenColorIO import GetCurrentConfig
 from results import artifacts, JSON, unknown, UnknownObjects
-from scene import bounds, Viewport, viewport
+from scene import bounds, SHOWN, Viewport, viewport
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -86,7 +86,7 @@ class HiddenInViewport:
 
 @attrs.frozen
 class EmptyFrame:
-    """Objects considered for the frame, none with evaluated geometry or instances."""
+    """Objects considered for the frame, none showing faces, points, strokes, or hair as solid or textured."""
 
     objects: tuple[str, ...]
 
@@ -109,8 +109,8 @@ class MissingCapture:
 def capture(
     name: str, *, objects: tuple[str, ...] = (), view: str = View.ISO, size: tuple[int, int] | None = None, since: str | None = None
 ) -> Capture | UnknownObjects | UnknownView | HiddenInViewport | EmptyFrame | NoViewport | MissingCapture:
-    """Draw `.artifacts/blender/<name>.png` framing `objects` or every visible one from `view` at `size`, else the user's viewport's device pixels or the scene's render size, and `since` replays an earlier capture's view, frame, and size in their place to count changed pixels."""
-    margin, threshold = 1.05, 0.016
+    """Draw `.artifacts/blender/<name>.png` framing `objects` or every visible one from `view` at `size`, else the viewport's or render's size fit in 2000 px, `since` replaying an earlier capture's view, frame, and size to count changed pixels."""
+    margin, threshold, longest = 1.05, 0.016, 2000
     path = artifacts() / f"{name}.png"
     source = None if since is None else path.with_stem(since)
     match source:
@@ -132,18 +132,21 @@ def capture(
     if hidden := tuple(n for n in objects if not scene.objects[n].visible_get(viewport=space)):
         return HiddenInViewport(hidden)
     depsgraph, considered = bpy.context.evaluated_depsgraph_get(), objects or tuple(o.name for o in scene.objects if o.visible_get(viewport=space))
-    boxes = [box for owner, box in bounds(depsgraph).items() if owner in considered]
+    boxes = [box for owner, box in bounds(depsgraph, drawn=True).items() if owner in considered]
     corners = np.array(boxes, dtype=np.float64).reshape(-1, 3)
     match earlier, size, chosen, largest:
         case np.ndarray(), _, _, _:
             resolution_y, resolution_x = earlier.shape[:2]
         case None, (width, height), _, _:
             resolution_x, resolution_y = width, height
-        case None, None, View.USER, Viewport(region=region):
-            resolution_x, resolution_y = region.width, region.height
         case _:
             percent = scene.render.resolution_percentage
-            resolution_x, resolution_y = scene.render.resolution_x * percent // 100, scene.render.resolution_y * percent // 100
+            shown = (
+                (largest.region.width, largest.region.height)
+                if chosen is View.USER and largest is not None
+                else (scene.render.resolution_x * percent // 100, scene.render.resolution_y * percent // 100)
+            )
+            resolution_x, resolution_y = (round(side * min(1.0, longest / max(shown))) for side in shown)
 
     @contextmanager
     def assigned(*changes: "tuple[bpy.types.bpy_struct[object], str, object]") -> Iterator[None]:
@@ -155,7 +158,7 @@ def capture(
                 if getattr(owner, key) != value:
                     setattr(owner, key, value)
 
-        saved = [(owner, key, getattr(owner, key)) for owner, key, _ in changes]
+        saved = [(owner, key, tuple(value) if isinstance(value, bpy.types.bpy_prop_array | Color) else value) for owner, key, _ in changes for value in (getattr(owner, key),)]
         try:
             put(changes)
             yield
@@ -220,15 +223,30 @@ def capture(
             return np.array(offscreen.texture_color.read(), dtype=np.uint8).reshape(resolution_y, resolution_x, 4)[::-1, :, :3]
 
     def render(eye: bpy.types.Object) -> NDArray[np.uint8]:
-        """Opaque Workbench render through the camera to an RGB PNG at the capture path under Solid mode's view settings, rows top down."""
-        settings, output, display = scene.render, scene.render.image_settings, scene.display_settings
+        """Opaque Workbench render through the camera to an RGB PNG at the capture path under the drawing viewport's Solid shading and color management, a theme background at the byte the viewport draws, rows top down, a scene shading enum that reads empty kept since no write restores it."""
+        settings, output, display, shading = scene.render, scene.render.image_settings, scene.display_settings, scene.display.shading
         display_settings, view_settings = (output.display_settings, output.view_settings) if output.color_management == "OVERRIDE" else (display, scene.view_settings)
+        solid = shading if space is None else space.shading
+        backdrop = Color(bpy.context.preferences.themes[0].view_3d.space.gradients.high_gradient).from_srgb_to_scene_linear()
         with assigned(
             *((output, p.identifier, getattr(output, p.identifier)) for p in output.bl_rna.properties if p.type != "POINTER" and not p.is_readonly),
             *(() if output.file_format == "PNG" else ((output.linear_colorspace_settings, "name", output.linear_colorspace_settings.name),)),
             *((block, "hide_render", block.hide_viewport) for block in (scene.collection, *scene.collection.children_recursive)),
-            *((o, "hide_render", not o.visible_get(viewport=space)) for o in layer.objects),
+            *((o, "hide_render", not (o.visible_get(viewport=space) and o.display_type in SHOWN)) for o in layer.objects),
             *((settings, flag, False) for flag in ("film_transparent", "use_border", "use_stamp", "use_compositing", "use_sequencer")),
+            *(
+                (shading, p.identifier, getattr(solid, p.identifier))
+                for p in solid.bl_rna.properties
+                if p.type != "POINTER" and not p.is_readonly and (p.type != "ENUM" or getattr(shading, p.identifier))
+            ),
+            *(
+                (
+                    (shading, "background_type", "VIEWPORT"),
+                    (shading, "background_color", Color(tuple(channel ** (1 / 2.2) for channel in (backdrop.r, backdrop.g, backdrop.b))).from_srgb_to_scene_linear()),
+                )
+                if solid.background_type == "THEME"
+                else ()
+            ),
             (scene, "camera", eye),
             (settings, "engine", "BLENDER_WORKBENCH"),
             (settings, "filepath", str(path)),
@@ -246,8 +264,9 @@ def capture(
         return ImageBuf(str(path)).get_pixels(UINT8)
 
     def write(target: Path, pixels: NDArray[np.uint8], record: Capture | None) -> None:
-        """Write the pixels as a PNG holding `record` as JSON text under its class name for the next `since`."""
+        """Write the pixels as a PNG at the highest compression, holding `record` as JSON text under its class name for the next `since`."""
         image = ImageBuf(np.ascontiguousarray(pixels))
+        image.specmod().attribute("png:compressionLevel", 9)
         if record is not None:
             image.specmod().attribute(Capture.__name__, JSON.dumps(record))
         if not image.write(str(target)):

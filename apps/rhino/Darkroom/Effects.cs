@@ -15,7 +15,7 @@ public sealed class DarkroomPlugIn : PlugIn {
 
 [Guid("72433230-65e7-4c28-b1a9-0afa4e6f32e2")]
 [CustomPostEffect(PostEffectType.ToneMapping, "AgX", RenderPostEffects.Listed)]
-public sealed class AgXToneMapping() : ParameterEffect<Exposure, float>(Exposure.Neutral, PixelPasses.Formation, static effect => new Stepper(effect)) {
+public sealed class AgXToneMapping() : ParameterEffect<Exposure, float>(Exposure.Neutral, AgX.Formation, static effect => new Stepper(effect)) {
     private sealed class Stepper : ParameterSection<Exposure, float> {
         public Stepper(ParameterEffect<Exposure, float> effect) : base(effect) {
             NumericStepper stepper = new() { MinValue = Exposure.Lower, MaxValue = Exposure.Upper, Increment = Exposure.Step, DecimalPlaces = Exposure.Precision };

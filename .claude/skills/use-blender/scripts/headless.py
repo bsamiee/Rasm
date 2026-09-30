@@ -1,6 +1,6 @@
 # ty: ignore[unresolved-attribute, invalid-assignment]
 # mypy: disable-error-code="untyped-decorator, union-attr, attr-defined"
-# ruff: file-ignore[subprocess-without-shell-equals-true, exec-builtin, blind-except, private-member-access]
+# ruff: file-ignore[subprocess-without-shell-equals-true, private-member-access]
 """Blender processes outside the live session on a named file, as the command line on the host and as the job inside each Blender it starts."""
 
 from collections.abc import Mapping, Sequence
@@ -12,12 +12,12 @@ import importlib
 import io
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
 import sys
 import time
-import traceback
 from types import ModuleType
 from typing import Annotated, Final
 
@@ -56,13 +56,6 @@ class Job(StrEnum):
     RENDER = auto()
 
 
-class Status(StrEnum):
-    """Status of one response in the MCP extension's execute protocol."""
-
-    OK = auto()
-    ERROR = auto()
-
-
 class Sync(StrEnum):
     """State of the session's data against the file at `stop`."""
 
@@ -70,6 +63,10 @@ class Sync(StrEnum):
     SAVED = auto()
     DIVERGED = auto()
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+BRIDGE: Final = "bl_ext.blender_lab.mcp"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -100,21 +97,25 @@ class Session:
 
 @attrs.frozen
 class Stopped:
-    """Session ended with its record removed, `saved` true when `stop` wrote the session's changes to the titled file."""
+    """Session ended with its record removed on the file it held, `saved` true when `stop` wrote the session's changes to it, its output in the log."""
 
-    session: Session
+    file: Path
     saved: bool
+    log: Path
 
 
 @attrs.frozen
 class Rendered:
-    """Files Blender names for the requested frames, `resumed` counting image frames an earlier run of the same file wrote."""
+    """Requested frames under `output`, a frame pattern or one movie, with `resumed` counting image frames an earlier run of the same file wrote, `sheet` a JPEG within Read's limits of up to 12 frames labeled by number, and `devices` the Cycles devices that rendered."""
 
-    files: tuple[Path, ...]
+    output: str
+    frames: int
+    resumed: int
+    sheet: Path
     engine: str
+    devices: tuple[str, ...]
     camera: str | None
     scripts_blocked: str
-    resumed: int
     seconds: float
 
 
@@ -133,17 +134,19 @@ class Raised:
 
 @attrs.frozen
 class Lost:
-    """Session process that ended during the call, its output in the session log."""
+    """Session process that ended during the call, its output in the session log and `crash` the report the log names when Blender crashed."""
 
     session: Session
+    crash: Path | None = attrs.field(default=attrs.Factory(lambda lost: crashed(lost.session.log), takes_self=True))
 
 
 @attrs.frozen
 class Failed:
-    """Blender exit code of a process that ended without an answer, its output in the log."""
+    """Blender exit code of a process that ended without an answer, its output in the log and `crash` the report the log names when Blender crashed."""
 
     exit_code: int
     log: Path
+    crash: Path | None = attrs.field(default=attrs.Factory(lambda failed: crashed(failed.log), takes_self=True))
 
 
 @attrs.frozen
@@ -199,6 +202,11 @@ def running(name: str) -> Session | None:
     return session if alive else None
 
 
+def crashed(log: Path) -> Path | None:
+    """Crash report Blender names in the log as it dies, `None` for a process that exited without crashing."""
+    return Path(written[1]) if (written := re.search(r"^Writing: (.+\.crash\.txt)$", log.read_text(encoding="utf-8", errors="replace"), re.MULTILINE)) else None
+
+
 def built(kind: type, value: object) -> object:
     """Value of the kind built from its JSON value, the hook msgspec calls for each path a record holds."""
     return kind(value)
@@ -228,7 +236,7 @@ def span(text: str) -> Scope | tuple[int, int]:
 
 
 def opening(file: Path) -> tuple[str, ...]:
-    """File arguments of a job, `-Y` turning off scripts and drivers of a file outside the repository, a missing file first saved from the user's startup file."""
+    """File arguments of a job, `-Y` turning off scripts and drivers of a file outside the repository, a missing file first saved from the startup file the process loads."""
     trust, path = () if file.is_relative_to(repository()) else ("-Y",), str(file)
     return (*trust, path) if file.exists() else (*trust, "--python-expr", f"import bpy; bpy.ops.wm.read_homefile(); bpy.ops.wm.save_as_mainfile(filepath={path!r})")
 
@@ -256,9 +264,9 @@ async def exchanged(name: str, session: Session, code: str, *, strict_json: bool
 
 
 def run(file: "ResolvedFile") -> "Ran | Raised | Failed":
-    """Run the code on stdin in a fresh factory process on the file with the user's extension wheels importable, `BLENDER_USER_EXTENSIONS` and `BLENDER_USER_CONFIG` under `.artifacts/blender/` in place of the user's folders."""
+    """Run the code on stdin through the MCP extension's execute in a fresh factory process on the file with the user's extension wheels importable, `BLENDER_USER_EXTENSIONS`, `BLENDER_USER_CONFIG`, and `BLENDER_USER_SCRIPTS` under `.artifacts/blender/` in place of the user's folders."""
     code, began, log = sys.stdin.read(), time.monotonic(), artifacts() / f"run-{os.getpid()}.log"
-    redirected = {"BLENDER_USER_EXTENSIONS": str(artifacts("extensions")), "BLENDER_USER_CONFIG": str(artifacts("config"))}
+    redirected = {"BLENDER_USER_EXTENSIONS": str(artifacts("extensions")), "BLENDER_USER_CONFIG": str(artifacts("config")), "BLENDER_USER_SCRIPTS": str(artifacts("scripts"))}
     process, reply = spawn(Job.RUN, (wrap(code),), ("--factory-startup", *opening(file)), log, os.environ | redirected)
     exit_code = process.wait()
     if not reply:
@@ -296,7 +304,7 @@ async def stop(name: str) -> Stopped | Diverged | Raised | Alive | Lost | NoSess
     """Save the session's changes to its titled file once any running call returns, then end the session, `Raised` with the session running when the save raises."""
     if (session := running(name)) is None:
         return NoSession(record(name))
-    match await exchanged(name, session, f"import __main__\nresult = {{'sync': __main__.{synced.__name__}()}}\n", strict_json=True):
+    match await exchanged(name, session, f"import __main__, bpy\nresult = {{'sync': __main__.{synced.__name__}(), 'file': bpy.data.filepath}}\n", strict_json=True):
         case Raised() | Lost() as ended:
             return ended
         case Ran(result={"sync": Sync.DIVERGED}):
@@ -311,7 +319,7 @@ async def stop(name: str) -> Stopped | Diverged | Raised | Alive | Lost | NoSess
             if alive:
                 return Alive(session)
             record(name).unlink()
-            return Stopped(session, result["sync"] == Sync.SAVED)
+            return Stopped(Path(str(result["file"])), result["sync"] == Sync.SAVED, session.log)
 
 
 def render(file: "ResolvedExistingFile", *, frames: "Annotated[str, cyclopts.Parameter(validator=lambda _type, text: span(text))]" = Scope.CURRENT) -> Rendered | Failed:
@@ -336,24 +344,6 @@ def answer(pipe: int, value: object) -> None:
     """Write the value as JSON to the host's pipe and close it to end the host's read."""
     with os.fdopen(pipe, "w", encoding="utf-8") as channel:
         channel.write(ANSWERS.dumps(value, default=str))
-
-
-def respond(pipe: int, code: str) -> None:
-    """Answer with the execute protocol's response to the code, its `result` dict or its traceback."""
-    out, err = io.StringIO(), io.StringIO()
-    namespace: dict[str, object] = {"result": {}}
-    try:
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            exec(code, namespace)
-    except Exception:
-        response: dict[str, object] = {"status": Status.ERROR, "message": traceback.format_exc()}
-    else:
-        match namespace["result"]:
-            case dict() as result:
-                response = {"status": Status.OK, "result": result}
-            case other:
-                response = {"status": Status.ERROR, "message": f"The `result` variable must be a dict, not {type(other).__name__}"}
-    answer(pipe, {**response, "stdout": out.getvalue(), "stderr": err.getvalue()})
 
 
 def reference() -> Path:
@@ -404,10 +394,11 @@ def serve(pipe: int, server: ModuleType, host: str, port: int) -> None:
 
 
 def rendered(output: Path, frames: Scope | tuple[int, int]) -> Rendered:
-    """Frames of the scene rendered to the output pattern without overwriting earlier ones, at the paths Blender names for them."""
-    scene = bpy.context.scene
-    began, settings = time.monotonic(), scene.render
-    settings.filepath, settings.use_overwrite, settings.use_placeholder = str(output), False, False
+    """Frames of the scene rendered to the output pattern without overwriting earlier ones, a scene-linear frame with its display-encoded JPEG beside it, then a sheet of up to 12 evenly spaced frames beside the pattern."""
+    scene, began = bpy.context.scene, time.monotonic()
+    settings, cycles = scene.render, bpy.context.preferences.addons["cycles"].preferences
+    image, sheet = settings.image_settings, output.with_name(f"{Path(bpy.data.filepath).stem}.jpg")
+    settings.filepath, settings.use_overwrite, settings.use_placeholder, image.use_preview = str(output), False, False, image.has_linear_colorspace
     match frames:
         case (first, last):
             scene.frame_start, scene.frame_end = first, last
@@ -415,11 +406,34 @@ def rendered(output: Path, frames: Scope | tuple[int, int]) -> Rendered:
             scene.frame_start = scene.frame_end = scene.frame_current
         case Scope.ALL:
             pass
-    wanted = range(scene.frame_start, scene.frame_end + 1, scene.frame_step)
+    wanted, movie = range(scene.frame_start, scene.frame_end + 1, scene.frame_step), image.media_type == "VIDEO"
     paths = tuple(dict.fromkeys(Path(settings.frame_path(frame=number)) for number in wanted))
-    resumed = 0 if settings.image_settings.media_type == "VIDEO" else sum(path.exists() for path in paths)
+    resumed = 0 if movie else sum(path.exists() for path in paths)
     bpy.ops.render.render(animation=True)
-    return Rendered(paths, settings.engine, scene.camera.name if scene.camera else None, bpy.app.autoexec_fail_message, resumed, round(time.monotonic() - began, 2))
+    count = min(12, len(wanted))
+    picks = sorted({round(index * (len(wanted) - 1) / max(count - 1, 1)) for index in range(count)})
+    columns = next(side for side in range(1, count + 1) if side * side >= count)
+    width = min(2000 // columns - 4, settings.resolution_x * settings.resolution_percentage // 100)
+    if movie:
+        selected = "+".join(f"eq(n,{pick})" for pick in picks)
+        subprocess.run(("ffmpeg", "-v", "error", "-i", str(paths[0]), "-vf", f"select='{selected}'", "-fps_mode", "vfr", str(Path(bpy.app.tempdir, "sheet_%02d.png"))), check=True)
+    sources = (Path(bpy.app.tempdir, f"sheet_{index:02d}.png") if movie else paths[pick].with_suffix(".jpg") if image.use_preview else paths[pick] for index, pick in enumerate(picks, 1))
+    labeled = (item for pick, source in zip(picks, sources, strict=True) for item in ("-label", str(wanted[pick]), str(source)))
+    tiles = subprocess.run(("magick", "montage", *labeled, "-tile", f"{columns}x", "-geometry", f"{width}x>+2+2", "miff:-"), capture_output=True, check=True).stdout
+    subprocess.run(("magick", "-", "-resize", "2000x2000>", "-define", "jpeg:extent=500KB", str(sheet)), input=tiles, check=True)
+    gpus = tuple(device.name for device in cycles.get_devices_for_type(cycles.compute_device_type) if device.use) if scene.cycles.device == "GPU" else ()
+    devices = (gpus or tuple(device.name for device in cycles.get_devices_for_type("CPU"))) if settings.engine == "CYCLES" else ()
+    return Rendered(
+        str(paths[0]) if movie else f"{output}{settings.file_extension}",
+        len(wanted),
+        resumed,
+        sheet,
+        settings.engine,
+        devices,
+        scene.camera.name if scene.camera else None,
+        bpy.app.autoexec_fail_message,
+        round(time.monotonic() - began, 2),
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -428,16 +442,20 @@ ANSWERS: Final = make_converter()
 
 
 def perform(job: Job, pipe: int, arguments: Sequence[str]) -> None:
-    """Perform the job inside Blender on its arguments with the Cycles devices of the preferences listed, answering on the pipe."""
+    """Perform the job inside Blender on its arguments with the Cycles devices of the preferences listed and each printed line in the log before a crash, answering on the pipe."""
+    sys.stdout.reconfigure(line_buffering=True)
     bpy.context.preferences.addons["cycles"].preferences.refresh_devices()
     match job:
         case Job.RUN:
-            addon_utils._initialize_extensions_site_packages(extensions_directory=str(Path(bpy.utils.resource_path("USER"), "extensions")))
-            respond(pipe, *arguments)
+            (code,), extensions = arguments, Path(bpy.utils.resource_path("USER"), "extensions")
+            addon_utils._initialize_extensions_site_packages(extensions_directory=str(extensions))
+            package = sys.modules[BRIDGE] = ModuleType(BRIDGE)
+            package.__path__ = [str(extensions.joinpath(*BRIDGE.split(".")[1:]))]
+            answer(pipe, importlib.import_module(f"{BRIDGE}.mcp_to_blender_server")._execute_code(code, strict_json=False).response)
         case Job.SERVE:
             host, port = arguments
             try:
-                server = importlib.import_module("bl_ext.blender_lab.mcp.mcp_to_blender_server")
+                server = importlib.import_module(f"{BRIDGE}.mcp_to_blender_server")
             except ModuleNotFoundError as missing:
                 answer(pipe, missing.name)
             else:
@@ -472,6 +490,7 @@ elif __name__ == "__main__":
 
 __all__ = [
     "ANSWERS",
+    "BRIDGE",
     "Alive",
     "Diverged",
     "Failed",
@@ -485,7 +504,6 @@ __all__ = [
     "Scope",
     "Session",
     "SessionRunning",
-    "Status",
     "Stopped",
     "Sync",
     "answer",
@@ -493,6 +511,7 @@ __all__ = [
     "built",
     "call",
     "copied",
+    "crashed",
     "exchanged",
     "main",
     "opening",
@@ -502,7 +521,6 @@ __all__ = [
     "render",
     "rendered",
     "report",
-    "respond",
     "run",
     "running",
     "serve",

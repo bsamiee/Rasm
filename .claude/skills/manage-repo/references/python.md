@@ -6,7 +6,9 @@ uv owns resolution, lock, and environment of the root project file.
 
 - Version bounds exist for a resolver conflict, stated in the row comment
 - `default-groups` names groups `uv sync` installs, `"all"` every group, `--only-group <group>` one group without the project
-- `prerelease = "allow"` accepts prereleases for every package
+- `prerelease = "allow"` accepts prereleases for every package, `prerelease-package` sets one package's mode
+- Packages built from an sdist against a machine library resolve within the library line machine setup carries, a `prerelease-package` or bound row states the line
+- Packages built from an sdist with a Rust extension read `rustc` from the `mise.toml` `rust` row, every `uv sync` on an interpreter without their wheel builds them
 - CI syncs `dev` and every member, `dev` lists packages that files outside members import and no member installs
 
 ## [02]-[LOCK]

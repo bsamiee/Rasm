@@ -2,6 +2,7 @@
 [settings]
 prereleases = true
 minimum_release_age = "0s"
+aqua.baked_registry = false
 idiomatic_version_file_enable_tools = ["dotnet"]
 dotnet.isolated = true
 python.uv_venv_auto = "create|source"
@@ -48,6 +49,7 @@ java = "latest"
 node = "latest"
 pnpm = "latest"
 uv = "latest"
+rust = "latest"
 git-lfs = "latest"
 actionlint = "latest"
 shellcheck = "latest"

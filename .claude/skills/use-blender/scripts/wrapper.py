@@ -1,8 +1,12 @@
+# /// script
+# dependencies = ["msgspec"]
+# ///
 # mypy: disable-error-code="attr-defined"
 # ty: ignore[unresolved-attribute]
-# ruff: file-ignore[boolean-positional-value-in-call, mutable-class-default, exec-builtin]
-"""PreToolUse hook sending `execute_blender_code` and headless code through `run`, with the scripts folder imported fresh and one undo step closing each live call."""
+# ruff: file-ignore[boolean-positional-value-in-call, mutable-class-default, exec-builtin, private-member-access]
+"""PreToolUse hook sending `execute_blender_code` and headless code through `run`, with the scripts folder imported fresh and one undo step closing each live call once it answers."""
 
+from collections.abc import Callable
 from pathlib import Path
 import sys
 from typing import override, TYPE_CHECKING, TypedDict
@@ -29,7 +33,9 @@ class Event(TypedDict):
 
 
 def step() -> None:
-    """Push the undo step named after the current mode, consecutive calls in one mode sharing it."""
+    """Push the undo step named after the current mode in a GUI process, consecutive calls in one mode sharing it."""
+    if bpy.app.background:
+        return
     mode = bpy.context.mode
     name = f"agent_step_{mode.lower()}"
 
@@ -49,25 +55,48 @@ def step() -> None:
     getattr(bpy.ops.mcp, name)("EXEC_DEFAULT", True)
 
 
-def run(code: str, namespace: dict[str, object]) -> None:
-    """Execute the code in the namespace with each deprecation printed once per line, pushing the final mode's undo step on return and on raise outside a background process."""
+def deferred(check: Callable[[], object]) -> Callable[[], object]:
+    """`check_is_finished` pushing the undo step once the check answers or raises."""
+
+    def checked() -> object:
+        try:
+            answer = check()
+        except Exception:
+            step()
+            raise
+        if answer is not None:
+            step()
+        return answer
+
+    return checked
+
+
+def run(code: str, namespace: dict[str, object]) -> Callable[[], object] | None:
+    """Execute the code in the namespace with each warning printed once per line on the call's stderr, then push the final mode's undo step, or return the `check_is_finished` the code defines pushing it after its last pass."""
     try:
         with warnings.catch_warnings(action="default", category=DeprecationWarning):
+            warnings.showwarning = warnings._showwarning_orig
             exec(compile(code, "<agent>", "exec"), namespace)
-    finally:
-        if not bpy.app.background:
+    except BaseException:
+        step()
+        raise
+    match namespace.get("check_is_finished"):
+        case check if callable(check):
+            return deferred(check)
+        case _:
             step()
+            return None
 
 
 def wrap(code: str) -> str:
-    """Source calling `run` on the code in the caller's namespace with every module of the scripts folder imported fresh and bytecode written under the host's cache prefix."""
+    """Source binding `check_is_finished` to `run` on the code in the caller's namespace, with every module of the scripts folder imported fresh and bytecode under the host's cache prefix."""
     script = Path(__file__).resolve()
     folder, names = str(script.parent), sorted(path.stem for path in script.parent.glob("*.py"))
     return (
-        f"import importlib, sys\nsys.pycache_prefix = {sys.pycache_prefix!r}\n"
-        f"for name in {names!r}:\n    sys.modules.pop(name, None)\n"
-        f"if {folder!r} not in sys.path:\n    sys.path.insert(0, {folder!r})\n"
-        f"importlib.import_module({script.stem!r}).{run.__name__}({code!r}, globals())\n"
+        f"__import__('sys').pycache_prefix = {sys.pycache_prefix!r}\n"
+        f"[__import__('sys').modules.pop(name, None) for name in {names!r}]\n"
+        f"{folder!r} in __import__('sys').path or __import__('sys').path.insert(0, {folder!r})\n"
+        f"check_is_finished = __import__({script.stem!r}).{run.__name__}({code!r}, globals())\n"
     )
 
 
@@ -85,4 +114,4 @@ if __name__ == "__main__":
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Event", "main", "run", "step", "wrap"]
+__all__ = ["Event", "deferred", "main", "run", "step", "wrap"]

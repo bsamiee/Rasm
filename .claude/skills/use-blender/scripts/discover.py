@@ -2,62 +2,49 @@
 # ty: ignore[unresolved-attribute, invalid-argument-type]
 """Operators, RNA types, and add-on settings matching words across stock Blender and every enabled add-on."""
 
-import ast
 from collections.abc import Mapping
-from enum import auto, StrEnum
+import contextlib
 import inspect
+import io
 from itertools import accumulate
-from pathlib import Path
-import textwrap
 
 import attrs
 import bpy
-from rna import BPyOpFunction, operators, plain
+from rna import BPyOpFunction, held, operators, plain, stored
 from scene import viewport
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class Tool(StrEnum):
-    """MCP tool that answers the next question about a hit."""
-
-    GET_PYTHON_API_DOCS = auto()
-    BPY_API_LOOKUP = auto()
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 @attrs.frozen
 class Operator:
-    """Registered operator with the facts that decide its call."""
+    """Registered operator with the facts that decide its call, `poll_in_view` `None` when no window shows a 3D Viewport."""
 
     call: str
     label: str
     description: str
     owner: str | None
+    source: str | None
     params: Mapping[str, str]
     poll: bool
     poll_in_view: bool | None
-    reads: tuple[str, ...]
-    source: str | None
-    next: Tool
 
 
 @attrs.frozen
 class Type:
-    """Registered RNA type outside operators, with the add-on and file defining it."""
+    """Registered RNA type outside operators, `base` its nearest ancestor `bpy.types` exposes, `exposed` true when `bpy.types.<identifier>` reaches it."""
 
     identifier: str
     label: str
+    base: str | None
     owner: str | None
     source: str | None
-    next: Tool
+    exposed: bool
 
 
 @attrs.frozen
 class Setting:
-    """Runtime property an add-on registered on an ID type, with its value on each context member of the type by ID name."""
+    """Stored property an add-on registered on an ID type or in its preferences, with its value by ID name or add-on module for each owner holding one."""
 
     path: str
     type: str
@@ -77,12 +64,10 @@ class Discovery:
 
 
 def discover(*words: str) -> Discovery:
-    """Operators, RNA types, and add-on settings with every word in their text, polls answered in the calling context and in the largest 3D Viewport when a window shows one."""
+    """Operators, RNA types, and add-on settings with every word in their text, polls answered in the calling context and in the largest 3D Viewport, and the tracebacks add-on polls and enum callbacks print kept out of the call's output."""
     needles = tuple(word.casefold() for word in words)
     addons = {key: addon.module for addon in bpy.context.preferences.addons for key in {addon.module, addon.module.rpartition(".")[2]}}
-    resources = Path(bpy.utils.resource_path("LOCAL"))
     members = tuple(bpy.context.copy().values())
-    methods = {name for name in dir(bpy.types.Context) if callable(getattr(bpy.types.Context, name))}
     largest = viewport()
     view = None if largest is None else bpy.context.temp_override(window=largest.window, area=largest.area, region=largest.region)
 
@@ -97,30 +82,19 @@ def discover(*words: str) -> Discovery:
         return tuple(p for p in struct.properties if struct.base is None or p.identifier not in struct.base.properties)
 
     def owner(cls: type) -> str | None:
-        """Enabled add-on with a module or extension id naming the package holding the class, none for Blender's own classes and executed code."""
+        """Enabled add-on with a module or extension id naming the package holding the class, `None` for Blender's own classes and executed code."""
         return next((addons[package] for package in accumulate(cls.__module__.split("."), lambda head, part: f"{head}.{part}") if package in addons), None)
 
     def source(cls: type) -> str | None:
-        """File defining the class, none for a compiled class or one from executed code."""
+        """File defining the class, `None` for a compiled class or one from executed code."""
         try:
             return inspect.getsourcefile(cls)
-        except TypeError:
+        except (OSError, TypeError):
             return None
 
-    def tool(cls: type, who: str | None, file: str | None) -> Tool:
-        """Bundled docs for a compiled class or one Blender ships outside its add-ons, live RNA for add-on and executed code."""
-        bundled = cls.__module__ == bpy.types.__name__ or (file is not None and Path(file).is_relative_to(resources))
-        return Tool.GET_PYTHON_API_DOCS if who is None and bundled else Tool.BPY_API_LOOKUP
-
-    def reads(cls: type) -> tuple[str, ...]:
-        """Deepest context chains up to two members the class's source reads, none for a class Python holds no source lines for."""
-        try:
-            tree = ast.parse(textwrap.dedent(inspect.getsource(cls)))
-        except (OSError, TypeError):
-            return ()
-        dotted = (ast.unparse(node).removeprefix("bpy.").split(".")[:3] for node in ast.walk(tree) if isinstance(node, ast.Attribute))
-        chains = {".".join(parts) for parts in dotted if len(parts) > 1 and parts[0] == "context" and parts[1] not in methods and all(map(str.isidentifier, parts))}
-        return tuple(sorted(chain for chain in chains if not any(other.startswith(f"{chain}.") for other in chains)))
+    def base(struct: bpy.types.Struct) -> str | None:
+        """Nearest ancestor `bpy.types` exposes, `None` for a root struct."""
+        return None if struct.base is None else struct.base.identifier if hasattr(bpy.types, struct.base.identifier) else base(struct.base)
 
     def in_view(entry: BPyOpFunction) -> bool | None:
         if view is None:
@@ -134,32 +108,40 @@ def discover(*words: str) -> Discovery:
             return None
         cls = bpy.types.Operator.bl_rna_get_subclass_py(entry.idname())
         who, file = (None, None) if cls is None else (owner(cls), source(cls))
-        chains, following = ((), Tool.GET_PYTHON_API_DOCS) if cls is None else (reads(cls), tool(cls, who, file))
-        params = {p.identifier: p.type for p in own(rna)}
-        return Operator(call, rna.name, rna.description, who, params, entry.poll(), in_view(entry), chains, file, following)
+        return Operator(call, rna.name, rna.description, who, file, {p.identifier: p.type for p in own(rna)}, entry.poll(), in_view(entry))
 
     def rna_type(cls: "type[bpy.types.bpy_struct[object]]") -> Type | None:
         rna = cls.bl_rna
         if issubclass(cls, bpy.types.Operator | bpy.types.Macro | bpy.types.OperatorProperties) or not matches(f"{rna.identifier} {rna.name} {rna.description}"):
             return None
-        who, file = owner(cls), source(cls)
-        return Type(rna.identifier, rna.name, who, file, tool(cls, who, file))
+        return Type(rna.identifier, rna.name, base(rna), owner(cls), source(cls), hasattr(bpy.types, rna.identifier))
 
-    def setting(host: type[bpy.types.ID], prop: bpy.types.Property) -> Setting | None:
-        path = f"{host.bl_rna.identifier}.{prop.identifier}"
-        if not matches(f"{path} {prop.name} {prop.description}"):
+    def setting(struct: bpy.types.Struct, prop: bpy.types.Property, owners: "Mapping[str, bpy.types.bpy_struct[object]]") -> Setting | None:
+        path = f"{struct.identifier}.{prop.identifier}"
+        if not (stored(prop) and matches(f"{path} {prop.name} {prop.description}")):
             return None
         kind = prop.fixed_type.identifier if isinstance(prop, bpy.types.PointerProperty | bpy.types.CollectionProperty) else prop.type
-        return Setting(path, kind, {member.name: plain(getattr(member, prop.identifier)) for member in members if isinstance(member, host)})
+        return Setting(path, kind, {name: plain(getattr(owned, prop.identifier)) for name, owned in owners.items() if held(owned, prop)})
 
     named = (cls for name in dir(bpy.types) if isinstance(cls := getattr(bpy.types, name), type) and issubclass(cls, bpy.types.bpy_struct))
     structs = sorted((cls for cls in {*named, *descendants(bpy.types.bpy_struct)} if "bl_rna" in vars(cls)), key=lambda cls: cls.bl_rna.identifier)
-    hits = map(operator, operators())
-    types = map(rna_type, structs)
-    settings = (setting(host, prop) for host in structs if issubclass(host, bpy.types.ID) for prop in own(host.bl_rna) if prop.is_runtime)
-    return Discovery(tuple(filter(None, hits)), tuple(filter(None, types)), tuple(filter(None, settings)))
+    scoped = (
+        setting(host.bl_rna, prop, {member.name: member for member in members if isinstance(member, host)})
+        for host in structs
+        if issubclass(host, bpy.types.ID)
+        for prop in own(host.bl_rna)
+        if prop.is_runtime
+    )
+    preferred = (
+        setting(addon.preferences.bl_rna, prop, {addon.module: addon.preferences})
+        for addon in bpy.context.preferences.addons
+        if addon.preferences is not None
+        for prop in own(addon.preferences.bl_rna)
+    )
+    with contextlib.redirect_stderr(io.StringIO()):
+        return Discovery(tuple(filter(None, map(operator, operators()))), tuple(filter(None, map(rna_type, structs))), tuple(filter(None, (*scoped, *preferred))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Discovery", "Operator", "Setting", "Tool", "Type", "discover"]
+__all__ = ["Discovery", "Operator", "Setting", "Type", "discover"]

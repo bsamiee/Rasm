@@ -1,12 +1,12 @@
-# ty: ignore[unresolved-import, too-many-positional-arguments, unsupported-operator]
-# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, no-any-return, attr-defined, call-arg, type-abstract, operator"
+# ty: ignore[unresolved-import, too-many-positional-arguments, unsupported-operator, no-matching-overload]
+# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, no-any-return, attr-defined, call-arg, call-overload, type-abstract, operator"
 # /// script
 # dependencies = ["msgspec"]
 #
 # [tool.ty.environment]
 # extra-paths = ["."]
 # ///
-"""Grasshopper 2 task documents, builds, layout, values, bakes, clusters, plugins, and pictures, imported after `g2_start`."""
+"""Grasshopper 2 task documents held outside the editor, with builds, layout, values, solves, bakes, clusters, plugins, and pictures, imported after `g2_start`."""
 
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -22,7 +22,7 @@ from Grasshopper2 import Folders
 from Grasshopper2.Bake import BakeContext, BakeDataState, BakeUpdateMode, IBakeAware, MetaPattern, UserPattern
 from Grasshopper2.Components import Component, Side
 from Grasshopper2.Data import Modifiers
-from Grasshopper2.Doc import Document, DocumentIO, DocumentState, FileContents, GraphTopology, IAttributes, IDocumentObject, IParameterAttributes, ObjectActivity
+from Grasshopper2.Doc import Document, DocumentIO, DocumentState, FileContents, GraphTopology, IAttributes, IDocumentObject, IParameterAttributes, ObjectActivity, SolutionPhase
 from Grasshopper2.Framework import FailureKind, ObjectProxies, ObjectProxy, PluginRequirement, PluginRequirements, PluginServer
 from Grasshopper2.Parameters import Connections, IParameter, IPin, Pins
 from Grasshopper2.Parameters.Special import NumberSliderObject, TextInputObject, ToggleObject, ValueListObject, ValueObject
@@ -44,6 +44,7 @@ from RhinoCodePlatform.GH import IScriptParameter
 from RhinoCodePlatform.GH.Context import IScriptObject
 from ScriptComponents.Components import BaseScriptComponent
 from ScriptComponents.Parameters import ConsoleOutParameter
+import scriptcontext
 from System import Activator, Array, Convert, Enum, Guid, Object, TimeSpan
 from System.Reflection import BindingFlags
 
@@ -83,6 +84,13 @@ class Node(Record, frozen=True):
     members: tuple[str, ...] = ()
     disabled: bool = False
     seconds: float | None = None
+
+
+class Graph(Record, frozen=True):
+    """Every document object with the phase of the document's latest solve."""
+
+    phase: SolutionPhase
+    nodes: tuple[Node, ...]
 
 
 class Plugin(Record, frozen=True):
@@ -151,7 +159,8 @@ def _partition[K, V](results: Mapping[K, Resolved[V]]) -> tuple[dict[K, V], Faul
 
 def _find(document: Document, canvas_id: str) -> Resolved[IDocumentObject]:
     """Return the document object `canvas_id` names."""
-    found = document.Objects.Find(Guid.Parse(canvas_id))
+    parsed, guid = Guid.TryParse(canvas_id)
+    found = document.Objects.Find(guid) if parsed else None
     return Faults.of(Fault(IDocumentObject, canvas_id)) if found is None else found
 
 
@@ -264,6 +273,13 @@ def _group(document: Document, doc: RhinoDoc, name: str, family: object, members
     return created
 
 
+def _relaid(owner: GroupObject) -> GroupObject:
+    """Recompute a group's bounds around its current members."""
+    owner.Attributes.InvalidateLayout()
+    owner.Attributes.Layout(Shape.Default)
+    return owner
+
+
 # --- [READS]
 
 
@@ -348,7 +364,7 @@ def _node(document_object: IDocumentObject, sample: int) -> Node:
 
 
 def definition(path: str | None = None) -> Resolved[Document]:
-    """Return the document holding `path`, opened or created behind the current canvas with its Rhino preview off, or the current canvas for `None`."""
+    """Return the editor's document holding `path`, else the task document `scriptcontext.sticky` holds, else `path` opened or created and held there, or the current canvas for `None`."""
     editor = Editor.Instance
     match editor, path:
         case None, _:
@@ -357,8 +373,10 @@ def definition(path: str | None = None) -> Resolved[Document]:
             return editor.Canvas.Document
         case _, str() if (index := editor.Documents.Index(path)) >= 0:
             return editor.Documents[index].Root
+        case _, str() if isinstance(held := scriptcontext.sticky.get(path), Document):
+            return held
         case _, str() if Path(path).exists():
-            if missing := collect_faults(*(Fault(PluginRequirement, str(requirement.Id), (str(requirement.Version),)) for requirement in PluginRequirements.FromFile(path).Missing)):
+            if missing := collect_faults(*(Fault(PluginRequirement, str(requirement.Id), (requirement.Name, str(requirement.Version))) for requirement in PluginRequirements.FromFile(path).Missing)):
                 return missing
             reader = DocumentIO(trackFiles=False, reportErrors=False, resolvePlugins=False)
             reader.Open(path)
@@ -368,24 +386,29 @@ def definition(path: str | None = None) -> Resolved[Document]:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
             opened = Document.NewInactiveDocument()
             DocumentIO(opened, trackFiles=False, reportErrors=False).Save(path, FileContents.Small)
-    opened.Display.Enabled = False
-    editor.Documents.Queue(opened)
+    scriptcontext.sticky[path] = opened
     return opened
 
 
-def show(document: Document) -> str:
-    """Make a task document the current canvas with its Rhino preview on and return its file."""
-    document.Display.Enabled = True
-    Editor.Instance.Documents.Push(document)
-    return document.File.Path
+def close(document: Document) -> Resolved[str]:
+    """Close a task document `definition` holds with its autosave deleted and unsaved edits discarded, and return its file."""
+    keys = [key for key, held in scriptcontext.sticky.items() if isinstance(held, Document) and held.Equals(document)]
+    if not keys:
+        return Faults.of(Fault(Document, document.File.Path))
+    for key in keys:
+        del scriptcontext.sticky[key]
+    document.File.DeleteAutoSaveFile()
+    path = document.File.Path
+    document.Close()
+    return path
 
 
 # --- [READS]
 
 
-def graph(document: Document, sample: int = 3) -> tuple[Node, ...]:
-    """Describe every object of a document after its last solve."""
-    return tuple(_node(document_object, sample) for document_object in document.Objects.Forwards)
+def graph(document: Document, sample: int = 3) -> Graph:
+    """Describe every object of a document after its latest solve."""
+    return Graph(document.Solution.State.Phase, tuple(_node(document_object, sample) for document_object in document.Objects.Forwards))
 
 
 def plugins() -> tuple[Plugin, ...]:
@@ -417,11 +440,12 @@ def plugins() -> tuple[Plugin, ...]:
 
 
 def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Sequence[Wire] = ()) -> Resolved[dict[str, str]]:
-    """Add groups of parts laid out by flow, with values, modifiers, and wires, and map each key to its canvas id, or return every fault."""
+    """Add groups of parts laid out by flow right of the existing objects, with values, modifiers, and wires to parts or existing canvas ids, and map each key to its canvas id, or return every fault."""
     all_parts = [part for entry in groups for part in entry.parts]
     parts = {part.key: part for part in all_parts}
     repeated = collect_faults(*(Fault(Part, key) for key, count in Counter(part.key for part in all_parts).items() if count > 1))
     fields = {(key, name): part for key, part in parts.items() if isinstance(part, Part) for name in dict.fromkeys((*part.values, *part.modifiers))}
+    existing = {end: _find(document, end) for connection in wires for end in (connection.source, connection.target) if end not in parts}
 
     def scripted(emitted: IDocumentObject, part: Part, source: str) -> Resolved[IDocumentObject]:
         if not isinstance(emitted, BaseScriptComponent):
@@ -469,12 +493,13 @@ def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Seq
 
     made = {key: created(part) for key, part in parts.items()}
     objects, object_faults = _partition(made)
+    _, existing_faults = _partition(existing)
     families, family_faults = _partition(dict(enumerate(_family(entry.color) for entry in groups)))
     ports, port_faults = _partition({field: end for field in fields if (end := _end(made, *field, Side.Input)) is not None})
     chains, chain_faults = _partition({(key, name): _modifiers(part.modifiers[name]) for (key, name), part in fields.items() if name in part.modifiers})
     persistent, value_faults = _partition({(key, name): _converted(ports[key, name], part.values[name]) for (key, name), part in fields.items() if name in part.values and (key, name) in ports})
-    ends, end_faults = _ends(made, wires)
-    if faults := collect_faults(repeated, object_faults, family_faults, port_faults, value_faults, chain_faults, end_faults):
+    ends, end_faults = _ends(made | existing, wires)
+    if faults := collect_faults(repeated, object_faults, existing_faults, family_faults, port_faults, value_faults, chain_faults, end_faults):
         document.Methods.DeleteObjects(Array[IDocumentObject]([item for item in objects.values() if item.Document is not None]), None, ActionList.Empty)
         return faults
     for item in (item for item in objects.values() if item.Document is None):
@@ -488,8 +513,9 @@ def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Seq
     for source, target in ends:
         Connections.Connect(source, target, None)
     grouped = [_group(document, doc, entry.name, families[index], [objects[part.key] for part in entry.parts]) for index, entry in enumerate(groups)]
-    arrange(document)
-    return collect_faults(*grouped) or {key: str(item.InstanceId) for key, item in objects.items()}
+    ids = {key: str(item.InstanceId) for key, item in objects.items()}
+    arrange(document, tuple(ids.values()))
+    return collect_faults(*grouped) or ids
 
 
 def wire(document: Document, wires: Sequence[Wire], *, replace: bool = True) -> Resolved[tuple[Node, ...]]:
@@ -559,16 +585,6 @@ def delete(document: Document, ids: Sequence[str]) -> Resolved[int]:
     return collect_faults(*found) or document.Methods.DeleteObjects(Array[IDocumentObject](found), None, None)
 
 
-def group(document: Document, doc: RhinoDoc, name: str, color: str, ids: Sequence[str]) -> Resolved[Node]:
-    """Group objects under `name` in Open Color family `color`, pinned to `doc`'s units and tolerance, refused for an unknown family and a repeated object."""
-    found, family = [_find(document, canvas_id) for canvas_id in ids], _family(color)
-    match collect_faults(*found, family) or _group(document, doc, name, family, found):
-        case GroupObject() as created:
-            return _node(created, 0)
-        case faults:
-            return faults
-
-
 def cluster(document: Document, ids: Sequence[str], name: str) -> Resolved[Node]:
     """Collapse objects into one cluster named `name` that keeps their boundary wires and takes their place in each group, refused with the topology of an empty or concave set."""
     found = [_find(document, canvas_id) for canvas_id in ids]
@@ -586,13 +602,19 @@ def cluster(document: Document, ids: Sequence[str], name: str) -> Resolved[Node]
         for member in gone:
             owner.RemoveContent(member)
         owner.AddContent(created.InstanceId)
+        _relaid(owner)
     return _node(created, 0)
 
 
-def arrange(document: Document, gap: float = 60.0) -> tuple[Node, ...]:
-    """Lay objects out in columns by wire depth, groups sharing a member as one block, blocks left to right by the longest chain of blocks feeding them from the origin, and describe the document."""
-    objects = {str(item.InstanceId): item for item in document.Objects.Forwards if not isinstance(item, (GroupObject, IPin))}
+def arrange(document: Document, ids: Sequence[str] = (), gap: float = 60.0) -> Graph:
+    """Lay objects `ids` names, or every object, out in columns by wire depth, groups sharing a member as one block, blocks left to right by the longest chain of blocks feeding them, a subset right of the other objects, and describe the document."""
+    placed = [item for item in document.Objects.Forwards if not isinstance(item, (GroupObject, IPin))]
+    chosen = set(ids) or {str(item.InstanceId) for item in placed}
+    objects = {key: item for item in placed if (key := str(item.InstanceId)) in chosen}
     groups = [(owner, members) for owner in document.Objects.Groups if (members := frozenset(map(str, owner.ContentIds)) & objects.keys())]
+    moved = objects.keys() | {str(item.InstanceId) for owner, _ in groups for item in (owner, *owner.Pins.AboveAndBelow)}
+    others = [item.Attributes.Bounds for item in document.Objects.Forwards if str(item.InstanceId) not in moved]
+    origin = reduce(RectangleF.Union, others) if others else RectangleF(-gap, 0.0, 0.0, 0.0)
     merged = reduce(
         lambda held, members: [*(block for block in held if not block & members), members.union(*(block for block in held if block & members))],
         (members for _, members in groups),
@@ -609,14 +631,9 @@ def arrange(document: Document, gap: float = 60.0) -> tuple[Node, ...]:
     def depth(key: str) -> int:
         return max((depth(feed) + 1 for feed in feeds(key)), default=0)
 
-    def move(keys: Iterable[str], left: float, top: float, origin: RectangleF) -> None:
+    def move(keys: Iterable[str], left: float, top: float, frame: RectangleF) -> None:
         for key in keys:
-            objects[key].Attributes.Move(left - origin.Left, top - origin.Top)
-
-    def relaid(owner: GroupObject) -> GroupObject:
-        owner.Attributes.InvalidateLayout()
-        owner.Attributes.Layout(Shape.Default)
-        return owner
+            objects[key].Attributes.Move(left - frame.Left, top - frame.Top)
 
     def pack(keys: tuple[str, ...]) -> RectangleF:
         columns = [tuple(column) for _, column in groupby(sorted(keys, key=depth), key=depth)]
@@ -624,19 +641,18 @@ def arrange(document: Document, gap: float = 60.0) -> tuple[Node, ...]:
         for left, column in zip(accumulate((width + gap for width in widths[:-1]), initial=0.0), columns, strict=True):
             for top, key in zip(accumulate((objects[key].Attributes.Bounds.Height + gap for key in column[:-1]), initial=0.0), column, strict=True):
                 move((key,), left, top, objects[key].Attributes.Bounds)
-        owned = [relaid(owner) for owner, members in groups if members.intersection(keys)]
-        chrome = (*owned, *(pin for owner in owned for pin in owner.Pins.AboveAndBelow))
-        return reduce(RectangleF.Union, (item.Attributes.Bounds for item in (*(objects[key] for key in keys), *chrome)))
+        owned = [_relaid(owner) for owner, members in groups if members.intersection(keys)]
+        return reduce(RectangleF.Union, (item.Attributes.Bounds for item in (*(objects[key] for key in keys), *owned, *(pin for owner in owned for pin in owner.Pins.AboveAndBelow))))
 
     packed = {block: pack(keys) for block, keys in blocks.items()}
     edges = {(block_of[feed], block_of[key]) for key in objects for feed in feeds(key) if block_of[feed] != block_of[key]}
     start = reduce(lambda held, _: {block: max((held[source] + 1 for source, target in edges if target == block), default=0) for block in blocks}, blocks, dict.fromkeys(blocks, 0))
     levels = [tuple(level) for _, level in groupby(sorted(blocks, key=start.__getitem__), key=start.__getitem__)]
-    for left, level in zip(accumulate((max(packed[block].Width for block in column) + gap for column in levels[:-1]), initial=0.0), levels, strict=True):
-        for top, block in zip(accumulate((packed[block].Height + gap for block in level[:-1]), initial=0.0), level, strict=True):
+    for left, level in zip(accumulate((max(packed[block].Width for block in column) + gap for column in levels[:-1]), initial=origin.Right + gap), levels, strict=True):
+        for top, block in zip(accumulate((packed[block].Height + gap for block in level[:-1]), initial=origin.Top), level, strict=True):
             move(blocks[block], left, top, packed[block])
-    for owner in document.Objects.Groups:
-        relaid(owner)
+    for owner, _ in groups:
+        _relaid(owner)
     return graph(document, 0)
 
 
@@ -674,26 +690,39 @@ def bake(doc: RhinoDoc, document: Document, canvas_id: str, layer_path: str | No
 # --- [PICTURES]
 
 
-def image(document: Document, name: str, margin: int = 24) -> File[int]:
-    """Draw every group, wire, and object of a document at 1:1 into `<name>.png` beside `capture`'s pictures, `detail` the objects drawn."""
-    skin, placed = Editor.Instance.Canvas.Skin.WithFades(None), [item for item in document.Objects.Forwards if not isinstance(item, GroupObject)]
-    for item in (*placed, *document.Objects.Groups):
+def image(document: Document, name: str, ids: Sequence[str] = (), margin: float = 24.0) -> Resolved[File[float]]:
+    """Draw objects `ids` names with their groups, or every object, and the wires between them into `.artifacts/rhino/<name>.png` at up to 2 pixels per canvas unit inside 2000 pixels, `detail` the scale."""
+    found = [_find(document, canvas_id) for canvas_id in ids]
+    if faults := collect_faults(*found):
+        return faults
+    chosen = set(ids) or {str(item.InstanceId) for item in document.Objects.Forwards}
+    groups = [owner for owner in document.Objects.Groups if str(owner.InstanceId) in chosen or chosen.intersection(map(str, owner.ContentIds))]
+    members = chosen.union(*(map(str, owner.ContentIds) for owner in groups), *((str(pin.InstanceId) for pin in owner.Pins.AboveAndBelow) for owner in groups))
+    placed = [item for item in document.Objects.Forwards if str(item.InstanceId) in members and not isinstance(item, GroupObject)]
+    if not placed:
+        return Faults.of(Fault(Document, name))
+    skin = Editor.Instance.Canvas.Skin.WithFades(None)
+    for item in (*placed, *groups):
         item.Attributes.Layout(skin.Shape)
-    shapes = (
-        WireShape.Create(IParameterAttributes(document.Objects.FindParameter(source).Attributes), IParameterAttributes(parameter.Attributes)).Bounds
+    wires = (
+        WireShape.Create(IParameterAttributes(output.Attributes), IParameterAttributes(parameter.Attributes)).Bounds
         for item in placed
         for parameter in _parameters(item, Side.Input)
         for source in parameter.Inputs.Forwards
+        if (output := document.Objects.FindParameter(source)) is not None and str((output.ParentObject or output).InstanceId) in members
     )
-    bounds = reduce(RectangleF.Union, shapes, document.Objects.AttributeBounds)
+    bounds = reduce(RectangleF.Union, chain((item.Attributes.Bounds for item in (*placed, *groups)), wires))
     frame = RectangleF(bounds.Left - margin, bounds.Top - margin, bounds.Width + 2 * margin, bounds.Height + 2 * margin)
-    bitmap = Bitmap(math.ceil(frame.Width), math.ceil(frame.Height), PixelFormat.Format32bppRgba)
+    scale = min(2.0, 2000.0 / max(frame.Width, frame.Height))
+    bitmap = Bitmap(math.floor(frame.Width * scale), math.floor(frame.Height * scale), PixelFormat.Format32bppRgba)
     graphics = ControlGraphics(bitmap)
     try:
-        graphics.Control.Clear(skin.Canvas.Background)
-        graphics.Content.TranslateTransform(-frame.Left, -frame.Top)
+        graphics.Control.Clear(skin.Canvas.Foreground)
+        content = graphics.Content
+        content.ScaleTransform(scale, scale)
+        content.TranslateTransform(-frame.Left, -frame.Top)
         context = graphics.ContentContext
-        for owner in document.Objects.Groups:
+        for owner in groups:
             owner.Attributes.Draw(context, skin)
         repository = Activator.CreateInstance(clr.GetClrType(WireShape).Assembly.GetType("Grasshopper2.UI.Canvas.WireRepository", throwOnError=True), Array[Object]([document]))
         repository.DrawWires(context, skin, frame, frame, Array[IAttributes]([item.Attributes for item in placed]))
@@ -706,9 +735,9 @@ def image(document: Document, name: str, margin: int = 24) -> File[int]:
         bitmap.Save(str(path), ImageFormat.Png)
     finally:
         bitmap.Dispose()
-    return File(str(path), path.stat().st_size, document.Objects.Count)
+    return File(str(path), path.stat().st_size, scale)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Data", "Group", "Node", "Part", "Plugin", "Slider", "Wire", "arrange", "assign", "bake", "build", "cluster", "definition", "delete", "graph", "group", "image", "plugins", "show", "wire"]
+__all__ = ["Data", "Graph", "Group", "Node", "Part", "Plugin", "Slider", "Wire", "arrange", "assign", "bake", "build", "close", "cluster", "definition", "delete", "graph", "image", "plugins", "wire"]

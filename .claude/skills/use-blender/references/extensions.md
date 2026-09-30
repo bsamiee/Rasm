@@ -1,64 +1,187 @@
 # [EXTENSIONS]
 
-Extensions are packages Blender installs from a zip and imports as `bl_ext.<repository>.<id>`.
+Extensions and `bl_info` add-ons from a source folder to a registered package, built and proven in a tree of their own before the user's Blender takes them.
 
 ## [01]-[PACKAGE]
 
-- `platforms` stays absent on a pure-Python package, listing one hides the package elsewhere
-- Loader checks run non-strict and load a manifest failing `validate`, `build` refuses it with the same errors
-- Folders linked into a repository import from the source, packages reach Blender as the zip `build` writes
-- Local repositories take the folder name as the package id, a linked folder is named after the manifest id
-- Reinstalling over an enabled copy pops the package and every submodule from `sys.modules`, the new modules load with no restart
-- Reinstalls keep the preference group's values
-- Renamed packages take `addon_disable` on their earlier module, a relink, `extensions.repo_refresh_all()`, an enable, and a save
+New extensions are one folder named after the manifest id, checked and zipped by Blender's own commands:
+- Folders hold `blender_manifest.toml` beside `__init__.py`, siblings import relatively, and the installed package imports as `bl_ext.<repository>.<id>`
+- Manifests require `schema_version`, `id`, `name`, `tagline` up to 64 characters, `version`, `type`, `maintainer`, `license`, and `blender_version_min`
+- `platforms` stays absent on a pure-Python package, a listed platform hides the package on every platform the list omits
+- `wheels` lists `./wheels/<file>.whl` paths of unmodified PyPI wheels, one per dependency and platform tag, and Blender reads no wheel metadata
+- `validate` checks strictly, the loader loads a manifest `validate` refuses, so `validate` runs before every build
+- `build` skips linked files without a message, so a folder holding links builds from a copy that resolves them, into an existing folder
+- `validate` and `build` run on the user's tree and leave its shared wheels as they are
+- `--split-platforms` writes one `<id>-<version>-<platform>.zip` per manifest platform
 
 ```bash
-# Manifest check, exit 1 naming each invalid key or the missing blender_manifest.toml
+# Manifest check, exit 1 naming each invalid key
 blender --factory-startup -c extension validate <source>
 
-# Zip named <id>-<version>.zip under an existing <dist>
-blender --factory-startup -c extension build --source-dir <source> --output-dir <dist>
+# Copy with links resolved, <id>-<version>.zip under <dist>, then its members
+cp -RL <source> <copy>
+mkdir -p <dist>
+blender --factory-startup -c extension build --source-dir <copy> --output-dir <dist>
+unzip -l <dist>/<id>-<version>.zip
 ```
 
-## [02]-[INSTALLS]
+`tools/interface/blender/packages.py` `packaged` builds the repository's extension under `tools/interface/blender/extension` this way, its linked modules resolved in the copy.
 
-- Zip packages install live through `bpy.ops.extensions.package_install_files(filepath=<zip>, repo="user_default", enable_on_install=True)`
-- Platform packages take `extensions.repo_sync_all()`, then `package_install(repo_index=<blender_org>, pkg_id="<id>", enable_on_install=True)`
-- `package_install` on an installed id upgrades it to the synced index's newest compatible version and keeps its enabled state
-- `bpy.ops.extensions.package_uninstall(repo_index=<i>, pkg_id="<id>")` removes a package before returning
-- Installs enable with no restart
-- Uninstalls remove the record, the preference group, the package folder, the cached archive, and `extensions/.user/<repo>/<id>`
-- `https://extensions.blender.org/api/v1/extensions/?blender_version=<version>&platform=<platform>` lists one newest compatible row per id
-- `blender -c extension install-file -r user_default -e <zip>` installs a package file with the manifest at its root
-- `install-file` on a directory prints `ERROR ... Is a directory` at exit 0
-- `blender --online-mode -c extension install --sync --enable blender_org.<id>` installs a platform package, the sync fails without `--online-mode`
-- `-c extension` without `--factory-startup` loads the user's preferences and prints every add-on's register output
-- `bl_info` add-on zips install through `preferences.addon_install(filepath=)`, then `addon_enable(module=)` and `wm.save_userpref()`
-- `preferences.addon_remove(module=)` redraws `context.area`, a call from a timer runs it under a `temp_override` holding an area
-- Add-ons that draw through `gpu` at import enable in a GUI run alone, ended by `wm.quit_blender()`
-- Every process on the user's tree but `-c extension validate` and `build` resyncs the shared wheels to the extensions it enables
-- `--factory-startup -c extension install-file -e` saves `userpref.blend` with factory records and the installed package alone
-- Shared wheels sit under `<EXTENSIONS>/.local/lib/python<version>/site-packages` of Blender's Python
+## [02]-[ISOLATED_TREE]
 
-## [03]-[REGISTRATION]
+Processes that enable packages resync `<EXTENSIONS>/.local` to their own enabled set, so installs, enables, and registration runs take a tree apart from the user's:
+- `headless.py run` is that tree headless, a factory process with extensions, config, and scripts under `.artifacts/blender/` and the user's wheels importable
+- Runs that load saved records (a startup enable, a reinstall over an enabled copy, a GUI) take `BLENDER_USER_RESOURCES` on an existing `<tree>` folder
+- GUI runs add `TMPDIR` on an existing `<tree>/tmp`, where `wm.quit_blender` writes `quit.blend` while the temporary directory preference is empty
+- GUI scripts step through one timer generator and end in `wm.quit_blender()`, the quit saving preferences into `<tree>/config`
+- Background processes run no timer, so a headless enable registers classes and draw functions with no keymap item, and keymaps read in a GUI
 
-- Keymap items, panel re-registrations, and file data reads run in a `register()` timer, `first_interval=0.0` runs it after every add-on registers
-- `register()` timers without `persistent=True` never run in a launch naming a `.blend`
-- Startup registration sees `bpy.data` as `_RestrictData`, a read of `bpy.data.objects` inside `register()` raises `AttributeError`
-- Add-on keymap items go in `keyconfigs.addon`, one keymap per name for every add-on, and `unregister` removes the exact `(keymap, item)` pairs
-- Add-on items go to the head of the user keymap in reverse order of addition, a table written in reverse ends in the order written
-- Chords are checked against every modifier combination of the stock items first, an add-on PRESS item ahead of a stock CLICK_DRAG item shadows it
-- Wrappers of stock operators declare the stock properties (`get_rna_type().properties` less `OperatorProperties`)
-- Wrapper items copy each stock item with `new_from_item`, then write `idname` and the set properties
-- Draw handlers (`draw_handler_add(fn, (), "WINDOW", "POST_PIXEL")`) write a value only where it differs, an unguarded write redraws forever
-- `cls.bl_options` raises `AttributeError` on a panel that declares none, `getattr(cls, "bl_options", set())` reads it
-- Registration outside `register()` stores an empty `owner_id`, and a class declaring `bl_owner_id` keeps its owner through every re-registration
-- Owner ids name the add-on module that registered the class in its `register()`, a wheel module's classes included
-- Hidden core add-ons register with an empty owner id
-- `bpy.types.__dir__()` lists registered types in registration order, `dir()` sorts it, the Cycles `RenderEngine` is registered and absent from it
-- Pie draws pad every direction, a slice with nothing to draw takes a separator, and a raise inside `draw` leaves the pie empty
-- `layout.label_multiline(text=, max_lines=, alignment=)` wraps a label to the region width, `label_markdown(text=)` draws markdown
-- Modal operators reading the next key pass `workspace.status_text_set()` a text or `draw(header, context)`, and `None` at every exit and `cancel()`
-- Status bar draws lay out one row across the window, labels past the window edge clip unseen
-- Pie and status-bar draw functions run on every redraw, a pie on every MOUSEMOVE
-- Operators resolve what a pie or status bar draws once in `invoke`
+```bash
+# Built zip installed, enabled, read, and uninstalled in the run tree
+python .claude/skills/use-blender/scripts/headless.py run <file> <<'PY'
+import addon_utils
+import bpy
+
+repo = bpy.context.preferences.extensions.repos["User Default"]
+bpy.ops.extensions.package_install_files(filepath="<zip>", repo="user_default", enable_on_install=True)
+state = {"check": addon_utils.check("bl_ext.user_default.<id>"), "operators": dir(bpy.ops.<prefix>)}
+bpy.ops.extensions.package_uninstall(repo_directory=repo.directory, pkg_id="<id>")
+result = state
+PY
+
+# Background process on the tree's saved records
+env BLENDER_USER_RESOURCES=<tree> blender --background --python <script>
+
+# GUI on the tree running <script> on <file>, open returning at its quit
+env BLENDER_USER_RESOURCES=<tree> TMPDIR=<tree>/tmp /usr/bin/open -n -g -W -a Blender --stdout <tree>/gui.log --stderr <tree>/gui.err --args --no-window-focus <file> --python <script>
+```
+
+## [03]-[INSTALLS]
+
+Each package kind has one command line and one call inside a running Blender:
+
+```bash
+# Built zip into user_default, enabled, preferences saved
+env BLENDER_USER_RESOURCES=<tree> blender -c extension install-file -r user_default -e <zip>
+
+# Platform package synced, installed, enabled, preferences saved
+env BLENDER_USER_RESOURCES=<tree> blender --online-mode -c extension install --sync --enable blender_org.<id>
+```
+
+```python
+# [HEADLESS_CALL] Built zip, platform package, and bl_info zip installed and enabled, the records saved
+import addon_utils
+import bpy
+
+preferences = bpy.context.preferences
+preferences.system.use_online_access = True
+repo = preferences.extensions.repos["extensions.blender.org"]
+bpy.ops.extensions.package_install_files(filepath="<zip>", repo="user_default", enable_on_install=True)
+bpy.ops.extensions.repo_sync_all()
+bpy.ops.extensions.package_install(repo_directory=repo.directory, pkg_id="<id>", enable_on_install=True)
+bpy.ops.preferences.addon_install(filepath="<bl_info zip>")
+bpy.ops.preferences.addon_enable(module="<top folder>")
+bpy.ops.wm.save_userpref()
+result = {name: addon_utils.check(name) for name in ("bl_ext.user_default.<id>", "bl_ext.blender_org.<id>", "<top folder>")}
+```
+
+- Background calls leave the records unsaved until `wm.save_userpref()`, the `-c extension` commands save their own
+- Platform installs need online access, `--online-mode` on a launch or `system.use_online_access = True` in a running process
+- `bl_info` modules take the name of the zip's top folder
+- `bl_info` add-ons that build a GPU shader at import enable in a GUI run alone
+- `addon_utils.check(<module>)` reads `(True, True)` for a recorded, loaded module
+- User-tree packages are `tools/interface/blender/packages.toml` rows, staged by `packages.py` and converged by `script/addons.py` in `nx run rasm:interface -- blender`
+- `nx run rasm:interface -- upgrade blender` stages the newest build of every row for the next apply
+
+## [04]-[UPGRADES]
+
+Reinstalls over an enabled copy load the new modules in the running process:
+- Extension installs over an enabled copy disable it, drop the package and its submodules from `sys.modules`, and enable it again, preferences kept
+- `enable_on_install` decides nothing for an enabled copy, which returns enabled
+- `package_install` on an installed id takes the newest compatible version of the synced index, `-c extension update --sync` upgrades every package
+- `bl_info` reinstalls take the snippet, `addon_install` keeps loaded submodules and `package_install_files` answers `CANCELLED` over an installed module
+- Renamed packages take `preferences.addon_disable(module=<old module>)`, the install under the new id, an enable, and `wm.save_userpref()`
+
+```python
+# [HEADLESS_CALL] bl_info add-on reinstalled over its enabled copy with the new submodules loaded
+import sys
+
+import addon_utils
+import bpy
+
+module = "<module>"
+addon_utils.disable(module)
+for name in [name for name in sys.modules if name == module or name.startswith(f"{module}.")]:
+    del sys.modules[name]
+bpy.ops.preferences.addon_install(filepath="<zip>")
+addon_utils.enable(module, default_set=True)
+result = {"check": addon_utils.check(module)}
+```
+
+## [05]-[REMOVAL]
+
+Removals take the call of their package kind:
+- Extensions take `extensions.package_uninstall(repo_directory=<repo>.directory, pkg_id="<id>")`, which removes folder, cached archive, and user data
+- Uninstalls resync the shared wheels, so the last package listing a wheel removes its module from every process on the tree
+- Core add-ons take `addon_utils.disable(<module>, default_set=True)`
+- `bl_info` add-ons take `preferences.addon_remove(module=)` under an area override, the loaded modules staying in `sys.modules` until a restart
+- User-tree packages leave with their `packages.toml` row at the next apply
+
+```python
+# [EXECUTE_BLENDER_CODE] bl_info add-on removed, the call ending in a redraw of the override's area
+import bpy
+
+window = bpy.context.window_manager.windows[0]
+with bpy.context.temp_override(window=window, screen=window.screen, area=window.screen.areas[0]):
+    status = bpy.ops.preferences.addon_remove(module="<module>")
+result = {"status": sorted(status)}
+```
+
+## [06]-[REGISTRATION]
+
+`register()` runs before any file loads with `bpy.context` narrowed to `window_manager` and `preferences` and `bpy.data` empty, so it registers classes and hooks and hands keymaps and data to a first tick:
+1. Register classes through `bpy.utils.register_classes_factory(<classes>)`, draw functions through `<UIClass>.prepend` or `append`, and `@persistent` load handlers
+2. Register the tick as `bpy.app.timers.register(<first_tick>, first_interval=0.0, persistent=True)`, which a launch naming a `.blend` keeps
+3. In the tick, add keymap items from `keyconfigs.default`, re-register panels, and read file data, every add-on registered by then
+4. Pair each step with its reversal in one `contextlib.ExitStack`, `unregister` closing it, as `registration()` in the extension's `__init__.py` does
+
+Keymap items join the add-on keyconfig and leave through the keymap that added them:
+- `keyconfigs.addon.keymaps.new(name=, space_type=, region_type=)` returns the one add-on keymap of that name every add-on shares
+- `keymap_items.new(<idname>, <type>, <value>, alt=True)` adds an item, `new_from_item(<stock item>)` copies one with its properties for field writes
+- `register` keeps each `(keymap, item)` pair, and `unregister` calls `keymap.keymap_items.remove(item)` on each pair and keeps the keymap
+- Items land at the head of the user keymap in reverse order of addition, ahead of every stock item, with no macOS Cmd copy
+- Modal bindings join an existing modal keymap, the add-on keyconfig creates none
+- Items return one tick after a GUI disable and enable
+
+Panels, draw handlers, timers, and status text each take one form:
+- Panel classes declare `bl_owner_id`, which keeps the owner through a re-registration from the tick, where the owner otherwise reads empty
+- Panel options read through `getattr(cls, "bl_options", ())`, since most add-on panels declare none
+- Panel trees leave deepest-first and return parent-first, `panels.collapsed` in the extension restoring each class's prior attributes at exit
+- `Space<Type>.draw_handler_add(<fn>, <args>, "<REGION>", "POST_PIXEL")` draws in every region of that type in every window
+- Draw handlers leave through `draw_handler_remove(<handle>, "<REGION>")` at unregister
+- RNA writes inside a draw handler go on difference, an equal-value write tags a redraw every frame
+- Timers match by callable identity, and `unregister` removes one while `bpy.app.timers.is_registered(<fn>)` reads true
+- Modal operators pass `workspace.status_text_set` a `(header, context)` function in `invoke` and `None` at every exit and in `cancel()`
+- Status bar and pie draws run on every redraw, a pie on every pointer move, so `invoke` resolves what they show once
+- `INTERFACE_OT_alias` in the extension's `commands.py` is the working modal status form
+
+## [07]-[READING]
+
+Registration reads run in the process that registered, a tree's GUI through its script and the user's GUI through `execute_blender_code`:
+
+```python
+# [EXECUTE_BLENDER_CODE] Add-on keymap items, the user keymap head, owned panels, and draw functions of a menu
+import bpy
+
+keyconfigs = bpy.context.window_manager.keyconfigs
+panels = [cls for name in bpy.types.__dir__() if isinstance(cls := getattr(bpy.types, name), type) and issubclass(cls, bpy.types.Panel) and cls is not bpy.types.Panel]
+result = {
+    "items": [(keymap.name, item.idname, item.type, item.value, item.alt) for keymap in keyconfigs.addon.keymaps for item in keymap.keymap_items if item.idname.startswith("<prefix>.")],
+    "head": [(index, item.idname, item.type) for index, item in enumerate(keyconfigs.user.keymaps["3D View"].keymap_items[:5])],
+    "owned": sorted(cls.bl_rna.identifier for cls in panels if vars(cls).get("bl_owner_id") == "<module>"),
+    "draws": [function.__module__ for function in bpy.types.<UIClass>._dyn_ui_initialize()],
+}
+```
+
+- `bl_owner_id` reads on classes that declare it or that a re-registration wrote, other panels keep their owner outside Python
+- `_dyn_ui_initialize()` lists a UI class's draw functions in draw order, the class's own draw among them

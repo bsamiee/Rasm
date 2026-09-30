@@ -148,6 +148,9 @@ flowchart LR
 
 ## [06]-[STRUCTURE]
 
+- Apps group by product under `apps/<product>/`, with a `<host>/` folder per host application
+- Libraries group by language under `libs/<language>/`, with host-bound packages under a `<host>/` folder
+- Build and task graph read a project's host from the `<host>/` folder on its path
 - Every `libs/` package is independently consumable, references siblings through declared dependencies, and points down an acyclic graph
 - Projects under a `rhino` folder compile against `RhinoCommon`, `RhinoHost` token `grasshopper` adds `Grasshopper2`
 - Installed Rhino supplies host assemblies at runtime, build output holds none

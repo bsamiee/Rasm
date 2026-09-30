@@ -1,10 +1,13 @@
 # mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
-"""Convert interchange files through Blender importers and one exporter in a headless process, one empty factory scene per file."""
+# ty: ignore[unresolved-attribute, invalid-assignment]
+"""Convert interchange files through Blender importers and one exporter in a headless process, one empty factory scene with a world per file."""
 
 from collections.abc import Mapping
+import contextlib
 from pathlib import Path
+import shutil
 from types import MappingProxyType
+from typing import TextIO
 
 import attrs
 import bpy
@@ -22,20 +25,22 @@ type Outcome = Converted | NoImporter | AmbiguousImporter | SharedStem | Failed
 
 @attrs.frozen
 class Converted:
-    """Source with its importer, imported object names, world extent in meters, and the files the exporter wrote."""
+    """Source with its importer, imported object count, mesh objects holding no vertices the exporter omits, world extent in meters, and the files the exporter wrote."""
 
     source: str
     importer: str
-    objects: tuple[str, ...]
+    objects: int
+    empty: tuple[str, ...]
     extent: tuple[float, float, float] | None
     outputs: tuple[str, ...]
 
 
 @attrs.frozen
 class Batch:
-    """Report file and one outcome per source in input order."""
+    """Report file, the log holding every operator's output under a line naming its source, and one outcome per source in input order."""
 
     report: str
+    log: str
     files: tuple[Outcome, ...]
 
 
@@ -44,7 +49,7 @@ class Batch:
 
 @attrs.frozen
 class NoImporter:
-    """Source that no importer's file filter or file handler names, with no importer named."""
+    """Source that no reader's file filter names, with no importer `options` names left for it."""
 
     source: str
     suffix: str
@@ -52,7 +57,7 @@ class NoImporter:
 
 @attrs.frozen
 class AmbiguousImporter:
-    """Source more than one importer reads with no named or lone C importer among them, `importer=` picking one."""
+    """Source more than one importer reads with no named or lone C importer among them, an importer named in `options` picking one."""
 
     source: str
     candidates: tuple[str, ...]
@@ -77,7 +82,7 @@ class Failed:
 
 @attrs.frozen
 class UnknownOperator:
-    """Exporter, importer, or option ids naming no operator of their role."""
+    """Exporter or option ids naming no operator of their role."""
 
     operators: tuple[str, ...]
 
@@ -99,39 +104,45 @@ class LiveSession:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def convert(
-    name: str, exporter: str, sources: tuple[str, ...], importer: str | None = None, options: Mapping[str, Mapping[str, object]] = MappingProxyType({})
-) -> Batch | UnknownOperator | UnknownOptions | LiveSession:
-    """Batch of each source imported into an empty factory scene and exported to `.artifacts/blender/<name>/<stem><ext>`, `options` holding keyword arguments per operator id."""
+def convert(name: str, exporter: str, sources: tuple[str, ...], options: Mapping[str, Mapping[str, object]] = MappingProxyType({})) -> Batch | UnknownOperator | UnknownOptions | LiveSession:
+    """Batch of each source imported into an empty factory scene and exported to a cleared `.artifacts/blender/convert/<name>/` as `<stem><ext>`, `options` holding keyword arguments per operator id and naming importers."""
     if not bpy.app.background:
         return LiveSession(bpy.data.filepath)
     functions = {op.idname_py(): op for op in operators()}
     properties = {key: op.get_rna_type().properties for key, op in functions.items()}
-    ids = {op.idname(): key for key, op in functions.items()} | {key: key for key in functions}
     globs = {key: patterns for key, props in properties.items() if "filter_glob" in props and (patterns := tuple(filter(None, props["filter_glob"].default.split(";"))))}
     writers = {key for key in globs if "check_existing" in (props := properties[key]) and props["check_existing"].default}
-    handled = {ids[op]: tuple(f"*{e}" for e in handler.bl_file_extensions.split(";")) for handler in bpy.types.FileHandler.__subclasses__() if (op := handler.bl_import_operator) in ids}
-    opens = {key: globs[key] for key in globs.keys() - writers} | handled
-    native = {key for key in opens if bpy.types.Operator.bl_rna_get_subclass_py(functions[key].idname()) is None}
-    if unknown := tuple(op for op, table in ((exporter, writers), (importer, opens.keys()), *((op, opens.keys() | writers) for op in options)) if op is not None and op not in table):
+    importers = {key: patterns for key, patterns in globs.items() if key not in writers}
+    if unknown := tuple(op for op, table in ((exporter, writers), *((op, importers.keys() | writers) for op in options)) if op not in table):
         return UnknownOperator(unknown)
     if undeclared := tuple(f"{op}.{key}" for op, values in options.items() for key in values if key not in properties[op]):
         return UnknownOptions(undeclared)
-    readers = {key: patterns for key, patterns in opens.items() if key in native or key in handled or key == importer}
-    out = artifacts(name)
-    paths = tuple(Path(s).resolve() for s in sources)
+    ids = {op.idname(): key for key, op in functions.items()} | {key: key for key in functions}
+    classes = {key: bpy.types.Operator.bl_rna_get_subclass_py(op.idname()) for key, op in functions.items()}
+    native = {key for key in importers if classes[key] is None}
+    handled = {
+        ids[op]: tuple(f"*{suffix}" for suffix in handler.bl_file_extensions.split(";"))
+        for handler in bpy.types.FileHandler.__subclasses__()
+        if (op := handler.bl_import_operator) in ids and (classes[ids[op]] is None or hasattr(classes[ids[op]], "execute"))
+    }
+    named = tuple(op for op in options if op in importers)
+    readers = {key: importers[key] for key in (*native, *named)} | handled
+    shutil.rmtree(artifacts("convert", name))
+    out, paths = artifacts("convert", name), tuple(Path(s).resolve() for s in sources)
+    matches = {path: tuple(sorted(op for op, patterns in readers.items() if any(path.match(p, case_sensitive=False) for p in patterns))) for path in paths}
+    spare = tuple(op for op in named if not any(op in found for found in matches.values()))
 
     def resolve(source: Path) -> str | NoImporter | AmbiguousImporter:
-        """Named importer when its filter matches the file or no filter does, else the file's lone C reader, else its lone reader."""
-        candidates = tuple(sorted(op for op, patterns in readers.items() if any(source.match(p, case_sensitive=False) for p in patterns)))
-        named = (importer,) if importer is not None and (importer in candidates or not candidates) else ()
-        match named, tuple(op for op in candidates if op in native), candidates:
-            case ((chosen,), _, _) | ((), (chosen,), _) | ((), (), (chosen,)):
-                return chosen
+        """Named importer whose filter matches the file, or the named importer no file's filter matches when none does, else the file's lone C reader, else its lone reader."""
+        candidates = matches[source]
+        chosen = tuple(op for op in named if op in candidates) if candidates else spare
+        match chosen, tuple(op for op in candidates if op in native), candidates:
+            case ((one,), _, _) | ((), (one,), _) | ((), (), (one,)):
+                return one
             case (), (), ():
                 return NoImporter(str(source), source.suffix)
             case _:
-                return AmbiguousImporter(str(source), candidates)
+                return AmbiguousImporter(str(source), candidates or spare)
 
     def run(op: str, source: Path, **arguments: object) -> Failed | None:
         """Failure of one operator call, `None` when it finishes."""
@@ -141,29 +152,29 @@ def convert(
             return Failed(str(source), op, str(error).strip())
         return None if "FINISHED" in status else Failed(str(source), op, " ".join(sorted(status)))
 
-    def stamps() -> frozenset[tuple[str, int]]:
-        """Name and modification time of every file in the output folder."""
-        return frozenset((p.name, p.stat().st_mtime_ns) for p in out.iterdir())
-
-    def one(source: Path) -> Outcome:
-        """Outcome of importing one source into an empty scene and exporting it."""
+    def one(source: Path, sink: TextIO) -> Outcome:
+        """Outcome of importing one source into an empty scene with a world and exporting it, its operators' output in the sink under a line naming it."""
         if not isinstance(chosen := resolve(source), str):
             return chosen
         if len(shared := tuple(str(p) for p in paths if p.stem == source.stem)) > 1:
             return SharedStem(str(source), shared)
+        sink.write(f"--- {source}\n")
         bpy.ops.wm.read_homefile(use_empty=True, use_factory_startup=True)
+        bpy.context.scene.world = bpy.data.worlds.new("World")
         location = {"filepath": str(source), "directory": str(source.parent), "files": [{"name": source.name}]}
         if failed := run(chosen, source, **options.get(chosen, {}), **{key: value for key, value in location.items() if key in properties[chosen]}):
             return failed
-        corners = tuple(bounds(bpy.context.evaluated_depsgraph_get()).values())
+        corners = tuple(bounds(bpy.context.evaluated_depsgraph_get(), drawn=False).values())
         extent = tuple(np.ptp(np.concatenate(corners), axis=0).round(DIGITS).tolist()) if corners else None
-        before = stamps()
+        empty = tuple(sorted(o.name for o in bpy.data.objects if o.type == "MESH" and not o.data.vertices))
+        before = set(out.iterdir())
         if failed := run(exporter, source, **options.get(exporter, {}), filepath=str(out / f"{source.stem}{globs[exporter][0].removeprefix('*')}")):
             return failed
-        return Converted(str(source), chosen, tuple(sorted(o.name for o in bpy.data.objects)), extent, tuple(sorted(str(out / n) for n, _ in stamps() - before)))
+        return Converted(str(source), chosen, len(bpy.data.objects), empty, extent, tuple(sorted(map(str, set(out.iterdir()) - before))))
 
-    report = out / "convert.json"
-    batch = Batch(str(report), tuple(one(p) for p in paths))
+    report, log = out / "convert.json", out / "convert.log"
+    with log.open("w", encoding="utf-8") as sink, contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+        batch = Batch(str(report), str(log), tuple(one(path, sink) for path in paths))
     report.write_text(JSON.dumps(batch, indent=1), encoding="utf-8")
     return batch
 

@@ -6,6 +6,7 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
+using Rhino.Render.PostEffects;
 
 namespace Rasm.Rhino.Display;
 
@@ -44,6 +45,11 @@ public class BatchPipeline(RhinoDoc doc, RunMode mode, PlugIn plugin, Size size,
 
     protected sealed override bool ContinueModal() =>
         Answers.Answer(callbacks.Continue(), callbacks.Reject, fallback: false);
+}
+
+public sealed class CallbackExecutionControl(Func<Guid, IO<bool>> ready, Action<Error> reject) : PostEffectExecutionControl {
+    public override bool ReadyToExecutePostEffect(Guid pep_id) =>
+        Answers.Answer(ready(pep_id), reject, fallback: false);
 }
 
 public sealed class AsyncContext(Option<CallbackExecutionControl> executionControl, Action<Error> reject) : AsyncRenderContext {
