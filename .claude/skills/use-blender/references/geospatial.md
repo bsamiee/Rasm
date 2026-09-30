@@ -85,7 +85,7 @@ result = {"georeference": [geo.crs, geo.crsx, geo.crsy], "sun": [math.degrees(su
 ```
 
 - `<north>` is true north in degrees anti-clockwise from +Y, `<zone>` the site's IANA zone, Rhino takes `Sun.North` 90 + `<north>`
-- BlenderGIS projects through its bundled `pyproj` with no network or GDAL
+- UTM holds scale within 0.04% across a zone, and BlenderGIS projects through its bundled `pyproj` with no network or GDAL
 - Models stay at the origin in local meters, object locations and mesh positions being float32 that step 0.25 m at a UTM northing
 - `geo.updOriginGeo(<longitude>, <latitude>)` moves a set origin to the point and every root object by minus the projected delta
 - Lamp and sky bind before the place and moment fields, each Sun Position field re-placing both and the last write placing them
@@ -125,7 +125,7 @@ result = {"timezone": solar.timezone, "UTC_zone": solar.UTC_zone, "sun": [sun.UT
 
 - Bonsai derives `timezone` from the coordinates and stores `UTC_zone` as the negated offset in effect, 5.0 at 12:00 CDT
 - `sun_path_size` sets Sun Position's `sun_distance`, `true_north` its `north_offset` negated
-- Without an IFC project each RNA write's update fails loading solar data, and item writes (`solar["latitude"] = <value>`) skip every callback
+- Without an IFC project each RNA write prints a traceback and changes nothing, and item writes (`solar["latitude"] = <value>`) skip every callback
 - `bim.import_lat_long` copies the IfcSite `RefLatitude` and `RefLongitude` into the solar fields through their callbacks
 - `shadow_mode = "SHADING"` switches the scene to Workbench
 
@@ -155,7 +155,7 @@ result = {"modifiers": [m.type for m in site.modifiers], "material": site.active
 ```
 
 ```python
-# [EXECUTE_BLENDER_CODE] OSM buildings over the extent, one child collection per tag under OSM
+# [EXECUTE_BLENDER_CODE] OSM buildings over the extent standing on its DEM, one child collection per tag under OSM
 import importlib
 
 import addon_utils
@@ -167,7 +167,7 @@ package = {m.bl_info["name"]: m.__name__ for m in addon_utils.modules()}["Blende
 osm = importlib.import_module(f"{package}.operators.io_import_osm")
 osm.OSMTAGS = osm.getTags()
 with bpy.context.temp_override(active_object=site, selected_objects=[site]):
-    status = bpy.ops.importgis.osm_query(filterTags={"building"}, separate=True)
+    status = bpy.ops.importgis.osm_query(filterTags={"building"}, separate=True, useElevObj=True, objElevLst=str(list(scene.objects).index(site)))
 result = {"status": sorted(status), "buildings": sorted(o.name for o in bpy.data.collections["OSM"].all_objects)}
 ```
 
@@ -186,17 +186,27 @@ result = {"status": sorted(status), "objects": sorted(o.name for o in bpy.data.c
 - `dem_query` displaces the extent through SUBSURF and DISPLACE modifiers and leaves it active and selected
 - DEM heights are orthometric meters, `location.z -= <elevation>` on the DEM and each object standing on it puts the site ground at zero
 - `georaster` imports a GeoTIFF in the scene CRS as it stands, one in another CRS takes `reprojection=True, rastCRS="EPSG:<epsg>"`
-- `georaster` with `importMode="DEM"` builds terrain from an elevation GeoTIFF
+- `georaster` with `importMode="DEM"` builds terrain from an elevation GeoTIFF, `"PLANE"` a textured plane
 - `osm.OSMTAGS = osm.getTags()` fills the tag list the dialog's invoke fills, and `filterTags` takes tags of the `osmTagsJson` preference
 - OSM building height reads `height`, else `building:levels` times `levelHeight`, else `defaultHeight` (20 m)
 - Overpass under load raises `OverpassGatewayTimeout: Server load too high`, and the OSM call repeated a minute later answers
-- `shapefile` takes `shpCRS` as the file's CRS and reprojects to the scene CRS
+- `shapefile` takes `shpCRS` as the file's CRS and reprojects to the scene CRS, `elevSource` `GEOM` reading Z and `FIELD` a field
 - Blosm's `blosm.import_data` builds roofed buildings over the `scene.blosm` extent on a sphere around `scene["lat"]` and `scene["lon"]`
 - Blosm imports sit 1.17° from BlenderGIS imports at the Houston site, the UTM meridian convergence
 
 ## [04]-[CLIMATE]
 
-Climate studies read an EPW of the station nearest the site, its hourly rows in standard time:
+Climate studies read an EPW of the station nearest the site from climate.onebuilding.org, whose `sources/` page lists one station table per region:
+
+```bash
+# Newest TMYx archive of the station nearest <latitude> <longitude> in the <region> table, extracted under <dir>
+url=$(duckdb -noheader -list -c "load excel; select URL from read_xlsx('https://climate.onebuilding.org/sources/<region>_TMYx_EPW_Processing_locations.xlsx', all_varchar = true) order by pow(\"Latitude (N+/S-)\"::double - <latitude>, 2) + pow((\"Longitude (E+/W-)\"::double - <longitude>) * cos(radians(<latitude>)), 2), regexp_extract(URL, '(\d{4})\.zip', 1) desc limit 1;")
+curl -fsS -o <dir>/epw.zip "$url"
+unzip -o -d <dir> <dir>/epw.zip '*.epw'
+```
+
+- `<region>` names a table on the sources page (`Region4_USA`, `Region4_Canada`, `Region6_Europe`)
+- EPW `LOCATION` lines hold station, WMO number, latitude, longitude, standard offset, and elevation, and hourly rows run in standard time
 - EnVi and CBDM take the sun from the EPW, VI-Suite sun paths and LiVi skies from `solarPosition`
 - VI-Suite's Location node lists the `*.epw` files of the `epweath` preference folder, the bundled UK files while it is empty
 - Picking an EPW in the Location node writes the station's latitude and longitude into `vi_params`, and the node raises in a background call

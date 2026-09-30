@@ -75,6 +75,7 @@ result = {"slots": [s.material.name for s in obj.material_slots], "faces": [sum(
 ```
 
 - Slots link to the mesh under `edit.material_link` `OBDATA`, shared by linked duplicates, and `material_slots[<i>].link = "OBJECT"` splits one off
+- Material edits reach every object using that material, and `material.copy()` splits one off
 
 ## [02]-[LIBRARY_ASSETS]
 
@@ -88,7 +89,7 @@ result = {"slots": [s.material.name for s in obj.material_slots], "faces": [sum(
 Service keys come from add-on preferences, then the Scene, then a `BLENDERMCP_*` variable in the GUI login environment:
 - Poly Haven answers with no account, Sketchfab and Poly Pizza with `BLENDERMCP_SKETCHFAB_API_KEY` and `BLENDERMCP_POLYPIZZA_API_KEY`
 - Hyper3D takes the trial key `scene.blendermcp_hyper3d_api_key = "vibecoding"` until generation answers `API_INSUFFICIENT_FUNDS`
-- Tripo takes Premium
+- Hunyuan3D holds no account, and Tripo takes Premium
 - Sidebar key fields write add-on preferences, the Hyper3D trial key alone going into a Scene property every saved `.blend` holds
 - Files leaving the machine clear `blendermcp_*_api_key`, `blendermcp_hunyuan3d_secret_id`, and `blendermcp_hunyuan3d_secret_key` first
 
@@ -121,19 +122,20 @@ result = {"scale": list(mapping.inputs["Scale"].default_value), "users": materia
 ```
 
 - `polyhaven_scale_mm` holds the span one repeat covers, and its POINT Mapping multiplying UVs takes `1000 / mm` over UVs in meters
-- Downloads set `displacement_method` `BOTH` at Displacement Scale 0.1
+- Downloads set `displacement_method` `BOTH` at Displacement Scale 0.1, and `BUMP` keeps relief in shading on a mesh with no subdivision
 
 Poly Haven HDRIs:
 1. `search_polyhaven_assets(query=, asset_type="hdris")`, then `download_polyhaven_asset(asset_id=, asset_type="hdris", resolution="1k")`
 2. Downloads assign world `PolyHaven <id>` at Background Strength 1, and a replaced world keeps only its other users
 3. Hold the site world first (`site = scene.world`) and reassign it after a trial
+4. HDRI worlds kept for a render take Background Strength `2 ** -scene.view_settings.exposure`, their exposure-0 brightness
 
 Sketchfab, Poly Pizza, and Hyper3D models:
-1. `search_sketchfab_models(query=)` or `search_polypizza_models(query=, licence="CC0")`
+1. `search_sketchfab_models(query=)` or `search_polypizza_models(query=, licence="CC0")`, each row naming author and license
 2. `download_sketchfab_model(uid=, target_size=)` scales the largest dimension to `target_size`, the subject's real largest dimension in meters
 3. `download_polypizza_model(model_id=)` keeps the source's scale, its root holding `polypizza_attribution`, `polypizza_id`, and `polypizza_licence`
 4. Hyper3D runs `generate_hyper3d_model_via_text`, `poll_rodin_job_status`, and `import_generated_asset`, one object per job at a normalized size
-5. Sketchfab imports go into the active collection with their objects selected under an empty `Sketchfab_model` in `QUATERNION` rotation
+5. Imports go into the active collection with their objects selected, a Sketchfab tree under an empty `Sketchfab_model` in `QUATERNION` rotation
 6. Size, place, and file each import by its root:
 
 ```python
@@ -257,5 +259,6 @@ result = {"file": str(library / "<set>.blend"), "previews": {a.name: list(a.prev
 - Sessions read the user's library rows, `filepaths.asset_libraries["Assets"].path` naming the shared folder
 - Catalog lines read `<uuid>:<path>:<simple name>` after a `VERSION 1` line, one per path level, a uuid5 of each path keeping it stable
 - Background processes render each preview inside the call, to the same pixels under any scene exposure
+- `libraries.write` writes the given IDs with their dependencies, asset data, and previews, replacing its whole target file
 - `tools/interface/blender/script/library.py` writes site planting into `assets.blend` and keeps every catalog line the file holds
 - Remote rows (`CGMatter`, `ambientCG`) fetch each asset on first use from the Asset Browser

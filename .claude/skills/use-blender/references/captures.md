@@ -44,6 +44,7 @@ Readings of each comparison decide the next step:
 - `WIRE` and `BOUNDS` display types, curves with no bevel or extrusion, loose edges, and empties draw nothing
 - User views take the viewport's device pixels, other views the render's pixel count at the framed extent's aspect
 - Sizes stay within 2000 px on the long side, and `size` names one exactly
+- `Read` downscales an image past 2000 px and re-encodes one past 500 KB as JPEG, default captures stay under both
 - Pixel reads (levels, line widths, band edges, dither) pass `size=(region.width, region.height)` for the viewport's device pixels
 - `since="<before>"` redraws the view, frame, and size `<before>.png` stores, a user view compares while the viewport's view stays
 - PNGs hold no ICC profile, `magick <png> -format "%[pixel:p{<x>,<y>}]" info:` reads a byte as drawn
@@ -73,6 +74,7 @@ Cases other than `Capture` name what the call lacked:
 
 Window pictures come from the MCP screenshot tools and from `screencapture` at 1:1 device pixels:
 - `get_screenshot_of_window_as_image` draws the window content without its title bar
+- `blender` screenshots past 785 KB shrink bilinearly to logical pixels, then until they fit, with no note in the answer
 - `get_viewport_screenshot` draws the context screen's first 3D Viewport offscreen at `max_size` with grid and cursor and no text
 - `get_viewport_screenshot` answers `No 3D viewport found` while the context window shows a maximized render view
 

@@ -23,11 +23,13 @@ Use sessions.md for routes.
 |  [13]   | Geometry from a chosen view  | `capture.py`                       | Framed on objects or the user's view, overlays off                 |
 |  [14]   | Editor, panel, node canvas   | `get_screenshot_of_area_as_image`  | One area from Blender's framebuffer whatever window is in front    |
 |  [15]   | Whole window with chrome     | `screencapture -x -o -l <id>`      | Drawn window at 1:1 device pixels, top bar and status bar included |
-|  [16]   | Layout and selection         | `get_screenshot_of_window_as_json` | Areas, active object, and selection                                |
+|  [16]   | Layout, mode, selection      | `get_screenshot_of_window_as_json` | Areas, shading, view, active object with mode                      |
 |  [17]   | Camera shot preview          | `render_thumbnail_to_path`         | Scene camera at 320 px and 16 Cycles samples                       |
 |  [18]   | Library or generated asset   | `mcp-for-blender` asset tools      | One call downloads and imports an asset                            |
 |  [19]   | Show the user an object      | `jump_to_view3d_object_by_name`    | Object Mode, the object alone selected and active, framed          |
 |  [20]   | Show the user an editor      | `jump_to_tab_by_space_type`        | Workspace whose main area shows the space type                     |
+
+- Precision work (architecture, CAD, BIM) builds geometry from dimensions in code and extension operators, library assets serve props and context
 
 ```bash
 # Packages of every repository's local index matching <word>, under the user's preferences

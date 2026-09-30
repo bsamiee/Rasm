@@ -37,8 +37,8 @@ profile.objects.link(body)
 result = {"body": body.name, "dof": sketch.target_object["dof"], "state": sketch.target_object["solver_state"]}
 ```
 
-- `slvs_add_sketch_on_plane` builds `Body` with its `CAD Sketcher Convert` modifier, `Body Workplane`, and `Body Sketch` curves, and activates the sketch
-- Distances between a line's `p1` and `p2` drive its length
+- `slvs_add_sketch_on_plane` builds and activates a sketch with `Body`, its `CAD Sketcher Convert` modifier, `Body Workplane`, and `Body Sketch` curves
+- Lines sharing a `PointRef` join, a distance between a line's `p1` and `p2` drives its length, `fixed=True` pins a point
 - `dof` 0 with `solver_state` `OKAY` marks a fully constrained sketch, and moving `Body` moves the sketch with it
 
 ## [02]-[CAMERAS]
@@ -91,7 +91,7 @@ result = {"camera": camera.name, "presets": list(bpy.pohlke.names)}
 ```
 
 - Presets (isometric, dimetric, trimetric, cavalier, military) place an `AUTO` fit scene camera 25 m from the origin, aimed at it
-- Scale holds on the picture plane, and model axes foreshorten by the preset
+- Scale holds on the picture plane, model axes foreshorten by the preset (an isometric axis draws 0.8165 of its length)
 
 ## [03]-[LINEWORK]
 
@@ -173,14 +173,16 @@ bpy.ops.dimensions.generate_output()
 result = as_result(sheet(scene.camera.name, scale, tuple(o.name for o in scene.objects if o.type == "GREASEPENCIL" and o.name.startswith(f"{scene.camera.name} "))))
 ```
 
-- `dimension_selected_edge` attaches to the edge's vertices in order in a plan plane 0.25 m off, which `offset_plane_normal` and `offset_distance` move
+- `dimension_selected_edge` attaches to the edge's vertices in order in a plan plane 0.25 m off, moved by `offset_plane_normal` and `offset_distance`
 - Offsets run along the plane normal crossed with the edge, sign picking the side, and `Units.first_offset` sets the first string at 6 cap heights
 - `WORLD` sizing states the label cap height, arrow, and line width in model meters, paper value times N, `Units.text` giving 3/32" or 2.5 mm caps
 - `CAMERA` sizing reads `ortho_scale / resolution_y` meters per pixel, a cap `h` taking `output_text_height = h * N * resolution_y / ortho_scale`
 - `generate_output` under `output_scope` `ALL` rebuilds every visible dimension facing the scene camera, and each sheet regenerates before `sheet`
 - Labels follow scene units through `imperial_unit_style` `FEET_INCHES` and `metric_unit_style` `MILLIMETERS`, which `extension/unit_system.py` writes
+- `angle_selected_edges` and `area_selected_faces` add angle and area dimensions from the same Edit Mode selection
 - `bpy.ops.interface.units(system="<METRIC or IMPERIAL>")` switches the file's units and label sizes at the system's sheet scale
 - Unit switches rewrite the scene camera's clip range and `ortho_scale`, and run while the render camera is the scene camera
+- MeasureIt_ARCH draws in a GUI alone, sheets take Dimensions output
 
 ## [05]-[EXISTING_FILES]
 

@@ -24,16 +24,16 @@ result = {
 
 Each format takes its importer with the arguments that put its units and axes right:
 
-| [INDEX] | [FORMAT]     | [IMPORTER]                       | [ARGUMENTS]                      | [UNITS]                                         |
-| :-----: | :----------- | :------------------------------- | :------------------------------- | :---------------------------------------------- |
-|  [01]   | STEP, IGES   | `import_scene.step`              | None                             | File unit to meters, `up_axis` `Y`              |
-|  [02]   | Rhino `.3dm` | `import_3dm.some_data`           | `import_layers_as_empties=False` | Model unit to meters, layers as collections     |
-|  [03]   | DXF          | `import_scene.cad2cube_dxf`      | `recenter_mode="NONE"`           | `$INSUNITS` to meters, coordinates kept         |
-|  [04]   | CityJSON     | `cityjson.import_file`           | `clean_scene=False`              | Transform applied, minimum vertex at the origin |
-|  [05]   | OBJ          | `wm.obj_import`                  | `global_scale`                   | No unit, forward -Z, up Y                       |
-|  [06]   | STL, PLY     | `wm.stl_import`, `wm.ply_import` | `global_scale`                   | No unit, forward Y, up Z                        |
-|  [07]   | GLB, glTF    | `import_scene.gltf`              | None                             | Meters, Y-up converted to Z-up                  |
-|  [08]   | USD          | `wm.usd_import`                  | None                             | `metersPerUnit` applied, `.usda`, `.usdc` read  |
+| [INDEX] | [FORMAT]     | [IMPORTER]                       | [ARGUMENTS]                      | [UNITS]                                            |
+| :-----: | :----------- | :------------------------------- | :------------------------------- | :------------------------------------------------- |
+|  [01]   | STEP, IGES   | `import_scene.step`              | None                             | File unit to meters, Z-up upright at `up_axis="Y"` |
+|  [02]   | Rhino `.3dm` | `import_3dm.some_data`           | `import_layers_as_empties=False` | Model unit to meters, layers as collections        |
+|  [03]   | DXF          | `import_scene.cad2cube_dxf`      | `recenter_mode="NONE"`           | `$INSUNITS` to meters, coordinates kept            |
+|  [04]   | CityJSON     | `cityjson.import_file`           | `clean_scene=False`              | Transform applied, minimum vertex at the origin    |
+|  [05]   | OBJ          | `wm.obj_import`                  | `global_scale`                   | No unit, forward -Z, up Y                          |
+|  [06]   | STL, PLY     | `wm.stl_import`, `wm.ply_import` | `global_scale`                   | No unit, forward Y, up Z                           |
+|  [07]   | GLB, glTF    | `import_scene.gltf`              | None                             | Meters, Y-up converted to Z-up                     |
+|  [08]   | USD          | `wm.usd_import`                  | None                             | `metersPerUnit` applied, `.usda`, `.usdc` read     |
 
 - `global_scale` takes `0.0254` for an inch file and `0.001` for a millimeter file
 - Importer preferences (`step_importer`, `cad2cube`) seed the File > Import dialog alone, a call from code takes the operator defaults

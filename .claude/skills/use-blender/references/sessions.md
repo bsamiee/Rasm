@@ -26,13 +26,14 @@ pgrep -lf "^$BLENDER_PATH"
 - Scripted launches under `tools/interface` wait while another agent drives Blender
 - `blender -c <command>` implies `--background`
 - Add-ons and extensions import at startup before `--python` and `--python-expr` run
+- `--python` and `--python-expr` compile in memory into a fresh `__main__` and add no folder to `sys.path`
 
 Each target takes one route, work leaving the user's GUI as found:
 
 | [INDEX] | [TARGET]                          | [ROUTE]                            | [DECIDING_FACT]                                         |
 | :-----: | :-------------------------------- | :--------------------------------- | :------------------------------------------------------ |
 |  [01]   | Live file                         | `blender` `execute_blender_code`   | One undo step per call, the server's wait ends at 300 s |
-|  [02]   | Summary of the live file          | `get_blendfile_summary_*`          | Data-block counts, workspace, and render engine         |
+|  [02]   | Summary of the live file          | `get_blendfile_summary_*`          | Undo history and `bpy.data.is_dirty` stay as found      |
 |  [03]   | Live file past 300 s              | Copy, then `headless.py start`     | Session state kept between calls with no client wait    |
 |  [04]   | Closed file, stock Blender        | `headless.py run <file>`           | Factory start, `-Y` on a file outside the repository    |
 |  [05]   | Closed file, extensions, or build | `headless.py start`, `call`        | User's preferences, every extension, `bpy.data` kept    |
@@ -83,9 +84,9 @@ python .claude/skills/use-blender/scripts/headless.py stop <name>
 - `run` on a missing path saves the factory startup file there, `start` saves the user's startup file
 - `run` and `start` open the file itself, and code that saves writes it
 - Scripts and drivers run under `filepaths.use_scripts_auto_execute` outside every `autoexec_paths` entry, factory starts leave it off
-- `-Y` turns scripts and drivers off in a file outside the repository, `scripts_blocked` holding `bpy.app.autoexec_fail_message`
-- Auto Run gates text blocks and driver expressions the simple-expression evaluator cannot handle
-- Sun Position prints an `AttributeError` traceback on `stderr` when a load leaves the scene without a world, and the load finishes
+- `-Y` turns scripts and drivers off in a file outside the repository, `scripts_blocked` naming the first one Blender skipped
+- `bpy.ops.wm.open_mainfile(filepath=bpy.data.filepath, use_scripts=True)` in a call runs blocked drivers and scripts
+- Simple and math driver expressions evaluate with scripts off, an expression reaching past the restricted names reads 0
 - `start` writes `.artifacts/blender/session/<name>.json` and `<name>.log`, `stop` deletes the JSON record
 - Calls keep `bpy.data`, see the file's active object and selection, and wait as long as the code runs
 - One session runs per name until `stop`, concurrent work takes distinct names
@@ -96,8 +97,11 @@ python .claude/skills/use-blender/scripts/headless.py stop <name>
 ## [04]-[BACKGROUND]
 
 Code in a background process sees a context no window draws:
+- `bpy.data.window_managers[0].windows` holds every stored screen
 - Stored 3D views read through `SpaceView3D.region_3d` with the matrices of their last GUI draw, `Region.data` reads `None`
 - `bpy.app.timers` callbacks never fire, code meant for a timer runs inside the call
+- Popup operators crash the process
+- Sun Position prints an `AttributeError` traceback on `stderr` when a load or `scene.new` leaves the scene without a world
 
 ## [05]-[OUTCOMES]
 
@@ -125,7 +129,7 @@ Each case decides the next step:
 
 ## [06]-[QUITS]
 
-Quits and preference reloads run through `mcp-for-blender`, the `blender` sandbox blocking `sys.exit`, `wm.quit_blender`, `read_userpref`, `read_factory_settings`, and `read_factory_userpref`:
+Quits and preference reloads run through `mcp-for-blender`, whose execute has no sandbox:
 
 ```python
 # [MCP_FOR_BLENDER] Quit, saving a titled file with unsaved changes and discarding an untitled one
@@ -135,6 +139,7 @@ status = bpy.ops.wm.save_mainfile(exit=True) if bpy.data.filepath and bpy.data.i
 print(sorted(status))
 ```
 
+- `blender` raises on `sys.exit`, `wm.quit_blender`, `read_userpref`, `read_factory_settings`, and `read_factory_userpref`, and runs `read_homefile`
 - `mcp-for-blender` `execute_blender_code` answers with printed output and drops `result`, a raise answers with the traceback alone
 - Quits from code skip the save prompt, and the server answers before Blender exits
 - `ps -p <pid>` in a later call reads the exit, `kill -KILL <pid>` ends a Blender `ps` lists after the quit
@@ -151,6 +156,9 @@ lsof -a -nP -iTCP -sTCP:LISTEN -c Blender
 - No 9877 row with the GUI open means the extension is disabled, its autostart or `bpy.app.online_access` is off, or its port is not 9877
 - Extension port is an add-on preference defaulting to 9876, a reset of the extension's preferences moves its listener there
 - Community add-on port and autostart are Scene properties each file saves
+- Bind failures show their error in the extension's preferences
+- `get_addon_status` compares community add-on and server protocols, a mismatch takes `nx run rasm:interface -- upgrade blender`, then an apply
+- `mcp-for-blender` keeps its last socket, its first call after a relaunch answers `Broken pipe` with no code run and the next reaches the new GUI
 - Blender's Python starts isolated and takes no `PYTHON*` variable, `--python-use-system-env` reads them for one launch
 - `BLENDER_USER_CONFIG` naming a missing folder falls back to the user's config, `BLENDER_USER_RESOURCES` without `config/` loads factory values
 - Temporary directory is `preferences.filepaths.temporary_directory`, `$TMPDIR` while the preference is empty or under `--factory-startup`

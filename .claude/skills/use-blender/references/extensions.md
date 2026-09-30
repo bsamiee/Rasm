@@ -8,7 +8,7 @@ New extensions are one folder named after the manifest id, checked and zipped by
 - Folders hold `blender_manifest.toml` beside `__init__.py`, siblings import relatively, and installs import as `bl_ext.<repository>.<id>`
 - Required keys are `schema_version`, `id`, `name`, `tagline`, `version`, `type`, `maintainer`, `license`, and `blender_version_min`
 - `platforms` stays absent on a pure-Python package, a listed platform hides the package on every platform the list omits
-- `wheels` lists `.whl` paths of unmodified PyPI wheels, one per dependency and platform tag, and Blender reads no wheel metadata
+- `wheels` lists `./wheels/<file>.whl` paths of unmodified PyPI wheels, one per dependency and platform tag, and Blender reads no wheel metadata
 - `validate` runs before every build, failing a `tagline` over 64 characters the loader accepts
 - `build` skips linked files without a message, and a folder holding links builds from a copy that resolves them
 - `validate` and `build` run on the user's tree and leave its shared wheels as they are
@@ -97,6 +97,7 @@ result = {name: addon_utils.check(name) for name in ("bl_ext.user_default.<id>",
 Reinstalls over an enabled copy load the new modules in the running process:
 - Extension installs over an enabled copy disable it, drop the package and its submodules from `sys.modules`, and enable it again, preferences kept
 - `enable_on_install` decides nothing for an enabled copy, which returns enabled
+- `package_install` on an installed id takes the newest compatible version of the synced index
 - `-c extension update --sync` upgrades every package
 - `bl_info` reinstalls take the snippet, `addon_install` keeping loaded submodules and `package_install_files` enabling nothing
 - Renamed packages take `preferences.addon_disable(module=<old module>)`, the install under the new id, an enable, and `wm.save_userpref()`

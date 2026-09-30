@@ -5,14 +5,14 @@ Calls into a running Blender, the context their operators take, and the answers 
 ## [01]-[CALLS]
 
 `.claude/settings.json` runs `wrapper.py` as the PreToolUse hook of both servers' `execute_blender_code`, and `headless.py` wraps `run` and `call` code the same way:
-- Calls run on Blender's main thread between event-loop passes, the window and other clients waiting until a call returns
+- Calls run in a fresh namespace on Blender's main thread between event-loop passes, the window and other clients waiting until a call returns
 - Code compiles as `<agent>`, tracebacks and warnings count its lines as sent
 - Each warning prints once per line on `stderr` as `<agent>:<line>: <Category>: <message>`
 
 Live calls close with one `Agent (<mode>)` undo step:
 - Consecutive calls in one mode share the step until the user acts, one Ctrl-Z reverts it
 - Raises close the step with the edits before the raise inside it, a `check_is_finished` closes it after its last pass
-- Every call marks the file modified
+- Every call marks the file modified and deletes the user's redo steps, a read after a user action adds one empty step
 - Edit Mode steps follow a hidden `MemFile Internal (pre)` substep holding the call's data-API changes to other objects, one Ctrl-Z reverts both
 - `window_manager.undo_stack.steps` lists each step's `name` and `is_substep`, `undo_stack.active` is the current step
 
@@ -25,11 +25,11 @@ Changes to the user's scene run as one call:
 4. Read each operator's return set and the report lines on `stdout` in the same call
 5. Return the evaluated values that show the change in `result`
 
-| [INDEX] | [OPERATORS]                                 | [FORM]                                                                                 |
-| :-----: | :------------------------------------------ | :------------------------------------------------------------------------------------- |
-|  [01]   | `modifier_apply`, `join`, `transform_apply` | `temp_override(active_object=o, selected_objects=[o], selected_editable_objects=[o])`  |
-|  [02]   | `mode_set`, selected-only exports           | `view_layer.objects.active = o` and `o.select_set(True)`, restored after               |
-|  [03]   | View operators, code reading `context.area` | `temp_override(window=v.window, area=v.area, region=v.region)`, `v = scene.viewport()` |
+| [INDEX] | [OPERATORS]                                  | [FORM]                                                                                 |
+| :-----: | :------------------------------------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `modifier_apply`, `join`, `transform_apply`  | `temp_override(active_object=o, selected_objects=[o], selected_editable_objects=[o])`  |
+|  [02]   | `mode_set`, `localview`, primitives, exports | `view_layer.objects.active = o` and `o.select_set(True)`, restored after               |
+|  [03]   | View operators, code reading `context.area`  | `temp_override(window=v.window, area=v.area, region=v.region)`, `v = scene.viewport()` |
 
 - Calls hold the first window in context with no area or region, and a background call the file's first stored window
 - Areas alone fail a view operator's poll, and areas of another window without `window=` raise `TypeError: Area not found in screen`

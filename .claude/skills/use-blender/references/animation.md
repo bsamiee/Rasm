@@ -37,6 +37,7 @@ result = {
 ```
 
 - First `keyframe_insert` calls create action `<Object>Action` with slot `OB<Object>`, one layer, and one `KEYFRAME` strip, and assign both
+- Scripted keys take `BEZIER` with `AUTO_CLAMPED` handles under every new-key preference, and linear motion sets `interpolation` per key
 - Key values are absolute property values, offset from the rest value their object holds
 - `scene.frame_set` evaluates parents, constraints, and drivers and runs frame handlers, each call returning to the user's frame after its read
 - `fcurve.evaluate(<frame>)` reads one channel at a frame without moving the scene
@@ -83,4 +84,7 @@ One action animates many IDs through one slot each:
 ## [03]-[EXISTING_MOTION]
 
 Existing motion is read from `snapshot("<name>", objects=)`, where each object's `animation` holds `Animated` (action, slot, channels with key count, interpolations, and a hash) or `Unassigned` (action, suitable slots). Changes run between that baseline and a comparison:
-- `key.co_ui.x += <frames>` on each key of a curve retimes it, handles moving with each key
+- `for key in reversed(curve.keyframe_points): key.co_ui.x += <frames>` retimes a curve, no key passing its later neighbor
+- Handles move with each key a `co_ui` write moves
+- Keys change interpolation, easing, and handle types through `key.interpolation`, `key.easing`, `key.handle_left_type`, `key.handle_right_type`
+- `curve.keyframe_points.remove(key)` deletes one key, `bag.fcurves.remove(curve)` one channel

@@ -48,9 +48,10 @@ python .claude/skills/use-blender/scripts/headless.py render <file> --frames <st
 - EXR frames get a display-encoded `<frame>.jpg` beside each, the sheet's source
 - `devices` names the Cycles devices of the preference compute type with `use` on, the CPU for a CPU scene or when no GPU row has `use` on
 - `resumed` counts image frames an earlier run of the unchanged file wrote, which Blender skips
+- Stopped Bash tasks end their Blender with whole frames on disk
 - File changes (any byte, a resave after a reload included) clear the folder and render every frame, movies render whole every run
 - `<stem>.log` beside the frames holds Blender's output, `rg "Saved:" <log>` lists each written file after the process clock
-- `Failed` names the log, its `Error:` line stating the cause
+- `Failed` names the log, its `Error:` line stating the cause (`Cannot render, no camera` under a scene camera of `None`)
 - Timings read the second render of a new scene configuration, the first compiling specialized Metal kernels
 - Full-size frames read through `magick` crops within Read's limits
 
@@ -76,6 +77,7 @@ magick <frame> -crop <w>x<h>+<x>+<y> -depth 8 -format "%[fx:round(255*mean.r)],%
 
 - Previews run through `run`, which leaves the file unchanged
 - Sunlit ground of albedo 0.2 reads near (122, 125, 130) and a sunlit wall of albedo 0.8 near (173, 176, 179) under the declared light and view
+- EEVEE matches Cycles in sunlight and draws faces in shadow darker, shadow questions take the Cycles render
 - Workbench renders take the scene exposure and read near black at -5.3, geometry reads through `capture.py`
 - Rhino folds the exposure into its sun and sky, its render EXR equaling Blender's times `2 ** -5.3` and its added lights rendering 39 times brighter
 - Rhino's integrator keys map one to one onto `scene.cycles` (samples, adaptive threshold, bounces, clamps, `blur_glossy`, caustics, light tree, seed)

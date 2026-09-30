@@ -5,7 +5,7 @@ Preferences, add-on records, repositories, keymaps, themes, text styles, interfa
 ## [01]-[OWNERS]
 
 `nx run rasm:interface -- blender` writes every value `tools/interface/blender/` declares into the files of `bpy.utils.user_resource("CONFIG")`, saving both at the end of its GUI run:
-- `userpref.blend` holds preferences, themes, text styles, add-on records with preference groups, repositories, keymap diffs, and keyconfig preferences
+- `userpref.blend` holds preferences, themes, text styles, add-on records and their groups, repositories, keymap diffs, keyconfig preferences
 - `startup.blend` holds startup scenes with their units and add-on Scene properties
 - `rg -n '<member>' tools/interface/blender` finds a member's row, and a change to a declared value edits that row for the apply
 - Values no row declares join the interface module of their category as a new row
@@ -41,7 +41,7 @@ result = {key: [factory.get(key), value] for key, value in plain(bpy.context.pre
 ```
 
 - Each differing member leads to its interface row through `rg`
-- Dynamic enums list one placeholder, `NONE` (`view_transform`, `display_device`), `DEFAULT` (`length_unit`, `temperature_unit`), `None` (`audio_device`)
+- Dynamic enum placeholders are `NONE` (`view_transform`, `display_device`), `DEFAULT` (`length_unit`, `temperature_unit`), `None` (`audio_device`)
 - `bpy.types.UILayout.enum_item_name(<struct>, "<member>", "<identifier>")` returns `""` for an identifier outside a dynamic enum's current set
 
 ## [03]-[WRITES]
