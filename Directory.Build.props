@@ -11,8 +11,8 @@
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(LibsRoot)'))">libs</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(TestsRoot)'))">tests</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(AppsRoot)'))">apps</ProjectRole>
-        <_ParentFolder>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('$(MSBuildProjectDirectory)'))))</_ParentFolder>
-        <RhinoHost Condition="'$(_ParentFolder)' == 'rhino'">common</RhinoHost>
+        <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(RepoRoot)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/</_RepoRelativeDir>
+        <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">common</RhinoHost>
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Plug-In" Condition="'$(ProjectRole)' == 'apps' and '$(RhinoHost)' != ''">

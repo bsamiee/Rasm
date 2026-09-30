@@ -24,7 +24,7 @@ const _PROJECTS: Record<
 > = {
     '*.csproj': ({ dir }) =>
         Effect.map(Path.Path, (path) => {
-            const plugin = dir.startsWith('apps/') && path.basename(path.dirname(dir)) === 'rhino';
+            const plugin = dir.startsWith('apps/') && path.basename(dir) === 'rhino';
             return {
                 root: dir,
                 tags: ['language:dotnet', ...(plugin ? ['host:rhino'] : [])],

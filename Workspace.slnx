@@ -1,7 +1,9 @@
 <Solution>
-    <Folder Name="/apps/rhino/">
-        <Project Path="apps/rhino/Arches/Arches.csproj" />
-        <Project Path="apps/rhino/Darkroom/Darkroom.csproj" />
+    <Folder Name="/apps/Arches/">
+        <Project Path="apps/Arches/rhino/Arches.csproj" />
+    </Folder>
+    <Folder Name="/apps/Darkroom/">
+        <Project Path="apps/Darkroom/rhino/Darkroom.csproj" />
     </Folder>
     <Folder Name="/eng/dotnet/">
         <Project Path="eng/dotnet/Rasm.Upgrade/Rasm.Upgrade.csproj" />
