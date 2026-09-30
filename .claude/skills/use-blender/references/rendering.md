@@ -31,13 +31,12 @@ result = {"output": settings.frame_path(frame=scene.frame_start)}
 - AgX looks read `AgX - <name>` (`AgX - Punchy`)
 - `//` resolves against the saved file's folder, in the untitled GUI against `.artifacts/blender/` with `{blend_name}` reading `Unsaved`
 - `filepaths.render_output_directory` seeds `render.filepath` of scenes created after it, existing scenes keep theirs
-- Site light takes `EXPOSURE` (-5.3) and `cycles.sample_clamp_indirect` at `10 / 2 ** EXPOSURE` (394), the factory clamp of 10 cuts bounce light
-- Exposure -5.3 renders every world but the site sky 39 times darker, a file without it keeps exposure 0
-- Use `look-development.md` for the site sky and sun
+
+Use look-development.md for the site sky and sun.
 
 ## [02]-[RENDER]
 
-Stills, frame ranges, and videos of a saved file run as one Bash call with `run_in_background: true`, its notification carrying one JSON outcome:
+Stills, frame ranges, and videos of a saved file run as one Bash call with `run_in_background: true`, its notification holding one JSON outcome:
 
 ```bash
 # Current frame of <file>, one frame, a range, or `all` of the scene range, into .artifacts/blender/renders/<stem>/
@@ -49,12 +48,10 @@ python .claude/skills/use-blender/scripts/headless.py render <file> --frames <st
 - EXR frames get a display-encoded `<frame>.jpg` beside each, the sheet's source
 - `devices` names the Cycles devices of the preference compute type with `use` on, the CPU for a CPU scene or when no GPU row has `use` on
 - `resumed` counts image frames an earlier run of the unchanged file wrote, which Blender skips
-- Stopped Bash tasks end their Blender with whole frames on disk
 - File changes (any byte, a resave after a reload included) clear the folder and render every frame, movies render whole every run
 - `<stem>.log` beside the frames holds Blender's output, `rg "Saved:" <log>` lists each written file after the process clock
-- `Failed` names the log, its `Error:` line states the cause (`Cannot render, no camera` under a scene camera of `None`)
-- First renders of a new scene configuration also compile specialized Metal kernels, so a timing reads the second render
-- Compiled kernels sit in `$(getconf DARWIN_USER_CACHE_DIR)org.blenderfoundation.blender/com.apple.metal`, which macOS clears after 3 days unused
+- `Failed` names the log, its `Error:` line stating the cause
+- Timings read the second render of a new scene configuration, the first compiling specialized Metal kernels
 - Full-size frames read through `magick` crops within Read's limits
 
 ## [03]-[LOOK]
@@ -79,9 +76,8 @@ magick <frame> -crop <w>x<h>+<x>+<y> -depth 8 -format "%[fx:round(255*mean.r)],%
 
 - Previews run through `run`, which leaves the file unchanged
 - Sunlit ground of albedo 0.2 reads near (122, 125, 130) and a sunlit wall of albedo 0.8 near (173, 176, 179) under the declared light and view
-- EEVEE matches Cycles in sunlight and draws faces in shadow darker, shadow questions take the Cycles render
 - Workbench renders take the scene exposure and read near black at -5.3, geometry reads through `capture.py`
-- Rhino folds the exposure into its sun and sky, so its render EXR equals Blender's times `2 ** -5.3` and its added lights render 39 times brighter
+- Rhino folds the exposure into its sun and sky, its render EXR equaling Blender's times `2 ** -5.3` and its added lights rendering 39 times brighter
 - Rhino's integrator keys map one to one onto `scene.cycles` (samples, adaptive threshold, bounces, clamps, `blur_glossy`, caustics, light tree, seed)
 
 ## [04]-[PASSES]
@@ -128,7 +124,7 @@ result = {"parts": parts}
 
 ## [05]-[LIVE]
 
-Renders of the user's live scene serve orientation through `render_thumbnail_to_path`, 320 px on the long side at 16 Cycles samples, or `render_viewport_to_path` at the scene's own settings:
+Renders of the user's live scene serve orientation through `render_thumbnail_to_path` or `render_viewport_to_path` at the scene's own settings:
 
 ```python
 # [EXECUTE_BLENDER_CODE] Close the render view a render tool opened, the area returning to its editor

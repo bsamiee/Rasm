@@ -1,35 +1,35 @@
 # [EXECUTION]
 
-Code runs in the user's GUI through `blender` `execute_blender_code` and in background Blender through `headless.py`, each call wrapped by `scripts/wrapper.py`.
+Calls into a running Blender, the context their operators take, and the answers they return.
 
 ## [01]-[CALLS]
 
 `.claude/settings.json` runs `wrapper.py` as the PreToolUse hook of both servers' `execute_blender_code`, and `headless.py` wraps `run` and `call` code the same way:
-- Calls run in a fresh namespace on Blender's main thread between event-loop passes, the window and other clients wait until a call returns
+- Calls run on Blender's main thread between event-loop passes, the window and other clients waiting until a call returns
 - Code compiles as `<agent>`, tracebacks and warnings count its lines as sent
 - Each warning prints once per line on `stderr` as `<agent>:<line>: <Category>: <message>`
 
 Live calls close with one `Agent (<mode>)` undo step:
 - Consecutive calls in one mode share the step until the user acts, one Ctrl-Z reverts it
 - Raises close the step with the edits before the raise inside it, a `check_is_finished` closes it after its last pass
-- Every call marks the file modified and deletes the user's redo steps, a read after a user action adds one empty step
+- Every call marks the file modified
 - Edit Mode steps follow a hidden `MemFile Internal (pre)` substep holding the call's data-API changes to other objects, one Ctrl-Z reverts both
 - `window_manager.undo_stack.steps` lists each step's `name` and `is_substep`, `undo_stack.active` is the current step
 
 ## [02]-[CHANGES]
 
 Changes to the user's scene run as one call:
-1. Convert the user's dimensions to meters, `bpy.utils.units.to_value("IMPERIAL", "LENGTH", "10' 6\"")`, exact by `round(m / 0.0254 * 64) / 64 * 0.0254`
+1. Convert the user's dimensions to meters at 1/64 inch
 2. Write through the data API, which reads no context, and call operators for work the data API holds no member for
 3. Give each operator the context the table names
 4. Read each operator's return set and the report lines on `stdout` in the same call
 5. Return the evaluated values that show the change in `result`
 
-| [INDEX] | [OPERATORS]                                  | [FORM]                                                                                 |
-| :-----: | :------------------------------------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `modifier_apply`, `join`, `transform_apply`  | `temp_override(active_object=o, selected_objects=[o], selected_editable_objects=[o])`  |
-|  [02]   | `mode_set`, `localview`, primitives, exports | `view_layer.objects.active = o` and `o.select_set(True)`, restored after               |
-|  [03]   | View operators, code reading `context.area`  | `temp_override(window=v.window, area=v.area, region=v.region)`, `v = scene.viewport()` |
+| [INDEX] | [OPERATORS]                                 | [FORM]                                                                                 |
+| :-----: | :------------------------------------------ | :------------------------------------------------------------------------------------- |
+|  [01]   | `modifier_apply`, `join`, `transform_apply` | `temp_override(active_object=o, selected_objects=[o], selected_editable_objects=[o])`  |
+|  [02]   | `mode_set`, selected-only exports           | `view_layer.objects.active = o` and `o.select_set(True)`, restored after               |
+|  [03]   | View operators, code reading `context.area` | `temp_override(window=v.window, area=v.area, region=v.region)`, `v = scene.viewport()` |
 
 - Calls hold the first window in context with no area or region, and a background call the file's first stored window
 - Areas alone fail a view operator's poll, and areas of another window without `window=` raise `TypeError: Area not found in screen`
@@ -89,10 +89,6 @@ check_is_finished = functools.partial(next, steps(), None)
 Reads return values in `result` and change nothing:
 - `plain(<struct>)` from `rna.py` returns an RNA struct's stored values as JSON
 - `obj.evaluated_get(bpy.context.evaluated_depsgraph_get())` holds counts and dimensions after modifiers
-- `bpy.utils.units.to_string("IMPERIAL", "LENGTH", m, split_unit=True)` reports `10' 6"`
-- `divmod(round(m / 0.0254 * 64) / 64, 12)` gives feet and inches to 1/64"
-- Reports state ft² and ft³ as meters over `0.3048` per dimension, lb as kg over `0.45359237`
-- Camera `lens` and `sensor_width` take the `CAMERA` unit, millimeters under every system
 
 ## [05]-[ANSWERS]
 
@@ -104,8 +100,10 @@ Each part of a `blender` answer decides the next call:
 |  [02]   | `stdout`                       | Prints and operator report lines                         | Operator readings                      |
 |  [03]   | `stderr`                       | `<agent>:<line>: DeprecationWarning`, handler tracebacks | Replace the deprecated member          |
 |  [04]   | `message` of status `error`    | Traceback, `stdout` before the raise beside it           | Read the state, continue from the line |
-|  [05]   | `Blender connection timed out` | Blender still working on the call                        | Read what landed in the next call      |
+|  [05]   | `Blender connection timed out` | Blender still working on the call                        | Read the resulting state next call     |
 
 - Tracebacks end in the `File "<agent>", line <n>` frame of the sent line that raised, frames above it belong to the bridge and `wrapper.py`
 
-Use sessions.md for routes, background context, and headless outcomes.
+Use configuration.md for unit conversion.
+
+Use sessions.md for headless outcomes.

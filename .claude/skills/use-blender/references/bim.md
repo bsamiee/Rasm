@@ -4,7 +4,7 @@ IFC files hold the model and Blender objects show its entities, authored through
 
 ## [01]-[AUTHORING]
 
-`ifcopenshell.api` builds a valid project outside the UI through `run` or `call`, lengths in meters with the file unit converting on write:
+`ifcopenshell.api` builds a valid project outside the UI through `run` or `call`:
 
 ```python
 # [HEADLESS_CALL] New IFC4 project in feet with a wall on its storey, written to <path>
@@ -28,9 +28,7 @@ f.write("<path>")
 result = {"unit_scale": ifcopenshell.util.unit.calculate_unit_scale(f)}
 ```
 
-- `unit.assign_unit` with no arguments sets millimeters, `feet` as `length`, `area`, and `volume` sets feet, square feet, and cubic feet
-- `calculate_unit_scale` answers `0.3048` for feet and `0.001` for millimeters, representation arguments stay meters under either
-- `bim.new_project(preset="imperial_ft")` in a session starts a feet project (`metric_m`, `metric_mm` metric) on the startup file, and `bim.save_project(filepath=)` writes it
+- `bim.new_project(preset="imperial_ft")` starts a feet project (`metric_m`, `metric_mm` metric) on the startup file, `bim.save_project` writing it
 
 ## [02]-[PROJECT]
 
@@ -53,15 +51,13 @@ entity = tool.Ifc.get_entity(obj)
 result = {"ifc": bpy.context.scene.BIMProperties.ifc_file, "container": element.get_container(entity).Name, "body": [r.RepresentationType for r in entity.Representation.Representations]}
 ```
 
-- `bim.load_project` replaces the open file with the startup file first, `should_start_fresh_session=False` loads into the open file and keeps its objects and path
-- Loads mesh geometry through the scene's `BIMProjectProperties.geometry_library`, and `opencascade` is the kernel Bonsai's wheel loads
+- `bim.load_project` replaces the open file with the startup file, `should_start_fresh_session=False` loading into the open file with its objects
+- Loads mesh geometry through the scene's `BIMProjectProperties.geometry_library`, `opencascade` loading IFC geometry
 - Scenes from outside the startup file take `geometry_library = "opencascade"` before a load into them
 - Objects take the name `<IfcClass>/<Name>`, spatial elements as empties, each in its container's collection
-- `tool.Ifc.get()` returns the open `ifcopenshell.file`, and `ifcopenshell.util.element` reads psets (`get_psets`), container, and type of an entity
-- Object transforms reach `ObjectPlacement` on save, mesh edits through `bim.update_representation` on the object
+- Mesh edits reach the IFC through `bim.update_representation` on the object
 - `IfcTessellatedFaceSet` writes an edited mesh as it stands, the default class re-detects an extrusion and raises on a mesh that breaks its profile
 - `bim.save_project` repoints `scene.BIMProperties.ifc_file` at the written file and saves a titled `.blend` holding unsaved changes
-- Bonsai imports as `bonsai`, `bl_ext.blender_org.bonsai.tool` raises `ModuleNotFoundError`
 
 ## [03]-[DRAWINGS]
 
@@ -102,11 +98,10 @@ bpy.ops.bim.create_sheets(open_viewer=False)
 result = {"sheet": docs.sheets[docs.active_sheet_index].name}
 ```
 
-- `target_view` takes `PLAN_VIEW`, `ELEVATION_VIEW`, `SECTION_VIEW`, `REFLECTED_PLAN_VIEW`, or `MODEL_VIEW`
-- New cameras sit at the origin, a plan camera cuts at its Z and looks down
+- New cameras sit at the origin
 - Camera settings written in the call that activated the drawing are lost, a later call writes them into the drawing's `EPset_Drawing`
 - `diagram_scale` items follow the scene's unit system (`1:100|1/100` under metric), and `width` and `height` in meters set `ortho_scale`
-- `create_drawing` writes `drawings/<drawing>.svg` beside the IFC, `width * 1000 / N` millimeters wide at 1:N
-- Sheet operators poll false until the IFC is saved, and `toggle_target_view` fills the drawing list past its group headers
+- `create_drawing` writes `drawings/<drawing>.svg` beside the IFC, `max(width, height) * 1000 / N` millimeters on its long side at 1:N
+- Drawings and Sheets panels draw only with a saved IFC project
 - `create_sheets` writes `sheets/<sheet>.svg` at the A1 title block size and `sheets/<sheet>.pdf` through the `svg2pdf_command` preference
-- Sheets draw text and lines from `drawings/assets/default.css` (OpenGost at 2.5 mm, 0.25 mm lines), `doc.drawing_font` sets the viewport decoration font alone
+- Sheets draw from `drawings/assets/default.css` (OpenGost, cut 0.35, projection 0.25, fine 0.18 mm), `doc.drawing_font` the viewport font alone

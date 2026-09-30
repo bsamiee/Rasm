@@ -4,7 +4,7 @@ CAD, mesh, and city files enter through one importer per format, and `rhino3dm` 
 
 ## [01]-[IMPORT]
 
-One file enters the user's scene live, or a session through `call` on a file `headless.py start` opened, and the objects it added report where they landed and their size:
+One file enters the user's scene live, or a session through `call` on a file `headless.py start` opened, and the objects it added report their collections and size:
 
 ```python
 # [EXECUTE_BLENDER_CODE] <file> imported, with the collections and world extent in meters of each object it added
@@ -24,16 +24,16 @@ result = {
 
 Each format takes its importer with the arguments that put its units and axes right:
 
-| [INDEX] | [FORMAT]     | [IMPORTER]                       | [ARGUMENTS]                      | [UNITS]                                            |
-| :-----: | :----------- | :------------------------------- | :------------------------------- | :------------------------------------------------- |
-|  [01]   | STEP, IGES   | `import_scene.step`              | None                             | File unit to meters, Z-up upright at `up_axis="Y"` |
-|  [02]   | Rhino `.3dm` | `import_3dm.some_data`           | `import_layers_as_empties=False` | Model unit to meters, layers as collections        |
-|  [03]   | DXF          | `import_scene.cad2cube_dxf`      | `recenter_mode="NONE"`           | `$INSUNITS` to meters, coordinates kept            |
-|  [04]   | CityJSON     | `cityjson.import_file`           | `clean_scene=False`              | Transform applied, minimum vertex at the origin    |
-|  [05]   | OBJ          | `wm.obj_import`                  | `global_scale`                   | No unit, forward -Z, up Y                          |
-|  [06]   | STL, PLY     | `wm.stl_import`, `wm.ply_import` | `global_scale`                   | No unit, forward Y, up Z                           |
-|  [07]   | GLB, glTF    | `import_scene.gltf`              | None                             | Meters, Y-up converted to Z-up                     |
-|  [08]   | USD          | `wm.usd_import`                  | None                             | `metersPerUnit` applied, `.usda`, `.usdc` read     |
+| [INDEX] | [FORMAT]     | [IMPORTER]                       | [ARGUMENTS]                      | [UNITS]                                         |
+| :-----: | :----------- | :------------------------------- | :------------------------------- | :---------------------------------------------- |
+|  [01]   | STEP, IGES   | `import_scene.step`              | None                             | File unit to meters, `up_axis` `Y`              |
+|  [02]   | Rhino `.3dm` | `import_3dm.some_data`           | `import_layers_as_empties=False` | Model unit to meters, layers as collections     |
+|  [03]   | DXF          | `import_scene.cad2cube_dxf`      | `recenter_mode="NONE"`           | `$INSUNITS` to meters, coordinates kept         |
+|  [04]   | CityJSON     | `cityjson.import_file`           | `clean_scene=False`              | Transform applied, minimum vertex at the origin |
+|  [05]   | OBJ          | `wm.obj_import`                  | `global_scale`                   | No unit, forward -Z, up Y                       |
+|  [06]   | STL, PLY     | `wm.stl_import`, `wm.ply_import` | `global_scale`                   | No unit, forward Y, up Z                        |
+|  [07]   | GLB, glTF    | `import_scene.gltf`              | None                             | Meters, Y-up converted to Z-up                  |
+|  [08]   | USD          | `wm.usd_import`                  | None                             | `metersPerUnit` applied, `.usda`, `.usdc` read  |
 
 - `global_scale` takes `0.0254` for an inch file and `0.001` for a millimeter file
 - Importer preferences (`step_importer`, `cad2cube`) seed the File > Import dialog alone, a call from code takes the operator defaults
@@ -42,13 +42,14 @@ Each format takes its importer with the arguments that put its units and axes ri
 - `import_3dm` meshes Breps from their render meshes, a Brep saved without one imports as a mesh with no vertices
 - Extents off by 1000 or 25.4 from a dimension the source states mark a unit error, swapped extents an axis error
 - Objects from glTF and STEP hold `QUATERNION` rotation, `rotation_euler` reads zero and `matrix_world` holds the transform
-- Use bim.md for IFC
+
+Use bim.md for IFC.
 
 ## [02]-[RHINO]
 
-Rhino files cross through `.3dm` for layers and `.glb` for materials, both ways:
-1. Rhino layers arrive as collections through `import_3dm` with `import_layers_as_empties=False`, each object's slot linked `OBJECT` to its layer material
-2. Rhino materials arrive through its `.glb`, where Rhino writes specular at half, emission display-encoded, and no `doubleSided`
+Rhino files reach Blender through `.3dm` for layers and `.glb` for materials, and Blender reaches Rhino through `.glb`:
+1. Rhino layers arrive as collections through `import_3dm` with `import_layers_as_empties=False`, each slot linked `OBJECT` to its layer material
+2. Rhino materials arrive through its `.glb` with display-encoded emission and no `doubleSided`, Blender reading their specular at half
 3. Blender objects reach Rhino as a `.glb` with collections as `Scene Collection::<collection>` layers
 
 ```python

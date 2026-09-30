@@ -22,11 +22,11 @@ package = {m.bl_info["name"]: m.__name__ for m in addon_utils.modules()}["Blende
 geo = importlib.import_module(f"{package}.geoscene").GeoScene(scene)
 sun = scene.sun_pos_properties
 azimuth, elevation = sun_calc.get_sun_coordinates(sun.time, sun.latitude, sun.longitude, -(sun.UTC_zone + sun.use_daylight_savings), sun.month, sun.day, sun.year)
-probe = bpy.data.scenes.new("probe")
-probe.vi_params["viparams"] = {}
-with bpy.context.temp_override(scene=probe):
+scratch = bpy.data.scenes.new("scratch")
+scratch.vi_params["viparams"] = {}
+with bpy.context.temp_override(scene=scratch):
     altitude, south_azimuth, *_ = solarPosition(date(sun.year, sun.month, sun.day).timetuple().tm_yday, sun.time - sun.use_daylight_savings, sun.latitude, sun.longitude)
-bpy.data.scenes.remove(probe)
+bpy.data.scenes.remove(scratch)
 result = {
     "georeference": [geo.crs, geo.lon, geo.lat, geo.crsx, geo.crsy, geo.isBroken],
     "moment": [sun.year, sun.month, sun.day, sun.time, sun.UTC_zone, sun.use_daylight_savings, math.degrees(sun.north_offset)],
@@ -41,8 +41,9 @@ result = {
 - Existing targets hold the declared site and moment in every field, with Sun Position, `sun_calc`, and the lamp's +Z axis agreeing
 - Azimuths read clockwise from north, the lamp's +Z axis is the sun vector with +Y north
 - `sun_calc` takes the zone as `-(UTC_zone + daylight)` and adds the context scene's `north_offset` to its azimuth
-- `solarPosition` takes EPW standard time and a day of year, answers azimuth clockwise from south, and departs up to 0.8° from Sun Position
-- `solarPosition` raises `KeyError 'viparams'` in a context scene without a VI-Suite export, the probe scene holds that key
+- `solarPosition` takes EPW standard time and a day of year, and answers azimuth clockwise from south
+- `solarPosition` departs 0.83° in elevation and 0.5° in azimuth from Sun Position at the site moment
+- `solarPosition` raises `KeyError 'viparams'` in a context scene without a VI-Suite export, the scratch scene holds that key
 - `use_refraction` False reads the geometric elevation Rhino computes, True the apparent one
 
 Files with no georeference, a broken one, or another site's take the new-site sequence:
@@ -84,26 +85,29 @@ result = {"georeference": [geo.crs, geo.crsx, geo.crsy], "sun": [math.degrees(su
 ```
 
 - `<north>` is true north in degrees anti-clockwise from +Y, `<zone>` the site's IANA zone, Rhino takes `Sun.North` 90 + `<north>`
-- UTM holds scale within 0.04% across a zone, and BlenderGIS projects through its bundled `pyproj` with no network or GDAL
-- Object locations and mesh positions are float32, stepping 0.25 m at a UTM northing, so the model stays at the origin in local meters
-- `geo.updOriginGeo(<longitude>, <latitude>)` moves a set origin and every root object by the projected delta, the model keeping its map place
-- Sun Position fields each re-place lamp and sky, so lamp and sky bind before the place and moment fields and the last write places both
+- BlenderGIS projects through its bundled `pyproj` with no network or GDAL
+- Models stay at the origin in local meters, object locations and mesh positions being float32 that step 0.25 m at a UTM northing
+- `geo.updOriginGeo(<longitude>, <latitude>)` moves a set origin to the point and every root object by minus the projected delta
+- Lamp and sky bind before the place and moment fields, each Sun Position field re-placing both and the last write placing them
 - Sun Position callbacks move the context scene's sun, a write to another scene runs under `temp_override(scene=<scene>)`
 - Rhino's `Sun.TimeZone` and Sun Position's `UTC_zone` take the standard offset beside a daylight flag, zoneinfo gives both
-- Use look-development.md for sky model, sun disc, and lamp irradiance
+
+Use look-development.md for sky model, sun disc, and lamp irradiance.
 
 ## [02]-[BONSAI_SOLAR]
 
-IFC projects enter the open file through `bim.load_project(filepath=, should_start_fresh_session=False)`, which keeps the lamp. `bim.new_project` and `bim.create_project` delete every object, mesh, and material of a scene holding one mesh, one light, and one camera, the startup scene included. Under a loaded IFC project, RNA writes to `scene.BIMSolarProperties` rewrite Sun Position, so the mirror writes Sun Position's values back in an order that ends with both holding them:
+Under a loaded IFC project, RNA writes to `scene.BIMSolarProperties` rewrite Sun Position, and the copy writes its values in an order that ends with both holding them:
+- IFC projects enter the open file through `bim.load_project(filepath=, should_start_fresh_session=False)`, which keeps the lamp
+- `bim.new_project` and `bim.create_project` delete every object, mesh, and material when the context scene holds one mesh, light, and camera
 
 ```python
-# [HEADLESS_CALL] Sun Position's site, moment, and north mirrored into Bonsai solar under a loaded IFC project
+# [HEADLESS_CALL] Sun Position's site, moment, and north copied into Bonsai solar under a loaded IFC project
 import bpy
 
 scene = bpy.context.scene
 sun, solar = scene.sun_pos_properties, scene.BIMSolarProperties
 hour, minute = divmod(round(sun.time * 60), 60)
-mirrored = {
+copied = {
     "sun_path_size": sun.sun_distance,
     "latitude": sun.latitude,
     "longitude": sun.longitude,
@@ -114,20 +118,20 @@ mirrored = {
     "minute": minute,
     "true_north": -sun.north_offset,
 }
-for name, value in mirrored.items():
+for name, value in copied.items():
     setattr(solar, name, value)
 result = {"timezone": solar.timezone, "UTC_zone": solar.UTC_zone, "sun": [sun.UTC_zone, sun.use_daylight_savings, sun.time, sun.north_offset]}
 ```
 
 - Bonsai derives `timezone` from the coordinates and stores `UTC_zone` as the negated offset in effect, 5.0 at 12:00 CDT
 - `sun_path_size` sets Sun Position's `sun_distance`, `true_north` its `north_offset` negated
-- Without an IFC project each RNA write prints a traceback and changes nothing, item writes (`solar["latitude"] = <value>`) skip every callback
+- Without an IFC project each RNA write's update fails loading solar data, and item writes (`solar["latitude"] = <value>`) skip every callback
 - `bim.import_lat_long` copies the IfcSite `RefLatitude` and `RefLongitude` into the solar fields through their callbacks
 - `shadow_mode = "SHADING"` switches the scene to Workbench
 
 ## [03]-[GIS_IMPORTS]
 
-BlenderGIS imports under `bpy.ops.importgis` land in the scene CRS around the georeference origin. BlenderGIS preferences hold `demServer` USGS 3DEP and `overpassServer` overpass-api.de, both keyless, with no OpenTopography or MapTiler key. USGS NAIP serves keyless imagery in any CRS for sites in the United States:
+BlenderGIS imports under `bpy.ops.importgis` sit in the scene CRS around the georeference origin. BlenderGIS preferences hold `demServer` USGS 3DEP and `overpassServer` overpass-api.de, both keyless, with no OpenTopography or MapTiler key. USGS NAIP serves keyless imagery in any CRS for sites in the United States:
 
 ```bash
 # NAIP orthoimage in the scene CRS over the projected box <west> <south> <east> <north> (geo.crsx and geo.crsy plus or minus <half>) at 0.3 m pixels
@@ -151,7 +155,7 @@ result = {"modifiers": [m.type for m in site.modifiers], "material": site.active
 ```
 
 ```python
-# [EXECUTE_BLENDER_CODE] OSM buildings over the extent standing on its DEM, one child collection per tag under OSM
+# [EXECUTE_BLENDER_CODE] OSM buildings over the extent, one child collection per tag under OSM
 import importlib
 
 import addon_utils
@@ -163,7 +167,7 @@ package = {m.bl_info["name"]: m.__name__ for m in addon_utils.modules()}["Blende
 osm = importlib.import_module(f"{package}.operators.io_import_osm")
 osm.OSMTAGS = osm.getTags()
 with bpy.context.temp_override(active_object=site, selected_objects=[site]):
-    status = bpy.ops.importgis.osm_query(filterTags={"building"}, separate=True, useElevObj=True, objElevLst=str(list(scene.objects).index(site)))
+    status = bpy.ops.importgis.osm_query(filterTags={"building"}, separate=True)
 result = {"status": sorted(status), "buildings": sorted(o.name for o in bpy.data.collections["OSM"].all_objects)}
 ```
 
@@ -182,27 +186,17 @@ result = {"status": sorted(status), "objects": sorted(o.name for o in bpy.data.c
 - `dem_query` displaces the extent through SUBSURF and DISPLACE modifiers and leaves it active and selected
 - DEM heights are orthometric meters, `location.z -= <elevation>` on the DEM and each object standing on it puts the site ground at zero
 - `georaster` imports a GeoTIFF in the scene CRS as it stands, one in another CRS takes `reprojection=True, rastCRS="EPSG:<epsg>"`
-- `georaster` with `importMode="DEM"` builds terrain from an elevation GeoTIFF, `"PLANE"` a textured plane
-- `osm.OSMTAGS = osm.getTags()` fills the tag list the dialog's invoke fills, so `filterTags` takes tags of the `osmTagsJson` preference
+- `georaster` with `importMode="DEM"` builds terrain from an elevation GeoTIFF
+- `osm.OSMTAGS = osm.getTags()` fills the tag list the dialog's invoke fills, and `filterTags` takes tags of the `osmTagsJson` preference
 - OSM building height reads `height`, else `building:levels` times `levelHeight`, else `defaultHeight` (20 m)
 - Overpass under load raises `OverpassGatewayTimeout: Server load too high`, and the OSM call repeated a minute later answers
-- `shapefile` takes `shpCRS` as the file's CRS and reprojects to the scene CRS, `elevSource` `GEOM` reads Z and `FIELD` a field
+- `shapefile` takes `shpCRS` as the file's CRS and reprojects to the scene CRS
 - Blosm's `blosm.import_data` builds roofed buildings over the `scene.blosm` extent on a sphere around `scene["lat"]` and `scene["lon"]`
 - Blosm imports sit 1.17° from BlenderGIS imports at the Houston site, the UTM meridian convergence
 
 ## [04]-[CLIMATE]
 
-Climate studies read an EPW of the station nearest the site from climate.onebuilding.org, whose `sources/` page lists one station table per region:
-
-```bash
-# Newest TMYx archive of the station nearest <latitude> <longitude> in the <region> table, extracted under <dir>
-url=$(duckdb -noheader -list -c "load excel; select URL from read_xlsx('https://climate.onebuilding.org/sources/<region>_TMYx_EPW_Processing_locations.xlsx', all_varchar = true) order by pow(\"Latitude (N+/S-)\"::double - <latitude>, 2) + pow((\"Longitude (E+/W-)\"::double - <longitude>) * cos(radians(<latitude>)), 2), regexp_extract(URL, '(\d{4})\.zip', 1) desc limit 1;")
-curl -fsS -o <dir>/epw.zip "$url"
-unzip -o -d <dir> <dir>/epw.zip '*.epw'
-```
-
-- `<region>` names a table on the sources page (`Region4_USA`, `Region4_Canada`, `Region6_Europe`)
-- EPW `LOCATION` lines hold station, WMO number, latitude, longitude, standard offset, and elevation, and hourly rows run in standard time
+Climate studies read an EPW of the station nearest the site, its hourly rows in standard time:
 - EnVi and CBDM take the sun from the EPW, VI-Suite sun paths and LiVi skies from `solarPosition`
 - VI-Suite's Location node lists the `*.epw` files of the `epweath` preference folder, the bundled UK files while it is empty
 - Picking an EPW in the Location node writes the station's latitude and longitude into `vi_params`, and the node raises in a background call

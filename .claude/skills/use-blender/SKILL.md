@@ -6,7 +6,8 @@ description: "Use when a task drives a live or headless Blender or a .blend file
 # [BLENDER]
 
 `.mcp.json` runs `blender` (Blender Lab) and `mcp-for-blender` against the user's one GUI Blender, `scripts/headless.py` background processes:
-- `headless.py`, `bridge.py`, and `wrapper.py` run on the host, other scripts inside Blender imported by module name through the hook
+- `bridge.py` runs on the host, `headless.py` and `wrapper.py` on the host and inside each Blender they reach
+- Other scripts run inside Blender, imported by module name through the hook
 - `as_result` from `results.py` turns a case record into the `result` dict, the class name under `kind` at every level
 - `[EXECUTE_BLENDER_CODE]` snippets run through `blender` `execute_blender_code`, `[MCP_FOR_BLENDER]` through `mcp-for-blender`
 - `[HEADLESS_CALL]` snippets run through `headless.py call`, or through `run` when they call no extension operator

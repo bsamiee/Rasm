@@ -30,7 +30,8 @@ Readings of each comparison decide the next step:
 |  [06]   | Capture `changed` is 0 after a visible edit   | Capture another view, or `view="user"` under the viewport shading  |
 |  [07]   | `MissingCapture` or `MissingSnapshot`         | Take the baseline under that name first                            |
 
-- Capture `changed` counts pixels past Blender's render-test threshold, `<after>-diff.png` draws `<before>` at half brightness and mixes them half with red, `<before>` reading through
+- Capture `changed` counts pixels past Blender's render-test threshold
+- `<name>-diff.png` draws the earlier capture at half brightness and mixes changed pixels half with red
 - Snapshot `changed` nests each value's before and after under its keys and list indexes, and `comparison` is `None` without `since`
 - Solid shading draws a material's viewport color under `color_type` `MATERIAL` alone, other material edits read from the snapshot
 
@@ -39,17 +40,15 @@ Readings of each comparison decide the next step:
 `capture("<name>", objects=, view=, size=, since=)` writes `.artifacts/blender/<name>.png`, overwriting a repeated name:
 - `view` takes `iso` (default) in perspective, `top`, `bottom`, `front`, `back`, `right`, and `left` orthographic, and `user`
 - `view="user"` draws the largest 3D Viewport's view at its horizontal field of view, live or from the file's stored view
-- Frames fit the evaluated faces, points, strokes, and hair of `objects` or of every object the viewport shows
-- Frames fit each object's box, with 2.5% of the frame's longest side added on every side
+- Frames fit the evaluated box of each object in `objects`, or of every object the viewport shows, with 2.5% of the longest side added around
 - `WIRE` and `BOUNDS` display types, curves with no bevel or extrusion, loose edges, and empties draw nothing
 - User views take the viewport's device pixels, other views the render's pixel count at the framed extent's aspect
 - Sizes stay within 2000 px on the long side, and `size` names one exactly
-- `Read` downscales an image past 2000 px and re-encodes one past 500 KB as JPEG, default captures stay under both
 - Pixel reads (levels, line widths, band edges, dither) pass `size=(region.width, region.height)` for the viewport's device pixels
 - `since="<before>"` redraws the view, frame, and size `<before>.png` stores, a user view compares while the viewport's view stays
 - PNGs hold no ICC profile, `magick <png> -format "%[pixel:p{<x>,<y>}]" info:` reads a byte as drawn
-
-Live calls draw offscreen through the viewport's shading and local view with overlays and gizmos off, then restore both and remove the temporary camera. Background calls render Workbench under the viewport's stored Solid shading, and surfaces draw the bytes the live draw holds. Background fill follows the preferences' theme, lighter under the factory preferences of `run` than in a `start` session.
+- Background calls render Workbench under the viewport's stored Solid shading, surfaces drawing the bytes of the live draw
+- Background fill follows the preferences' theme, lighter under the factory preferences of `run` than in a `start` session
 
 Cases other than `Capture` name what the call lacked:
 
@@ -69,15 +68,11 @@ Cases other than `Capture` name what the call lacked:
 - Objects hold modifiers with the settings each type adds, constraints, and drivers
 - Scenes hold frame, engine, camera, unit and color settings, orphan count, library files, and missing paths
 - Files hold material settings, datablock counts per kind, and node trees of registered types as `nodes.py` digests
-- Counts and dimensions after modifiers and instances come from the snapshot or `obj.evaluated_get(depsgraph)`
 
 ## [04]-[WINDOW]
 
-Pictures of the window and its areas come from Blender's framebuffer for orientation and from `screencapture` at 1:1 device pixels:
-- `get_screenshot_of_window_as_json` answers areas, regions, shading, view, and the active object with mode
-- `get_screenshot_of_area_as_image` draws one area by `ui_type`, whatever window is in front
+Window pictures come from the MCP screenshot tools and from `screencapture` at 1:1 device pixels:
 - `get_screenshot_of_window_as_image` draws the window content without its title bar
-- `blender` screenshots past 785 KB shrink bilinearly to logical pixels, then until they fit, with no note in the answer
 - `get_viewport_screenshot` draws the context screen's first 3D Viewport offscreen at `max_size` with grid and cursor and no text
 - `get_viewport_screenshot` answers `No 3D viewport found` while the context window shows a maximized render view
 
@@ -88,7 +83,7 @@ uv run --with pyobjc-framework-Quartz python -c 'import Quartz as q; [print(w[q.
 # Window at 1:1 device pixels under the display's ICC profile, without activating it
 screencapture -x -o -l <id> .artifacts/blender/<name>.png
 
-# Readable copy in sRGB at logical pixels as an undithered palette, far under 500 KB
+# Readable copy in sRGB at logical pixels as an undithered palette
 magick .artifacts/blender/<name>.png -profile "/System/Library/ColorSync/Profiles/sRGB Profile.icc" -resize 50% -strip +dither -colors 256 PNG8:.artifacts/blender/<name>-read.png
 
 # One area at device pixels from its `x`, `y`, `width`, and `height`, `y` counted from the window's bottom edge
@@ -98,4 +93,5 @@ magick .artifacts/blender/<name>.png -profile "/System/Library/ColorSync/Profile
 - Window ids change at every launch, and a stale id answers `could not create image from window`
 - Theme and view writes show after `area.tag_redraw()` on every area and a return from the call
 - Region writes that rebuild no region (`active_panel_category`) show a frame later
-- Use interface.md for second windows and popups a picture shows
+
+Use interface.md for second windows and popups.

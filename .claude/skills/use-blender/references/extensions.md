@@ -8,9 +8,9 @@ New extensions are one folder named after the manifest id, checked and zipped by
 - Folders hold `blender_manifest.toml` beside `__init__.py`, siblings import relatively, and installs import as `bl_ext.<repository>.<id>`
 - Required keys are `schema_version`, `id`, `name`, `tagline`, `version`, `type`, `maintainer`, `license`, and `blender_version_min`
 - `platforms` stays absent on a pure-Python package, a listed platform hides the package on every platform the list omits
-- `wheels` lists `./wheels/<file>.whl` paths of unmodified PyPI wheels, one per dependency and platform tag, and Blender reads no wheel metadata
-- `validate` checks strictly, a `tagline` over 64 characters failing it while the loader loads it, so `validate` runs before every build
-- `build` skips linked files without a message, so a folder holding links builds from a copy that resolves them, into an existing folder
+- `wheels` lists `.whl` paths of unmodified PyPI wheels, one per dependency and platform tag, and Blender reads no wheel metadata
+- `validate` runs before every build, failing a `tagline` over 64 characters the loader accepts
+- `build` skips linked files without a message, and a folder holding links builds from a copy that resolves them
 - `validate` and `build` run on the user's tree and leave its shared wheels as they are
 - `--split-platforms` writes one `<id>-<version>-<platform>.zip` per manifest platform
 
@@ -25,16 +25,16 @@ blender --factory-startup -c extension build --source-dir <copy> --output-dir <d
 unzip -l <dist>/<id>-<version>.zip
 ```
 
-`packaged` in `tools/interface/blender/packages.py` builds the repository's extension this way from a copy of `extension/`.
+`packaged` in `tools/interface/blender/packages.py` builds the repository's extension from a resolved copy of `extension/` through `--output-filepath`.
 
 ## [02]-[ISOLATED_TREE]
 
-Processes that enable packages resync `<EXTENSIONS>/.local` to their enabled set, so installs and registration runs take their own tree:
+Processes that enable packages resync `<EXTENSIONS>/.local` to their enabled set, and installs and registration runs take their own tree:
 - `headless.py run` is that tree headless, a factory process with extensions, config, and scripts under `.artifacts/blender/`
 - Runs that load saved records (a startup enable, a reinstall, a GUI) take `BLENDER_USER_RESOURCES` on an existing `<tree>` folder
 - GUI runs add `TMPDIR` on an existing `<tree>/tmp`, where `wm.quit_blender` writes `quit.blend` while the temporary directory preference is empty
 - GUI scripts step through one timer generator and end in `wm.quit_blender()`, the quit saving preferences into `<tree>/config`
-- Background processes run no timer, so a headless enable registers classes and draw functions with no keymap item, and keymaps read in a GUI
+- Headless enables register classes and draw functions with no keymap item from the timer tick, and keymaps read in a GUI
 
 ```bash
 # Built zip installed, enabled, read, and uninstalled in the run tree
@@ -89,7 +89,6 @@ result = {name: addon_utils.check(name) for name in ("bl_ext.user_default.<id>",
 - Platform installs need online access, `--online-mode` on a launch or `system.use_online_access = True` in a running process
 - `bl_info` modules take the name of the zip's top folder
 - `bl_info` add-ons that build a GPU shader at import enable in a GUI run alone
-- `addon_utils.check(<module>)` reads `(True, True)` for a recorded, loaded module
 - User-tree packages are `packages.toml` rows in `tools/interface/blender/`, which `nx run rasm:interface -- blender` stages and converges
 - `nx run rasm:interface -- upgrade blender` stages the newest build of every row for the next apply
 
@@ -98,8 +97,8 @@ result = {name: addon_utils.check(name) for name in ("bl_ext.user_default.<id>",
 Reinstalls over an enabled copy load the new modules in the running process:
 - Extension installs over an enabled copy disable it, drop the package and its submodules from `sys.modules`, and enable it again, preferences kept
 - `enable_on_install` decides nothing for an enabled copy, which returns enabled
-- `package_install` on an installed id takes the newest compatible version of the synced index, `-c extension update --sync` upgrades every package
-- `bl_info` reinstalls take the snippet, since `addon_install` keeps loaded submodules and `package_install_files` enables nothing
+- `-c extension update --sync` upgrades every package
+- `bl_info` reinstalls take the snippet, `addon_install` keeping loaded submodules and `package_install_files` enabling nothing
 - Renamed packages take `preferences.addon_disable(module=<old module>)`, the install under the new id, an enable, and `wm.save_userpref()`
 
 ```python
@@ -122,7 +121,7 @@ result = {"check": addon_utils.check(module)}
 
 Removals take the call of their package kind:
 - Extensions take `extensions.package_uninstall(repo_directory=<repo>.directory, pkg_id="<id>")`, which removes folder, cached archive, and user data
-- Uninstalls resync the shared wheels, so the last package listing a wheel removes its module from every process on the tree
+- Uninstalls resync the shared wheels, the last package listing a wheel removing its module from every process on the tree
 - Core add-ons take `addon_utils.disable(<module>, default_set=True)`
 - `bl_info` add-ons take `preferences.addon_remove(module=)` under an area override, the loaded modules staying in `sys.modules` until a restart
 - User-tree packages leave with their `packages.toml` row at the next apply
@@ -149,20 +148,20 @@ Keymap items join the add-on keyconfig and leave through the keymap that added t
 - `keyconfigs.addon.keymaps.new(name=, space_type=, region_type=)` returns the one add-on keymap of that name every add-on shares
 - `keymap_items.new(<idname>, <type>, <value>, alt=True)` adds an item, `new_from_item(<stock item>)` copies one with its properties for field writes
 - `register` keeps each `(keymap, item)` pair, and `unregister` calls `keymap.keymap_items.remove(item)` on each pair and keeps the keymap
-- Items land at the head of the user keymap in reverse order of addition, ahead of every stock item, with no macOS Cmd copy
+- Items sit at the head of the user keymap in reverse order of addition, ahead of every stock item, with no macOS Cmd copy
 - Modal bindings join an existing modal keymap, the add-on keyconfig creates none
 - Items return one tick after a GUI disable and enable
 
 Panels, draw handlers, timers, and status text each take one form:
 - Panel classes declare `bl_owner_id`, which keeps the owner through a re-registration from the tick, where the owner otherwise reads empty
-- Panel options read through `getattr(cls, "bl_options", ())`, since most add-on panels declare none
+- Panel options read through `getattr(cls, "bl_options", ())`, most add-on panels declaring none
 - Panel trees leave deepest-first and return parent-first, `panels.collapsed` in the extension restoring each class's prior attributes at exit
 - `Space<Type>.draw_handler_add(<fn>, <args>, "<REGION>", "POST_PIXEL")` draws in every region of that type in every window
 - Draw handlers leave through `draw_handler_remove(<handle>, "<REGION>")` at unregister
 - RNA writes inside a draw handler go on difference, an equal-value write tags a redraw every frame
 - Timers match by callable identity, and `unregister` removes one while `bpy.app.timers.is_registered(<fn>)` reads true
 - Modal operators pass `workspace.status_text_set` a `(header, context)` function in `invoke` and `None` at every exit and in `cancel()`
-- Status bar and pie draws run on every redraw, a pie on every pointer move, so `invoke` resolves what they show once
+- Status bar and pie draws run on every redraw, a pie on every pointer move, and `invoke` resolves what they show once
 - `INTERFACE_OT_alias` in the extension's `commands.py` is the working modal status form
 
 ## [07]-[READING]

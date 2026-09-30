@@ -4,7 +4,7 @@ Scaled sheets of a model or sketch through orthographic cameras, Line Art, and D
 
 ## [01]-[SKETCHES]
 
-CAD Sketcher solves a constrained 2D profile through its model API in one call, and its `Body` mesh carries the profile into Line Art:
+CAD Sketcher solves a constrained 2D profile through its model API in one call, and its `Body` mesh takes the profile into Line Art:
 
 ```python
 # [HEADLESS_CALL] Rectangle <width> by <depth> m on the XY plane, one corner fixed at the origin, solved to zero freedom, its Body in new collection <collection>
@@ -37,8 +37,8 @@ profile.objects.link(body)
 result = {"body": body.name, "dof": sketch.target_object["dof"], "state": sketch.target_object["solver_state"]}
 ```
 
-- `slvs_add_sketch_on_plane` builds the `Body` mesh with its `CAD Sketcher Convert` modifier, `Body Workplane`, and the `Body Sketch` curves in the scene collection, and activates the sketch
-- Lines sharing a `PointRef` join, a distance between a line's `p1` and `p2` drives its length, `fixed=True` pins a point
+- `slvs_add_sketch_on_plane` builds `Body` with its `CAD Sketcher Convert` modifier, `Body Workplane`, and `Body Sketch` curves, and activates the sketch
+- Distances between a line's `p1` and `p2` drive its length
 - `dof` 0 with `solver_state` `OKAY` marks a fully constrained sketch, and moving `Body` moves the sketch with it
 
 ## [02]-[CAMERAS]
@@ -90,8 +90,8 @@ stored.resolution_x, stored.resolution_y = (round(side * 1e4) for side in paper)
 result = {"camera": camera.name, "presets": list(bpy.pohlke.names)}
 ```
 
-- Presets (isometric, dimetric, trimetric, cavalier, military) place an `AUTO` fit camera 25 m from the origin aimed at it and make it the scene camera
-- Scale holds on the picture plane, model axes foreshorten by the preset (an isometric axis draws 0.8165 of its length)
+- Presets (isometric, dimetric, trimetric, cavalier, military) place an `AUTO` fit scene camera 25 m from the origin, aimed at it
+- Scale holds on the picture plane, and model axes foreshorten by the preset
 
 ## [03]-[LINEWORK]
 
@@ -114,16 +114,19 @@ art.radius, art.use_image_boundary_trimming = pen * scale, True
 result = as_result(sheet(camera.name, scale, (lines.name,)))
 ```
 
-- Line Art `radius` is the stroke width, one object per pen and source, pens from `Pen` in `tools/interface/units.py` (0.35 mm cut, 0.25 mm projection, 0.18 mm fine)
-- Line Art occludes with every scene object whatever its source, so Boolean cutters take `lineart.usage = "EXCLUDE"`
-- Ground planes under the model take `lineart.usage = "NO_INTERSECTION"`, which `tools/interface/blender/script/startup.py` writes on the startup `Ground`
+- Line Art `radius` is the stroke width, one object per pen and source
+- Pens come from `Pen` in `tools/interface/units.py` (0.35 mm cut, 0.25 mm projection, 0.18 mm fine)
+- Boolean cutters take `lineart.usage = "EXCLUDE"`, Line Art occluding with every scene object whatever its source
+- Ground planes under the model take `lineart.usage = "NO_INTERSECTION"`, as `tools/interface/blender/script/startup.py` writes on `Ground`
 - `sheet(<name>, <N>, <objects>)` recomputes each named Line Art and writes `.artifacts/blender/sheets/<name>.svg`, `.pdf` at paper size, and `.png`
 - Sheets take their camera's name, and each sheet object opens with the camera's name and a space, the prefix gathering its Line Art and dimensions
 - `Sheet.paper` holds the paper size in meters
 - `Sheet.window` holds the left, top, width, and height in meters of the paper the PNG shows
-- `Sheet.strokes` counts strokes per pen width in millimeters of each object, every stroke black at its material alpha
-- `Rejected` names a missing, non-camera, or perspective scene camera, a non-Grease Pencil object, or no strokes, and `Uncompiled` the `typst` diagnostics
-- PNGs show the inked paper with 2.5% of the window's long side added on every side
+- `Sheet.strokes` counts strokes per pen width in millimeters of each object
+- Strokes draw black at material alpha times layer opacity times mean point opacity
+- `Rejected` names a missing, non-camera, or perspective scene camera, a non-Grease Pencil object, or no strokes
+- `Uncompiled` names the `typst` diagnostics
+- PNGs show the inked extent with 2.5% of its long side added on every side, clipped to the paper
 - PNGs span 2000 px across the window's long side S, where a length L at 1:N measures L / N × 2000 / S px
 
 ```bash
@@ -170,16 +173,14 @@ bpy.ops.dimensions.generate_output()
 result = as_result(sheet(scene.camera.name, scale, tuple(o.name for o in scene.objects if o.type == "GREASEPENCIL" and o.name.startswith(f"{scene.camera.name} "))))
 ```
 
-- `dimension_selected_edge` anchors to the edge's vertices in order in a plan plane 0.25 m off, and `offset_plane_normal` with `offset_distance` moves it
+- `dimension_selected_edge` attaches to the edge's vertices in order in a plan plane 0.25 m off, which `offset_plane_normal` and `offset_distance` move
 - Offsets run along the plane normal crossed with the edge, sign picking the side, and `Units.first_offset` sets the first string at 6 cap heights
 - `WORLD` sizing states the label cap height, arrow, and line width in model meters, paper value times N, `Units.text` giving 3/32" or 2.5 mm caps
 - `CAMERA` sizing reads `ortho_scale / resolution_y` meters per pixel, a cap `h` taking `output_text_height = h * N * resolution_y / ortho_scale`
-- `generate_output` rebuilds every visible dimension facing the scene camera into `Dimensions Output`, so each sheet regenerates before its `sheet`
-- Labels follow scene units through `imperial_unit_style` `FEET_INCHES` and `metric_unit_style` `MILLIMETERS`, which `tools/interface/blender/extension/unit_system.py` writes
+- `generate_output` under `output_scope` `ALL` rebuilds every visible dimension facing the scene camera, and each sheet regenerates before `sheet`
+- Labels follow scene units through `imperial_unit_style` `FEET_INCHES` and `metric_unit_style` `MILLIMETERS`, which `extension/unit_system.py` writes
 - `bpy.ops.interface.units(system="<METRIC or IMPERIAL>")` switches the file's units and label sizes at the system's sheet scale
 - Unit switches rewrite the scene camera's clip range and `ortho_scale`, and run while the render camera is the scene camera
-- `angle_selected_edges` and `area_selected_faces` add angle and area dimensions from the same Edit Mode selection
-- MeasureIt_ARCH draws in a GUI alone, sheets take Dimensions output
 
 ## [05]-[EXISTING_FILES]
 

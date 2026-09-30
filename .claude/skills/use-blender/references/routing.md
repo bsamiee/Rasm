@@ -1,8 +1,8 @@
 # [ROUTING]
 
-Jobs inside a route to the user's GUI or a closed file, each with one tool across both servers and `scripts/`, over any tool the server instructions name.
+One tool per job across both servers and `scripts/`, chosen over any tool the server instructions name.
 
-Use sessions.md for the route to a live, closed, or new file.
+Use sessions.md for routes.
 
 ## [01]-[JOBS]
 
@@ -23,15 +23,11 @@ Use sessions.md for the route to a live, closed, or new file.
 |  [13]   | Geometry from a chosen view  | `capture.py`                       | Framed on objects or the user's view, overlays off                 |
 |  [14]   | Editor, panel, node canvas   | `get_screenshot_of_area_as_image`  | One area from Blender's framebuffer whatever window is in front    |
 |  [15]   | Whole window with chrome     | `screencapture -x -o -l <id>`      | Drawn window at 1:1 device pixels, top bar and status bar included |
-|  [16]   | Layout, mode, selection      | `get_screenshot_of_window_as_json` | Areas, shading, view, active object with mode                      |
+|  [16]   | Layout and selection         | `get_screenshot_of_window_as_json` | Areas, active object, and selection                                |
 |  [17]   | Camera shot preview          | `render_thumbnail_to_path`         | Scene camera at 320 px and 16 Cycles samples                       |
 |  [18]   | Library or generated asset   | `mcp-for-blender` asset tools      | One call downloads and imports an asset                            |
 |  [19]   | Show the user an object      | `jump_to_view3d_object_by_name`    | Object Mode, the object alone selected and active, framed          |
 |  [20]   | Show the user an editor      | `jump_to_tab_by_space_type`        | Workspace whose main area shows the space type                     |
-
-- Precision work (architecture, CAD, BIM) builds geometry from dimensions in code and extension operators, library assets serve props and context
-- `get_<library>_status` reads the active scene's `blendermcp_use_<library>`, a `blender` call setting it enables the library's tools with no restart
-- `render_thumbnail_to_path` writes `<bpy.app.tempdir>/blender_mcp/<basename>` whatever folder `output_path` names, the answer's `filepath` holds it
 
 ```bash
 # Packages of every repository's local index matching <word>, under the user's preferences
@@ -70,7 +66,7 @@ bpy.ops.wm.revert_mainfile()
 6. Read `params` for the keywords, then `bpy_api_lookup("bpy.ops.<category>.<name>")` for enum items, defaults, and ranges
 7. Read a type with `exposed` true through `bpy_api_lookup("<identifier>")` and a node type's sockets through `describe_node_type`
 8. Read a type with `exposed` false through `bpy.types.<base>.bl_rna_get_subclass_py("<identifier>").bl_rna` in code
-9. Read a compiled stock type (`owner` and `source` `None`) through `get_python_api_docs("bpy.types.<identifier>")`, a Python panel or menu from `source`
+9. Read a compiled stock type (`owner` and `source` `None`) through `get_python_api_docs("bpy.types.<identifier>")`, a Python class from `source`
 10. Read a setting's `values` by ID name for each context member of its ID type, by module for add-on preferences, `PASSWORD` strings left out
 11. Write a setting through `bpy.context.<member>.<property>` or `bpy.context.preferences.addons["<module>"].preferences.<property>`
 

@@ -37,7 +37,7 @@ for name, material in (("Slab", concrete), ("Walls", paint)):
 result = {"images": {n.image.name: n.image.colorspace_settings.name for n in concrete.node_tree.nodes if n.type == "TEX_IMAGE"}, "paint": list(linear)}
 ```
 
-- `material.fetch_and_create` builds the set the scene's `ambientcg_*` fields name, from the shared materials folder when it holds the set, else from ambientCG
+- `material.fetch_and_create` builds the set the scene's `ambientcg_*` fields name from the shared materials folder, else from ambientCG
 - Sets arrive with Color in `sRGB`, Roughness, NormalGL, and Displacement in `Non-Color`, and a Mapping on UV at Scale 1
 - UVs in meters take Mapping Scale 1 / set size in meters, `api/v2/full_json?id=<id>&include=dimensionsData` states ambientCG sizes in centimeters
 - Box UVs in meters survive every exporter, where Object, Generated, and Box projections compute at render time alone
@@ -45,7 +45,8 @@ result = {"images": {n.image.name: n.image.colorspace_settings.name for n in con
 - Byte colors convert through `from_srgb_to_scene_linear()`, and `diffuse_color` takes that value for Solid mode
 - Principled inputs read `Subsurface Weight`, `Specular IOR Level`, `Transmission Weight`, `Coat Weight`, and `Emission Color`, white at Strength 0
 - Color textures exported from Rhino read with Rhino's curve under `Gamma 2.2 Encoded Rec.709`, and normal maps read OpenGL, a set's `NormalGL` file
-- Use interchange.md for Rhino materials through glTF and `.3dm`
+
+Use interchange.md for Rhino materials through glTF and `.3dm`.
 
 Existing materials change in place, and a new slot takes faces through `material_index`:
 
@@ -73,21 +74,27 @@ evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
 result = {"slots": [s.material.name for s in obj.material_slots], "faces": [sum(p.material_index == i for p in evaluated.data.polygons) for i in range(len(obj.material_slots))]}
 ```
 
-- Slots link to the mesh under `edit.material_link` `OBDATA`, linked duplicates sharing them, and `material_slots[<i>].link = "OBJECT"` gives one object its own
-- Material edits reach every object using that material, and `material.copy()` splits one off
+- Slots link to the mesh under `edit.material_link` `OBDATA`, shared by linked duplicates, and `material_slots[<i>].link = "OBJECT"` splits one off
 
 ## [02]-[LIBRARY_ASSETS]
 
 `mcp-for-blender` fetches library and generated assets into the live scene, each source enabled on the scene first:
-1. `get_addon_status` reads the protocol match, then `get_<source>_status` reads each source
-2. Set `bpy.context.scene.blendermcp_use_<source>` True for each source the work takes, and False after it, saved files keeping the toggles
+1. `get_<source>_status` reads each source
+2. Set `bpy.context.scene.blendermcp_use_<source>` True in a `blender` call for each source the work takes, and False after it
 3. Search, download, then place and assign in code
 
-Poly Haven answers with no account, Sketchfab and Poly Pizza with `BLENDERMCP_SKETCHFAB_API_KEY` and `BLENDERMCP_POLYPIZZA_API_KEY` in the GUI's login environment. Hyper3D answers status with the free-trial key `scene.blendermcp_hyper3d_api_key = "vibecoding"`, and generation answers `API_INSUFFICIENT_FUNDS` once the shared trial balance is spent. Hunyuan3D holds no account, and Tripo takes Premium.
+- Asset tools answer `Unknown command type` while the active scene's toggle is off, and saved files keep the toggles
+
+Service keys come from add-on preferences, then the Scene, then a `BLENDERMCP_*` variable in the GUI login environment:
+- Poly Haven answers with no account, Sketchfab and Poly Pizza with `BLENDERMCP_SKETCHFAB_API_KEY` and `BLENDERMCP_POLYPIZZA_API_KEY`
+- Hyper3D takes the trial key `scene.blendermcp_hyper3d_api_key = "vibecoding"` until generation answers `API_INSUFFICIENT_FUNDS`
+- Tripo takes Premium
+- Sidebar key fields write add-on preferences, the Hyper3D trial key alone going into a Scene property every saved `.blend` holds
+- Files leaving the machine clear `blendermcp_*_api_key`, `blendermcp_hunyuan3d_secret_id`, and `blendermcp_hunyuan3d_secret_key` first
 
 Poly Haven textures:
 1. `search_polyhaven_assets(query=, asset_type="textures", min_size_m=2)` for floors and walls, each row stating its real-world size
-2. `download_polyhaven_asset(asset_id=, asset_type="textures", resolution="1k")` builds material `<id>` at 0 users with its images packed into the file
+2. `download_polyhaven_asset(asset_id=, asset_type="textures", resolution="1k")` builds material `<id>` at 0 users, images packed
 3. Assign it in code before a save drops it:
 
 ```python
@@ -113,21 +120,20 @@ obj.data.materials.append(material)
 result = {"scale": list(mapping.inputs["Scale"].default_value), "users": material.users}
 ```
 
-- `polyhaven_scale_mm` holds the span one repeat covers, and its POINT Mapping multiplies UVs, so UVs in meters take `1000 / mm`
-- Downloads set `displacement_method` `BOTH` at Displacement Scale 0.1, and `BUMP` keeps relief in shading on a mesh with no subdivision
+- `polyhaven_scale_mm` holds the span one repeat covers, and its POINT Mapping multiplying UVs takes `1000 / mm` over UVs in meters
+- Downloads set `displacement_method` `BOTH` at Displacement Scale 0.1
 
 Poly Haven HDRIs:
 1. `search_polyhaven_assets(query=, asset_type="hdris")`, then `download_polyhaven_asset(asset_id=, asset_type="hdris", resolution="1k")`
 2. Downloads assign world `PolyHaven <id>` at Background Strength 1, and a replaced world keeps only its other users
 3. Hold the site world first (`site = scene.world`) and reassign it after a trial
-4. HDRI worlds kept for a render take Background Strength `2 ** -scene.view_settings.exposure`, their exposure-0 brightness under site exposure
 
 Sketchfab, Poly Pizza, and Hyper3D models:
-1. `search_sketchfab_models(query=)` or `search_polypizza_models(query=, licence="CC0")`, each row naming author and license
+1. `search_sketchfab_models(query=)` or `search_polypizza_models(query=, licence="CC0")`
 2. `download_sketchfab_model(uid=, target_size=)` scales the largest dimension to `target_size`, the subject's real largest dimension in meters
-3. `download_polypizza_model(model_id=)` keeps the source's arbitrary scale, its root holding `polypizza_attribution`, `polypizza_id`, and `polypizza_licence`
+3. `download_polypizza_model(model_id=)` keeps the source's scale, its root holding `polypizza_attribution`, `polypizza_id`, and `polypizza_licence`
 4. Hyper3D runs `generate_hyper3d_model_via_text`, `poll_rodin_job_status`, and `import_generated_asset`, one object per job at a normalized size
-5. Imports land in the active collection with their objects selected, a Sketchfab tree under an empty `Sketchfab_model` in `QUATERNION` rotation
+5. Sketchfab imports go into the active collection with their objects selected under an empty `Sketchfab_model` in `QUATERNION` rotation
 6. Size, place, and file each import by its root:
 
 ```python
@@ -161,7 +167,6 @@ result = {"low": low.tolist(), "high": high.tolist()}
 ```
 
 - `bounds(depsgraph, drawn=True)` from `scene.py` gives each object's evaluated world corners, and a root's tree spans their union
-- CC-BY models credit the author their search row names, and Sketchfab writes no license property
 
 ## [03]-[SITE_LIGHT]
 
@@ -185,17 +190,16 @@ result = {"sun": [round(degrees(sky.sun_rotation), 3), round(degrees(sky.sun_ele
 ```
 
 - `<elevation>` is the site's height above sea level in meters
-- Sky light reaches both engines through the world Background, and the SUN lamp alone carries the sun at 139.3 W/m², the disc's irradiance
+- Sky light reaches both engines through the world Background, and sunlight comes from the SUN lamp alone at 139.3 W/m², the disc's irradiance
 - Sun to sky on a horizontal plane reads 7.9:1 under these values
 - `angle` at its RNA default is the sun's 0.526°, and a stock point light converted to `SUN` keeps 11.4°
 - Light handles taken before `type = "SUN"` stay a `PointLight`, and a read from `bpy.data.lights` after it reaches `angle`
 - EEVEE turns world light above `world.sun_threshold` (10) into a sun of its own, a bright HDRI included
-- Metals reflect the world, and the site sky gives them their look
 
 Added lights take power for the brightness they give under scene exposure:
 
 ```python
-# [EXECUTE_BLENDER_CODE] 2' x 4' ceiling panel lighting the floor 10' below it at half display white under the scene exposure
+# [EXECUTE_BLENDER_CODE] 2' x 4' panel at 10' lighting the slab top 8" up at half display white under the scene exposure
 from math import pi
 
 import bpy
@@ -216,7 +220,8 @@ result = {"energy": round(panel.energy, 1)}
 - AREA lights facing a surface `d` away give irradiance `energy / (pi * d**2)`, POINT and SPOT lights `energy / (4 * pi * d**2)`
 - Fixtures at catalog power read near black beside the sun under -5.3, holding their physical ratio
 - Material Preview lights with the look-development studio HDRI at exposure 0, and a render judges the site look
-- Use rendering.md for look renders and their readings
+
+Use rendering.md for look renders and their readings.
 
 ## [04]-[ASSET_LIBRARY]
 
@@ -252,6 +257,5 @@ result = {"file": str(library / "<set>.blend"), "previews": {a.name: list(a.prev
 - Sessions read the user's library rows, `filepaths.asset_libraries["Assets"].path` naming the shared folder
 - Catalog lines read `<uuid>:<path>:<simple name>` after a `VERSION 1` line, one per path level, a uuid5 of each path keeping it stable
 - Background processes render each preview inside the call, to the same pixels under any scene exposure
-- `libraries.write` writes the given IDs with their dependencies, asset data, and previews, replacing its whole target file
-- Interface planting rebuilds write their catalogs beside every line the file holds and keep `assets.blend` to themselves
+- `tools/interface/blender/script/library.py` writes site planting into `assets.blend` and keeps every catalog line the file holds
 - Remote rows (`CGMatter`, `ambientCG`) fetch each asset on first use from the Asset Browser

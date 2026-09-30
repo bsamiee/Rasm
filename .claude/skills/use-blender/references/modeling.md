@@ -4,7 +4,7 @@ Meshes built from dimensions in code, kept in collections, and changed in place,
 
 ## [01]-[NEW_PART]
 
-New parts build in one call from dimensions in meters: one mesh per member from boxes in `bmesh`, cutters in a hidden child collection, repeats and cuts as modifiers, and the evaluated dimensions with a capture in `result`:
+New parts build in one call from dimensions in meters, with the evaluated dimensions and a capture in `result`:
 
 ```python
 # [EXECUTE_BLENDER_CODE] Room of slab, walls cut by a door and a window, and a column row, each member from its dimensions
@@ -54,22 +54,20 @@ result = {"feet": feet, "iso": as_result(capture("room-iso", objects=tuple(o.nam
 ```
 
 - `solid` puts each object origin at its member's lower corner for `location` to place, its boxes forming one mesh with no join
-- `bpy.data.objects.new` links into a named collection and keeps active object and selection, which a primitive operator changes
 - `bpy.data.collections.new` makes an unlinked collection, and `scene.collection.children.link` places it
 - Children given a parent before their location take it in parent space and move with that parent
 - One Boolean of `operand_type` `COLLECTION` cuts with every object in the cutter collection
 - Cutters stay hidden through their layer collection's `hide_viewport` and out of renders through `Collection.hide_render`
 - Arrays space by `constant_offset_displace` in meters with `use_relative_offset` off
-- Round members take `bmesh.ops.create_cone(bm, cap_ends=True, segments=64, radius1=<r>, radius2=<r>, depth=<h>)`, centered on the origin
-- 64 segments draw no facet edge under a wireframe threshold of 0, which startup viewports hold
+- Round members at 64 segments draw no facet edge under a wireframe threshold of 0, which startup viewports hold
 - `mesh.shade_smooth()` then `mesh.set_sharp_from_angle(angle=radians(30))` keeps cap rims sharp with no modifier
-- Startup files hold `Ground` at z 0, which renders and headless captures draw, so members stand on it from z 0 up
+- Members stand on the startup `Ground` from z 0 up, a `WIRE` plane renders draw and captures leave out
 - `feet` compares each evaluated member with its declared dimensions, and `room-iso` becomes the capture baseline
 
 ## [02]-[EXISTING_PART]
 
 Existing parts are read, then changed in one call between a baseline and its comparison:
-1. `get_objects_summary` reads collections and parents, `get_object_detail_summary` one object's modifiers and materials
+1. Read collections and parents through `get_objects_summary`, one object's stacks through `get_object_detail_summary`
 2. Edit through the edit mesh while its object is in Edit Mode, else through a `bmesh` of mesh data
 3. Move a cutter to move its opening, which its Boolean recomputes
 4. Read `changes` and the capture comparison
@@ -102,9 +100,9 @@ result = {"before": before, "changes": as_result(snapshot("room-after", objects=
 
 - `to_mesh` raises `ValueError` on a mesh in Edit Mode, and `update_edit_mesh` writes what evaluated objects and snapshots read
 - `obj.data` holds an Edit Mode edit once `object.mode_set(mode="OBJECT")` runs
-- Axis views show a wall's openings edge-on against the wall behind them, so walls take `iso`
 - `changes` names raised bounds and a new geometry hash, and `outside` true marks walls past their baseline frame
-- Use captures.md for each comparison reading and its next step
+
+Use captures.md for each comparison reading and its next step.
 
 Existing objects merge into one with their stacks baked, `join` taking each other object's mesh without its modifiers:
 
@@ -126,7 +124,6 @@ result = {"status": sorted(status), "faces": len(target.data.polygons)}
 ```
 
 - Stacks bake top down, one `modifier_apply` per modifier name in stack order
-- Linked duplicates take `obj.data = obj.data.copy()` first, an apply on a shared mesh raising `Modifiers cannot be applied to multi-user data`
-- `join` keeps its target's origin and modifiers, removes every other object, and leaves their meshes at 0 users for `batch_remove`
+- `join` keeps its target's modifiers, removes every other object, and leaves their meshes at 0 users for `batch_remove`
 - Placed objects keep their world transform under a new parent through `child.matrix_parent_inverse = parent.matrix_world.inverted()`
 - Objects placed in the same call take `bpy.context.view_layer.update()` before that read of `matrix_world`
