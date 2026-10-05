@@ -41,7 +41,7 @@ BLENDER_MCP_DISABLE_TELEMETRY = "true"
 PULUMI_HOME = "{{config_root}}/.cache/pulumi"
 GHIDRA_PROJECT_DIR = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
 GHIDRA_JAVA_OPTIONS = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
-GHIDRA_HEADLESS_MAXMEM = "{% if os() == 'macos' %}{{ (exec(command='sysctl -n hw.memsize') | int / 1073741824 / 4) | int }}G{% endif %}"
+GHIDRA_HEADLESS_MAXMEM = "{% if os() == 'macos' %}{{ (exec(command='/usr/sbin/sysctl -n hw.memsize') | int / 1073741824 / 4) | int }}G{% endif %}"
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 [tools]

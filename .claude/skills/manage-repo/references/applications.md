@@ -2,7 +2,7 @@
 
 Hosts apply declared rows to each desktop application through its own stores.
 
-Use `research.md` for application facts, their sources, and their decompiles.
+Use `research.md` for application facts and their sources.
 
 ## [01]-[STORES]
 
@@ -10,7 +10,7 @@ Every setting is written through its owning store and API:
 - Settings every user of a file needs go in the template or startup document (units, layers, styles, render quality, environment, sun, ground, views)
 - Settings one user keeps across files go in the application store (layout, navigation, keys, compute device, libraries, updates, dialogs)
 - Settings take one declaration in one store, a document key overrides its application duplicate
-- Rows read each value, write on difference alone, and report the value read before the write and the value written
+- Rows read each value, write on difference alone, and report the value before and after the write
 - Reruns that report no change show every write persisted, a write the application dropped reports again
 - Reports are typed rows the host decodes into outcomes, one protocol for every application
 - In-application code writes its report on the error path, and a run with no report fails
@@ -22,7 +22,7 @@ Every setting is written through its owning store and API:
 - Stores that drop default-equal keys at quit take a factory-equal value through a live owner API, a file edit there changes the file every run
 - Steps write a setting before the settings it constrains, an excluded value resets with no error
 - Settings that raise a dialog in a run, at close, or at quit (clipboard, file lock, missing font, save prompt) take the suppressing value
-- Update checks, startup repository sync, telemetry, promotions, AI features, tips, and suggestions take their off value wherever a store reaches them
+- Update checks, startup repository sync, telemetry, promotions, AI features, tips, and suggestions take their off value where a store reaches them
 - License and server settings, settings a platform mechanism replaces, and members no installed source reads take no row
 - Content libraries (assets, materials, textures, environments) join through the application's own library integration as declared rows
 - Library rows point at a folder holding content and its catalog, an empty or absent library takes one skip row naming the folder
@@ -46,7 +46,7 @@ Every setting is written through its owning store and API:
 
 ## [02]-[EVIDENCE]
 
-Application facts come from stores, live processes, and pixels beside research sources:
+Application facts come from research sources, stores, live processes, and pixels:
 - Every store the application reads or rewrites at quit is dumped whole through its property metadata and diffed against factory values
 - Factory values come from a factory-startup instance, a property's declared default misreports them
 - Enum values come from their enum type, a dynamic enum's valid set from the callback or registry that supplies its items
@@ -77,7 +77,7 @@ One folder holds every application's interface, one module per concept, and no f
 - Ids derive from the API or a compiled table, an id copied from one machine drifts
 - Machine paths, versions, configuration folders, template paths, window extents, and scale are read at run time, declared state holds none
 - Built-ins and maintained add-ons that hold a behavior replace own code
-- Declared files exist where the application reads a file or one replaces an inline table, in the format it reads (alias export, skin, manifest)
+- Declared files exist in the application's format (alias export, skin, manifest) where it reads a file or one replaces an inline table
 - Files state a key only when it takes effect and differs from the value its omission imports, identity keys (a mode id, a parent) stay declared
 - Rendered and compared files keep the application's encoding, markers, and number spelling, a reformatted value compares unequal
 - Declared files name color roles as placeholders an apply renders, the committed file holds no color literal
@@ -87,7 +87,7 @@ One folder holds every application's interface, one module per concept, and no f
 - Names avoid words the application or standard library uses
 - Hosts create the folders they write
 - Prerequisites no run creates sit once in their application's driving skill
-- Decisions sit in code as values and names it acts on, facts sit in research files, and no comment, note, or memory file restates either
+- Decisions sit in code as values and names it acts on, facts in facts files, and no comment, note, or memory file restates either
 - Staged packages go under `.cache/<app>/`, run outputs (captures, logs, reports, built packages) under `.artifacts/<app>/`
 - Unsaved work renders into `.artifacts/<app>/renders/`, the application's default output folder
 - Saved projects render beside themselves through the application's relative path form
@@ -299,7 +299,7 @@ One style per category in every application, widths in device pixels (logical at
 Sheets print cut lines 0.35 mm, projection, annotation, center, and grid lines 0.25 mm, fine and hidden 0.18 mm, in the layer print color.
 
 [DISPLAY]: Display modes and line stores draw each table category one way in every application:
-- Widths below an application's minimum draw at its minimum, recorded in its facts, and other applications keep table width
+- Widths below an application's minimum draw at its minimum, recorded as a fact, and other applications keep table width
 - Previews drawn in another application's view take the host view's widths
 - Wires take one color for every data type, a casing in the canvas color where a store reaches it, and selection at half alpha
 - Width scales that thin a line below one device pixel go

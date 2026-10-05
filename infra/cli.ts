@@ -2,8 +2,8 @@ import { stderr, stdout } from 'node:process';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { ActionsRepositoryPermissions, Repository, type RepositoryArgs, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts } from '@pulumi/github';
 import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
-import { BranchConfig, type BranchConfigArgs, Environment, Project, type ProjectArgs } from '@pulumiverse/doppler';
-import { Array, Config, Effect, Equal, FileSystem, Path, Record, Schema, Stdio } from 'effect';
+import { BranchConfig, type BranchConfigArgs, Environment, Project, type ProjectArgs, Secret, type SecretArgs } from '@pulumiverse/doppler';
+import { Array, Config, Effect, Equal, FileSystem, Path, Record, Redacted, Schema, Stdio } from 'effect';
 import { parse } from 'yaml';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -19,10 +19,18 @@ const _Actions = Schema.Struct({
     ),
     actions: Schema.Array(Schema.Struct({ runs: Schema.Struct({ steps: _Steps }) })),
 });
+const _Secrets = Config.all(
+    (
+        [
+            ['dev', ['BLENDERMCP_POLYPIZZA_API_KEY', 'BLENDERMCP_SKETCHFAB_API_KEY']],
+            ['dev_repo', ['BUF_TOKEN', 'DOPPLER_TOKEN', 'GITHUB_TOKEN', 'NUGET_USER', 'PULUMI_ACCESS_TOKEN', 'RHINO_TOKEN']],
+        ] as const
+    ).flatMap(([config, names]) => names.map((name) => Config.map(Config.Redacted(name), (value) => ({ config, name, value })))),
+);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const _program = ({ workflows, actions }: typeof _Actions.Type): Record.ReadonlyRecord<string, unknown> => {
+const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.Success<typeof _Secrets>): Record.ReadonlyRecord<string, unknown> => {
     const patternsAlloweds = [...workflows.flatMap(({ jobs }) => Record.values(jobs).flatMap(({ steps }) => steps)), ...actions.flatMap(({ runs }) => runs.steps)].flatMap(({ uses }) =>
         typeof uses === 'object' ? [`${uses[0]}@*`] : [],
     );
@@ -45,11 +53,16 @@ const _program = ({ workflows, actions }: typeof _Actions.Type): Record.Readonly
     const project = new Project(projectArgs.name, projectArgs);
     const environments = Record.map({ dev: 'Development', prd: 'Production' } as const, (name, slug) => new Environment(slug, { project: project.name, slug, name }).slug);
     const branchArgs = { name: 'dev_repo', project: project.name, environment: environments.dev } as const satisfies BranchConfigArgs;
+    const configs = { ...environments, [branchArgs.name]: new BranchConfig(branchArgs.name, branchArgs).name };
     const repository = new Repository(repositoryArgs.name, repositoryArgs, { protect: true });
     const vulnerabilityAlerts = new RepositoryVulnerabilityAlerts(`${repositoryArgs.name}-vulnerability-alerts`, { repository: repository.name });
     return {
         repository: repository.fullName,
-        configs: [...Record.values(environments), new BranchConfig(branchArgs.name, branchArgs).name],
+        configs: Record.values(configs),
+        secrets: secrets.map(
+            ({ config, name, value }) =>
+                new Secret(`${projectArgs.name}.${config}.${name}`, { project: project.name, config: configs[config], name, value: Redacted.value(value) } satisfies SecretArgs).name,
+        ),
         securityUpdates: new RepositoryDependabotSecurityUpdates(`${repositoryArgs.name}-security-updates`, { repository: vulnerabilityAlerts.repository, enabled: true }).enabled,
         ruleset: new RepositoryRuleset(`${repositoryArgs.name}-main`, {
             repository: repository.name,
@@ -69,7 +82,7 @@ const _program = ({ workflows, actions }: typeof _Actions.Type): Record.Readonly
 };
 
 Effect.gen(function* () {
-    const [fs, path, stdio, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Stdio.Stdio, Config.String('PULUMI_HOME')]);
+    const [fs, path, stdio, home, secrets] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Stdio.Stdio, Config.String('PULUMI_HOME'), _Secrets]);
     const [operation] = yield* stdio.args.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([Schema.Literals(['up', 'refresh'])]))));
     const workDir = path.join(home, 'work');
     yield* fs.makeDirectory(workDir, { recursive: true });
@@ -85,7 +98,8 @@ Effect.gen(function* () {
         { concurrency: 'unbounded' },
     ).pipe(Effect.flatMap(Schema.decodeUnknownEffect(_Actions)));
     yield* Effect.tryPromise(async (signal) =>
-        (await LocalWorkspace.createOrSelectStack({ stackName: 'rasm', projectName: 'rasm-infra', program: async () => _program(actions) }, { workDir }))[operation]({
+        (await LocalWorkspace.createOrSelectStack({ stackName: 'rasm', projectName: 'rasm-infra', program: async () => _program(actions, secrets) }, { workDir }))[operation]({
+            diff: true,
             onOutput: (text) => stdout.write(text),
             onError: (text) => stderr.write(text),
             signal,

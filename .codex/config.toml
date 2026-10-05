@@ -1,10 +1,10 @@
 [mcp_servers.adobe]
-command = "node"
-args = ["apps/creative-cloud/mcp/main.ts"]
+command = "mise"
+args = ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts"]
 
 [mcp_servers.roslyn-codelens]
-command = "dotnet"
-args = ["dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
+command = "mise"
+args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
 required = true
 startup_timeout_sec = 120
 tool_timeout_sec = 300
@@ -23,12 +23,13 @@ startup_timeout_sec = 20
 tool_timeout_sec = 120
 
 [mcp_servers.blender]
-command = "uvx"
-args = ["--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
+command = "mise"
+args = ["exec", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
 tool_timeout_sec = 300
 default_tools_approval_mode = "approve"
 
 [mcp_servers.mcp-for-blender]
-command = "mcp-for-blender"
+command = "mise"
+args = ["exec", "--", "mcp-for-blender"]
 tool_timeout_sec = 180
 default_tools_approval_mode = "approve"

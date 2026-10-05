@@ -8875,6 +8875,7 @@ dependencies = [
     { name = "openimageio", marker = "python_full_version < '3.15'" },
     { name = "psdtags" },
     { name = "tifffile" },
+    { name = "tzdata" },
 ]
 
 [package.dev-dependencies]
@@ -9229,6 +9230,7 @@ requires-dist = [
     { name = "openimageio", marker = "python_full_version < '3.15'" },
     { name = "psdtags" },
     { name = "tifffile" },
+    { name = "tzdata" },
 ]
 
 [package.metadata.requires-dev]

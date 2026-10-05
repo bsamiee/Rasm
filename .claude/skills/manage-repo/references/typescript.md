@@ -44,7 +44,7 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - `project` at `all` turns on the scanner its import rules read, a group severity alone leaves import rules silent
 - `noUnresolvedImports` and `noUndeclaredVariables` are `off`, `tsc --build` reports unresolved specifiers, missing exports, and undeclared names
 - Scanner skips ambient `declare module` declarations, `tsc --build` reads them
-- `none` on a domain leaves on each of its rules a group severity enables, an `off` rule row silences one that fires (`useQwikValidLexicalScope`)
+- `none` on a domain leaves on each domain rule a group severity enables, an `off` rule row silences one that fires (`useQwikValidLexicalScope`)
 - `organizeImports` runs by default, every other source action is a row
 - `useNamingConvention` takes `strictCase: false` for a host's acronym class names
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes

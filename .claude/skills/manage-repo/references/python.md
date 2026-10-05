@@ -14,7 +14,7 @@ uv owns resolution, lock, and environment of the root project file.
 
 - `--locked` fails a command when `uv.lock` is missing or stale
 - `environments` restricts resolution to disjoint PEP 508 markers
-- `[tool.uv] dependency-groups` rows raise one group's `requires-python` above `[project] requires-python`
+- `[tool.uv] dependency-groups` rows raise a group's `requires-python` above `[project] requires-python`
 - `uv.lock` forks each `environments` marker at a group's raised floor, `[project]` dependencies resolve in both forks from the project floor
 - `[tool.uv.workspace] members` globs name the `pyproject.toml` files one root lock covers, one per tool the repository runs as a program
 - When packages install one path, `exclude-dependencies` in root `[tool.uv]` drops all but one from resolution however a dependency requests them
@@ -37,9 +37,9 @@ uv owns resolution, lock, and environment of the root project file.
 - Packages with no stubs or `py.typed` take a mypy `ignore_missing_imports` override by module, ty reads their source
 - Header `disable-error-code` codes that suppress nothing stay silent in mypy
 - `mypy` skips dot-prefixed children in a directory walk, each hidden tree takes its own `files` row
-- Ruff `target-version` and ty `python-version` hold the group `requires-python`, each reads `[project] requires-python` when unset
+- Ruff `target-version` and ty `python-version` hold the raised group `requires-python`, each reads `[project] requires-python` when unset
 - Per-path target versions exist in ruff alone, mypy checks every file at one version, ty checks a PEP 723 script at its `requires-python`
-- PEP 723 scripts take ty settings from their block's `[tool.ty]` tables alone, a block's `[tool.ty.rules]` opens with root `[tool.ty] rules` entries
+- PEP 723 scripts read ty settings from their block alone, a block's `[tool.ty.rules]` opens with root `[tool.ty] rules` entries
 - `mypy` overrides name a PEP 723 script by its unqualified module
 - `exhaustive-match` notes in mypy offer `case _: pass`, a `case None:` arm with a body or a narrowing before `match` clears the error
 - Calls through a union of bound methods with differing signatures fail mypy and ty, each `match` arm calls its own typed method

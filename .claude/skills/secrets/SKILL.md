@@ -5,7 +5,7 @@ description: "Use when a program needs a runtime secret or an agent needs a cred
 
 # [SECRETS]
 
-1Password and Doppler each hold every secret at its current value. 1Password serves the owner and local agents through `op` and the desktop app, Doppler serves every running program through `doppler run`.
+1Password and Doppler each hold every secret at its current value. Code and repository files name Doppler alone, and Doppler serves every running program through `doppler run`. 1Password serves the owner and local agents through `op` and the desktop app.
 
 [REFERENCES]:
 - [01]-[PATTERNS](references/patterns.md): Templates and mounts for secret material a process reads from a file
@@ -31,10 +31,12 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, 
 
 Doppler resources exist alone as typed `infra/cli.ts` rows of `Project`, `Environment`, `BranchConfig`, `Secret`, and `ServiceToken` from `@pulumiverse/doppler`:
 - Workplace `Parametric_Arsenal` holds project `rasm`, environments `dev` and `prd` with locked root configs, and branch config `dev_repo` under `dev`
-- `Secret` rows name `project`, `config`, `name`, and `value`
+- `Secret` rows name `project`, `config`, `name`, and `value`, `@pulumiverse/doppler` stores `value` as a Pulumi secret
+- `Secret` import ids take the form `<project>.<config>.<name>`
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
 - Target `rasm:infra` runs `doppler run --project rasm --config dev_repo -- node infra/cli.ts`
-- `dev_repo` supplies `DOPPLER_TOKEN` to `@pulumiverse/doppler`, `PULUMI_ACCESS_TOKEN` to Pulumi, and `GITHUB_TOKEN` to `@pulumi/github`
+- `infra/cli.ts` reads each `Secret` value from the environment `dev_repo` injects, a branch config inheriting every `dev` secret
+- `dev_repo` supplies `DOPPLER_TOKEN` to `@pulumiverse/doppler`, `PULUMI_ACCESS_TOKEN` to Pulumi, and `GITHUB_TOKEN` to `@pulumi/github`, each its own `Secret` row
 - `nx run rasm:infra:up` applies rows, `nx run rasm:infra:refresh` reads live state into the stack
 - Use `manage-repo` for infra rows
 
@@ -64,19 +66,26 @@ Secret references take the form `op://<vault>/<item>/[<section>/]<field>[?<query
 - `Tokens` items hold their value in field `token` or `credential`
 - `op run` masks values on stdout and stderr, `--no-masking` prints them
 - Commands that expand a variable holding a reference run in a subshell (`sh -c '<cmd>'`), `op run` resolves the reference first
-- `.mcp.json` headers read each `Tokens` value from the harness environment as `${<NAME>}`
 
 ## [05]-[OP_WRITES]
 
 Value writes pass through stdin JSON, `--dry-run` previews a create or an edit:
+- `doppler secrets get --plain` and `op read` end the value with a newline, `rtrimstr("\n")` drops it
+- `op item edit` writes an empty `DATE` field from stdin JSON as `0`, edits delete empty dates first
 
 ```bash
 # New Tokens item
-<producer> | jq -Rs '{title: "<NAME>", category: "API_CREDENTIAL", fields: [{id: "credential", label: "token", type: "CONCEALED", value: .}]}' \
+<producer> | jq -Rs '{title: "<NAME>", category: "API_CREDENTIAL", fields: [{id: "credential", label: "token", type: "CONCEALED", value: rtrimstr("\n")}]}' \
+    | op item create --vault Tokens -
+
+# New item from a live Doppler secret
+doppler secrets get <NAME> --json --project <p> --config <c> \
+    | jq 'to_entries[0] | {title: .key, category: "API_CREDENTIAL", fields: [{id: "credential", label: "token", type: "CONCEALED", value: .value.computed}]}' \
     | op item create --vault Tokens -
 
 # New value for an existing Tokens item
-op item get <NAME> --vault Tokens --format json | jq --rawfile v <(<producer>) '(.fields[] | select(.label == "token")).value = $v' \
+op item get <NAME> --vault Tokens --format json \
+    | jq --rawfile v <(<producer>) 'del(.fields[] | select(.type == "DATE" and .value == null)) | (.fields[] | select(.label == "token")).value = ($v | rtrimstr("\n"))' \
     | op item edit <NAME> --vault Tokens
 
 # Vendor login with a generated password
@@ -103,6 +112,7 @@ Desktop app's SSH agent serves key `Forge SSH Key` (ED25519) to SSH hosts and Gi
 
 - Each secret keeps one name as `Tokens` item title, Doppler secret, and environment variable a consumer reads
 - Configuration files hold no secret value
+- `.mcp.json` headers read each value from the harness environment as `${<NAME>}`
 - Values reach a consumer as injected environment, a command substitution, a mount, or a mode-600 file outside every repository tree
 - Files holding values go when the consumer exits
 - Agent output holds secret names alone

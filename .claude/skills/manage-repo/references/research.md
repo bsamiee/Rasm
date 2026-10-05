@@ -4,22 +4,22 @@ Research and archive folders hold gitignored material work reads, and repository
 
 ## [01]-[TREE]
 
-`docs/research/` places each folder by the one distinction it adds, area, then subject, then content kind:
+Folders under `docs/research/` nest by area, then subject, then content kind, one distinction per level:
 - Areas name a domain of work (applications, rendering, coding, a product the repository builds)
 - Subjects name one application, source, or topic of their area, a source repository as `<owner>-<repo>`
 - Subjects sharing one role inside an area group under a folder naming the role (`reference/`, `sources/`)
 - Products extending a subject (extensions, plug-ins) take `extensions/<id>/` inside it in the subject form
-- Kind folders separate a subject's content by form: `facts/`, `decompiled/`, `inventories/` (store dumps, string tables, presets), `captures/`
+- Kind folders are `facts/`, `decompiled/`, `inventories/` (store dumps, string tables, presets), and `captures/`
 - Facts every subject of an area shares sit in the area's own `facts/`
 - Levels adding no distinction fold into their parent
 - Folder and file names state a product, module, or topic in lowercase hyphenated words, a facts file as `<topic>.txt`
 
 ## [02]-[USE]
 
-Work on a matter the research holds reads that research and uses it as written, every time:
+Work reads the research on its matter and uses it as written:
 - Facts the work needs and the research lacks are read from source and join before code uses them
-- Logic a decompiled source or archive shows is the starting point code takes as shown
-- Names change to real software or domain terms and the project's form, and the change stays minor
+- Code starts from the logic a decompiled source or archive shows
+- Taken logic changes minimally, its names to real software or domain terms in the project's form
 - Sources showing one capability integrate into one stronger construct
 
 ## [03]-[FACTS]
@@ -40,9 +40,9 @@ Facts come from source, its decompile, and documentation at the installed build:
 - Documentation of the installed release decides over older posts and community sources
 - Use `use-ghidra` for native code
 - Use `search-code` for managed code, its project form writing one file per type into `decompiled/<assembly>/`
-- Decompiles cover in full depth what the work reads, and that alone
+- Decompiles cover what the work reads alone, in full depth
 - Tarballs and loose readme and license files are deleted from decompiled sources
-- Project and configuration files of a source stay to show its packages and settings, repository files deciding every binding
+- Project and configuration files of a source stay as a record of its packages and settings, repository files decide every binding
 - Decompiled sources hold the newest version alone, obsolete, legacy, and compatibility content deleted per file
 - Version-conditional code stays where the functionality needs it
 
@@ -55,12 +55,12 @@ Acquisition of a product:
 
 Plans and earlier code generations stay where they are:
 - `plan/` holds plans and research for future projects and stays read-only
-- `.archive/` folders at the repository root, `apps/creative-cloud/.archive/`, and `libs/typescript/.archive/` hold earlier generations of own code
+- `.archive/` folders at the repository root, `apps/creative-cloud/`, and `libs/typescript/` hold earlier code generations
 
 ## [06]-[CLEANUP]
 
 Finished research and decompile work leaves the machine holding the research it wrote and what stood before:
-- Old content, cache buildout, machine litter, installers, logs, history, and empty folders are deleted in full
+- Old content, caches, stray files, installers, logs, history, and empty folders are deleted in full
 - Applications, binaries, extensions, and plug-ins installed before the work stay
-- Applications, extensions, and plug-ins a study installed are uninstalled with their user data, one kept as a tool excepted
+- Applications, extensions, and plug-ins a study installed are uninstalled with their user data, except one kept as a tool
 - Running hosts hold what the interface declares alone

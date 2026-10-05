@@ -13,6 +13,7 @@ dependencies = [
     "openimageio; python_full_version < '3.15'",          # Image IO and analysis, bundled in Blender's Python as OpenImageIO, no cp315 wheel and the sdist omits the testsuite its CMake copies
     "psdtags",                                            # Photoshop layer records of layered documents
     "tifffile",                                           # Linear Raw DNG and the TIFF container of layered documents
+    "tzdata",                                             # IANA time zones zoneinfo reads where the platform holds none
 ]
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------

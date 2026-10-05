@@ -1,23 +1,24 @@
 {
     "mcpServers": {
         "adobe": {
-            "command": "node",
-            "args": ["apps/creative-cloud/mcp/main.ts"]
+            "command": "mise",
+            "args": ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts"]
         },
         "roslyn-codelens": {
-            "command": "dotnet",
-            "args": ["dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
+            "command": "mise",
+            "args": ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
         },
         "binlog": {
-            "command": "dotnet",
-            "args": ["dnx", "Microsoft.AITools.BinlogMcp"]
+            "command": "mise",
+            "args": ["exec", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"]
         },
         "nuget": {
-            "command": "dotnet",
-            "args": ["dnx", "NuGet.Mcp.Server"]
+            "command": "mise",
+            "args": ["exec", "--", "dotnet", "dnx", "NuGet.Mcp.Server"]
         },
         "ast-grep": {
-            "command": "ast-grep-server"
+            "command": "mise",
+            "args": ["exec", "--", "ast-grep-server"]
         },
         "playwright": {
             "command": "mise",
@@ -94,11 +95,12 @@
             "args": ["exec", "--", "rhino-mcp-router"]
         },
         "blender": {
-            "command": "uvx",
-            "args": ["--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
+            "command": "mise",
+            "args": ["exec", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
         },
         "mcp-for-blender": {
-            "command": "mcp-for-blender"
+            "command": "mise",
+            "args": ["exec", "--", "mcp-for-blender"]
         }
     }
 }
