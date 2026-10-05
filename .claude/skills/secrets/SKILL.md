@@ -7,9 +7,6 @@ description: "Use when a program needs a runtime secret or an agent needs a cred
 
 1Password and Doppler each hold every secret at its current value. Code and repository files name Doppler alone, and Doppler serves every running program through `doppler run`. 1Password serves the owner and local agents through `op` and the desktop app.
 
-[REFERENCES]:
-- [01]-[PATTERNS](references/patterns.md): Templates and mounts for secret material a process reads from a file
-
 ## [01]-[DOPPLER_SCOPES]
 
 Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, then the directory scope in `$DOPPLER_CONFIG_DIR/.doppler.yaml`:
@@ -116,3 +113,29 @@ Desktop app's SSH agent serves key `Forge SSH Key` (ED25519) to SSH hosts and Gi
 - Values reach a consumer as injected environment, a command substitution, a mount, or a mode-600 file outside every repository tree
 - Files holding values go when the consumer exits
 - Agent output holds secret names alone
+
+## [08]-[FILE_MATERIAL]
+
+Processes reading secret material from a file take a rendered template or a Doppler mount:
+
+| [INDEX] | [TASK]                     | [COMMAND]                                                                          |
+| :-----: | :------------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | Doppler template render    | `doppler secrets substitute <template> --project <p> --config <c> --output <file>` |
+|  [02]   | 1Password template render  | `op inject -i <template> -o <file>`                                                |
+|  [03]   | Secrets as a file, not env | `doppler run --project <p> --config <c> --mount <path> -- <cmd>`                   |
+
+- `doppler secrets substitute` renders Go `text/template` against the config, to stdout without `--output`
+- `{{.KEY}}` interpolates a value, `{{if .OPTIONAL_KEY}}...{{end}}` renders a block when the config holds `OPTIONAL_KEY`
+- `{{tojson .KEY}}` stringifies multiline material (private keys, certificates) into a JSON or YAML scalar
+- `{{fromjson .KEY}}` expands a JSON secret value into template-addressable fields
+- `--use-env` takes `true` to rank environment variables under Doppler values, `override` over them, or `only` to read them alone
+- `op inject` renders `{{ op://<vault>/<item>/<field> }}` references, `$<VAR>` inside a reference expands to environment variable `<VAR>`
+- `--mount` injects nothing into the environment, `DOPPLER_CLI_SECRETS_PATH` names the file inside `<cmd>`
+- `--format` names `env`, `json`, `dotnet-json`, `docker`, `env-no-quotes`, or `template` when the mount name's extension names none
+- `--mount-template <template>` renders the template before mounting, `--mount-max-reads <n>` caps reads of the file, `0` is unlimited
+- Mounted file disappears when the Doppler process exits
+
+```text
+host: {{.API_HOST}}
+key: {{tojson .PRIVATE_KEY}}
+```
