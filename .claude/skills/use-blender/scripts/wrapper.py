@@ -1,10 +1,16 @@
 # /// script
 # dependencies = ["msgspec"]
+#
+# [tool.ty.rules]
+# all = "error"
+# dynamic-function-decorator-return = "ignore"
+# unsound-assignment = "ignore"
+# unsound-return-statement = "ignore"
 # ///
-# mypy: disable-error-code="attr-defined"
 # ty: ignore[unresolved-attribute]
-# ruff: file-ignore[boolean-positional-value-in-call, mutable-class-default, exec-builtin, private-member-access]
-"""PreToolUse hook sending `execute_blender_code` and headless code through `run`, with the scripts folder imported fresh and one undo step closing each live call once it answers."""
+# mypy: disable-error-code=attr-defined
+# ruff: file-ignore[boolean-positional-value-in-call, exec-builtin, mutable-class-default, private-member-access]
+"""PreToolUse hook running code in one undo step per live call and refusing server tools a script replaces."""
 
 from collections.abc import Callable
 from pathlib import Path
@@ -23,10 +29,11 @@ if TYPE_CHECKING:
 
 
 class Event(TypedDict):
-    """PreToolUse event of an `execute_blender_code` call, every tool argument a string."""
+    """PreToolUse event of a `blender` or `mcp-for-blender` call."""
 
     hook_event_name: str
-    tool_input: dict[str, str]
+    tool_name: str
+    tool_input: dict[str, object]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -100,13 +107,56 @@ def wrap(code: str) -> str:
     )
 
 
+def replacement(tool: str) -> str | None:
+    """Return the call that replaces a server tool, `None` for a tool the skill calls."""
+    match tool:
+        case "execute_blender_code_for_cli":
+            return "headless.py run <file> or start <file> <name> runs stdin code"
+        case "get_blendfile_summary_datablocks_for_cli" | "get_blendfile_summary_missing_files_for_cli" | "get_blendfile_summary_of_linked_libraries_for_cli":
+            return 'snapshot("<name>") through headless.py run <file> reads closed files'
+        case "get_blendfile_summary_path_info_for_cli":
+            return "ls -lT <file>* lists the file and its .blend1 backups"
+        case "get_blendfile_summary_usage_guess" | "get_blendfile_summary_usage_guess_for_cli":
+            return "get_blendfile_summary_datablocks counts each ID kind"
+        case "get_scene_info":
+            return "get_objects_summary reads collections, selection, and visibility"
+        case "get_object_info":
+            return 'get_object_detail_summary reads stacks, snapshot("<name>", objects=) evaluated bounds'
+        case "get_viewport_screenshot":
+            return 'capture("<name>", view="user") draws the user\'s view, overlays off'
+        case "get_screenshot_of_window_as_image":
+            return "screencapture -x -o -l <id> draws the window at device pixels"
+        case "jump_to_view3d_object_by_name" | "jump_to_view3d_object_data_by_name":
+            return "scene.py viewport() and bounds(drawn=True) frame it, selection kept"
+        case "render_thumbnail_to_path" | "render_viewport_to_path":
+            return "headless.py render <copy> --frames current renders, the user's view untouched"
+        case "set_texture":
+            return "execute_blender_code assigns the downloaded material at its real-world size"
+        case "disable_telemetry" | "record_trajectory_feedback":
+            return "settings.py holds telemetry_consent False, nx run rasm:interface -- blender applies it"
+        case _:
+            return None
+
+
+def decision(event: Event) -> dict[str, object] | None:
+    """Return the wrapped `execute_blender_code` input, a refusal naming the replacing call, or `None` for a call that runs as sent."""
+    match event["tool_name"].rpartition("__")[2], event["tool_input"]:
+        case "execute_blender_code", {"code": str() as code} as tool_input:
+            return {"updatedInput": tool_input | {"code": wrap(code)}}
+        case tool, _ if (instead := replacement(tool)) is not None:
+            return {"permissionDecision": "deny", "permissionDecisionReason": f"{tool} refused, {instead}"}
+        case _:
+            return None
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def main() -> None:
-    """Answer the stdin event with `updatedInput` holding its code wrapped."""
+    """Print the hook's output for the stdin event, nothing for a call that runs as sent."""
     event = msgspec.json.decode(sys.stdin.buffer.read(), type=Event)
-    sys.stdout.buffer.write(msgspec.json.encode({"hookSpecificOutput": {"hookEventName": event["hook_event_name"], "updatedInput": event["tool_input"] | {"code": wrap(event["tool_input"]["code"])}}}))
+    if (output := decision(event)) is not None:
+        sys.stdout.buffer.write(msgspec.json.encode({"hookSpecificOutput": {"hookEventName": event["hook_event_name"], **output}}))
 
 
 if __name__ == "__main__":
@@ -114,4 +164,4 @@ if __name__ == "__main__":
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Event", "deferred", "main", "run", "step", "wrap"]
+__all__ = ["Event", "decision", "deferred", "main", "replacement", "run", "step", "wrap"]

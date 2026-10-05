@@ -25,17 +25,17 @@ struct Application: Encodable {
         scriptable = try url.resourceValues(forKeys: [.applicationIsScriptableKey]).applicationIsScriptable == true
     }
 
-    static func at(_ url: URL) -> Result<Self, Failures> {
+    static func at(_ url: URL) -> Result<Self, AggregateError<Failure>> {
         Result {
             try url.isFileURL
                 ? Self(url: URL(filePath: url.path(percentEncoded: false), directoryHint: .checkFileSystem).resolvingSymlinksInPath(), runningApplications: NSWorkspace.shared.runningApplications)
                 : nil
         }
-        .mapError { error in Failures(.unreadable(code: (error as NSError).code)) }
-        .flatMap { application in application.map(Result.success) ?? .failure(Failures(.notApplication)) }
+        .mapError { error in AggregateError(.unreadable(code: (error as NSError).code)) }
+        .flatMap { application in application.map(Result.success) ?? .failure(AggregateError(.notApplication)) }
     }
 
-    static func all() -> Result<[Self], Failures> {
+    static func all() -> Result<[Self], AggregateError<Failure>> {
         Result {
             let runningApplications: [NSRunningApplication] = NSWorkspace.shared.runningApplications
             let installed: [URL] = try FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask).flatMap { directory in
@@ -47,16 +47,16 @@ struct Application: Encodable {
                 .compactMap { url in try Self(url: url, runningApplications: runningApplications) }
                 .sorted { left, right in left.url.absoluteString < right.url.absoluteString }
         }
-        .mapError { error in Failures(.unreadable(code: (error as NSError).code)) }
+        .mapError { error in AggregateError(.unreadable(code: (error as NSError).code)) }
     }
 
     // --- [EXECUTION]
 
-    static func send(_ event: NSAppleEventDescriptor, decoding dictionary: ScriptingDictionary) -> Result<NSAppleEventDescriptor, Failures> {
+    static func send(_ event: NSAppleEventDescriptor, decoding dictionary: ScriptingDictionary, as types: Set<String>) -> Result<Descriptor, AggregateError<Failure>> {
         Result { try event.sendEvent(options: [.waitForReply, .neverInteract], timeout: TimeInterval(kNoTimeOut)) }
             .mapError { error in
                 let status: OSStatus = OSStatus((error as NSError).code)
-                return Failures([OSStatus(procNotFound), OSStatus(errAEEventNotPermitted)].contains(status) ? .undelivered(status: status) : .unanswered(status: status))
+                return AggregateError([OSStatus(procNotFound), OSStatus(errAEEventNotPermitted)].contains(status) ? .undelivered(status: status) : .unanswered(status: status))
             }
             .flatMap { reply in
                 switch reply.paramDescriptor(forKeyword: AEKeyword(keyErrorNumber))?.int32Value {
@@ -65,16 +65,16 @@ struct Application: Encodable {
                         for keyword: AEKeyword in [AEKeyword(keyErrorNumber), AEKeyword(keyErrorString)] {
                             reply.removeParamDescriptor(withKeyword: keyword)
                         }
-                        return .failure(Failures(.reply(status: status, message: message, reply: reply.numberOfItems == 0 ? nil : dictionary.decode(reply, as: []))))
+                        return .failure(AggregateError(.reply(status: status, message: message, reply: reply.numberOfItems == 0 ? nil : dictionary.decode(reply, as: []))))
                     default:
-                        return .success(reply)
+                        return .success(reply.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)).map { value in dictionary.decode(value, as: types) } ?? .null)
                 }
             }
     }
 
-    func runningApplication() -> Result<NSRunningApplication, Failures> {
+    func runningApplication() -> Result<NSRunningApplication, AggregateError<Failure>> {
         guard processIdentifiers.count == 1, let runningApplication: NSRunningApplication = processIdentifiers.first.flatMap(NSRunningApplication.init(processIdentifier:)) else {
-            return .failure(Failures(.runningInstances(count: processIdentifiers.count)))
+            return .failure(AggregateError(.runningInstances(count: processIdentifiers.count)))
         }
         let observations: [NSKeyValueObservation] = [\NSRunningApplication.isFinishedLaunching, \.isTerminated].map { keyPath in
             runningApplication.observe(keyPath) { _, _ in CFRunLoopStop(CFRunLoopGetMain()) }
@@ -82,10 +82,10 @@ struct Application: Encodable {
         withExtendedLifetime(observations) {
             if !(runningApplication.isFinishedLaunching || runningApplication.isTerminated) { CFRunLoopRun() }
         }
-        return runningApplication.isTerminated ? .failure(Failures(.runningInstances(count: 0))) : .success(runningApplication)
+        return runningApplication.isTerminated ? .failure(AggregateError(.runningInstances(count: 0))) : .success(runningApplication)
     }
 
-    func execute(_ command: String, arguments: [String: Descriptor]) -> Result<Descriptor, Failures> {
+    func execute(_ command: String, arguments: [String: Descriptor]) -> Result<Descriptor, AggregateError<Failure>> {
         runningApplication()
             .flatMap { runningApplication in
                 ScriptingDictionary.read(self).flatMap { dictionary in
@@ -94,8 +94,7 @@ struct Application: Encodable {
             }
             .flatMap { dictionary, events in
                 events.reduce(Result.success(.null)) { previous, request in
-                    previous.flatMap { _ in Self.send(request.event, decoding: dictionary) }
-                        .map { reply in reply.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)).map { value in dictionary.decode(value, as: request.result) } ?? .null }
+                    previous.flatMap { _ in Self.send(request.event, decoding: dictionary, as: request.result) }
                 }
             }
     }

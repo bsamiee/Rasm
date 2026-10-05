@@ -66,10 +66,8 @@ def cap(path: str) -> float:
 
 
 def preset(camera: bpy.types.PropertyGroup, sheet: int) -> str:
-    """Bonsai drawing scale preset at the sheet scale from its preset list rebuilt for the context scene's unit system."""
-    drawing = sys.modules[type(camera).__module__]
-    drawing.purge()
-    return next(identifier for identifier, *_ in drawing.get_diagram_scales(camera, bpy.context) if identifier.endswith(f"|1/{sheet}"))
+    """Bonsai drawing scale preset at the sheet scale from its preset list for the context scene's unit system."""
+    return next(identifier for identifier, *_ in sys.modules[type(camera).__module__].get_diagram_scales(camera, bpy.context) if identifier.endswith(f"|1/{sheet}"))
 
 
 # --- [LENGTHS]

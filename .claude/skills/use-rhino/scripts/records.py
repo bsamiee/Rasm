@@ -1,5 +1,11 @@
 # /// script
 # dependencies = ["msgspec"]
+#
+# [tool.ty.rules]
+# all = "error"
+# dynamic-function-decorator-return = "ignore"
+# unsound-assignment = "ignore"
+# unsound-return-statement = "ignore"
 # ///
 """Records and faults every script returns inside and outside Rhino."""
 

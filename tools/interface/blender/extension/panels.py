@@ -117,7 +117,7 @@ def owning(addons: frozenset[str]) -> Callable[[str], str | None]:
 
 # --- [PANELS]
 @contextmanager
-def collapsed(preferences: bpy.types.Preferences) -> Iterator[None]:
+def collapsed(preferences: bpy.types.Preferences) -> Generator[None]:
     """Re-register reordered stock panels in Blender's order and each add-on panel tree closed with a header, owned by its add-on, with its category icon, for the scope, then re-register each class still registered with the attributes it held before."""
     owner = owning(frozenset(preferences.addons.keys()))
 
@@ -232,7 +232,7 @@ def placed(stock: Callable[[type, bpy.types.Context, str | None], Iterator[objec
 
 
 @contextmanager
-def toolbars() -> Iterator[None]:
+def toolbars() -> Generator[None]:
     """Toolbar columns packed and each helper's tool read filtered by the workspace's owners for the scope, the stock layout and reads put back after it."""
     columns = vars(ToolSelectPanelHelper)["_layout_generator_multi_columns"]
     readers = {helper: members["tools_from_context"] for helper in ToolSelectPanelHelper.__subclasses__() if "tools_from_context" in (members := vars(helper))}

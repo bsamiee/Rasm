@@ -2,18 +2,39 @@
 id: no-unescaped-like-underscore
 language: sql
 severity: error
+utils:
+    literal-underscore:
+        any:
+            - {kind: string_literal, regex: '\w_|_\w'}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\|\|$'}
+                - has: {matches: literal-underscore}
 rule:
-    kind: binary_expression
+    kind: like_expression
     all:
-        - has: {field: left, pattern: _SUBJECT}
-        - has: {field: operator, regex: '(?i)^(not\s+)?like$', pattern: __OPERATOR}
-        - has: {field: right, kind: literal, regex: '\w_|_\w', not: {regex: '[\\!]'}, pattern: _PATTERN}
-        - not:
-            any:
-                - precedes: {kind: ERROR, regex: '(?i)^escape\b'}
-                - inside: {kind: statement, stopBy: end, precedes: {kind: ERROR, regex: '(?i)^escape\b'}}
+        - has: {field: operator, regex: '(?i)^like$'}
+        - not: {has: {field: escape, regex: '.'}}
+        - has: {field: pattern, matches: literal-underscore, pattern: _PATTERN}
+        - any:
+            - {has: {field: pattern, kind: string_literal}, pattern: _FIXABLE}
+            - pattern: _KEPT
+rewriters:
+    - id: escaped
+      rule:
+        kind: like_expression
+        all:
+            - has: {field: operand, pattern: _SUBJECT}
+            - has: {field: operator, pattern: __OPERATOR}
+            - has: {field: pattern, kind: string_literal, pattern: _LITERAL}
+            - any: [{has: {regex: '(?i)^not$', pattern: __NOT}}, {not: {has: {regex: '(?i)^not$'}}}]
+      transform:
+        NEGATION: {replace: {source: $NOT, replace: '^(.+)$', by: '$1 '}}
+        DOUBLED: {replace: {source: $LITERAL, replace: '!', by: '!!'}}
+        ESCAPED: {replace: {source: $DOUBLED, replace: '_', by: '!_'}}
+      fix: $SUBJECT $NEGATION$OPERATOR $ESCAPED escape '!'
 transform:
-    ESCAPED: {replace: {source: $PATTERN, replace: '_', by: '!_'}}
-fix: $SUBJECT $OPERATOR $ESCAPED escape '!'
-message: '`$PATTERN` reads each `_` as any one character'
-note: 'Write each literal underscore as `!_` under `escape ''!''`, the form SQLite and DuckDB read as one underscore'
+    FIXED: {rewrite: {source: $FIXABLE, rewriters: [escaped]}}
+fix: $FIXED$KEPT
+message: '`_` in `$PATTERN` is a `like` wildcard for any one character'
+note: 'Write each literal underscore as `!_` with `escape ''!''`, the form SQLite and DuckDB read as one underscore'

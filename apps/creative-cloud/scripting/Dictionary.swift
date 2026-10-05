@@ -51,17 +51,17 @@ struct ScriptingDictionary {
         enumerations = try Self.terms(elements("//enumeration")) { element in Self.terms(element.elements(forName: "enumerator")) }
     }
 
-    static func read(_ application: Application) -> Result<Self, Failures> {
-        definition(of: application).flatMap { definition in Result { try Self(definition: definition) }.mapError { error in Failures(.unreadable(code: (error as NSError).code)) } }
+    static func read(_ application: Application) -> Result<Self, AggregateError<Failure>> {
+        definition(of: application).flatMap { definition in Result { try Self(definition: definition) }.mapError { error in AggregateError(.unreadable(code: (error as NSError).code)) } }
     }
 
-    static func definition(of application: Application) -> Result<Data, Failures> {
+    static func definition(of application: Application) -> Result<Data, AggregateError<Failure>> {
         guard !application.processIdentifiers.isEmpty || Bundle(url: application.url)?.object(forInfoDictionaryKey: "OSAScriptingDefinition") != nil else {
-            return .failure(Failures(.runningInstances(count: 0)))
+            return .failure(AggregateError(.runningInstances(count: 0)))
         }
         var definition: Unmanaged<CFData>?
         let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(application.url as CFURL, 0, &definition)
-        return if status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() { .success(data as Data) } else { .failure(Failures(.unreadable(code: Int(status)))) }
+        return if status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() { .success(data as Data) } else { .failure(AggregateError(.unreadable(code: Int(status)))) }
     }
 
     static func code(_ text: String) -> FourCharCode? {
@@ -86,14 +86,14 @@ struct ScriptingDictionary {
         scopes.first { scope in scope.contains(where: predicate) }?.filter(predicate) ?? []
     }
 
-    static func resolve(_ name: String, in scopes: [[Term]]) -> Result<Term, Failures> {
+    static func resolve(_ name: String, in scopes: [[Term]]) -> Result<Term, AggregateError<Failure>> {
         let raw: FourCharCode? = code(name)
         let found: [Term] = matches(in: scopes) { term in raw.map { code in term.code == code } ?? (term.name == name) }
         let codes: [FourCharCode] = raw.map { code in [code] } ?? Set(found.map(\.code)).sorted()
         return switch (codes.first, codes.count) {
             case (.some(let code), 1): .success(Term(name: name, code: code, types: Set(found.flatMap(\.types)), members: []))
-            case (.none, _): .failure(Failures(.unknownTerm(name: name)))
-            case (.some, _): .failure(Failures(.ambiguousTerm(name: name, codes: codes.compactMap(NSFileTypeForHFSTypeCode))))
+            case (.none, _): .failure(AggregateError(.unknownTerm(name: name)))
+            case (.some, _): .failure(AggregateError(.ambiguousTerm(name: name, codes: codes.compactMap(NSFileTypeForHFSTypeCode))))
         }
     }
 
@@ -121,7 +121,7 @@ struct ScriptingDictionary {
         _ command: String,
         arguments: [String: Descriptor],
         target: NSAppleEventDescriptor,
-    ) -> Result<[(event: NSAppleEventDescriptor, result: Set<String>)], Failures> {
+    ) -> Result<[(event: NSAppleEventDescriptor, result: Set<String>)], AggregateError<Failure>> {
         let skipWarnings: [(String, [String: Descriptor])] =
             classes.contains { term in term.code == FourCharCode(cApplication) && term.members.contains { member in member.name == "skip warnings" } }
             ? [("set", ["direct": .record(["want": .text("'prop'"), "form": .text("'prop'"), "seld": .text("skip warnings")]), "to": .boolean(true)])] : []
@@ -129,8 +129,8 @@ struct ScriptingDictionary {
             (skipWarnings + [(command, arguments)]).map { command, arguments in
                 let wanted: Set<String> = if case .record(let fields) = arguments["direct"], case .text(let want) = fields["want"] { [want] } else { [] }
                 func fit(_ parameters: [Term]) -> Int {
-                    (Set(arguments.keys).isSubset(of: parameters.map(\.name)) ? 2 : 0)
-                        + (parameters.contains { parameter in parameter.name == "direct" && !parameter.types.isDisjoint(with: wanted) } ? 1 : 0)
+                    let direct: Bool = parameters.contains { parameter in parameter.name == "direct" && !parameter.types.isDisjoint(with: wanted) }
+                    return (Set(arguments.keys).isSubset(of: parameters.map(\.name)) ? 2 : 0) + (direct ? 1 : 0)
                 }
                 return commands.filter { declaration in declaration.name == command }.max { left, right in fit(left.parameters) < fit(right.parameters) }.map { declaration in
                     let event: NSAppleEventDescriptor = NSAppleEventDescriptor(
@@ -142,12 +142,12 @@ struct ScriptingDictionary {
                     )
                     event.setAttribute(.null(), forKeyword: AEKeyword(keySubjectAttr))
                     return encode(arguments, in: [declaration.parameters], into: event).map { event in (event: event, result: declaration.result) }
-                } ?? .failure(Failures(.absentCommand))
+                } ?? .failure(AggregateError(.absentCommand))
             }
         )
     }
 
-    func encode(_ fields: [String: Descriptor], in scopes: [[Term]], into descriptor: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, Failures> {
+    func encode(_ fields: [String: Descriptor], in scopes: [[Term]], into descriptor: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<Failure>> {
         collect(
             fields.sorted { left, right in left.key < right.key }.map { key, value in
                 Self.resolve(key, in: scopes).flatMap { term in encode(value, as: term.types).map { encoded in (term.code, encoded) } }
@@ -156,7 +156,7 @@ struct ScriptingDictionary {
         .map { items in put(items, into: descriptor) }
     }
 
-    func encode(_ value: Descriptor, as types: Set<String>) -> Result<NSAppleEventDescriptor, Failures> {
+    func encode(_ value: Descriptor, as types: Set<String>) -> Result<NSAppleEventDescriptor, AggregateError<Failure>> {
         switch value {
             case .null:
                 .success(.null())
@@ -179,7 +179,7 @@ struct ScriptingDictionary {
         }
     }
 
-    func encode(text: String, as types: Set<String>) -> Result<NSAppleEventDescriptor, Failures> {
+    func encode(text: String, as types: Set<String>) -> Result<NSAppleEventDescriptor, AggregateError<Failure>> {
         let enumerators: [Term] = enumerators(of: types)
         let file: URL? = URL(string: text).flatMap { url in url.isFileURL && !types.isDisjoint(with: ["file", "alias", "file specification"]) ? url : nil }
         return if !enumerators.isEmpty, enumerators.contains(where: { term in term.name == text }) || Self.code(text) != nil {
@@ -191,22 +191,22 @@ struct ScriptingDictionary {
         }
     }
 
-    func specifier(_ want: Descriptor, form: String, _ fields: [String: Descriptor]) -> Result<NSAppleEventDescriptor, Failures> {
+    func specifier(_ want: Descriptor, form: String, _ fields: [String: Descriptor]) -> Result<NSAppleEventDescriptor, AggregateError<Failure>> {
         let code: FourCharCode? = Self.code(form)
         let container: FourCharCode? = if case .record(let from) = fields["from"] { classCode(from["want"]) } else { FourCharCode(cApplication) }
-        let key: Result<NSAppleEventDescriptor, Failures> =
+        let key: Result<NSAppleEventDescriptor, AggregateError<Failure>> =
             switch (code, fields["seld"]) {
                 case (FourCharCode(formPropertyID), .text(let name)):
                     Self.resolve(name, in: scope(container)).map { term in NSAppleEventDescriptor(typeCode: term.code) }
                 case (FourCharCode(formAbsolutePosition), .text(let ordinal)):
                     Self.code(ordinal).flatMap { code in NSAppleEventDescriptor(descriptorType: DescType(typeAbsoluteOrdinal), data: NSAppleEventDescriptor(enumCode: code).data) }
-                        .map(Result.success) ?? .failure(Failures(.unknownTerm(name: ordinal)))
+                        .map(Result.success) ?? .failure(AggregateError(.unknownTerm(name: ordinal)))
                 case (_, let seld):
                     encode(seld ?? .null, as: ["integer"])
             }
-        let keywords: [(AEKeyword, Result<NSAppleEventDescriptor, Failures>)] = [
+        let keywords: [(AEKeyword, Result<NSAppleEventDescriptor, AggregateError<Failure>>)] = [
             (AEKeyword(keyAEDesiredClass), encode(want, as: ["type"])),
-            (AEKeyword(keyAEKeyForm), code.map { code in .success(NSAppleEventDescriptor(enumCode: code)) } ?? .failure(Failures(.unknownTerm(name: form)))),
+            (AEKeyword(keyAEKeyForm), code.map { code in .success(NSAppleEventDescriptor(enumCode: code)) } ?? .failure(AggregateError(.unknownTerm(name: form)))),
             (AEKeyword(keyAEKeyData), key),
             (AEKeyword(keyAEContainer), encode(fields["from"] ?? .null, as: [])),
         ]
@@ -300,11 +300,11 @@ enum Failure: Encodable {
     case reply(status: OSStatus, message: String?, reply: Descriptor?)
 }
 
-struct Failures: Error {
-    let first: Failure
-    let remaining: [Failure]
+struct AggregateError<Element: Sendable>: Error {
+    let first: Element
+    let remaining: [Element]
 
-    init(_ first: Failure, remaining: [Failure] = []) {
+    init(_ first: Element, remaining: [Element] = []) {
         self.first = first
         self.remaining = remaining
     }
@@ -316,7 +316,7 @@ struct Failures: Error {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-func collect<Value>(_ results: [Result<Value, Failures>]) -> Result<[Value], Failures> {
+func collect<Value, Element>(_ results: [Result<Value, AggregateError<Element>>]) -> Result<[Value], AggregateError<Element>> {
     results.reduce(.success([])) { collected, result in
         switch (collected, result) {
             case (.success(let values), .success(let value)): .success(values + [value])

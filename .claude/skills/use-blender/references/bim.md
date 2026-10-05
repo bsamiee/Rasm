@@ -1,13 +1,13 @@
 # [BIM]
 
-IFC files hold the model and Blender objects show its entities, authored through `ifcopenshell.api` and edited, drawn, and saved through Bonsai in a headless session on a copy.
+IFC files hold the model and Blender objects its entities, `ifcopenshell.api` authoring it and Bonsai sessions loading, editing, and drawing it.
 
 ## [01]-[AUTHORING]
 
-`ifcopenshell.api` builds a valid project outside the UI through `run` or `call`, lengths in meters with the file unit converting on write:
+New projects start from `ifcopenshell.api` through `run` or `call`, lengths in meters with the file unit converting on write:
 
 ```python
-# [HEADLESS_CALL] New IFC4 project in feet with a wall on its storey, written to <path>
+# [HEADLESS_CALL] New IFC4 project in feet with a wall on its storey, written to <file>.ifc
 import ifcopenshell.api as api
 import ifcopenshell.util.unit
 
@@ -21,30 +21,41 @@ site, building, storey = (api.run("root.create_entity", f, ifc_class=c, name=n) 
 for parent, child in ((project, site), (site, building), (building, storey)):
     api.run("aggregate.assign_object", f, relating_object=parent, products=[child])
 wall = api.run("root.create_entity", f, ifc_class="IfcWall", name="<wall>")
-api.run("geometry.assign_representation", f, product=wall, representation=api.run("geometry.add_wall_representation", f, context=body, length=5, height=3, thickness=0.2))
+api.run("geometry.assign_representation", f, product=wall, representation=api.run("geometry.add_wall_representation", f, context=body, length=<length>, height=<height>, thickness=<thickness>))
 api.run("spatial.assign_container", f, relating_structure=storey, products=[wall])
 api.run("geometry.edit_object_placement", f, product=wall)
-f.write("<path>")
+f.write("<file>.ifc")
 result = {"unit_scale": ifcopenshell.util.unit.calculate_unit_scale(f)}
 ```
 
 - `unit.assign_unit` with no arguments sets millimeters, `feet` as `length`, `area`, and `volume` sets feet, square feet, and cubic feet
 - `calculate_unit_scale` answers `0.3048` for feet and `0.001` for millimeters, representation arguments staying meters under either
-- `bim.new_project(preset="imperial_ft")` starts a feet project (`metric_m`, `metric_mm` metric) on the startup file, `bim.save_project` writing it
+- `bim.new_project(preset="imperial_ft")` (`metric_m`, `metric_mm` metric) starts a project in a scene other than the startup set
+- `bim.new_project` and `bim.create_project` delete every object, mesh, and material in `bpy.data` while the context scene holds one mesh, light, and camera alone (the startup set)
 
 ## [02]-[PROJECT]
 
-IFC files load, edit, and save in a session `headless.py start <scratch>.blend <name>` opened, saved to a copy and ended by `stop`:
+IFC files load, edit, and save in a session, `should_start_fresh_session` deciding what the load keeps:
+1. `headless.py start <file>.blend <name>` opens the session
+2. `bim.load_project(filepath=)` loads the IFC as the table reads
+3. Object transforms and mesh edits change the model, `bim.update_representation` writing each edited mesh
+4. `bim.save_project(filepath=<copy>.ifc)` writes the IFC
+5. `headless.py stop <name>`
+
+| [INDEX] | [SHOULD_START_FRESH_SESSION] | [LOAD]                                                                                       |
+| :-----: | :--------------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `True` (default)             | Startup file read first, the file untitled with the IFC objects alone, `stop` saving nothing |
+|  [02]   | `False`                      | Into the open file, keeping its objects, path, and Sun Position's `sun_object`               |
 
 ```python
-# [HEADLESS_CALL] <file>.ifc loaded, <object> moved and reshaped, saved to <copy>.ifc
+# [HEADLESS_CALL] <file>.ifc loaded, <Object> moved and reshaped, saved to <copy>.ifc
 import bpy
 import bonsai.tool as tool
 import ifcopenshell.util.element as element
 
 bpy.ops.bim.load_project(filepath="<file>.ifc")
-obj = bpy.data.objects["<object>"]
-obj.location.x += <meters>
+obj = bpy.data.objects["<Object>"]
+obj.location.x += <x>
 for vertex in obj.data.vertices:
     vertex.co.z *= <factor>
 bpy.ops.bim.update_representation(obj=obj.name, ifc_representation_class="IfcTessellatedFaceSet")
@@ -53,18 +64,19 @@ entity = tool.Ifc.get_entity(obj)
 result = {"ifc": bpy.context.scene.BIMProperties.ifc_file, "container": element.get_container(entity).Name, "body": [r.RepresentationType for r in entity.Representation.Representations]}
 ```
 
-- `bim.load_project` replaces the open file with the startup file, `should_start_fresh_session=False` loading into the open file with its objects
-- Loads mesh geometry through the scene's `BIMProjectProperties.geometry_library`, `opencascade` loading IFC geometry
+- Loads mesh geometry through the scene's `BIMProjectProperties.geometry_library`, `opencascade` in the startup file loading IFC geometry
 - Scenes from outside the startup file take `geometry_library = "opencascade"` before a load into them
 - Objects take the name `<IfcClass>/<Name>`, spatial elements as empties, each in its container's collection
 - `tool.Ifc.get()` returns the open `ifcopenshell.file`, and `ifcopenshell.util.element` reads an entity's psets (`get_psets`), container, and type
-- Object transforms reach `ObjectPlacement` on save, mesh edits through `bim.update_representation` on the object
-- `IfcTessellatedFaceSet` writes an edited mesh as it stands, the default class re-detects an extrusion and raises on a mesh that breaks its profile
+- Object transforms reach `ObjectPlacement` on save
+- `IfcTessellatedFaceSet` writes an edited mesh as it stands, where the default class re-detects an extrusion from the profile the mesh keeps
 - `bim.save_project` repoints `scene.BIMProperties.ifc_file` at the written file and saves a titled `.blend` holding unsaved changes
 
 ## [03]-[DRAWINGS]
 
-Drawings are scaled SVG views cut from the IFC model and placed on sheets, one call activating the drawing and a later one writing it:
+Drawings are scaled SVG views cut from the saved IFC model and placed on sheets, one call activating the drawing and a later one writing it:
+1. One call adds and activates the drawing, a camera at the origin
+2. One later call places and scales the camera, writes the drawing, and sets it on a new sheet
 
 ```python
 # [HEADLESS_CALL] <VIEW> drawing added and activated
@@ -79,7 +91,7 @@ result = {"camera": camera.name}
 ```
 
 ```python
-# [HEADLESS_CALL] Active drawing placed, scaled, and written, then set on a new sheet
+# [HEADLESS_CALL] Active drawing placed at <x>, <y>, <z>, scaled 1/4"=1'-0" over <width> by <height> m, written, then set on a new sheet
 import bpy
 
 scene = bpy.context.scene
@@ -101,11 +113,10 @@ bpy.ops.bim.create_sheets(open_viewer=False)
 result = {"sheet": docs.sheets[docs.active_sheet_index].name}
 ```
 
-- `target_view` takes `PLAN_VIEW`, `ELEVATION_VIEW`, `SECTION_VIEW`, `REFLECTED_PLAN_VIEW`, or `MODEL_VIEW`
-- New cameras sit at the origin, a plan camera cutting at its Z and looking down
-- Camera settings written in the call that activated the drawing are lost, a later call writes them into the drawing's `EPset_Drawing`
+- `target_view` takes `PLAN_VIEW`, `ELEVATION_VIEW`, `SECTION_VIEW`, `REFLECTED_PLAN_VIEW`, or `MODEL_VIEW`, a plan camera cutting at its Z
+- Camera settings reach the drawing's `EPset_Drawing` from the call after the activation
 - `diagram_scale` items follow the scene's unit system (`1:100|1/100` under metric), and `width` and `height` in meters set `ortho_scale`
 - `create_drawing` writes `drawings/<drawing>.svg` beside the IFC, `max(width, height) * 1000 / N` millimeters on its long side at 1:N
-- Sheet operators poll false until the IFC is saved, and `toggle_target_view` fills the drawing list past its group headers
+- Sheet operators poll true once the IFC is saved, and `toggle_target_view` fills the drawing list past its group headers
 - `create_sheets` writes `sheets/<sheet>.svg` at the A1 title block size and `sheets/<sheet>.pdf` through the `svg2pdf_command` preference
 - Sheets draw from `drawings/assets/default.css` (OpenGost, cut 0.35, projection 0.25, fine 0.18 mm), `doc.drawing_font` the viewport font alone

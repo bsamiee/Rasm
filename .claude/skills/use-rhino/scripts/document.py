@@ -1,20 +1,27 @@
-# ty: ignore[unresolved-import, unresolved-attribute, invalid-argument-type, invalid-assignment, not-subscriptable, unsupported-operator, no-matching-overload, too-many-positional-arguments]
-# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, attr-defined, call-overload, call-arg, type-abstract"
+# ty: ignore[unresolved-import, unresolved-attribute, invalid-argument-type, invalid-assignment, not-subscriptable, unsupported-operator, no-matching-overload, too-many-positional-arguments, call-non-callable, redundant-condition-strict]
+# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, attr-defined, call-overload, call-arg, type-abstract, abstract, operator"
 # ruff: file-ignore[blind-except, exec-builtin]
 # /// script
 # dependencies = ["msgspec", "pillow"]
 #
 # [tool.ty.environment]
 # extra-paths = ["."]
+#
+# [tool.ty.rules]
+# all = "error"
+# dynamic-function-decorator-return = "ignore"
+# unsound-assignment = "ignore"
+# unsound-return-statement = "ignore"
 # ///
 """Rhino document operations and plugin loads returning a record or faults, and the `run_python` script runner."""
 
 from collections import Counter
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, nullcontext, redirect_stderr
-from functools import cache, reduce
+from functools import cache, partial, reduce
 from io import BytesIO
 import linecache
+from operator import methodcaller
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -33,6 +40,7 @@ from Rhino.Commands import Command, CommandEventArgs, Result
 from Rhino.Display import BackgroundStyle, Color4f, DefinedViewportProjection, DisplayModeDescription, RhinoPageView, RhinoView, RhinoViewport, ViewCapture, ViewCaptureSettings
 from Rhino.DocObjects import (
     ActiveSpace,
+    HatchPattern,
     InstanceObject,
     Layer,
     Linetype,
@@ -48,11 +56,13 @@ from Rhino.DocObjects import (
     ObjectSectionFillRule,
     ObjectType,
     RhinoObject,
+    SectionBackgroundFillMode,
     ViewInfo,
     ViewportInfo,
 )
 from Rhino.DocObjects.Tables import NamedPositionTable
 from Rhino.Geometry import (
+    AnnotationBase,
     BoundingBox,
     Curve,
     GeometryBase,
@@ -60,6 +70,7 @@ from Rhino.Geometry import (
     HiddenLineDrawing,
     HiddenLineDrawingParameters,
     HiddenLineDrawingSegment,
+    Interval,
     Plane,
     Point2d,
     Point3d,
@@ -69,18 +80,19 @@ from Rhino.Geometry import (
     Transform,
     Vector3d,
 )
-from Rhino.PlugIns import LoadPlugInResult, PlugIn, PlugInType, WriteFileResult
+from Rhino.Input.Custom import CommandLineOption, CommandLineOptionType
+from Rhino.PlugIns import PlugIn, PlugInType, WriteFileResult
 from Rhino.Render import ChildSlotNames, ContentUuids, ParameterNames, RenderChannels, RenderContent, RenderContentType, RenderEnvironment, RenderMaterial, RenderSettings, RenderWindow, Utilities
 from Rhino.Render.PostEffects import PostEffectType
 from Rhino.Runtime import CommonObject, HostUtils
-from Rhino.UI import RhinoEtoApp
+from Rhino.UI import CommandPromptChangedEventArgs, RhinoEtoApp
 import scriptcontext
-from System import AppDomain, Array, DateTimeKind, Enum, Guid, Object, Type
+from System import AppDomain, Array, DateTimeKind, Enum, Guid, Object, Type, UInt32
 from System.Collections.Generic import List
 from System.Drawing import Bitmap, Color, ColorConverter, ColorTranslator, Size
 from System.Drawing.Imaging import ImageFormat
 from System.IO import FileAccess, FileMode, FileStream, MemoryStream
-from System.Reflection import Assembly, AssemblyName, MethodInfo
+from System.Reflection import Assembly, AssemblyName, BindingFlags, MethodInfo
 from System.Reflection.Metadata import PEReaderExtensions
 from System.Reflection.PortableExecutable import PEReader
 
@@ -88,7 +100,8 @@ from System.Reflection.PortableExecutable import PEReader
 
 type Point = tuple[float, float, float]
 type Zoom = BoundingBox | Sequence[str]
-type Placement = BoundingBox | ViewportInfo | int | None
+type Placement = ViewportInfo | int | None
+type Mode = str | DisplayModeDescription | None
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -106,13 +119,29 @@ class ObjectRecord(Record, frozen=True):
     page: str | None = None
 
 
+class Option(Record, frozen=True):
+    """Command option by English name, with its current value and the English values a list or toggle takes."""
+
+    name: str
+    value: str | float | None = None
+    choices: tuple[str, ...] = ()
+
+
+class Prompt(Record, frozen=True):
+    """Prompt a command asked, with its default and visible options."""
+
+    text: str
+    default: str | None = None
+    options: tuple[Option, ...] = ()
+
+
 class Objects(Record, frozen=True):
-    """Objects an operation matched or wrote, with its deletions and command results."""
+    """Objects an operation matched or wrote, with its deletions, each command's result, and the prompts and printed lines of a command run in order."""
 
     rows: tuple[ObjectRecord, ...]
     deleted: tuple[str, ...] = ()
     results: tuple[tuple[str, Result], ...] = ()
-    output: str | None = None
+    output: tuple[Prompt | str, ...] = ()
 
 
 class ViewRecord(Record, frozen=True):
@@ -172,14 +201,13 @@ class Capture(Record, frozen=True):
 
 
 class AssemblyRecord(Record, frozen=True):
-    """Assembly Rhino holds under a file's name with Rhino's plugin load answer, the plugin's id and English command names, and each assembly of the file's folder Rhino holds from another build."""
+    """Assembly Rhino holds under a file's name, whether it is the file's build, and its plugin's id and English command names."""
 
     name: str
     path: str
-    result: LoadPlugInResult
+    current: bool
     plugin: str | None = None
     commands: tuple[str, ...] = ()
-    stale: tuple[str, ...] = ()
 
 
 class SunRecord(Record, frozen=True):
@@ -257,6 +285,19 @@ def _active(doc: RhinoDoc) -> Faults | None:
     return None if active == doc else Faults.of(Fault(RhinoDoc, doc.RuntimeSerialNumber, () if active is None else (active.RuntimeSerialNumber,)))
 
 
+def _image(doc: RhinoDoc, kind: Guid, file: str, *, linear: bool | None = None) -> RenderContent:
+    """Return new texture content of type `kind` reading image `file`, read as linear data when `linear` is `True`, its type's default when `None`."""
+    texture, program = RenderContentType.NewContentFromTypeId(kind, doc), RenderContent.ChangeContexts.Program
+    texture.BeginChange(program)
+    try:
+        texture.SetParameter("filename", file)
+        if linear is not None:
+            texture.SetParameter("treat-as-linear", linear)
+    finally:
+        texture.EndChange()
+    return texture
+
+
 def layer_index(doc: RhinoDoc, path: str) -> Resolved[int]:
     """Return layer `path`'s index, created with its parents when absent, refused when locked."""
     index: int = doc.Layers.AddPath(path)
@@ -294,37 +335,39 @@ def _setter(doc: RhinoDoc, properties: Properties) -> Resolved[Callable[[Layer |
             mode = None
         case _:
             mode = ObjectMode.Normal
-    if faults := collect_faults(
+    match (
         linetype,
         color,
         print_color,
         None if properties.material is None or render is not None else Fault(RenderMaterial, properties.material, tuple(entry.Name for entry in doc.RenderMaterials)),
         None if properties.material is None or RhinoDoc.ActiveDoc is not None else Fault(RhinoDoc, None),
     ):
-        return faults
-    members: dict[type[Layer | ObjectAttributes], tuple[tuple[Callable[[object, object], None], object], ...]] = {
-        Layer: (
-            (Layer.Color.__set__, color),
-            (Layer.LinetypeIndex.__set__, linetype),
-            (Layer.PlotColor.__set__, print_color),
-            (Layer.PlotWeight.__set__, properties.print_width),
-            (Layer.IsVisible.__set__, properties.visible),
-            (Layer.SetPersistentVisibility, properties.visible),
-            (Layer.IsLocked.__set__, properties.locked),
-            (Layer.SetPersistentLocking, properties.locked),
-        ),
-        ObjectAttributes: (
-            (ObjectAttributes.ObjectColor.__set__, color),
-            (ObjectAttributes.ColorSource.__set__, None if color is None else ObjectColorSource.ColorFromObject),
-            (ObjectAttributes.LinetypeIndex.__set__, linetype),
-            (ObjectAttributes.LinetypeSource.__set__, None if linetype is None else ObjectLinetypeSource.LinetypeFromObject),
-            (ObjectAttributes.PlotColor.__set__, print_color),
-            (ObjectAttributes.PlotColorSource.__set__, None if print_color is None else ObjectPlotColorSource.PlotColorFromObject),
-            (ObjectAttributes.PlotWeight.__set__, properties.print_width),
-            (ObjectAttributes.PlotWeightSource.__set__, None if properties.print_width is None else ObjectPlotWeightSource.PlotWeightFromObject),
-            (ObjectAttributes.Mode.__set__, mode),
-        ),
-    }
+        case int() | None as linetype, Color() | None as color, Color() | None as print_color, None, None:
+            members = {
+                Layer: (
+                    (Layer.Color.__set__, color),
+                    (Layer.LinetypeIndex.__set__, linetype),
+                    (Layer.PlotColor.__set__, print_color),
+                    (Layer.PlotWeight.__set__, properties.print_width),
+                    (Layer.IsVisible.__set__, properties.visible),
+                    (Layer.SetPersistentVisibility, properties.visible),
+                    (Layer.IsLocked.__set__, properties.locked),
+                    (Layer.SetPersistentLocking, properties.locked),
+                ),
+                ObjectAttributes: (
+                    (ObjectAttributes.ObjectColor.__set__, color),
+                    (ObjectAttributes.ColorSource.__set__, None if color is None else ObjectColorSource.ColorFromObject),
+                    (ObjectAttributes.LinetypeIndex.__set__, linetype),
+                    (ObjectAttributes.LinetypeSource.__set__, None if linetype is None else ObjectLinetypeSource.LinetypeFromObject),
+                    (ObjectAttributes.PlotColor.__set__, print_color),
+                    (ObjectAttributes.PlotColorSource.__set__, None if print_color is None else ObjectPlotColorSource.PlotColorFromObject),
+                    (ObjectAttributes.PlotWeight.__set__, properties.print_width),
+                    (ObjectAttributes.PlotWeightSource.__set__, None if properties.print_width is None else ObjectPlotWeightSource.PlotWeightFromObject),
+                    (ObjectAttributes.Mode.__set__, mode),
+                ),
+            }
+        case failed:
+            return Faults.of(*failed)
 
     def apply(target: Layer | ObjectAttributes) -> None:
         for setter, value in ((setter, value) for setter, value in members[type(target)] if value is not None):
@@ -379,7 +422,7 @@ def _record(doc: RhinoDoc, rhino_object: RhinoObject) -> ObjectRecord:
         _point(box.Max),
         rhino_object.Name,
         None if overrides == Properties() else overrides,
-        doc.Views.Find(attributes.ViewportId).PageName if attributes.Space == ActiveSpace.PageSpace else None,
+        page.PageName if isinstance(page := doc.Views.Find(attributes.ViewportId), RhinoPageView) else None,
     )
 
 
@@ -420,12 +463,8 @@ def _material_record(render: RenderMaterial) -> MaterialRecord:
     """Read one physically based render material from its parameters, with the image or texture type of each slot turned on."""
     names = ParameterNames.PhysicallyBased
     textures = {slot: file or kind for slot in _slots() if render.ChildSlotOn(slot) and (held := _texture(render, slot)) is not None for kind, file in (held,)}
-    return MaterialRecord(
-        render.Name,
-        ColorTranslator.ToHtml(render.GetParameter(names.BaseColor).ToSystemColor()),
-        *(render.GetParameter(parameter).ToDouble() for parameter in (names.Roughness, names.Metallic, names.Opacity, names.OpacityIor)),
-        textures or None,
-    )
+    roughness, metallic, opacity, ior = (render.GetParameter(parameter).ToDouble() for parameter in (names.Roughness, names.Metallic, names.Opacity, names.OpacityIor))
+    return MaterialRecord(render.Name, ColorTranslator.ToHtml(render.GetParameter(names.BaseColor).ToSystemColor()), roughness, metallic, opacity, ior, textures or None)
 
 
 def _environment_record(environment: RenderEnvironment) -> EnvironmentRecord:
@@ -436,15 +475,15 @@ def _environment_record(environment: RenderEnvironment) -> EnvironmentRecord:
 
 def _view_record(view: RhinoView) -> ViewRecord:
     """Read one view, a layout page with its first detail's scale."""
-    viewport, layout = view.MainViewport, isinstance(view, RhinoPageView)
+    viewport, details = view.MainViewport, view.GetDetailViews() if isinstance(view, RhinoPageView) else None
     mode = viewport.DisplayMode
     return ViewRecord(
         viewport.Name,
         None if mode is None else mode.EnglishName,
         _point(viewport.CameraLocation),
         _point(viewport.CameraTarget),
-        layout,
-        next((1.0 / detail.DetailGeometry.PageToModelRatio for detail in (view.GetDetailViews() if layout else ())), None),
+        details is not None,
+        next((1.0 / detail.DetailGeometry.PageToModelRatio for detail in details or ()), None),
     )
 
 
@@ -459,6 +498,13 @@ def artifacts() -> Path:
 
 
 @cache
+def _suffixes(kind: PlugInType) -> tuple[frozenset[str], ...]:
+    """Return the file suffixes of each installed file plugin of `kind`."""
+    plugins = (PlugIn.GetPlugInInfo(plugin_id) for plugin_id in PlugIn.GetInstalledPlugIns().Keys)
+    return tuple(frozenset(Path(pattern).suffix.lower() for group in info.FileTypeExtensions for pattern in group.split(";")) for info in plugins if info.PlugInType == kind)
+
+
+@cache
 def _formats(member: str, kind: PlugInType) -> dict[str, MethodInfo]:
     """Map each suffix a file plugin of `kind` accepts to its typed `Rhino.FileIO` method `member`."""
     namespace, signature = clr.GetClrType(FileIO.FileStl), [clr.GetClrType(str), clr.GetClrType(RhinoDoc)]
@@ -469,16 +515,24 @@ def _formats(member: str, kind: PlugInType) -> dict[str, MethodInfo]:
         for method in clr_type.GetMethods()
         if method.IsStatic and method.Name == member and [parameter.ParameterType for parameter in method.GetParameters()][:2] == signature
     }
-    plugins = (PlugIn.GetPlugInInfo(plugin_id) for plugin_id in PlugIn.GetInstalledPlugIns().Keys)
-    groups = [{Path(pattern).suffix.lower() for group in info.FileTypeExtensions for pattern in group.split(";")} for info in plugins if info.PlugInType == kind]
-    derived = {suffix: method for suffixes in groups for methods in ({typed[suffix] for suffix in suffixes if suffix in typed},) if len(methods) == 1 for method in methods for suffix in suffixes}
+    derived = {
+        suffix: method for suffixes in _suffixes(kind) for methods in ({typed[suffix] for suffix in suffixes if suffix in typed},) if len(methods) == 1 for method in methods for suffix in suffixes
+    }
     return derived | typed
 
 
-def _reader(path: str) -> Resolved[bool | MethodInfo]:
-    """Return `True` for a `.3dm` file openNURBS reads, a typed reader for another suffix, or faults refusing the file."""
-    file, readers = Path(path), _formats(FileIO.FileStl.Read.__name__, PlugInType.FileImport)
-    reader = HostUtils.IsRhinoFileExtension(path) or readers.get(file.suffix.lower()) or Faults.of(Fault(PlugIn, file.suffix, (".3dm", *readers)))
+def _reader(path: str) -> Resolved[bool | Callable[[RhinoDoc], bool]]:
+    """Return `True` for a `.3dm` file openNURBS reads, a function reading another suffix into a document through its typed reader or else its import plugin, or faults refusing the file."""
+    file, readers, imported = Path(path), _formats(FileIO.FileStl.Read.__name__, PlugInType.FileImport), frozenset().union(*_suffixes(PlugInType.FileImport))
+    match file.suffix.lower():
+        case _ if HostUtils.IsRhinoFileExtension(path):
+            reader: Resolved[bool | Callable[[RhinoDoc], bool]] = True
+        case suffix if suffix in readers:
+            reader = partial(_invoke, readers[suffix], path)
+        case suffix if suffix in imported:
+            reader = methodcaller(RhinoDoc.Import.__name__, path)
+        case suffix:
+            reader = Faults.of(Fault(PlugIn, suffix, (".3dm", *sorted(imported | readers.keys()))))
     if not file.is_file():
         return Faults.of(Fault(Path, path), reader)
     if reader is not True:
@@ -497,12 +551,15 @@ def _invoke(method: MethodInfo, path: str, doc: RhinoDoc) -> bool:
     write.SuppressAllInput, write.SuppressDialogBoxes, read.ImportMode, read.BatchMode = True, True, True, True
     quiet = {clr.GetClrType(FileIO.FileWriteOptions): write, clr.GetClrType(FileIO.FileReadOptions): read}
     options = constructor.Invoke([quiet[parameter.ParameterType] for parameter in constructor.GetParameters()])
-    if isinstance(options, FileIO.FileObjWriteOptions):
-        options.ActualFilePathOnMac = path
-    if isinstance(options, FileIO.FileGltfWriteOptions):
-        options.CullBackfaces = False
-    if isinstance(options, FileIO.FileDwgWriteOptions):
-        options.ExportSurfacesAs = FileIO.FileDwgWriteOptions.ExportSurfaceMode.Solids
+    match options:
+        case FileIO.FileObjWriteOptions():
+            options.ActualFilePathOnMac = path
+        case FileIO.FileGltfWriteOptions():
+            options.CullBackfaces = False
+        case FileIO.FileDwgWriteOptions():
+            options.ExportSurfacesAs = FileIO.FileDwgWriteOptions.ExportSurfaceMode.Solids
+        case _:
+            pass
     return method.Invoke(None, [path, doc, options]) in {True, WriteFileResult.Success}
 
 
@@ -515,7 +572,7 @@ def _view(doc: RhinoDoc, name: str | None) -> Resolved[RhinoView]:
     return Faults.of(Fault(RhinoView, name, tuple(known.MainViewport.Name for known in doc.Views))) if view is None else view
 
 
-def _mode(mode: str | DisplayModeDescription | None) -> Resolved[DisplayModeDescription | None]:
+def _mode(mode: Mode) -> Resolved[DisplayModeDescription | None]:
     """Return the registered mode an English name finds, a description as given, or `None` to keep a view's own."""
     match mode:
         case str() if (found := DisplayModeDescription.FindByName(mode)) is not None:
@@ -526,28 +583,65 @@ def _mode(mode: str | DisplayModeDescription | None) -> Resolved[DisplayModeDesc
             return mode
 
 
-def _placement(doc: RhinoDoc, zoom: Zoom | None, named: str | None, view: Resolved[RhinoView] | None) -> Resolved[BoundingBox | int | None]:
-    """Resolve a named view index, a zoom box, or `None` for the view as it is, `()` framing a layout `view`'s paper or every visible model-space object."""
+def _geometry(doc: RhinoDoc, zoom: Zoom) -> Resolved[tuple[GeometryBase, ...]]:
+    """Return a zoom box as a brep or the geometry of zoom ids, `()` naming every visible model-space object but clipping planes and lights."""
+    match zoom:
+        case BoundingBox():
+            return (zoom.ToBrep(),)
+        case ():
+            objects: Resolved[tuple[RhinoObject, ...]] = tuple(
+                item for item in _object_list(doc, hidden=False, space=ActiveSpace.ModelSpace) if not item.ObjectType & (ObjectType.ClipPlane | ObjectType.Light)
+            )
+        case _:
+            objects = _objects(doc, zoom)
+    return objects if isinstance(objects, Faults) else tuple(item.Geometry for item in objects)
+
+
+def _fit(camera: ViewportInfo, geometry: tuple[GeometryBase, ...]) -> ViewportInfo:
+    """Move `camera` so the geometry's projected extent fills its frustum centered inside Rhino's 1.1 zoom-extents border, direction, lens, and aspect kept, target at the geometry's middle depth."""
+    border, x_axis, y_axis, z_axis, near = 1.1, camera.CameraX, camera.CameraY, camera.CameraZ, camera.FrustumNear
+
+    def extent(direction: Vector3d) -> Interval:
+        boxes = [item.GetBoundingBox(Plane(Point3d.Origin, direction)) for item in geometry]
+        return Interval(min(box.Min.Z for box in boxes) * direction.Length, max(box.Max.Z for box in boxes) * direction.Length)
+
+    if not geometry:
+        return camera
+    if camera.IsParallelProjection:
+        camera.DollyExtents(List[GeometryBase](geometry), border)
+    else:
+        frustum = ((x_axis, Interval(camera.FrustumLeft, camera.FrustumRight)), (y_axis, Interval(camera.FrustumBottom, camera.FrustumTop)))
+        slopes = [(axis, side.Mid / near, side.Length / 2 / border / near) for axis, side in frustum]
+        bounds = [(middle, half, Interval(extent(axis + z_axis * (middle - half)).T0, extent(axis + z_axis * (middle + half)).T1)) for axis, middle, half in slopes]
+        depth = max(span.Length / (2 * half) for _, half, span in bounds)
+        x_shift, y_shift = (span.Mid - middle * depth for middle, _, span in bounds)
+        camera.SetCameraLocation(Point3d.Origin + x_axis * x_shift + y_axis * y_shift + z_axis * depth)
+    camera.TargetPoint = camera.FrustumCenterPoint(z_axis * (camera.CameraLocation - Point3d.Origin) - extent(z_axis).Mid)
+    return camera
+
+
+def _placement(doc: RhinoDoc, zoom: Zoom | None, named: str | None, view: Resolved[RhinoView]) -> Resolved[Placement]:
+    """Resolve a named view index, the camera framing `zoom` in `view`, or `None` for the view as it is, `()` framing a layout's paper or every visible model-space object."""
     if named is not None:
         index = doc.NamedViews.FindByName(named)
         return Faults.of(Fault(ViewInfo, named, tuple(known.Name for known in doc.NamedViews))) if index < 0 else index
-    match zoom:
-        case None | BoundingBox():
-            return zoom
-        case () if isinstance(view, RhinoPageView):
-            return BoundingBox(Point3d.Origin, Point3d(view.PageWidth, view.PageHeight, 0.0))
-        case ():
-            return doc.Objects.BoundingBoxVisible
-        case _:
-            objects = _objects(doc, zoom)
-            return objects if isinstance(objects, Faults) else reduce(BoundingBox.Union, (item.Geometry.GetBoundingBox(accurate=True) for item in objects), BoundingBox.Empty)
+    match zoom, view:
+        case (None, _) | (_, Faults()):
+            return None
+        case (), RhinoPageView() as page:
+            paper, width, height = ViewportInfo(page.MainViewport), page.PageWidth, page.PageHeight
+            paper.SetCameraLocation(Point3d(width / 2, height / 2, paper.CameraLocation.Z))
+            paper.SetFrustum(-width / 2, width / 2, -height / 2, height / 2, paper.FrustumNear, paper.FrustumFar)
+            paper.TargetPoint = Point3d(width / 2, height / 2, 0.0)
+            return paper
+        case framed, shown:
+            geometry = _geometry(doc, framed)
+            return geometry if isinstance(geometry, Faults) else _fit(ViewportInfo(shown.MainViewport), geometry)
 
 
 def _set_view(viewport: RhinoViewport, placement: Placement, mode: DisplayModeDescription | None) -> RhinoViewport:
-    """Zoom to a box or apply a camera or named view, then apply `mode`."""
+    """Apply a camera or named view, then apply `mode`."""
     match placement:
-        case BoundingBox():
-            viewport.ZoomBoundingBox(placement)
         case ViewportInfo():
             viewport.SetViewProjection(placement, updateTargetLocation=False)
             viewport.SetCameraTarget(placement.TargetPoint, updateCameraLocation=False)
@@ -563,26 +657,27 @@ def _set_view(viewport: RhinoViewport, placement: Placement, mode: DisplayModeDe
     return viewport
 
 
-def _bitmap(view: RhinoView, drawn: DisplayModeDescription | None, resolution: tuple[int, int]) -> Resolved[Bitmap]:
-    """Draw `view` at `resolution` as it shows, or through `drawn`'s attributes, a pipeline-locked mode drawing on a view that shows it alone."""
+def _bitmap(view: RhinoView, drawn: DisplayModeDescription | None, resolution: tuple[int, int], *, live: bool) -> Resolved[Bitmap]:
+    """Draw `view` at `resolution` through `drawn`'s attributes, or as it shows on screen when `live`, a pipeline-locked mode drawing live alone."""
     match drawn:
-        case None:
+        case _ if live:
             capturer = ViewCapture()
             capturer.Width, capturer.Height, capturer.ScaleScreenItems = *resolution, False
             source, bitmap = ViewCapture, capturer.CaptureToBitmap(view)
-        case _ if drawn.PipelineLocked:
-            return Faults.of(Fault(ViewCapture, drawn.EnglishName))
-        case _:
+        case DisplayModeDescription() if not drawn.PipelineLocked:
             source, bitmap = RhinoView, view.CaptureToBitmap(Size(*resolution), drawn.DisplayAttributes)
+        case _:
+            return Faults.of(Fault(ViewCapture, None if drawn is None else drawn.EnglishName, tuple(known.MainViewport.Name for known in view.Document.Views if not known.Size.IsEmpty)))
     return Faults.of(Fault(source, view.MainViewport.Name)) if bitmap is None else bitmap
 
 
 @contextmanager
-def _temporary_view(doc: RhinoDoc, view: RhinoView, placement: Placement, mode: DisplayModeDescription | None) -> Iterator[RhinoViewport]:
-    """Place `view` for the block with selection cleared and grid and axes off in its main and active viewports, then restore each setting."""
+def _temporary_view(doc: RhinoDoc, view: RhinoView, placement: Placement, mode: DisplayModeDescription | None) -> Generator[RhinoViewport]:
+    """Place `view` for the block with selection cleared and grid and axes off in its main and active viewports, then restore each setting and the clipping planes a named view restore turned."""
     viewport = view.MainViewport
     camera, plane, own = ViewportInfo(viewport), viewport.GetConstructionPlane(), viewport.DisplayMode
     overlays = [(shown, shown.ConstructionGridVisible, shown.ConstructionAxesVisible, shown.WorldAxesVisible) for shown in (viewport, view.ActiveViewport)]
+    clips = [(clip.Id, viewport.Id in clip.ClippingPlaneGeometry.ViewportIds()) for clip in _object_list(doc, object_type=ObjectType.ClipPlane)]
     selected = [rhino_object.Id for rhino_object in doc.Objects.GetSelectedObjects(includeLights=True, includeGrips=False)]
     doc.Objects.UnselectAll()
     for shown, *_ in overlays:
@@ -594,6 +689,8 @@ def _temporary_view(doc: RhinoDoc, view: RhinoView, placement: Placement, mode: 
         viewport.SetConstructionPlane(plane)
         for shown, grid, axes, world in overlays:
             shown.ConstructionGridVisible, shown.ConstructionAxesVisible, shown.WorldAxesVisible = grid, axes, world
+        for clip, held in ((doc.Objects.FindId(clip_id), held) for clip_id, held in clips):
+            (clip.AddClipViewport if held else clip.RemoveClipViewport)(viewport, commit=True)
         doc.Objects.Select(List[Guid](selected))
 
 
@@ -701,12 +798,7 @@ def material(
         for parameter, value in ((parameter, value) for parameter, value in settings if value is not None):
             render.SetParameter(parameter, value)
         for slot, file in textures.items():
-            texture = RenderContentType.NewContentFromTypeId(ContentUuids.BitmapTextureType, doc)
-            texture.BeginChange(program)
-            texture.SetParameter("filename", file)
-            texture.SetParameter("treat-as-linear", slot not in {slots.BaseColor, slots.Emission})
-            texture.EndChange()
-            render.SetChild(texture, slot)
+            render.SetChild(_image(doc, ContentUuids.BitmapTextureType, file, linear=slot not in {slots.BaseColor, slots.Emission}), slot)
             render.SetChildSlotOn(slot, bOn=True, cc=program)
     finally:
         render.EndChange()
@@ -769,14 +861,10 @@ def environment(doc: RhinoDoc, name: str, image: str | None = None) -> Resolved[
             return Faults.of(Fault(Path, image))
         existing = next((held for held in doc.RenderEnvironments if held.Name == name), None)
         built = existing if existing is not None and existing.TypeId == ContentUuids.BasicEnvironmentType else RenderContentType.NewContentFromTypeId(ContentUuids.BasicEnvironmentType, doc)
-        texture, program = RenderContentType.NewContentFromTypeId(ContentUuids.HDRTextureType, doc), RenderContent.ChangeContexts.Program
-        texture.BeginChange(program)
-        texture.SetParameter("filename", image)
-        texture.EndChange()
-        built.BeginChange(program)
+        built.BeginChange(RenderContent.ChangeContexts.Program)
         try:
             built.Name = name
-            built.SetChild(texture, "texture")
+            built.SetChild(_image(doc, ContentUuids.HDRTextureType, image), "texture")
         finally:
             built.EndChange()
         if not (built is existing or (doc.RenderEnvironments.Add(built) if existing is None else existing.Replace(built))):
@@ -838,12 +926,23 @@ def render(doc: RhinoDoc, name: str, *, view: str | None = None, size: tuple[int
 
 
 def add(
-    doc: RhinoDoc, geometry: GeometryBase | Sequence[GeometryBase], layer_path: str, properties: Properties | None = None, *, name: str | None = None, page: str | None = None
+    doc: RhinoDoc, geometry: GeometryBase | Sequence[GeometryBase], layer_path: str | None = None, properties: Properties | None = None, *, name: str | None = None, page: str | None = None
 ) -> Resolved[Objects]:
-    """Add geometry on `layer_path` with property overrides and a name, in model space or on layout `page` in page units."""
+    """Add geometry on `layer_path`, annotation without one on the document's dimension layer, with property overrides and a name, in model space or on layout `page` in page units."""
     items = (geometry,) if isinstance(geometry, GeometryBase) else tuple(geometry)
     pages = {view.PageName: view for view in doc.Views.GetPageViews()}
-    match layer_index(doc, layer_path), _setter(doc, properties or Properties()), None if page is None else pages.get(page, Faults.of(Fault(RhinoPageView, page, tuple(pages)))):
+    native = clr.GetClrType(RhinoDoc).Assembly.GetType("UnsafeNativeMethods")
+    use, dimension = (
+        native.GetMethod(member, BindingFlags.Static | BindingFlags.NonPublic).Invoke(None, [UInt32(doc.RuntimeSerialNumber)]) for member in ("RHC_RhUseDimensionLayer", "RHC_RhGetDimensionLayerIndex")
+    )
+    resolved = (
+        layer_index(doc, layer_path)
+        if layer_path is not None
+        else layer_index(doc, doc.Layers[dimension].FullPath)
+        if use and dimension >= 0 and all(isinstance(item, AnnotationBase) for item in items)
+        else Faults.of(Fault(Layer, layer_path, tuple(entry.FullPath for entry in doc.Layers if not entry.IsDeleted)))
+    )
+    match resolved, _setter(doc, properties or Properties()), None if page is None else pages.get(page, Faults.of(Fault(RhinoPageView, page, tuple(pages)))):
         case int() as index, FunctionType() as apply, RhinoPageView() | None as layout:
             attributes = ObjectAttributes()
             attributes.LayerIndex, attributes.Name = index, name
@@ -876,27 +975,56 @@ def change(doc: RhinoDoc, ids: Sequence[str], properties: Properties | None = No
 
 
 def command(doc: RhinoDoc, macro: str, layer_path: str, ids: Sequence[str] = ()) -> Resolved[Objects]:
-    """Run `macro` then cancel any prompt it leaves, in the active document with `ids` preselected and `layer_path` current, refused for another document and while a command waits."""
+    """Run `macro` with `ids` preselected and `layer_path` current in the active document, with its prompts and printed lines and none of the closing cancel's, refused for another document and while a command waits."""
     results: list[tuple[str, Result]] = []
+    output: list[Prompt | str] = []
+
+    def printed() -> list[str]:
+        return "".join(RhinoApp.CapturedCommandWindowStrings(clearBuffer=True)).splitlines()
 
     def ended(_: object, event: CommandEventArgs) -> None:
+        lines = printed()
+        output.extend(() if event.CommandResult == Result.Cancel else lines)
         results.append((event.CommandEnglishName, event.CommandResult))
+
+    def option(entry: CommandLineOption) -> Option:
+        match entry.OptionType:
+            case CommandLineOptionType.Number:
+                return Option(entry.EnglishName, entry.CurrentNumericValue)
+            case CommandLineOptionType.Toggle:
+                off, on = entry.ToggleValues(english=True)
+                return Option(entry.EnglishName, on if entry.CurrentToggleValue else off, (off, on))
+            case CommandLineOptionType.List:
+                choices = tuple(entry.ListOptions(english=True))
+                return Option(entry.EnglishName, choices[entry.CurrentListOptionIndex], choices)
+            case _:
+                return Option(entry.EnglishName)
+
+    def prompted(_: object, event: CommandPromptChangedEventArgs) -> None:
+        if event.Prompt:
+            output.extend(printed())
+            output.append(Prompt(event.Prompt, event.PromptDefault or None, tuple(option(entry) for entry in event.Options if entry.OptionType != CommandLineOptionType.Hidden)))
 
     match _objects(doc, ids), layer_index(doc, layer_path), _active(doc):
         case tuple() as targets, int() as index, None:
             before = {rhino_object.Id for rhino_object in _object_list(doc)}
             selected = [rhino_object.Id for rhino_object in doc.Objects.GetSelectedObjects(includeLights=True, includeGrips=False)]
-            mark, history, current, streams = RhinoObject.NextRuntimeSerialNumber, len(RhinoApp.CommandHistoryWindowText), doc.Layers.CurrentLayerIndex, (sys.stdout, sys.stderr)
+            mark, current, capturing, streams = RhinoObject.NextRuntimeSerialNumber, doc.Layers.CurrentLayerIndex, RhinoApp.CommandWindowCaptureEnabled, (sys.stdout, sys.stderr)
             doc.Objects.UnselectAll()
             doc.Objects.Select(List[Guid]([rhino_object.Id for rhino_object in targets]))
             doc.Layers.SetCurrentLayerIndex(index, quiet=True)
+            RhinoApp.CapturedCommandWindowStrings(clearBuffer=True)
+            RhinoApp.CommandWindowCaptureEnabled = True
             Command.EndCommand += ended
+            RhinoApp.CommandPromptChanged += prompted
             try:
                 RhinoApp.RunScript(doc.RuntimeSerialNumber, f"{macro} !", echo=True)
-                output = RhinoApp.CommandHistoryWindowText[history:]
             finally:
+                RhinoApp.CapturedCommandWindowStrings(clearBuffer=True)
                 sys.stdout, sys.stderr = streams
+                RhinoApp.CommandPromptChanged -= prompted
                 Command.EndCommand -= ended
+                RhinoApp.CommandWindowCaptureEnabled = capturing
                 doc.Layers.SetCurrentLayerIndex(current, quiet=True)
                 doc.Objects.UnselectAll()
                 doc.Objects.Select(List[Guid](selected))
@@ -906,7 +1034,7 @@ def command(doc: RhinoDoc, macro: str, layer_path: str, ids: Sequence[str] = ())
                 tuple(_record(doc, rhino_object) for rhino_object in after if rhino_object.RuntimeSerialNumber >= mark),
                 tuple(str(object_id) for object_id in before - {rhino_object.Id for rhino_object in after}),
                 tuple(results),
-                output,
+                tuple(output),
             )
         case failed:
             return Faults.of(*failed)
@@ -932,6 +1060,7 @@ def position(doc: RhinoDoc, name: str, ids: Sequence[str] = ()) -> Resolved[Obje
 def export(doc: RhinoDoc, path: str, ids: Sequence[str] = ()) -> Resolved[File[tuple[str, ...]]]:
     """Write the document or objects `ids` through the suffix's writer to `path`, a relative one under `.artifacts/rhino`, with ids of objects the format drops."""
     file, writers = artifacts() / path, _formats(FileIO.FileStl.Write.__name__, PlugInType.FileExport)
+    path = str(file)
     match (
         _objects(doc, ids) if ids else _object_list(doc, space=ActiveSpace.ModelSpace),
         HostUtils.IsRhinoFileExtension(path) or writers.get(file.suffix.lower()) or Faults.of(Fault(PlugIn, file.suffix, (".3dm", *writers))),
@@ -950,13 +1079,12 @@ def export(doc: RhinoDoc, path: str, ids: Sequence[str] = ()) -> Resolved[File[t
                 if dropped and any(piece.ObjectType & dropped for piece in (item.Explode(explodeNestedInstances=True)[0] if isinstance(item, InstanceObject) else (item,)))
             )
             file.parent.mkdir(parents=True, exist_ok=True)
-            file.unlink(missing_ok=True)
             options = FileIO.FileWriteOptions()
             options.SuppressAllInput, options.SuppressDialogBoxes, options.IncludePreviewImage = True, True, False
-            whole, kept = not ids and not excluded and (write is True or doc.IsHeadless), {item.Id for item in chosen}
+            whole, kept = write is True and not ids, {item.Id for item in chosen}
 
             @contextmanager
-            def pruned() -> Iterator[RhinoDoc | None]:
+            def pruned() -> Generator[RhinoDoc | None]:
                 with TemporaryDirectory() as folder:
                     copy = str(Path(folder) / "copy.3dm")
                     if (headless := RhinoDoc.OpenHeadless(copy) if doc.WriteFile(copy, options) else None) is None:
@@ -976,8 +1104,8 @@ def export(doc: RhinoDoc, path: str, ids: Sequence[str] = ()) -> Resolved[File[t
                         headless.Dispose()
 
             with nullcontext(doc) if whole else pruned() as target:
-                written = target is not None and (target.WriteFile(str(file), options) if write is True else _invoke(write, str(file), target))
-            return File(str(file), file.stat().st_size, excluded) if written else Faults.of(Fault(PlugIn, str(file)))
+                written = target is not None and (target.WriteFile(path, options) if write is True else _invoke(write, path, target))
+            return File(path, file.stat().st_size, excluded) if written else Faults.of(Fault(PlugIn, path))
         case failed:
             return Faults.of(*failed)
 
@@ -990,13 +1118,13 @@ def convert(doc: RhinoDoc, sources: Sequence[str], suffix: str, folder: str = ""
         target = targets[source]
         shared = tuple(other for other, path in targets.items() if path == target and other != source)
         match _reader(source), Fault(Path, str(target), shared) if shared else None:
-            case True | MethodInfo() as reader, None:
+            case True | partial() | methodcaller() as reader, None:
                 if (headless := RhinoDoc.OpenHeadless(source) if reader is True else RhinoDoc.CreateHeadless(None)) is None:
                     return Faults.of(Fault(RhinoDoc, source))
                 try:
                     if reader is not True:
                         headless.AdjustModelUnitSystem(doc.ModelUnitSystem, scale=False)
-                    return export(headless, str(target)) if reader is True or _invoke(reader, source, headless) else Faults.of(Fault(Path, source))
+                    return export(headless, str(target)) if reader is True or reader(headless) else Faults.of(Fault(Path, source))
                 finally:
                     headless.Dispose()
             case failed:
@@ -1006,13 +1134,15 @@ def convert(doc: RhinoDoc, sources: Sequence[str], suffix: str, folder: str = ""
 
 
 def save(doc: RhinoDoc, path: str | None = None) -> Resolved[File[None]]:
-    """Save through the window's `NSDocument` to `path`, a relative one under `.artifacts/rhino`, as the document's new file, else to its current file."""
-    match path or doc.Path or None, RhinoEtoApp.MainWindowForDocument(doc):
-        case None, _:
+    """Save through the window's `NSDocument` to `path`, a relative one under `.artifacts/rhino`, as the document's new file, else to its current file, refused while no document is active."""
+    match path or doc.Path or None, RhinoEtoApp.MainWindowForDocument(doc), RhinoDoc.ActiveDoc:
+        case None, _, _:
             return Faults.of(Fault(Path, None))
-        case _, None:
+        case _, None, _:
             return Faults.of(Fault(RhinoDoc, doc.Path))
-        case target, window:
+        case _, _, None:
+            return Faults.of(Fault(RhinoDoc, None))
+        case target, window, _:
             file, document = (artifacts() / target).resolve(), NSDocumentController.SharedDocumentController.DocumentForWindow(window.ControlObject)
             file.parent.mkdir(parents=True, exist_ok=True)
             operation = NSSaveOperationType.Save if doc.Path and file == Path(doc.Path).resolve() else NSSaveOperationType.SaveAs
@@ -1021,13 +1151,15 @@ def save(doc: RhinoDoc, path: str | None = None) -> Resolved[File[None]]:
 
 
 def close(doc: RhinoDoc) -> Faults | None:
-    """Close the document's window, a titled document's edits saved and an untitled one's discarded."""
-    match save(doc) if doc.Path and doc.Modified else None, RhinoEtoApp.MainWindowForDocument(doc):
-        case Faults() as faults, _:
+    """Close the document's window, a titled document's edits saved and an untitled one's discarded, refused while no document is active."""
+    match save(doc) if doc.Path and doc.Modified else None, RhinoEtoApp.MainWindowForDocument(doc), RhinoDoc.ActiveDoc:
+        case Faults() as faults, _, _:
             return faults
-        case _, None:
+        case _, None, _:
             return Faults.of(Fault(RhinoDoc, doc.Path))
-        case _, window:
+        case _, _, None:
+            return Faults.of(Fault(RhinoDoc, None))
+        case _, window, _:
             doc.Modified = False
             window.Close()
             return None
@@ -1036,9 +1168,9 @@ def close(doc: RhinoDoc) -> Faults | None:
 def load(doc: RhinoDoc, path: str, layer_path: str) -> Resolved[Objects]:
     """Import a file under `layer_path` with its layers and its block definitions' layers as sublayers, scaled into document units, unreferenced new blocks dropped."""
     match layer_index(doc, layer_path), _reader(path):
-        case int() as root, True | MethodInfo() as reader:
+        case int() as root, True | partial() | methodcaller() as reader:
             mark, count, definitions = RhinoObject.NextRuntimeSerialNumber, doc.Layers.Count, doc.InstanceDefinitions.Count
-            imported = doc.Import(path) if reader is True else _invoke(reader, path, doc)
+            imported = doc.Import(path) if reader is True else reader(doc)
             created = [rhino_object for rhino_object in _object_list(doc) if rhino_object.RuntimeSerialNumber >= mark]
             blocks = [doc.InstanceDefinitions[index] for index in range(definitions, doc.InstanceDefinitions.Count)]
             for block in (block for block in blocks if not block.IsDeleted and not block.InUse(1)):
@@ -1067,7 +1199,7 @@ def load(doc: RhinoDoc, path: str, layer_path: str) -> Resolved[Objects]:
 
 
 def make2d(doc: RhinoDoc, view: str, layer_path: str, ids: Sequence[str] = (), offset: tuple[float, float] = (0.0, 0.0)) -> Resolved[Objects]:
-    """Project `ids` or every visible model-space object through `view` onto World XY at `offset`, cut by the clipping planes that clip the view, SubD as its Brep, visible, hidden, and cut curves on their own sublayers, a solid's cut hatched as its section style names."""
+    """Project `ids` or every visible model-space object through `view` onto World XY with its lower left at `offset`, cut by the view's clipping planes, SubD as its Brep, visible, hidden, and cut curves on sublayers printing as their sources, each cut outlined and filled by its section style."""
     kinds = ObjectType.Brep | ObjectType.Extrusion | ObjectType.Mesh | ObjectType.Curve | ObjectType.SubD
     visible, hidden, cut, separator = HiddenLineDrawingSegment.Visibility.Visible, HiddenLineDrawingSegment.Visibility.Hidden, SilhouetteType.SectionCut, ModelComponent.NamePathSeparator
     chosen = _objects(doc, ids) if ids else _object_list(doc, hidden=False, space=ActiveSpace.ModelSpace)
@@ -1118,27 +1250,57 @@ def make2d(doc: RhinoDoc, view: str, layer_path: str, ids: Sequence[str] = (), o
             targets = {(False, visible): visible_layer, (True, visible): cut_layer, (False, hidden): hidden_layer, (True, hidden): hidden_layer}
             flatten = Transform.Translation(Vector3d(x - box.Min.X, y - box.Min.Y, 0.0)) * Transform.PlanarProjection(Plane.WorldXY)
             skipped = {SilhouetteType.NONE, SilhouetteType.NonSilhouetteSeam, SilhouetteType.NonSilhouetteTangent}
-            cuts: dict[tuple[int, int], list[Curve]] = {}
-            added = []
+            lines: dict[tuple[int, int, int], list[Curve]] = {}
+            regions: dict[tuple[int, int], list[Curve]] = {}
             for segment in (segment for segment in drawing.Segments if segment.ParentCurve is not None and segment.ParentCurve.SilhouetteType not in skipped):
-                if (target := targets.get((segment.ParentCurve.SilhouetteType == cut, segment.SegmentVisibility))) is None:
-                    continue
-                curve, attributes = segment.CurveGeometry.DuplicateCurve(), ObjectAttributes()
+                parent, curve = segment.ParentCurve, segment.CurveGeometry.DuplicateCurve()
                 curve.Transform(flatten)
-                attributes.LayerIndex = target
-                added.append(doc.Objects.AddCurve(curve, attributes))
-                if target == cut_layer:
-                    cuts.setdefault((segment.ParentCurve.ClippingPlaneIndex, int(segment.ParentCurve.SourceObject.Tag)), []).append(curve)
-            for (plane_index, piece_index), curves in cuts.items():
-                piece, source, _ = pieces[piece_index]
-                style = source.ComputedSectionStyle(doc, clips[plane_index][1].Attributes, computeColors=True, viewport_id=Guid.Empty)
-                if style is None or style.HatchIndex < 0 or not (piece.IsSolid or style.SectionFillRule == ObjectSectionFillRule.ClosedCurves):
-                    continue
+                if (target := targets.get((parent.SilhouetteType == cut, segment.SegmentVisibility))) is not None:
+                    lines.setdefault((target, int(parent.SourceObject.Tag), parent.ClippingPlaneIndex), []).append(curve)
+                if parent.SilhouetteType == cut and segment.SegmentVisibility in {visible, HiddenLineDrawingSegment.Visibility.Duplicate}:
+                    regions.setdefault((int(parent.SourceObject.Tag), parent.ClippingPlaneIndex), []).append(curve)
+
+            @cache
+            def solid() -> HatchPattern:
+                return doc.HatchPatterns[doc.HatchPatterns.Add(HatchPattern.Defaults.Solid)] if (held := doc.HatchPatterns.FindName(HatchPattern.Defaults.Solid.Name)) is None else held
+
+            def printed(target: int, source: ObjectAttributes, weight: float, colors: tuple[Color, Color] | None) -> ObjectAttributes:
                 attributes = ObjectAttributes()
-                attributes.LayerIndex, attributes.HatchBoundaryVisible = cut_layer, False
-                attributes.HatchBackgroundFillColor, attributes.HatchBackgroundFillPrintColor = style.BackgroundFillColor, style.BackgroundFillPrintColor
-                loops = [loop for loop in Curve.JoinCurves(curves, tolerance) if loop.IsClosed]
-                added.extend(doc.Objects.AddHatch(hatch, attributes) for hatch in Hatch.Create(loops, style.HatchIndex, style.HatchRotationRadians, style.HatchScale, tolerance))
+                attributes.LayerIndex, attributes.PlotWeightSource, attributes.PlotColorSource = target, ObjectPlotWeightSource.PlotWeightFromObject, ObjectPlotColorSource.PlotColorFromObject
+                attributes.PlotWeight = source.ComputedPlotWeight(doc) if weight < -1 else weight
+                match colors:
+                    case (color, print_color):
+                        attributes.ObjectColor, attributes.ColorSource, attributes.PlotColor = color, ObjectColorSource.ColorFromObject, print_color
+                    case None:
+                        attributes.PlotColor = source.ComputedPlotColor(doc)
+                return attributes
+
+            def section(index: int, plane_index: int, edges: list[Curve]) -> Iterator[Guid]:
+                piece, source, _ = pieces[index]
+                style = source.ComputedSectionStyle(doc, clips[plane_index][1].Attributes, computeColors=True, viewport_id=Guid.Empty)
+                patterned, filled = style.HatchIndex >= 0, style.BackgroundFillMode == SectionBackgroundFillMode.SolidColor
+                if style.BoundaryVisible:
+                    outline = printed(cut_layer, source, style.BoundaryPlotWeightMillimeters, (style.BoundaryColor, style.BoundaryPrintColor))
+                    yield from (doc.Objects.AddCurve(curve, outline) for curve in lines.get((cut_layer, index, plane_index), []))
+                if (patterned or filled) and (piece.IsSolid or style.SectionFillRule == ObjectSectionFillRule.ClosedCurves):
+                    colors = (style.HatchPatternColor, style.HatchPatternPrintColor) if patterned else (style.BackgroundFillColor, style.BackgroundFillPrintColor)
+                    fill = printed(cut_layer, source, style.HatchPatternPlotWeightMillimeters, colors)
+                    fill.HatchBoundaryVisible = False
+                    if patterned and filled:
+                        fill.HatchBackgroundFillColor, fill.HatchBackgroundFillPrintColor = style.BackgroundFillColor, style.BackgroundFillPrintColor
+                    loops, pattern = [loop for loop in Curve.JoinCurves(edges, tolerance) if loop.IsClosed], style.HatchIndex if patterned else solid().Index
+                    yield from (doc.Objects.AddHatch(hatch, fill) for hatch in Hatch.Create(loops, pattern, style.HatchRotationRadians, style.HatchScale, tolerance))
+
+            added = [
+                *(
+                    doc.Objects.AddCurve(curve, printed(target, source, source.ComputedPlotWeight(doc), None))
+                    for (target, index, _), curves in lines.items()
+                    if target != cut_layer
+                    for _, source, _ in (pieces[index],)
+                    for curve in curves
+                ),
+                *(object_id for (index, plane_index), edges in regions.items() if (cut_layer, index, plane_index) in lines for object_id in section(index, plane_index, edges)),
+            ]
             doc.Views.Redraw()
             return read_objects(doc, added)
         case failed:
@@ -1146,37 +1308,30 @@ def make2d(doc: RhinoDoc, view: str, layer_path: str, ids: Sequence[str] = (), o
 
 
 def sheet(
-    doc: RhinoDoc,
-    name: str,
-    scale: tuple[float, float],
-    size: tuple[float, float] | None = None,
-    *,
-    frame: tuple[float, float, float, float] | None = None,
-    projection: DefinedViewportProjection = DefinedViewportProjection.Top,
-    zoom: Zoom = (),
-    clips: Sequence[str] = (),
-) -> Resolved[ViewRecord]:
-    """Add a locked detail at `scale` page length per model length on layout `name`, the layout added at `size` when absent, over `frame` (left, bottom, right, top) or the whole page, centered on `zoom` and cut by clipping planes `clips`."""
-    pages = {page.PageName: page for page in doc.Views.GetPageViews()}
-    match _placement(doc, zoom, None, None), pages.get(name), size, _objects(doc, clips):
-        case BoundingBox() as box, RhinoPageView() | None as found, tuple() | None, tuple() as planes if (found is None) != (size is None):
-            current, page = doc.Views.ActiveView, found if size is None else doc.Views.AddPageView(name, *size)
-            left, bottom, right, top = frame or (0.0, 0.0, page.PageWidth, page.PageHeight)
-            detail = page.AddDetailView(str(projection), Point2d(left, bottom), Point2d(right, top), projection)
-            detail.Viewport.SetCameraTarget(box.Center, updateCameraLocation=True)
-            detail.CommitViewportChanges()
-            detail.DetailGeometry.IsProjectionLocked = True
-            detail.DetailGeometry.SetScale(scale[1], doc.ModelUnitSystem, scale[0], doc.PageUnitSystem)
-            detail.CommitChanges()
-            for plane in planes:
-                plane.ClippingPlaneGeometry.AddClipViewportId(detail.Viewport.Id)
-                plane.CommitChanges()
-            doc.Views.ActiveView = current
-            return _view_record(page)
-        case BoundingBox(), _, _, tuple():
+    doc: RhinoDoc, name: str, scale: tuple[float, float], size: tuple[float, float] | None = None, *, frame: tuple[float, float, float, float] | None = None, zoom: Zoom = ()
+) -> Resolved[Objects]:
+    """Add a locked Top detail with an unprinted border on the current layer at `scale` page length per model length on layout `name`, added at `size` when absent, centered on `zoom` over `frame` (left, bottom, right, top) or over `zoom` plus a text height in the page middle."""
+    pages, current, (page_length, model_length) = {page.PageName: page for page in doc.Views.GetPageViews()}, doc.Views.ActiveView, scale
+    match _geometry(doc, zoom), pages.get(name), size:
+        case tuple() as geometry, RhinoPageView() as held, None:
+            page = held
+        case tuple() as geometry, None, (width, height):
+            page = doc.Views.AddPageView(name, width, height)
+        case tuple(), _, _:
             return Faults.of(Fault(RhinoPageView, name, tuple(pages)))
         case failed:
             return Faults.of(*failed)
+    box = reduce(BoundingBox.Union, (item.GetBoundingBox(accurate=True) for item in geometry), BoundingBox.Empty)
+    (across, up), middle, center = (page_length / model_length * span / 2 + doc.DimStyles.Current.TextHeight for span in (box.Diagonal.X, box.Diagonal.Y)), page.PageWidth / 2, page.PageHeight / 2
+    left, bottom, right, top = frame or (middle - across, center - up, middle + across, center + up)
+    detail = page.AddDetailView(name, Point2d(left, bottom), Point2d(right, top), DefinedViewportProjection.Top)
+    detail.Viewport.SetCameraTarget(box.Center, updateCameraLocation=True)
+    detail.CommitViewportChanges()
+    detail.DetailGeometry.IsProjectionLocked = True
+    detail.DetailGeometry.SetScale(model_length, doc.ModelUnits, page_length, doc.PageUnits)
+    detail.CommitChanges()
+    doc.Views.ActiveView = current
+    return change(doc, [str(detail.Id)], Properties(print_width=-1.0), layer_path=doc.Layers.CurrentLayer.FullPath)
 
 
 def pdf(doc: RhinoDoc, path: str, pages: Sequence[str] = (), dpi: float = 300.0) -> Resolved[File[tuple[str, ...]]]:
@@ -1203,17 +1358,9 @@ def pdf(doc: RhinoDoc, path: str, pages: Sequence[str] = (), dpi: float = 300.0)
 
 
 def capture(
-    doc: RhinoDoc,
-    name: str,
-    *,
-    zoom: Zoom | None = (),
-    view: str | None = None,
-    mode: str | DisplayModeDescription | None = None,
-    named: str | None = None,
-    size: tuple[int, int] | None = None,
-    since: str | None = None,
+    doc: RhinoDoc, name: str, *, zoom: Zoom | None = (), view: str | None = None, mode: Mode = None, named: str | None = None, size: tuple[int, int] | None = None, since: str | None = None
 ) -> Resolved[File[Capture]]:
-    """Draw `.artifacts/rhino/<name>.png` at `size` or a 2000 px long side without overlays, selection, or Grasshopper 2 preview, a capture `since` giving camera, size, view, and mode unless given, with pixels changed against it."""
+    """Draw `.artifacts/rhino/<name>.png` at `size` or 750 thousand pixels at the frustum's aspect without overlays, selection, or Grasshopper 2 preview, a capture `since` giving camera, size, view, and mode unless given, with pixels changed against it."""
     folder = artifacts()
     source = None if since is None else folder / f"{since}.png"
     try:
@@ -1230,13 +1377,11 @@ def capture(
         Fault(RhinoDoc, None) if RhinoDoc.ActiveDoc is None else None,
         earlier,
     ):
-        case RhinoView() as rhino_view, DisplayModeDescription() | None as description, BoundingBox() | ViewportInfo() | int() | None as placement, None, PngImageFile() | None as previous:
-            native, shown, edited = rhino_view.MainViewport.Size, rhino_view.MainViewport.DisplayMode, isinstance(mode, DisplayModeDescription)
-            scale = 2000 / max(native.Width, native.Height)
-            resolution = size or (round(native.Width * scale), round(native.Height * scale))
+        case (RhinoView() as rhino_view, DisplayModeDescription() | None as description, ViewportInfo() | int() | None as placement, None, PngImageFile() | None as previous):
+            shown, edited = rhino_view.MainViewport.DisplayMode, isinstance(mode, DisplayModeDescription)
 
             @contextmanager
-            def preview_off() -> Iterator[None]:
+            def preview_off() -> Generator[None]:
                 if (editor := None if (owner := Type.GetType("Grasshopper2.UI.Editor, Grasshopper2")) is None else owner.GetProperty("Instance").GetValue(None)) is None:
                     yield
                     return
@@ -1248,9 +1393,11 @@ def capture(
                     display.Enabled = held
 
             with _temporary_view(doc, rhino_view, placement, None if edited else description) as viewport, preview_off():
-                drawn = description if edited else viewport.DisplayMode
-                bitmap = _bitmap(rhino_view, None if drawn is None or (not edited and shown is not None and drawn.Id == shown.Id) else drawn, resolution)
-                camera = ViewportInfo(viewport).ToJSON(FileIO.SerializationOptions())
+                drawn, frustum = description if edited else viewport.DisplayMode, ViewportInfo(viewport)
+                shows = drawn is None or (not edited and drawn.PipelineLocked and shown is not None and drawn.Id == shown.Id)
+                resolution = size or (round((750_000 * frustum.FrustumAspect) ** 0.5), round((750_000 / frustum.FrustumAspect) ** 0.5))
+                bitmap = _bitmap(rhino_view, drawn, resolution, live=shows and not rhino_view.Size.IsEmpty)
+                camera = frustum.ToJSON(FileIO.SerializationOptions())
             if isinstance(bitmap, Faults):
                 return bitmap
             stream = MemoryStream()
@@ -1265,14 +1412,14 @@ def capture(
                 case PngImageFile():
                     base = previous.convert(image.mode)
                     changes = reduce(ImageChops.lighter, ImageChops.difference(base, image).split()).point(lambda step: 255 if step else 0)
-                    Image.composite(Image.new(image.mode, image.size, "red"), base.point(lambda value: value // 2), changes).save(folder / f"{name}-diff.png")
+                    Image.composite(Image.new(image.mode, image.size, "red"), base.point(lambda value: value // 2), changes).save(folder / f"{name}-diff.png", optimize=True, compress_level=9)
                     changed = changes.histogram()[255]
             record = Capture(rhino_view.MainViewport.Name, None if drawn is None else drawn.EnglishName, changed)
             chunks = PngInfo()
             chunks.add_text(Capture.__name__, msgspec.json.encode(record).decode())
             chunks.add_text(ViewportInfo.__name__, camera)
             path = folder / f"{name}.png"
-            image.save(path, pnginfo=chunks)
+            image.save(path, pnginfo=chunks, optimize=True, compress_level=9)
             return File(str(path), path.stat().st_size, record)
         case failed:
             return Faults.of(*failed)
@@ -1281,7 +1428,7 @@ def capture(
 def save_view(doc: RhinoDoc, name: str, *, zoom: Zoom = (), view: str | None = None, mode: str | None = None) -> Resolved[ViewRecord]:
     """Save or replace named view `name` from `view` at `zoom` in `mode`, every view left as it was."""
     match (rhino_view := _view(doc, view)), _mode(mode), _placement(doc, zoom, None, rhino_view):
-        case RhinoView() as rhino_view, DisplayModeDescription() | None as description, BoundingBox() | None as placement:
+        case RhinoView() as rhino_view, DisplayModeDescription() | None as description, ViewportInfo() | None as placement:
             with _temporary_view(doc, rhino_view, placement, description) as viewport:
                 index, shown = doc.NamedViews.Add(name, viewport.Id), viewport.DisplayMode
             if index < 0:
@@ -1295,7 +1442,7 @@ def save_view(doc: RhinoDoc, name: str, *, zoom: Zoom = (), view: str | None = N
 def show(doc: RhinoDoc, *, view: str | None = None, named: str | None = None, zoom: Zoom | None = None, mode: str | None = None) -> Resolved[ViewRecord]:
     """Move the user's view to named view `named` or to `zoom`, then apply `mode`."""
     match (rhino_view := _view(doc, view)), _mode(mode), _placement(doc, zoom, named, rhino_view):
-        case RhinoView() as rhino_view, DisplayModeDescription() | None as description, BoundingBox() | int() | None as placement:
+        case RhinoView() as rhino_view, DisplayModeDescription() | None as description, ViewportInfo() | int() | None as placement:
             _set_view(rhino_view.MainViewport, placement, description)
             rhino_view.Redraw()
             return _view_record(rhino_view)
@@ -1307,38 +1454,27 @@ def show(doc: RhinoDoc, *, view: str | None = None, named: str | None = None, zo
 
 
 def assembly(path: str) -> AssemblyRecord:
-    """Load a file as a Rhino plugin, else as a library, and return the assembly Rhino holds under its name, a folder assembly held with another module version id stale."""
-    file = Path(path).resolve()
-    result, plugin_id = PlugIn.LoadPlugIn(str(file))
-    name = AssemblyName.GetAssemblyName(str(file)).Name
-    if not any(loaded.GetName().Name == name for loaded in AppDomain.CurrentDomain.GetAssemblies()):
-        Assembly.LoadFrom(str(file))
-    held = {loaded.GetName().Name: loaded for loaded in AppDomain.CurrentDomain.GetAssemblies() if not loaded.IsDynamic}
-
-    def stale(candidates: Iterable[Path]) -> Iterator[str]:
-        for candidate in candidates:
-            with PEReader(FileStream(str(candidate), FileMode.Open, FileAccess.Read)) as reader:
-                metadata = PEReaderExtensions.GetMetadataReader(reader)
-                if not held[candidate.stem].ManifestModule.ModuleVersionId.Equals(metadata.GetGuid(metadata.GetModuleDefinition().Mvid)):
-                    yield candidate.stem
-
-    plugin = PlugIn.Find(plugin_id)
-    return AssemblyRecord(
-        held[name].FullName,
-        held[name].Location,
-        result,
-        None if plugin is None else str(plugin_id),
-        () if plugin is None else tuple(entry.EnglishName for entry in plugin.GetCommands()),
-        tuple(sorted(stale(candidate for candidate in file.parent.iterdir() if candidate.suffix in {".dll", ".rhp"} and candidate.stem in held))),
-    )
+    """Load a file as a Rhino plugin, else as a library, and return the assembly Rhino holds under its name, `current` when its module version id is the file's."""
+    file = str(Path(path).resolve())
+    PlugIn.LoadPlugIn(file)
+    name = AssemblyName.GetAssemblyName(file).Name
+    held = next((loaded for loaded in AppDomain.CurrentDomain.GetAssemblies() if loaded.GetName().Name == name), None) or Assembly.LoadFrom(file)
+    reader = PEReader(FileStream(file, FileMode.Open, FileAccess.Read))
+    try:
+        metadata = PEReaderExtensions.GetMetadataReader(reader)
+        current = held.ManifestModule.ModuleVersionId.Equals(metadata.GetGuid(metadata.GetModuleDefinition().Mvid))
+    finally:
+        reader.Dispose()
+    plugin = PlugIn.Find(held)
+    return AssemblyRecord(held.FullName, held.Location, current, None if plugin is None else str(plugin.Id), () if plugin is None else tuple(entry.EnglishName for entry in plugin.GetCommands()))
 
 
 # --- [SCRIPTS]
 
 
-def run(source: str, label: str, namespace: dict[str, object]) -> None:
-    """Run a `run_python` script on its slot's document in one undo step named `label`, stderr and an exception's traceback on stdout."""
-    doc, active = namespace["__rhino_doc__"], scriptcontext.doc
+def run(source: str, label: str, doc: RhinoDoc, namespace: dict[str, object]) -> None:
+    """Run a `run_python` script on its slot's document `doc` in one undo step named `label`, stderr and an exception's traceback on stdout."""
+    active = scriptcontext.doc
     linecache.cache["<run_python>"] = (len(source), None, source.splitlines(keepends=True), "<run_python>")
     scriptcontext.doc, record = doc, doc.BeginUndoRecord(label)
     try:
@@ -1363,6 +1499,8 @@ __all__ = [
     "ObjectRecord",
     "Objects",
     "OpenDocument",
+    "Option",
+    "Prompt",
     "RenderRecord",
     "Rendering",
     "SunRecord",

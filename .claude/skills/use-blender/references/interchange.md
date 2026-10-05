@@ -4,7 +4,7 @@ CAD, mesh, and city files enter through one importer per format, and `rhino3dm` 
 
 ## [01]-[IMPORT]
 
-One file enters the user's scene live, or a session through `call` on a file `headless.py start` opened, and the objects it added report their collections and size:
+One file enters the user's scene live or a `headless.py start` session through `call`, its added objects reporting collections and size:
 
 ```python
 # [EXECUTE_BLENDER_CODE] <file> imported, with the collections and world extent in meters of each object it added
@@ -28,20 +28,23 @@ Each format takes its importer with the arguments that put its units and axes ri
 | :-----: | :----------- | :------------------------------- | :------------------------------- | :------------------------------------------------- |
 |  [01]   | STEP, IGES   | `import_scene.step`              | None                             | File unit to meters, Z-up upright at `up_axis="Y"` |
 |  [02]   | Rhino `.3dm` | `import_3dm.some_data`           | `import_layers_as_empties=False` | Model unit to meters, layers as collections        |
-|  [03]   | DXF          | `import_scene.cad2cube_dxf`      | `recenter_mode="NONE"`           | `$INSUNITS` to meters, coordinates kept            |
+|  [03]   | DXF          | `import_scene.cad2cube_dxf`      | `recenter_mode="NONE"`           | `$INSUNITS` to meters, layers as collections       |
 |  [04]   | CityJSON     | `cityjson.import_file`           | `clean_scene=False`              | Transform applied, minimum vertex at the origin    |
-|  [05]   | OBJ          | `wm.obj_import`                  | `global_scale`                   | No unit, forward -Z, up Y                          |
-|  [06]   | STL, PLY     | `wm.stl_import`, `wm.ply_import` | `global_scale`                   | No unit, forward Y, up Z                           |
-|  [07]   | GLB, glTF    | `import_scene.gltf`              | None                             | Meters, Y-up converted to Z-up                     |
-|  [08]   | USD          | `wm.usd_import`                  | None                             | `metersPerUnit` applied, `.usda`, `.usdc` read     |
+|  [05]   | LandXML      | `import_scene.landxml_tin`       | `source_units`                   | Source units to meters, shared minimum at origin   |
+|  [06]   | 3ds Max      | `import_scene.max`               | `scale_objects`                  | Raw system units times `scale_objects`             |
+|  [07]   | OBJ          | `wm.obj_import`                  | `global_scale`                   | No unit, forward -Z, up Y                          |
+|  [08]   | STL, PLY     | `wm.stl_import`, `wm.ply_import` | `global_scale`                   | No unit, forward Y, up Z                           |
+|  [09]   | GLB, glTF    | `import_scene.gltf`              | None                             | Meters, Y-up converted to Z-up                     |
+|  [10]   | USD          | `wm.usd_import`                  | None                             | `metersPerUnit` applied, `.usda`, `.usdc` read     |
 
-- `global_scale` takes `0.0254` for an inch file and `0.001` for a millimeter file
-- Importer preferences (`step_importer`, `cad2cube`) seed the File > Import dialog alone, a call from code takes the operator defaults
-- `cad2cube_dxf` at its default `recenter_mode` `BBOX` moves the drawing's box center to the origin
-- `cityjson.import_file` writes its origin offset on `scene.world` and raises in a scene without one, later files into that world share the offset
-- `import_3dm` meshes Breps from their render meshes, a Brep saved without one imports as a mesh with no vertices
+- `global_scale` and `scale_objects` take `0.0254` for an inch file and `0.001` for a millimeter file
+- `source_units` takes `METERS`, `INTERNATIONAL_FEET`, or `US_SURVEY_FEET` (default) and alone scales LandXML, the importer reading no `<Units>`
+- Calls from code take the operator defaults, importer preferences (`step_importer`, `cad2cube`) seeding the File > Import dialog alone
+- `recenter_mode="NONE"` keeps DXF coordinates, the default `BBOX` moving the drawing's box center to the origin
+- `cityjson.import_file` writes its origin offset on `scene.world`, a scene holding a world first, and later files into that world share the offset
+- `import_3dm` meshes Breps from their render meshes, a Brep saved with a render mesh importing whole
 - Extents off by 1000 or 25.4 from a dimension the source states mark a unit error, swapped extents an axis error
-- Objects from glTF and STEP hold `QUATERNION` rotation, `rotation_euler` reads zero and `matrix_world` holds the transform
+- Objects from glTF and STEP hold `QUATERNION` rotation, `matrix_world` holding the transform `rotation_euler` reads as zero
 
 Use bim.md for IFC.
 
@@ -50,7 +53,7 @@ Use bim.md for IFC.
 Rhino files reach Blender through `.3dm` for layers and `.glb` for materials, and Blender reaches Rhino through `.glb`:
 1. Rhino layers arrive as collections through `import_3dm` with `import_layers_as_empties=False`, each slot linked `OBJECT` to its layer material
 2. Rhino materials arrive through its `.glb` with display-encoded emission and no `doubleSided`, Blender reading their specular at half
-3. Blender objects reach Rhino as a `.glb` with collections as `Scene Collection::<collection>` layers
+3. Blender objects reach Rhino as a `.glb` with collections as `Scene Collection::<Collection>` layers
 
 ```python
 # [EXECUTE_BLENDER_CODE] Rhino glTF import with Rhino's specular, emission, and culling undone
@@ -80,7 +83,9 @@ result = {"status": sorted(bpy.ops.export_scene.gltf(filepath="<file>.glb", expo
 
 - `import_3dm` keeps base color, metallic, roughness, specular, IOR, transmission, emission, and alpha, and drops coat, sheen, and subsurface
 - `import_3dm` loads embedded images alone, reads data images as `sRGB`, and connects no normal image
-- Rhino names objects from a glTF after their meshes, the rename before export keeps the object names
+- Color textures exported from Rhino read with Rhino's own curve under the image color space `Gamma 2.2 Encoded Rec.709`
+- Normal maps read in the OpenGL convention in both applications, a texture set's `NormalGL` image
+- Rhino names objects from a glTF after their meshes, the rename before export keeping the object names
 - Rhino reads an unwritten default specular as 1.0 and alpha into base color, and reads no emission strength, sheen, or subsurface
 - File > Export > glTF takes the `Interchange` operator preset holding `export_format` `GLB` and `export_hierarchy_full_collections`
 
@@ -123,13 +128,18 @@ doc.saveas("<file>.dxf")
 result = {"insunits": doc.header["$INSUNITS"]}
 ```
 
-- Objects on no layer fail `import_3dm` with `KeyError`, each object takes `ObjectAttributes.LayerIndex`
-- Materials a `rhino3dm` file holds import as none, materials cross through `.glb`
+- Every object takes `ObjectAttributes.LayerIndex` of a layer the file holds, the layer `import_3dm` reads it onto
+- Materials cross through `.glb`, a material `rhino3dm` writes importing as none
 - `doc.units` sets `$INSUNITS`, the unit `cad2cube_dxf` reads
 
 ## [04]-[BATCH]
 
-`convert` imports each file into an empty factory scene with a world and exports it in a session, and the live session answers `LiveSession`:
+`convert` imports each file into an empty factory scene with a world and exports it, in a session:
+1. `headless.py start <file>.blend <name>`, then `call` of the snippet
+2. Compare each `Converted` `extent` with the source's stated size, `empty` naming meshes the exporter left out
+3. Name an importer in `options` for each `Operator` fault on a source, from the importers its `accepted` lists
+4. Read `convert.log` under the `---` line naming a source for its importer and exporter output, a refusal's message included
+5. `headless.py stop <name>`, the session holding the last converted scene untitled
 
 ```python
 # [HEADLESS_CALL] Files to glTF binary under .artifacts/blender/convert/<name>/, collections as Rhino layers
@@ -146,15 +156,10 @@ options = {
 result = as_result(convert("<name>", "export_scene.gltf", ("<dir>/<part>.step", "<dir>/<model>.obj", "<dir>/<model>.3dm", "<dir>/<plan>.dxf", "<dir>/<city>.json"), options=options))
 ```
 
-1. `headless.py start <scratch>.blend <name>`, then the snippet through `call`
-2. Read each `Converted` extent against the source's stated size, and `empty` for meshes the exporter left out
-3. Read `convert.log` under a `---` line naming a source for its importer and exporter output
-4. `headless.py stop <name>`
-
 - `options` maps an importer or exporter id to its keyword arguments, and an importer it names reads the files its filter covers
 - Files no filter covers take the one named importer no other file's filter matches (`wm.usd_import` for `.usdc`)
-- C importers read their filter's suffixes and Python importers their file handler's, `cad2cube_dxf` and `cityjson.import_file` read once named
-- `Converted` holds the importer, object count, `empty` mesh names, world extent in meters, and every file the exporter wrote
-- `convert.json` beside the outputs holds the batch, one case per file in input order, and each run clears the folder first
-- `NoImporter`, `AmbiguousImporter`, `SharedStem`, and `Failed` name files the batch skipped, every other file converts
-- `UnknownOperator` names ids of neither role and `UnknownOptions` properties an operator does not declare, and the batch runs no file
+- C importers read filter suffixes, Python importers file handler suffixes
+- Importers with no handler (`cad2cube_dxf`, `cityjson.import_file`, `landxml_tin`) read once named
+- Faults on one file leave every other file converting, and faults on the exporter or an option key run no file
+
+Use execution.md for the next step of each fault source.

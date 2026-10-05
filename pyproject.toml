@@ -1,7 +1,25 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
 [project]
 name = "rasm"
 version = "0.0.0"
-requires-python = ">=3.15"
+requires-python = ">=3.13"
+dependencies = [
+    "expression",                                         # Results, options, fault unions, and effect chains of every rasm package
+    "httpx2",                                             # HTTP of batch render targets and notices
+    "msgspec",                                            # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
+    "numpy",                                              # Arrays of image planes, previews, and analysis, bundled in Blender's Python
+    "opencolorio",                                        # Color processors, config authoring, and LUT bakes, bundled in Blender's Python as PyOpenColorIO
+    "openimageio; python_full_version < '3.15'",          # Image IO and analysis, bundled in Blender's Python as OpenImageIO, no cp315 wheel and the sdist omits the testsuite its CMake copies
+    "psdtags",                                            # Photoshop layer records of layered documents
+    "tifffile",                                           # Linear Raw DNG and the TIFF container of layered documents
+]
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
 
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 
@@ -12,28 +30,27 @@ workspace = [
     "apscheduler",                                        # Cron, interval, and date triggers
     "azure-identity",                                     # DefaultAzureCredential chain for Azure Key Vault secrets
     "azure-keyvault-secrets",                             # Azure Key Vault secret store
-    "beartype",
+    "beartype",                                           # Runtime type checks over annotations
     "cloudpickle",                                        # Kernel and closure transfer across process and subinterpreter boundaries
     "cryptography",                                       # AES-GCM envelope and key-wrap primitives for per-subject crypto-shredding
     "cyclopts",                                           # CLI parser from typed signatures
-    "expression",                                         # Result and Option types with railway composition
     "google-cloud-secret-manager",                        # Google Cloud Secret Manager secret store
-    "google-crc32c",                                      # CRC32C integrity check for Google Cloud secret payloads, no cp315 wheel, the sdist builds the pure implementation
+    "google-crc32c",                                      # CRC32C integrity check for Google Cloud secret payloads
     "hvac",                                               # HashiCorp Vault secret store
     "jinja2",                                             # Report templating for visual and document outputs
     "keyring",                                            # OS keychain credential store
     "lark",                                               # Parser generator for the CESQL filter, IDS, and selector grammars
     "loky",                                               # Reusable process pool with worker restart across process and subinterpreter boundaries
     "lxml",                                               # XML processing
-    "mcp",                                                # MCP client session over streamable HTTP to the Rhino document listener
+    "mcp",                                                # MCP client over streamable HTTP to the Rhino document listener
     "msgspec[yaml]",                                      # Struct types with JSON, MessagePack, TOML, and YAML codecs
-    "opentelemetry-api",
+    "opentelemetry-api",                                  # Trace, metric, and context API
     "opentelemetry-exporter-otlp-proto-grpc",             # OTLP gRPC exporter beside the proto-http default
-    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-exporter-otlp-proto-http",             # OTLP HTTP exporter, the default transport
     "opentelemetry-instrumentation-asgi",                 # ASGI middleware that emits server spans and extracts W3C context per Connect request
     "opentelemetry-instrumentation-asyncio",              # Trace-context propagation across coroutines, to_thread calls, and futures
     "opentelemetry-instrumentation-dbapi",                # PEP-249 wrap adapter for drivers without a dedicated instrumentor (duckdb, ADBC DBAPI)
-    "opentelemetry-instrumentation-httpx",                # httpx client spans with W3C trace context
+    "opentelemetry-instrumentation-httpx",                # httpx2 client spans with W3C trace context through HTTPX2ClientInstrumentor
     "opentelemetry-instrumentation-jinja2",               # Jinja template-render spans
     "opentelemetry-instrumentation-psycopg",              # psycopg 3 DBAPI spans
     "opentelemetry-instrumentation-sqlite3",              # sqlite3 DBAPI spans
@@ -41,11 +58,11 @@ workspace = [
     "opentelemetry-instrumentation-threading",            # Cross-thread trace-context propagation
     "opentelemetry-processor-baggage",                    # Baggage-to-span-attribute promotion for the tenant dimension
     "opentelemetry-resource-detector-containerid",        # container.id resource detector
-    "opentelemetry-sdk",
+    "opentelemetry-sdk",                                  # Tracer, meter, and logger providers with processors and samplers
     "opentelemetry-semantic-conventions",                 # Schema URL for telemetry
     "pebble",                                             # Worker kill at a terminal deadline and per-worker task recycling
-    "psutil",
-    "pydantic",
+    "psutil",                                             # Process and host resource readings
+    "pydantic",                                           # Validated models at settings and protocol boundaries
     "pydantic-settings",                                  # Settings models read from the environment and files
     "pygments",                                           # Lexer aliases and filename patterns, fence languages in prose.py
     "pyobjc-framework-Cocoa; sys_platform == 'darwin'",   # AppKit, Foundation, and CoreFoundation bindings for application instances and the main run loop
@@ -55,21 +72,20 @@ workspace = [
     "ruamel-yaml",                                        # Round-trip YAML with comments and layout kept
     "structlog",                                          # Structured logging with processors and typed events
     "tblib",                                              # Cross-process traceback fidelity for worker exceptions
-    "tomlkit",
+    "tomlkit",                                            # Round-trip TOML with comments and layout kept
     "wasmtime",                                           # In-process WASM guest sandbox for sandboxed workers
-    "watchfiles",
+    "watchfiles",                                         # File-change watching over the Rust notify backend
     "xxhash",                                             # Content identity hashes matching System.IO.Hashing in C#
     # --- [IO_TRANSPORT]
     "asyncssh",                                           # SSH and SFTP client for remote workers
     "brotli",                                             # Compression
     "cloudevents",                                        # CloudEvents attribute validation and HTTP, Kafka, AMQP, and RabbitMQ bindings
-    "confluent-kafka[schemaregistry,avro,json,protobuf]", # librdkafka client and Schema Registry serializers, msgspec supplies the JSON hooks
+    "confluent-kafka[avro,json,protobuf,schemaregistry]", # librdkafka client with Schema Registry Avro, JSON Schema, and Protobuf serdes, no cp315 wheel, the sdist builds against the newest librdkafka machine setup carries
     "connectrpc",                                         # Connect-Python service ABCs, ASGI applications, and typed clients for Connect, gRPC, and gRPC-Web over HTTP
     "detools",                                            # Binary-delta engine
-    "fastavro",                                           # Avro codec for Schema Registry serialization and .avsc validation
+    "fastavro",                                           # Avro codec and .avsc validation
     "fsspec",                                             # Filesystem resolution shared with UPath and blocking-read offload
-    "hishel[httpx]",                                      # RFC 9111 HTTP cache over httpx transports with a persistent sqlite store
-    "httpx<1",                                            # HTTP client, the 1.0 dev builds drop py.typed
+    "hishel[httpx2]",                                     # RFC 9111 HTTP cache over httpx2 transports with a persistent sqlite store
     "hypercorn",                                          # ASGI server with HTTP/2 and h2c for Connect gRPC and bidirectional streams, TCP and UNIX-socket binds
     "jsonschema",                                         # Validation of a document against a fetched JSON Schema
     "lz4",                                                # Compression
@@ -81,28 +97,28 @@ workspace = [
     "protobuf",                                           # google-protobuf message runtime beneath the Substrait plan IR and the ONNX model IR
     "protobuf-py",                                        # Buf runtime for generated _pb.py bindings, binary and JSON encoding, and descriptors
     "protovalidate",                                      # Descriptor rule evaluation at transport and document producer boundaries
-    "py7zr",
+    "py7zr",                                              # 7z archive read and write
     "python-dateutil",                                    # RFC 3339 isoparse for CloudEvents bindings and format readers
     "stream-unzip",                                       # Bounded-memory streaming unzip inverse for stream-zip
     "stream-zip",                                         # Bounded-memory streaming zip with ZIP64 and AES-256
     "universal-pathlib",                                  # UPath storage_options and protocol resolution over the fsspec registry
     "zlib-ng",                                            # zlib-ng and gzip-ng accelerated compression beside zstandard, lz4, and brotli
-    "zstandard",
+    "zstandard",                                          # Zstandard compression
     # --- [NUMERICS_SOLVERS]
     "array-api-compat",                                   # Array API portability shim
     "array-api-extra",                                    # Supplemental array API functions
     "clarabel",                                           # Clarabel conic solver, a cvxpy backend
-    "cvxpy<1.9",                                          # Disciplined convex optimization, 1.9 adds sparsediffpy and its OpenMP CMake build fails with no cp315 wheel
+    "cvxpy",                                              # Disciplined convex optimization
     "diffrax",                                            # JAX differential-equation solvers
     "equinox",                                            # JAX PyTree modules
     "findiff",                                            # Finite-difference operators for solvers and sensitivity
-    "gmsh; sys_platform != 'linux' or platform_machine != 'aarch64'", # Unstructured mesh generation with physical groups for scikit-fem assembly and the meshio round-trip, no linux aarch64 wheel
+    "gmsh; sys_platform != 'linux' or platform_machine != 'aarch64'", # Unstructured mesh generation with physical groups for scikit-fem assembly and the meshio round-trip, no linux aarch64 wheel or sdist
     "highspy",                                            # HiGHS LP, MIP, and QP solver, a cvxpy backend beside Clarabel and SCS
-    "jax",                                                # XLA accelerator, jaxlib publishes cp315 wheels from 0.11.1
+    "jax",                                                # XLA accelerator
     "jaxtyping",                                          # Array and PyTree shape and dtype contracts with beartype, jax-free at import
     "lineax",                                             # JAX linear solvers
     "mpmath",                                             # Arbitrary-precision real and complex math
-    "numpy>=2.5.2",                                       # N-dimensional array implementation, the first release with cp315 wheels, the Ladybug Tools bundles otherwise pin numpy 2.1
+    "numpy>=2.5.2",                                       # N-dimensional array implementation, the first release with cp315 wheels, honeybee-radiance-postprocess pins numpy 2.1.0 through lbt-recipes
     "optax",                                              # First-order JAX optimizers for optimistix
     "optimistix",                                         # JAX nonlinear solvers and adjoint VJP
     "pint",                                               # Unit registry and quantity arithmetic
@@ -116,19 +132,19 @@ workspace = [
     "sympy",                                              # Symbolic expressions beside the python-flint and mpmath ground domains
     "uncertainties",                                      # First-order error propagation with correlated values
     # --- [STATISTICS_ML]
-    "arviz<1",                                            # Bayesian diagnostics, pymc 5.28 declares arviz<1.0 and the locked 5.26 predates the cap, pymc 6 requires pytensor 3
+    "arviz<1",                                            # Bayesian diagnostics, pymc 5 reads the arviz 0 API and declares the cap only from 5.28
     "blackjax",                                           # JAX NUTS/HMC samplers
     "numpyro",                                            # JAX NUTS sampler
     "nutpie",                                             # Rust NUTS sampler for PyMC
     "onnx",                                               # Model graph IR
     "pyDOE3",                                             # Classical DOE design matrices (factorial, Box-Behnken, central-composite, Plackett-Burman, GSD) beside SALib and scipy.qmc
-    "pymc<5.27",                                          # Probabilistic programming, 5.27 requires pytensor 2.36, which requires numba, whose 0.63 prerelease and llvmlite publish no cp315 wheel
+    "pymc<5.28",                                          # Probabilistic programming, 5.28 onward admits pytensor 2.38.3 and 3.x, which cap numba below 0.68, the first numba with cp315 wheels
     "salib",                                              # Global sensitivity analysis
     "scikit-learn",                                       # Classical ML and ONNX export
     "skl2onnx",                                           # sklearn-to-ONNX converter
     # --- [DATAFRAMES_QUERY]
     "cubed",                                              # Bounded-memory distributed arrays
-    "daft",                                               # Distributed and streaming out-of-core query engine, 0.7 pins fsspec below the release s3fs 2026.7 needs
+    "daft",                                               # Distributed and streaming out-of-core query engine
     "dask",                                               # Out-of-core arrays and dataframes
     "dataframely",                                        # Polars-native declarative column rules with failure partition reporting
     "datafusion",                                         # Federation and streaming engine with Substrait plan interchange
@@ -153,7 +169,7 @@ workspace = [
     "arro3-io",                                           # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
     "deltalake",                                          # Lakehouse tables
     "nanoarrow",                                          # Arrow C Data Interface interop
-    "pyarrow<25",                                         # Arrow C++ bridge, without a cp315 wheel the sdist links the machine's Arrow C++, ceiling at its major
+    "pyarrow<25",                                         # Arrow C++ bridge, no cp315 wheel, the sdist builds against the Arrow C++ 24 machine setup carries
     "pyiceberg",                                          # Apache Iceberg tables
     "pylance",                                            # Lance columnar/vector format
     # --- [ARRAY_STORES]
@@ -171,7 +187,7 @@ workspace = [
     "geoarrow-pyarrow",                                   # GeoArrow ExtensionType registration for pyarrow and geopandas ExtensionDtype interop
     "geoarrow-rust-compute",                              # GeoRust operations on GeoArrow memory
     "geoarrow-rust-core",                                 # GeoArrow geometry array memory model under the GeoRust compute kernels
-    "geoarrow-rust-io; sys_platform != 'linux' or platform_machine != 'aarch64'", # GeoArrow FlatGeobuf, GeoParquet, shapefile, and GeoJSON IO without GDAL, the 0.3 abi3 wheels skip linux aarch64 and 0.4 onward publish per-interpreter wheels without cp315
+    "geoarrow-rust-io; sys_platform != 'linux' or platform_machine != 'aarch64'", # GeoArrow FlatGeobuf, GeoParquet, shapefile, and GeoJSON IO without GDAL, no sdist, the 0.3 abi3 wheels skip linux aarch64 and 0.4 onward publish per-interpreter wheels without cp315
     "geopandas",                                          # Geospatial frames
     "h3ronpy",                                            # Arrow-native H3 cell operations on polars frames
     "laspy",                                              # LAS and LAZ point-cloud IO
@@ -191,27 +207,27 @@ workspace = [
     "stac-geoparquet",                                    # STAC item GeoParquet table interchange
     "xvec",                                               # Vector data cubes with geometry-indexed xarray dimensions
     # --- [GEOMETRY_CAD]
-    "compas",
-    "compas_dr",
-    "compas_tna",
-    "manifold3d",
-    "meshio",
-    "rtree",
-    "small-gicp",
-    "trimesh",
+    "compas",                                             # COMPAS geometry, data, and datastructure core
+    "compas_dr",                                          # COMPAS dynamic relaxation form finding
+    "compas_tna",                                         # COMPAS thrust network analysis
+    "manifold3d",                                         # Manifold mesh booleans and offsets
+    "meshio",                                             # Mesh file IO across FEM and CAD formats
+    "rtree",                                              # R-tree spatial index over libspatialindex
+    "small-gicp",                                         # Point-cloud registration
+    "trimesh",                                            # Triangle mesh loading, repair, and queries
     # --- [BIM_ENERGY]
     "dragonfly-core",                                     # Dragonfly district and urban model object graph
     "dragonfly-energy",                                   # Dragonfly energy model aggregation and translation
     "honeybee-core",                                      # HBJSON base object model and validation companion
     "honeybee-energy",                                    # Honeybee energy model construction and simulation exchange
     "honeybee-energy-standards",                          # ASHRAE 90.1 and DOE prototype standards library (constructions, programs, schedules by identifier)
-    "honeybee-openstudio; sys_platform != 'win32'",      # Honeybee to OpenStudio and EnergyPlus translation, its openstudio pin publishes no win_amd64 cp315 wheel
+    "honeybee-openstudio; sys_platform != 'win32'",       # Honeybee to OpenStudio and EnergyPlus translation, its exact openstudio pin publishes no win_amd64 cp315 wheel or sdist
     "honeybee-standards",                                 # Baseline default construction/program/schedule standards for Honeybee energy models
     "ladybug-comfort",                                    # Comfort-model calculations
     "ladybug-core",                                       # Ladybug weather, units, analysis-period, and location primitives
     "ladybug-geometry",                                   # Ladybug planar and solid geometry primitives
-    "lbt-recipes<0.26.18",                                # Ladybug Tools recipe wrappers and simulation workflows, 0.26.18 pins pollination-handlers 0.10.11
-    "pollination-handlers<0.10.11",                       # Pollination job handler and recipe execution adapters, 0.10.11 requires lbt-dragonfly 0.11.682, whose honeybee-radiance-postprocess pins numpy below the cp315 wheels
+    "lbt-recipes",                                        # Ladybug Tools recipe wrappers and simulation workflows
+    "pollination-handlers",                               # Pollination job handler and recipe execution adapters
     "pvlib",                                              # Solar position and irradiance calculations
     "queenbee",                                           # Recipe and workflow schema contract models
     # --- [LCA]
@@ -224,24 +240,24 @@ workspace = [
     "olca-ipc",                                           # openLCA IPC client for foreground/background LCA interchange
     "openepd",                                            # OpenEPD declarations and PCR material-impact data
     # --- [PLOTTING_VIZ]
-    "altair",
+    "altair",                                             # Declarative Vega-Lite charts
     "great-tables",                                       # Display tables for documents
     "matplotlib",                                         # Plotting
     "vegafusion",                                         # Server-side Vega transform and pre-transform export
-    "vl-convert-python",
+    "vl-convert-python",                                  # Vega and Vega-Lite rendering to SVG, PNG, and PDF
     # --- [PDF]
     "ocrmypdf",                                           # OCR to PDF/A with sidecar text
     "pdf-oxide",                                          # Rust PDF extract, render, create, and forms (abi3)
     "pdfimpose",                                          # Press signatures, creep, cuts, and folds
     "pdfplumber",                                         # Ruled-table extraction over pdfminer.six
-    "pikepdf",
+    "pikepdf",                                            # PDF structure edits over qpdf
     "pyhanko",                                            # PDF digital signing and PAdES
-    "pymupdf",
-    "pypdf",
-    "pypdfium2",
-    "reportlab",
+    "pymupdf",                                            # PDF render, text extraction, and edits over MuPDF
+    "pypdf",                                              # Pure-Python PDF read, merge, and split
+    "pypdfium2",                                          # PDF rasterization over PDFium
+    "reportlab",                                          # Programmatic PDF drawing and layout
     "typst",                                              # Typst PDF typesetting
-    "weasyprint",
+    "weasyprint",                                         # HTML and CSS to PDF
     # --- [OFFICE_NOTEBOOKS]
     "docxtpl",                                            # Template-driven docx authoring
     "jupytext",                                           # Notebook round-trip text source
@@ -249,11 +265,11 @@ workspace = [
     "nbclient",                                           # Headless notebook execution client
     "nbconvert",                                          # Executed-notebook export to HTML and Markdown
     "odfpy",                                              # ODF write for OpenDocument text, spreadsheet, and presentation trees
-    "openpyxl",
+    "openpyxl",                                           # xlsx read and write with styles
     "papermill",                                          # Parameterized notebook runs
     "python-calamine",                                    # xlsx, xlsb, xls, and ods reader
-    "python-docx",
-    "python-pptx",
+    "python-docx",                                        # docx read and write
+    "python-pptx",                                        # pptx read and write
     "xlsxwriter",                                         # Streaming write-only xlsx
     # --- [IMAGING_MEDIA]
     "av",                                                 # PyAV video and audio mux and encode
@@ -261,19 +277,16 @@ workspace = [
     "openexr",                                            # Named-channel, multipart, and tiled EXR documents imagecodecs lacks
     "pillow",                                             # Image IO and WebP decoding
     "psd-tools",                                          # PSD read and pixel authoring
-    "psdtags",                                            # Photoshop TIFF image resources and layer source data
     "pysubs2",                                            # Subtitle parse, convert, retime, and restyle
     "pyvips",                                             # Fused decode, downscale, ICC, and smartcrop over libvips with HEVC, HEIF, JXL, and EXR
     "scikit-image",                                       # Image processing, its sdist builds through pythran
     "simpleidml",                                         # IDML package mutation and composition
-    "tifffile",                                           # TIFF container IO and extratag authoring
     # --- [TYPOGRAPHY_COLOR]
     "blackrenderer",                                      # COLRv1 color-glyph SVG rasterization
     "coloraide",                                          # oklch gamut mapping and CVD filters
     "colour-cxf",                                         # CxF3 spot/spectral color exchange
     "colour-science",                                     # CIE, spectral, and appearance color models
     "fonttools",                                          # Font subsetting, instancing, and shaping metadata
-    "opencolorio",                                        # OCIO config, colorspace, and CPU/GPU processor transforms over the ACES scene-linear working space
     "opentype-feature-freezer",                           # Freeze OpenType features into the default glyph set
     "PyICU",                                              # ICU line breaking, bidirectional text, and collation, built from its sdist against machine ICU
     "pyphen",                                             # Language-aware hyphenation dictionaries
@@ -290,7 +303,7 @@ workspace = [
     "igraph",                                             # Leiden, Louvain, and Infomap community detection
     "kiwisolver",                                         # Cassowary constraint layout
     "latex2mathml",                                       # LaTeX-to-MathML front end for ziamath
-    "networkx",
+    "networkx",                                           # Graph structures and algorithms
     "pyelk",                                              # ELK layered and orthogonal diagram layout with ports and nesting
     "resvg-py",                                           # In-process SVG-to-PNG rasterization over resvg
     "rustworkx",                                          # Graph algorithms
@@ -309,62 +322,61 @@ workspace = [
     "zxing-cpp",                                          # 2D matrix codes encode and decode
 ]
 dev = [
-    "annotated-types",                                    # Typed constraint metadata pydantic consumes
     "anyio",                                              # Structured concurrency for the interface, yak installer, and tests, a required pytest plugin
+    "asyncssh",                                           # SSH server double in the test environment fixture
     "attrs",                                              # Frozen records use-blender skill scripts and interface Blender scripts declare, bundled in Blender's Python
-    "brotli-stubs",
+    "brotli-stubs",                                       # Stubs for brotli
     "cattrs",                                             # JSON converter over attrs records use-blender skill scripts and interface Blender scripts call, bundled in Blender's Python
-    "coverage",
+    "coverage",                                           # Coverage engine pytest-cov drives, configured by [tool.coverage]
     "cyclopts",                                           # CLI parser of the interface command
-    "dirty-equals",
     "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
     "fake-bpy-module-latest",                             # bpy, bmesh, mathutils, and gpu stubs from Blender's main branch for skill scripts
+    "fsspec",                                             # Memory and directory filesystems in the test environment fixture
     "rhino-stubs-typed",                                  # RhinoCommon and Grasshopper stubs for the use-rhino skill scripts that run in Rhino's Python
-    "rhino3dm",                                           # openNURBS geometry and 3dm file IO, the sdist builds its extension with the cmake build dependency
-    "httpx",                                              # HTTP client for interface downloads and the test environment fixture
-    "hypothesis",
+    "rhino3dm",                                           # openNURBS geometry and 3dm file IO for the use-rhino file3dm script
+    "hypothesis",                                         # Property-based tests, a required pytest plugin
     "lxml",                                               # XML trees of Rhino settings and toolbar files and Adobe workspace files
     "mcp",                                                # MCP client for the applications' servers
-    "moto[server]",
+    "moto[server]",                                       # Threaded AWS server in the test environment fixture
     "msgspec[yaml]",                                      # Struct types with JSON, TOML, and YAML codecs for the interface, skill scripts, and test support
-    "mypy",
+    "mypy",                                               # Type checker rasm:typecheck runs
     "netstandard-stubs",                                  # .NET System stubs typed from .NET Standard 2.0 for the Rhino interface and use-rhino skill scripts
-    "numpy",                                              # Arrays Blender scripts and test assertions build, bundled in Blender's Python
+    "opentelemetry-api",                                  # Tracer access in the test runtime plugin
+    "opentelemetry-sdk",                                  # Tracer provider and span processor in the test runtime plugin
     "packaging",                                          # Wheel filename parsing in Blender extension panels, bundled in Blender's Python
+    "ruff",                                               # Linter and formatter rasm:lint and rasm:format run
+    "yamllint",                                           # YAML linter rasm:lint runs
+    "pandas-stubs",                                       # Stubs for pandas
     "psd-tools",                                          # Photoshop settings file action descriptors
     "psutil",                                             # Process lookup, termination, and readings for the interface, skill scripts, and benchmark fixture
     "pydantic",                                           # Model strategies in test support and the pydantic.mypy plugin
+    "pydantic-core",                                      # Core schema strategies in the test support
     "pyobjc-framework-Cocoa; sys_platform == 'darwin'",   # AppKit, Foundation, and CoreFoundation bindings for interface application instances
-    "ruff",
-    "yamllint",
-    "pandas-stubs",
-    "pytest",
-    "pytest-benchmark",
-    "pytest-cov",
-    "pytest-randomly",
-    "pytest-socket",
-    "pytest-timeout",
-    "pytest-xdist",
-    "s3fs>=2026.7",                                       # S3 filesystem for tests over moto, aiobotocore pins botocore and the resolver otherwise takes the 2020 release 0.4.2
-    "scipy-stubs",
+    "pytest",                                             # Test runner of every Python test target
+    "pytest-benchmark",                                   # Benchmark fixture, a required pytest plugin
+    "pytest-cov",                                         # Coverage collection, a required pytest plugin
+    "pytest-randomly",                                    # Random test order and seeds, a required pytest plugin
+    "pytest-socket",                                      # Socket blocking, a required pytest plugin
+    "pytest-timeout",                                     # Per-test timeout, a required pytest plugin
+    "pytest-xdist",                                       # Parallel test workers, a required pytest plugin
+    "s3fs>=2026.7",                                       # S3 filesystem for tests over moto, aiobotocore caps botocore below the boto3 moto takes and the resolver otherwise falls to 0.4.2
+    "scipy-stubs",                                        # Stubs for scipy
     "sniffio",                                            # Asynchronous runtime detection for the test environment fixture
+    "structlog",                                          # Log capture in the test runtime plugin
     "trio",                                               # AnyIO Trio backend with the autojumping clock for the test doubles
-    "ty",
-    "types-geopandas",
-    "types-lxml",
-    "types-networkx",
-    "types-openpyxl",
-    "types-protobuf",
-    "types-psutil",
-    "types-pygments",
-    "types-pyphen",
-    "types-regex",
-    "types-reportlab",
-    "types-shapely",
+    "ty",                                                 # Type checker rasm:typecheck runs
+    "types-geopandas",                                    # Stubs for geopandas
+    "types-lxml",                                         # Stubs for lxml
+    "types-networkx",                                     # Stubs for networkx
+    "types-openpyxl",                                     # Stubs for openpyxl
+    "types-protobuf",                                     # Stubs for protobuf
+    "types-psutil",                                       # Stubs for psutil
+    "types-pygments",                                     # Stubs for pygments
+    "types-pyphen",                                       # Stubs for pyphen
+    "types-regex",                                        # Stubs for regex
+    "types-reportlab",                                    # Stubs for reportlab
+    "types-shapely",                                      # Stubs for shapely
     "wcwidth",                                            # Display width of text with wide, combining, and emoji characters
-]
-mcp = [
-    "blender-mcp",                                        # Blender Lab MCP server from the [tool.uv.sources] git row, PyPI holds the community server under this name
 ]
 
 # --- [UV] -------------------------------------------------------------------------------
@@ -377,31 +389,20 @@ environments = [
     "sys_platform == 'linux' and platform_machine == 'aarch64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
-required-environments = [
-    "sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "sys_platform == 'win32' and platform_machine == 'AMD64'",
-]
+dependency-groups = { workspace = { requires-python = ">=3.15" }, dev = { requires-python = ">=3.15" } }
 prerelease = "allow"
-prerelease-package = { confluent-kafka = "disallow" }     # Prereleases compile against the unreleased librdkafka line, machine setup carries its stable line
-python-preference = "only-system"
 exclude-dependencies = ["dotnet-stubs"]                   # Untyped System-stubs on the same path as netstandard-stubs, rhino-stubs-typed requires both
-workspace = { members = ["tests/python/support", "tools/interface"] }
-sources = { blender-mcp = { git = "https://projects.blender.org/lab/blender_mcp.git", subdirectory = "mcp" } }
-extra-build-variables = { manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }, opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" } }
-extra-build-dependencies = { pyroscope-io = ["cmake"], rhino3dm = ["cmake"] }
-dependency-metadata = [                                   # Upstream metadata capped below the interpreter version, restated without the cap and without unrequested extras
-    { name = "colour-cxf", version = "0.1.1", requires-python = ">=3.10", requires-dist = ["typing-extensions<5,>=4", "xsdata>25.4"] },
-    { name = "colour-science", version = "0.4.7", requires-python = ">=3.11", requires-dist = ["numpy<3,>=2.0.0"] },
-    { name = "pytensor", version = "2.35.1", requires-python = ">=3.11", requires-dist = ["setuptools>=59.0.0", "scipy<2,>=1", "numpy>=2.0", "filelock>=3.15", "etuples", "logical-unification", "miniKanren", "cons"] },
-    { name = "substrait", version = "0.34.0", requires-python = ">=3.10", requires-dist = ["protobuf<7,>=5", "substrait-protobuf==0.99.0", "substrait-extensions==0.99.0", "substrait-antlr==0.99.0; extra == 'extensions'", "pyyaml; extra == 'extensions'"], provides-extras = ["extensions"] },
-]
+workspace = { members = ["tools/interface"] }
+override-dependencies = ["truststore @ git+https://github.com/sethmlarson/truststore.git@8d19b4d3dea6d28003886a5b254f0ce8ce66eeb3"] # httpx2 verifies through truststore, whose released 0.10.4 races concurrent handshakes on one SSL context in wrap_bio, fixed upstream after the release
+extra-build-variables = { manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }, opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" } } # manifold3d's sdist enables MANIFOLD_PAR without the builtin TBB its wheel builds set, opencolorio's setup.py builds the command-line apps
+extra-build-dependencies = { pyroscope-io = ["cmake"], rhino3dm = ["cmake"] } # pyroscope-io's build.rs and rhino3dm's setup.py run cmake, neither sdist declares it
+build-backend = { module-name = "rasm", module-root = "libs/python", namespace = true }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
 preview = true
+target-version = "py315"
 line-length = 200
 src = [".", "libs/python", "tools"]
 per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313", ".claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py" = "py313", "tools/interface/{roles,report,units,render,aliases,frame}.py" = "py313", "tools/interface/rhino/{window,markup}.py" = "py313", "tools/interface/blender/rows.py" = "py313", "tools/interface/*/script/**/*.py" = "py313", "tools/interface/blender/extension/**/*.py" = "py313" }
@@ -473,7 +474,8 @@ require-lazy = [
 "contextlib.suppress".msg =          "Return an expression.Result from the suppressed call"
 "dataclasses.dataclass".msg =        "Declare a frozen msgspec.Struct, or an attrs.frozen class where the interpreter lacks msgspec"
 "dataclasses.make_dataclass".msg =   "Declare a frozen msgspec.Struct, or an attrs.frozen class where the interpreter lacks msgspec"
-"http.client".msg =                  "Use httpx.Client or httpx.AsyncClient"
+"http.client".msg =                  "Use httpx2.Client or httpx2.AsyncClient"
+"httpx".msg =                        "Use httpx2.Client or httpx2.AsyncClient"
 "json.JSONDecoder".msg =             "Use msgspec.json.decode with type=, or the cattrs JSON converter where the interpreter lacks msgspec"
 "json.JSONEncoder".msg =             "Use msgspec.json.encode, or the cattrs JSON converter where the interpreter lacks msgspec"
 "json.decoder.JSONDecoder".msg =     "Use msgspec.json.decode with type=, or the cattrs JSON converter where the interpreter lacks msgspec"
@@ -482,13 +484,13 @@ require-lazy = [
 "json.encoder.JSONEncoder".msg =     "Use msgspec.json.encode, or the cattrs JSON converter where the interpreter lacks msgspec"
 "json.load".msg =                    "Use msgspec.json.decode with type=, or the cattrs JSON converter where the interpreter lacks msgspec"
 "json.loads".msg =                   "Use msgspec.json.decode with type=, or the cattrs JSON converter where the interpreter lacks msgspec"
-"requests".msg =                     "Use httpx.Client or httpx.AsyncClient"
+"requests".msg =                     "Use httpx2.Client or httpx2.AsyncClient"
 "time.sleep".msg =                   "Use await anyio.sleep"
 "typing.NamedTuple".msg =            "Declare a frozen msgspec.Struct, or an attrs.frozen class where the interpreter lacks msgspec"
 "typing_extensions.NamedTuple".msg = "Declare a frozen msgspec.Struct, or an attrs.frozen class where the interpreter lacks msgspec"
 "typing_extensions.deprecated".msg = "Delete the replaced API"
-"urllib.request".msg =               "Use httpx.Client or httpx.AsyncClient"
-"urllib3".msg =                      "Use httpx.Client or httpx.AsyncClient"
+"urllib.request".msg =               "Use httpx2.Client or httpx2.AsyncClient"
+"urllib3".msg =                      "Use httpx2.Client or httpx2.AsyncClient"
 "warnings.deprecated".msg =          "Delete the replaced API"
 "warnings.warn".msg =                "Return an expression.Result for an expected failure"
 "warnings.warn_explicit".msg =       "Return an expression.Result for an expected failure"
@@ -496,8 +498,8 @@ require-lazy = [
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-environment = { python-platform = "all", root = [".", "libs/python", "tools"] }
-analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "PyObjCTools", "PyObjCTools.**"] }
+environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python", "tools"] }
+analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "PyObjCTools"] }
 rules = { all = "error", dynamic-function-decorator-return = "ignore", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
 overrides = [{ include = ["tools/interface/rhino"], rules = { call-non-callable = "ignore", too-many-positional-arguments = "ignore" } }]
 
@@ -519,10 +521,13 @@ enable_error_code = ["exhaustive-match", "explicit-override", "ignore-without-co
 overrides = [
     { module = "tests.*", disallow_any_explicit = false, disallow_any_unimported = false, warn_unreachable = false, disable_error_code = ["arg-type"] },
     { module = ["fsspec", "fsspec.*", "s3fs"], ignore_missing_imports = true },
-    { module = ["AppKit", "CoreFoundation", "Foundation", "PyObjCTools", "PyObjCTools.*"], ignore_missing_imports = true },
+    { module = ["AppKit", "CoreFoundation", "Foundation", "PyObjCTools"], ignore_missing_imports = true },
     { module = "interface.host", disallow_any_unimported = false, disallow_subclassing_any = false },
     { module = "interface.rhino.*", disable_error_code = ["abstract", "call-arg", "type-abstract"] },
+    { module = ["OpenImageIO", "PyOpenColorIO", "_bpy"], ignore_missing_imports = true },
 ]
+
+# --- [PYDANTIC_MYPY]
 
 [tool.pydantic-mypy]
 init_typed = true

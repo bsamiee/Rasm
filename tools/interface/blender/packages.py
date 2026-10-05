@@ -10,7 +10,7 @@ from typing import Annotated, Final
 import zipfile
 
 import anyio
-import httpx
+import httpx2
 import msgspec
 from pydantic import BaseModel, Field, FilePath
 
@@ -436,7 +436,7 @@ async def look_development(host: Host) -> tuple[Change | Error, ...]:
     if await anyio.Path(LOOK_DEVELOPMENT).exists():
         return ()
     folder = LOOK_DEVELOPMENT.parent
-    url = str(httpx.URL("https://ambientcg.com/get", params={"file": f"{folder.name}.zip"}))
+    url = str(httpx2.URL("https://ambientcg.com/get", params={"file": f"{folder.name}.zip"}))
     async with anyio.TemporaryDirectory() as temporary:
         if isinstance(archive := await downloaded(host.client, url, Path(temporary, f"{folder.name}.zip")), Error):
             return (archive,)

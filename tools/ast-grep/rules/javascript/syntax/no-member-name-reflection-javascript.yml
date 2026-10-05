@@ -8,16 +8,21 @@ utils:
         regex: '^[''"][a-z][A-Za-z0-9]*[''"]$'
     fixable-name:
         matches: member-name
-        not: {regex: '^.(break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|false|finally|for|function|if|import|in|instanceof|new|null|return|super|switch|this|throw|true|try|typeof|var|void|while|with).$'}
+        not:
+            regex: |-
+                (?x)^.(abstract|boolean|break|byte|case|catch|char|class|const|continue|debugger|default|delete|do|double|else|enum
+                |export|extends|false|final|finally|float|for|function|goto|if|implements|import|in|instanceof|int|interface|long
+                |native|new|null|package|private|protected|public|return|short|static|super|switch|synchronized|this|throw|throws
+                |transient|true|try|typeof|var|void|volatile|while|with).$
     list-method:
         kind: call_expression
-        has: {field: function, kind: member_expression, has: {field: property, regex: '^(slice|filter|reverse|sort)$'}}
+        has: {field: function, kind: member_expression, has: {field: property, regex: '^(slice|reverse|sort)$'}}
     list-literal:
         any:
             - kind: array
               all:
-                - not: {has: {pattern: $_, not: {any: [{matches: member-name}, {kind: comment}, {kind: spread_element, has: {matches: list-literal}}]}}}
-                - has: {any: [{matches: member-name}, {kind: spread_element}]}
+                - not: {has: {pattern: $_, not: {any: [{matches: member-name}, {kind: comment}]}}}
+                - has: {matches: member-name}
             - kind: object
               all:
                 - not: {has: {pattern: $_, not: {any: [{kind: pair, has: {field: value, matches: list-literal}}, {kind: comment}]}}}
@@ -44,10 +49,6 @@ utils:
         has: {field: object, matches: list-binding}
     list-copy:
         any:
-            - kind: array
-              all:
-                - not: {has: {pattern: $_, not: {any: [{matches: member-name}, {kind: comment}, {kind: spread_element, has: {any: [{matches: list-literal}, {matches: list-binding}, {matches: list-member}]}}]}}}
-                - has: {kind: spread_element}
             - matches: list-method
               has: {field: function, has: {field: object, any: [{matches: list-binding}, {matches: list-member}]}}
             - kind: call_expression
@@ -106,27 +107,11 @@ utils:
             all:
                 - has: {field: left, pattern: $KEY}
                 - has: {field: right, any: [{matches: key-table}, {matches: key-table-binding}]}
-    callback-name:
-        kind: identifier
-        pattern: $ITEM
-        inside:
-            kind: 'function_expression, arrow_function'
-            stopBy: end
-            all:
-                - any:
-                    - has: {field: parameter, kind: identifier, pattern: $ITEM}
-                    - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ITEM}}
-                - inside:
-                    kind: arguments
-                    inside:
-                        kind: call_expression
-                        has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(forEach|map|filter|some|every|find|flatMap)$'}}, {has: {field: object, matches: list-value}}]}
     name-value:
         any:
             - matches: element
             - matches: element-alias
             - matches: table-key
-            - matches: callback-name
             - matches: {javascript-call-bound-parameter: {value: {any: [{matches: member-name}, {matches: element-direct}]}}}
     literal-table:
         pattern: $OWNER

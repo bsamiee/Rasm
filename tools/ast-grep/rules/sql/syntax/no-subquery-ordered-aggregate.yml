@@ -3,54 +3,72 @@ id: no-subquery-ordered-aggregate
 language: sql
 severity: error
 utils:
-    ordered-aggregate:
-        kind: invocation
+    order-sensitive-aggregate:
+        kind: function_call
         all:
-            - has: {kind: object_reference, regex: '(?i)^(group_concat|string_agg|json_group_array|json_group_object|array_agg|list)$'}
-            - not: {has: {kind: 'order_by, filter_expression'}}
-            - not: {inside: {kind: window_function}}
+            - has: {field: name, regex: '(?i)^(group_concat|string_agg|json_group_array|json_group_object|jsonb_group_array|jsonb_group_object|array_agg|list|first|last)$'}
+            - has: {field: arguments, kind: normal_function_arguments, not: {has: {kind: order_by_clause}}}
+            - not: {has: {field: over, kind: over_clause}}
     ordered-subquery:
-        kind: subquery
+        kind: select_clause
         all:
+            - has: {field: order_by, pattern: _ORDER}
+            - not: {has: {field: limit, kind: limit_clause}}
+    unwrappable:
+        matches: ordered-subquery
+        all:
+            - not: {has: {field: modifier, regex: '(?i)^distinct$'}}
             - has:
-                kind: select
-                all:
-                    - not: {has: {kind: keyword_distinct}}
-                    - has: {kind: select_expression, not: {has: {kind: term, any: [{has: {field: alias, kind: identifier}}, {not: {has: {field: value, kind: 'field, all_fields'}}}]}}}
+                field: columns
+                not:
+                    has:
+                        kind: expression_result_column
+                        any: [{has: {field: alias, regex: '.'}}, {not: {has: {field: expression, kind: column_reference}}}]
             - has:
-                kind: from
+                field: from
                 all:
-                    - has: {kind: relation, has: {kind: object_reference, pattern: _TABLE}}
-                    - has: {kind: order_by, pattern: _ORDER}
-                    - not: {has: {kind: 'join, where, group_by, limit'}}
+                    - has: {field: source, has: {kind: qualified_table_name, pattern: _TABLE}}
+                    - not: {has: {field: join, kind: join_step}}
+            - not: {has: {field: where, kind: where_clause}}
+            - not: {has: {field: group_by, kind: group_by_clause}}
 rule:
-    kind: 'statement, subquery, create_query'
+    kind: select_statement, select_clause
     pattern: _QUERY
     all:
-        - has: {kind: select, has: {kind: select_expression, has: {kind: term, has: {field: value, matches: ordered-aggregate, pattern: _AGGREGATE}}}}
-        - has:
-            kind: from
-            all:
-                - has: {kind: relation, has: {matches: ordered-subquery, pattern: _SUBQUERY}}
-                - not: {has: {kind: join}}
+        - has: {field: columns, has: {matches: order-sensitive-aggregate, stopBy: {kind: select_clause}, pattern: _AGGREGATE}}
+        - has: {field: from, has: {kind: table_or_subquery, stopBy: {kind: select_clause}, has: {matches: ordered-subquery, pattern: _SUBQUERY}}}
+        - any:
+            - pattern: _FIXABLE
+              has:
+                field: from
+                all:
+                    - has: {field: source, has: {matches: unwrappable, pattern: _SUBQUERY}}
+                    - not: {has: {field: join, kind: join_step}}
+            - pattern: _KEPT
 rewriters:
     - id: ordered
       rule:
-        matches: ordered-aggregate
-        pattern: {context: 'select _NAME(___ARGUMENTS)', selector: invocation}
+        kind: normal_function_arguments
+        pattern: _ARGUMENTS
         inside:
-            kind: term
+            field: arguments
+            matches: order-sensitive-aggregate
             inside:
-                kind: select_expression
-                inside:
-                    kind: select
-                    inside: {has: {kind: from, has: {kind: relation, has: {pattern: _SUBQUERY}}}}
-      fix: $NAME($$$ARGUMENTS $ORDER)
+                kind: result_column_list
+                stopBy: {kind: select_clause}
+                inside: {has: {field: from, has: {field: source, has: {matches: unwrappable}}}}
+      fix: $ARGUMENTS $ORDER
     - id: unwrapped
-      rule: {pattern: _SUBQUERY}
-      fix: $TABLE
+      rule:
+        kind: table_or_subquery
+        all:
+            - has: {matches: unwrappable}
+            - any: [{has: {field: alias, pattern: _ALIAS}}, {not: {has: {field: alias, kind: identifier}}}]
+      transform:
+        ALIASED: {replace: {source: $ALIAS, replace: '^(.+)$', by: ' $1'}}
+      fix: $TABLE$ALIASED
 transform:
-    FIXED: {rewrite: {source: $QUERY, rewriters: [ordered, unwrapped]}}
-fix: $FIXED
-message: '`$AGGREGATE` reads rows in the order `$SUBQUERY` sets, an order the aggregate does not keep'
-note: 'Move the `order by` into the call as `<aggregate>(<value>, <separator> order by <key>)` over the table, the one order SQLite and DuckDB apply to an aggregate'
+    FIXED: {rewrite: {source: $FIXABLE, rewriters: [ordered, unwrapped]}}
+fix: $FIXED$KEPT
+message: '`$AGGREGATE` reads rows in an order `$SUBQUERY` sets and the aggregate does not keep'
+note: 'Move `order by` from subquery into aggregate call as `<aggregate>(<arguments> order by <key>)`, SQLite and DuckDB order aggregate input by an in-call `order by` alone'

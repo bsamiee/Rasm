@@ -173,7 +173,7 @@ def declared_scenes(scene: bpy.types.Scene, launch: Launch) -> tuple[tuple[str, 
     light, collection = subscript("objects", sun(scene).name), subscript("collection.children", Annotation.NAME)
     ground, far = subscript("objects", GROUND), max(units.far for units in Units)
     diffuse = subscript(f"{ground}.active_material.node_tree.nodes", typed_node(bpy.data.materials[GROUND].node_tree.nodes, "BSDF_DIFFUSE").name)
-    (width, height), fps = FRAME_SIZE, 24
+    (width, height), fps, video_bitrate = FRAME_SIZE, 24, 6000
     dither_lsb, lsb_per_intensity, light_threshold = 1.0, 255 * 0.0033, 0.05
     direct_clamp, indirect_clamp = (clamp / 2**EXPOSURE for clamp in (DIRECT_CLAMP, INDIRECT_CLAMP))
 
@@ -209,6 +209,7 @@ def declared_scenes(scene: bpy.types.Scene, launch: Launch) -> tuple[tuple[str, 
         "render.ppm_base": Length.INCHES,
         "render.dither_intensity": dither_lsb / lsb_per_intensity,
         "render.image_settings.color_depth": "16",
+        "render.ffmpeg.video_bitrate": video_bitrate,
         "render.ffmpeg.format": "MPEG4",
         "render.ffmpeg.codec": "H264",
         "render.ffmpeg.constant_rate_factor": "HIGH",
@@ -278,6 +279,7 @@ def declared_scenes(scene: bpy.types.Scene, launch: Launch) -> tuple[tuple[str, 
         f"{ground}.scale": (far, far, 1.0),
         f"{ground}.hide_select": True,
         f"{ground}.display_type": "WIRE",
+        f"{ground}.lineart.usage": "NO_INTERSECTION",
         f'{diffuse}.inputs["Color"].default_value': (GROUND_ALBEDO, GROUND_ALBEDO, GROUND_ALBEDO, 1.0),
         "camera.location": (Vector((0.0, 0.0, EYE_HEIGHT)) - PLAN_DISTANCE * north)[:],
         "camera.rotation_euler": north.to_track_quat("-Z", "Y").to_euler()[:],

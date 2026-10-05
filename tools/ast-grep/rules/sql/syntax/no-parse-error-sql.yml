@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parse-error-sql
+language: sql
+severity: error
+utils:
+    star-exclude:
+        kind: ERROR
+        regex: '\*$'
+        has: {stopBy: end, kind: 'star_result_column, qualified_star_result_column'}
+        precedes: {kind: result_column_list, regex: '(?i)^exclude\s*\('}
+    table-macro:
+        kind: ERROR
+        regex: '(?i)^create\s+(or\s+replace\s+)?(temp(orary)?\s+)?macro\s+\w+\s*\([^)]*\)\s+as\s+table$'
+        inside: {kind: source_file}
+    double-colon-cast:
+        kind: ERROR
+        any:
+            - {regex: '^::[A-Za-z_]\w*$', has: {kind: bind_parameter}}
+            - {regex: '[^:\s]:$', has: {kind: ERROR, regex: '^:$'}, precedes: {regex: '^:[A-Za-z_]'}}
+    struct-literal:
+        kind: ERROR
+        regex: '^(\{\s*)?\w*\s*:|^\}$'
+        inside:
+            stopBy: {kind: table_or_subquery}
+            kind: table_or_subquery
+            has: {stopBy: end, kind: ERROR, regex: '^\{'}
+    unreported:
+        any:
+            - inside: {kind: ERROR, stopBy: end}
+            - matches: star-exclude
+            - matches: table-macro
+            - matches: double-colon-cast
+            - matches: struct-literal
+rule:
+    any:
+        - kind: ERROR
+          not: {matches: unreported}
+        - kind: source_file
+          has: {stopBy: end, pattern: __MISSING, regex: '^$', not: {matches: unreported}}
+labels:
+    MISSING: {style: primary, message: Token the grammar inserted to recover}
+message: Grammar failed to parse the span
+note: >-
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-sqlite3 grammar gaps are the DuckDB forms `* exclude (...)`, `create macro ... as table`, `::type` casts, and struct literals `{key: value}` in a table function

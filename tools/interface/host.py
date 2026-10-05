@@ -1,6 +1,6 @@
 """Host side every application's run shares: the facts and environment it reads, the bundle, processes, and instances it drives, the report it decodes, and the outcome it returns."""
 
-from collections.abc import AsyncIterator, Callable, Mapping, Sequence
+from collections.abc import AsyncGenerator, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
@@ -15,7 +15,7 @@ import anyio
 from AppKit import NSRunningApplication, NSWorkspace, NSWorkspaceOpenConfiguration
 from CoreFoundation import CFRunLoopGetMain, CFRunLoopPerformBlock, CFRunLoopWakeUp, kCFRunLoopCommonModes
 from Foundation import NSDictionary, NSError, NSKeyValueChangeNewKey, NSKeyValueObservingOptionInitial, NSKeyValueObservingOptionNew, NSObject, NSURL
-import httpx
+import httpx2
 import msgspec
 import psutil
 from pydantic import BaseModel, DirectoryPath, Field, ValidationError
@@ -45,7 +45,7 @@ class Host(msgspec.Struct, frozen=True):
     root: Path
     environ: Mapping[str, str]
     units: Units
-    client: httpx.AsyncClient
+    client: httpx2.AsyncClient
 
     @property
     def artifacts(self) -> Path:
@@ -325,7 +325,7 @@ async def quitted(instances: Sequence[NSRunningApplication]) -> tuple[str, ...]:
 
 
 @asynccontextmanager
-async def reopened(application: Bundle, discovered: Sequence[NSRunningApplication], *files: str, arguments: Sequence[str] = ()) -> AsyncIterator[None]:
+async def reopened(application: Bundle, discovered: Sequence[NSRunningApplication], *files: str, arguments: Sequence[str] = ()) -> AsyncGenerator[None]:
     """Scope that opens the files in the bundle's instance at its exit, cancellation included, when an instance ran at discovery."""
     try:
         yield
@@ -336,7 +336,7 @@ async def reopened(application: Bundle, discovered: Sequence[NSRunningApplicatio
 
 
 # --- [NETWORK]
-async def downloaded(client: httpx.AsyncClient, url: str, target: Path) -> Path | Error:
+async def downloaded(client: httpx2.AsyncClient, url: str, target: Path) -> Path | Error:
     """Target holding the address's response body, streamed into a part file beside it and moved into place, or the failed request."""
     part = anyio.Path(target.with_name(f"{target.name}.part"))
     await part.parent.mkdir(parents=True, exist_ok=True)
@@ -345,17 +345,17 @@ async def downloaded(client: httpx.AsyncClient, url: str, target: Path) -> Path 
             response.raise_for_status()
             async for chunk in response.aiter_bytes():
                 await sink.write(chunk)
-    except httpx.HTTPError as error:
+    except httpx2.HTTPError as error:
         await part.unlink(missing_ok=True)
         return Error(f"GET {url} failed with {error!r}")
     return Path(await part.replace(target))
 
 
-async def fetched[T](client: httpx.AsyncClient, url: str, kind: type[T]) -> T | Error:
+async def fetched[T](client: httpx2.AsyncClient, url: str, kind: type[T]) -> T | Error:
     """JSON body at the address decoded as the type, or the failed request."""
     try:
         return msgspec.json.decode((await client.get(url)).raise_for_status().content, type=kind)
-    except httpx.HTTPError as error:
+    except httpx2.HTTPError as error:
         return Error(f"GET {url} failed with {error!r}")
 
 

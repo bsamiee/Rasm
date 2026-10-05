@@ -4,33 +4,35 @@ language: tsx
 severity: error
 utils:
     literal-tree:
-        any: [{kind: object}, {kind: array}, {kind: string}, {kind: number}, {kind: 'true'}, {kind: 'false'}, {kind: 'null'}, {kind: template_string}]
+        any:
+            - kind: 'object, array, string, number, true, false, null, undefined, template_string, unary_expression, regex'
+            - matches: syntax-expression-wrapper
         not:
             has:
                 stopBy: end
-                any:
-                    - {kind: identifier}
-                    - {kind: shorthand_property_identifier}
-                    - {kind: call_expression}
-                    - {kind: new_expression}
-                    - {kind: member_expression}
-                    - {kind: subscript_expression}
-                    - {kind: spread_element}
-                    - {kind: template_substitution}
-                    - {kind: arrow_function}
-                    - {kind: function_expression}
-                    - {kind: comment}
+                kind: |-
+                    identifier, shorthand_property_identifier, this, call_expression, new_expression, member_expression, subscript_expression,
+                    spread_element, template_substitution, arrow_function, function_expression, await_expression, yield_expression,
+                    assignment_expression, augmented_assignment_expression, update_expression
+    codec:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, pattern: $FN, regex: '^(decode|encode)(Unknown)?(Sync|Exit|Option|Result|Effect|Promise)$'}
+                - has: {field: object, pattern: $M, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: call_expression, pattern: $M.$FN($$$_)}
-        - has:
-            field: function
-            has:
-                field: function
-                all:
-                    - has: {field: property, regex: '^(decode|encode)(Unknown)?Sync$'}
-                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
         - has: {field: arguments, has: {nthChild: 1, matches: literal-tree}}
-message: '`$M.$FN` decodes a literal that never varies'
-note: 'Spell the value `Schema.<operation>Sync` produces with `Option.none()` per optional key, a decode of a constant checks nothing at run time'
+        - any:
+            - has: {field: function, matches: codec}
+            - all:
+                - has: {field: function, kind: identifier, pattern: $CODEC}
+                - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $CODEC}}, {has: {field: value, matches: codec}}]}}
+            - all:
+                - has: {field: function, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}}
+                - has: {field: arguments, has: {nthChild: 2, matches: codec}}
+message: '`$M.$FN` runs over a literal and checks nothing at run time'
+note: 'Write the `Schema.<operation>` output as a literal of its output type inside its result type''s success constructor'

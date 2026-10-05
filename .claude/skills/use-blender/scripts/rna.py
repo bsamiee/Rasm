@@ -1,5 +1,5 @@
-# mypy: disable-error-code="import-not-found, unreachable, attr-defined"
-# ty: ignore[unresolved-import, not-iterable, unresolved-attribute]
+# ty: ignore[not-iterable, unresolved-attribute, unresolved-import]
+# mypy: disable-error-code="attr-defined, unreachable"
 # ruff: file-ignore[import-private-name]
 """Stored RNA values of a struct as JSON and the function of every registered operator."""
 

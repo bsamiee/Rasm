@@ -160,7 +160,7 @@ def library_stamp() -> str | None:
 
 
 def written(scene: bpy.types.Scene, module: str, author: str, specimens: tuple[Specimen, ...], stamp: str) -> Iterator[float]:
-    """Mark each specimen as an asset in the planting catalog, render its preview under a new scene's factory color management, write the library with the stamp and the catalog file, then remove every data-block the build created."""
+    """Mark each specimen as an asset in the planting catalog, render its preview under a new scene's factory color management, write the library with the stamp and the planting catalogs beside every catalog the folder's file holds, then remove every data-block the build created."""
     catalogs = {path: str(uuid5(NAMESPACE_URL, path)) for path in accumulate(PLANTING.catalog.split("/"), lambda head, name: f"{head}/{name}")}
     fill = import_module(f"{module}.python_classes.mesh_utils").create_mesh_from_cpp
     meshes = tuple(bpy.data.meshes.new(specimen.species.name) for specimen in specimens)
@@ -181,7 +181,13 @@ def written(scene: bpy.types.Scene, module: str, author: str, specimens: tuple[S
     text.write(stamp)
     ASSETS.mkdir(parents=True, exist_ok=True)
     bpy.data.libraries.write(str(LIBRARY), {*targets, text}, fake_user=True)
-    (ASSETS / "blender_assets.cats.txt").write_text("".join(("VERSION 1\n", *(f"{identity}:{path}:{path.replace('/', '-')}\n" for path, identity in catalogs.items()))), encoding="utf-8")
+    definitions = ASSETS / "blender_assets.cats.txt"
+    try:
+        held = definitions.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        held = ["VERSION 1"]
+    planted = (f"{identity}:{path}:{path.replace('/', '-')}" for path, identity in catalogs.items())
+    definitions.write_text("".join(f"{entry}\n" for entry in dict.fromkeys((*held, *planted))), encoding="utf-8")
     bpy.data.batch_remove((*targets, *meshes, text, preview))
 
 

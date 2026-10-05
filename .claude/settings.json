@@ -176,7 +176,7 @@
         ],
         "PreToolUse": [
             {
-                "matcher": "^mcp__rhino-mcp-platform__(run_python|run_command|close_doc|save_doc|open_doc|get_viewport_image)$",
+                "matcher": "^mcp__rhino-mcp-platform__",
                 "hooks": [
                     {
                         "type": "command",
@@ -187,7 +187,7 @@
                 ]
             },
             {
-                "matcher": "^mcp__(blender|mcp-for-blender)__execute_blender_code$",
+                "matcher": "^mcp__(blender|mcp-for-blender)__",
                 "hooks": [
                     {
                         "type": "command",

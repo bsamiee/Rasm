@@ -1,10 +1,16 @@
-# ty: ignore[unresolved-import, too-many-positional-arguments, unsupported-operator, no-matching-overload]
-# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, no-any-return, attr-defined, call-arg, call-overload, type-abstract, operator"
+# ty: ignore[unresolved-import, no-matching-overload, unsupported-operator, too-many-positional-arguments]
+# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, no-any-return, call-overload, call-arg, type-abstract, operator"
 # /// script
 # dependencies = ["msgspec"]
 #
 # [tool.ty.environment]
 # extra-paths = ["."]
+#
+# [tool.ty.rules]
+# all = "error"
+# dynamic-function-decorator-return = "ignore"
+# unsound-assignment = "ignore"
+# unsound-return-statement = "ignore"
 # ///
 """Grasshopper 2 task documents held outside the editor, with builds, layout, values, solves, bakes, clusters, plugins, and pictures, imported after `g2_start`."""
 
@@ -32,7 +38,7 @@ from Grasshopper2.Types.Conversion import ConversionServer
 from Grasshopper2.UI import Editor, UiNumber
 from Grasshopper2.UI.Canvas import WireShape
 from Grasshopper2.UI.Flex import ControlGraphics
-from Grasshopper2.UI.Skinning import Shape
+from Grasshopper2.UI.Skinning import Fades
 from Grasshopper2.Undo import ActionList
 import msgspec
 from records import collect_faults, Fault, Faults, File, Record, Resolved
@@ -117,7 +123,7 @@ class Slider(Record, frozen=True):
 
 
 class Part(Record, frozen=True):
-    """Component or parameter part by proxy guid, a value list with `items`, or a script component with `script`."""
+    """Component or parameter part by proxy guid, a value list with `items`, or a script component with `script`, `name` the user name of a lone output outside a script."""
 
     key: str
     selector: str
@@ -258,7 +264,7 @@ def _modifiers(modifiers: Sequence[Modifier]) -> Resolved[Modifiers]:
 
 
 def _group(document: Document, doc: RhinoDoc, name: str, family: object, members: Sequence[IDocumentObject]) -> Resolved[GroupObject]:
-    """Add a named group of `members` pinned to `doc`'s unit system and absolute tolerance, or a fault per repeated member."""
+    """Add a named group of `members`, one holding a component pinned to `doc`'s unit system and absolute tolerance, or a fault per repeated member."""
     created = GroupObject()
     created.GroupColour, created.UserName = family, name
     if refused := collect_faults(*(Fault(GroupObject, str(member.InstanceId)) for member in members if not created.AddContent(member.InstanceId))):
@@ -267,16 +273,16 @@ def _group(document: Document, doc: RhinoDoc, name: str, family: object, members
     units, tolerance = UnitSystemPin(), AbsoluteTolerancePin()
     units.Set([UnitSystem(doc)])
     tolerance.Set([doc.ModelAbsoluteTolerance])
-    for index, pin in enumerate((units, tolerance)):
+    for index, pin in enumerate((units, tolerance) if any(isinstance(member, Component) for member in members) else ()):
         document.Objects.Add(pin, PointF(0.0, 0.0))
         Pins.Pin(pin, created, index, None)
     return created
 
 
 def _relaid(owner: GroupObject) -> GroupObject:
-    """Recompute a group's bounds around its current members."""
+    """Recompute a group's bounds around its current members in the editor skin's shape."""
     owner.Attributes.InvalidateLayout()
-    owner.Attributes.Layout(Shape.Default)
+    owner.Attributes.Layout(Editor.Instance.Canvas.Skin.Shape)
     return owner
 
 
@@ -392,8 +398,7 @@ def definition(path: str | None = None) -> Resolved[Document]:
 
 def close(document: Document) -> Resolved[str]:
     """Close a task document `definition` holds with its autosave deleted and unsaved edits discarded, and return its file."""
-    keys = [key for key, held in scriptcontext.sticky.items() if isinstance(held, Document) and held.Equals(document)]
-    if not keys:
+    if not (keys := [key for key, held in scriptcontext.sticky.items() if isinstance(held, Document) and held.Equals(document)]):
         return Faults.of(Fault(Document, document.File.Path))
     for key in keys:
         del scriptcontext.sticky[key]
@@ -450,7 +455,7 @@ def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Seq
     def scripted(emitted: IDocumentObject, part: Part, source: str) -> Resolved[IDocumentObject]:
         if not isinstance(emitted, BaseScriptComponent):
             return Faults.of(Fault(BaseScriptComponent, part.selector))
-        component = type(emitted.__implementation__).Create(part.name or part.key, source)
+        component = type(emitted.__implementation__).Create(part.key, source)
         component.Context.EnforceParamsOnCreate = False
         component.Context.InitLanguages(document, component.Context.GetLanguageSpec())
         component.MarshalInputs = component.MarshalOutputs = component.MarshalGuids = LanguageSpec.Python.Matches(component.Context.GetLanguageSpec())
@@ -499,13 +504,20 @@ def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Seq
     chains, chain_faults = _partition({(key, name): _modifiers(part.modifiers[name]) for (key, name), part in fields.items() if name in part.modifiers})
     persistent, value_faults = _partition({(key, name): _converted(ports[key, name], part.values[name]) for (key, name), part in fields.items() if name in part.values and (key, name) in ports})
     ends, end_faults = _ends(made | existing, wires)
-    if faults := collect_faults(repeated, object_faults, existing_faults, family_faults, port_faults, value_faults, chain_faults, end_faults):
+    labels, label_faults = _partition({
+        key: Faults.of(Fault(IScriptParameter, part.name, part.outputs))
+        if part.script is not None
+        else _port([output for output in _parameters(objects[key], Side.Output) if not isinstance(output, ConsoleOutParameter)], "")
+        for key, part in parts.items()
+        if isinstance(part, Part) and part.name is not None and key in objects
+    })
+    if faults := collect_faults(repeated, object_faults, existing_faults, family_faults, port_faults, value_faults, chain_faults, end_faults, label_faults):
         document.Methods.DeleteObjects(Array[IDocumentObject]([item for item in objects.values() if item.Document is not None]), None, ActionList.Empty)
         return faults
     for item in (item for item in objects.values() if item.Document is None):
         document.Objects.Add(item, PointF(0.0, 0.0))
-    for key, name in ((key, part.name) for key, part in parts.items() if isinstance(part, Part) and part.name is not None):
-        objects[key].UserName = name
+    for key, output in labels.items():
+        output.UserName = parts[key].name
     for field, items in persistent.items():
         ports[field].Set(items)
     for field, modifier_set in chains.items():
@@ -585,8 +597,8 @@ def delete(document: Document, ids: Sequence[str]) -> Resolved[int]:
     return collect_faults(*found) or document.Methods.DeleteObjects(Array[IDocumentObject](found), None, None)
 
 
-def cluster(document: Document, ids: Sequence[str], name: str) -> Resolved[Node]:
-    """Collapse objects into one cluster named `name` that keeps their boundary wires and takes their place in each group, refused with the topology of an empty or concave set."""
+def cluster(document: Document, ids: Sequence[str]) -> Resolved[Node]:
+    """Collapse objects into one cluster that keeps their boundary wires and takes their place in each group, refused with the topology of an empty or concave set."""
     found = [_find(document, canvas_id) for canvas_id in ids]
     if faults := collect_faults(*found):
         return faults
@@ -594,9 +606,8 @@ def cluster(document: Document, ids: Sequence[str], name: str) -> Resolved[Node]
     founding = {member.FoundingObject.InstanceId for member in members}
     between = {node.Id for member in founding for node in connectivity.FindAllOutputs(member)} & {node.Id for member in founding for node in connectivity.FindAllInputs(member)}
     if (topology := GraphTopology.Concave if between - founding else connectivity.SubsetTopology(Array[Guid]([*founding]))) in {GraphTopology.Empty, GraphTopology.Concave}:
-        return Faults.of(Fault(Document, name, (topology,)))
+        return Faults.of(Fault(Document, tuple(ids), (topology,)))
     created, placed = document.Methods.ClusterObjects(members, None), {member.InstanceId for member in members}
-    created.UserName = name
     shared = {owner: common for owner in document.Objects.Groups if (common := placed.intersection(owner.ContentIds))}
     for owner, gone in shared.items():
         for member in gone:
@@ -607,10 +618,11 @@ def cluster(document: Document, ids: Sequence[str], name: str) -> Resolved[Node]
 
 
 def arrange(document: Document, ids: Sequence[str] = (), gap: float = 60.0) -> Graph:
-    """Lay objects `ids` names, or every object, out in columns by wire depth, groups sharing a member as one block, blocks left to right by the longest chain of blocks feeding them, a subset right of the other objects, and describe the document."""
-    placed = [item for item in document.Objects.Forwards if not isinstance(item, (GroupObject, IPin))]
-    chosen = set(ids) or {str(item.InstanceId) for item in placed}
-    objects = {key: item for item in placed if (key := str(item.InstanceId)) in chosen}
+    """Lay objects `ids` names in their order, or every object, out in columns by wire depth, a column fed past the previous one below it, groups sharing a member as one block, blocks left to right by the longest chain feeding them, a subset right of the rest, and describe the document."""
+    placed = {str(item.InstanceId): item for item in document.Objects.Forwards if not isinstance(item, (GroupObject, IPin))}
+    objects = {key: placed[key] for key in dict.fromkeys(ids or placed) if key in placed}
+    for item in objects.values():
+        item.Attributes.Layout(Editor.Instance.Canvas.Skin.Shape)
     groups = [(owner, members) for owner in document.Objects.Groups if (members := frozenset(map(str, owner.ContentIds)) & objects.keys())]
     moved = objects.keys() | {str(item.InstanceId) for owner, _ in groups for item in (owner, *owner.Pins.AboveAndBelow)}
     others = [item.Attributes.Bounds for item in document.Objects.Forwards if str(item.InstanceId) not in moved]
@@ -623,30 +635,40 @@ def arrange(document: Document, ids: Sequence[str] = (), gap: float = 60.0) -> G
     block_of = {key: key for key in objects} | {key: min(block) for block in merged for key in block}
     blocks = {block: tuple(key for key in objects if block_of[key] == block) for block in dict.fromkeys(block_of.values())}
 
-    @cache
-    def feeds(key: str) -> frozenset[str]:
-        return frozenset(feed for parameter in _parameters(objects[key], Side.Input) for source in parameter.Inputs.Forwards for feed, _ in (_source(document, source),) if feed in objects)
+    order = {key: index for index, key in enumerate(objects)}
+    feeds = tuple(
+        (feed, key, port) for key in objects for port, parameter in enumerate(_parameters(objects[key], Side.Input)) for source in parameter.Inputs.Forwards for feed, _ in (_source(document, source),)
+    )
+    links = tuple((feed, target, port) for feed, target, port in feeds if feed in objects)
 
     @cache
     def depth(key: str) -> int:
-        return max((depth(feed) + 1 for feed in feeds(key)), default=0)
+        return max((depth(feed) + 1 for feed, target, _ in links if target == key), default=0)
+
+    edges = {(block_of[feed], block_of[target]) for feed, target, _ in links if block_of[feed] != block_of[target]}
+    start = reduce(lambda held, _: {block: max((held[source] + 1 for source, target in edges if target == block), default=0) for block in blocks}, blocks, dict.fromkeys(blocks, 0))
+
+    def rank(key: str) -> tuple[int, tuple[int, ...], int]:
+        consumers = ((start[block_of[target]], depth(target), order[target], port) for feed, target, port in links if feed == key)
+        return depth(key), min(consumers, default=(len(blocks),)), order[key]
 
     def move(keys: Iterable[str], left: float, top: float, frame: RectangleF) -> None:
         for key in keys:
             objects[key].Attributes.Move(left - frame.Left, top - frame.Top)
 
     def pack(keys: tuple[str, ...]) -> RectangleF:
-        columns = [tuple(column) for _, column in groupby(sorted(keys, key=depth), key=depth)]
+        columns = [tuple(column) for _, column in groupby(sorted(keys, key=rank), key=depth)]
         widths = [max(objects[key].Attributes.Bounds.Width for key in column) for column in columns]
-        for left, column in zip(accumulate((width + gap for width in widths[:-1]), initial=0.0), columns, strict=True):
-            for top, key in zip(accumulate((objects[key].Attributes.Bounds.Height + gap for key in column[:-1]), initial=0.0), column, strict=True):
+        heights = [sum(objects[key].Attributes.Bounds.Height + gap for key in column) for column in columns]
+        crossed = [index > 0 and any(feed not in columns[index - 1] for feed, target, _ in feeds if target in column) for index, column in enumerate(columns)]
+        tops = accumulate(range(1, len(columns)), lambda top, index: top + heights[index - 1] if crossed[index] else 0.0, initial=0.0)
+        for left, first, column in zip(accumulate((width + gap for width in widths[:-1]), initial=0.0), tops, columns, strict=True):
+            for top, key in zip(accumulate((objects[key].Attributes.Bounds.Height + gap for key in column[:-1]), initial=first), column, strict=True):
                 move((key,), left, top, objects[key].Attributes.Bounds)
         owned = [_relaid(owner) for owner, members in groups if members.intersection(keys)]
         return reduce(RectangleF.Union, (item.Attributes.Bounds for item in (*(objects[key] for key in keys), *owned, *(pin for owner in owned for pin in owner.Pins.AboveAndBelow))))
 
     packed = {block: pack(keys) for block, keys in blocks.items()}
-    edges = {(block_of[feed], block_of[key]) for key in objects for feed in feeds(key) if block_of[feed] != block_of[key]}
-    start = reduce(lambda held, _: {block: max((held[source] + 1 for source, target in edges if target == block), default=0) for block in blocks}, blocks, dict.fromkeys(blocks, 0))
     levels = [tuple(level) for _, level in groupby(sorted(blocks, key=start.__getitem__), key=start.__getitem__)]
     for left, level in zip(accumulate((max(packed[block].Width for block in column) + gap for column in levels[:-1]), initial=origin.Right + gap), levels, strict=True):
         for top, block in zip(accumulate((packed[block].Height + gap for block in level[:-1]), initial=origin.Top), level, strict=True):
@@ -698,10 +720,9 @@ def image(document: Document, name: str, ids: Sequence[str] = (), margin: float 
     chosen = set(ids) or {str(item.InstanceId) for item in document.Objects.Forwards}
     groups = [owner for owner in document.Objects.Groups if str(owner.InstanceId) in chosen or chosen.intersection(map(str, owner.ContentIds))]
     members = chosen.union(*(map(str, owner.ContentIds) for owner in groups), *((str(pin.InstanceId) for pin in owner.Pins.AboveAndBelow) for owner in groups))
-    placed = [item for item in document.Objects.Forwards if str(item.InstanceId) in members and not isinstance(item, GroupObject)]
-    if not placed:
+    if not (placed := [item for item in document.Objects.Forwards if str(item.InstanceId) in members and not isinstance(item, GroupObject)]):
         return Faults.of(Fault(Document, name))
-    skin = Editor.Instance.Canvas.Skin.WithFades(None)
+    skin = Editor.Instance.Canvas.Skin.WithFades(Fades.Normal)
     for item in (*placed, *groups):
         item.Attributes.Layout(skin.Shape)
     wires = (

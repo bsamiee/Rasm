@@ -1,10 +1,9 @@
-import { Array, Effect, flow, Schema } from 'effect';
-import { Arbitrary } from 'effect/unstable/arbitrary';
+import { Arbitrary, Array, Effect, flow, Schema } from 'effect';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const uniqueArray = <S extends Schema.Constraint>(item: S, length: number): Arbitrary.Arbitrary<readonly S['Type'][]> =>
-    Arbitrary.schema(Schema.UniqueArray(item).pipe(Schema.check(Schema.isLengthBetween(length, length))));
+    Arbitrary.schema(Schema.UniqueArray(item).pipe(Schema.check(Schema.isBetweenLength(length, length))));
 
 const missingLabels = <A, const Label extends string>(
     arbitrary: Arbitrary.Arbitrary<A>,

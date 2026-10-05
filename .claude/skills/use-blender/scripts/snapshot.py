@@ -1,6 +1,6 @@
-# mypy: disable-error-code="attr-defined, truthy-bool, union-attr"
-# ty: ignore[unresolved-attribute]
-"""Evaluated scene state written to `.artifacts/blender/<name>.json`, with each value changed since an earlier snapshot."""
+# ty: ignore[redundant-condition-strict, unresolved-attribute]
+# mypy: disable-error-code="attr-defined, union-attr"
+"""Evaluated scene state written to `.artifacts/blender/<name>.json`, compared against an earlier snapshot."""
 
 from collections.abc import Sequence
 import hashlib
@@ -13,7 +13,7 @@ from bpy_extras import anim_utils
 from nodes import Digest, record, trees
 import numpy as np
 from numpy.typing import NDArray
-from results import artifacts, JSON, unknown, UnknownObjects
+from results import artifacts, collect_faults, Fault, JSON, Resolved, unknown
 from rna import DIGITS, plain, stored
 from scene import bounds, drawings, points
 
@@ -137,7 +137,6 @@ class State:
 class Comparison:
     """Objects present in one snapshot alone, and the before and after of each changed value nested under its keys and list indexes."""
 
-    since: str
     added: tuple[str, ...]
     removed: tuple[str, ...]
     changed: Change
@@ -153,24 +152,19 @@ class Snapshot:
     comparison: Comparison | None
 
 
-# --- [ERRORS] ---------------------------------------------------------------------------
-
-
-@attrs.frozen
-class MissingSnapshot:
-    """Snapshot name with no file under `.artifacts/blender/`."""
-
-    name: str
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None) -> Snapshot | UnknownObjects | MissingSnapshot:
-    """Write the state of the named or every object with the scene, materials, datablock counts, and node trees, compared with `since`."""
+def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None) -> Resolved[Snapshot]:
+    """Return the snapshot written with the state of the named or every object, the scene, materials, datablock counts, and node trees, compared with `since`."""
     path, scene = artifacts() / f"{name}.json", bpy.context.scene
-    if (absent := unknown(scene.objects, objects)) is not None:
-        return absent
+    source = None if since is None else path.with_stem(since)
+    try:
+        before, missing = None if source is None else JSON.loads(source.read_bytes(), dict[str, Any]), None
+    except FileNotFoundError:
+        before, missing = None, Fault(Path, since, tuple(sorted(p.stem for p in path.parent.glob("*.json"))))
+    if faults := collect_faults(missing, unknown(scene.objects, objects)):
+        return faults
     depsgraph = bpy.context.evaluated_depsgraph_get()
 
     def hashed(data: bytes) -> str:
@@ -200,13 +194,13 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
             return None
         mesh, curves, cloud, instances = found.mesh, found.curves, found.pointcloud, found.instances_pointcloud()
         return Geometry(
-            hashed(fixed(points(evaluated, drawn=False)).tobytes() + (floats(instances.attributes["instance_transform"].data, "value", 16) if instances else b"")),
+            hashed(fixed(points(evaluated, drawn=False)).tobytes() + (floats(instances.attributes["instance_transform"].data, "value", 16) if instances is not None else b"")),
             len(mesh.vertices) if mesh else 0,
             len(mesh.polygons) if mesh else 0,
             len(curves.points) if curves else 0,
             len(cloud.points) if cloud else 0,
             sum(len(drawing.strokes) for drawing in drawings(found.grease_pencil)),
-            len(instances.points) if instances else 0,
+            len(instances.points) if instances is not None else 0,
         )
 
     def channel(curve: bpy.types.FCurve) -> Channel:
@@ -274,17 +268,12 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
         )
     )
 
-    match since:
+    match before:
         case None:
             comparison = None
-        case str():
-            try:
-                before = JSON.loads(path.with_stem(since).read_bytes(), dict[str, Any])
-            except FileNotFoundError:
-                return MissingSnapshot(since)
+        case _:
             shared = sorted(before["objects"].keys() & current["objects"].keys())
             comparison = Comparison(
-                since,
                 tuple(sorted(current["objects"].keys() - before["objects"].keys())),
                 tuple(sorted(before["objects"].keys() - current["objects"].keys())),
                 delta(*({**side, "objects": {n: side["objects"][n] for n in shared}} for side in (before, current))),
@@ -296,20 +285,4 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "Animated",
-    "Animation",
-    "Change",
-    "Channel",
-    "Comparison",
-    "Constraint",
-    "Geometry",
-    "MissingSnapshot",
-    "Modifier",
-    "ObjectState",
-    "SceneState",
-    "Snapshot",
-    "State",
-    "Unassigned",
-    "snapshot",
-]
+__all__ = ["Animated", "Animation", "Change", "Channel", "Comparison", "Constraint", "Geometry", "Modifier", "ObjectState", "SceneState", "Snapshot", "State", "Unassigned", "snapshot"]

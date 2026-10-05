@@ -9,6 +9,12 @@
 #
 # [tool.ty.environment]
 # extra-paths = ["."]
+#
+# [tool.ty.rules]
+# all = "error"
+# dynamic-function-decorator-return = "ignore"
+# unsound-assignment = "ignore"
+# unsound-return-statement = "ignore"
 # ///
 """Describe `.3dm` files on disk through openNURBS without Rhino."""
 

@@ -38,7 +38,7 @@ result = {
 
 - First `keyframe_insert` calls create action `<Object>Action` with slot `OB<Object>`, one layer, and one `KEYFRAME` strip, and assign both
 - Scripted keys take `BEZIER` with `AUTO_CLAMPED` handles under every new-key preference, and linear motion sets `interpolation` per key
-- Key values are absolute property values, offset from the rest value their object holds
+- Key values are absolute property values, a motion adding its offset to the object's rest value
 - `scene.frame_set` evaluates parents, constraints, and drivers and runs frame handlers, each call returning to the user's frame after its read
 - `fcurve.evaluate(<frame>)` reads one channel at a frame without moving the scene
 - Baselines taken before keying show each new channel in snapshot `changed`
@@ -74,17 +74,23 @@ result = {"slots": [s.identifier for s in action.slots], "lift_at_24_ft": round(
 ## [02]-[SHARED_ACTIONS]
 
 One action animates many IDs through one slot each:
-- Actions assigned to another ID leave `action_slot` at `None` and that ID still, `action_suitable_slots` listing slots it can take
-- Listed slots assigned to `action_slot` give an ID that slot's motion, shared with the ID it was keyed on
-- `action.slots.new(id_type="OBJECT", name=<name>)` then `action_slot = <slot>` gives an ID motion of its own inside one action
+1. `data.action = <action>` assigns the action with `action_slot` at `None`, the ID still and `action_suitable_slots` listing slots it can take
+2. Listed slots assigned to `action_slot` give the ID that slot's motion, shared with the ID it was keyed on
+3. `action.slots.new(id_type="OBJECT", name=<name>)` then `action_slot = <slot>` gives the ID motion of its own inside the action
+
 - `keyframe_insert` on an ID holding an action with no slot adds and binds a slot named after that ID
-- `strip.channelbag(<slot>, ensure=True)` returns the slot's channelbag, `anim_utils.action_get_channelbag_for_slot` it or `None`
+- `strip.channelbag(<slot>, ensure=True)` returns the slot's channelbag, `anim_utils.action_get_channelbag_for_slot` returning it or `None`
 - `action.frame_range` spans the keys of every slot
 
 ## [03]-[EXISTING_MOTION]
 
-Existing motion is read from `snapshot("<name>", objects=)`, where each object's `animation` holds `Animated` (action, slot, channels with key count, interpolations, and a hash) or `Unassigned` (action, suitable slots). Changes run between that baseline and a comparison:
-- `for key in reversed(curve.keyframe_points): key.co_ui.x += <frames>` retimes a curve, no key passing its later neighbor
+Existing motion changes between a snapshot baseline and its comparison:
+1. `snapshot("<before>", objects=("<Object>",))` records the motion
+2. `anim_utils.action_get_channelbag_for_slot(data.action, data.action_slot).fcurves.find("<path>", index=<i>)` returns the channel or `None`
+3. Edit the keys of the channel
+4. `snapshot("<after>", objects=("<Object>",), since="<before>")` shows each changed channel
+
+- `for key in reversed(curve.keyframe_points): key.co_ui.x += <frames>` retimes a curve, each key staying before its later neighbor
 - Handles move with each key a `co_ui` write moves
 - Keys change interpolation, easing, and handle types through `key.interpolation`, `key.easing`, `key.handle_left_type`, `key.handle_right_type`
 - `curve.keyframe_points.remove(key)` deletes one key, `bag.fcurves.remove(curve)` one channel

@@ -2,20 +2,33 @@
 id: no-tagged-key
 language: sql
 severity: error
+utils:
+    tag:
+        kind: string_literal
+        regex: '^''[A-Za-z][\w-]*:''$'
 rule:
-    kind: binary_expression
+    kind: binary_expression, like_expression, function_call
     pattern: _EXPRESSION
     any:
         - all:
             - has: {field: operator, regex: '^\|\|$'}
-            - has: {field: left, kind: literal, regex: '^''[A-Za-z][\w-]*:''$', pattern: _LITERAL}
+            - has: {field: left, matches: tag, pattern: _LITERAL}
         - all:
-            - has: {field: operator, regex: '(?i)^(not\s+)?like$'}
-            - has: {field: right, kind: literal, regex: '^''[A-Za-z][\w-]*:%''$', pattern: _LITERAL}
+            - has: {field: operator, regex: '(?i)^like$'}
+            - has: {field: pattern, kind: string_literal, regex: '^''[A-Za-z][\w-]*:%''$', pattern: _LITERAL}
         - all:
-            - has: {field: operator, regex: '^(=|==|<>|!=)$'}
-            - has: {kind: literal, regex: '^''[A-Za-z][\w-]*:''$', pattern: _LITERAL}
+            - has: {field: operator, regex: '(?i)^glob$'}
+            - has: {field: pattern, kind: string_literal, regex: '^''[A-Za-z][\w-]*:\*''$', pattern: _LITERAL}
+        - all:
+            - has: {field: operator, regex: '^(==?|<>|!=)$'}
+            - has: {matches: tag, pattern: _LITERAL}
+        - all:
+            - has: {field: name, regex: '(?i)^(instr|starts_with|prefix|replace|concat)$'}
+            - has: {field: arguments, has: {matches: tag, pattern: _LITERAL}}
+        - all:
+            - has: {field: name, regex: '(?i)^(printf|format)$'}
+            - has: {field: arguments, has: {nthChild: 1, kind: string_literal, regex: '^''[A-Za-z][\w-]*:%s''$', pattern: _LITERAL}}
 transform:
-    TAG: {replace: {source: $LITERAL, replace: '^''([^:]+):%?''$', by: '$1'}}
+    TAG: {replace: {source: $LITERAL, replace: '^''([^:]+):.*$', by: '$1'}}
 message: '`$EXPRESSION` spells the tag `$TAG` inside a key string'
-note: 'Store the tag in its own column referencing a lookup table and compare the column with `=`, a form foreign keys and indexes read'
+note: 'Store the tag in a foreign key column referencing a lookup table and compare it with `=`, a form foreign keys and indexes read'

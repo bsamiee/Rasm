@@ -2,9 +2,10 @@
 [settings]
 prereleases = true
 minimum_release_age = "0s"
-aqua.baked_registry = false
+registry_floating = true
 idiomatic_version_file_enable_tools = ["dotnet"]
 dotnet.isolated = true
+dotnet.cli_telemetry_optout = true
 python.uv_venv_auto = "create|source"
 
 # --- [ENV] ------------------------------------------------------------------------------
@@ -12,7 +13,6 @@ python.uv_venv_auto = "create|source"
 GHIDRA_INSTALL_DIR = "{% if os() == 'macos' %}{{ exec(command='brew --prefix ghidra') }}/libexec{% endif %}"
 _.path = ["./node_modules/.bin", "{{ env.GHIDRA_INSTALL_DIR }}/support", "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
 DOTNET_NOLOGO = "1"
-DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 DOTNET_ROLL_FORWARD = "Major"
 DOTNET_CLI_HOME = "{{config_root}}/.cache/dotnet"
 MSBUILDDISABLENODEREUSE = "1"
@@ -34,6 +34,7 @@ PLAYWRIGHT_MCP_OUTPUT_DIR = "{{config_root}}/.artifacts/playwright"
 PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE = "268435456"
 AST_GREP_CONFIG = "{{config_root}}/sgconfig.yml"
 RHINO_PATH = "/Applications/RhinoBETA.app"
+RHINO_MCP_DEFAULT_VERSION = "9"
 BLENDER_PATH = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_MCP_PORT = "9877"
 BLENDER_MCP_DISABLE_TELEMETRY = "true"
@@ -44,7 +45,7 @@ GHIDRA_HEADLESS_MAXMEM = "{% if os() == 'macos' %}{{ (exec(command='sysctl -n hw
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 [tools]
-python = "3.15.0rc2"
+python = "3.15.0rc3"
 java = "latest"
 node = "latest"
 pnpm = "latest"

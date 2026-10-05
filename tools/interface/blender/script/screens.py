@@ -5,7 +5,7 @@
 from collections.abc import Iterator, Sequence
 from enum import auto, Enum, StrEnum
 from inspect import signature
-from itertools import chain, repeat
+from itertools import chain
 from math import floor
 from types import ModuleType
 from typing import Final, Literal
@@ -209,15 +209,15 @@ def region_label(workspace: bpy.types.WorkSpace, area: bpy.types.Area, region: b
 
 # --- [CONTEXT]
 def override(window: bpy.types.Window, area: bpy.types.Area | None = None, region: bpy.types.Region | None = None) -> bpy.types.ContextTempOverride:
-    """Context override on the window and its screen."""
-    return bpy.context.temp_override(window=window, screen=window.screen, area=area, region=region)
+    """Context override on the window, which supplies its screen."""
+    return bpy.context.temp_override(window=window, area=area, region=region)
 
 
 # --- [WORKSPACES]
 def activate(window: bpy.types.Window, name: str) -> Iterator[float]:
-    """Show the workspace in the window, one pass for the switch and one for its screen's draw."""
+    """Show the workspace in the window, its screen switched and drawn one pass later."""
     window.workspace = bpy.data.workspaces[name]
-    yield from repeat(TICK, 2)
+    yield TICK
 
 
 def duplicate(window: bpy.types.Window, name: str) -> Iterator[float]:

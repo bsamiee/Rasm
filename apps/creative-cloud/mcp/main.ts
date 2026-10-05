@@ -1,7 +1,7 @@
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Context, Crypto, Deferred, Effect, Layer, Logger, Option, type PlatformError, Schema, type Scope, Stream, Struct } from 'effect';
-import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/unstable/ai';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
+import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import packageJson from './package.json' with { type: 'json' };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -53,7 +53,7 @@ const invoke = Effect.fn('invoke')(
 const perform = Effect.fn('perform')(
     function* (request: typeof Request.Type, execution: McpSchema.ResourceLink) {
         const reply = yield* invoke({ execute: { application: request.application.href, arguments: request.arguments, command: request.command } }, Schema.Json);
-        const [failures, artifacts] = yield* Effect.partition(request.artifacts, (url) => invoke({ file: { url: url.href } }, McpSchema.BlobResourceContents), { concurrency: 'unbounded' });
+        const [artifacts, failures] = yield* Effect.partition(request.artifacts, (url) => invoke({ file: { url: url.href } }, McpSchema.BlobResourceContents), { concurrency: 'unbounded' });
         const links = yield* Effect.forEach(artifacts, ({ blob, mimeType, uri: name }) => {
             const resource = { mimeType, name, uri: `${execution.uri}/artifact/${encodeURIComponent(name)}` };
             return McpServer.registerResource({ ...resource, content: Effect.succeed({ contents: [{ blob, mimeType, uri: resource.uri }] }) }).pipe(Effect.as(McpSchema.ResourceLink.make(resource)));

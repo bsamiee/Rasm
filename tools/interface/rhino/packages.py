@@ -8,7 +8,7 @@ from typing import Final
 import zipfile
 
 import anyio
-import httpx
+import httpx2
 from lxml import etree
 import msgspec
 
@@ -133,7 +133,7 @@ async def built(host: Host, rhino: Rhino, source: Source, folder: Path) -> Path 
             return Error(f"{source.repository} holds no unexpired {artifact} artifact from a run on {branch}")
 
 
-async def published(client: httpx.AsyncClient, rhino: Rhino, identity: str) -> str | Error:
+async def published(client: httpx2.AsyncClient, rhino: Rhino, identity: str) -> str | Error:
     """Address of the first distribution this Rhino on macOS loads, in server order, of the newest Yak server version holding one, as yak's non-strict compatibility test picks it, or the reason none exists."""
 
     class Distribution(msgspec.Struct, frozen=True):

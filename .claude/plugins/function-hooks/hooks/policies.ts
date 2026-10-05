@@ -1,11 +1,12 @@
 import type { ToolCallInput } from 'claude-code';
 import type { Command, Script, Span } from './command.ts';
-import { fromUndefined, none, type Option, some } from './composition.ts';
+import { fault, fromUndefined, none, type Option, ok, type Result, some } from './composition.ts';
 import { basename, type Invocation, invocations, known, type Operands, operands, option, PROGRAMS } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Refinement = (args: readonly string[], existing: readonly string[], reason: string) => readonly string[];
+type OptionPredicate = (given: (...names: readonly string[]) => boolean, rest: readonly string[]) => boolean;
 
 interface GitRow {
     readonly reason: string;
@@ -36,12 +37,34 @@ interface Insertion {
 interface Rewrite {
     readonly command: string;
     readonly note: string;
-    readonly instruction: string;
+    readonly instruction: Option<string>;
+}
+interface Target {
+    readonly project: Option<string>;
+    readonly target: string;
+}
+interface TargetDependencyConfig {
+    readonly target: string;
+    readonly projects?: string | readonly string[];
+    readonly dependencies?: boolean;
+}
+interface TargetConfiguration {
+    readonly command?: string;
+    readonly options?: { readonly command?: string; readonly commands?: readonly { readonly command: string }[] };
+    readonly dependsOn?: readonly TargetDependencyConfig[];
+}
+interface Manifest {
+    readonly name: string;
+    readonly nx: { readonly targets: Readonly<Record<string, TargetConfiguration>> };
+}
+interface NxJsonConfiguration {
+    readonly targetDefaults: Readonly<Record<string, TargetConfiguration | readonly TargetConfiguration[]>>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CLOUD = 'Library/CloudStorage';
+const LOCK = '.cache/uv-resolver.lock';
 const _WORKTREE = 'creates a second checkout with its own metadata and sync cost';
 const _SECOND_FILES: readonly RegExp[] = [
     /^(?:project\.json|\.nxignore)$/u,
@@ -256,6 +279,94 @@ const _walk = (commands: readonly Command[], walk: Walk): readonly string[] =>
             : [],
     );
 
+// --- [QUEUE] ---------------------------------------------------------------------------
+
+const queues = (commands: readonly Command[], reached: readonly Command[]): boolean => {
+    const always: OptionPredicate = () => true;
+    const unfrozen: OptionPredicate = (given) => !given('--frozen');
+    const resolvers: readonly (readonly [readonly string[], OptionPredicate])[] = [
+        [['uv', 'lock'], always],
+        [['uv', 'sync'], unfrozen],
+        [['uv', 'run'], (given): boolean => given('-w', '--with', '--with-editable', '--with-requirements') || !given('--frozen', '--no-sync', '--no-project')],
+        [['uv', 'add'], unfrozen],
+        [['uv', 'remove'], unfrozen],
+        [['uv', 'version'], (given, rest): boolean => !given('--frozen', '--dry-run') && (given('--bump') || rest.length > 0)],
+        [['uv', 'export'], unfrozen],
+        [['uv', 'tree'], unfrozen],
+        [['uv', 'check'], unfrozen],
+        [['uv', 'audit'], unfrozen],
+        [['uv', 'venv'], (given): boolean => given('--seed')],
+        [['uv', 'build'], always],
+        [['uv', 'tool', 'run'], always],
+        [['uv', 'tool', 'install'], always],
+        [['uv', 'tool', 'upgrade'], always],
+        [['uv', 'pip', 'install'], always],
+        [['uv', 'pip', 'sync'], always],
+        [['uv', 'pip', 'compile'], always],
+        [['uvx'], always],
+    ];
+    const chain = (listed: readonly Command[]): readonly Invocation[] => listed.flatMap((command) => invocations(command.words));
+    const held = chain(commands).some(([program, ...args]) => program === 'lockf' && args.some((word) => word.endsWith(LOCK)));
+    return (
+        !held &&
+        chain([...commands, ...reached]).some((invocation) => {
+            const { inputs, options } = operands(invocation);
+            const words = [invocation[0], ...inputs];
+            const given = (...names: readonly string[]): boolean => options.some((name) => names.includes(name));
+            return !given('-h', '--help') && resolvers.some(([path, resolves]) => path.every((word, index) => words[index] === word) && resolves(given, words.slice(path.length)));
+        })
+    );
+};
+
+const nxTargets = (commands: readonly Command[]): readonly Target[] =>
+    commands
+        .flatMap((command) => invocations(command.words))
+        .filter(([program]) => program === 'nx')
+        .flatMap(([, ...words]) => words.flatMap((word) => word.slice(word.indexOf('=') + 1).split(',')))
+        .map((item): Target => {
+            const [, target] = item.split(':');
+            return target === undefined ? { project: none, target: item } : { project: some(item.slice(0, item.indexOf(':'))), target };
+        });
+
+const nxReviver = (key: string, value: unknown): unknown => {
+    const expanded = (entry: string): object => (key === 'commands' ? { command: entry } : { target: entry.slice(entry.startsWith('^') ? 1 : 0), dependencies: entry.startsWith('^') });
+    return Array.isArray(value) && (key === 'commands' || key === 'dependsOn') ? value.map((entry: unknown) => (typeof entry === 'string' ? expanded(entry) : entry)) : value;
+};
+
+const _object = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
+
+const decodedManifest = (subject: string, value: unknown): Result<Manifest> => {
+    const declared = (candidate: unknown): candidate is Manifest => _object(candidate) && typeof candidate['name'] === 'string' && _object(candidate['nx']) && _object(candidate['nx']['targets']);
+    return declared(value) ? ok(value) : fault({ kind: 'invalid', subject, cause: 'name or nx.targets missing' });
+};
+
+const decodedNxJson = (subject: string, value: unknown): Result<NxJsonConfiguration> => {
+    const declared = (candidate: unknown): candidate is NxJsonConfiguration => _object(candidate) && _object(candidate['targetDefaults']);
+    return declared(value) ? ok(value) : fault({ kind: 'invalid', subject, cause: 'targetDefaults missing' });
+};
+
+const targetCommands = (named: readonly Target[], manifest: Manifest, nxJson: NxJsonConfiguration): readonly string[] => {
+    const configured: readonly (Target & { readonly configuration: TargetConfiguration })[] = [
+        ...Object.entries(manifest.nx.targets).map(([target, configuration]) => ({ project: some(manifest.name), target, configuration })),
+        ...Object.entries(nxJson.targetDefaults).flatMap(([target, configurations]) => [configurations].flat().map((configuration) => ({ project: none, target, configuration }))),
+    ];
+    const upstream = ({ project, configuration }: (typeof configured)[number]): readonly Target[] =>
+        (configuration.dependsOn ?? []).flatMap(({ target, projects, dependencies }) =>
+            (projects === undefined ? [dependencies === true ? none : project] : [projects].flat().map(some)).map((owner) => ({ project: owner, target })),
+        );
+    const reached = (pending: readonly Target[], seen: ReadonlySet<(typeof configured)[number]>): ReadonlySet<(typeof configured)[number]> => {
+        const found = configured.filter(
+            (entry) =>
+                !seen.has(entry) &&
+                pending.some(({ project, target }) => target === entry.target && (project.kind === 'none' || entry.project.kind === 'none' || project.value === entry.project.value)),
+        );
+        return found.length === 0 ? seen : reached(found.flatMap(upstream), new Set([...seen, ...found]));
+    };
+    return [...reached(named, new Set())].flatMap(({ configuration: { command, options } }) =>
+        [command, options?.command, ...(options?.commands ?? []).map((entry) => entry.command)].filter((text) => text !== undefined),
+    );
+};
+
 // --- [REWRITE] -------------------------------------------------------------------------
 
 const _dashed = (program: string, word: string): boolean => word !== '-' && word !== '--' && word.startsWith('-') && !known(program, word);
@@ -301,16 +412,17 @@ const _spliced = (text: string, insertions: readonly Insertion[]): string => {
     return [...done.pieces, decoder.decode(bytes.subarray(done.at))].join('');
 };
 
-const commandRewrite = (commands: readonly Command[], text: string): Option<Rewrite> => {
+const commandRewrite = (commands: readonly Command[], text: string, lock: Option<string>): Option<Rewrite> => {
     const insertions = commands.flatMap(_sd);
-    if (insertions.length === 0) {
+    if (insertions.length === 0 && lock.kind === 'none') {
         return none;
     }
     const added = [...Map.groupBy(insertions, ({ program }) => program)].map(([program, own]) => [program, [...new Set(own.map(({ flag }) => flag))].join(' and ')] as const);
+    const spliced = _spliced(text, insertions);
     return some({
-        command: _spliced(text, insertions),
-        note: added.map(([program, flags]) => `${program} ran with ${flags} added`).join(', '),
-        instruction: `write ${added.map(([, flags]) => flags).join(' and ')}`,
+        command: lock.kind === 'some' ? `{ lockf 9 && {\n${spliced}\n} 9>&-; } 9>>'${lock.value.replaceAll("'", "'\\''")}'` : spliced,
+        note: [...added.map(([program, flags]) => `${program} ran with ${flags} added`), ...(lock.kind === 'some' ? [`command queued under lockf on ${lock.value}`] : [])].join(', '),
+        instruction: added.length === 0 ? none : some(`write ${added.map(([, flags]) => flags).join(' and ')}`),
     });
 };
 
@@ -337,4 +449,4 @@ const commandRefusal = (tool: 'Bash' | 'Monitor', script: Script, facts: Facts):
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Facts, Rewrite, Walk };
-export { CLOUD, callRefusal, commandRefusal, commandRewrite, gitPaths, walkStarts };
+export { CLOUD, callRefusal, commandRefusal, commandRewrite, decodedManifest, decodedNxJson, gitPaths, LOCK, nxReviver, nxTargets, queues, targetCommands, walkStarts };

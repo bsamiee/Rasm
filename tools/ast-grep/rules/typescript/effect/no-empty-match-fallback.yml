@@ -3,29 +3,37 @@ id: no-empty-match-fallback
 language: tsx
 severity: error
 utils:
+    module-member:
+        kind: member_expression
+        has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/\w+)?$'}, exported: {regex: '^[A-Z]\w*$'}}}}
+    function-reference:
+        any:
+            - kind: member_expression
+              has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^Function$'}}}}
+            - kind: identifier
+              matches: {syntax-import-reference: {source: {regex: '^effect/Function$'}, exported: {regex: '^(constant|const(Undefined|Null|Void))$'}}}
     empty-value:
         any:
-            - kind: array
-              not: {has: {pattern: $_}}
-            - kind: object
+            - kind: 'array, object'
               not: {has: {pattern: $_}}
             - kind: 'undefined, null'
-            - kind: string
-              not: {has: {kind: string_fragment}}
+            - kind: 'string, template_string'
+              not: {has: {kind: 'string_fragment, template_substitution'}}
+            - kind: unary_expression
+              regex: '^void\s'
+              has: {field: argument, kind: number}
             - kind: parenthesized_expression
               has: {matches: empty-value}
+            - matches: module-member
+              has: {field: property, regex: '^(void|empty)$'}
             - kind: call_expression
               all:
-                - has: {field: function, has: {field: property, regex: '^none$'}}
-                - has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Option)?$'}, exported: {regex: '^Option$'}}}}}
+                - has: {field: function, matches: module-member, has: {field: property, regex: '^(none|empty)$'}}
                 - not: {has: {field: arguments, has: {pattern: $_}}}
-            - kind: member_expression
+            - kind: call_expression
               all:
-                - has: {field: property, regex: '^void$'}
-                - has: {field: object, matches: effect-effect-module}
-    constant-thunk:
-        kind: member_expression
-        has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^Function$'}}}}
+                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^succeed$'}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: empty-value}}, {not: {has: {nthChild: 2}}}]}
 rule:
     kind: call_expression
     all:
@@ -42,9 +50,13 @@ rule:
                     - matches: {effect-constant-handler: {result: {matches: empty-value, pattern: $D}}}
                     - kind: call_expression
                       all:
-                        - has: {field: function, matches: constant-thunk, has: {field: property, regex: '^constant$'}}
+                        - has: {field: function, matches: function-reference, regex: '(^|\.)constant$'}
                         - has: {field: arguments, has: {matches: empty-value, pattern: $D}}
-                    - matches: constant-thunk
-                      has: {field: property, regex: '^const(Undefined|Null|Void)$', pattern: $D}
+                    - matches: function-reference
+                      regex: '(^|\.)const(Undefined|Null|Void)$'
+                      pattern: $D
+                    - matches: module-member
+                      has: {field: property, regex: '^(none|empty)$'}
+                      pattern: $D
 message: '`Match.orElse` yields `$D` for every case the arms miss'
-note: '`Match.orElseAbsurd` closes arms that cover the union, with a `Match.when` or `Match.tag` arm per missed case'
+note: '`Match.exhaustive` after a `Match.when` or `Match.tag` arm per missed case closes the union and fails the type check on an uncovered case'

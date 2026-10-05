@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parse-error-tsx
+language: tsx
+severity: error
+utils:
+    global-augmentation:
+        regex: '^global$'
+        precedes: {kind: statement_block}
+        inside: {kind: statement_block, inside: {kind: module}}
+    unreported:
+        any:
+            - inside: {kind: ERROR, stopBy: end}
+            - {kind: ERROR, matches: global-augmentation}
+            - inside: {kind: expression_statement, matches: global-augmentation}
+rule:
+    any:
+        - kind: ERROR
+          not: {matches: unreported}
+        - kind: program
+          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+labels:
+    MISSING: {style: primary, message: Token the grammar inserted to recover}
+message: Grammar failed to parse the span
+note: >-
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-typescript grammar gaps are `global { ... }` augmentations inside a `declare module` body

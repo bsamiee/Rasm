@@ -14,6 +14,7 @@ customLanguages:
         outlineRules: tools/ast-grep/outline/msbuild.yml
     sql:
         libraryPath: .cache/ast-grep/sql.so
+        languageSymbol: tree_sitter_sqlite3
         extensions: [sql]
         expandoChar: _
         outlineRules: tools/ast-grep/outline/sql.yml
@@ -22,7 +23,9 @@ languageInjections:
       rule:
         kind: string_fragment
         pattern: $CONTENT
-        regex: '(?i)^\s*(alter|begin|commit|create|delete|drop|insert|pragma|select|update|with)\b'
+        regex: '(?i)^\s*(alter|analyze|attach|begin|commit|create|delete|detach|drop|end|explain|insert|pragma|reindex|release|replace|rollback|savepoint|select|update|vacuum|values|with)\b\s*\S'
+        not: {regex: '^\s*[A-Z][a-z]'}
+        inside: {kind: 'string, template_string', not: {has: {kind: 'escape_sequence, template_substitution'}}}
       injected: sql
     - hostLanguage: yaml
       rule:

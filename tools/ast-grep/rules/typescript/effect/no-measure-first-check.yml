@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-measure-first-check
+language: tsx
+severity: error
+rule:
+    kind: property_identifier, identifier
+    pattern: $NAME
+    regex: '^is((Length|Size|Properties|CodePoints)(Min|Max|Between)|(Date|BigInt|BigDecimal)(Between|GreaterThan|LessThan)(OrEqualTo)?)$'
+    any:
+        - inside:
+            kind: member_expression
+            field: property
+            has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
+        - matches: {syntax-import-reference: {source: {regex: '^effect/Schema$'}, exported: {regex: '^is\w+$'}}}
+        - inside:
+            kind: import_specifier
+            field: name
+            inside: {kind: named_imports, inside: {kind: import_clause, inside: {kind: import_statement, has: {field: source, regex: '^[''"]effect/Schema[''"]$'}}}}
+transform:
+    CHECK: replace($NAME, replace='^is(Length|Size|Properties|CodePoints|Date|BigInt|BigDecimal)(\w+)$', by='is$2$1')
+fix: $CHECK
+message: '`$NAME` names its measure before its bound, `Schema` exports the check as `$CHECK`'
+note: '`Schema.is<bound><measure>` names every bound check of a length, size, property count, code point count, date, `BigInt`, or `BigDecimal`'

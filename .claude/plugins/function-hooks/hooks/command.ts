@@ -158,5 +158,5 @@ const parse = (scan: Scanner, command: string): Promise<Result<Script>> => _pars
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Command, Script, Span };
+export type { Command, Scanner, Script, Span };
 export { parse, SCAN };

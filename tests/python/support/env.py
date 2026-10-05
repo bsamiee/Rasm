@@ -1,6 +1,6 @@
 """Declarative environment doubles for SSH, remote filesystems, and object stores."""
 
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
 import os
 from pathlib import Path
@@ -13,7 +13,7 @@ import asyncssh
 from fsspec import AbstractFileSystem
 from fsspec.implementations.dirfs import DirFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
-import httpx
+import httpx2
 from moto.server import ThreadedMotoServer
 import msgspec
 import pytest
@@ -61,7 +61,7 @@ class Provisioned[C](msgspec.Struct, frozen=True):
 
 
 @contextmanager
-def _ssh_host(spec: SshHost) -> Iterator[Provisioned[Awaitable[asyncssh.SSHClientConnection]]]:
+def _ssh_host(spec: SshHost) -> Generator[Provisioned[Awaitable[asyncssh.SSHClientConnection]]]:
     """Serve the socketpair SSH exec and SFTP host, one server handshake per client connection."""
     key = asyncssh.generate_private_key("ssh-ed25519")
 
@@ -95,7 +95,7 @@ def _ssh_host(spec: SshHost) -> Iterator[Provisioned[Awaitable[asyncssh.SSHClien
 
 
 @contextmanager
-def _memory_filesystem() -> Iterator[Provisioned[AbstractFileSystem]]:
+def _memory_filesystem() -> Generator[Provisioned[AbstractFileSystem]]:
     """Scope an in-memory filesystem double to an isolated root removed at exit."""
     root = f"/env-fs/{uuid.uuid4().hex}"
     memory = MemoryFileSystem()
@@ -107,7 +107,7 @@ def _memory_filesystem() -> Iterator[Provisioned[AbstractFileSystem]]:
 
 
 @contextmanager
-def _object_store(spec: ObjectStore) -> Iterator[Provisioned[s3fs.S3FileSystem]]:
+def _object_store(spec: ObjectStore) -> Generator[Provisioned[s3fs.S3FileSystem]]:
     """Serve a moto endpoint holding the bucket, resetting the backend and stopping the server at exit."""
     server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False)
     server.start()
@@ -128,7 +128,7 @@ def _object_store(spec: ObjectStore) -> Iterator[Provisioned[s3fs.S3FileSystem]]
         yield Provisioned(url=endpoint, client=_store)
     finally:
         try:
-            httpx.post(f"{endpoint}/moto-api/reset")
+            httpx2.post(f"{endpoint}/moto-api/reset")
         finally:
             server.stop()
 

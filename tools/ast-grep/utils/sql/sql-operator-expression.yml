@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: sql-operator-expression
+language: sql
+rule:
+    kind: binary_expression, unary_expression, is_expression, is_null_expression, like_expression, between_expression, in_list_expression, in_subquery_expression, in_table_expression

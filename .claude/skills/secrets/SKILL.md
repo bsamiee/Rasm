@@ -1,73 +1,108 @@
 ---
 name: secrets
-description: "Use when a process needs a runtime secret or a terminal needs a credential, covering Doppler scopes, injection, templates, and 1Password reads."
+description: "Use when a program needs a runtime secret or an agent needs a credential, covering Doppler scopes, doppler run, infra rows, 1Password sign-in, op reads and writes, SSH, and commit signing."
 ---
 
 # [SECRETS]
 
-Doppler owns runtime secrets, `doppler run` around a command injects them under one project and config. 1Password owns a person's credentials and the tokens an agent reads in a local terminal through `op` under `sudo`, the desktop app's biometric unlock authorizes each read. `op` appears in no repository code, infra program, hook plugin, or agent profile.
+1Password and Doppler each hold every secret at its current value. 1Password serves the owner and local agents through `op` and the desktop app, Doppler serves every running program through `doppler run`.
 
 [REFERENCES]:
 - [01]-[PATTERNS](references/patterns.md): Templates and mounts for secret material a process reads from a file
 
-## [01]-[RESOLUTION]
+## [01]-[DOPPLER_SCOPES]
 
-Doppler reads each option from the highest source present, a flag, then an environment variable, then the config file scope:
-- Environment variables: `DOPPLER_TOKEN`, `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, `DOPPLER_CONFIG_DIR`, `DOPPLER_PASSPHRASE`
-- Config file sits under `~/.doppler`, scope entries key on a directory and subdirectories inherit the nearest one
-- `doppler login` writes a CLI token at scope `/`, macOS and Windows hold it in the OS keychain
-- `doppler setup` writes project and config at the working directory
-- Service tokens grant one config read access, `--access read/write` adds writes and `--max-age` expires one
-- Service token's project and config outrank flags, `DOPPLER_TOKEN` or `--token` carries one
-- Commands name `--project` and `--config`
-- `env -u DOPPLER_TOKEN` runs one command against the directory scope
+Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, then the directory scope in `$DOPPLER_CONFIG_DIR/.doppler.yaml`:
+- Repository directory scope holds a CLI token alone, every command names `--project` and `--config`
+- Scope JSON names project and config `enclave.project` and `enclave.config`
 
-## [02]-[DOPPLER_CLI]
+| [INDEX] | [TASK]                   | [COMMAND]                                                                     |
+| :-----: | :----------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | Signed-in identity       | `doppler me --json`                                                           |
+|  [02]   | Options for working dir  | `doppler configure debug --json \| jq 'with_entries(.value \|= del(.token))'` |
+|  [03]   | Every directory scope    | `doppler configure --all --json \| jq 'with_entries(.value \|= del(.token))'` |
+|  [04]   | Projects                 | `doppler projects --json`                                                     |
+|  [05]   | Configs of a project     | `doppler configs --project <p> --json`                                        |
+|  [06]   | Key inventory            | `doppler secrets --only-names --json --project <p> --config <c> \| jq 'keys'` |
+|  [07]   | Secrets in a process env | `doppler run --project <p> --config <c> -- <cmd>`                             |
+|  [08]   | Shell operators          | `doppler run --project <p> --config <c> --command '<cmd> && <cmd>'`           |
 
-| [INDEX] | [TASK]                       | [COMMAND]                                                                                      |
-| :-----: | :--------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | Signed-in account            | `doppler me`                                                                                   |
-|  [02]   | Effective options per scope  | `doppler configure debug --json \| jq 'with_entries(.value \|= del(.token))'`                  |
-|  [03]   | Every scope entry            | `doppler configure --all --json \| jq 'with_entries(.value \|= del(.token))'`                  |
-|  [04]   | One directory's scope        | `doppler configure get project config --scope <dir> --json`                                    |
-|  [05]   | Set a directory scope        | `doppler configure set project=<p> config=<c> --scope <dir>`                                   |
-|  [06]   | Unset a directory scope      | `doppler configure unset project config --scope <dir>`                                         |
-|  [07]   | Key inventory                | `doppler secrets --only-names --json --project <p> --config <c> \| jq 'keys'`                  |
-|  [08]   | One value                    | `doppler secrets get <NAME> --plain --project <p> --config <c>`                                |
-|  [09]   | Write a value from stdin     | `<producer> \| doppler secrets set <NAME> --project <p> --config <c>`                          |
-|  [10]   | Inject env into a process    | `doppler run --project <p> --config <c> -- <cmd>`                                              |
-|  [11]   | Shell operators in a command | `doppler run --project <p> --config <c> --command '<cmd> && <cmd>'`                            |
-|  [12]   | Ephemeral service token      | `doppler configs tokens create <name> --project <p> --config <c> --max-age <duration> --plain` |
-|  [13]   | Revoke a service token       | `doppler configs tokens revoke <token> --project <p> --config <c>`                             |
+## [02]-[INFRA_ROWS]
 
-- `configure` JSON prints `project` and `config` as `enclave.project` and `enclave.config`, `del(.token)` strips the token from a printed scope
+Doppler resources exist alone as typed `infra/cli.ts` rows of `Project`, `Environment`, `BranchConfig`, `Secret`, and `ServiceToken` from `@pulumiverse/doppler`:
+- Workplace `Parametric_Arsenal` holds project `rasm`, environments `dev` and `prd` with locked root configs, and branch config `dev_repo` under `dev`
+- `Secret` rows name `project`, `config`, `name`, and `value`
+- Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
+- Target `rasm:infra` runs `doppler run --project rasm --config dev_repo -- node infra/cli.ts`
+- `dev_repo` supplies `DOPPLER_TOKEN` to `@pulumiverse/doppler`, `PULUMI_ACCESS_TOKEN` to Pulumi, and `GITHUB_TOKEN` to `@pulumi/github`
+- `nx run rasm:infra:up` applies rows, `nx run rasm:infra:refresh` reads live state into the stack
+- Use `manage-repo` for infra rows
 
-## [03]-[OP_CLI]
+## [03]-[OP_SIGNIN]
 
-Secret references take the form `op://<vault>/<item>/[<section>/]<field>`:
+Desktop app integration authorizes `op` for account `my.1password.com`:
+1. `open -a 1Password` starts the app, a closed app fails `op` with `couldn't connect to the 1Password desktop app`
+2. `op vault list` raises the Touch ID prompt and lists vaults `Personal` and `Tokens`
+
+- Authorization covers one terminal session and its subshells, expires after 10 idle minutes or 12 hours, and ends when the app locks
+- Agent shells hold no tty, `op whoami` there prints `account is not signed in` while reads succeed
+
+## [04]-[OP_READS]
+
+Secret references take the form `op://<vault>/<item>/[<section>/]<field>[?<query>]`:
 
 | [INDEX] | [TASK]                      | [COMMAND]                                                                     |
 | :-----: | :-------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | Signed-in account           | `op whoami`                                                                   |
-|  [02]   | Vault inventory             | `op vault list`                                                               |
-|  [03]   | Item names in a vault       | `op item list --vault <vault> --format json \| jq -r '.[].title'`             |
-|  [04]   | Field names of an item      | `op item get <item> --vault <vault> --format json \| jq -r '.fields[].label'` |
-|  [05]   | One field                   | `op read "op://<vault>/<item>/<field>"`                                       |
-|  [06]   | One-time code               | `op item get <item> --vault <vault> --otp`                                    |
-|  [07]   | Private key in OpenSSH form | `op read "op://<vault>/<item>/private key?ssh-format=openssh"`                |
-|  [08]   | Field to a mode-600 file    | `op read --out-file <file> "op://<vault>/<item>/<field>"`                     |
-|  [09]   | Env vars for one process    | `<VAR>="op://<vault>/<item>/<field>" op run -- <cmd>`                         |
-|  [10]   | Rendered template           | `op inject -i <template> -o <out>`                                            |
-|  [11]   | Rename an item              | `op item edit "<title>" --title "<new-title>" --vault <vault>`                |
+|  [01]   | Item titles in a vault      | `op item list --vault <vault> --format json \| jq -r '.[].title'`             |
+|  [02]   | Field labels of an item     | `op item get <item> --vault <vault> --format json \| jq -r '.fields[].label'` |
+|  [03]   | One value                   | `op read "op://<vault>/<item>/<field>"`                                       |
+|  [04]   | One-time code               | `op read "op://<vault>/<item>/one-time password?attribute=otp"`               |
+|  [05]   | Private key in OpenSSH form | `op read "op://<vault>/<item>/private key?ssh-format=openssh"`                |
+|  [06]   | Value to a mode-600 file    | `op read --out-file <file> "op://<vault>/<item>/<field>"`                     |
+|  [07]   | Env vars for one process    | `<VAR>="op://<vault>/<item>/<field>" op run -- <cmd>`                         |
 
-- `OP_ACCOUNT` or `--account` selects the account when the app holds more than one
-- `op run` masks secret values on stdout and stderr
+- `Tokens` items hold their value in field `token` or `credential`
+- `op run` masks values on stdout and stderr, `--no-masking` prints them
 - Commands that expand a variable holding a reference run in a subshell (`sh -c '<cmd>'`), `op run` resolves the reference first
+- `.mcp.json` headers read each `Tokens` value from the harness environment as `${<NAME>}`
 
-## [04]-[RULES]
+## [05]-[OP_WRITES]
 
-- Items carry the credential's published name as title, a consumer needing another env-var name renames the item and repoints every reader
-- Secret values reach a consumer as injected environment, a command substitution, a mount, or a mode-600 file
-- Files holding secret values sit outside every repository tree and go when the consumer exits
-- Transcripts and logs hold key names and counts
-- Use `manage-repo` for Doppler projects, configs, and service tokens as infra rows
+Value writes pass through stdin JSON, `--dry-run` previews a create or an edit:
+
+```bash
+# New Tokens item
+<producer> | jq -Rs '{title: "<NAME>", category: "API_CREDENTIAL", fields: [{id: "credential", label: "token", type: "CONCEALED", value: .}]}' \
+    | op item create --vault Tokens -
+
+# New value for an existing Tokens item
+op item get <NAME> --vault Tokens --format json | jq --rawfile v <(<producer>) '(.fields[] | select(.label == "token")).value = $v' \
+    | op item edit <NAME> --vault Tokens
+
+# Vendor login with a generated password
+op item create --category login --title <vendor> --vault Personal --url <url> username=<email> --generate-password
+
+# Rename, every reader repoints to the new name
+op item edit <NAME> --vault Tokens --title <NEW_NAME>
+```
+
+## [06]-[SSH_SIGNING]
+
+Desktop app's SSH agent serves key `Forge SSH Key` (ED25519) to SSH hosts and Git commit and tag signing:
+- `~/.ssh/config` sets `IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"` for every host
+- Git sets `gpg.format=ssh`, `user.signingkey` to the public key, and `gpg.ssh.program=/Applications/1Password.app/Contents/MacOS/op-ssh-sign`
+- Each application's first request raises an approval prompt, approval holds until the app locks
+
+| [INDEX] | [TASK]                | [COMMAND]                                                                                         |
+| :-----: | :-------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | Keys the agent serves | `SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" ssh-add -l` |
+|  [02]   | GitHub authentication | `ssh -T git@github.com`                                                                           |
+|  [03]   | Commit signature      | `git log -1 --show-signature`                                                                     |
+
+## [07]-[RULES]
+
+- Each secret keeps one name as `Tokens` item title, Doppler secret, and environment variable a consumer reads
+- Configuration files hold no secret value
+- Values reach a consumer as injected environment, a command substitution, a mount, or a mode-600 file outside every repository tree
+- Files holding values go when the consumer exits
+- Agent output holds secret names alone

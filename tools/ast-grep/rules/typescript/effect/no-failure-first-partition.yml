@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-failure-first-partition
+language: tsx
+severity: error
+utils:
+    partition-member:
+        any:
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^(partition|partitionEffect|partitionMap|partitionQueue|separate)$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Array|Chunk|Effect|Option|Record|Stream))?$'}, exported: {regex: '^(Array|Chunk|Effect|Option|Record|Stream)$'}}}}
+            - kind: identifier
+              matches: {syntax-import-reference: {source: {regex: '^effect/(Array|Chunk|Effect|Option|Record|Stream)$'}, exported: {regex: '^(partition|partitionEffect|partitionMap|partitionQueue|separate)$'}}}
+    partition-step:
+        any:
+            - matches: partition-member
+            - kind: call_expression
+              has: {field: function, matches: partition-member}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(map|andThen)$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: partition-step}}
+    pipe-call:
+        kind: call_expression
+        any:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
+            - has: {field: function, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}}
+    partition-tuple:
+        any:
+            - kind: call_expression
+              has: {field: function, matches: partition-member}
+            - matches: pipe-call
+              has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, matches: partition-step}}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(succeed|sync)$'}}
+                - has: {field: arguments, has: {nthChild: 1, any: [{matches: partition-tuple}, {kind: arrow_function, has: {field: body, matches: partition-tuple}}]}}
+    tuple-consumer:
+        any:
+            - follows: {matches: partition-step, stopBy: {not: {any: [{regex: '^,$'}, {kind: comment}]}}}
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+              inside:
+                kind: arguments
+                inside:
+                    matches: pipe-call
+                    has: {field: function, kind: member_expression, has: {field: object, matches: partition-tuple}}
+rule:
+    kind: array_pattern
+    all:
+        - any:
+            - pattern: {context: 'const [$FIRST, $SECOND] = x', selector: array_pattern, strictness: cst}
+            - pattern: {context: 'const [$FIRST] = x', selector: array_pattern, strictness: cst}
+        - any:
+            - inside:
+                kind: variable_declarator
+                field: name
+                has: {field: value, any: [{matches: partition-tuple}, {kind: yield_expression, has: {matches: partition-tuple}}]}
+            - inside:
+                kind: required_parameter
+                inside:
+                    kind: formal_parameters
+                    not: {has: {nthChild: 2}}
+                    inside:
+                        kind: arrow_function, function_expression
+                        any:
+                            - matches: tuple-consumer
+                            - inside:
+                                kind: arguments
+                                inside:
+                                    kind: call_expression
+                                    matches: tuple-consumer
+                                    has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(map|flatMap|andThen|tap)$'}}
+constraints:
+    FIRST: {kind: identifier, regex: '^(fail|error|err|reject|invalid|problem|defect|missing|unreadable|conflict|exclu|refus)|[a-z0-9](Fail|Error|Err|Reject|Invalid|Problem|Defect|Missing|Unreadable|Conflict|Exclu|Refus)'}
+    SECOND: {kind: identifier, not: {regex: '^(fail|error|err|reject|invalid|problem|defect|missing|unreadable|conflict|exclu|refus)|[a-z0-9](Fail|Error|Err|Reject|Invalid|Problem|Defect|Missing|Unreadable|Conflict|Exclu|Refus)'}}
+fix: '[$SECOND, $FIRST]'
+message: '`$FIRST` names failures and binds `passes`, the first tuple element'
+note: '`partition`, `partitionEffect`, `partitionMap`, `partitionQueue`, and `separate` of `effect` return `[passes, fails]`, a failure name binds the second element'

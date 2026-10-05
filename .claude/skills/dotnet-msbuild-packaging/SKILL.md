@@ -123,26 +123,10 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 SemVer precedence misorders the prerelease builds a CI labels by branch or by build number:
 - Alphanumeric identifiers compare as text, `<n>-<branch>-<build>` outranks `<n>-dev-<build>` when `<branch>` sorts after `dev`
 - Digits inside an alphanumeric identifier compare as text, `<n>-alpha9` outranks `<n>-alpha13`
-- Search API `version` and floating `*-*` return the SemVer maximum
+- Search API `version`, floating `*-*`, and `dotnet package list --outdated` return the SemVer maximum
 - Registration leaves carry `published` and `listed`, an unlisted leaf reads `published` as `1900-01-01`
 - Compatible versions have a dependency group `FrameworkReducer.GetNearest` accepts for the project's target framework
 - `VersionRange.TryParse` with `allowFloating` reads an exact range (`[x.y.z]`) and a floating version (`1.*`)
-
-Catalog projects reference every central row, rows no other project references included:
-
-```xml
-<Project Sdk="Microsoft.Build.NoTargets">
-    <ItemGroup>
-        <PackageReference Include="@(PackageVersion->ClearMetadata())" Exclude="@(PackageReference)" ExcludeAssets="build;buildMultitargeting;buildTransitive" />
-    </ItemGroup>
-</Project>
-```
-
-- `Microsoft.Build.NoTargets` restores without compiling, `global.json` `msbuild-sdks` holds its version
-- `ClearMetadata` drops `Version`, a `PackageReference` with `Version` under CPM fails `NU1008`
-- `Exclude` skips rows root `Directory.Build.props` references, a duplicate reports `NU1504`
-- `ExcludeAssets` keeps every package's build props and targets out of evaluation, no package then reshapes the project
-- `NoTargets` declares no framework reference, pruning then has nothing to prune and no row reports `NU1510`
 
 ## [03]-[RESTORE]
 

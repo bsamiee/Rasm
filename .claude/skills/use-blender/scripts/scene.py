@@ -1,5 +1,5 @@
-# mypy: disable-error-code="union-attr, attr-defined, arg-type"
-# ty: ignore[unresolved-attribute, invalid-argument-type]
+# ty: ignore[invalid-argument-type, unresolved-attribute]
+# mypy: disable-error-code="arg-type, attr-defined, union-attr"
 """Evaluated points and world bounds of scene objects and the largest 3D Viewport of open or stored windows."""
 
 from itertools import starmap
@@ -62,11 +62,11 @@ def bounds(depsgraph: bpy.types.Depsgraph, *, drawn: bool) -> dict[str, NDArray[
     """Lower and upper world corners of each object's evaluated points and instances by object name, `drawn` keeping what a Solid draw without overlays shows, objects with no point left out."""
 
     def local(obj: bpy.types.Object) -> NDArray[np.float64]:
-        match obj.type:
+        match obj.data:
             case _ if drawn and obj.display_type not in SHOWN:
                 return np.empty((0, 3))
-            case "MESH":
-                return np.array(obj.bound_box) if len(obj.data.polygons if drawn else obj.data.vertices) else np.empty((0, 3))
+            case bpy.types.Mesh() as mesh:
+                return np.array(obj.bound_box) if len(mesh.polygons if drawn else mesh.vertices) else np.empty((0, 3))
             case _:
                 return points(obj, drawn=drawn).astype(np.float64)
 

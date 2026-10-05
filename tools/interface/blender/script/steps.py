@@ -3,7 +3,7 @@
 # mypy: disable-error-code="arg-type, attr-defined, union-attr"
 """Blender's scripted session step chain: packages, library, preferences, theme, workspaces, startup scenes, units, add-on settings, and keymaps, then the save and the report."""
 
-from collections.abc import Container, Iterator, Mapping
+from collections.abc import Container, Generator, Iterator, Mapping
 from contextlib import contextmanager
 from functools import partial
 from importlib import import_module
@@ -42,7 +42,7 @@ def stop_listeners(identities: Container[str]) -> None:
 
 
 @contextmanager
-def temporary_object(scene: bpy.types.Scene) -> Iterator[None]:
+def temporary_object(scene: bpy.types.Scene) -> Generator[None]:
     """Active data-only mesh object for the block, which the Properties object contexts need, removed after it."""
     mesh = bpy.data.meshes.new("Temporary Object")
     target = bpy.data.objects.new("Temporary Object", mesh)

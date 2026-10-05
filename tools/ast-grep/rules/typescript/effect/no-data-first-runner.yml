@@ -11,7 +11,7 @@ utils:
                 - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^@effect/platform-(node|bun)(/(Node|Bun)Runtime)?$'}, exported: {regex: '^(NodeRuntime|BunRuntime)$'}}}}
             - all:
                 - has: {field: property, regex: '^run$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect/unstable/cli(/Command)?$'}, exported: {regex: '^Command$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect/cli(/Command)?$'}, exported: {regex: '^Command$'}}}}
     effect-runner:
         kind: member_expression
         all:

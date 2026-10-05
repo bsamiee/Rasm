@@ -137,6 +137,6 @@ SwiftPM joins with the first Swift library:
 New Swift projects join as `<Name>.xcodeproj` with its shared scheme, root files serve every other item of a language join:
 - `workspace.ts` infers tags and targets from `project.pbxproj`, `nx.json` bodies apply by tag, CI runs `host:macos` projects in the macOS job
 - `tools/ast-grep/rules/swift` and `tools/ast-grep/outline/swift.yml` cover every Swift file
-- Template projects drop each row a root file or default covers and each row nothing reads (Clang and Metal rows, `DEBUG` condition)
+- Template Clang and Metal rows and the `DEBUG` condition have no reader in a Swift product
 - README changes with a new owner or project kind alone, `.xcodeproj` is a listed project file
 - `nx run <Name>:format` precedes the first `check`

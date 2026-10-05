@@ -22,7 +22,7 @@ enum Request: Decodable {
     case execute(application: URL, command: String, arguments: [String: Descriptor])
     case file(url: URL)
 
-    func perform() -> Result<any Encodable, Failures> {
+    func perform() -> Result<any Encodable, AggregateError<Failure>> {
         switch self {
             case .applications:
                 Application.all().map(\.self)
@@ -30,12 +30,12 @@ enum Request: Decodable {
                 Application.at(url)
                     .flatMap(ScriptingDictionary.definition(of:))
                     .flatMap { definition in
-                        String(bytes: definition, encoding: .utf8).map(Result.success) ?? .failure(Failures(.unreadable(code: CocoaError.fileReadInapplicableStringEncoding.rawValue)))
+                        String(bytes: definition, encoding: .utf8).map(Result.success) ?? .failure(AggregateError(.unreadable(code: CocoaError.fileReadInapplicableStringEncoding.rawValue)))
                     }
             case .execute(let url, let command, let arguments):
                 Application.at(url).flatMap { application in application.execute(command, arguments: arguments) }.map(\.self)
             case .file(let url):
-                Result { try File(url: url) }.mapError { error in Failures(.unreadable(code: (error as NSError).code)) }.map(\.self)
+                Result { try File(url: url) }.mapError { error in AggregateError(.unreadable(code: (error as NSError).code)) }.map(\.self)
         }
     }
 }

@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-first-by-filter
+language: tsx
+severity: error
+utils:
+    array-member:
+        kind: member_expression
+        has:
+            field: object
+            any:
+                - matches: {syntax-import-reference: {source: {regex: '^effect$'}, exported: {regex: '^Array$'}}}
+                - matches: {syntax-import-reference: {source: {regex: '^effect/Array$'}, exported: {regex: '^$'}}}
+    flat-map:
+        kind: call_expression
+        has: {field: function, kind: member_expression, has: {field: property, pattern: $FILTER, regex: '^flatMap$'}}
+    filtering:
+        kind: call_expression
+        has: {field: function, matches: array-member, has: {field: property, pattern: $FILTER, regex: '^(filter|filterMap|flatMap)$'}}
+    first:
+        matches: array-member
+        has: {field: property, regex: '^head$'}
+rule:
+    pattern: $FIRST
+    any:
+        - kind: subscript_expression
+          all:
+            - has: {field: object, matches: flat-map}
+            - has: {field: index, regex: '^0$'}
+        - pattern: $L.at(0)
+          has: {field: function, has: {field: object, matches: flat-map}}
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: first}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: filtering, has: {field: arguments, has: {nthChild: 2}}}}, {not: {has: {nthChild: 2}}}]}
+        - pattern: $A.get($FILTERED, 0)
+          all:
+            - has: {field: function, matches: array-member}
+            - has: {field: arguments, has: {nthChild: 1, matches: filtering, has: {field: arguments, has: {nthChild: 2}}}}
+        - any:
+            - matches: first
+            - pattern: $A.get(0)
+              has: {field: function, matches: array-member}
+          inside: {kind: arguments}
+          follows:
+            stopBy: {not: {regex: '^,$'}}
+            matches: filtering
+            not: {has: {field: arguments, has: {nthChild: 2}}}
+rewriters:
+    - id: find
+      rule:
+        any:
+            - pattern: $A.head($M.filter($XS, $P))
+            - pattern: $A.get($M.filter($XS, $P), 0)
+      fix: $A.findFirst($XS, $P)
+transform:
+    FOUND: rewrite($FIRST, rewriters=[find])
+fix: $FOUND
+message: '`$FILTER` builds every match of the list to take the first'
+note: '`Array.findFirst(<list>, <predicate>)` stops at its first match, takes an `Option` mapper in place of `flatMap`, and takes a `filterMap` filter as `flow(<filter>, Result.getSuccess)`'

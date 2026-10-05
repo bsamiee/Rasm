@@ -3,53 +3,254 @@ id: no-alternate-spelling
 language: sql
 severity: error
 utils:
-    ifnull:
-        kind: invocation
-        has: {kind: object_reference, regex: '(?i)^ifnull$'}
+    renamed-call:
+        kind: function_call
+        has: {field: name, regex: '(?i)^(ifnull|iif|substring|string_agg)$'}
     json-call:
-        kind: invocation
+        kind: function_call
         all:
-            - has: {kind: object_reference, regex: '(?i)^json_extract(_string)?$'}
-            - has: {field: parameter, has: {field: value, pattern: _X, not: {kind: 'binary_expression, unary_expression'}}}
-            - has: {kind: term, nthChild: {position: 2, ofRule: {kind: term}}, has: {field: value, kind: literal, pattern: _P}}
-            - not: {has: {kind: term, nthChild: {position: 3, ofRule: {kind: term}}}}
+            - has: {field: name, regex: '(?i)^json_extract(_string)?$'}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all:
+                    - has: {nthChild: 1, any: [{matches: sql-operator-expression, pattern: _JSONG}, {pattern: _JSON}]}
+                    - has: {nthChild: 2, any: [{matches: sql-operator-expression, pattern: _PATHG}, {pattern: _PATH}]}
+                    - not: {has: {nthChild: 3}}
             - not:
                 inside:
-                    kind: term
+                    kind: normal_function_arguments
                     inside:
-                        kind: invocation
-                        has: {kind: object_reference, regex: '(?i)^json(_array|_object|_insert|_replace|_set|_group_array|_group_object|_quote)?$'}
+                        kind: function_call
+                        has: {field: name, regex: '(?i)^(json_quote|jsonb?(_array|_object|_insert|_replace|_set|_group_array|_group_object)?)$'}
     count-constant:
-        kind: invocation
+        kind: function_call
         all:
-            - has: {kind: object_reference, regex: '(?i)^count$'}
-            - not: {has: {kind: keyword_distinct}}
-            - has: {field: parameter, has: {field: value, kind: literal, not: {has: {kind: keyword_null}}}}
+            - has: {field: name, regex: '(?i)^count$'}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all:
+                    - not: {has: {field: modifier, regex: '(?i)^distinct$'}}
+                    - has:
+                        nthChild: 1
+                        any:
+                            - kind: 'numeric_literal, string_literal, blob_literal, true_literal, false_literal, current_time_literal'
+                            - {kind: unary_expression, has: {field: operand, kind: numeric_literal}}
+                    - not: {has: {nthChild: 2}}
+    equality:
+        kind: binary_expression
+        has: {field: operator, regex: '^(==|!=)$'}
+    is-comparison:
+        kind: is_expression
+        all:
+            - not: {has: {regex: '(?i)^distinct$'}}
+            - has:
+                field: right
+                not:
+                    any:
+                        - kind: 'null_literal, true_literal, false_literal'
+                        - {kind: unary_expression, has: {field: operator, regex: '(?i)^not$'}}
+    is-not-comparison:
+        kind: is_expression
+        all:
+            - not: {has: {regex: '(?i)^distinct$'}}
+            - has:
+                field: right
+                kind: unary_expression
+                all:
+                    - has: {field: operator, regex: '(?i)^not$'}
+                    - has: {field: operand, not: {kind: 'null_literal, true_literal, false_literal'}}
+    simple-case:
+        all:
+            - has: {field: subject, any: [{matches: sql-operator-expression, pattern: _SUBJECTG}, {pattern: _SUBJECT}]}
+            - has: {field: when, any: [{matches: sql-operator-expression, pattern: _CASEG}, {pattern: _CASE}]}
+    conditional-call:
+        kind: function_call
+        all:
+            - has: {field: name, regex: '(?i)^i?if$'}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all:
+                    - has: {nthChild: 1, pattern: _COND}
+                    - has: {nthChild: 2, pattern: _THEN}
+                    - not: {has: {nthChild: 4}}
+    choice-without-else:
+        any:
+            - pattern: {context: 'select case when _COND then _THEN end', selector: case_expression}
+            - {matches: conditional-call, not: {has: {field: arguments, has: {nthChild: 3}}}}
+            - all:
+                - pattern: {context: 'select case _ANYSUBJECT when _ANYCASE then _THEN end', selector: case_expression}
+                - matches: simple-case
+    choice-with-else:
+        any:
+            - pattern: {context: 'select case when _COND then _THEN else _ELSE end', selector: case_expression}
+            - all:
+                - pattern: {context: 'select case _ANYSUBJECT when _ANYCASE then _THEN else _ELSE end', selector: case_expression}
+                - matches: simple-case
+    null-else:
+        any:
+            - matches: choice-without-else
+            - {matches: choice-with-else, has: {field: else, kind: null_literal}}
+            - {matches: conditional-call, has: {field: arguments, has: {nthChild: 3, kind: null_literal}}}
+    counting:
+        any:
+            - pattern: {context: 'select case when _COND then 1 else 0 end', selector: case_expression}
+            - all:
+                - matches: conditional-call
+                - has: {field: arguments, has: {nthChild: 2, kind: numeric_literal, regex: '^1$'}}
+                - has: {field: arguments, has: {nthChild: 3, kind: numeric_literal, regex: '^0$'}}
+            - all:
+                - pattern: {context: 'select case _ANYSUBJECT when _ANYCASE then 1 else 0 end', selector: case_expression}
+                - matches: simple-case
+            - pattern: _COND
+              any:
+                - kind: binary_expression
+                  has: {field: operator, regex: '(?i)^(=|==|<>|!=|<|>|<=|>=|and|or|match)$'}
+                - kind: is_expression, is_null_expression, like_expression, between_expression, in_list_expression, in_subquery_expression, in_table_expression, exists_expression
+                - kind: unary_expression
+                  has: {field: operator, regex: '(?i)^not$'}
+    second-argument:
+        has: {field: arguments, has: {nthChild: 2, not: {kind: order_by_clause}}}
+    third-argument:
+        has: {field: arguments, has: {nthChild: 3, not: {kind: order_by_clause}}}
+    aggregate:
+        kind: function_call
+        all:
+            - has: {field: name, regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$'}
+            - not: {has: {field: filter, kind: filter_clause}}
+            - any:
+                - not: {matches: second-argument}
+                - all:
+                    - has: {field: name, regex: '(?i)^(group_concat|string_agg)$'}
+                    - not: {matches: third-argument}
+    conditional-aggregate:
+        matches: aggregate
+        any:
+            - has: {field: arguments, has: {nthChild: 1, matches: null-else}}
+            - all:
+                - has: {field: name, regex: '(?i)^(sum|total)$'}
+                - has: {field: arguments, not: {has: {field: modifier, regex: '(?i)^distinct$'}}, has: {nthChild: 1, matches: counting}}
+    windowed:
+        any: [{has: {field: over, kind: over_clause, pattern: _OVER}}, {not: {has: {field: over, kind: over_clause}}}]
 rule:
     pattern: _NODE
-    any: [{matches: ifnull}, {matches: json-call}, {matches: count-constant}]
+    any:
+        - matches: json-call
+        - matches: count-constant
+        - matches: equality
+        - matches: is-comparison
+        - matches: is-not-comparison
+        - kind: is_null_expression
+        - matches: conditional-aggregate
+        - any: [{matches: renamed-call}, {matches: choice-without-else}, {matches: choice-with-else}]
+          not: {inside: {kind: normal_function_arguments, inside: {matches: conditional-aggregate}}}
 rewriters:
-    - id: coalesce
-      rule: {kind: object_reference, inside: {matches: ifnull}}
-      fix: coalesce
-    - id: grouped-operator
+    - id: counted
+      rule:
+        matches: conditional-aggregate
+        all:
+            - has: {field: arguments, has: {nthChild: 1, matches: counting}}
+            - matches: windowed
+      transform: &condition
+        SUBJECT_EQUAL: {replace: {source: $SUBJECT, replace: '(?s)^(.+)$', by: '$1 = '}}
+        GROUPED_SUBJECT_EQUAL: {replace: {source: $SUBJECTG, replace: '(?s)^(.+)$', by: '($1) = '}}
+        GROUPED_CASE: {replace: {source: $CASEG, replace: '(?s)^(.+)$', by: '($1)'}}
+        OVER_CLAUSE: {replace: {source: $OVER, replace: '(?s)^(.+)$', by: ' $1'}}
+      fix: count(*) filter (where $SUBJECT_EQUAL$GROUPED_SUBJECT_EQUAL$CASE$GROUPED_CASE$COND)$OVER_CLAUSE
+    - id: counted-value
+      rule:
+        matches: conditional-aggregate
+        all:
+            - has: {field: name, regex: '(?i)^count$'}
+            - has: {field: arguments, not: {has: {field: modifier, regex: '(?i)^distinct$'}}, has: {nthChild: 1, matches: null-else}}
+            - matches: windowed
+      constraints:
+        THEN: {kind: 'numeric_literal, string_literal, blob_literal, true_literal, false_literal, current_time_literal'}
+      transform: *condition
+      fix: count(*) filter (where $SUBJECT_EQUAL$GROUPED_SUBJECT_EQUAL$CASE$GROUPED_CASE$COND)$OVER_CLAUSE
+    - id: filtered
+      rule:
+        matches: conditional-aggregate
+        all:
+            - has: {field: name, pattern: _AGG}
+            - has: {field: arguments, has: {nthChild: 1, matches: null-else}}
+            - any: [{has: {field: arguments, has: {field: modifier, regex: '(?i)^distinct$', pattern: __DISTINCT}}}, {not: {has: {field: arguments, has: {field: modifier, regex: '(?i)^distinct$'}}}}]
+            - any: [{has: {field: arguments, has: {nthChild: 2, not: {kind: order_by_clause}, pattern: _SEPARATOR}}}, {not: {matches: second-argument}}]
+            - any: [{has: {field: arguments, has: {kind: order_by_clause, pattern: _ORDER}}}, {not: {has: {field: arguments, has: {kind: order_by_clause}}}}]
+            - matches: windowed
+      transform:
+        AGGREGATE: {replace: {source: $AGG, replace: '(?i)^string_agg$', by: group_concat}}
+        DISTINCT_WORD: {replace: {source: $DISTINCT, replace: '^(.+)$', by: '$1 '}}
+        SEPARATOR_PARAMETER: {replace: {source: $SEPARATOR, replace: '(?s)^(.+)$', by: ', $1'}}
+        ORDER_CLAUSE: {replace: {source: $ORDER, replace: '(?s)^(.+)$', by: ' $1'}}
+        SUBJECT_EQUAL: {replace: {source: $SUBJECT, replace: '(?s)^(.+)$', by: '$1 = '}}
+        GROUPED_SUBJECT_EQUAL: {replace: {source: $SUBJECTG, replace: '(?s)^(.+)$', by: '($1) = '}}
+        GROUPED_CASE: {replace: {source: $CASEG, replace: '(?s)^(.+)$', by: '($1)'}}
+        OVER_CLAUSE: {replace: {source: $OVER, replace: '(?s)^(.+)$', by: ' $1'}}
+      fix: $AGGREGATE($DISTINCT_WORD$THEN$SEPARATOR_PARAMETER$ORDER_CLAUSE) filter (where $SUBJECT_EQUAL$GROUPED_SUBJECT_EQUAL$CASE$GROUPED_CASE$COND)$OVER_CLAUSE
+    - id: chosen-without-else
+      rule: {matches: choice-without-else}
+      transform: &choice
+        SUBJECT_EQUAL: {replace: {source: $SUBJECT, replace: '(?s)^(.+)$', by: '$1 = '}}
+        GROUPED_SUBJECT_EQUAL: {replace: {source: $SUBJECTG, replace: '(?s)^(.+)$', by: '($1) = '}}
+        GROUPED_CASE: {replace: {source: $CASEG, replace: '(?s)^(.+)$', by: '($1)'}}
+      fix: if($SUBJECT_EQUAL$GROUPED_SUBJECT_EQUAL$CASE$GROUPED_CASE$COND, $THEN, null)
+    - id: chosen-with-else
+      rule: {matches: choice-with-else}
+      transform: *choice
+      fix: if($SUBJECT_EQUAL$GROUPED_SUBJECT_EQUAL$CASE$GROUPED_CASE$COND, $THEN, $ELSE)
+    - id: json-grouped
       rule:
         matches: json-call
         any:
-            - inside: {kind: unary_expression}
+            - inside: {kind: 'unary_expression, collate_expression'}
             - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^(\|\||->>?)$'}}
-            - follows: {kind: ERROR, regex: '^[-+]$'}
-            - inside: {kind: term, follows: {kind: ERROR, regex: '^[-+]$'}}
-            - inside: {kind: term, nthChild: 1, inside: {kind: select_expression, follows: {kind: ERROR, regex: '^[-+]$'}}}
-      fix: ($X ->> $P)
-    - id: operator
+      transform: &json
+        GROUPED_JSON: {replace: {source: $JSONG, replace: '(?s)^(.+)$', by: '($1)'}}
+        GROUPED_PATH: {replace: {source: $PATHG, replace: '(?s)^(.+)$', by: '($1)'}}
+      fix: ($JSON$GROUPED_JSON ->> $PATH$GROUPED_PATH)
+    - id: json-operator
       rule: {matches: json-call}
-      fix: $X ->> $P
+      transform: *json
+      fix: $JSON$GROUPED_JSON ->> $PATH$GROUPED_PATH
     - id: star
-      rule: {kind: term, inside: {matches: count-constant}}
+      rule: {kind: normal_function_arguments, inside: {matches: count-constant}}
       fix: '*'
+    - id: renamed
+      rule: {kind: identifier, pattern: _NAME, inside: {field: name, matches: renamed-call}}
+      transform:
+        COALESCE: {replace: {source: $NAME, replace: '(?i)^ifnull$', by: coalesce}}
+        CONDITIONAL: {replace: {source: $COALESCE, replace: '(?i)^iif$', by: if}}
+        SLICE: {replace: {source: $CONDITIONAL, replace: '(?i)^substring$', by: substr}}
+        CONCATENATION: {replace: {source: $SLICE, replace: '(?i)^string_agg$', by: group_concat}}
+      fix: $CONCATENATION
+    - id: compared
+      rule:
+        matches: equality
+        all:
+            - has: {field: left, pattern: _LEFT}
+            - has: {field: operator, pattern: __OPERATOR}
+            - has: {field: right, pattern: _RIGHT}
+      transform:
+        EQUAL: {replace: {source: $OPERATOR, replace: '^==$', by: '='}}
+        UNEQUAL: {replace: {source: $EQUAL, replace: '^!=$', by: '<>'}}
+      fix: $LEFT $UNEQUAL $RIGHT
+    - id: not-distinct-from
+      rule: {matches: is-comparison, all: [{has: {field: left, pattern: _LEFT}}, {has: {field: right, pattern: _RIGHT}}]}
+      fix: $LEFT is not distinct from $RIGHT
+    - id: distinct-from
+      rule: {matches: is-not-comparison, all: [{has: {field: left, pattern: _LEFT}}, {has: {field: right, has: {field: operand, pattern: _RIGHT}}}]}
+      fix: $LEFT is distinct from $RIGHT
+    - id: is-null
+      rule: {kind: is_null_expression, all: [{has: {field: operand, pattern: _OPERAND}}, {has: {field: operator, regex: '(?i)^isnull$'}}]}
+      fix: $OPERAND is null
+    - id: is-not-null
+      rule: {kind: is_null_expression, has: {field: operand, pattern: _OPERAND}}
+      fix: $OPERAND is not null
 transform:
-    FIXED: {rewrite: {source: $NODE, rewriters: [coalesce, grouped-operator, operator, star]}}
+    FIXED: {rewrite: {source: $NODE, rewriters: [counted, counted-value, filtered, chosen-without-else, chosen-with-else, json-grouped, json-operator, star, renamed, compared, not-distinct-from, distinct-from, is-null, is-not-null]}}
 fix: $FIXED
 message: '`$NODE` is a second spelling of `$FIXED`'
-note: 'Use `coalesce(<value>, <default>)`, `<json> ->> <path>`, and `count(*)`, one spelling per operation for SQLite and DuckDB'
+note: Use the fix's spelling, one spelling per operation SQLite and DuckDB both read

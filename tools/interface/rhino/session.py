@@ -1,6 +1,5 @@
 """Rhino's transport and lifecycle: the Rhino the run drives, its document listeners, and `script` calls through `run_python`."""
 
-from datetime import timedelta
 from pathlib import Path
 import re
 from string.templatelib import Template
@@ -8,8 +7,7 @@ from typing import Annotated, Final
 
 import anyio
 from anyio.abc import SocketAttribute, SocketStream
-from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client
+from mcp import Client
 from mcp.types import TextContent
 import msgspec
 import psutil
@@ -74,11 +72,10 @@ class Output(msgspec.Struct, frozen=True):
 
 async def run(port: int, call: Template) -> tuple[tuple[Line, ...], tuple[str, ...]]:
     """Report rows one `script` call through the port's listener printed, the message of its raise as an error row, and its error output lines."""
-    async with streamable_http_client(f"http://{LOOPBACK}:{port}/") as (read, write, _), ClientSession(read, write, read_timeout_seconds=timedelta(seconds=DEADLINE)) as session:
-        await session.initialize()
-        result = await session.call_tool("run_python", {"script": bootstrap(SCRIPT, call)})
+    async with Client(f"http://{LOOPBACK}:{port}/", read_timeout_seconds=DEADLINE) as client:
+        result = await client.call_tool("run_python", {"script": bootstrap(SCRIPT, call)})
     output = msgspec.convert({key: value for block in result.content if isinstance(block, TextContent) for key, value in msgspec.json.decode(block.text, type=dict[str, str]).items()}, Output)
-    return (*parse(output.stdout), *((Error(output.message),) if result.isError else ())), tuple(output.stderr.splitlines())
+    return (*parse(output.stdout), *((Error(output.message),) if result.is_error else ())), tuple(output.stderr.splitlines())
 
 
 async def announced(rhino: Rhino, process: psutil.Process) -> int | Error:

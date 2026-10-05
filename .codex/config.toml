@@ -11,7 +11,8 @@ tool_timeout_sec = 300
 default_tools_approval_mode = "approve"
 
 [mcp_servers.rhino-mcp-platform]
-command = "rhino-mcp-router"
+command = "mise"
+args = ["exec", "--", "rhino-mcp-router"]
 startup_timeout_sec = 20
 tool_timeout_sec = 180
 
@@ -22,7 +23,8 @@ startup_timeout_sec = 20
 tool_timeout_sec = 120
 
 [mcp_servers.blender]
-command = "blender-mcp"
+command = "uvx"
+args = ["--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
 tool_timeout_sec = 300
 default_tools_approval_mode = "approve"
 

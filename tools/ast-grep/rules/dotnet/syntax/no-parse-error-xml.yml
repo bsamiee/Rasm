@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parse-error-xml
+language: xml
+severity: error
+utils:
+    unreported:
+        inside: {kind: ERROR, stopBy: end}
+rule:
+    any:
+        - kind: ERROR
+          not: {matches: unreported}
+        - kind: document
+          has: {stopBy: end, pattern: __MISSING, regex: '^$', not: {matches: unreported}}
+labels:
+    MISSING: {style: primary, message: Token the grammar inserted to recover}
+message: Grammar failed to parse the span
+note: Use a form the grammar parses, every other rule skips constructs inside a parse error

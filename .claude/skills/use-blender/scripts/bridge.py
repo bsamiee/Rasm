@@ -1,4 +1,4 @@
-"""Host client of the MCP extension's execute protocol on the loopback address a background Blender serves."""
+"""Host client of the MCP extension's execute protocol on a session's loopback port."""
 
 from typing import Final
 

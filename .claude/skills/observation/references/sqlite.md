@@ -54,7 +54,7 @@ Page `lang_expr.html`, operators and subqueries:
 |  [01]   | `\|\|`, `->`, and `->>` share one precedence and associate left | Parentheses around `value ->> '$.code'` beside a concatenation    |
 |  [02]   | Correlated subquery re-evaluates per outer row                  | Anti-join in `unjudged_edits`, temp tables in `lifecycle.sql`     |
 |  [03]   | `not in` answers null when the subquery holds a null            | `not in` over `finding_id` alone, a not-null column               |
-|  [04]   | `is` compares null-safe                                         | `agent_id` in `agent_digest`, `checker` in `insert.sql`           |
+|  [04]   | `is not distinct from` compares null-safe, DuckDB reads no `is` | `agent_id` in `agent_digest`, `checker` in `insert.sql`           |
 |  [05]   | `''` inside a literal spells one quote                          | Bound text holding `'` goes as `"'<text>'"` with each `'` doubled |
 |  [06]   | `if(x, y, z)` equals `case when x then y else z end`            | `if` where a case has one arm, DuckDB reads no `iif`              |
 

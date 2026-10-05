@@ -14,8 +14,8 @@ from typing import Annotated, Final
 import anyio
 from CoreFoundation import CFRunLoopGetMain, CFRunLoopRun, CFRunLoopStop
 import cyclopts
-import httpx
-from mcp import McpError
+import httpx2
+from mcp import MCPError
 import msgspec
 import psutil
 from PyObjCTools import MachSignals
@@ -36,11 +36,11 @@ def leaves(group: BaseExceptionGroup[BaseException]) -> tuple[BaseException, ...
     return tuple(leaf for error in group.exceptions for leaf in (leaves(error) if isinstance(error, BaseExceptionGroup) else (error,)))
 
 
-async def outcomes(name: str, entry: Callable[[Host], Awaitable[tuple[Applied | Failed, ...]]], units: Units, client: httpx.AsyncClient) -> tuple[Applied | Failed, ...]:
+async def outcomes(name: str, entry: Callable[[Host], Awaitable[tuple[Applied | Failed, ...]]], units: Units, client: httpx2.AsyncClient) -> tuple[Applied | Failed, ...]:
     """Outcomes of one application's entry, a process, IO, transport, or decode failure failing it with the error and each failed command's error output."""
     try:
         results = await entry(Host(name, ROOT, os.environ, units, client))
-    except* (OSError, subprocess.CalledProcessError, psutil.Error, msgspec.MsgspecError, McpError, httpx.HTTPError) as group:
+    except* (OSError, subprocess.CalledProcessError, psutil.Error, msgspec.MsgspecError, MCPError, httpx2.HTTPError) as group:
         errors = tuple(line.strip() for line in traceback.format_exception_only(group, show_group=True))
         stderr = tuple(line for error in leaves(group) if isinstance(error, subprocess.CalledProcessError) for line in error.stderr.decode().splitlines())
         results = (Failed(name, errors, stderr=stderr),)
@@ -50,7 +50,7 @@ async def outcomes(name: str, entry: Callable[[Host], Awaitable[tuple[Applied | 
 async def applied(entries: Iterable[tuple[str, Callable[[Host], Awaitable[tuple[Applied | Failed, ...]]]]], units: Units) -> bool:
     """Whether each application's entry applied, the entries run concurrently in the unit system over one HTTP client and their outcomes printed as one JSON document, the main run loop stopped once they end."""
     try:
-        async with httpx.AsyncClient(follow_redirects=True, limits=httpx.Limits(max_connections=4), timeout=httpx.Timeout(5.0, pool=None)) as client:
+        async with httpx2.AsyncClient(follow_redirects=True, limits=httpx2.Limits(max_connections=4), timeout=httpx2.Timeout(5.0, pool=None)) as client:
             results = tuple(result for outcome in await anyio.gather(*(outcomes(name, entry, units, client) for name, entry in entries)) for result in outcome)
         sys.stdout.buffer.write(msgspec.json.format(msgspec.json.encode(results, enc_hook=str), indent=1) + b"\n")
         return all(isinstance(each, Applied) for each in results)

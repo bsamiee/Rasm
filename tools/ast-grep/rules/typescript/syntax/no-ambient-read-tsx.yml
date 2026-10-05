@@ -4,10 +4,18 @@ language: tsx
 severity: error
 utils:
     service-key:
-        kind: member_expression
-        all:
-            - has: {field: property, regex: '^(Clock|Random)$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Clock|Random))?$'}, exported: {regex: '^(Clock|Random)$'}}}}
+        any:
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^(Clock|Random)$'}
+                - has:
+                    field: object
+                    any:
+                        - matches: {syntax-import-reference: {source: {regex: '^effect$'}, exported: {regex: '^(Clock|Random)$'}}}
+                        - matches: {syntax-import-reference: {source: {regex: '^effect/(Clock|Random)$'}, exported: {regex: '^$'}}}
+            - kind: identifier
+              matches: {syntax-import-reference: {source: {regex: '^effect/(Clock|Random)$'}, exported: {regex: '^(Clock|Random)$'}}}
+              not: {matches: {syntax-import-reference: {source: {regex: '^effect/(Clock|Random)$'}, exported: {regex: '^$'}}}}
     service-implementation:
         pattern: $_
         any:
@@ -20,6 +28,40 @@ utils:
                 kind: variable_declarator
                 field: value
                 has: {field: type, has: {stopBy: end, kind: nested_type_identifier, regex: '^(Clock\.Clock|Random\.Random)$'}}
+    ambient-function:
+        any:
+            - matches: syntax-global-reference
+              regex: '^(globalThis\.)?(Date\.now|Temporal\.Now\.\w+|Math\.random|crypto\.(randomUUID|getRandomValues)|performance\.now|process\.hrtime(\.bigint)?|process\.uptime)$'
+            - matches:
+                syntax-import-reference:
+                    source: {regex: '^(node:)?crypto$'}
+                    exported: {regex: '^(randomUUID|randomUUIDv7|getRandomValues|randomBytes|randomInt|randomFill|randomFillSync)$'}
+            - matches:
+                syntax-import-reference:
+                    source: {regex: '^(node:)?(os|process)$'}
+                    exported: {regex: '^uptime$'}
+            - matches:
+                syntax-import-reference:
+                    source: {regex: '^(node:)?process$'}
+                    exported: {regex: '^hrtime$'}
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^bigint$'}
+                - has:
+                    field: object
+                    matches:
+                        syntax-import-reference:
+                            source: {regex: '^(node:)?process$'}
+                            exported: {regex: '^hrtime$'}
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^now$'}
+                - has:
+                    field: object
+                    matches:
+                        syntax-import-reference:
+                            source: {regex: '^(node:)?perf_hooks$'}
+                            exported: {regex: '^performance$'}
 rule:
     not: {inside: {matches: service-implementation, stopBy: end}}
     any:
@@ -30,40 +72,13 @@ rule:
           has:
             field: function
             any:
+                - matches: ambient-function
                 - matches: syntax-global-reference
-                  regex: '^(globalThis\.)?(Date|Date\.now|Temporal\.Now\.\w+|Math\.random|crypto\.(randomUUID|getRandomValues)|performance\.now|process\.hrtime(\.bigint)?|process\.uptime)$'
-                - matches:
-                    syntax-import-reference:
-                        source: {regex: '^(node:)?crypto$'}
-                        exported: {regex: '^(randomUUID|randomUUIDv7|getRandomValues|randomBytes|randomInt|randomFill|randomFillSync)$'}
-                - matches:
-                    syntax-import-reference:
-                        source: {regex: '^(node:)?(os|process)$'}
-                        exported: {regex: '^uptime$'}
-                - matches:
-                    syntax-import-reference:
-                        source: {regex: '^(node:)?process$'}
-                        exported: {regex: '^hrtime$'}
-                - kind: member_expression
-                  all:
-                    - has: {field: property, regex: '^bigint$'}
-                    - has:
-                        field: object
-                        matches:
-                            syntax-import-reference:
-                                source: {regex: '^(node:)?process$'}
-                                exported: {regex: '^hrtime$'}
-                - kind: member_expression
-                  all:
-                    - has: {field: property, regex: '^now$'}
-                    - has:
-                        field: object
-                        matches:
-                            syntax-import-reference:
-                                source: {regex: '^(node:)?perf_hooks$'}
-                                exported: {regex: '^performance$'}
+                  regex: '^(globalThis\.)?Date$'
+        - matches: ambient-function
+          not: {any: [{inside: {kind: call_expression, field: function}}, {inside: {kind: member_expression, field: object}}, {inside: {kind: import_specifier}}]}
     pattern: $READ
 message: '`$READ` reads host time or randomness as an ambient value'
-note: 'Take the value as an argument or read it from a `Clock` or `Random` service, functions then read their inputs alone'
+note: 'Take the value as an argument or read it from a `Clock` or `Random` service'
 labels:
     READ: {style: primary}

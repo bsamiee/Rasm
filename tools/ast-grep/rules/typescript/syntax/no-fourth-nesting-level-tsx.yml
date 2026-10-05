@@ -51,7 +51,7 @@ utils:
             kind: arguments
             stopBy: {not: {matches: syntax-expression-wrapper}}
             has:
-                nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                nthChild: {position: 1, ofRule: {not: {kind: 'comment, object'}}}
                 any:
                     - pattern: $BODY
                     - matches: syntax-expression-wrapper
@@ -100,7 +100,7 @@ rule:
                     matches: control
                     stopBy: {matches: control-boundary}
                     not: {inside: {matches: control, stopBy: {matches: syntax-function-boundary}}}
-message: 'Functions or control statements nest four deep'
-note: 'Move the fourth level into a `pipe` step or an `Effect.gen` statement, nesting stops at three levels'
+message: 'Function or control nesting reaches a fourth level'
+note: 'Move the fourth level into a `pipe` step or an `Effect.gen` statement'
 labels:
     SCOPE: {style: primary}

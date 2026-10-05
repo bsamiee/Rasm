@@ -5,7 +5,9 @@ severity: error
 ignores: ['.claude/plugins/*/hooks/**']
 utils:
     effect-module:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/\w+)?$'}, exported: {kind: identifier, not: {regex: '^Schema$'}}}}
+        any:
+            - matches: {syntax-import-reference: {source: {regex: '^effect(/[a-z][\w-]*)?$'}, exported: {kind: identifier, not: {regex: '^Schema$'}}}}
+            - matches: {syntax-import-reference: {source: {regex: '^effect/([a-z][\w-]*/)?[A-Z]\w*$', not: {regex: '/Schema$'}}, exported: {regex: '^$'}}}
     named-callee:
         any:
             - kind: identifier
@@ -41,10 +43,29 @@ utils:
         all:
             - has: {field: object, matches: effect-module}
             - has: {field: property, matches: effect-dual-operation}
+    string-receiver:
+        inside:
+            matches: syntax-function-boundary
+            stopBy: {matches: syntax-function-boundary}
+            has:
+                field: parameters
+                has:
+                    kind: required_parameter
+                    all:
+                        - has: {field: pattern, pattern: $A}
+                        - has: {field: type, has: {kind: predefined_type, regex: '^string$'}}
     string-method:
-        regex: |-
-            (?x)^(startsWith|endsWith|includes|trim|trimStart|trimEnd|toUpperCase|toLowerCase|split|slice|at|charAt|charCodeAt
-            |indexOf|lastIndexOf|replace|replaceAll|repeat|padStart|padEnd|concat|search|normalize|localeCompare|substring)$
+        any:
+            - regex: |-
+                (?x)^(startsWith|endsWith|trim|trimStart|trimEnd|toUpperCase|toLowerCase|toLocaleUpperCase|toLocaleLowerCase
+                |substring|replace|replaceAll|repeat|padStart|padEnd|normalize|matchAll)$
+            - regex: '^(slice|includes)$'
+              matches: string-receiver
+    dual-string-method:
+        any:
+            - regex: '^split$'
+            - regex: '^concat$'
+              matches: string-receiver
     parameter-1: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $A}}
     parameter-2: {kind: required_parameter, nthChild: 2, has: {field: pattern, kind: identifier, pattern: $B}}
     parameter-3: {kind: required_parameter, nthChild: 3, has: {field: pattern, kind: identifier, pattern: $C}}
@@ -79,6 +100,9 @@ utils:
               not: {has: {field: arguments, has: {not: {nthChild: 1}, matches: parameter-read}}}
             - pattern: $A.$METHOD($$$REST)
               has: {field: function, has: {field: property, matches: string-method}}
+              not: {has: {field: arguments, has: {any: [{matches: parameter-read}, {matches: syntax-function-boundary}]}}}
+            - pattern: $A.$METHOD($_)
+              has: {field: function, has: {field: property, matches: dual-string-method}}
               not: {has: {field: arguments, has: {matches: parameter-read}}}
     forwarded-2:
         all: [{pattern: $BODY}, {pattern: '$F($A, $B)'}, {has: {field: function, matches: named-callee}}]
@@ -109,4 +133,4 @@ rule:
             - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
             - all: [{matches: parameters-rest}, {has: {field: body, matches: result-rest}}]
 message: 'Function forwards its parameters unchanged into `$BODY`'
-note: 'Pass `<callee>`, `flow(<inner>, <callee>)`, `Struct.get(<key>)`, or `Function.identity` in place of the wrapper where `<callee>` takes no more arguments than its caller passes'
+note: 'Pass `<callee>`, `flow(<inner>, <callee>)`, data-last `<Module>.<operation>(<arguments>)`, `String.<method>(<arguments>)` for a string, `Struct.get(<key>)`, or `Function.identity` in place of the wrapper when `<callee>` takes no more arguments than its caller passes'

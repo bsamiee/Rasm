@@ -67,7 +67,7 @@ utils:
         matches: syntax-function-boundary
         any:
             - has: {stopBy: end, kind: 'jsx_element, jsx_self_closing_element'}
-            - has: {field: return_type, has: {stopBy: end, kind: 'type_identifier, nested_type_identifier', regex: '^(JSX\.Element|(React\.)?(ReactNode|ReactElement))$'}}
+            - has: {field: return_type, has: {stopBy: end, kind: 'type_identifier, nested_type_identifier', regex: '^(React\.)?(JSX\.Element|ReactNode|ReactElement)$'}}
     replacer:
         matches: syntax-function-boundary
         nthChild: 2

@@ -1,4 +1,3 @@
-# ruff: file-ignore[private-member-access]
 """Photoshop's rows, toolbar, and Essentials frame, with the settings, swatch, toolbar, and workspace files they render."""
 
 import base64
@@ -15,10 +14,9 @@ import uuid
 
 from lxml import etree
 import msgspec
-from psd_tools.psd import descriptor
 from psd_tools.psd.base import BaseElement
 from psd_tools.psd.bin_utils import read_fmt
-from psd_tools.psd.descriptor import Bool, Descriptor, DescriptorBlock, Integer, List, RawData, String
+from psd_tools.psd.descriptor import Bool, Descriptor, DescriptorBlock, Integer, List, RawData, read_length_and_key, String
 from psd_tools.psd.tagged_blocks import TaggedBlock
 
 from interface import host
@@ -123,14 +121,17 @@ def machine_prefs(held: bytes | None) -> bytes | host.Error:
 
 
 def customization() -> bytes:
-    """Toolbar record: its version and pad, the options as booleans, the slots as lists of `toolKey` objects, and empty Extra Tools."""
+    """Toolbar record: its version and pad, the options as booleans, the slots as lists of `toolKey` objects, and empty Extra Tools, each top-level key a term read back from the zero length field Photoshop writes it with."""
     record = DescriptorBlock(name="\0", classID=b"null")
     record.update({
-        b"tver": Integer(1),
-        b"tpad": Integer(0),
-        **{option.encode(): Bool(value) for option, value in TOOLBAR.options.items()},
-        b"tlst": listed(listed(described(b"null", {b"toolKey": Integer(int.from_bytes(tool.encode()))}) for tool in slot) for slot in TOOLBAR.slots),
-        b"oflt": List(),
+        read_length_and_key(io.BytesIO(bytes(4) + key)): value
+        for key, value in {
+            b"tver": Integer(1),
+            b"tpad": Integer(0),
+            **{option.encode(): Bool(value) for option, value in TOOLBAR.options.items()},
+            b"tlst": listed(listed(described(b"null", {b"toolKey": Integer(int.from_bytes(tool.encode()))}) for tool in slot) for slot in TOOLBAR.slots),
+            b"oflt": List(),
+        }.items()
     })
     return HEADER_8BPF + record.tobytes(padding=1)
 
@@ -325,7 +326,6 @@ def rows(units: Units, _: host.Bundle) -> tuple[Row | File, ...]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-descriptor._TERMS.update({b"tver", b"tpad", *(option.encode() for option in TOOLBAR.options), b"tlst", b"oflt"})
 FRAME: Final = window.Frame(
     toolbar="panelid.static.toolbar",
     bar=True,

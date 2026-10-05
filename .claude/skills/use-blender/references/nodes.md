@@ -4,17 +4,21 @@ Node trees of every kind (geometry, shader, world, compositor, Sverchok) built, 
 
 ## [01]-[SOCKETS]
 
-Every tree kind reaches sockets by one rule, mode first:
-- `describe_node_type` lists the sockets of every mode of a type together with index, identifier, name, and default
-- Mode properties (`data_type`, `mode`) take their value before any socket write, compositor nodes take theirs as a `MENU` input
-- `MENU` inputs take the item's display name (`glare.inputs["Type"].default_value = "Bloom"`)
-- `inputs["<key>"]` matches a socket available in the current mode by name or identifier, Mix sockets by name alone
-- `next(s for s in node.inputs if s.identifier == "<id>")` reaches a repeated name (Math `Value_001`, Mix `B_Color`)
+Sockets of every tree kind take one sequence, mode first:
+1. `describe_node_type` lists the sockets of every mode of a type with index, identifier, name, and default
+2. Mode properties (`data_type`, `mode`) take their value before any socket write
+3. `next(s for s in node.inputs if s.identifier == "<id>")` reaches a socket by the identifier `describe_node_type` or a digest names
+4. `tree.links.new(<output>, <input>)` returns the link, `is_valid` false on a type mismatch
+
+- Compositor modes take a `MENU` input's item display name (`glare.inputs["Type"].default_value = "Bloom"`)
+- `inputs["<key>"]` finds a current-mode socket by name or identifier (Math `Value_001`), Mix sockets by name alone (`B` reads `B_Color` under `RGBA`)
 - Integer indexes count every socket, unavailable ones included
 - Modes change a socket's `is_unavailable` and `label` and keep its identifier and name (Mesh Line `END_POINTS` labels `Offset` "End Location")
-- `links.new` on a type mismatch returns a link with `is_valid` false and raises nothing, into a linked single input it replaces the link
+- Links into a linked single input replace its link
 
 ## [02]-[NEW_TREE]
+
+New trees build in one call, interface sockets first, nodes by type, links by socket, then the layout `arrange` draws:
 
 ```python
 # [EXECUTE_BLENDER_CODE] Row of instances of the object's own geometry, count and spacing as modifier inputs, laid out for the editor
@@ -54,15 +58,18 @@ result = {
 ```
 
 - Materials and worlds hold their tree from creation (`material.node_tree`), compositor effects a `CompositorNodeTree` node group
-- `tree.interface.items_tree` maps each socket name to its identifier (`Socket_1`), identifiers follow creation order and survive a rename
+- `tree.interface.items_tree` maps each socket name to its identifier (`Socket_1`), identifiers following creation order and surviving a rename
 - Interface sockets hold `default_value`, `min_value`, `max_value`, and `subtype`
-- `modifier.node_warnings` stays empty on a tree that outputs nothing, the evaluated vertex count shows output
-- `arrange("<tree>")` lays the tree out through Node Arrange in a temporary window it draws once and closes, node selection kept
-- `arrange` prints one `Warning: 1 × Draw region` timing line from its draw
-- `Arranged.reroutes` names the reroutes the layout added, a tree holding a cycle raises from Node Arrange
-- `arrange` answers `NoWindow` in a background process, and headless builds take it once the GUI opens the file
+- Evaluated vertex counts show a tree's output, `modifier.node_warnings` staying empty on a tree that outputs nothing
+- `arrange` prints one `Warning: 1 × Draw region` timing line from its draw, and Node Arrange raises on a tree holding a cycle
+- Headless builds take `arrange` once the GUI opens the file
 
 ## [03]-[EXISTING_TREE]
+
+Existing trees change in one sequence:
+1. `digest("<name>")` reads the tree's interface, values differing from a fresh node, and links by socket identifier
+2. Writes take the identifiers the digest names
+3. `digest` run again shows the change
 
 ```python
 # [EXECUTE_BLENDER_CODE] Interface, changed values, and links of one tree
@@ -72,20 +79,15 @@ from results import as_result
 result = as_result(digest("<name>"))
 ```
 
-- `<name>` is a node group or the ID holding a tree (material, world, light, scene), a node group first on a shared name, else `UnknownTree`
-- `owner` names the holder's RNA type, `interface` each socket with the values that differ from a fresh socket of its type
-- `nodes` hold settings, available unlinked inputs, and outputs that differ from a fresh node of their type, by socket identifier
-- Group nodes compare against their group's interface defaults, Sverchok socket values show as the node properties their `prop_name` names
-- `links` name node and socket identifier at each end with `is_valid` and `is_muted`
-- Values round to `Object.location` precision, and layout, width, and selection stay out
-- Writes take the identifiers the digest names, and a second `digest` shows the change
+- `<name>` names a node group or the ID holding a tree (material, world, light, scene)
+- Sverchok socket values show as the node properties their `prop_name` names
 
 ## [04]-[MODIFIER_INPUTS]
 
 Modifier input values sit on `modifier.properties.inputs` as one member per interface identifier:
 
 ```python
-# [EXECUTE_BLENDER_CODE] Set a group input by its interface name and read the evaluated result
+# [EXECUTE_BLENDER_CODE] Group input <Input> set by its interface name, the evaluated result read
 import bpy
 
 obj = bpy.data.objects["<Object>"]
@@ -100,20 +102,20 @@ result = {"vertices": len(obj.evaluated_get(depsgraph).data.vertices), "instance
 
 - Each input holds `value`, `type` (`VALUE` or `ATTRIBUTE`), and `attribute_name` for the attribute an `ATTRIBUTE` input reads
 - `obj.update_tag()` after a value write makes the next evaluated read hold it, live and in background
-- Item assignments on the modifier raise `TypeError: id properties not supported for this type`
 
 ## [05]-[RESULTS]
 
-- Instances stay out of the evaluated mesh and out of `Object.dimensions`, `depsgraph.object_instances` counts them and `snapshot` bounds include them
+Evaluated results read through the depsgraph, instances apart from the mesh until Realize Instances joins them:
+- Instances stay out of the evaluated mesh and `Object.dimensions`, `depsgraph.object_instances` counting them and `snapshot` bounds including them
 - Vertices, attributes, and `Object.dimensions` include instances after Realize Instances turns them into mesh
 - `evaluated.evaluated_geometry()` holds `mesh`, `curves`, `pointcloud`, and `instances_pointcloud()`
-- `instance_transform` reads column-major through `foreach_get`, the translation sits at `[3, :3]`
+- `instance_transform` reads column-major through `foreach_get`, the translation at `[3, :3]`
 - `obj.evaluated_get(depsgraph).data.attributes` holds evaluated attributes
 - `bpy.data.meshes.new_from_object(<evaluated>)` bakes the result to a mesh datablock
 
 ## [06]-[SVERCHOK]
 
-Sverchok loads in `start` sessions and the GUI, and its trees evaluate through a task queue a GUI timer drains:
+Sverchok loads in `start` sessions and the GUI, and its trees evaluate through a task queue the call drains:
 
 ```python
 # [HEADLESS_CALL] Box generator into a mesh viewer, evaluated in the call
@@ -130,6 +132,6 @@ while tasks:
 result = {"object": viewer.base_data_name, "dimensions": list(bpy.data.objects[viewer.base_data_name].dimensions)}
 ```
 
-- Generators output `Vers`, `Edgs`, and `Pols`, `SvMeshViewer` takes `vertices`, `edges`, and `faces`
+- Generators output `Vers`, `Edgs`, and `Pols`, `SvMeshViewer` taking `vertices`, `edges`, and `faces`
 - Unlinked inputs read the node property their socket's `prop_name` names (`SvBoxNodeMk2` input `Size` reads `Size`)
 - Viewer nodes write the object `base_data_name` names

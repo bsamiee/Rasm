@@ -21,5 +21,6 @@ rule:
                         - has: {field: parameter, kind: identifier, pattern: $PARAMETER}
                         - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $PARAMETER}}
                     - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
+                    - not: {has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', all: [{has: {field: pattern, pattern: $PARAMETER}}, {has: {field: type, has: {kind: predefined_type, regex: '^unknown$'}}}]}}}
 message: 'Argument shape selects the behavior at runtime through an overload or a `typeof` test'
 note: 'Declare one function per argument shape and decode an unknown input once at the boundary with `Schema`'

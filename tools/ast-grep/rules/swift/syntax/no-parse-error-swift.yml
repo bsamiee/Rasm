@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parse-error-swift
+language: swift
+severity: error
+utils:
+    regex-argument:
+        kind: value_argument
+        regex: '^(\w+\s*:\s*)?/'
+        any:
+            - has: {stopBy: end, kind: custom_operator, regex: '^/'}
+            - has: {field: value, kind: regex_literal, regex: '\\/$'}
+    regex-literal:
+        kind: ERROR
+        any:
+            - inside: {stopBy: end, matches: regex-argument}
+            - {inside: {kind: value_arguments}, follows: {matches: regex-argument}}
+            - follows: {kind: call_expression, has: {kind: call_suffix, has: {kind: value_arguments, has: {matches: regex-argument}}}}
+            - has: {kind: custom_operator, regex: '^/', follows: {regex: '^[(:]$'}}
+    unsafe-expression:
+        kind: ERROR
+        regex: '^[A-Za-z_]\w*$'
+        follows: {kind: 'simple_identifier, user_type', regex: '^unsafe$'}
+    case-pattern-guard:
+        kind: ERROR
+        regex: '^where\s'
+        inside: {kind: switch_entry}
+        follows: {kind: switch_pattern}
+        any:
+            - has: {kind: switch_pattern}
+            - follows: {kind: switch_pattern, follows: {regex: '^,$'}}
+    awaited-closure:
+        any:
+            - kind: await_expression
+              has: {field: expr, has: {stopBy: end, kind: call_suffix, has: {kind: lambda_literal}}}
+            - {kind: lambda_literal, follows: {follows: {regex: '^await$'}}}
+    awaited-condition:
+        kind: 'if_statement, ERROR'
+        all:
+            - has: {regex: '^if$'}
+            - has:
+                stopBy: end
+                matches: awaited-closure
+                not: {inside: {kind: statements, stopBy: {kind: 'if_statement, ERROR'}}}
+    awaited-condition-recovery:
+        any:
+            - {kind: ERROR, matches: awaited-condition}
+            - {kind: ERROR, has: {matches: awaited-condition}}
+            - {kind: ERROR, follows: {stopBy: end, matches: awaited-condition}}
+            - inside: {stopBy: end, matches: awaited-condition}
+            - {regex: '^$', inside: {kind: 'class_body, function_body', has: {stopBy: end, matches: awaited-condition}}}
+    isolated-parameter:
+        kind: ERROR
+        any:
+            - has: {kind: ERROR, regex: '^isolated\s', follows: {regex: '^\($'}}
+            - {regex: '^[A-Za-z_][\w.]*$', follows: {kind: 'tuple_type_item, parameter', regex: '(^|\s)isolated$'}}
+    empty-tuple:
+        regex: '^$'
+        inside: {stopBy: end, kind: tuple_expression, regex: '^\(\s*\)$'}
+    unreported:
+        any:
+            - inside: {kind: ERROR, stopBy: end}
+            - matches: regex-literal
+            - matches: unsafe-expression
+            - matches: case-pattern-guard
+            - matches: awaited-condition-recovery
+            - matches: isolated-parameter
+            - matches: empty-tuple
+rule:
+    any:
+        - kind: ERROR
+          not: {matches: unreported}
+        - kind: source_file
+          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+labels:
+    MISSING: {style: primary, message: Token the grammar inserted to recover}
+message: Grammar failed to parse the span
+note: >-
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-swift grammar gaps are bare regex literals opening `/^` or holding `\/`, `unsafe` expressions, `where` on a non-final pattern of a multi-pattern `case`, an `if` condition `await <expression> {` read as a trailing closure, `isolated` parameters (`(isolated T) -> Void`), and the empty tuple `()` as a value

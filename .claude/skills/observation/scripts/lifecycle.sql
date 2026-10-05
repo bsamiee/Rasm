@@ -62,7 +62,7 @@ delete from move
 where exists (
         select 1 from finding_state x
         join head h on h.finding_id = move.finding_id
-        where x.finding_id <> h.finding_id and x.path = move.new_path and x.checker is h.checker and x.category = h.category and x.text_hash = h.text_hash and x.occurrence = h.occurrence
+        where x.finding_id <> h.finding_id and x.path = move.new_path and x.checker is not distinct from h.checker and x.category = h.category and x.text_hash = h.text_hash and x.occurrence = h.occurrence
     )
     or (select blob from content where path = move.new_path) is null
     or (select (length(c.ntext) - length(replace(c.ntext, h.ntext, ''))) / length(h.ntext) from content c join head h on h.finding_id = move.finding_id where c.path = move.new_path) < (select occurrence from head where finding_id = move.finding_id);

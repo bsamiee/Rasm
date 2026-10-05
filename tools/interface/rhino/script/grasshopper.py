@@ -1,4 +1,4 @@
-# ty: ignore[invalid-exception-caught, no-matching-overload, unresolved-import]
+# ty: ignore[invalid-exception-caught, unresolved-import]
 # mypy: disable-error-code="arg-type, import-not-found, import-untyped, misc, no-any-return, no-any-unimported"
 """Grasshopper 2's settings, skin, ribbon, preview, snapping, fonts, palette, and editor rows the Rhino run converges."""
 
@@ -20,6 +20,7 @@ from Grasshopper2 import Folders, ResourceFolder, Settings, SettingsFile, Settin
 from Grasshopper2.Diagnostics import Density
 from Grasshopper2.Display import Defaults, Guise, GuiseCurve, GuiseFacet, GuisePlane, GuisePoint, Guises, Stripe, Symbol
 from Grasshopper2.Doc import AutoSaveReason
+from Grasshopper2.Eto.Drawing import OpenColor
 from Grasshopper2.SpecialObjects import ScratchObject
 from Grasshopper2.Types.Colour import ColourImportance, NamedColour, NamedPalette, Space
 from Grasshopper2.UI.Canvas import SnappingSettings
@@ -36,7 +37,7 @@ from System.IO import FileNotFoundException
 
 from interface.frame import LOWER_EDITOR
 from interface.report import Action, Row
-from interface.rhino.script.accessors import hex_color, Internal, key, member
+from interface.rhino.script.accessors import hex_color, key, member
 from interface.roles import Alpha, Axis, blend, Guide, Line, Modality, Selection, substituted, Surface, SWATCHES, Tag, TAGS, Text, Typography, Wire
 
 if TYPE_CHECKING:
@@ -161,8 +162,7 @@ def snapping(settings: SnappingSettings) -> dict[str, object]:
 def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[Row, ...]:
     """Every Grasshopper 2 row in write order, previews at Rhino's point and curve widths and the editor docked under the document's views."""
     command, scale = (PlugIn.Find(PlugIn.IdFromName("Grasshopper2")), "GH2"), Screen.PrimaryScreen.LogicalPixelSize
-    matched = Internal.OPEN_COLOR.type.GetMethod("MatchFamily", Array[System.Type]([clr.GetClrType(Color)]))
-    skin, family = definition(scale), matched.Invoke(None, Array[System.Object]([Color.FromArgb(*Guide.CONSTRUCTION)]))
+    skin, family = definition(scale), OpenColor.MatchFamily(Color.FromArgb(*Guide.CONSTRUCTION))
     ink, chosen = Color.FromArgb(*Modality.DISPLAY.mark), Color.FromArgb(*Selection.ITEM)
     clear, shaded = GuiseCurve(Color.FromArgb(*Modality.DISPLAY.mark, 0), curve_width), GuiseFacet(Color.FromArgb(*Surface.SHADED), 0.0, Stripe.Flat)
     axes = GuisePlane(Color.FromArgb(*Axis.X), Color.FromArgb(*Axis.Y), Color.FromArgb(*Line.DATUM_GRID), curve_width, curve_width)
@@ -170,7 +170,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
         Guise(points=GuisePoint(ink, point_width, Symbol.Circle), planes=axes, curves=GuiseCurve(ink, curve_width), isocurves=clear, planarNatural=shaded),
         Guise(points=GuisePoint(chosen, point_width, Symbol.Unset), planes=axes.WithoutLineColours(), curves=GuiseCurve(chosen, curve_width), isocurves=clear, planarNatural=shaded),
     )
-    fonts, palette = Path(Folders.ResourceFolder(ResourceFolder.Fonts)), Path(Folders.ResourceFolder(ResourceFolder.Colours)) / f"{TAGS}.ghdic"
+    palette = Path(Folders.ResourceFolder(ResourceFolder.Colours)) / f"{TAGS}.ghdic"
     areas = [area for view in doc.Views if not (area := view.ScreenRectangle).IsEmpty]
     left, right, bottom = min(area.Left for area in areas) / scale, max(area.Right for area in areas) / scale, max(area.Bottom for area in areas) / scale
     title = Mac64Extensions.ToEtoSize(NSWindow.FrameRectFor(CGRect.Empty, NSWindowStyle.Titled).Size).Height
@@ -184,6 +184,10 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
         (Settings.MultiThreading, 3),
         (Settings.AutoSaveReasons, sum(flag for flag in map(int, System.Enum.GetValues(clr.GetClrType(AutoSaveReason))) if flag.bit_count() == 1 and flag != int(AutoSaveReason.Force))),
         (Settings.UserDays, max(Settings.UserDays.Value, 15)),
+        (Settings.TypefaceSans, Typography.INTERFACE.family),
+        (Settings.TypefaceMono, Typography.MONOSPACE.family),
+        (Settings.TypefaceSerif, Typography.INTERFACE.family),
+        (Settings.TypefaceScript, Typography.INTERFACE.family),
     )
     factory = (
         Settings.ZoomThresholdDetailed,
@@ -233,7 +237,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
 
     def sketched(values: Mapping[str, object]) -> str | None:
         """Write the default sketch style through its owner, then the default shape into the same settings file, else the file write Grasshopper 2 refused."""
-        ScratchObject.SetDefaultStyle(System.Enum.ToObject(matched.ReturnType, values["Colour"]), values["Stroke"], values["Double"], ArrowStyle(values["ArrowHead"]), values["ArrowFactor"])
+        ScratchObject.SetDefaultStyle(OpenColor.Family(values["Colour"]), values["Stroke"], values["Double"], ArrowStyle(values["ArrowHead"]), values["ArrowFactor"])
         return saved("ScratchObject", {"DefaultShape": values["DefaultShape"]})
 
     def swatches() -> dict[str, tuple[Color, ColourImportance]] | None:
@@ -282,10 +286,6 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
             read=lambda: snapping(SnappingSettings.Current),
             write=snapped,
             target=snapping(SnappingSettings.Default.WithFeedback(drawFeedback=True, colour=Color.FromArgb(*Guide.TRACKING))),
-        ),
-        *(
-            Row(label=f'Fonts["{name}"]', read=partial((fonts / name).read_text, encoding="utf-8"), write=partial((fonts / name).write_text, encoding="utf-8"), target=face.family)
-            for name, face in (("SansSerif.txt", Typography.INTERFACE), ("Monospace.txt", Typography.MONOSPACE), ("Serif.txt", Typography.INTERFACE), ("Script.txt", Typography.INTERFACE))
         ),
         Row(
             label=f'NamedPalette["{TAGS}"]',

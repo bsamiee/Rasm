@@ -1,5 +1,5 @@
-# mypy: disable-error-code="attr-defined, union-attr, arg-type"
-# ty: ignore[unresolved-attribute, invalid-argument-type]
+# ty: ignore[invalid-argument-type, unresolved-attribute]
+# mypy: disable-error-code="arg-type, attr-defined, union-attr"
 """Operators, RNA types, and add-on settings matching words across stock Blender and every enabled add-on."""
 
 from collections.abc import Mapping

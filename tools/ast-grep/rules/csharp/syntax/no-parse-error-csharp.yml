@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parse-error-csharp
+language: csharp
+severity: error
+utils:
+    parameters-with-modifiers:
+        kind: tuple_expression
+        has: {kind: argument, regex: '^(out|ref|in)\s'}
+    lambda-head-with-modifiers:
+        any:
+            - matches: parameters-with-modifiers
+            - {kind: 'arrow_expression_clause, assignment_expression', has: {matches: parameters-with-modifiers}}
+    lambda-with-modifiers-error:
+        kind: ERROR
+        any:
+            - {regex: '^(=>|\()\s*\([^()]*\)(\s*=>\s*\{\s*\w+(\s*=\s*\w+)?)?$', has: {matches: lambda-head-with-modifiers}}
+            - {regex: '^=>\s*(\{\s*)?\w+$', follows: {matches: lambda-head-with-modifiers}}
+    lambda-with-modifiers:
+        any:
+            - matches: lambda-with-modifiers-error
+            - {kind: ERROR, regex: '^[)}]$', inside: {kind: compilation_unit}, follows: {stopBy: end, has: {stopBy: end, matches: lambda-with-modifiers-error}}}
+            - inside: {kind: initializer_expression, inside: {kind: arrow_expression_clause, follows: {matches: lambda-with-modifiers-error}}}
+            - kind: implicit_parameter
+              inside: {kind: lambda_expression, has: {field: type, kind: tuple_type, regex: '\bref\s+readonly\s'}}
+    typed-slice-error:
+        kind: ERROR
+        regex: '^[A-Za-z_][\w.]*(<[^>]*>)?(\[\])*\??\s+[A-Za-z_]\w*'
+        inside: {kind: list_pattern}
+        follows: {regex: '^\.\.$'}
+    typed-slice:
+        any:
+            - matches: typed-slice-error
+            - {regex: '^$', inside: {kind: list_pattern, has: {matches: typed-slice-error}}}
+    unreported:
+        any:
+            - inside: {kind: ERROR, stopBy: end}
+            - matches: lambda-with-modifiers
+            - matches: typed-slice
+rule:
+    any:
+        - kind: ERROR
+          not: {matches: unreported}
+        - kind: compilation_unit
+          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+labels:
+    MISSING: {style: primary, message: Token the grammar inserted to recover}
+message: Grammar failed to parse the span
+note: >-
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-c-sharp grammar gaps are modifiers on implicitly typed lambda parameters (`(a, out b) =>`) and a declaration pattern in a slice pattern (`[.. T[] rest]`)

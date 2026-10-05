@@ -1,8 +1,8 @@
 import { NodeHttpServer } from '@effect/platform-node';
 import { PgliteClient } from '@effect/sql-pglite';
 import { Effect, Layer, type Scope } from 'effect';
-import { HttpServer, type HttpServerError, type HttpServerRequest, type HttpServerResponse } from 'effect/unstable/http';
-import { SqlClient, type SqlError } from 'effect/unstable/sql';
+import { HttpServer, type HttpServerError, type HttpServerRequest, type HttpServerResponse } from 'effect/http';
+import { SqlClient, type SqlError } from 'effect/sql';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

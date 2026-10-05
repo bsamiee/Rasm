@@ -2,7 +2,7 @@
 # mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, return-value, no-any-return, call-overload, arg-type, unreachable"
 """Rhino settings rows by settings path, member, and internal type, the scope disposing a .NET resource, and the plain form a row compares."""
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from enum import StrEnum
 from functools import partial, reduce
@@ -45,7 +45,6 @@ class Internal(StrEnum):
     LAYER_TREE_GRID_VIEW = "Rhino.UI.DialogPanels.LayerTreeGridView, Rhino.UI"
     LAYOUT_COLUMN_TYPE = "Rhino.UI.DialogPanels.LayoutTreeGridView+ColumnType, Rhino.UI"
     LAYOUT_TREE_GRID_VIEW = "Rhino.UI.DialogPanels.LayoutTreeGridView, Rhino.UI"
-    OPEN_COLOR = "Eto.Drawing.OpenColor, Grasshopper2"
     OSNAP_BUTTON_DISPLAY = "Rhino.UI.DialogPanels.OSnapPanel+OSnapButtonDisplay, Rhino.UI"
     RUNTIME_SETTINGS = "Rhino.UI.Runtime.Settings, Rhino.UI"
     SELECTION_FILTER_BUTTON_DISPLAY = "Rhino.UI.DialogPanels.SelectionFilterUi+ButtonDisplay, Rhino.UI"
@@ -84,7 +83,7 @@ class Internal(StrEnum):
 
 # --- [SCOPES]
 @contextmanager
-def disposed[T: IDisposable](resource: T) -> Iterator[T]:
+def disposed[T: IDisposable](resource: T) -> Generator[T]:
     """Scope holding the .NET resource, disposed at its exit."""
     try:
         yield resource

@@ -1,6 +1,5 @@
 import type { Vitest } from '@effect/vitest';
-import { Data, Effect, type Equivalence, Function, type Order, pipe, Schema } from 'effect';
-import type { Arbitrary } from 'effect/unstable/arbitrary';
+import { type Arbitrary, Data, Effect, type Equivalence, Function, type Order, pipe, Schema } from 'effect';
 import fc from 'fast-check';
 
 // --- [TYPES] ---------------------------------------------------------------------------

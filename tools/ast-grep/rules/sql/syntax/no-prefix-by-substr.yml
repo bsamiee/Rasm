@@ -4,48 +4,67 @@ language: sql
 severity: error
 utils:
     leading-slice:
-        kind: invocation
+        kind: function_call
         all:
-            - has: {kind: object_reference, regex: '(?i)^substr(ing)?$'}
-            - has: {kind: term, nthChild: {position: 1, ofRule: {kind: term}}, has: {field: value, pattern: _SUBJECT}}
-            - has: {kind: term, nthChild: {position: 2, ofRule: {kind: term}}, has: {field: value, kind: literal, regex: '^1$'}}
-            - has: {kind: term, nthChild: {position: 3, ofRule: {kind: term}}, has: {field: value, pattern: _LENGTH}}
-            - not: {has: {kind: term, nthChild: {position: 4, ofRule: {kind: term}}}}
+            - has: {field: name, regex: '(?i)^substr(ing)?$'}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all:
+                    - has: {nthChild: 1, pattern: _SUBJECT}
+                    - has: {nthChild: 2, kind: numeric_literal, regex: '^1$'}
+                    - has: {nthChild: 3, pattern: _LENGTH}
+                    - not: {has: {nthChild: 4}}
     prefix-test:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^==?$'}
+            - has: {field: operator, regex: '^(==?|<>|!=)$', pattern: __OPERATOR}
             - any:
                 - all: [{has: {field: left, matches: leading-slice}}, {has: {field: right, pattern: _PREFIX}}]
                 - all: [{has: {field: right, matches: leading-slice}}, {has: {field: left, pattern: _PREFIX}}]
     prefix-length:
-        kind: invocation
+        kind: function_call
         all:
-            - has: {kind: object_reference, regex: '(?i)^length$'}
-            - has: {kind: term, has: {field: value, pattern: _PREFIX}}
+            - has: {field: name, regex: '(?i)^length$'}
+            - has: {field: arguments, has: {nthChild: 1, pattern: _PREFIX}}
+    base-length:
+        kind: function_call
+        all:
+            - has: {field: name, regex: '(?i)^length$'}
+            - has: {field: arguments, has: {nthChild: 1, pattern: _BASE}}
     separated-length:
         kind: binary_expression
         all:
             - has: {field: operator, regex: '^\+$'}
-            - has: {field: left, kind: invocation, all: [{has: {kind: object_reference, regex: '(?i)^length$'}}, {has: {kind: term, has: {field: value, pattern: _BASE}}}]}
-            - has: {field: right, kind: literal, regex: '^1$'}
+            - any:
+                - all: [{has: {field: left, matches: base-length}}, {has: {field: right, kind: numeric_literal, regex: '^1$'}}]
+                - all: [{has: {field: right, matches: base-length}}, {has: {field: left, kind: numeric_literal, regex: '^1$'}}]
+    separated-prefix:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\|\|$'}
+            - has: {field: left, pattern: _BASE}
+            - has: {field: right, kind: string_literal, regex: "^'([^']|'')'$"}
 rule:
     matches: prefix-test
     pattern: _TEST
     any:
         - pattern: _FIXABLE
           any:
-            - has: {stopBy: end, matches: leading-slice, has: {kind: term, has: {field: value, matches: prefix-length}}}
+            - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: 3, matches: prefix-length}}}
             - all:
-                - has: {stopBy: end, matches: leading-slice, has: {kind: term, has: {field: value, matches: separated-length}}}
-                - has: {kind: binary_expression, regex: "^\\S+ \\|\\| '.'$", has: {field: left, pattern: _BASE}}
+                - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: 3, matches: separated-length}}}
+                - has: {matches: separated-prefix}
         - pattern: _KEPT
 rewriters:
     - id: position
       rule: {matches: prefix-test}
-      fix: instr($SUBJECT, $PREFIX) = 1
+      transform:
+        EQUAL: {replace: {source: $OPERATOR, replace: '^==?$', by: '='}}
+        RELATION: {replace: {source: $EQUAL, replace: '^!=$', by: '<>'}}
+      fix: instr($SUBJECT, $PREFIX) $RELATION 1
 transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [position]}}
 fix: $FIXED$KEPT
 message: '`$TEST` tests a prefix through a slice as long as the prefix'
-note: 'Write `instr(<subject>, <prefix>) = 1`, and `instr(<subject> || ''/'', <directory> || ''/'') = 1` for a path equal to or under a directory, each states the prefix once for SQLite and DuckDB'
+note: 'Use `instr(<subject>, <prefix>) = 1`, a test SQLite and DuckDB both read with the prefix stated once'

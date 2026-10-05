@@ -6,7 +6,7 @@ Policies refuse tool calls. With `observation` true, hook events become database
 [TOOL_CALL]: Function hooks hold one decision the harness takes on every tool call before the tool runs, `deny`, `next` over the call, or `next` over its rewrite
 - ALWAYS use `plugin-authoring` skill for writing or changing a function hook
 - ALWAYS write a policy as a pure function from the parsed call to its refusal, `register.ts` alone reads `$` and answers `deny` or `next`
-- ALWAYS write a rewrite as a pure function from the parsed call and text to a command, a note of what changed, and an instruction of what to write
+- ALWAYS write a rewrite as a pure function from the parsed call and text to a command, a change note, and an optional instruction of what to write
 - `register.ts` re-parses the rewritten command and runs every refusal policy over it before `next`
 - `register.ts` logs each note to the transcript and adds it with its instruction to result `context` for the model
 - ALWAYS write `$.ui.log` text as one line
@@ -19,7 +19,7 @@ Policies refuse tool calls. With `observation` true, hook events become database
 
 ## [01]-[POLICIES]
 
-Git, stdin, and wait policies read Bash and Monitor commands, script and walker policies Bash alone, path policy Write, worktree policy Agent and EnterWorktree:
+Policies read Bash and Monitor (git, stdin, wait, rewrite), Bash alone (script, walker, queue), Write (path), Agent and EnterWorktree (worktree):
 - Refusals state what the call does and the repository form replacing it (`hyperfine` for `time`, own exit or `run_in_background` for a wait)
 - Failed parse refuses the call
 - Redirect words past the first destination are operands of the command, and a statement's redirect belongs to its last command
@@ -35,6 +35,14 @@ Git, stdin, and wait policies read Bash and Monitor commands, script and walker 
 - Rewrite policy adds `-A` to an `sd` invocation lacking it whose find holds a line break, line mode never matches one
 - Rewrite policy adds `--` before the find of an `sd` invocation with an operand opening with `-` outside its `invocation.ts` row's `flags` and `valued` options
 - Rewrite policy splices top-level commands by the byte spans of their words, a command inside an inline body keeps its text
+- Queue policy wraps a Bash command able to run uv's resolver as `{ lockf 9 && {`, its lines, and `} 9>&-; } 9>>'<root>/.cache/uv-resolver.lock'`
+- Queued commands from every agent, session, and worktree share the main working tree's lock and run one at a time
+- Brace group runs the command in Bash tool's shell with its `cd`, aliases, functions, and exit status unchanged
+- Shell holds the lock on descriptor 9 and closes it for the command, a process the command leaves running holds no lock
+- `policies.ts` `queues` declares uv and uvx commands running the resolver with options and operands that skip, force, or gate a resolve
+- `nx` calls queue when a named target or its `dependsOn` closure in root `package.json` `nx.targets` or `nx.json` `targetDefaults` runs uv's resolver
+- Unread or malformed root `package.json` or `nx.json`, or an unparsed target command, refuses the `nx` call
+- Commands holding a `lockf` operand ending in `.cache/uv-resolver.lock` pass unwrapped, a nested lock waits on its own holder
 
 ## [02]-[RECORDING]
 

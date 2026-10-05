@@ -20,12 +20,12 @@
             "command": "ast-grep-server"
         },
         "playwright": {
-            "command": "playwright",
-            "args": ["mcp", "--headless", "--caps=config,network,pdf,storage,testing,vision,devtools"]
+            "command": "mise",
+            "args": ["exec", "--", "playwright", "mcp", "--headless", "--caps=config,network,pdf,storage,testing,vision,devtools"]
         },
         "playwright-test": {
-            "command": "playwright",
-            "args": ["run-test-mcp-server", "--headless"]
+            "command": "mise",
+            "args": ["exec", "--", "playwright", "run-test-mcp-server", "--headless"]
         },
         "github": {
             "type": "http",
@@ -90,10 +90,12 @@
             "args": ["lldb-mcp"]
         },
         "rhino-mcp-platform": {
-            "command": "rhino-mcp-router"
+            "command": "mise",
+            "args": ["exec", "--", "rhino-mcp-router"]
         },
         "blender": {
-            "command": "blender-mcp"
+            "command": "uvx",
+            "args": ["--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
         },
         "mcp-for-blender": {
             "command": "mcp-for-blender"

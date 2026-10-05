@@ -1,7 +1,7 @@
-# ty: ignore[unresolved-attribute, invalid-assignment, redundant-condition-strict, too-many-positional-arguments]
-# mypy: disable-error-code="untyped-decorator, union-attr, attr-defined, call-arg, func-returns-value"
-# ruff: file-ignore[subprocess-without-shell-equals-true, start-process-with-partial-path, private-member-access, import-private-name]
-"""Blender processes outside the live session on a named file, as the command line on the host and as the job inside each Blender it starts."""
+# ty: ignore[invalid-assignment, redundant-condition-strict, too-many-positional-arguments, unresolved-attribute]
+# mypy: disable-error-code="attr-defined, call-arg, func-returns-value, union-attr, untyped-decorator"
+# ruff: file-ignore[import-private-name, private-member-access, start-process-with-partial-path, subprocess-without-shell-equals-true]
+"""Background Blender runs, sessions, and frame renders with a JPEG sheet of a named file."""
 
 from collections.abc import Mapping, Sequence
 import contextlib
@@ -22,7 +22,7 @@ import subprocess
 import sys
 import time
 from types import ModuleType
-from typing import Annotated, Final
+from typing import Final
 
 import attrs
 from cattrs.preconf.json import make_converter
@@ -39,7 +39,7 @@ else:
     from cyclopts.types import ResolvedExistingFile, ResolvedFile
     import msgspec
     import psutil
-    from results import artifacts, JSON, repository
+    from results import artifacts, Fault, Faults, JSON, repository, Resolved
     from wrapper import wrap
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -101,9 +101,9 @@ class Session:
 
 @attrs.frozen
 class Stopped:
-    """Session ended with its record removed on the file it held, `saved` true when `stop` wrote the session's changes to it, its output in the log."""
+    """Session ended with its record removed on the file it held, `None` for an untitled one, `saved` true when `stop` wrote the session's changes to it, its output in the log."""
 
-    file: Path
+    file: Path | None
     saved: bool
     log: Path
 
@@ -154,20 +154,6 @@ class Failed:
 
 
 @attrs.frozen
-class SessionRunning:
-    """Start refused while a session of the name runs, `stop` ending it first."""
-
-    session: Session
-
-
-@attrs.frozen
-class NoBridge:
-    """Start refused when the user's extensions hold no MCP extension, `module` the first package Blender failed to import."""
-
-    module: str
-
-
-@attrs.frozen
 class Diverged:
     """Stop refused with the session running while both its data and the file on disk changed since the session last loaded or saved the file."""
 
@@ -179,13 +165,6 @@ class Alive:
     """Session process running past the deadline after its termination."""
 
     session: Session
-
-
-@attrs.frozen
-class NoSession:
-    """Call or stop with no running session behind the record."""
-
-    record: Path
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -226,17 +205,20 @@ def answered(reply: "bridge.Done | bridge.Raised", began: float) -> Ran | Raised
             return Raised(message, stdout, stderr, seconds)
 
 
-def span(text: str) -> Scope | tuple[int, int]:
-    """`--frames` text as one frame, a range as `1..24`, or a scope, `ValueError` for any other text."""
-    match text.partition(".."):
-        case (Scope.CURRENT | Scope.ALL) as scope, "", "":
-            return Scope(scope)
-        case frame, "", "":
-            return ((number := int(frame)), number)
-        case first, _, last if (start := int(first)) <= (end := int(last)):
-            return start, end
+def span(text: str) -> "Resolved[tuple[str, ...]]":
+    """Return `--frames` text as its scope or its first and last frame, a fault for text naming no scope, frame, or ascending range as `1..24`."""
+    match re.fullmatch(r"(\d+)(?:\.\.(\d+))?", text), text:
+        case None, Scope.CURRENT | Scope.ALL:
+            return (text,)
+        case re.Match() as frames, _ if int(frames[1]) <= int(frames[2] or frames[1]):
+            return frames[1], frames[2] or frames[1]
         case _:
-            raise ValueError(f"Expected a frame, a range as 1..24, current, or all, got {text!r}")
+            return Faults.of(Fault(Scope, text, tuple(Scope)))
+
+
+def sessions() -> tuple[str, ...]:
+    """Return the names of running sessions."""
+    return tuple(sorted(found.stem for found in artifacts("session").glob("*.json") if running(found.stem) is not None))
 
 
 def opening(file: Path) -> tuple[str, ...]:
@@ -279,10 +261,10 @@ def run(file: "ResolvedFile") -> "Ran | Raised | Failed":
     return answered(msgspec.json.decode(reply, type=bridge.Done | bridge.Raised), began)
 
 
-async def start(file: "ResolvedFile", name: str) -> Session | SessionRunning | NoBridge | Failed:
+async def start(file: "ResolvedFile", name: str) -> "Session | Failed | Faults":
     """Serve the MCP extension's execute protocol from a background Blender on the file under a copy of the user's preferences as the named session, answering once it listens."""
-    if (session := running(name)) is not None:
-        return SessionRunning(session)
+    if running(name) is not None:
+        return Faults.of(Fault(Session, name))
     async with await anyio.create_tcp_listener(local_host=bridge.LOOPBACK, local_port=0) as listener:
         port = listener.extra(SocketAttribute.local_port)
     began, log = time.monotonic(), record(name).with_suffix(".log")
@@ -290,24 +272,24 @@ async def start(file: "ResolvedFile", name: str) -> Session | SessionRunning | N
     if not reply:
         return Failed(process.wait(), log)
     if isinstance(listening := msgspec.json.decode(reply, type=tuple[Path, str] | str, dec_hook=built), str):
-        return NoBridge(listening)
+        return Faults.of(Fault(ModuleType, listening))
     tempdir, blocked = listening
     session = Session(port, process.pid, psutil.Process(process.pid).create_time(), file, blocked, tempdir, log, round(time.monotonic() - began, 2))
     record(name).write_bytes(msgspec.json.encode(session, enc_hook=os.fspath))
     return session
 
 
-async def call(name: str) -> Ran | Raised | Lost | NoSession:
+async def call(name: str) -> "Ran | Raised | Lost | Faults":
     """Run the code on stdin in the named session, `bpy.data` kept from earlier calls."""
     if (session := running(name)) is None:
-        return NoSession(record(name))
+        return Faults.of(Fault(Session, name, sessions()))
     return await exchanged(name, session, wrap(sys.stdin.read()), strict_json=False)
 
 
-async def stop(name: str) -> Stopped | Diverged | Raised | Alive | Lost | NoSession:
+async def stop(name: str) -> "Stopped | Diverged | Raised | Alive | Lost | Faults":
     """Save the session's changes to its titled file once any running call returns, then end the session, `Raised` with the session running when the save raises."""
     if (session := running(name)) is None:
-        return NoSession(record(name))
+        return Faults.of(Fault(Session, name, sessions()))
     match await exchanged(name, session, f"import __main__, bpy\nresult = {{'sync': __main__.{synced.__name__}(), 'file': bpy.data.filepath}}\n", strict_json=True):
         case Raised() | Lost() as ended:
             return ended
@@ -323,11 +305,13 @@ async def stop(name: str) -> Stopped | Diverged | Raised | Alive | Lost | NoSess
             if alive:
                 return Alive(session)
             record(name).unlink()
-            return Stopped(Path(str(result["file"])), result["sync"] == Sync.SAVED, session.log)
+            return Stopped(Path(held) if (held := str(result["file"])) else None, result["sync"] == Sync.SAVED, session.log)
 
 
-def render(file: "ResolvedExistingFile", *, frames: "Annotated[str, cyclopts.Parameter(validator=lambda _type, text: span(text))]" = Scope.CURRENT) -> Rendered | Failed:
+def render(file: "ResolvedExistingFile", *, frames: str = Scope.CURRENT) -> "Rendered | Failed | Faults":
     """Render the current frame, one frame, a range as `1..24`, or `all` of the scene range under the user's preferences into `.artifacts/blender/renders/<stem>/`, resuming frames an earlier run of the unchanged file wrote and clearing the folder for a changed one."""
+    if isinstance(bounds := span(frames), Faults):
+        return bounds
     with file.open("rb") as handle:
         current = hashlib.file_digest(handle, "sha256").hexdigest()
     out = artifacts("renders", file.stem)
@@ -336,7 +320,7 @@ def render(file: "ResolvedExistingFile", *, frames: "Annotated[str, cyclopts.Par
         shutil.rmtree(out)
         out.mkdir()
         stamp.touch()
-    process, reply = spawn(Job.RENDER, (str(out / f"{file.stem}_####"), frames), opening(file), log, os.environ)
+    process, reply = spawn(Job.RENDER, (str(out / f"{file.stem}_####"), *bounds), opening(file), log, os.environ)
     exit_code = process.wait()
     return msgspec.json.decode(reply, type=Rendered, dec_hook=built) if reply else Failed(exit_code, log)
 
@@ -356,9 +340,9 @@ def reference() -> Path:
 
 
 def copied(path: Path) -> Path:
-    """Path holding a copy of the session's data, the session's file and modified flag unchanged, its `Info` report kept out of the call's stdout."""
+    """Path holding an uncompressed copy of the session's data, the session's file and modified flag unchanged, its `Info` report kept out of the call's stdout."""
     with contextlib.redirect_stdout(io.StringIO()):
-        bpy.ops.wm.save_as_mainfile(filepath=str(path), copy=True)
+        bpy.ops.wm.save_as_mainfile(filepath=str(path), copy=True, compress=False)
     return path
 
 
@@ -378,7 +362,8 @@ def normalized(path: Path) -> tuple[tuple[bytes, int, int, bytes], ...]:
 
     names, cursor = strings(8)
     types, cursor = strings(cursor + 4)
-    sizes, cursor = struct.unpack_from(f"<{len(types)}H", dna, cursor + 4), (cursor + 4 + 2 * len(types) + 3) & ~3
+    sizes = struct.unpack_from(f"<{len(types)}H", dna, cursor + 4)
+    cursor = (cursor + 4 + 2 * len(sizes) + 3) & ~3
     fields: list[tuple[int, tuple[tuple[int, int], ...]]] = []
     cursor += 8
     for _ in range(struct.unpack_from("<i", dna, cursor - 4)[0]):
@@ -458,18 +443,18 @@ def serve(pipe: int, server: ModuleType, host: str, port: int) -> None:
             copied(reference())
 
 
-def rendered(output: Path, frames: Scope | tuple[int, int]) -> Rendered:
-    """Frames of the scene rendered to the output pattern without overwriting earlier ones, a scene-linear frame with its display-encoded JPEG beside it, then a sheet of up to 12 evenly spaced frames beside the pattern."""
+def rendered(output: Path, frames: Sequence[str]) -> Rendered:
+    """Frames of the scene `span` names rendered to the output pattern without overwriting earlier ones, a scene-linear frame with its display-encoded JPEG beside it, then a sheet of up to 12 evenly spaced frames beside the pattern."""
     scene, began = bpy.context.scene, time.monotonic()
     settings, cycles = scene.render, bpy.context.preferences.addons["cycles"].preferences
     image, sheet = settings.image_settings, output.with_name(f"{Path(bpy.data.filepath).stem}.jpg")
     settings.filepath, settings.use_overwrite, settings.use_placeholder, image.use_preview = str(output), False, False, image.has_linear_colorspace
     match frames:
         case (first, last):
-            scene.frame_start, scene.frame_end = first, last
-        case Scope.CURRENT:
+            scene.frame_start, scene.frame_end = int(first), int(last)
+        case (Scope.CURRENT,):
             scene.frame_start = scene.frame_end = scene.frame_current
-        case Scope.ALL:
+        case _:
             pass
     wanted, movie = range(scene.frame_start, scene.frame_end + 1, scene.frame_step), image.media_type == "VIDEO"
     paths = tuple(dict.fromkeys(Path(settings.frame_path(frame=number)) for number in wanted))
@@ -525,11 +510,11 @@ def perform(job: Job, pipe: int, arguments: Sequence[str]) -> None:
             else:
                 serve(pipe, server, host, int(port))
         case Job.RENDER:
-            output, frames = arguments
-            answer(pipe, rendered(Path(output), span(frames)))
+            output, *frames = arguments
+            answer(pipe, rendered(Path(output), frames))
 
 
-def report(outcome: Ran | Session | Stopped | Rendered | Raised | Lost | Failed | SessionRunning | NoBridge | Diverged | Alive | NoSession | None) -> int:
+def report(outcome: "Ran | Session | Stopped | Rendered | Raised | Lost | Failed | Diverged | Alive | Faults | None") -> int:
     """Print the outcome as JSON with its case under `kind` and return the exit code, 0 for a success or help and 1 otherwise."""
     if outcome is not None:
         sys.stdout.write(f"{JSON.dumps(outcome, indent=1, default=os.fspath)}\n")
@@ -560,14 +545,11 @@ __all__ = [
     "Failed",
     "Job",
     "Lost",
-    "NoBridge",
-    "NoSession",
     "Raised",
     "Ran",
     "Rendered",
     "Scope",
     "Session",
-    "SessionRunning",
     "Stopped",
     "Sync",
     "answer",
@@ -588,6 +570,7 @@ __all__ = [
     "run",
     "running",
     "serve",
+    "sessions",
     "spawn",
     "span",
     "start",

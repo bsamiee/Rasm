@@ -129,6 +129,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 Tree-sitter recovers with `ERROR` or zero-width `MISSING` nodes, and its precedence can differ from the language parser's:
 - `ERROR` constructs are unenforceable, the enclosing statement pattern matches them
 - `kind: ERROR` and `ast-grep run -k ERROR -l <lang>` find the recovered form
+- `no-parse-error-<language>` reports each outermost `ERROR` and a file's first `MISSING` token, a grammar gap tracked code needs takes an `unreported` arm and a clause in the rule's `note`
 
 | [INDEX] | [PYTHON]                         | [SHAPE]                                                                                           |
 | :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------ |
@@ -179,17 +180,22 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`.
 |  [01]   | `<Name>text</Name>` | Patterns bind whole elements, `<Name>_TEXT</Name>` captures the content                      |
 |  [02]   | `Attribute="value"` | `AttValue` includes its quotes, a value that can hold the other quote matches each delimiter |
 
-| [INDEX] | [SQL]                          | [SHAPE]                                                                                                |
-| :-----: | :----------------------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `ifnull(a, b)` alone           | `ERROR`, an expression pattern takes `context: select <expr>` with `selector: invocation` or `term`    |
-|  [02]   | `create view v as select ...`  | `statement` > `create_view` with `object_reference` > `name: identifier` and `create_query` > `select` |
-|  [03]   | `count(1) filter (where c)`    | `invocation` with a `filter_expression` child beside `parameter`                                       |
-|  [04]   | `max(x) over (partition by p)` | `window_function` over the `invocation` and a `window_specification`                                   |
-|  [05]   | `case when c then v end`       | `case` with one named `keyword_*` child per keyword                                                    |
+| [INDEX] | [SQL]                          | [SHAPE]                                                                                     |
+| :-----: | :----------------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `ifnull(a, b)` alone           | `ERROR`, expression patterns take `context: select <expr>` with `selector: function_call`   |
+|  [02]   | `f(distinct a, b order by k)`  | `function_call` > `arguments: normal_function_arguments` > each argument, `order_by_clause` |
+|  [03]   | `count(*) filter (where c)`    | `function_call` with `arguments: star_argument` and `filter: filter_clause`                 |
+|  [04]   | `max(x) over (partition by p)` | `function_call` with `over: over_clause` > `window_definition`                              |
+|  [05]   | `case x when w then v end`     | `case_expression` with fields `subject`, `when`, `then`, `else`, keywords unnamed           |
+|  [06]   | `create view v as select ...`  | `create_view_statement` with `name: qualified_table_name` and `body: select_clause`         |
+|  [07]   | `a not like 'p' escape '!'`    | `like_expression` with `operand`, `operator`, `pattern`, `escape` fields, `not` unnamed     |
+|  [08]   | `.read f`, `:name`             | `dot_command` with `arguments: dot_command_arguments`, `bind_parameter`                     |
+|  [09]   | `not a = b`                    | `binary_expression` with `left: unary_expression`, SQLite binds `not (a = b)`               |
+|  [10]   | `a is not b`                   | `is_expression` with `right: unary_expression`, `is not distinct from` keeps `not` unnamed  |
 
-- Guards over the `filter_expression` child keep a filtered aggregate silent
-- Aggregate patterns match the inner `invocation` of a `window_function`
-- `nthChild` counts the `keyword_*` children of a `case`
+- Top-level queries are `select_statement`, CTE, view, and subquery bodies `select_clause`
+- `normal_function_arguments` holds `distinct` in unnamed field `modifier`, outside the arguments and `order_by_clause` `nthChild` counts
+- Operator tokens of `binary_expression`, `unary_expression`, `like_expression`, and `is_null_expression` sit in field `operator`
 
 ## [07]-[OUTLINE]
 

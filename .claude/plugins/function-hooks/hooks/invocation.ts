@@ -15,7 +15,7 @@ interface Program {
     readonly sources?: readonly string[];
     readonly wholeWords?: true;
     readonly shell?: true;
-    readonly runs?: readonly string[] | '--';
+    readonly runs?: readonly (readonly string[])[] | '--';
 }
 interface Operands {
     readonly inputs: readonly string[];
@@ -43,27 +43,90 @@ const _SQL: Program = {
 const PROGRAMS: Readonly<Record<string, Program>> = {
     sudo: {
         valued: ['-C', '-D', '-g', '-h', '-p', '-R', '-T', '-U', '-u', '--close-from', '--chdir', '--group', '--host', '--prompt', '--chroot', '--command-timeout', '--other-user', '--user'],
-        runs: [],
+        runs: [[]],
     },
-    doas: { valued: ['-C', '-u'], runs: [] },
-    env: { valued: ['-C', '-P', '-S', '-u'], runs: [] },
-    command: { runs: [] },
-    exec: { valued: ['-a'], runs: [] },
-    nice: { valued: ['-n'], runs: [] },
-    nohup: { runs: [] },
-    setsid: { runs: [] },
-    stdbuf: { valued: ['-e', '-i', '-o'], runs: [] },
-    timeout: { valued: ['-k', '-s', '--kill-after', '--signal'], leading: 1, runs: [] },
-    time: { valued: ['-o'], runs: [] },
-    xargs: { valued: ['-E', '-I', '-J', '-L', '-n', '-P', '-R', '-S', '-s'], stdin: 'always', runs: [] },
-    caffeinate: { valued: ['-t', '-w'], runs: [] },
-    arch: { valued: ['-arch', '-d'], runs: [] },
-    npx: { runs: [] },
-    npm: { runs: ['exec', 'x'] },
-    pnpm: { runs: ['exec', 'dlx'] },
-    uv: { runs: ['run', 'tool'] },
-    poetry: { runs: ['run'] },
-    hatch: { runs: ['run'] },
+    doas: { valued: ['-C', '-u'], runs: [[]] },
+    env: { valued: ['-C', '-P', '-S', '-u'], runs: [[]] },
+    command: { runs: [[]] },
+    exec: { valued: ['-a'], runs: [[]] },
+    nice: { valued: ['-n'], runs: [[]] },
+    nohup: { runs: [[]] },
+    setsid: { runs: [[]] },
+    stdbuf: { valued: ['-e', '-i', '-o'], runs: [[]] },
+    timeout: { valued: ['-k', '-s', '--kill-after', '--signal'], leading: 1, runs: [[]] },
+    time: { valued: ['-o'], runs: [[]] },
+    xargs: { valued: ['-E', '-I', '-J', '-L', '-n', '-P', '-R', '-S', '-s'], stdin: 'always', runs: [[]] },
+    caffeinate: { valued: ['-t', '-w'], runs: [[]] },
+    arch: { valued: ['-arch', '-d'], runs: [[]] },
+    lockf: { valued: ['-t'], leading: 1, runs: [[]] },
+    npx: { runs: [[]] },
+    npm: { runs: [['exec'], ['x']] },
+    pnpm: { runs: [[], ['exec'], ['dlx']] },
+    uv: {
+        valued: [
+            '--extra',
+            '--no-extra',
+            '--group',
+            '--no-group',
+            '--only-group',
+            '--no-editable-package',
+            '--env-file',
+            '-w',
+            '--with',
+            '--with-editable',
+            '--with-requirements',
+            '--package',
+            '--python-platform',
+            '--from',
+            '-c',
+            '--constraints',
+            '-b',
+            '--build-constraints',
+            '--overrides',
+            '--torch-backend',
+            '--bump',
+            '--output-format',
+            '--index',
+            '--default-index',
+            '-i',
+            '--index-url',
+            '--extra-index-url',
+            '-f',
+            '--find-links',
+            '--index-strategy',
+            '--keyring-provider',
+            '-P',
+            '--upgrade-package',
+            '--upgrade-group',
+            '--resolution',
+            '--prerelease',
+            '--prerelease-package',
+            '--fork-strategy',
+            '--exclude-newer',
+            '--exclude-newer-package',
+            '--no-sources-package',
+            '--reinstall-package',
+            '--link-mode',
+            '-C',
+            '--config-setting',
+            '--config-settings-package',
+            '--no-build-isolation-package',
+            '--no-build-package',
+            '--no-binary-package',
+            '--cache-dir',
+            '--refresh-package',
+            '-p',
+            '--python',
+            '--color',
+            '--allow-insecure-host',
+            '--directory',
+            '--project',
+            '--config-file',
+        ],
+        runs: [['run'], ['tool', 'run']],
+    },
+    poetry: { runs: [['run']] },
+    hatch: { runs: [['run']] },
     mise: { runs: '--' },
     doppler: { runs: '--' },
     op: { runs: '--' },
@@ -331,16 +394,16 @@ const operands = ([program, ...args]: Invocation): Operands => {
     return { ...split, inputs: split.inputs.slice(leading) };
 };
 
-const _wrapped = (program: string, words: readonly string[]): readonly string[] => {
-    const { runs, leading = 0 } = PROGRAMS[program] ?? {};
-    const [head] = words;
-    if (runs === undefined || runs === '--') {
-        return runs === '--' && words.includes('--') ? words.slice(words.indexOf('--') + 1) : [];
+const _wrapped = (program: string, words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
+    const [head, ...rest] = words;
+    if (head?.startsWith('-') === true) {
+        return _wrapped(program, rest.slice(option(program, head).taken), pending);
     }
-    if (head === undefined || !(head.startsWith('-') || runs.includes(head))) {
-        return words.slice(leading);
+    const deeper = pending.flatMap(([first, ...more]) => (head !== undefined && first === head ? [more] : []));
+    if (deeper.length > 0) {
+        return _wrapped(program, rest, deeper);
     }
-    return _wrapped(program, words.slice(1 + (head.startsWith('-') ? option(program, head).taken : 0)));
+    return pending.some((path) => path.length === 0) ? words.slice(PROGRAMS[program]?.leading ?? 0) : [];
 };
 
 const invocations = (words: readonly string[]): readonly Invocation[] => {
@@ -352,7 +415,9 @@ const invocations = (words: readonly string[]): readonly Invocation[] => {
         return invocations(rest);
     }
     const program = basename(head);
-    const inner = _wrapped(program, rest);
+    const { runs = [] } = PROGRAMS[program] ?? {};
+    const launched = rest.includes('--') ? rest.slice(rest.indexOf('--') + 1) : [];
+    const inner = runs === '--' ? launched : _wrapped(program, rest, runs);
     return [[program, ...rest.slice(0, rest.length - inner.length)], ...invocations(inner)];
 };
 

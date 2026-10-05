@@ -1,33 +1,21 @@
-# mypy: disable-error-code="index, union-attr"
 # ty: ignore[unresolved-attribute]
-# ruff: file-ignore[suspicious-xml-etree-import, subprocess-without-shell-equals-true]
-"""Grease Pencil strokes an orthographic camera sees as an SVG, PDF, and PNG sheet at scale under `.artifacts/blender/sheets/`, every stroke in document ink."""
+# mypy: disable-error-code="index, union-attr"
+# ruff: file-ignore[subprocess-without-shell-equals-true, suspicious-xml-etree-import]
+"""Grease Pencil strokes an orthographic camera sees as SVG, PDF, and PNG sheets at scale."""
 
 from collections import Counter
-from enum import auto, StrEnum
 from itertools import pairwise
+from pathlib import Path
 import shutil
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
 import attrs
 import bpy
 import numpy as np
 from numpy.typing import NDArray
-from results import artifacts, unknown, UnknownObjects
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class Rejection(StrEnum):
-    """Scene state no sheet draws from."""
-
-    NO_CAMERA = auto()
-    NOT_CAMERA = auto()
-    NOT_ORTHOGRAPHIC = auto()
-    NOT_GREASE_PENCIL = auto()
-    NO_STROKES = auto()
-
+from results import artifacts, collect_faults, Fault, Faults, Resolved, unknown
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -46,42 +34,24 @@ class Sheet:
     strokes: dict[str, dict[float, int]]
 
 
-# --- [ERRORS] ---------------------------------------------------------------------------
-
-
-@attrs.frozen
-class Rejected:
-    """Scene state the sheet refused, with the object, camera, or scene names it concerns."""
-
-    reason: Rejection
-    names: tuple[str, ...]
-
-
-@attrs.frozen
-class Uncompiled:
-    """SVG written without its PDF and PNG, with the diagnostics of the failed `typst compile` runs, `None` when the process's `PATH` holds no `typst`."""
-
-    svg: str
-    diagnostics: str | None
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def sheet(name: str, scale: int, objects: tuple[str, ...] = ()) -> Sheet | Rejected | Uncompiled | UnknownObjects:
-    """Project the strokes of the named Grease Pencil objects, or of every visible one, through the scene camera at the render resolution Line Art reads onto a 1:`scale` sheet, Line Art recomputed over objects added since its last run and the PNG showing the inked window 2000 px on its long side."""
+def sheet(name: str, scale: int, objects: tuple[str, ...] = ()) -> Resolved[Sheet]:
+    """Return the 1:`scale` sheet of the named or every visible Grease Pencil object's strokes through the orthographic scene camera at the render resolution, Line Art recomputed first and the PNG showing the inked window 2000 px on its long side."""
     scene = bpy.context.scene
-    if (absent := unknown(scene.objects, objects)) is not None:
-        return absent
-    if (view := scene.camera) is None:
-        return Rejected(Rejection.NO_CAMERA, (scene.name,))
-    if not isinstance(lens := view.data, bpy.types.Camera):
-        return Rejected(Rejection.NOT_CAMERA, (view.name,))
-    if lens.type != "ORTHO":
-        return Rejected(Rejection.NOT_ORTHOGRAPHIC, (view.name,))
-    drawn = [scene.objects[n] for n in objects] or [o for o in scene.objects if isinstance(o.data, bpy.types.GreasePencil) and o.visible_get()]
-    if foreign := tuple(o.name for o in drawn if not isinstance(o.data, bpy.types.GreasePencil)):
-        return Rejected(Rejection.NOT_GREASE_PENCIL, foreign)
+    pencils = tuple(o.name for o in scene.objects if isinstance(o.data, bpy.types.GreasePencil))
+    orthographic = tuple(o.name for o in scene.objects if isinstance(o.data, bpy.types.Camera) and o.data.type == "ORTHO")
+    match (
+        unknown(scene.objects, objects),
+        scene.camera if scene.camera is not None and scene.camera.name in orthographic else Fault(bpy.types.Camera, scene.camera and scene.camera.name, orthographic),
+        collect_faults(*(Fault(bpy.types.GreasePencil, n, pencils) for n in objects if n in scene.objects and n not in pencils)),
+        shutil.which("typst") or Fault(Path, "typst"),
+    ):
+        case None, bpy.types.Object(data=bpy.types.Camera() as lens) as view, None, str() as typst:
+            drawn = [scene.objects[n] for n in objects] or [scene.objects[n] for n in pencils if scene.objects[n].visible_get()]
+        case failed:
+            return Faults.of(*failed)
     for owner in drawn:
         owner.update_tag()
     depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -148,7 +118,7 @@ def sheet(name: str, scale: int, objects: tuple[str, ...] = ()) -> Sheet | Rejec
     layers = {owner.name: {layer.name: strokes(owner, layer) for layer in owner.data.layers if shown(layer)} for owner in (o.evaluated_get(depsgraph) for o in drawn)}
     counts = {owner: dict(Counter(pen for placed in by_layer.values() for pen, _, _ in placed)) for owner, by_layer in layers.items()}
     if not any(counts.values()):
-        return Rejected(Rejection.NO_STROKES, tuple(counts))
+        return Faults.of(Fault(bpy.types.GreasePencilDrawing, tuple(counts)))
     across, down = (high - low) * inches
     width, height = number(across), number(down)
     root = ET.Element("svg", {"xmlns": "http://www.w3.org/2000/svg", "width": f"{width}in", "height": f"{height}in", "viewBox": f"0 0 {width} {height}"})
@@ -159,8 +129,6 @@ def sheet(name: str, scale: int, objects: tuple[str, ...] = ()) -> Sheet | Rejec
     path = artifacts("sheets") / f"{name}.svg"
     ET.ElementTree(root).write(path, encoding="utf-8")
     svg, pdf, png = (str(path.with_suffix(suffix)) for suffix in (".svg", ".pdf", ".png"))
-    if (typst := shutil.which("typst")) is None:
-        return Uncompiled(svg, None)
     inked = np.concatenate([drawn for by_layer in layers.values() for placed in by_layer.values() for _, _, drawn in placed])
     pad, readable = 0.025 * float(np.ptp(inked, axis=0).max()), 2000
     corner, far = np.maximum(inked.min(axis=0) - pad, 0.0), np.minimum(inked.max(axis=0) + pad, (across, down))
@@ -176,12 +144,14 @@ def sheet(name: str, scale: int, objects: tuple[str, ...] = ()) -> Sheet | Rejec
             ),
         )
     ]
-    failed = "\n".join(run.stderr.strip() for run in runs if run.returncode)
+    if diagnostics := "\n".join(run.stderr.strip() for run in runs if run.returncode):
+        sys.stderr.write(f"{diagnostics}\n")
+        return Faults.of(Fault(Sheet, svg))
     paper = (float(number(across * inch)), float(number(down * inch)))
     left, top, shown_across, shown_down = (float(number(value * inch)) for value in (*corner, wide, tall))
-    return Uncompiled(svg, failed) if failed else Sheet(svg, pdf, png, paper, (left, top, shown_across, shown_down), scale, view.name, counts)
+    return Sheet(svg, pdf, png, paper, (left, top, shown_across, shown_down), scale, view.name, counts)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Rejected", "Rejection", "Sheet", "Uncompiled", "sheet"]
+__all__ = ["Sheet", "sheet"]

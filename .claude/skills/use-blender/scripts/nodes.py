@@ -1,12 +1,13 @@
-# mypy: disable-error-code="arg-type, attr-defined, union-attr, unreachable"
 # ty: ignore[invalid-argument-type, unresolved-attribute]
-"""Digest of one node tree as its interface, non-default nodes, and links by socket identifier, and its layout through Node Arrange."""
+# mypy: disable-error-code="arg-type, attr-defined, union-attr, unreachable"
+"""Digest of one node tree by socket identifier, and its layout through Node Arrange."""
 
 from collections import ChainMap
 from collections.abc import Iterable
 
 import attrs
 import bpy
+from results import Fault, Faults, Resolved
 from rna import plain, stored
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -62,21 +63,6 @@ class Arranged:
     """Reroute nodes the layout added to the tree."""
 
     reroutes: tuple[str, ...]
-
-
-# --- [ERRORS] ---------------------------------------------------------------------------
-
-
-@attrs.frozen
-class UnknownTree:
-    """Name matching no node group or ID pointing at a node tree."""
-
-    name: str
-
-
-@attrs.frozen
-class NoWindow:
-    """Background process with no window to draw the tree in."""
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -141,23 +127,19 @@ def record(owner: str, tree: bpy.types.NodeTree) -> Digest:
         bpy.data.node_groups.remove(baseline)
 
 
-def digest(name: str) -> Digest | UnknownTree:
-    """Digest of the tree owned by `name`, values rounded, layout and selection left out."""
-    hit = trees().get(name)
-    return UnknownTree(name) if hit is None else record(*hit)
+def digest(name: str) -> Resolved[Digest]:
+    """Return the digest of the tree owned by `name`, values rounded, layout and selection left out."""
+    known = trees()
+    return Faults.of(Fault(bpy.types.NodeTree, name, tuple(known))) if (hit := known.get(name)) is None else record(*hit)
 
 
-def arrange(name: str) -> Arranged | UnknownTree | NoWindow:
-    """Tree owned by `name` laid out through Node Arrange in a temporary node editor window drawn once for node sizes, node selection kept."""
-    manager = bpy.context.window_manager
-    match trees().get(name), next(iter(manager.windows), None):
-        case None, _:
-            return UnknownTree(name)
-        case _, None:
-            return NoWindow()
-        case (_, tree), window:
+def arrange(name: str) -> Resolved[Arranged]:
+    """Return the reroutes Node Arrange added laying out the tree owned by `name` in a temporary node editor window drawn once for node sizes, node selection kept, refused in a process with no window."""
+    manager, known = bpy.context.window_manager, trees()
+    match known.get(name) or Fault(bpy.types.NodeTree, name, tuple(known)), Fault(bpy.types.Window, None) if bpy.app.background else manager.windows[0]:
+        case (_, bpy.types.NodeTree() as tree), bpy.types.Window() as source:
             opened, held, selected = {w.as_pointer() for w in manager.windows}, set(tree.nodes.keys()), {n.name for n in tree.nodes if n.select}
-            with bpy.context.temp_override(window=window):
+            with bpy.context.temp_override(window=source):
                 bpy.ops.wm.window_new()
             temporary = next(w for w in manager.windows if w.as_pointer() not in opened)
             area = temporary.screen.areas[0]
@@ -174,8 +156,10 @@ def arrange(name: str) -> Arranged | UnknownTree | NoWindow:
                     for item in tree.nodes:
                         item.select = item.name in selected
             return Arranged(tuple(n.name for n in tree.nodes if n.name not in held))
+        case failed:
+            return Faults.of(*failed)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Arranged", "Digest", "Link", "Node", "NoWindow", "Socket", "UnknownTree", "arrange", "digest", "record", "trees"]
+__all__ = ["Arranged", "Digest", "Link", "Node", "Socket", "arrange", "digest", "record", "trees"]

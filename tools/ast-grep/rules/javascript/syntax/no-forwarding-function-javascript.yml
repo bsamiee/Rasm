@@ -12,14 +12,11 @@ utils:
                 stopBy: {matches: javascript-function-boundary}
                 any:
                     - has: {field: name, pattern: $F}
-                    - has: {field: parameter, kind: identifier, pattern: $F}
                     - has: {field: parameters, has: {kind: identifier, pattern: $F}}
     parameters-0:
         has: {field: parameters, not: {has: {kind: identifier}}}
     parameters-1:
-        any:
-            - has: {field: parameter, kind: identifier, pattern: $A}
-            - has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $A}}, {not: {has: {nthChild: 2}}}]}
+        has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $A}}, {not: {has: {nthChild: 2}}}]}
     parameters-2:
         has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $A}}, {has: {nthChild: 2, kind: identifier, pattern: $B}}, {not: {has: {nthChild: 3}}}]}
     parameters-3:
@@ -34,16 +31,12 @@ utils:
     forwarded-1: {matches: forwarded, pattern: $F($A)}
     forwarded-2: {matches: forwarded, pattern: '$F($A, $B)'}
     forwarded-3: {matches: forwarded, pattern: '$F($A, $B, $C)'}
-    result-0:
-        any: [{matches: forwarded-0}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-0}}}]
-    result-1:
-        any: [{matches: forwarded-1}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-1}}}]
-    result-2:
-        any: [{matches: forwarded-2}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-2}}}]
-    result-3:
-        any: [{matches: forwarded-3}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-3}}}]
+    result-0: {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-0}}}
+    result-1: {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-1}}}
+    result-2: {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-2}}}
+    result-3: {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-3}}}
 rule:
-    kind: function_declaration, function_expression, arrow_function
+    matches: javascript-function-boundary
     any:
         - all: [{matches: parameters-0}, {has: {field: body, matches: result-0}}]
         - all: [{matches: parameters-1}, {has: {field: body, matches: result-1}}]

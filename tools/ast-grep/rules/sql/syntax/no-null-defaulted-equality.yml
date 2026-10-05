@@ -4,31 +4,36 @@ language: sql
 severity: error
 utils:
     defaulted:
-        kind: invocation
+        kind: function_call
         all:
-            - has: {kind: object_reference, regex: '(?i)^(ifnull|coalesce)$'}
-            - not: {has: {nthChild: 4}}
-    operand:
-        not: {has: {field: value, kind: 'binary_expression, unary_expression'}}
+            - has: {field: name, regex: '(?i)^(ifnull|coalesce)$'}
+            - has: {field: arguments, kind: normal_function_arguments, not: {has: {nthChild: 3}}}
     left-defaulted:
         matches: defaulted
-        all:
-            - has: {nthChild: 2, pattern: _A, matches: operand}
-            - has: {nthChild: 3, pattern: _X}
+        has:
+            field: arguments
+            all:
+                - has: {nthChild: 1, any: [{matches: sql-operator-expression, pattern: _AG}, {pattern: _A}]}
+                - has: {nthChild: 2, pattern: _X}
     right-defaulted:
         matches: defaulted
-        all:
-            - has: {nthChild: 2, pattern: _B, matches: operand}
-            - has: {nthChild: 3, pattern: _X}
+        has:
+            field: arguments
+            all:
+                - has: {nthChild: 1, any: [{matches: sql-operator-expression, pattern: _BG}, {pattern: _B}]}
+                - has: {nthChild: 2, pattern: _X}
 rule:
     kind: binary_expression
+    pattern: _COMPARISON
     all:
         - has: {field: operator, regex: '^(==?|<>|!=)$', pattern: __OPERATOR}
-        - has: {field: left, matches: left-defaulted}
-        - has: {field: right, matches: right-defaulted}
+        - has: {field: left, matches: left-defaulted, pattern: _LEFT}
+        - has: {field: right, matches: right-defaulted, pattern: _RIGHT}
 transform:
     EQUAL: {replace: {source: $OPERATOR, replace: '^==?$', by: ' not'}}
     NEGATION: {replace: {source: $EQUAL, replace: '^(<>|!=)$', by: ''}}
-fix: '$A is$NEGATION distinct from $B'
-message: '`$A` and `$B` compare through the shared default `$X`'
+    GROUPED_A: {replace: {source: $AG, replace: '(?s)^(.+)$', by: '($1)'}}
+    GROUPED_B: {replace: {source: $BG, replace: '(?s)^(.+)$', by: '($1)'}}
+fix: '$A$GROUPED_A is$NEGATION distinct from $B$GROUPED_B'
+message: '`$COMPARISON` compares `$LEFT` and `$RIGHT` through the shared default `$X`'
 note: 'Compare with `is not distinct from` or `is distinct from`, the null-safe comparisons SQLite and DuckDB both read'

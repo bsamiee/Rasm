@@ -4,12 +4,13 @@ MSBuild directory files and central package versions own every shared .NET decla
 
 ## [01]-[UPGRADES]
 
-- Upgrades move central rows the analyzed project references and no other
-- Catalog projects take `.proj`, reference every central row, and stay out of the solution, no plugin infers a project from them
+- Upgrades move every central row holding a version, prereleases included, and read the rows from `Directory.Packages.props` itself
 - Rows holding a range stay
-- Version edits splice the attribute text in place, `XmlDocument` and `ProjectRootElement` saves collapse row alignment
-- Newest release is the listed, framework-compatible version with highest numeric version, then stable, then latest publish date
-- Rows move down when their current version is unlisted or incompatible with the analyzed project's framework
-- `global.json` moves by hand, `sdk.version` to the newest `mise ls-remote dotnet` entry and `msbuild-sdks` rows to their newest NuGet version
+- `dotnet package update` moves rows a project references alone, range rows included, and takes prereleases only for a row on a prerelease
+- `dotnet package update` fails its whole preview restore on one incompatible release
+- Version edits splice the attribute text in place, `dotnet package update`, `XmlDocument`, and `ProjectRootElement` saves collapse row alignment
+- Newest release is the listed, framework-compatible release ranked by numeric version, then stable, then latest publish date
+- Rows move down when their current version is unlisted or incompatible with the repository target framework
+- `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
 - SDK moves enable the new SDK's analyzer rules through `latest-all`
 - Analyzer rules contradicting a form the repository requires take an `.editorconfig` row

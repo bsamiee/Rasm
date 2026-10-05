@@ -20,6 +20,9 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - `${configDir}` in a base configuration's path fields resolves to the extending file's directory
 - `tsc --build` on a `composite` project writes declarations and build info under `outDir`
 - `types` defaults to `[]`, a project lists `["node"]` where a file reads `import.meta.dirname` or a `node:` module, a UXP plugin its host typings
+- `adobe:` host modules of a UXP plugin resolve through the `with-protocol` entry of a host typings package named in `types`
+- `paths` row maps a host module no `with-protocol` entry declares (`adobe:indesign`) to a generated module
+- Host typings declare every host global, a `declare` statement or an empty `enum` stub in a plugin file restates a typings declaration
 - `files` or `references` keys suppress TS18003 (no inputs)
 - `include` globs resolve to TypeScript extensions alone, `files` lists an imported JSON file (`package.json` for `version`) or TS6307 reports it
 - `tsconfig.base.json` excludes a project's `vitest.config.ts`, root `tsconfig.json` includes each one
@@ -39,14 +42,9 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 
 - Severity string on a group enables each of its rules at the string's level, `preset` beside it adds none
 - `project` at `all` turns on the scanner its import rules read, a group severity alone leaves import rules silent
-- `noUnresolvedImports` is `off`, `tsc --build` reports unresolved specifiers and missing exports the rule repeats
+- `noUnresolvedImports` and `noUndeclaredVariables` are `off`, `tsc --build` reports unresolved specifiers, missing exports, and undeclared names
 - Scanner skips ambient `declare module` declarations, `tsc --build` reads them
-- `none` on a domain silences rules of a package the tree lacks
+- `none` on a domain leaves on each of its rules a group severity enables, an `off` rule row silences one that fires (`useQwikValidLexicalScope`)
 - `organizeImports` runs by default, every other source action is a row
 - `useNamingConvention` takes `strictCase: false` for a host's acronym class names
-- `noUndeclaredVariables` is `off`, `tsc --build` reports an undeclared name
-- Host typings declare every host global, a `declare` statement or an empty `enum` stub in a plugin file restates a typings declaration
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
-- `adobe:` host modules of a UXP plugin resolve through the `with-protocol` entry of a host typings package named in `types`
-- `paths` row maps a host module no `with-protocol` entry declares (`adobe:indesign`) to a generated module
-- Host modules a `with-protocol` entry declares take no `paths` row and no generated module

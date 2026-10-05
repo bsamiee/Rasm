@@ -111,10 +111,13 @@ internal static class Classify {
     public static bool Retryable(Error error) => error.Is(Errors.TimedOut) || error.HasException<IOException>();
     public static bool IsRejection(Error error) => error.HasCode(Codes.InvalidQuantity) || error.IsType<NotFound>();
     public static int QuantityFaults(Error error) => error.Filter<InvalidQuantity>().Count;
+    public static Option<Error> RejectionCause(Error error) => error.Filter<Rejected>().Head is Rejected rejected ? rejected.Inner : None;
 }
 ```
 
-- `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`, `Count` returns the number of accumulated errors, `Head` the first leaf
+- `IsType<E>` tests and `Filter<E>` selects the `E` leaves of a `ManyErrors`, `Filter<E>` returns an `Error`: the one leaf, a `ManyErrors` of the leaves, or `Errors.None`
+- `Count` returns the number of leaves, `Head` the first leaf, `Errors.None` holds no leaf and is its own `Head`
+- `Filter<E>().Head is E <case>` binds the first `E` leaf to read its fields, `Errors.None` fails the pattern
 - `HasCode` and `Catch(int)` select a code the same package declares
 - Codes from many packages meet in one `ManyErrors` where `IsType<E>` separates them
 - `Error.New(string, Error)` has code `0`

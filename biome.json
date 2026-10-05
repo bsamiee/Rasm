@@ -10,7 +10,7 @@
     "json": { "formatter": { "expand": "auto" } },
     "assist": { "actions": { "source": { "useSortedAttributes": "on", "useSortedPackageJson": "on", "useSortedProperties": "on" } } },
     "linter": {
-        "domains": { "project": "all", "qwik": "none", "react": "all", "test": "all", "types": "all" },
+        "domains": { "project": "all", "react": "all", "test": "all", "types": "all" },
         "rules": {
             "a11y": "error",
             "complexity": "error",
@@ -72,7 +72,7 @@
                         "useLiteralKeys": "off",
                         "useMaxParams": { "level": "error", "options": { "max": 8 } }
                     },
-                    "correctness": { "noUndeclaredVariables": "off", "noUnresolvedImports": "off" },
+                    "correctness": { "noUndeclaredVariables": "off", "noUnresolvedImports": "off", "useQwikValidLexicalScope": "off" },
                     "security": { "noSecrets": "off" },
                     "style": {
                         "noExcessiveClassesPerFile": "off",

@@ -2,7 +2,7 @@
 # mypy: disable-error-code="arg-type"
 """Blender's color role declaration, the members held for a scope, and the one converge of declared RNA members through the installed extension's value forms."""
 
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from functools import partial
 from itertools import chain
@@ -53,7 +53,7 @@ def held(collection: "bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]
 
 
 @contextmanager
-def assigned(*changes: "tuple[bpy.types.bpy_struct[object], str, object]") -> Iterator[None]:
+def assigned(*changes: "tuple[bpy.types.bpy_struct[object], str, object]") -> Generator[None]:
     """Members set for the scope and restored in order after it, an array member held as its values."""
 
     def put(rows: "Iterable[tuple[bpy.types.bpy_struct[object], str, object]]") -> None:

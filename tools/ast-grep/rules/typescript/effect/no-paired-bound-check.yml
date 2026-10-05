@@ -3,34 +3,60 @@ id: no-paired-bound-check
 language: tsx
 severity: error
 utils:
-    schema-check:
+    bound:
         kind: call_expression
         has:
             field: function
             kind: member_expression
-            all:
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
-                - has: {field: property, regex: '^(isMinLength|isMaxLength|isMinSize|isMaxSize|isMinProperties|isMaxProperties|isGreaterThan(OrEqualTo)?(Date|BigInt|BigDecimal)?|isLessThan(OrEqualTo)?(Date|BigInt|BigDecimal)?)$'}
+            has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
+    composer:
+        kind: call_expression
+        any:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^(check|pipe|makeFilterGroup)$'}}
+            - has: {field: function, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}}
+    link:
+        any:
+            - matches: composer
+            - kind: member_expression
+              inside: {field: function, matches: composer}
+            - kind: arguments
+              inside: {matches: composer}
+            - kind: array
+              inside: {kind: arguments, inside: {matches: composer, has: {field: function, has: {field: property, regex: '^makeFilterGroup$'}}}}
     lower:
-        matches: schema-check
+        matches: bound
         pattern: $LOWER
-        has: {field: function, has: {field: property, regex: '^(isMin(Length|Size|Properties)|isGreaterThan(OrEqualTo)?(Date|BigInt|BigDecimal)?)$'}}
     upper:
-        matches: schema-check
+        matches: bound
         pattern: $UPPER
-        has: {field: function, has: {field: property, regex: '^(isMax(Length|Size|Properties)|isLessThan(OrEqualTo)?(Date|BigInt|BigDecimal)?)$'}}
 rule:
-    kind: arguments
+    matches: composer
     all:
-        - has: {matches: lower}
-        - has: {matches: upper}
+        - not: {inside: {matches: link}}
         - any:
-            - all: [{has: {matches: lower, regex: 'Length\('}}, {has: {matches: upper, regex: 'Length\('}}]
-            - all: [{has: {matches: lower, regex: 'Size\('}}, {has: {matches: upper, regex: 'Size\('}}]
-            - all: [{has: {matches: lower, regex: 'Properties\('}}, {has: {matches: upper, regex: 'Properties\('}}]
-            - all: [{has: {matches: lower, regex: 'Than'}}, {has: {matches: upper, regex: 'Than'}}]
-        - inside:
-            kind: call_expression
-            has: {field: function, kind: member_expression, has: {field: property, regex: '^check$'}}
-message: '`$LOWER` and `$UPPER` state one range as two checks'
-note: '`Schema.isLengthBetween`, `isSizeBetween`, `isPropertiesLengthBetween`, `isBetween`, `isBetweenDate`, `isBetweenBigInt`, or `isBetweenBigDecimal` states both bounds in one check with one expected message and one arbitrary constraint'
+            - all:
+                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^is(MinLength|NonEmpty)$'}}}
+                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isMaxLength$'}}}
+            - all:
+                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isMinSize$'}}}
+                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isMaxSize$'}}}
+            - all:
+                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isMinProperties$'}}}
+                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isMaxProperties$'}}}
+            - all:
+                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isMinCodePoints$'}}}
+                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isMaxCodePoints$'}}}
+            - all:
+                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?$'}}}
+                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?$'}}}
+            - all:
+                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?Date$'}}}
+                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?Date$'}}}
+            - all:
+                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?BigInt$'}}}
+                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?BigInt$'}}}
+            - all:
+                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?BigDecimal$'}}}
+                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?BigDecimal$'}}}
+message: '`$LOWER` and `$UPPER` state one range of one schema as two checks'
+note: '`Schema.isBetweenLength`, `isBetweenSize`, `isBetweenProperties`, `isBetweenCodePoints`, `isBetween`, `isBetweenDate`, `isBetweenBigInt`, or `isBetweenBigDecimal` states both bounds in one check with one expected message and one arbitrary constraint'

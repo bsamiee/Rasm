@@ -7,7 +7,7 @@ select
     cast(unixepoch('subsec') * 1000 as integer)
 from site s
 left join (select file_path, session_id, prompt_id, agent_id, tool_use_id, max(ts) as ts from edited_files group by file_path) e on e.file_path = :worktree || '/' || s.path
-where not exists (select 1 from finding_state x where x.checker is s.checker and x.category = s.category and x.text_hash = s.text_hash and x.occurrence = s.occurrence and x.path = s.path)
+where not exists (select 1 from finding_state x where x.checker is not distinct from s.checker and x.category = s.category and x.text_hash = s.text_hash and x.occurrence = s.occurrence and x.path = s.path)
 on conflict do nothing
 returning finding_id;
 insert into finding_transition(finding_id, state, subject_hash, path, start_line, start_column, end_line, end_column, byte_start, byte_end, occurrence, at, actor, actor_id, evidence)
@@ -23,6 +23,6 @@ join (
     from finding f
     left join finding_state t on t.finding_id = f.finding_id
     left join transition_state k on k.state = t.state
-) x on x.checker is s.checker and x.category = s.category and x.text_hash = s.text_hash and x.occurrence = s.occurrence and x.path = s.path and x.rank = 1
+) x on x.checker is not distinct from s.checker and x.category = s.category and x.text_hash = s.text_hash and x.occurrence = s.occurrence and x.path = s.path and x.rank = 1
 returning finding_id;
 commit;
