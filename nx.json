@@ -22,9 +22,17 @@
             },
             {
                 "filter": { "projects": ["tag:language:swift"] },
-                "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath .cache/xcode/{projectRoot} -packageCachePath $NX_WORKSPACE_ROOT/.cache/swiftpm/cache -disableAutomaticPackageResolution build",
+                "executor": "nx:run-commands",
                 "inputs": ["default", "xcode", "{workspaceRoot}/Xcode.xcconfig"],
-                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build/Products/Debug"]
+                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build/Products/Debug", "{projectRoot}/buildServer.json"],
+                "options": {
+                    "cwd": "{projectRoot}",
+                    "commands": [
+                        "xcodebuild -scheme {projectName} -destination platform=macOS -derivedDataPath $NX_WORKSPACE_ROOT/.cache/xcode/{projectRoot} -packageCachePath $NX_WORKSPACE_ROOT/.cache/swiftpm/cache -disableAutomaticPackageResolution build",
+                        { "command": "xcode-build-server config -scheme {projectName} --build_root $NX_WORKSPACE_ROOT/.cache/xcode/{projectRoot}", "forwardAllArgs": false }
+                    ],
+                    "parallel": false
+                }
             },
             { "filter": { "projects": ["tag:language:typescript"] }, "inputs": ["production", "^production", "typescript"] },
             {

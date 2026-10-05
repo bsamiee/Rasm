@@ -354,7 +354,7 @@
                     "{workspaceRoot}/tsconfig.json",
                     "{workspaceRoot}/*.config.ts",
                     "{workspaceRoot}/{infra,tools/nx}/*.ts",
-                    "{workspaceRoot}/{libs/typescript,tests/typescript,.claude/plugins}/*/vitest.config.ts",
+                    "{workspaceRoot}/{libs,tests}/typescript/*/vitest.config.ts",
                     "{workspaceRoot}/apps/*/*/vitest.config.ts",
                     "{workspaceRoot}/**/*.py",
                     { "externalDependencies": ["typescript"] }

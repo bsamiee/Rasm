@@ -2,7 +2,6 @@
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import assert_never
 
 import msgspec
 import msgspec.json
@@ -69,8 +68,6 @@ def install[R](monkeypatch: pytest.MonkeyPatch, target: object, member: str, stu
                 return call
 
             runner = factory
-        case never:
-            assert_never(never)
     monkeypatch.setattr(target, member, runner)
 
 

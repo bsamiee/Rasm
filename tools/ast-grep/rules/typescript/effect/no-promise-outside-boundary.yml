@@ -2,7 +2,7 @@
 id: no-promise-outside-boundary
 language: tsx
 severity: error
-ignores: ['.claude/plugins/*/hooks/**']
+ignores: ['plugins/*/hooks/**']
 utils:
     host-import:
         kind: call_expression

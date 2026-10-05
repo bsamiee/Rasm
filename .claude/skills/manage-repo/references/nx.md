@@ -15,11 +15,13 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Inferred target fields come from the plugin, `targetDefaults` and project configuration merge over them field by field
 - `"..."` in a target, its `options`, `configurations`, `inputs`, or `dependsOn` keeps what the lower layer supplied at its position
 - `command` on a target runs one command with its `options`, `executor: nx:run-commands` with `commands` and `parallel` exists for a list alone
+- Command lists set `parallel: false` and run in order, the `true` default terminates every running command when one fails
+- `{ "command", "forwardAllArgs": false }` entries in `commands` take no arguments after `--`, other entries take them
 - `{projectRoot}` and `{projectName}` interpolate anywhere in an option value, `{workspaceRoot}` at its start alone
 - Commands with `cwd` at their project read the workspace root through `$NX_WORKSPACE_ROOT`
 - Targets with `options` and no `executor`, `command`, or `targetDefaults` executor resolve to `nx:noop` with a `dependsOn` and drop without one
 - Pipes, loops, conditionals, and variables in a command entry are a script, the second command takes its own entry or target
-- Tools that take files and no directory, or walk ignored trees before filtering (`yamlfmt`, `yamllint`), run as `fd --hidden --extension <ext> --exec-batch <tool>`, one process over every file `.gitignore` leaves
+- Tools taking no directory or walking ignored trees (`yamlfmt`, `yamllint`) run as `fd --hidden --extension <ext> --exec-batch <tool>`
 - `fd --exec-batch` runs no process without a match
 - `dependsOn` names a target of the project (`build`), of its dependencies (`^build`), or of named projects (`{ projects, target }`)
 - `params: forward` on a `dependsOn` entry passes its arguments to the dependency

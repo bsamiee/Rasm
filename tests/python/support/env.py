@@ -5,7 +5,7 @@ from contextlib import AbstractContextManager, contextmanager
 import os
 from pathlib import Path
 import socket
-from typing import assert_never, overload, override
+from typing import overload, override
 import uuid
 
 import anyio
@@ -68,7 +68,7 @@ def _ssh_host(spec: SshHost) -> Generator[Provisioned[Awaitable[asyncssh.SSHClie
     class _Host(asyncssh.SSHServer):
         @override
         def begin_auth(self, username: str) -> bool:
-            return False
+            return username != spec.user
 
     async def _exec(process: asyncssh.SSHServerProcess[str]) -> None:  # ruff:ignore[unused-async]
         text, code = spec.handler(process.command or "")
@@ -150,8 +150,6 @@ def provision(
             return _memory_filesystem()
         case ObjectStore():
             return _object_store(spec)
-        case never:
-            assert_never(never)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 id: no-forwarding-function-tsx
 language: tsx
 severity: error
-ignores: ['.claude/plugins/*/hooks/**']
+ignores: ['plugins/*/hooks/**']
 utils:
     effect-module:
         any:

@@ -31,7 +31,7 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Keys: Targets are a name, `0x<hex>`, or `FUN_<hex>`, rows print hex with no `0x`
 - Keys: Renames replace the `FUN_<hex>` name, the entry address stays the key
 - Memory: Every run and bridge caps its heap at `GHIDRA_HEADLESS_MAXMEM`, the quarter of RAM `mise.toml` sets, and holds it until exit
-- Memory: Decompiles spawn one native `decompile` process per pool thread, min(cores + 1, 10), outside the heap, `-max-cpu <n>` caps one run at n + 1
+- Memory: Decompiles spawn up to min(cores + 1, 10) native `decompile` processes outside the heap, `-max-cpu <n>` caps one run at n + 1
 - Time: Imports, analysis, and script runs take `run_in_background`
 - Bundle: `-scriptPath` compiles the scripts directory as one bundle at the JDK `JAVA_HOME` names with no release flag
 - Bundle: Subdirectories become packages, unnamed variables need JDK 22 or later
@@ -51,7 +51,7 @@ Numbered steps consume the step before. Bulleted cases are alternatives, one per
 
 ## [01]-[READ]
 
-Import, analyze, name stubs, and catalog the program in one run, then decompile seeds with their neighborhood into one file.
+Import, analyze, name stubs, and catalog the program in one run, then decompile seeds with their callers and callees into one file.
 
 Imports:
 - Analysis, stubs, then catalog
@@ -59,19 +59,19 @@ Imports:
 - Headerless bytes, loader, base address without `0x`, and language named, then catalog
 
 ```bash
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath <main>/.claude/skills/use-ghidra/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
 lipo -thin arm64 <binary> -output <main>/.artifacts/ghidra/<name>/<file>.arm64
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath <main>/.claude/skills/use-ghidra/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
 ```
 
 `<run>` opens the saved program without analysis:
 
 ```bash
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath <main>/.claude/skills/use-ghidra/scripts -log <log> -scriptlog <scriptlog>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath ${CLAUDE_SKILL_DIR}/scripts -log <log> -scriptlog <scriptlog>
 ```
 
 After import:
-1. Seeds with neighborhood into one file
+1. Seeds with callers and callees into one file
 2. Block dividers with line numbers, then `Read <out>` at the line of one function
 3. Failed blocks, seeded again with `timeout=<seconds>` after a timeout and `payload=<megabytes>` after `Response buffer size exceeded`
 
@@ -161,7 +161,7 @@ Every file opens with `// --- [INDEX]` over `// <program> <language> <counts>`, 
 - Decompile: Blocks `// --- [<name>]` over `// <address> size=<bytes> <role> callers=<count>[: <names>]`
 - Decompile: `<role>` is `seed`, `caller:<depth>`, or `callee:<depth>`, `<names>` the callers with a block in the file by entry address
 - Decompile: Failed blocks hold `// failed: <cause>` under their header, thunk and stub seeds hold `// <address> thunk -> <name>` or `stub -> <name>`
-- Decompile: Decompiler prints `$` and `:` of a stub name as `_`, `_objc_msgSend$length` reads `_objc_msgSend_length` in a block
+- Decompile: Decompiler prints `$` and `:` of a stub name as `_`, `_objc_msgSend$length` appears as `_objc_msgSend_length` in a block
 - Decompile: `[GLOBALS]` holds one row `// <address> <type> <name>[ = <value>]` per global the blocks reference
 - Decompile: `[TYPES]` holds Ghidra's built-in typedefs, then every composite, enum, and typedef the blocks name
 - CallSites: `// --- [<target>]` over `// <name> @ <address> callers=<count> calls=<count>`
@@ -179,14 +179,14 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 - Types: `DataTypeWriter` writes the built-in typedefs from the constructor and skips a `FunctionDefinition` on write
 - Strings: `DefinedDataIterator.byDataInstance` with `StringDataInstance::isString` walks defined strings, a `__cfstring` struct references the text
 - Functions: `getFunctions(true)` skips externals, `getCallingFunctions` keeps call references to the entry alone
-- Thunks: `getFunctionThunkAddresses` answers null with no thunks, `getThunkedFunction(true)` follows a chain to the end
-- Addresses: `AddressFactory.getAddress` parses hex with or without `0x` and answers null for text holding no address
+- Thunks: `getFunctionThunkAddresses` returns null with no thunks, `getThunkedFunction(true)` follows a chain to the end
+- Addresses: `AddressFactory.getAddress` parses hex with or without `0x` and returns null for text holding no address
 - Decompile: `ParallelDecompiler.decompileFunctions` returns results in completion order, null for a cancelled item, and rethrows a callback exception
 - Decompile: `DecompilerCallback.setTimeout` sets the timeout passed per function, `DecompileOptions.setDefaultTimeout` changes nothing under it
 - Globals: `getGlobalSymbolMap` holds a fraction of the globals a body names, the C markup tokens hold every one
 - Preprocessor: `-D` takes no macro arguments, a prelude through `ReInit` and `Input()` defines a function-like macro
 - Preprocessor: `Define()` ignores a redefinition
-- Preprocessor: `#if <name>` reads true for a definition that is no number, an undefined name compares as text and `<name> == 0` reads false
+- Preprocessor: `#if <name>` evaluates true for a definition that is no number, an undefined name compares as text and `<name> == 0` evaluates false
 - Preprocessor: `DefineTable.subParams` cuts a `...` argument at its first `)` at depth 0, a parenthesized group in it leaves the body unexpanded
 - Preprocessor: `DefineTable.getParams` toggles quote and apostrophe states apart, a `'` inside a string literal hides the closing `)`
 - Preprocessor: `PreProcessor` defines no compiler built-in (`__has_include`, `__has_feature`, `__builtin_va_list`) and cannot lex `::`
@@ -201,12 +201,12 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 
 ## [06]-[EXTEND]
 
-Each new traversal is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`:
+Each new script is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`:
 1. Bundle compiled against the install's jars with every warning on
-2. `google-java-format`, `pmd check`, and `ast-grep scan` of `<project>:lint` over the scripts directory, `jdtls@<marketplace>` diagnostics
+2. `google-java-format`, `pmd check`, and `ast-grep scan` of `<project>:lint` over the scripts directory, jdtls diagnostics
 3. Run on a saved program
 
 ```bash
-javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" <main>/.claude/skills/use-ghidra/scripts/*.java
+javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" ${CLAUDE_SKILL_DIR}/scripts/*.java
 <run> -readOnly -postScript <Script>.java <out> <seed>...
 ```

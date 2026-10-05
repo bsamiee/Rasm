@@ -20,6 +20,7 @@ Rasm/
 │   ├── interface/            # Desktop application interfaces, one directory per application
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   └── yak/                  # Script installing a published Rhino plug-in's yak package
+├── plugins/                  # Agent harness marketplace, one directory per plugin
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
 ├── nx.json                   # Task graph
@@ -128,6 +129,7 @@ flowchart LR
 |  [12]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                          |
 |  [13]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                         |
 |  [14]   | Swift package version          | `.xcodeproj` package requirement                                                      |
+|  [15]   | Agent harness plugin           | `plugins/<name>`                                                                      |
 
 - Package rows and `.editorconfig` analyzer rows hold a one-line purpose comment, every other configuration file holds section dividers alone
 - Tool rows name a release where `latest` resolves a development build

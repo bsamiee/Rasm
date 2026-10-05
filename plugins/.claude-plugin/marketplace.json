@@ -1,0 +1,24 @@
+{
+    "name": "rasm",
+    "description": "Plugins of the Rasm monorepo, loaded in place from this directory",
+    "owner": {
+        "name": "Bardia Samiee"
+    },
+    "plugins": [
+        {
+            "name": "function-hooks",
+            "source": "./function-hooks",
+            "description": "Refuses or rewrites tool calls by policy, and with observation on records hook events as database rows and delivers findings per lineage"
+        },
+        {
+            "name": "argus",
+            "source": "./argus",
+            "description": "Language servers, each started on the first edit of a file with one of its extensions"
+        },
+        {
+            "name": "playwright",
+            "source": "./playwright",
+            "description": "Playwright CLI and trace skills adapted from playwright-core, with the test MCP server and its planner, generator, and healer agents"
+        }
+    ]
+}

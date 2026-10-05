@@ -8,6 +8,7 @@ node_modules/
 **/.artifacts/
 .playwright-cli/
 .vs/
+buildServer.json
 
 # --- [HOST_WRITES] ------------------------------------------------------------
 

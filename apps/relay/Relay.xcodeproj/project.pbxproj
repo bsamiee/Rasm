@@ -22,6 +22,7 @@
 				AGENTS.md,
 				CLAUDE.md,
 				LICENSE,
+				buildServer.json,
 			);
 			target = 4A817EDECF31418AABA61709 /* Relay */;
 		};

@@ -1,0 +1,10 @@
+{
+    "name": "playwright",
+    "version": "1.0.0",
+    "description": "Playwright CLI and trace skills adapted from playwright-core, with the test MCP server and its planner, generator, and healer agents",
+    "skills": "./skills/",
+    "mcpServers": "./.mcp.json",
+    "interface": {
+        "displayName": "Playwright"
+    }
+}

@@ -1,0 +1,49 @@
+{
+    "name": "function-hooks",
+    "version": "1.0.0",
+    "description": "Refuses or rewrites tool calls by policy, and with observation on records hook events as database rows and delivers findings per lineage",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "types": "./hooks/state.d.ts",
+    "userConfig": {
+        "observation": {
+            "type": "boolean",
+            "title": "Observation",
+            "description": "Recording of hook events and refused calls as database rows, agent spawns and finding delivery at stop boundaries, and the status line",
+            "default": false
+        },
+        "walkPolicy": {
+            "type": "boolean",
+            "title": "Walk policy",
+            "description": "Refusal of a Bash walker that descends into ~/Library/CloudStorage",
+            "default": false
+        },
+        "editThreshold": {
+            "type": "number",
+            "title": "Edit threshold",
+            "description": "Unjudged in-tree files edited on a lineage that spawn the edit agent at a quiet boundary, 0 off",
+            "default": 20,
+            "min": 0
+        },
+        "editAgent": {
+            "type": "string",
+            "title": "Edit agent",
+            "description": "Agent under .claude/agents/ that judges the unjudged edits of one lineage's range",
+            "default": "shape-cataloger"
+        },
+        "categoryThreshold": {
+            "type": "number",
+            "title": "Category threshold",
+            "description": "Confirmed sites a recurring category needs to spawn the category agent at a quiet boundary, 0 off",
+            "default": 2,
+            "min": 0
+        },
+        "categoryAgent": {
+            "type": "string",
+            "title": "Category agent",
+            "description": "Agent under .claude/agents/ that builds a checker rule for one recurring category",
+            "default": "ast-grep-rule-builder"
+        }
+    }
+}

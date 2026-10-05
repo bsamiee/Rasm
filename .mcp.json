@@ -20,14 +20,6 @@
             "command": "mise",
             "args": ["exec", "--", "ast-grep-server"]
         },
-        "playwright": {
-            "command": "mise",
-            "args": ["exec", "--", "playwright", "mcp", "--headless", "--caps=config,network,pdf,storage,testing,vision,devtools"]
-        },
-        "playwright-test": {
-            "command": "mise",
-            "args": ["exec", "--", "playwright", "run-test-mcp-server", "--headless"]
-        },
         "github": {
             "type": "http",
             "url": "https://api.githubcopilot.com/mcp/",

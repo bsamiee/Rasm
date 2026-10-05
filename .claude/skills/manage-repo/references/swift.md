@@ -5,19 +5,19 @@ Xcode projects build every Swift product, one root build configuration and the r
 ## [01]-[PROJECT_FILES]
 
 Project files are edited by hand in the form Xcode's writer produces:
-- `objectVersion` and `preferredProjectObjectVersion` hold 110, a `compatibilityVersion` row makes an Xcode 27 save rewrite the file at 71
-- `LastUpgradeCheck`, `LastSwiftUpdateCheck`, and each scheme's `LastUpgradeVersion` hold the installed Xcode's 2700
+- `objectVersion` and `preferredProjectObjectVersion` hold the installed Xcode's newest format, a `compatibilityVersion` row saves an older one
+- `LastUpgradeCheck`, `LastSwiftUpdateCheck`, and each scheme's `LastUpgradeVersion` hold the installed Xcode's version code
 - Every Xcode or `xcode` MCP save adds a self `projectReferences` entry, a `.xcodeproj` file reference, and a `Products` group, hand edits revert them
 - Objects sit in one section per `isa`, sorted by id, while lists inside an object keep their written order
 - Values holding `-` take quotes, a value opening with `.` stays unquoted although the `syntax-project-pbxproj` editor extension flags it
 - `PBXFileSystemSynchronizedRootGroup` at `path = .` routes every project directory file into the target's existing phases with no source list
 - Sources stay at `.`, the new-project template's sibling source folder gives a tool a one-file folder
-- Apps name each non-source file (`CLAUDE.md`, `LICENSE`) in `membershipExceptions`, their Resources phase copies every unnamed file into the bundle
+- Apps list non-source files (`CLAUDE.md`, `LICENSE`, `buildServer.json`) in `membershipExceptions`, the Resources phase bundles every other file
 - Tools take no Resources phase and no exception set
 - `.xcodeproj` takes no exception, it joins no target without one
 - Structural keys a save writes back stay (`knownRegions`, `projectRoot`, an empty `buildRules`)
 - Apps keep an empty Resources phase, their asset catalog compiles only through an existing phase
-- Each project holds one shared scheme in `xcshareddata/xcschemes`, Xcode 27 writes a new project's schemes under ignored `xcuserdata/` alone
+- Each project holds one shared scheme in `xcshareddata/xcschemes`, Xcode writes a new project's schemes under ignored `xcuserdata/` alone
 - Shared schemes hold a `BuildAction` and a `LaunchAction` naming the target, Xcode autocreates a duplicate of a scheme with no `LaunchAction`
 - `LaunchAction` sets `customLLDBInitFile` to root `.lldbinit` by a `$(SRCROOT)`-relative path
 - App icons are an `AppIcon.icon` document `actool` renders into the bundle at build, no rendered image is checked in
@@ -36,7 +36,7 @@ Project files are edited by hand in the form Xcode's writer produces:
 - `ALWAYS_SEARCH_USER_PATHS = NO` stays, the `YES` default prints a header map warning in Swift-only targets
 - Dead code stripping and user script sandboxing stay, Xcode's recommended-settings check proposes both again
 - Release builds write a dSYM, crash reports from an installed product hold no symbols otherwise
-- `MACOSX_DEPLOYMENT_TARGET` holds the oldest macOS the installed Xcode runs on (26.6 for Xcode 27), the 27.0 default launches on no macOS 26 host
+- `MACOSX_DEPLOYMENT_TARGET` holds the oldest macOS the installed Xcode runs on, the SDK-version default launches on no older host
 - Below a 27.0 deployment target `ARCHS_STANDARD` includes x86_64, `ARCHS = arm64` narrows it until the floor reaches 27.0
 - `-destination platform=macOS` takes no arch under `ARCHS`, a missing destination matches Any Mac and warns
 - Automatic signing with the root team resolves an unset `CODE_SIGN_IDENTITY` to Apple Development
@@ -108,9 +108,8 @@ SwiftLint rules join when no other checker covers their form:
 ## [07]-[CI]
 
 CI's macOS job runs on the Xcode local builds use:
-- `runs-on: xcode-27` selects GitHub's preview image with default Xcode 27, `macos-26` includes Xcode 26 alone
 - `runs-on` label alone selects Xcode, `DEVELOPER_DIR` names an image-only path and no build tool reads `.xcode-version`
-- Settings after `--` reach `build` alone, `lint` takes no forwarded arguments
+- Settings after `--` reach `build`'s xcodebuild alone, `lint` and `xcode-build-server config` take no forwarded arguments
 - `COMPILER_INDEX_STORE_ENABLE=NO` joins the forwarded settings, nothing in CI reads the index
 - `xcbeautify` reads a pipe alone and stays out
 - SwiftPM and derived data caches stay out, a restore keyed on sources misses on each source change
@@ -140,3 +139,15 @@ New Swift projects join as `<Name>.xcodeproj` with its shared scheme, root files
 - Template Clang and Metal rows and the `DEBUG` condition have no reader in a Swift product
 - README changes with a new owner or project kind alone, `.xcodeproj` is a listed project file
 - `nx run <Name>:format` precedes the first `check`
+
+## [10]-[LANGUAGE_SERVER]
+
+sourcekit-lsp reads each Xcode project's compiler arguments through xcode-build-server:
+- Build server, SwiftPM, and compilation database folders alone open as sourcekit-lsp workspaces, no setting opens a `.xcodeproj`
+- `xcode-build-server config` writes `buildServer.json` beside each `.xcodeproj` after `xcodebuild` in `build`
+- Each `build` refreshes the file arguments xcode-build-server parses from the newest derived data build log
+- Folders with `buildServer.json` below the session root open as sourcekit-lsp workspaces, the `swift` `.lsp.json` row takes no `workspaceFolder`
+- `buildServer.json` holds absolute tool and derived data paths and stays ignored
+- `buildServer.json` sits in the workspace folder alone, xcode-build-server reads no `.bsp/` or `.cache/` copy
+- Parsed arguments and xcode-build-server's index database sit under `~/Library/Caches/xcode-build-server`, a folder no setting moves
+- `.sourcekit-lsp/` stays out, Xcode's sourcekit-lsp asks to trust a workspace holding one and Claude Code answers no server request

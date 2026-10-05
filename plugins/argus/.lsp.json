@@ -1,0 +1,91 @@
+{
+    "typescript": {
+        "command": "${CLAUDE_PROJECT_DIR}/node_modules/.bin/tsc",
+        "args": ["--lsp", "--stdio"],
+        "extensionToLanguage": {
+            ".ts": "typescript",
+            ".tsx": "typescriptreact",
+            ".mts": "typescript",
+            ".cts": "typescript",
+            ".js": "javascript",
+            ".jsx": "javascriptreact",
+            ".mjs": "javascript",
+            ".cjs": "javascript"
+        }
+    },
+    "python": {
+        "command": "${CLAUDE_PROJECT_DIR}/.venv/bin/ty",
+        "args": ["server"],
+        "extensionToLanguage": { ".py": "python", ".pyi": "python" }
+    },
+    "csharp": {
+        "command": "dotnet",
+        "args": ["dnx", "csharp-ls", "--yes", "--", "--solution", "${CLAUDE_PROJECT_DIR}/${user_config.solution}"],
+        "extensionToLanguage": { ".cs": "csharp" },
+        "startupTimeout": 120000,
+        "settings": {
+            "csharp": { "analyzersEnabled": true }
+        }
+    },
+    "swift": {
+        "command": "sourcekit-lsp",
+        "extensionToLanguage": { ".swift": "swift" }
+    },
+    "java": {
+        "command": "jdtls",
+        "extensionToLanguage": { ".java": "java" },
+        "workspaceFolder": "${CLAUDE_PROJECT_DIR}/${user_config.javaWorkspace}",
+        "startupTimeout": 120000,
+        "initializationOptions": {
+            "settings": { "java": { "autobuild": { "enabled": false } } }
+        },
+        "settings": {
+            "java": {
+                "configuration": {
+                    "runtimes": [{ "name": "JavaSE-27", "path": "${JAVA_HOME}", "default": true }]
+                },
+                "project": {
+                    "referencedLibraries": ["${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar"]
+                },
+                "diagnostic": { "filter": ["**/.cache/**"] }
+            }
+        }
+    },
+    "yaml": {
+        "command": "yaml-language-server",
+        "args": ["--stdio"],
+        "extensionToLanguage": { ".yaml": "yaml", ".yml": "yaml" },
+        "settings": {
+            "yaml": { "schemaStore": { "enable": true } }
+        }
+    },
+    "toml": {
+        "command": "taplo",
+        "args": ["lsp", "stdio"],
+        "extensionToLanguage": { ".toml": "toml" }
+    },
+    "bash": {
+        "command": "bash-language-server",
+        "args": ["start"],
+        "extensionToLanguage": { ".sh": "shellscript", ".bash": "shellscript" }
+    },
+    "c": {
+        "command": "clangd",
+        "args": ["--background-index"],
+        "extensionToLanguage": { ".c": "c", ".h": "c", ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp", ".hxx": "cpp", ".m": "objective-c", ".mm": "objective-cpp" }
+    },
+    "lua": {
+        "command": "lua-language-server",
+        "extensionToLanguage": { ".lua": "lua" }
+    },
+    "nix": {
+        "command": "nixd",
+        "extensionToLanguage": { ".nix": "nix" },
+        "settings": {
+            "nixd": {
+                "nixpkgs": { "expr": "import (builtins.getFlake \"git+file://${CLAUDE_PROJECT_DIR}\").inputs.nixpkgs {}" },
+                "formatting": { "command": ["alejandra"] }
+            }
+        }
+    }
+}

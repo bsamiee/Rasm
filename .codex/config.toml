@@ -33,3 +33,12 @@ command = "mise"
 args = ["exec", "--", "mcp-for-blender"]
 tool_timeout_sec = 180
 default_tools_approval_mode = "approve"
+
+[plugins."playwright@rasm"]
+enabled = true
+
+[plugins."playwright@rasm".mcp_servers.playwright]
+default_tools_approval_mode = "approve"
+
+[plugins."playwright@rasm".mcp_servers.playwright-test]
+default_tools_approval_mode = "approve"

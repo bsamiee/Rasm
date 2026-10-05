@@ -16,8 +16,9 @@ Before a text search on a `.cs`, `.razor`, or `.cshtml` file, the target decides
 4. String literal, comment, or other plain text → `rg`
 
 Before `dotnet build` or `msbuild` through Bash, the wanted result decides:
-1. Errors, warnings, or analyzer diagnostics → `get_diagnostics`
-2. Binary, test run, or package → the build
+1. Compiler or analyzer diagnostics of a written or edited `.cs` file → `<new-diagnostics>` block
+2. Compiler or analyzer diagnostics of any other file → `get_diagnostics`
+3. Binary, test run, or package → the build
 
 Before `Read` on a `.cs` file, the wanted view decides:
 1. File structure → `get_file_overview` or `get_type_overview`
@@ -104,11 +105,11 @@ Before `Read` on a `.cs` file, the wanted view decides:
 - `search_symbols` — case-insensitive substring lookup over types, methods, properties, and fields
 - `find_references` — every reference across the solution, one item per occurrence tagged with a `ReferenceKind`, `kinds` filters on the server
 - `resolve_stack_trace` — maps a pasted .NET stack trace to file, line, and symbol, items keep trace order
-  - Demangles async and iterator state machines, lambdas, and local functions
-  - Parses log-prefixed lines, inner-exception chains, and Demystifier traces
-  - Source frames get their declaration site, or the exact location when the trace holds `in file:line`
-  - Frames in a referenced assembly resolve with `origin="metadata"`, every other frame with `origin="unresolved"`
-  - Unparsable frame-like lines stay in place as `kind="unknown"`
+    - Demangles async and iterator state machines, lambdas, and local functions
+    - Parses log-prefixed lines, inner-exception chains, and Demystifier traces
+    - Source frames get their declaration site, or the exact location when the trace holds `in file:line`
+    - Frames in a referenced assembly resolve with `origin="metadata"`, every other frame with `origin="unresolved"`
+    - Unparsable frame-like lines stay in place as `kind="unknown"`
 
 Reference kinds:
 - `read`, `write` (assignment target, `out` argument), `readwrite` (compound assignment, `++`/`--`, `ref` argument)
@@ -127,34 +128,34 @@ Reference kinds:
 - `get_type_hierarchy` — inheritance chains and extension points
 - `analyze_method` — signature, callers, and outgoing calls in one call
 - `get_call_graph` — transitive caller and callee graph with cycle detection, for a depth greater than 1
-  - `direction` defaults to `callees`, `callers` or `both` walks inbound
-  - `maxDepth` defaults to 3, `maxNodes` to 500
+    - `direction` defaults to `callees`, `callers` or `both` walks inbound
+    - `maxDepth` defaults to 3, `maxNodes` to 500
 - `get_method_source` — full declaration source for one or many members in one call, whole types are out of scope
-  - Members: methods (all overloads), constructors (`Type.Type`, nested types fully qualified), properties, fields, events
-  - Indexers take `Type.this` or `Type.this[]`
-  - Each item holds a status (`ok`, `notFound`, `ambiguous`, `metadata`, `unsupportedKind`), one miss leaves the batch intact
-  - `metadata` items hold `origin` for `peek_il`
+    - Members: methods (all overloads), constructors (`Type.Type`, nested types fully qualified), properties, fields, events
+    - Indexers take `Type.this` or `Type.this[]`
+    - Each item holds a status (`ok`, `notFound`, `ambiguous`, `metadata`, `unsupportedKind`), one miss leaves the batch intact
+    - `metadata` items hold `origin` for `peek_il`
 - `get_overloads` — every overload of a method or constructor from source and metadata, with full parameter and modifier detail
 - `get_operators` — every user-defined operator and conversion a type declares (operators do not inherit)
-  - Synthesized record equality and checked variants are included
+    - Synthesized record equality and checked variants are included
 - `get_extension_methods` — every extension member applicable to a type from the solution and referenced assemblies, LINQ appears for an `IEnumerable`
-  - Applicability follows the compiler's reduction: `this IEnumerable<T>` applies to `string`, `this IEnumerable<string>` does not
-  - `signature` is the reduced call-site form with the return type first (`IEnumerable<int> Where<int>(Func<int, bool>)`)
-  - `isStatic: false` is an instance call (`value.Doubled()`) and covers every classic `this` extension
-  - `isStatic: true` is a C# 14 static extension member called on the type (`int.Zero`)
-  - Receivers can be keywords, constructed generics, arrays, nullables, or tuples
-  - Results ignore `using` scope, `namespace` is always reported, and the import can still be missing
-  - Source sorts before metadata, `nameFilter` narrows by substring
+    - Applicability follows the compiler's reduction: `this IEnumerable<T>` applies to `string`, `this IEnumerable<string>` does not
+    - `signature` is the reduced call-site form with the return type first (`IEnumerable<int> Where<int>(Func<int, bool>)`)
+    - `isStatic: false` is an instance call (`value.Doubled()`) and covers every classic `this` extension
+    - `isStatic: true` is a C# 14 static extension member called on the type (`int.Zero`)
+    - Receivers can be keywords, constructed generics, arrays, nullables, or tuples
+    - Results ignore `using` scope, `namespace` is always reported, and the import can still be missing
+    - Source sorts before metadata, `nameFilter` narrows by substring
 - `get_instantiation_options` — how to construct a type in one call: `constructors`, `factories`, `diRegistrations`, and `requiredMembers`
-  - `constructors` hold parameters, accessibility, `isImplicit` for the compiler-supplied parameterless constructor, and `isObsolete`
-  - `factories` are static members anywhere in the solution that return the type (`WidgetFactory.Create()` for a type with a private constructor)
-  - `Task<T>` and `ValueTask<T>` factories are unwrapped and flagged `isAsync`, instance builders are excluded
-  - `fromProject` computes `accessible` from that project and honors `InternalsVisibleTo`, `accessible: null` means not computed
-  - Interfaces, abstract classes, and static classes report `instantiable: false` with a `note`, `find_implementations` follows
+    - `constructors` hold parameters, accessibility, `isImplicit` for the compiler-supplied parameterless constructor, and `isObsolete`
+    - `factories` are static members anywhere in the solution that return the type (`WidgetFactory.Create()` for a type with a private constructor)
+    - `Task<T>` and `ValueTask<T>` factories are unwrapped and flagged `isAsync`, instance builders are excluded
+    - `fromProject` computes `accessible` from that project and honors `InternalsVisibleTo`, `accessible: null` means not computed
+    - Interfaces, abstract classes, and static classes report `instantiable: false` with a `note`, `find_implementations` follows
 - `get_public_api_surface` — every public and protected type and member declared in production projects
-  - Test projects, generated code, internal symbols, protected members on sealed types, and inherited members are skipped
+    - Test projects, generated code, internal symbols, protected members on sealed types, and inherited members are skipped
 - `find_breaking_changes` — diffs the current public API surface against a baseline, a JSON snapshot from `get_public_api_surface` or a `.dll`
-  - Return type changes, `sealed` changes, and nullable annotation changes are undetected, an empty diff leaves compatibility unknown
+    - Return type changes, `sealed` changes, and nullable annotation changes are undetected, an empty diff leaves compatibility unknown
 
 ### [03.3]-[USAGE_AND_DEPENDENCIES]
 
@@ -167,45 +168,45 @@ Reference kinds:
 - `get_project_dependencies` — direct and transitive project references of the required `project`
 - `get_nuget_dependencies` — NuGet packages and versions per project
 - `find_obsolete_usage` — every call site of an `[Obsolete]` symbol, grouped by deprecation message and severity, errors first
-  - Metadata deprecations from packages are included, symbols with no usage are omitted
+    - Metadata deprecations from packages are included, symbols with no usage are omitted
 - `find_tests_for_symbol` — xUnit, NUnit, and MSTest methods that exercise a production symbol
-  - `transitive` walks through helper methods, bounded by `maxDepth` (default 3, maximum 5)
+    - `transitive` walks through helper methods, bounded by `maxDepth` (default 3, maximum 5)
 - `get_test_summary` — per-project inventory of test methods, from project to tests where `find_tests_for_symbol` goes from test to production
-  - Each test reports framework, attribute kind, row count, location, and the production symbols it references
+    - Each test reports framework, attribute kind, row count, location, and the production symbols it references
 - `find_uncovered_symbols` — public methods and properties no test reaches within 3 helper hops, sorted by cyclomatic complexity
-  - Reference-based static analysis, reads no runtime coverage data
+    - Reference-based static analysis, reads no runtime coverage data
 
 ### [03.4]-[DIAGNOSTICS_AND_REFACTORING]
 
 - `get_diagnostics` — compiler errors, warnings, and analyzer diagnostics
-  - `unreliable` in its summary means the solution loaded degraded, items can then name errors no real build reports
-  - `rebuild_solution` then a rerun resolves it, a block that persists leaves the build as the verdict
+    - `unreliable` in its summary means the solution loaded degraded, items can then name errors no real build reports
+    - `rebuild_solution` then a rerun clears `unreliable`, a block that persists leaves diagnostics to the build
 - `get_code_fixes` — structured edits for one diagnostic at one location
 - `get_code_actions` — every refactoring and fix available at a position, with an optional range
 - `apply_code_action` — runs a refactoring by title, preview by default, the in-memory snapshot updates at once on success
-  - Title matching falls back to a case-insensitive substring match in both directions, a near-miss title runs a different action
-  - `title` in the result names the action that ran
-  - Apply refuses to write when a file changed on disk after the snapshot loaded and names the stale files
-  - `rebuild_solution` then a retry resolves a stale file
-  - Actions that add a file write it to disk, and the watcher adds it to the snapshot
+    - Title matching falls back to a case-insensitive substring match in both directions, a near-miss title runs a different action
+    - `title` in the result names the action that ran
+    - Apply refuses to write when a file changed on disk after the snapshot loaded and names the stale files
+    - `rebuild_solution` then a retry resolves a stale file
+    - Actions that add a file write it to disk, and the watcher adds it to the snapshot
 - `rename_symbol` — solution-wide rename of a type or member through the Roslyn Renamer, preview by default, `apply_code_action` offers no rename
-  - Cascades to references, overrides, `nameof`, and crefs
-  - `renameInComments` defaults to `true`, `renameInStrings` to `false`, `renameOverloads` to `true`
-  - Locals, parameters, file renames, constructors, and metadata symbols are rejected, a constructor renames through its containing type
-  - Apply refuses on new-compiler-error conflicts unless `force=true`, and refuses on files changed since the snapshot in every case
-  - Generic types accept the arity-free name: `Data.Repository` finds `Repository<T>`
+    - Cascades to references, overrides, `nameof`, and crefs
+    - `renameInComments` defaults to `true`, `renameInStrings` to `false`, `renameOverloads` to `true`
+    - Locals, parameters, file renames, constructors, and metadata symbols are rejected, a constructor renames through its containing type
+    - Apply refuses on new-compiler-error conflicts unless `force=true`, and refuses on files changed since the snapshot in every case
+    - Generic types accept the arity-free name: `Data.Repository` finds `Repository<T>`
 - `change_signature` — adds, removes, and reorders a method's parameters and rewrites every call site, `apply_code_action` offers no signature change
-  - `operations` apply in order: `remove` takes a parameter name, `reorder` a full permutation of the surviving names
-  - `add` takes `name`, `type`, and a required `callSiteValue`, the expression every existing call site passes
-  - Optional `defaultValue` makes the parameter optional and leaves existing calls untouched
-  - Named arguments, optional parameters, `params`, and the extension `this` are handled
-  - Moving `this` off first position and leaving `params` anywhere but last are rejected
-  - `cascadedTo` lists the rewritten overrides and interface implementations, read it in preview
-  - Source-defined methods only, an overloaded name must be disambiguated, same refusals as `rename_symbol`
+    - `operations` apply in order: `remove` takes a parameter name, `reorder` a full permutation of the surviving names
+    - `add` takes `name`, `type`, and a required `callSiteValue`, the expression every existing call site passes
+    - Optional `defaultValue` makes the parameter optional and leaves existing calls untouched
+    - Named arguments, optional parameters, `params`, and the extension `this` are handled
+    - Moving `this` off first position and leaving `params` anywhere but last are rejected
+    - `cascadedTo` lists the rewritten overrides and interface implementations, read it in preview
+    - Source-defined methods only, an overloaded name must be disambiguated, same refusals as `rename_symbol`
 - `analyze_data_flow` — variable lifecycle over a statement range: declared, read, written, captured, and flowing in or out
 - `analyze_control_flow` — reachability, return statements, and exit points over a statement range
 
-Code generation runs through `apply_code_action` with the exact title `get_code_actions` reads, intents with the title each maps to:
+Code generation runs through `apply_code_action` with the exact title `get_code_actions` reads, each task with its title:
 - Implement missing interface or abstract members → "Implement abstract members" / "Implement interface"
 - Generate a constructor from fields → "Generate constructor"
 - Add null checks → "Add null checks for all parameters"
@@ -216,69 +217,69 @@ Code generation runs through `apply_code_action` with the exact title `get_code_
 
 #### [03.4.1]-[ANALYZER_TRUST]
 
-`get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. Under a build that runs analyzers with warnings as errors, the default call reproduces almost nothing of what fails the build. Pass `includeAnalyzers=true` when the answer must match the build, and before `get_code_fixes` for an analyzer diagnostic.
+`get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. Pass `includeAnalyzers=true` when the answer must match the build, and before `get_code_fixes` for an analyzer diagnostic.
 
 Solutions named on the server's command line are trusted for the session, every other solution needs `trust_solution`. `get_code_fixes` loads the fix providers as analyzer code and answers `SolutionNotTrusted` on an untrusted solution, compiler diagnostics included.
 
 `analyzerPolicy` in the trust file (`roslyn-codelens/trust.json` under the user's application data directory, read at server start) selects the analyzer assemblies that load. `nuget-and-solution-bin`, the default, accepts `~/.nuget/packages`, the SDK directory, and a `bin` or `obj` path under the solution, `strict` drops the solution paths, `all` accepts every path. `nuget-and-solution-bin` spells `~/.nuget/packages` literally and reads no `globalPackagesFolder` from `NuGet.config`. Package analyzers restored to a relocated folder load under `all` alone, and `get_diagnostics` misses their diagnostics under the other policies.
 
-Analyzers run under `.editorconfig` severities with no analyzer option values. Style analyzers that read an option (`IDE0055` formatting) report against Roslyn defaults, their items from `get_diagnostics` are no finding, and `dotnet format --verify-no-changes` is the formatting verdict.
+Analyzers run under `.editorconfig` severities with no analyzer option values. Style analyzers that read an option (`IDE0055` formatting) report against Roslyn defaults, their `get_diagnostics` items are no finding. `dotnet format --verify-no-changes` decides formatting.
 
-Analyzer assemblies built against a newer Roslyn than the server bundles do not load, and the server's startup log names each one as `ReferencesNewerCompiler`. Under a preview SDK, its `CodeStyle` assemblies (`IDE*`) are among them, `get_diagnostics` omits their diagnostics, and the build is the verdict until a server release bundles the SDK's Roslyn.
+Analyzer assemblies built against a newer Roslyn than the server bundles do not load, and the server's startup log names each one as `ReferencesNewerCompiler`. Under a preview SDK, `get_diagnostics` omits `CodeStyle` (`IDE*`) diagnostics, the build reports them until a server release bundles the SDK's Roslyn.
 
 When a call returns `SolutionNotTrusted`, call `trust_solution` and retry. `scope` defaults to `session`, `persistent` writes the path to the trust store, and `addRoot` with a directory trusts every solution below it. `list_trusted_paths` reports the current state, `revoke_trust` removes an entry.
 
 ### [03.5]-[EXCEPTION_ANALYSIS]
 
 - `get_exception_flow` — what can escape a method, with `escapes`, the `path`, and the catch site per exception
-  - Walks callees, collects explicit throws, and propagates each one up through every enclosing `try`/`catch`
-  - `origin` is `thrown` for a source throw site, or `documented` for an `exception` XML tag on a metadata callee
-  - `includeDocumented: false` drops the `documented` items
-  - `when`-filtered catches never count as catching, the filter can be false at run time
-  - `hasFilter: true` marks an exception that passed such a clause, `escapes: false` always pairs with `hasFilter: false`
-  - `maxDepth` defaults to 3, `maxNodes` to 500, either limit sets `truncated`
-  - Throws inside a lambda or local function are excluded, they escape when the body runs
+    - Walks callees, collects explicit throws, and propagates each one up through every enclosing `try`/`catch`
+    - `origin` is `thrown` for a source throw site, or `documented` for an `exception` XML tag on a metadata callee
+    - `includeDocumented: false` drops the `documented` items
+    - `when`-filtered catches never count as catching, the filter can be false at run time
+    - `hasFilter: true` marks an exception that passed such a clause, `escapes: false` always pairs with `hasFilter: false`
+    - `maxDepth` defaults to 3, `maxNodes` to 500, either limit sets `truncated`
+    - Throws inside a lambda or local function are excluded, they escape when the body runs
 - `find_throw_sites` — every throw of an exception type across the solution, a throw inside a lambda or local function included
-  - `includeDerived` matches subclasses, a rethrowing `throw;` resolves to the enclosing catch's type
+    - `includeDerived` matches subclasses, a rethrowing `throw;` resolves to the enclosing catch's type
 - `find_catch_blocks` — every `catch` for a type, each item with `hasFilter`, `rethrows`, and `isEmpty`
-  - `includeBaseClauses` adds `catch (Exception)` and general `catch`
-  - Silent swallowing reads as `isEmpty: true, rethrows: false`
+    - `includeBaseClauses` adds `catch (Exception)` and general `catch`
+    - Silent swallowing reads as `isEmpty: true, rethrows: false`
 
 Tools see explicit `throw` only, implicit run-time exceptions (null dereference, division by zero) and reflection-invoked throws stay unreported. `get_exception_flow` alone walks calls, and it resolves each call to its declared symbol in place of a run-time override. `get_exception_flow` models an `async` method as synchronous, a throw inside it propagates at the call site and an enclosing `try` counts as catching it. Synchronous modeling matches an awaited call and misses fire-and-forget (`_ = M();`), where nothing enclosing sees the throw.
 
 ### [03.6]-[CODE_QUALITY]
 
 - `get_project_health` — composite audit per project with counts and the top hotspots per dimension
-  - Dimensions: complexity, large classes, naming, unused symbols, reflection, async violations, and disposable misuse
-  - `hotspotsPerDimension` defaults to 5, 0 gives counts only
+    - Dimensions: complexity, large classes, naming, unused symbols, reflection, async violations, and disposable misuse
+    - `hotspotsPerDimension` defaults to 5, 0 gives counts only
 - `find_unused_symbols` — dead code, found by reference, with the exclusion counts in `summary.filteredOut`
-  - Test methods, MCP tool entry points, source-generator output, MEF-composed services, and interop-laid-out fields are excluded
+    - Test methods, MCP tool entry points, source-generator output, MEF-composed services, and interop-laid-out fields are excluded
 - `find_naming_violations` — .NET naming conventions
 - `find_async_violations` — async misuse across production projects, each violation with a severity
-  - Sync-over-async (`.Result`, `.Wait()`, `GetAwaiter().GetResult()`) and `async void` outside an event handler
-  - Missing `await` in an `async` method and fire-and-forget tasks
-  - Test projects and generated code are skipped
+    - Sync-over-async (`.Result`, `.Wait()`, `GetAwaiter().GetResult()`) and `async void` outside an event handler
+    - Missing `await` in an `async` method and fire-and-forget tasks
+    - Test projects and generated code are skipped
 - `find_disposable_misuse` — `IDisposable` and `IAsyncDisposable` locals at risk of leaking
-  - Locals not wrapped in `using` or `await using`, returned, or assigned to a field or `out` parameter are a warning
-  - Discarded disposable creator or factory calls are an error
-  - Methods only, ownership transfer through an argument is undetected, test projects and generated code are skipped
+    - Locals not wrapped in `using` or `await using`, returned, or assigned to a field or `out` parameter are a warning
+    - Discarded disposable creator or factory calls are an error
+    - Methods only, ownership transfer through an argument is undetected, test projects and generated code are skipped
 - `find_large_classes` — types over a member count or line count threshold
 - `find_god_objects` — types over all 3 size thresholds and at least one coupling threshold, a large isolated class is skipped
-  - Defaults are 300 lines, 15 members, 10 fields, 5 incoming namespaces, and 5 outgoing namespaces, each configurable
+    - Defaults are 300 lines, 15 members, 10 fields, 5 incoming namespaces, and 5 outgoing namespaces, each configurable
 - `find_circular_dependencies` — cycles in the project graph or the namespace graph
 - `check_architecture` — layering rules supplied inline, `scope` selects `namespace` (default) or `project`
   - `forbid` (`Domain.*` must not depend on `Infrastructure.*`) catches the expected violation
-  - `allowOnly` (`Api.*` can depend only on `Application.*` and `Domain.*`) catches the rest
-  - Edges come from resolved symbols
-  - `allowOnly` evaluates solution-internal, non-generated targets alone, edges to framework namespaces and generator output stay unchecked unless `forbid` names them
-  - Self-references are never a violation
-  - Results group per violated edge with a full `referenceCount` and the first `maxSitesPerViolation` sites
+    - `allowOnly` (`Api.*` can depend only on `Application.*` and `Domain.*`) catches the rest
+    - Edges come from resolved symbols
+    - `allowOnly` evaluates solution-internal, non-generated targets alone, edges to framework namespaces and generator output stay unchecked unless `forbid` names them
+    - Self-references are never a violation
+    - Results group per violated edge with a full `referenceCount` and the first `maxSitesPerViolation` sites
 
 `get_complexity_metrics` rows hold complexity per member (methods, constructors, properties, indexers, operators):
 - `complexity` — cyclomatic, the number of independent paths through the member, a straight-line method scores 1
 - `cognitive` — how hard the member is to follow, a 0 means nothing branches, it ranks refactoring work
-  - Nesting costs extra, a whole `switch` costs 1, `else`/`else if` cost 1 with no nesting penalty
-  - Flat 20-case dispatch and 4 nested `if` levels share one cyclomatic number and differ in cognitive
+    - Nesting costs extra, a whole `switch` costs 1, `else`/`else if` cost 1 with no nesting penalty
+    - Flat 20-case dispatch and 4 nested `if` levels share one cyclomatic number and differ in cognitive
 - `maxNesting` — the deepest control structure, lambda and local-function bodies included
 
 `metric` (`"cyclomatic"` by default, or `"cognitive"`) selects the number `threshold` and the sort use. Both numbers always appear in the response.
@@ -296,8 +297,8 @@ Only assemblies the loaded solution references can be inspected. Unreferenced as
 
 - `get_nuget_dependencies` — first call, gives the exact assembly name the other tools take
 - `inspect_external_assembly` — what an assembly exposes, drill in before concluding that a package exposes nothing
-  - `mode` defaults to `summary` and returns the namespace tree with type counts alone
-  - `mode: "namespace"` with `namespaceFilter` gives the public types and members of one namespace
+    - `mode` defaults to `summary` and returns the namespace tree with type counts alone
+    - `mode: "namespace"` with `namespaceFilter` gives the public types and members of one namespace
 - `go_to_definition`, `get_symbol_context`, `get_type_overview`, `get_type_hierarchy` — an external type by name
 - `find_references`, `find_callers`, `find_implementations` — the code that uses an external type
 - `peek_il` — a method's IL by fully qualified method name with parameter types
@@ -307,14 +308,14 @@ Only assemblies the loaded solution references can be inspected. Unreferenced as
 Solutions named on the server's command line load with the first one active. With none named, the server loads the `.sln` or `.slnx` found walking up from the working directory. `ROSLYN_CODELENS_OPEN_PROJECT_TIMEOUT_SECONDS` (default `300`) bounds each project's load, a project over it joins `skippedProjects` with `kind: "Timeout"` and the rest of the solution loads. Edits to `.cs`, `.csproj`, `.props`, and `.targets` files recompile the affected projects on the next tool call with no further action.
 
 - `rebuild_solution` — a full reload: re-open the solution, recompile every project, rebuild every index
-  - Serves a package or analyzer change, and results that stay stale after an edit
+    - Serves a package or analyzer change, and results that stay stale after an edit
 - `load_solution` — loads a `.sln` or `.slnx` at run time and makes it active, the current solution stays active until the load succeeds
-  - `include` takes case-insensitive globs with `*` and `?` only, `rootProjects` takes exact, case-sensitive names
-  - Both match the project file name without its extension, and both seed a transitive `ProjectReference` closure
-  - Filters that match nothing are an error, load with no filter first and read the names from `list_solutions`
-  - For a solution that takes minutes to open, `background: true` returns a `taskId` for `get_task_status`
+    - `include` takes case-insensitive globs with `*` and `?` only, `rootProjects` takes exact, case-sensitive names
+    - Both match the project file name without its extension, and both seed a transitive `ProjectReference` closure
+    - Filters that match nothing are an error, load with no filter first and read the names from `list_solutions`
+    - For a solution that takes minutes to open, `background: true` returns a `taskId` for `get_task_status`
 - `list_solutions` — the loaded solutions and the active one, read when an expected symbol is missing
-  - `skippedProjects` per entry names each skipped project's `kind` and `reason`
+    - `skippedProjects` per entry names each skipped project's `kind` and `reason`
 - `set_active_solution` — switches the active solution by partial name
 - `unload_solution` — frees memory, the remaining loaded solution becomes active
 - `start_background_task` — queues a long tool for `get_task_status`, `rebuild_solution` is the only allowed tool
@@ -365,9 +366,9 @@ Tools that add a `summary` aggregate:
 - `find_uncovered_symbols` — coverage counts with `riskHotspotCount`, the uncovered members with complexity 5 or more
 - `check_architecture` — `{ byRule, totalReferences, rulesEvaluated }`
 - `resolve_stack_trace` — `{ byOrigin: { source, metadata, unresolved }, exceptions, skippedFrameLike }`
-  - `skippedFrameLike` counts frame-like lines that did not parse
+    - `skippedFrameLike` counts frame-like lines that did not parse
 - `get_complexity_metrics` — `{ max, avg, overThreshold, maxCognitive }`
-  - `max`, `avg`, and `overThreshold` describe the selected `metric`, `maxCognitive` is always the cognitive number
+    - `max`, `avg`, and `overThreshold` describe the selected `metric`, `maxCognitive` is always the cognitive number
 
 ## [06]-[ERROR_CODES]
 

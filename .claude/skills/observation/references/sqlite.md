@@ -23,7 +23,7 @@ Page `lang_upsert.html`, repeat inserts and the bar row:
 | :-----: | :----------------------------------------------------- | :----------------------------------------------------------------------- |
 |  [01]   | `on` after `insert ... select` parses as a join clause | `where` before `on conflict`, `where true` where no predicate exists     |
 |  [02]   | Upsert fires on a uniqueness constraint alone          | `finding_id` `unique` drives `do nothing`, a check or key failure aborts |
-|  [03]   | `excluded.` names the value the insert carried         | `bar.sql` `do update set earns = excluded.earns`                         |
+|  [03]   | `excluded.` names the value the insert supplied        | `bar.sql` `do update set earns = excluded.earns`                         |
 
 ## [03]-[RETURNING]
 
@@ -98,15 +98,15 @@ Page `cli.html`, the `sqlite3` process every reader and writer runs:
 
 | [INDEX] | [FACT]                                                          | [DECIDES]                                                             |
 | :-----: | :-------------------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `readfile`, `writefile`, and `sha3` are shell functions         | Hashing writes through the shell, `views.test.ts` `sha3` throws       |
+|  [01]   | `readfile`, `writefile`, and `sha3` are shell functions         | Hashing writes run in the shell alone                                 |
 |  [02]   | `readfile` is null for a missing path and raises on a directory | `subject_hash` `''` for a gone file, `cast` to text before `instr`    |
 |  [03]   | `-bail` stops at the first error                                | Writers run under `-bail`, a failed statement never reaches `commit`  |
 |  [04]   | `.timeout` waits on a locked database                           | `begin immediate` waits 10 seconds before failing                     |
 |  [05]   | `-json` prints one array per select with rows, nothing for none | Readers read an absent array as zero rows                             |
-|  [06]   | Default list mode prints each value unquoted                    | Plugin `STATE` and `DELIVER` each select one `json_object` value      |
+|  [06]   | Default list mode prints each value unquoted                    | Hook statements `STATE` and `DELIVER` select one `json_object` each   |
 |  [07]   | `.output <file>` and `.read <file>` redirect and replay         | Open writes the delta file, scripts share files through `.read`       |
 |  [08]   | Arguments after the database run in order after every `-cmd`    | Script commands bind through `-cmd`, then the JSON insert and `.read` |
-|  [09]   | `.parameter set` evaluates SQL, unparsable text binds as text   | `'<text>'` binds text, a bare number an integer, `null` null          |
+|  [09]   | `.parameter set` evaluates SQL, unparsable text binds as text   | `'<text>'` binds text, an unquoted number an integer, `null` null     |
 |  [10]   | `.parameter set` inside a script binds the statements after it  | `batch.sql` and `hit.sql` bind `:state` and `:actor`                  |
 |  [11]   | Unbound parameter reads null                                    | Missing `:state` or `:actor` fails its `not null` column              |
 |  [12]   | `-bail` ends the process after an SQL `-cmd`, arguments unrun   | Insert into `temp.sqlite_parameters` is an argument                   |

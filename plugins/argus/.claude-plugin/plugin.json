@@ -1,0 +1,22 @@
+{
+    "name": "argus",
+    "version": "1.0.0",
+    "description": "Language servers, each started on the first edit of a file with one of its extensions",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "userConfig": {
+        "solution": {
+            "type": "string",
+            "title": "C# solution",
+            "description": "Solution file csharp-ls loads, relative to the project root",
+            "default": "Workspace.slnx"
+        },
+        "javaWorkspace": {
+            "type": "string",
+            "title": "Java workspace",
+            "description": "Folder of Java sources jdtls type-checks, relative to the project root",
+            "default": ".claude/skills/use-ghidra/scripts"
+        }
+    }
+}

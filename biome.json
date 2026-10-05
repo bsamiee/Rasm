@@ -90,7 +90,7 @@
         },
         { "includes": ["**/vitest.config.ts", "**/vite.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         {
-            "includes": [".claude/plugins/**"],
+            "includes": ["plugins/**"],
             "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } }
         },
         { "includes": ["infra/cli.ts"], "linter": { "rules": { "correctness": { "noNodejsModules": "off" } } } }

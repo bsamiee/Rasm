@@ -30,7 +30,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `manage-repo` skill for Nx targets, tooling, infrastructure, and CI
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
-- ALWAYS use `playwright:playwright-cli` skill for a browser, run as `playwright cli`, `playwright` MCP when each step depends on the last snapshot
+- ALWAYS use `playwright:playwright-cli` skill for a browser, run as `playwright cli`, `mcp__plugin_playwright_playwright__*` when each step depends on the last snapshot
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `use-rhino` skill for Rhino and Grasshopper
 - ALWAYS use `use-blender` skill for Blender

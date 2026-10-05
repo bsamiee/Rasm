@@ -3,7 +3,7 @@ packages:
     - 'libs/typescript/*'
     - 'apps/*/*'
     - 'tests/typescript/*'
-    - '.claude/plugins/*'
+    - 'plugins/*'
 catalogMode: strict
 saveExact: true
 cacheDir: .cache/pnpm/cache

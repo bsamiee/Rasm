@@ -2,7 +2,7 @@
 id: no-distinct-by-index-of
 language: tsx
 severity: error
-ignores: ['.claude/plugins/*/hooks/**']
+ignores: ['plugins/*/hooks/**']
 utils:
     same-list:
         kind: call_expression

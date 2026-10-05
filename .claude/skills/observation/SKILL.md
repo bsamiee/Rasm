@@ -6,7 +6,7 @@ user-invocable: false
 
 # [OBSERVATION]
 
-Database `<main>/.cache/observation/observation.db`, one per repository, holds a row per hook event the `function-hooks` plugin records while its `observation` option is true, views over event rows, and finding tables agents write. Placeholders name what a command prints or a fixed path:
+Database `<main>/.cache/observation/observation.db`, one per repository, holds a row per event the hooks record while option `observation` is true, views over event rows, and finding tables agents write. Placeholders name what a command prints or a fixed path:
 - `<main>`: first `worktree` line of `git worktree list --porcelain`
 - `<worktree>`: `git rev-parse --show-toplevel`
 - `<branch>`: `git branch --show-current`
@@ -21,7 +21,7 @@ sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>
 
 Each parameter binds through one `-cmd ".param set :<name> <value>"`, and the shell evaluates the value as SQL:
 - Text: `'<text>'`, text holding `'` as `"'<text>'"` with each `'` doubled
-- Number: bare
+- Number: unquoted
 - Absent value: `null`, and an unbound name reads null
 
 Parameters holding JSON:
@@ -62,8 +62,8 @@ Table `observation(event, ts, session_id, prompt_id, agent_id, tool, tool_use_id
 - Main-loop rows hold `agent_id` null, a subagent's rows its id, the parent's `Agent` row `tool_response.agentId` equal to it
 - `turn.start` rows come from the main loop alone, subagent runs write `turn.step` rows and one `turn.complete` row under their `agent_id`
 - Resumed subagent runs write one more `SubagentStart` and `turn.complete` row under the same `agent_id`
-- Plugin-spawned agents record `SubagentStart`, `turn.step`, `turn.complete`, and refused `tool.call` rows alone, `background_tasks` omits them
-- `turn.complete` of a plugin-spawned category agent adds `placed`, the untracked or modified files under `sgconfig.yml` rule and util directories
+- Agents from `$.agent.spawn` hold `SubagentStart`, `turn.step`, `turn.complete`, and refused `tool.call` rows alone and no `background_tasks` entry
+- Category agent's `turn.complete` adds `placed`, the untracked or modified files under `sgconfig.yml` rule and util directories
 - Classic rows hold `cwd` and `transcript_path`, subagent rows `agent_type`
 - `permission_mode` and `effort` appear on classic rows where the event supplies them
 - `Stop` and `SessionEnd` rows hold `$.session.usage()` as `usage` with `context`, `cost`, and `rateLimits`
@@ -95,11 +95,11 @@ Table `observation(event, ts, session_id, prompt_id, agent_id, tool, tool_use_id
 |  [19]   | `turn.step`           | `turnId`, `index`, `model`, `effort`, `messageCount`, `stopReason`, `toolUses`, `answer`, `usage`         |
 |  [20]   | `turn.complete`       | `turnId`, `answer` `''` on an error, `durationMs`, `isAborted`, `reason`, `refusal` on a refusal, `usage` |
 |  [21]   | `WorktreeCreate`      | `name`                                                                                                    |
-|  [22]   | `WorktreeRemove`      | `worktree_path`, reaches no plugin                                                                        |
+|  [22]   | `WorktreeRemove`      | `worktree_path`, reaches no function hook                                                                 |
 
 ## [02]-[VIEWS]
 
-Readers filter views of the plugin's `hooks/observation/sql.ts` by `:session` or `:prompt`. `running_agents` covers sessions with a row within 48 hours:
+Readers filter views by `:session` or `:prompt`. `running_agents` covers sessions with a row within 48 hours:
 
 ```bash
 # Which files each edit tool call touched, with the cwd it ran from
@@ -147,14 +147,14 @@ sqlite3 -json -cmd ".param set :key '<lineage_key>'" <db> "select * from placed_
 
 ## [03]-[FINDINGS]
 
-Lookup tables `checker`, `transition_state`, `transition_actor`, `delivery_channel`, `range_kind`, and `bar_verdict` hold the values of finding columns `checker`, `state`, `actor`, `channel`, `kind`, and `verdict`. Finding tables in `sql.ts` are `strict`:
+Lookup tables `checker`, `transition_state`, `transition_actor`, `delivery_channel`, `range_kind`, and `bar_verdict` hold the values of finding columns `checker`, `state`, `actor`, `channel`, `kind`, and `verdict`. Finding tables are `strict`:
 
 | [INDEX] | [TABLE]              | [PURPOSE]                                                                   | [WRITER]                         |
 | :-----: | :------------------- | :-------------------------------------------------------------------------- | :------------------------------- |
 |  [01]   | `finding`            | One row per site, never updated                                             | Checker script or judgment agent |
 |  [02]   | `finding_transition` | Every state change, append-only                                             | Judgment agents, checks, user    |
-|  [03]   | `finding_delivery`   | One row per id a context line or `report` reached, with its `lineage_key`   | Plugin alone                     |
-|  [04]   | `judged_range`       | One range per row, `kind` `edit`, key parts, `agent_id`, `at` of the answer | Plugin at range agent's answer   |
+|  [03]   | `finding_delivery`   | One row per id a context line or `report` reached, with its `lineage_key`   | Hooks alone                      |
+|  [04]   | `judged_range`       | One range per row, `kind` `edit`, key parts, `agent_id`, `at` of the answer | Hooks at range agent's answer    |
 
 Hashes are lowercase hex from `sha3` of the `sqlite3` shell alone. Columns, ids, and rule lookups:
 - `finding` and `site` generate `ntext` as `<normalized>` over `text`, tabs, returns, and newlines as spaces, every run of spaces as one
@@ -174,8 +174,8 @@ Hashes are lowercase hex from `sha3` of the `sqlite3` shell alone. Columns, ids,
 - `lineage_key` is `<name>/<branch>`, `<name>` `.` for the main worktree or a linked worktree's directory name, `<branch>` empty on a detached head
 - `actor_id` is null for actor `user`, a subagent's `agent_id` or the main loop's `session_id` for `agent`, and the tool for `check`
 - `finding_delivery.agent_id` is the category agent on a `report` row and on rows a rules entry told, null on a finding entry
-- `verdict` holds the rule builder's `bar_verdict` row on a `confirmed` under a refused category, copied by reconfirm, kept across a move, else null
-- `bar_verdict` opens empty, the rule builder alone fills it from `rule-building`'s bar table through `bar.sql`
+- `verdict` holds the category agent's `bar_verdict` row on a `confirmed` under a refused category, copied by reconfirm, kept across a move, else null
+- `bar_verdict` opens empty, category agents alone fill it through `bar.sql`
 - Retired verdicts keep their `bar_verdict` row, `finding_transition.verdict` references it
 - `recurring_categories` reads a null `verdict` as not refused
 - `<rules>` and `<utils>` are the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print
@@ -279,7 +279,7 @@ Checker category descriptions come from `ruff rule <code>`, `biome explain <rule
 
 ## [05]-[DELIVERY]
 
-Plugin spawns and the rows their answers write:
+Spawns through `$.agent.spawn` and the rows their answers write:
 - Categories at `categoryThreshold` confirmed sites spawn `categoryAgent` with `category <category> lineage <key>`, one at a time
 - Edit ranges at `editThreshold` files spawn `editAgent` with `range <key> <from_ts> <to_ts>`
 - Category agent's answer writes one `report` row per `finding` row of its category, counted in `reported_on` until its site closes

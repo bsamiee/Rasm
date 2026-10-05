@@ -2,7 +2,7 @@
 id: no-asserted-object-keys
 language: tsx
 severity: error
-ignores: ['.claude/plugins/*/hooks/**']
+ignores: ['plugins/*/hooks/**']
 rule:
     pattern: $CALL as $TYPE
     has:
