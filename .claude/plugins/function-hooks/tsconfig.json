@@ -1,5 +1,5 @@
 {
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": { "outDir": "../../../.cache/typescript/out/.claude/plugins/function-hooks", "types": ["node"] },
-    "include": ["../../types/claude-code.d.ts", "../../types/claude-code-tools.d.ts", "hooks", "*.ts"]
+    "include": [".claude-plugin/types/claude-code", ".claude-plugin/types/claude-code-tools", "hooks", "*.ts"]
 }

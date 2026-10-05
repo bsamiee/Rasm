@@ -9,7 +9,7 @@
     "nx": {
         "targets": {
             "typecheck": {
-                "inputs": ["...", "{workspaceRoot}/.claude/types/claude-code.d.ts", "{workspaceRoot}/.claude/types/claude-code-tools.d.ts"]
+                "inputs": ["...", { "runtime": "claude --version" }]
             }
         }
     }

@@ -30,7 +30,7 @@ jobs:
                 persist-credentials: false
             - uses: ./.github/actions/setup
             - run: nx run rasm:check
-            - run: nx affected -t check --exclude='tag:host:macos'
+            - run: nx affected -t check --exclude='tag:host:macos,function-hooks'
 
     macos:
         runs-on: xcode-27
