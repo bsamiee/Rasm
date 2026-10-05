@@ -54,6 +54,7 @@ Thumbs.db
 .claude/settings.local.json
 .claude/types/*
 !.claude/types/claude-code.d.ts
+!.claude/types/claude-code-tools.d.ts
 .claude/worktrees/
 docs/research
 
