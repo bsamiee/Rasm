@@ -1,0 +1,1 @@
+../../.claude/hooks/root-cause.md

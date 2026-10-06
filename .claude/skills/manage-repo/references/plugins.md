@@ -19,7 +19,7 @@ Claude Code and Codex load one plugin folder, each through its own manifest, mar
 - Codex reads `.codex-plugin/plugin.json` (`name`, `version`, `description`, `interface.displayName`), else `.claude-plugin/plugin.json`
 - Servers and hooks one harness alone loads sit inline in its manifest, a root `.mcp.json` or `hooks/hooks.json` loads in both harnesses
 - `plugins/.claude-plugin/marketplace.json` rows hold `name`, `source` `./<name>`, and `description`, both harnesses read the one file
-- Codex reads marketplaces at the repository root and in `~/.codex/config.toml`, `plugins/` takes a `[marketplaces.<marketplace>]` row there
+- Codex repository marketplaces take `[marketplaces.<marketplace>]` in `.codex/config.toml` with an absolute local source path
 - Repository skills both harnesses run link from `.codex/skills/<skill>` to `../../.claude/skills/<skill>`
 - `.claude/settings.json` enables a plugin as `"<name>@<marketplace>": true` under `enabledPlugins`
 - `.codex/config.toml` enables a plugin as `[plugins."<name>@<marketplace>"]`, a copy `codex plugin add` writes to `~/.codex/config.toml` goes

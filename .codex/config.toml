@@ -1,28 +1,52 @@
+# --- [CODEX] ----------------------------------------------------------------------------
+
+model = "gpt-6-astra"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+[apps._default]
+default_tools_approval_mode = "approve"
+
+[notice]
+hide_full_access_warning = true
+
+# --- [AGENTS] ---------------------------------------------------------------------------
+
+[agents]
+max_concurrent_threads_per_session = 80
+
 # --- [MCP_SERVERS] ----------------------------------------------------------------------
 
 [mcp_servers.adobe]
+default_tools_approval_mode = "approve"
 command = "mise"
 args = ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts"]
 
 [mcp_servers.roslyn-codelens]
+default_tools_approval_mode = "approve"
 command = "mise"
 args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
 required = true
 startup_timeout_sec = 120
 
 [mcp_servers.binlog]
+default_tools_approval_mode = "approve"
 command = "mise"
 args = ["exec", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"]
 
 [mcp_servers.nuget]
+default_tools_approval_mode = "approve"
 command = "mise"
 args = ["exec", "--", "dotnet", "dnx", "NuGet.Mcp.Server"]
 
 [mcp_servers.ast-grep]
+default_tools_approval_mode = "approve"
 command = "mise"
 args = ["exec", "--", "ast-grep-server"]
 
 [mcp_servers.github]
+default_tools_approval_mode = "approve"
 url = "https://api.githubcopilot.com/mcp/"
 bearer_token_env_var = "GH_PROJECTS_TOKEN"
 
@@ -32,16 +56,17 @@ X-MCP-Exclude-Tools = "delete_repository,delete_file,create_repository,fork_repo
 X-MCP-Features = "file_blame,issue_dependencies"
 
 [mcp_servers.exa]
+default_tools_approval_mode = "approve"
 url = "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run"
-
-[mcp_servers.exa.env_http_headers]
-x-api-key = "EXA_API_KEY"
+env_http_headers.x-api-key = "EXA_API_KEY"
 
 [mcp_servers.context7]
+default_tools_approval_mode = "approve"
 url = "https://mcp.context7.com/mcp"
 bearer_token_env_var = "CONTEXT7_API_KEY"
 
 [mcp_servers.deepwiki]
+default_tools_approval_mode = "approve"
 url = "https://mcp.deepwiki.com/mcp"
 
 [mcp_servers.greptile]
@@ -50,9 +75,11 @@ bearer_token_env_var = "GREPTILE_API_KEY"
 enabled = false
 
 [mcp_servers.openaiDeveloperDocs]
+default_tools_approval_mode = "approve"
 url = "https://developers.openai.com/mcp"
 
 [mcp_servers.claudeCodeDocs]
+default_tools_approval_mode = "approve"
 url = "https://code.claude.com/docs/mcp"
 
 [mcp_servers.illustrator]
@@ -64,34 +91,61 @@ url = "https://mcp.are.na/mcp"
 enabled = false
 
 [mcp_servers.xcode]
+default_tools_approval_mode = "approve"
 command = "xcrun"
 args = ["mcpbridge"]
 
 [mcp_servers.lldb]
+default_tools_approval_mode = "approve"
 command = "xcrun"
 args = ["lldb-mcp"]
 startup_timeout_sec = 20
 tool_timeout_sec = 120
 
 [mcp_servers.rhino-mcp-platform]
+default_tools_approval_mode = "approve"
 command = "mise"
 args = ["exec", "--", "rhino-mcp-router"]
 startup_timeout_sec = 20
 tool_timeout_sec = 180
 
 [mcp_servers.blender]
+default_tools_approval_mode = "approve"
 command = "mise"
 args = ["exec", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
 
 [mcp_servers.mcp-for-blender]
+default_tools_approval_mode = "approve"
 command = "mise"
 args = ["exec", "--", "mcp-for-blender"]
 tool_timeout_sec = 180
 
 # --- [PLUGINS] --------------------------------------------------------------------------
 
+[marketplaces.rasm]
+source_type = "local"
+source = "/Users/bardiasamiee/Developer/Rasm/plugins"
+
 [plugins."argus@rasm"]
 enabled = true
+mcp_servers.argus.default_tools_approval_mode = "approve"
 
 [plugins."playwright@rasm"]
 enabled = true
+mcp_servers.playwright.default_tools_approval_mode = "approve"
+mcp_servers.playwright-test.default_tools_approval_mode = "approve"
+
+# --- [HOOKS] ----------------------------------------------------------------------------
+
+[[hooks.SessionStart]]
+matcher = "startup|clear|compact"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = '"$(git rev-parse --show-toplevel)/.codex/hooks/root-cause.sh"'
+
+[[hooks.SubagentStart]]
+
+[[hooks.SubagentStart.hooks]]
+type = "command"
+command = '"$(git rev-parse --show-toplevel)/.codex/hooks/root-cause.sh"'
