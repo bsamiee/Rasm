@@ -4,6 +4,7 @@
     "type": "module",
     "dependencies": {
         "@effect/platform-node": "catalog:",
+        "@parcel/watcher": "catalog:",
         "effect": "catalog:",
         "vscode-languageserver-protocol": "catalog:"
     },

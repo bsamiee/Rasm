@@ -1,8 +1,11 @@
-import { basename, extname, relative, resolve } from 'node:path';
+import { execFile } from 'node:child_process';
+import { basename, extname, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import { NodeRuntime, NodeServices, NodeStream } from '@effect/platform-node';
+import { getEventsSince, type Options, writeSnapshot } from '@parcel/watcher';
 import { Array, Duration, Effect, FileSystem, Layer, Logger, Option, Pool, PubSub, Record, Schema, Stream, String, Struct } from 'effect';
 import { McpProtocol, McpServer, Tool, Toolkit } from 'effect/ai';
 import { ChildProcess } from 'effect/process';
@@ -58,6 +61,7 @@ const LanguageServer = Schema.Struct({
 const Document = Schema.Struct({ file: Schema.String.annotate({ description: 'File path, absolute or relative to project root' }) });
 const Position = Schema.Struct({ ...Document.fields, line: Schema.Int.annotate({ description: '1-based line' }), column: Schema.Int.annotate({ description: '1-based UTF-16 column' }) });
 const Patch = Schema.Struct({ patch: Schema.String.annotate({ description: 'apply_patch text a PostToolUse hook received' }) });
+const Shell = Schema.Struct({ event: Schema.Literals(['PreToolUse', 'PostToolUse']), toolUseId: Schema.NonEmptyString });
 const Lines = Schema.Struct({ lines: Schema.Array(Schema.String) });
 const HookOutput = Schema.Struct({ hookSpecificOutput: Schema.optionalKey(Schema.Struct({ hookEventName: Schema.Literal('PostToolUse'), additionalContext: Schema.String })) });
 
@@ -67,7 +71,8 @@ class NoLanguageServer extends Schema.TaggedError<NoLanguageServer>()('NoLanguag
 class ReadFailed extends Schema.TaggedError<ReadFailed>()('ReadFailed', { cause: Schema.Defect() }) {}
 class ServerExited extends Schema.TaggedError<ServerExited>()('ServerExited', { cause: Schema.Defect() }) {}
 class RequestFailed extends Schema.TaggedError<RequestFailed>()('RequestFailed', { cause: Schema.Defect() }) {}
-const Failure = Schema.Union([NoLanguageServer, ReadFailed, ServerExited, RequestFailed]);
+class SnapshotFailed extends Schema.TaggedError<SnapshotFailed>()('SnapshotFailed', { cause: Schema.Defect() }) {}
+const Failure = Schema.Union([NoLanguageServer, ReadFailed, ServerExited, RequestFailed, SnapshotFailed]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -176,9 +181,15 @@ const diagnose = Effect.fn('diagnose')((workspace: Workspace, file: string, thre
 const request = Effect.fn('request')(<R>(workspace: Workspace, { file, line, column }: typeof Position.Type, call: (connection: ProtocolConnection, params: TextDocumentPositionParams) => Promise<R>, lines: (result: R) => readonly string[]) =>
     open(workspace, file, (connection, uri) => send(() => call(connection, { textDocument: { uri }, position: { line: line - 1, character: column - 1 } })).pipe(Effect.map(lines))),
 );
-const diagnosePatch = Effect.fn('diagnosePatch')(function* (workspace: Workspace, patch: string) {
-    const files = Array.dedupe(patch.match(/(?<=^\*\*\* (?:Add File|Update File|Move to): ).+?(?=\s*$)/gmu) ?? []).filter((file) => workspace.languages.has(extname(file)));
-    const existing = yield* Effect.filter(files, (file) => workspace.fs.exists(resolve(workspace.root, file)).pipe(Effect.mapError((cause) => new ReadFailed({ cause }))));
+const diagnoseFiles = Effect.fn('diagnoseFiles')(function* (workspace: Workspace, paths: readonly string[]) {
+    const files = Array.dedupe(paths).filter((file) => workspace.languages.has(extname(file)));
+    const existing = yield* Effect.filter(files, (file) =>
+        workspace.fs.stat(resolve(workspace.root, file)).pipe(
+            Effect.map((info) => info.type === 'File'),
+            Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(false)),
+            Effect.mapError((cause) => new ReadFailed({ cause })),
+        ),
+    );
     const lines = (yield* Effect.forEach(existing, (file) => diagnose(workspace, file, DiagnosticSeverity.Warning), { concurrency: 'unbounded' })).flatMap(Struct.get('lines'));
     return lines.length === 0 ? {} : { hookSpecificOutput: { hookEventName: 'PostToolUse' as const, additionalContext: lines.join('\n') } };
 });
@@ -193,6 +204,7 @@ const tools = Toolkit.make(
     query('references', 'Reference locations of the symbol at a line and column, declaration included, one `path:line:column` line each', Position, Lines),
     query('hover', 'Type signature and documentation of the symbol at a line and column', Position, Lines),
     query('patched', 'PostToolUse hook output with the errors and warnings of each file an apply_patch adds, updates, or moves', Patch, HookOutput),
+    query('shell', 'PreToolUse filesystem snapshot or PostToolUse errors and warnings for changed project files', Shell, HookOutput).annotate(Tool.Readonly, false),
 );
 const handlers = tools.toLayer(
     Effect.gen(function* () {
@@ -208,6 +220,7 @@ const handlers = tools.toLayer(
             languages: new Map((yield* Effect.forEach(Object.values(configs), (config) => languages(config, root))).flat()),
             root,
         };
+        const snapshots = yield* workspace.fs.makeTempDirectoryScoped({ prefix: 'argus-' });
         return {
             diagnostics: ({ file }) => diagnose(workspace, file, DiagnosticSeverity.Hint),
             definition: (position) => request(workspace, position, (connection, params) => connection.sendRequest(DefinitionRequest.type, params), locations(root)),
@@ -219,7 +232,25 @@ const handlers = tools.toLayer(
                     (connection, params) => connection.sendRequest(HoverRequest.type, params),
                     (hover) => Array.fromNullishOr(hover?.contents).flat().filter(MarkupContent.is).map(Struct.get('value')),
                 ),
-            patched: ({ patch }) => diagnosePatch(workspace, patch),
+            patched: ({ patch }) => diagnoseFiles(workspace, patch.match(/(?<=^\*\*\* (?:Add File|Update File|Move to): ).+?(?=\s*$)/gmu) ?? []),
+            shell: Effect.fn('shell')(function* ({ event, toolUseId }: typeof Shell.Type) {
+                const { stdout } = yield* Effect.tryPromise({
+                    try: (signal) => promisify(execFile)('git', ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z'], { cwd: root, signal }),
+                    catch: (cause) => new SnapshotFailed({ cause }),
+                });
+                const options: Options = {
+                    backend: 'brute-force',
+                    // biome-ignore lint/nursery/useUnicodeRegex: Parcel Watcher's native matcher rejects RegExp flags
+                    ignore: ['.git', ...stdout.split('\0').filter(String.isNonEmpty)].map((file) => new RegExp(`^${RegExp.escape(relative(root, resolve(root, file)))}(?:${RegExp.escape(sep)}|$)`)),
+                };
+                const snapshot = resolve(snapshots, `${encodeURIComponent(toolUseId)}.snapshot`);
+                if (event === 'PreToolUse') {
+                    return yield* Effect.tryPromise({ try: () => writeSnapshot(root, snapshot, options), catch: (cause) => new SnapshotFailed({ cause }) }).pipe(Effect.as({}));
+                }
+                const events = yield* Effect.tryPromise({ try: () => getEventsSince(root, snapshot, options), catch: (cause) => new SnapshotFailed({ cause }) });
+                yield* workspace.fs.remove(snapshot).pipe(Effect.mapError((cause) => new SnapshotFailed({ cause })));
+                return yield* diagnoseFiles(workspace, events.filter(({ type }) => type !== 'delete').map(Struct.get('path')));
+            }),
         };
     }),
 );

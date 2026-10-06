@@ -1,7 +1,7 @@
 {
     "name": "argus",
     "version": "1.0.0",
-    "description": "Language servers of .lsp.json as MCP tools, with diagnostics for each file apply_patch changes",
+    "description": "MCP tools for .lsp.json language servers, with diagnostics after patch and shell edits",
     "mcpServers": {
         "argus": {
             "command": "mise",
@@ -10,6 +10,21 @@
     },
     "hooks": {
         "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "^Bash$",
+                    "hooks": [
+                        {
+                            "type": "mcp_tool",
+                            "server": "argus",
+                            "tool": "shell",
+                            "input": { "event": "${hook_event_name}", "toolUseId": "${tool_use_id}" },
+                            "timeout": 150,
+                            "statusMessage": "Recording filesystem snapshot"
+                        }
+                    ]
+                }
+            ],
             "PostToolUse": [
                 {
                     "matcher": "^apply_patch$",
@@ -19,6 +34,19 @@
                             "server": "argus",
                             "tool": "patched",
                             "input": { "patch": "${tool_input.command}" },
+                            "timeout": 150,
+                            "statusMessage": "Reading diagnostics"
+                        }
+                    ]
+                },
+                {
+                    "matcher": "^Bash$",
+                    "hooks": [
+                        {
+                            "type": "mcp_tool",
+                            "server": "argus",
+                            "tool": "shell",
+                            "input": { "event": "${hook_event_name}", "toolUseId": "${tool_use_id}" },
                             "timeout": 150,
                             "statusMessage": "Reading diagnostics"
                         }

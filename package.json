@@ -119,6 +119,7 @@
         "@oslojs/encoding": "catalog:",
         "@otplib/core": "catalog:",
         "@panzoom/panzoom": "catalog:",
+        "@parcel/watcher": "catalog:",
         "@perspective-dev/client": "catalog:",
         "@perspective-dev/viewer": "catalog:",
         "@perspective-dev/viewer-charts": "catalog:",

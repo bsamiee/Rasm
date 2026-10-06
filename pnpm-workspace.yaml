@@ -87,6 +87,7 @@ catalog:
     webdav: 5.11.0
     basic-ftp: 6.2.2
     chokidar: 5.0.0
+    '@parcel/watcher': latest # Filesystem snapshots for Argus shell hooks
     # --- [SERVICES_OBSERVABILITY]
     '@nats-io/nats-core': "3.4.1-0"
     '@nats-io/transport-node': "3.4.1-0"
@@ -338,6 +339,7 @@ peerDependencyRules:
 allowBuilds:
     '@datadog/pprof': true
     '@modelcontextprotocol/inspector': true
+    '@parcel/watcher': true
     '@pulumi/command': true
     '@pulumi/docker': true
     '@pulumi/docker-build': true
