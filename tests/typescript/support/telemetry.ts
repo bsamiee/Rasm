@@ -2,10 +2,7 @@ import { Array, Effect, type Exit, HashMap, Match, Metric, MutableRef, Option, T
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type MetricDataPoint = readonly [
-    series: { readonly id: string; readonly attributes: Metric.Metric.AttributeSet | undefined; readonly kind: Metric.Metric.Type; readonly occurrence: Option.Option<string> },
-    value: number,
-];
+type MetricDataPoint = readonly [series: { readonly id: string; readonly attributes: Metric.Metric.AttributeSet | undefined; readonly kind: Metric.Metric.Type; readonly occurrence: Option.Option<string> }, value: number];
 
 interface MetricChange {
     readonly series: MetricDataPoint[0];

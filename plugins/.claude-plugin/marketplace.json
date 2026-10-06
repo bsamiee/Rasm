@@ -18,7 +18,7 @@
         {
             "name": "playwright",
             "source": "./playwright",
-            "description": "Playwright CLI and trace skills adapted from playwright-core, with the test MCP server and its planner, generator, and healer agents"
+            "description": "Playwright CLI and trace skills adapted from playwright-core, the browser and test MCP servers, and the test planner, generator, and healer agents"
         }
     ]
 }

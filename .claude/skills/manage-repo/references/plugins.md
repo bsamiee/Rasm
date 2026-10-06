@@ -7,7 +7,7 @@ Each `plugins/<name>` directory is one plugin, listed in the marketplace file of
 Plugin folders hold the manifest, components at the root, and the code those components run:
 - `.claude-plugin/plugin.json` holds `name`, `version`, `description`, and `author`
 - Components sit at plugin root: `skills/<skill>/SKILL.md`, `agents/<agent>.md`, `commands/<command>.md`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`
-- Paths inside a plugin take `${CLAUDE_PLUGIN_ROOT}`, paths in skill text `${CLAUDE_SKILL_DIR}`
+- Claude plugin configuration paths take `${CLAUDE_PLUGIN_ROOT}`, skill text paths are relative to the skill folder
 - `CLAUDE.md` sits in the code folder it describes and loads as nested project memory when a file there is read
 - TypeScript plugins hold `package.json` and a `tsconfig.json` extending `../../tsconfig.base.json`, `pnpm install` adds them to the workspace
 - `userConfig` values sit in `~/.claude/settings.json` under `pluginConfigs["<name>@<marketplace>"].options` alone
@@ -15,15 +15,15 @@ Plugin folders hold the manifest, components at the root, and the code those com
 ## [02]-[HARNESSES]
 
 Claude Code and Codex load one plugin folder, each through its own manifest, marketplace row, and enable row:
-- Function-hook `modules`, `agents/`, and `.lsp.json` load in Claude Code alone, a plugin holding nothing else takes no Codex manifest or row
-- Codex loads `hooks/hooks.json` unless the Codex manifest sets `"hooks": {}`
-- `.codex-plugin/plugin.json` repeats the Claude manifest's `name`, `version`, and `description` with `interface.displayName`
-- Codex manifests point `skills` at `./skills/` and `mcpServers` at `./.mcp.json`
-- `plugins/.claude-plugin/marketplace.json` rows hold `name`, `source` `./<name>`, and `description`
-- `plugins/.agents/plugins/marketplace.json` rows hold `name`, `source` `{ "source": "local", "path": "./<name>" }`, `policy`, and `category`
+- Function-hook `modules`, `agents/`, and `.lsp.json` load in Claude Code alone, a plugin holding nothing else takes no Codex manifest
+- Codex reads `.codex-plugin/plugin.json` (`name`, `version`, `description`, `interface.displayName`), else `.claude-plugin/plugin.json`
+- Servers and hooks one harness alone loads sit inline in its manifest, a root `.mcp.json` or `hooks/hooks.json` loads in both harnesses
+- `plugins/.claude-plugin/marketplace.json` rows hold `name`, `source` `./<name>`, and `description`, both harnesses read the one file
+- Codex reads marketplaces at the repository root and in `~/.codex/config.toml`, `plugins/` takes a `[marketplaces.<marketplace>]` row there
+- Repository skills both harnesses run link from `.codex/skills/<skill>` to `../../.claude/skills/<skill>`
 - `.claude/settings.json` enables a plugin as `"<name>@<marketplace>": true` under `enabledPlugins`
-- `.codex/config.toml` enables a plugin as `[plugins."<name>@<marketplace>"]`, with `default_tools_approval_mode` per server table
-- `.mcp.json` servers take `command` and no `type`, both harnesses start them as stdio
+- `.codex/config.toml` enables a plugin as `[plugins."<name>@<marketplace>"]`, a copy `codex plugin add` writes to `~/.codex/config.toml` goes
+- `.mcp.json` servers take `command` and no `type`, both harnesses start them as stdio in the session directory
 - Manifest, marketplace, and enable rows of both harnesses change with the plugin folder in one commit
 
 ## [03]-[CONVERTING]
@@ -37,10 +37,12 @@ Components move into a plugin in one change, leaving no declaration at their old
 
 ## [04]-[VALIDATION]
 
-Added and converted plugins pass each check:
+Checks of added and converted plugins run at user request alone:
 - `claude plugin validate plugins --strict` and `claude plugin validate plugins/<name> --strict`, every warning a failure
 - `claude -p --debug 'Reply done'` then `rg '<name>' ~/.claude/debug/latest` shows the plugin's load lines
 - `claude -p --debug-file <log>` with a Write of a file each changed `.lsp.json` server handles shows the server start
 - `claude plugin validate` reads no `.lsp.json`, one invalid row skips every server of the file at load
-- Codex sessions load the copy `codex plugin add <name>@<marketplace>` installs, each edit takes a new install
+- Codex sessions load the copy `codex plugin add <name>@<marketplace>` installs, a command naming a repository path reads the working tree
 - `codex plugin list --marketplace <marketplace>`, `codex mcp list`, and `codex debug prompt-input` show the plugin, its servers, and its skills
+- `codex --strict-config doctor --summary` validates both Codex config layers and lists merged servers
+- Codex runs a hook after `/hooks` trusts its config hash, an edited hook takes a new trust

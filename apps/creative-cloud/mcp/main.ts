@@ -27,9 +27,7 @@ const Request = Schema.Struct({
     command: Schema.String.annotate({ description: 'Exact command name from the scripting dictionary resource' }),
 });
 
-const Execution = Schema.fromJsonString(
-    Schema.toCodecJson(Schema.Union([Schema.Struct({ state: Schema.Literal('pending') }), Schema.Struct({ result: McpSchema.CallToolResult, state: Schema.Literal('finished') })])),
-);
+const Execution = Schema.fromJsonString(Schema.toCodecJson(Schema.Union([Schema.Struct({ state: Schema.Literal('pending') }), Schema.Struct({ result: McpSchema.CallToolResult, state: Schema.Literal('finished') })])));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -38,10 +36,7 @@ const Failures = Schema.NonEmptyArray(Schema.JsonObject);
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const invoke = Effect.fn('invoke')(
-    function* <S extends Schema.Top>(
-        request: Schema.JsonObject,
-        response: S,
-    ): Effect.fn.Return<S['Type'], typeof Failures.Type | PlatformError.PlatformError | Schema.SchemaError, ChildProcessSpawner.ChildProcessSpawner | Scope.Scope | S['DecodingServices']> {
+    function* <S extends Schema.Top>(request: Schema.JsonObject, response: S): Effect.fn.Return<S['Type'], typeof Failures.Type | PlatformError.PlatformError | Schema.SchemaError, ChildProcessSpawner.ChildProcessSpawner | Scope.Scope | S['DecodingServices']> {
         const child = yield* ChildProcess.make('AdobeScripting', { stdin: Stream.make(JSON.stringify(request)).pipe(Stream.encodeText), stderr: 'inherit' });
         const [output, status] = yield* Effect.all([child.stdout.pipe(Stream.decodeText, Stream.mkString), child.exitCode], { concurrency: 'unbounded' });
         return yield* status === 0 ? Schema.decodeEffect(Schema.fromJsonString(response))(output) : Schema.decodeEffect(Schema.fromJsonString(Failures))(output).pipe(Effect.flatMap(Effect.fail));
@@ -105,11 +100,7 @@ Layer.effectDiscard(
                 discovery.toLayer({
                     applications: Effect.fn('applications')(function* () {
                         const applications = yield* invoke({ applications: {} }, Schema.Array(Application));
-                        const references = applications
-                            .filter(Struct.get('scriptable'))
-                            .map((application) =>
-                                McpSchema.ResourceLink.make({ mimeType: 'application/xml', name: application.name, uri: `adobe://dictionary/${encodeURIComponent(application.url)}` }),
-                            );
+                        const references = applications.filter(Struct.get('scriptable')).map((application) => McpSchema.ResourceLink.make({ mimeType: 'application/xml', name: application.name, uri: `adobe://dictionary/${encodeURIComponent(application.url)}` }));
                         return { applications, references };
                     }, Effect.tapCause(Effect.logError)),
                 }),
@@ -119,8 +110,7 @@ Layer.effectDiscard(
         yield* server.addTool({
             annotations: Context.empty(),
             tool: new McpSchema.Tool({
-                description:
-                    'Runs a scripting dictionary command in an installed Adobe application. Accepted commands continue after request cancellation. Results stay in resources/list while the server runs. A send the application never answers leaves its outcome in the application unknown',
+                description: 'Runs a scripting dictionary command in an installed Adobe application. Accepted commands continue after request cancellation. Results stay in resources/list while the server runs. A send the application never answers leaves its outcome in the application unknown',
                 inputSchema: Tool.getJsonSchemaFromSchema(Request),
                 name: 'execute',
             }),
@@ -143,19 +133,10 @@ Layer.effectDiscard(
                     ),
                     description: `${request.application.href}: ${request.command}, pending while native completion is unconfirmed`,
                 });
-                const execution = Deferred.complete(result, perform(request, link)).pipe(
-                    Effect.andThen(server.notifications['notifications/resources/updated']({ uri: link.uri })),
-                    Effect.forkIn(scope, { uninterruptible: true }),
-                );
+                const execution = Deferred.complete(result, perform(request, link)).pipe(Effect.andThen(server.notifications['notifications/resources/updated']({ uri: link.uri })), Effect.forkIn(scope, { uninterruptible: true }));
                 yield* registration.pipe(Effect.andThen(execution), Effect.uninterruptible);
                 return yield* Deferred.await(result);
             }, Effect.provideContext(services)),
         });
     }),
-).pipe(
-    Layer.provide(McpServer.layerStdio({ name: packageJson.name, protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25], version: packageJson.version })),
-    Layer.provide(NodeServices.layer),
-    Layer.launch,
-    Effect.provideService(Logger.LogToStderr, true),
-    NodeRuntime.runMain,
-);
+).pipe(Layer.provide(McpServer.layerStdio({ name: packageJson.name, protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25], version: packageJson.version })), Layer.provide(NodeServices.layer), Layer.launch, Effect.provideService(Logger.LogToStderr, true), NodeRuntime.runMain);

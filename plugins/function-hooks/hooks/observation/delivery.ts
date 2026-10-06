@@ -59,10 +59,7 @@ const decided = (seen: State, chosen: Settings, busy: readonly string[]): Decide
 const _plural = (count: number, singular: string, plural: string): string => `${count} ${count === 1 ? singular : plural}`;
 const _segment = (count: number, text: string): readonly string[] => (count === 0 ? [] : [text]);
 
-const request = (spawned: Spawned, key: string): Pick<AgentSpawnInput, 'prompt' | 'description'> =>
-    spawned.kind === 'range'
-        ? { prompt: `range ${key} ${spawned.from} ${spawned.to}`, description: 'judge edits' }
-        : { prompt: `category ${spawned.category} lineage ${key}`, description: 'build category rule' };
+const request = (spawned: Spawned, key: string): Pick<AgentSpawnInput, 'prompt' | 'description'> => (spawned.kind === 'range' ? { prompt: `range ${key} ${spawned.from} ${spawned.to}`, description: 'judge edits' } : { prompt: `category ${spawned.category} lineage ${key}`, description: 'build category rule' });
 
 const subject = (spawned: Spawned): string => (spawned.kind === 'range' ? `${spawned.from}..${spawned.to}` : spawned.category);
 

@@ -31,12 +31,7 @@ interface Owned {
     readonly single: { readonly BODY: Capture; readonly DEST: Capture };
 }
 
-type Hit = Capture &
-    (
-        | { readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } }
-        | { readonly ruleId: 'operand' | 'write' | 'read'; readonly metaVariables: Owned }
-        | { readonly ruleId: Marker | 'clock' }
-    );
+type Hit = Capture & ({ readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } } | { readonly ruleId: 'operand' | 'write' | 'read'; readonly metaVariables: Owned } | { readonly ruleId: Marker | 'clock' });
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -81,10 +76,7 @@ ${_OWNER}
     value: {kind: 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number'}
 rule: {matches: value, follows: {matches: value}, inside: {kind: file_redirect, matches: owner}}`,
         _marker('looped', 'inside: {kind: do_group, stopBy: end}'),
-        _marker(
-            'polled',
-            "inside: {stopBy: end, any: [{kind: while_statement, not: {has: {field: condition, any: [{matches: read}, {has: {stopBy: end, matches: read}}]}}}, {kind: c_style_for_statement, not: {has: {field: condition, regex: '.'}}}]}",
-        ),
+        _marker('polled', "inside: {stopBy: end, any: [{kind: while_statement, not: {has: {field: condition, any: [{matches: read}, {has: {stopBy: end, matches: read}}]}}}, {kind: c_style_for_statement, not: {has: {field: condition, regex: '.'}}}]}"),
         _marker('fed', 'any: [{has: {matches: input}}, {matches: stage}, {inside: {stopBy: end, matches: stage}}]'),
         _redirect('write', "{not: {regex: '^\\d*<'}}"),
         _redirect('read', "{regex: '^\\d*<'}"),
@@ -150,9 +142,7 @@ const _parse = async (scan: Scanner, text: string, nested: boolean, enclosing: M
         const placed = await Promise.all(
             script.commands.map(async (command): Promise<Result<Script>> => {
                 const body = _body(command);
-                return body.kind === 'some'
-                    ? map(await _parse(scan, body.value, true, command), (inner) => ({ ...inner, commands: [command, ...inner.commands] }))
-                    : ok({ commands: [command], clocks: [] });
+                return body.kind === 'some' ? map(await _parse(scan, body.value, true, command), (inner) => ({ ...inner, commands: [command, ...inner.commands] })) : ok({ commands: [command], clocks: [] });
             }),
         );
         return map(all(placed), (scripts) => ({ commands: scripts.flatMap(({ commands }) => commands), clocks: [...script.clocks, ...scripts.flatMap(({ clocks }) => clocks)] }));

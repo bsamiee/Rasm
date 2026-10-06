@@ -39,7 +39,7 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Parallel: Runs and bridges share the settings, cache, and temp folders `mise.toml` names
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
 - Files: `<out>`, `<stubs>`, `<catalog>`, `<report>`, `<macros>`, `<log>`, and `<scriptlog>` go under `<main>/.artifacts/ghidra/<name>/`
-- Files: `<main>` is the main worktree's absolute path
+- Files: `<main>` is the main worktree's absolute path, `<skill>` the absolute directory containing this `SKILL.md`
 - Files: Scripts and `-log` create the folder, `lipo` and redirects need `mkdir -p`
 - Logs: `<log>` holds one run's messages and its scripts' printed lines, `<scriptlog>` the printed lines alone
 - Logs: Runs without `-log` or `-scriptlog` append to `application.log` or `script.log` under `<main>/.cache/ghidra/settings/ghidra/<release>/`
@@ -59,15 +59,15 @@ Imports:
 - Headerless bytes, loader, base address without `0x`, and language named, then catalog
 
 ```bash
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath <skill>/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
 lipo -thin arm64 <binary> -output <main>/.artifacts/ghidra/<name>/<file>.arm64
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath <skill>/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
 ```
 
 `<run>` opens the saved program without analysis:
 
 ```bash
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath ${CLAUDE_SKILL_DIR}/scripts -log <log> -scriptlog <scriptlog>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath <skill>/scripts -log <log> -scriptlog <scriptlog>
 ```
 
 After import:
@@ -207,6 +207,6 @@ Each new script is one `GhidraScript` file in the bundle, seeds through `Argumen
 3. Run on a saved program
 
 ```bash
-javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" ${CLAUDE_SKILL_DIR}/scripts/*.java
+javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" <skill>/scripts/*.java
 <run> -readOnly -postScript <Script>.java <out> <seed>...
 ```

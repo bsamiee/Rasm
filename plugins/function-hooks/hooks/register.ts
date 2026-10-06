@@ -27,22 +27,7 @@ interface Observer {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _SPAWNED = atom({ plugin: 'function-hooks', key: 'spawned' } as const, {});
-const _RECORDED = [
-    'SessionStart',
-    'PermissionDenied',
-    'PostToolUse',
-    'PostToolUseFailure',
-    'PostToolBatch',
-    'SubagentStart',
-    'SubagentStop',
-    'UserPromptSubmit',
-    'StopFailure',
-    'PreCompact',
-    'PostCompact',
-    'SessionEnd',
-    'WorktreeCreate',
-    'WorktreeRemove',
-] as const;
+const _RECORDED = ['SessionStart', 'PermissionDenied', 'PostToolUse', 'PostToolUseFailure', 'PostToolBatch', 'SubagentStart', 'SubagentStop', 'UserPromptSubmit', 'StopFailure', 'PreCompact', 'PostCompact', 'SessionEnd', 'WorktreeCreate', 'WorktreeRemove'] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -76,10 +61,7 @@ const _walk = async ($: EngineInterface, commands: readonly Command[]): Promise<
     if (home === undefined) {
         return none;
     }
-    const [cloud, starts] = await Promise.all([
-        _located($, `${home}/${CLOUD}`),
-        Promise.all(walkStarts(commands, home).map(([word, path]) => _located($, path).then((place) => (place.kind === 'some' ? [[word, place.value] as const] : [])))),
-    ]);
+    const [cloud, starts] = await Promise.all([_located($, `${home}/${CLOUD}`), Promise.all(walkStarts(commands, home).map(([word, path]) => _located($, path).then((place) => (place.kind === 'some' ? [[word, place.value] as const] : []))))]);
     return cloud.kind === 'some' ? some({ cloud: cloud.value, places: new Map(starts.flat()) }) : none;
 };
 
@@ -101,12 +83,7 @@ const _queue = async ($: EngineInterface, scan: Scanner, commands: readonly Comm
         return ok(none);
     }
     const lock = `${repo.root}/${LOCK}`;
-    const lines =
-        named.length === 0
-            ? ok<readonly string[]>([])
-            : await Promise.all([_read($, `${repo.root}/package.json`, decodedManifest), _read($, `${repo.root}/nx.json`, decodedNxJson)]).then(([manifest, nxJson]) =>
-                  bind(manifest, (targets) => map(nxJson, (defaults) => targetCommands(named, targets, defaults))),
-              );
+    const lines = named.length === 0 ? ok<readonly string[]>([]) : await Promise.all([_read($, `${repo.root}/package.json`, decodedManifest), _read($, `${repo.root}/nx.json`, decodedNxJson)]).then(([manifest, nxJson]) => bind(manifest, (targets) => map(nxJson, (defaults) => targetCommands(named, targets, defaults))));
     const reached = await bind(lines, async (text) => (text.length === 0 ? ok([]) : map(await parse(scan, text.join('\n')), (script) => script.commands)));
     return bind(reached, async (targeted) => (queues(commands, targeted) ? map(await _run($, ['mkdir', '-p', lock.slice(0, lock.lastIndexOf('/'))], {}), () => some(lock)) : ok(none)));
 };
@@ -240,10 +217,7 @@ const _placed = async ($: EngineInterface, e: Frozen<TurnCompleteInput>, cwd: st
     const lines = (text: string): readonly string[] => text.split('\n').filter((line) => line !== '');
     const directories = map(await _run($, ['yq', '-r', '.ruleDirs[], .utilDirs[]', 'sgconfig.yml'], { cwd }), lines);
     const placed = await bind(directories, async (paths) => {
-        const [changed, untracked] = await Promise.all([
-            _run($, ['git', 'diff', '--name-only', '--diff-filter=d', 'HEAD', '--', ...paths], { cwd }),
-            _run($, ['git', 'ls-files', '--others', '--exclude-standard', '--', ...paths], { cwd }),
-        ]);
+        const [changed, untracked] = await Promise.all([_run($, ['git', 'diff', '--name-only', '--diff-filter=d', 'HEAD', '--', ...paths], { cwd }), _run($, ['git', 'ls-files', '--others', '--exclude-standard', '--', ...paths], { cwd })]);
         return bind(changed, (tracked) => map(untracked, (fresh) => [...lines(tracked), ...lines(fresh)]));
     });
     if (placed.kind === 'fault') {
@@ -271,11 +245,7 @@ const _completed = async ($: EngineInterface, db: Database, e: Frozen<TurnComple
 // --- [DELIVERY]
 
 const _boundary = async ($: EngineInterface, db: Database, e: Frozen<ClassicHookInputs['Stop' | 'SubagentStop']>, to: number, observer: Observer): Promise<readonly string[]> => {
-    const [toplevel, branch, agents] = await Promise.all([
-        _run($, ['git', 'rev-parse', '--show-toplevel'], { cwd: e.cwd }),
-        _run($, ['git', 'branch', '--show-current'], { cwd: e.cwd }),
-        $.agent.list(),
-    ]);
+    const [toplevel, branch, agents] = await Promise.all([_run($, ['git', 'rev-parse', '--show-toplevel'], { cwd: e.cwd }), _run($, ['git', 'branch', '--show-current'], { cwd: e.cwd }), $.agent.list()]);
     const { chosen } = observer;
     const located = bind(toplevel, (worktree) => map(branch, (name) => ({ main: db.root, worktree: worktree.trim(), branch: name.trim() })));
     if (located.kind === 'fault') {

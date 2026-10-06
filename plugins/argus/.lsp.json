@@ -62,7 +62,8 @@
     "toml": {
         "command": "taplo",
         "args": ["lsp", "stdio"],
-        "extensionToLanguage": { ".toml": "toml" }
+        "extensionToLanguage": { ".toml": "toml" },
+        "settings": {}
     },
     "bash": {
         "command": "bash-language-server",

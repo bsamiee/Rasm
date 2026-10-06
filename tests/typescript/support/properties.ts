@@ -63,14 +63,11 @@ const associative = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.E
         predicate: (combine, { a, b, c }) => Effect.sync(() => equals(combine(combine(a, b), c), combine(a, combine(b, c)))),
     });
 
-const commutative = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> =>
-    law({ name: 'combine is commutative', arbitraries: { a: arbitrary, b: arbitrary }, predicate: (combine, { a, b }) => Effect.sync(() => equals(combine(a, b), combine(b, a))) });
+const commutative = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> => law({ name: 'combine is commutative', arbitraries: { a: arbitrary, b: arbitrary }, predicate: (combine, { a, b }) => Effect.sync(() => equals(combine(a, b), combine(b, a))) });
 
-const idempotent = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> =>
-    law({ name: 'combine is idempotent', arbitraries: { a: arbitrary }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(a, a), a)) });
+const idempotent = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> => law({ name: 'combine is idempotent', arbitraries: { a: arbitrary }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(a, a), a)) });
 
-const identity = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>, empty: A): Registration<Binary<A>> =>
-    law({ name: 'empty is the identity', arbitraries: { a: arbitrary }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(empty, a), a) && equals(combine(a, empty), a)) });
+const identity = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>, empty: A): Registration<Binary<A>> => law({ name: 'empty is the identity', arbitraries: { a: arbitrary }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(empty, a), a) && equals(combine(a, empty), a)) });
 
 const equivalence = <A>(arbitrary: Arbitrary.Arbitrary<A>): Registration<Equivalence.Equivalence<A>> =>
     law({
@@ -83,8 +80,7 @@ const order = <A>(arbitrary: Arbitrary.Arbitrary<A>): Registration<Order.Order<A
     law({
         name: 'comparison defines a total order',
         arbitraries: { a: arbitrary, b: arbitrary, c: arbitrary },
-        predicate: (compare, { a, b, c }) =>
-            Effect.sync(() => pipe(compare(a, b), (ordering) => compare(a, a) === 0 && ordering === -compare(b, a) && (!(ordering <= 0 && compare(b, c) <= 0) || compare(a, c) <= 0))),
+        predicate: (compare, { a, b, c }) => Effect.sync(() => pipe(compare(a, b), (ordering) => compare(a, a) === 0 && ordering === -compare(b, a) && (!(ordering <= 0 && compare(b, c) <= 0) || compare(a, c) <= 0))),
     });
 
 const inverse = <A, B>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<{ readonly to: (value: A) => B; readonly from: (image: B) => A }> =>
@@ -96,21 +92,15 @@ const deterministic = <I, A, E, R>(arbitrary: Arbitrary.Arbitrary<I>, equals: Eq
 const homomorphic = <A, B>(arbitrary: Arbitrary.Arbitrary<A>, combine: Binary<A>, combineImage: Binary<B>, equals: Equivalence.Equivalence<B>): Registration<(value: A) => B> =>
     law({ name: 'map commutes with combine', arbitraries: { a: arbitrary, b: arbitrary }, predicate: (map, { a, b }) => Effect.sync(() => equals(map(combine(a, b)), combineImage(map(a), map(b)))) });
 
-const monotone = <A>(arbitrary: Arbitrary.Arbitrary<A>, compare: Order.Order<A>): Registration<(state: A) => A> =>
-    law({ name: 'step is monotone', arbitraries: { a: arbitrary }, predicate: (step, { a }) => Effect.sync(() => compare(a, step(a)) <= 0) });
+const monotone = <A>(arbitrary: Arbitrary.Arbitrary<A>, compare: Order.Order<A>): Registration<(state: A) => A> => law({ name: 'step is monotone', arbitraries: { a: arbitrary }, predicate: (step, { a }) => Effect.sync(() => compare(a, step(a)) <= 0) });
 
-const total = <I, E, R>(
-    arbitrary: Arbitrary.Arbitrary<I>,
-    counterexample: Counterexample<(input: I) => Effect.Effect<unknown, E, R>, { readonly input: I }>,
-): Registration<(input: I) => Effect.Effect<unknown, E, R>, R> =>
+const total = <I, E, R>(arbitrary: Arbitrary.Arbitrary<I>, counterexample: Counterexample<(input: I) => Effect.Effect<unknown, E, R>, { readonly input: I }>): Registration<(input: I) => Effect.Effect<unknown, E, R>, R> =>
     define({ name: 'operation is total', arbitraries: { input: arbitrary }, predicate: (subject, { input }) => Effect.isSuccess(subject(input)) }, counterexample);
 
 const interleave =
     (counterexample: Counterexample<(schedule: fc.Scheduler) => Promise<boolean>, { readonly schedule: fc.Scheduler }>): Registration<(schedule: fc.Scheduler) => Promise<boolean>> =>
     (it, subject): void => {
-        it.effect('holds under every interleaving', () =>
-            Effect.tryPromise({ try: () => fc.assert(fc.asyncProperty(fc.scheduler(), subject)), catch: (cause) => PropertyError.falsified({ property: 'holds under every interleaving', cause }) }),
-        );
+        it.effect('holds under every interleaving', () => Effect.tryPromise({ try: () => fc.assert(fc.asyncProperty(fc.scheduler(), subject)), catch: (cause) => PropertyError.falsified({ property: 'holds under every interleaving', cause }) }));
         rejection('holds under every interleaving', (implementation, { schedule }) => Effect.promise(() => implementation(schedule)), counterexample)(it);
     };
 
@@ -133,35 +123,9 @@ const asyncMachine =
     <Model extends object, Real>(commands: readonly fc.Arbitrary<fc.AsyncCommand<Model, Real>>[]): Registration<() => { readonly model: Model; readonly real: Real }> =>
     (it, setup): void => {
         const property = fc.asyncProperty(fc.commands([...commands]), (run) => fc.asyncModelRun(setup, run));
-        it.effect('asynchronous system conforms to its model', () =>
-            Effect.tryPromise({ try: () => fc.assert(property), catch: (cause) => PropertyError.falsified({ property: 'asynchronous system conforms to its model', cause }) }),
-        );
+        it.effect('asynchronous system conforms to its model', () => Effect.tryPromise({ try: () => fc.assert(property), catch: (cause) => PropertyError.falsified({ property: 'asynchronous system conforms to its model', cause }) }));
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export {
-    associative,
-    asyncMachine,
-    type Binary,
-    type Counterexample,
-    commutative,
-    define,
-    deterministic,
-    equivalence,
-    homomorphic,
-    idempotent,
-    identity,
-    interleave,
-    inverse,
-    type Law,
-    law,
-    machine,
-    monotone,
-    order,
-    PropertyError,
-    type Registration,
-    roundtrip,
-    total,
-    type Values,
-};
+export { associative, asyncMachine, type Binary, type Counterexample, commutative, define, deterministic, equivalence, homomorphic, idempotent, identity, interleave, inverse, type Law, law, machine, monotone, order, PropertyError, type Registration, roundtrip, total, type Values };

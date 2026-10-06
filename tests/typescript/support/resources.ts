@@ -7,14 +7,9 @@ import { SqlClient, type SqlError } from 'effect/sql';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const pglite = (...seed: readonly string[]): Layer.Layer<PgliteClient.PgliteClient | SqlClient.SqlClient, SqlError.SqlError> =>
-    Layer.provideMerge(
-        Layer.effectDiscard(SqlClient.SqlClient.use((sql) => Effect.forEach(seed, (statement) => sql.unsafe(statement), { discard: true }))),
-        PgliteClient.layer({ dataDir: 'memory://', relaxedDurability: true }),
-    );
+    Layer.provideMerge(Layer.effectDiscard(SqlClient.SqlClient.use((sql) => Effect.forEach(seed, (statement) => sql.unsafe(statement), { discard: true }))), PgliteClient.layer({ dataDir: 'memory://', relaxedDurability: true }));
 
-const loopback = <E>(
-    app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, HttpServerRequest.HttpServerRequest | Scope.Scope>,
-): Layer.Layer<Layer.Success<typeof NodeHttpServer.layerTest>, HttpServerError.ServeError> => Layer.provideMerge(HttpServer.serve(app), NodeHttpServer.layerTest);
+const loopback = <E>(app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, HttpServerRequest.HttpServerRequest | Scope.Scope>): Layer.Layer<Layer.Success<typeof NodeHttpServer.layerTest>, HttpServerError.ServeError> => Layer.provideMerge(HttpServer.serve(app), NodeHttpServer.layerTest);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -11,10 +11,8 @@ const DELTA = `${_FOLDER}/delta.sql`;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _json = (value: unknown): string => `json_each('${JSON.stringify(value).replaceAll("'", "''")}')`;
-const _normalized = (text: string): string =>
-    `replace(replace(replace(replace(replace(replace(${text}, char(9), ' '), char(13), ' '), char(10), ' '), ' ', char(64976, 64977)), char(64977, 64976), ''), char(64976, 64977), ' ')`;
-const _lineage = (main: string, worktree: string, branch: string): string =>
-    `if(${worktree} = ${main}, '.', substr(${worktree}, length(rtrim(${worktree}, replace(${worktree}, '/', ''))) + 1)) || '/' || ${branch}`;
+const _normalized = (text: string): string => `replace(replace(replace(replace(replace(replace(${text}, char(9), ' '), char(13), ' '), char(10), ' '), ' ', char(64976, 64977)), char(64977, 64976), ''), char(64976, 64977), ' ')`;
+const _lineage = (main: string, worktree: string, branch: string): string => `if(${worktree} = ${main}, '.', substr(${worktree}, length(rtrim(${worktree}, replace(${worktree}, '/', ''))) + 1)) || '/' || ${branch}`;
 
 const bound = (values: object, statement: string): string => `.parameter init\ninsert into temp.sqlite_parameters(key, value) select ':' || key, value from ${_json(values)};\n${statement}`;
 
@@ -60,10 +58,7 @@ const _TABLES: readonly (readonly [name: string, body: string, rows?: readonly o
         'finding_transition',
         "(finding_id text not null references finding(finding_id), state text not null references transition_state(state), subject_hash text not null, path text, start_line integer, start_column integer, end_line integer, end_column integer, byte_start integer, byte_end integer, occurrence integer, at integer not null, actor text not null references transition_actor(actor), actor_id text check ((actor = 'user') = (actor_id is null)), evidence text check (evidence is not null or state not in ('wrong', 'waived', 'checker_owned', 'checker_silent')), verdict text references bar_verdict(verdict)) strict",
     ],
-    [
-        'finding_delivery',
-        '(finding_id text not null references finding(finding_id), lineage_key text not null, session_id text not null, agent_id text, channel text not null references delivery_channel(channel), delivered_at integer not null) strict',
-    ],
+    ['finding_delivery', '(finding_id text not null references finding(finding_id), lineage_key text not null, session_id text not null, agent_id text, channel text not null references delivery_channel(channel), delivered_at integer not null) strict'],
     [
         'judged_range',
         `(kind text not null references range_kind(kind), main_worktree text not null, worktree text not null, branch text not null, lineage_key text generated always as (${_lineage('main_worktree', 'worktree', 'branch')}) stored, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict`,
@@ -143,8 +138,7 @@ create temp table placed as select category, placed, agent_id from ${_PLACED};
 insert into finding_delivery(finding_id, lineage_key, session_id, agent_id, channel, delivered_at) select finding_id, :key, :session, agent_id, 'additionalContext', :at from (select finding_id, null as agent_id from told union all select finding_id, agent_id from finding_delivery where channel = 'report' and agent_id in (select agent_id from placed));
 select json_object('findings', (select json_group_array(finding_id) from told), 'rules', (select json_group_array(json_object('category', category, 'paths', json(placed))) from placed));
 commit;`;
-const JUDGE =
-    "insert into judged_range(kind, main_worktree, worktree, branch, from_ts, to_ts, agent_id, at) select 'edit', :main, :worktree, :branch, :from, :to, :id, :at where exists (select 1 from finding_transition t where t.actor = 'agent' and t.actor_id = :id) returning rowid;";
+const JUDGE = "insert into judged_range(kind, main_worktree, worktree, branch, from_ts, to_ts, agent_id, at) select 'edit', :main, :worktree, :branch, :from, :to, :id, :at where exists (select 1 from finding_transition t where t.actor = 'agent' and t.actor_id = :id) returning rowid;";
 const REPORT = `insert into finding_delivery(finding_id, lineage_key, session_id, agent_id, channel, delivered_at) select finding_id, ${_KEY}, :session, :id, 'report', :at from finding where category = :category;`;
 
 // --- [EXPORTS] -------------------------------------------------------------------------

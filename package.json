@@ -266,6 +266,7 @@
         "uplot": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:",
+        "vscode-languageserver-protocol": "catalog:",
         "watlas": "catalog:",
         "web-vitals": "catalog:",
         "webdav": "catalog:",
@@ -288,10 +289,7 @@
                 "inputs": [{ "externalDependencies": ["@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3"] }, { "runtime": "tree-sitter --version" }],
                 "outputs": ["{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql.so"],
                 "options": {
-                    "commands": [
-                        "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml",
-                        "tree-sitter build --output .cache/ast-grep/sql.so node_modules/tree-sitter-sqlite3"
-                    ]
+                    "commands": ["tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml", "tree-sitter build --output .cache/ast-grep/sql.so node_modules/tree-sitter-sqlite3"]
                 }
             },
             "rewrite": { "command": "ast-grep scan -U --no-ignore hidden", "parallelism": false, "dependsOn": ["grammar"] },
@@ -374,13 +372,7 @@
                 "parallelism": false,
                 "dependsOn": [{ "projects": ["tag:language:swift"], "target": "upgrade" }, { "projects": ["tag:host:rhino"], "target": "pack" }],
                 "options": {
-                    "commands": [
-                        "uv sync --upgrade",
-                        "ncu --workspaces --target newest --upgrade --install always",
-                        "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props",
-                        "mise upgrade",
-                        "python -m interface.cli upgrade"
-                    ],
+                    "commands": ["uv sync --upgrade", "ncu --workspaces --target newest --upgrade --install always", "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props", "mise upgrade", "python -m interface.cli upgrade"],
                     "parallel": false
                 }
             },

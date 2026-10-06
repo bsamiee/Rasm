@@ -1,0 +1,33 @@
+{
+    "name": "argus",
+    "version": "1.0.0",
+    "description": "Language servers of .lsp.json as MCP tools, with diagnostics for each file apply_patch changes",
+    "mcpServers": {
+        "argus": {
+            "command": "mise",
+            "args": ["exec", "--", "node", "plugins/argus/main.ts"]
+        }
+    },
+    "hooks": {
+        "hooks": {
+            "PostToolUse": [
+                {
+                    "matcher": "^apply_patch$",
+                    "hooks": [
+                        {
+                            "type": "mcp_tool",
+                            "server": "argus",
+                            "tool": "patched",
+                            "input": { "patch": "${tool_input.command}" },
+                            "timeout": 150,
+                            "statusMessage": "Reading diagnostics"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "interface": {
+        "displayName": "Argus"
+    }
+}

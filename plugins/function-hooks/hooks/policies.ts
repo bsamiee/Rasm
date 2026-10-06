@@ -155,11 +155,9 @@ const _refusals = (key: Key, args: readonly string[], existing: readonly string[
     return hit === undefined ? (row.refine?.(args, existing, row.reason) ?? []) : [`git ${key} ${hit} ${row.reason}`];
 };
 
-const _git = (commands: readonly Command[], existing: readonly string[]): readonly string[] =>
-    _calls(commands).flatMap((call) => (call.kind === 'aliased' ? ['inline git alias can hide a refused subcommand'] : _refusals(call.key, call.args, existing)));
+const _git = (commands: readonly Command[], existing: readonly string[]): readonly string[] => _calls(commands).flatMap((call) => (call.kind === 'aliased' ? ['inline git alias can hide a refused subcommand'] : _refusals(call.key, call.args, existing)));
 
-const gitPaths = (commands: readonly Command[]): readonly string[] =>
-    _calls(commands).flatMap((call) => (call.kind === 'subcommand' && (call.key === 'reset' || call.key === 'checkout') ? call.args.filter((word) => !word.startsWith('-')) : []));
+const gitPaths = (commands: readonly Command[]): readonly string[] => _calls(commands).flatMap((call) => (call.kind === 'subcommand' && (call.key === 'reset' || call.key === 'checkout') ? call.args.filter((word) => !word.startsWith('-')) : []));
 
 // --- [STDIN]
 
@@ -168,18 +166,10 @@ const _sourced = (program: string, options: readonly string[]): boolean => optio
 const _reads = (invocation: Invocation): boolean => {
     const row = PROGRAMS[invocation[0]];
     const { inputs, options } = operands(invocation);
-    return (
-        row?.stdin !== undefined &&
-        !_sourced(invocation[0], options) &&
-        !options.some((name) => row.recursive?.includes(name) === true) &&
-        (row.stdin === 'always' || inputs.length === 0 || inputs.includes('-'))
-    );
+    return row?.stdin !== undefined && !_sourced(invocation[0], options) && !options.some((name) => row.recursive?.includes(name) === true) && (row.stdin === 'always' || inputs.length === 0 || inputs.includes('-'));
 };
 
-const _stdin = (commands: readonly Command[]): readonly string[] =>
-    commands.flatMap((command) =>
-        !command.fed && command.invocations.some(_reads) ? [`${command.words.join(' ')} reads standard input and nothing feeds it, pass an operand, pipe, heredoc, herestring, or input redirect`] : [],
-    );
+const _stdin = (commands: readonly Command[]): readonly string[] => commands.flatMap((command) => (!command.fed && command.invocations.some(_reads) ? [`${command.words.join(' ')} reads standard input and nothing feeds it, pass an operand, pipe, heredoc, herestring, or input redirect`] : []));
 
 // --- [WAIT]
 
@@ -194,10 +184,7 @@ const _waits = (command: Command): readonly string[] => {
     };
     const chain = command.invocations;
     const line = command.words.join(' ');
-    return [
-        ...(chain.some((invocation, index) => waiters[invocation[0]]?.(operands(invocation), index < chain.length - 1) === true) ? [`${line} waits`] : []),
-        ...(command.polled ? [`${line} repeats until the loop condition changes`] : []),
-    ];
+    return [...(chain.some((invocation, index) => waiters[invocation[0]]?.(operands(invocation), index < chain.length - 1) === true) ? [`${line} waits`] : []), ...(command.polled ? [`${line} repeats until the loop condition changes`] : [])];
 };
 
 const _wait = (commands: readonly Command[]): readonly string[] => {
@@ -207,10 +194,7 @@ const _wait = (commands: readonly Command[]): readonly string[] => {
 
 // --- [SCRIPT]
 
-const _writes = (command: Command): readonly string[] =>
-    command.invocations
-        .slice(-1)
-        .flatMap(([program, ...rest]) => (program === 'echo' || program === 'printf' || (program === 'cat' && rest.length === 0) ? command.writes.filter((path) => !path.startsWith('/dev/')) : []));
+const _writes = (command: Command): readonly string[] => command.invocations.slice(-1).flatMap(([program, ...rest]) => (program === 'echo' || program === 'printf' || (program === 'cat' && rest.length === 0) ? command.writes.filter((path) => !path.startsWith('/dev/')) : []));
 
 const _script = ({ commands, clocks }: Script): readonly string[] => {
     const timer = "hyperfine -N -r <runs> '<command>' times commands";
@@ -264,11 +248,7 @@ const _descends = (invocation: Invocation, { cloud, places }: Walk): boolean => 
 };
 
 const _walk = (commands: readonly Command[], walk: Walk): readonly string[] =>
-    commands.flatMap((command) =>
-        command.invocations.some((invocation) => _descends(invocation, walk))
-            ? [`${command.words.join(' ')} descends into ~/${CLOUD}, dataless cloud placeholders there hang the walker on the file provider, start outside it or exclude ${basename(CLOUD)}`]
-            : [],
-    );
+    commands.flatMap((command) => (command.invocations.some((invocation) => _descends(invocation, walk)) ? [`${command.words.join(' ')} descends into ~/${CLOUD}, dataless cloud placeholders there hang the walker on the file provider, start outside it or exclude ${basename(CLOUD)}`] : []));
 
 // --- [QUEUE]
 
@@ -343,20 +323,12 @@ const targetCommands = (named: readonly Target[], manifest: Manifest, nxJson: Nx
         ...Object.entries(nxJson.targetDefaults).flatMap(([target, configurations]) => [configurations].flat().map((configuration) => ({ project: none, target, configuration }))),
     ];
     const upstream = ({ project, configuration }: (typeof configured)[number]): readonly Target[] =>
-        (configuration.dependsOn ?? []).flatMap(({ target, projects, dependencies }) =>
-            (projects === undefined ? [dependencies === true ? none : project] : [projects].flat().map(some)).map((owner) => ({ project: owner, target })),
-        );
+        (configuration.dependsOn ?? []).flatMap(({ target, projects, dependencies }) => (projects === undefined ? [dependencies === true ? none : project] : [projects].flat().map(some)).map((owner) => ({ project: owner, target })));
     const reached = (pending: readonly Target[], seen: ReadonlySet<(typeof configured)[number]>): ReadonlySet<(typeof configured)[number]> => {
-        const found = configured.filter(
-            (entry) =>
-                !seen.has(entry) &&
-                pending.some(({ project, target }) => target === entry.target && (project.kind === 'none' || entry.project.kind === 'none' || project.value === entry.project.value)),
-        );
+        const found = configured.filter((entry) => !seen.has(entry) && pending.some(({ project, target }) => target === entry.target && (project.kind === 'none' || entry.project.kind === 'none' || project.value === entry.project.value)));
         return found.length === 0 ? seen : reached(found.flatMap(upstream), new Set([...seen, ...found]));
     };
-    return [...reached(named, new Set())].flatMap(({ configuration: { command, options } }) =>
-        [command, options?.command, ...(options?.commands ?? []).map((entry) => entry.command)].filter((text) => text !== undefined),
-    );
+    return [...reached(named, new Set())].flatMap(({ configuration: { command, options } }) => [command, options?.command, ...(options?.commands ?? []).map((entry) => entry.command)].filter((text) => text !== undefined));
 };
 
 // --- [REWRITE]
@@ -382,21 +354,13 @@ const _sd = (command: Command): readonly Insertion[] => {
     const find = command.spans[offset + operand + 1];
     const breaks = pattern !== undefined && (fixed ? pattern.includes('\n') : _BREAK.test(pattern));
     const dashed = rest.some((word) => word !== '-' && word !== '--' && word.startsWith('-') && !known(program, word));
-    return [
-        ...(across !== undefined && breaks && !_sourced(program, options) && !options.some((name) => ['-A', '--across'].includes(name)) ? [{ at: across.end, text: ' -A', flag: '-A' }] : []),
-        ...(find !== undefined && !rest.includes('--') && dashed ? [{ at: find.start, text: '-- ', flag: '--' }] : []),
-    ];
+    return [...(across !== undefined && breaks && !_sourced(program, options) && !options.some((name) => ['-A', '--across'].includes(name)) ? [{ at: across.end, text: ' -A', flag: '-A' }] : []), ...(find !== undefined && !rest.includes('--') && dashed ? [{ at: find.start, text: '-- ', flag: '--' }] : [])];
 };
 
 const _spliced = (text: string, insertions: readonly Insertion[]): string => {
     const bytes = new TextEncoder().encode(text);
     const decoder = new TextDecoder();
-    const done = insertions
-        .toSorted((left, right) => left.at - right.at)
-        .reduce<{ readonly at: number; readonly pieces: readonly string[] }>(
-            (head, { at, text: inserted }) => ({ at, pieces: [...head.pieces, decoder.decode(bytes.subarray(head.at, at)), inserted] }),
-            { at: 0, pieces: [] },
-        );
+    const done = insertions.toSorted((left, right) => left.at - right.at).reduce<{ readonly at: number; readonly pieces: readonly string[] }>((head, { at, text: inserted }) => ({ at, pieces: [...head.pieces, decoder.decode(bytes.subarray(head.at, at)), inserted] }), { at: 0, pieces: [] });
     return [...done.pieces, decoder.decode(bytes.subarray(done.at))].join('');
 };
 

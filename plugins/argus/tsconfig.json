@@ -1,0 +1,5 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": { "outDir": "../../.cache/typescript/out/plugins/argus", "types": ["node"] },
+    "files": [".claude-plugin/plugin.json", ".lsp.json"]
+}

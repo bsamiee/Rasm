@@ -45,13 +45,7 @@ const createVitestConfig: (directory: string) => Promise<ViteUserConfig> = flow(
 const rootConfig: () => Promise<ViteUserConfig> = Effect.fnUntraced(
     function* () {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const [project, { packages }] = yield* Effect.all(
-            [
-                _project(_ROOT),
-                Effect.flatMap(Effect.map(fs.readFileString(path.join(_ROOT, 'pnpm-workspace.yaml')), parse), Schema.decodeUnknownEffect(Schema.Struct({ packages: Schema.Array(Schema.String) }))),
-            ],
-            { concurrency: 'unbounded' },
-        );
+        const [project, { packages }] = yield* Effect.all([_project(_ROOT), Effect.flatMap(Effect.map(fs.readFileString(path.join(_ROOT, 'pnpm-workspace.yaml')), parse), Schema.decodeUnknownEffect(Schema.Struct({ packages: Schema.Array(Schema.String) })))], { concurrency: 'unbounded' });
         return {
             ...project,
             test: {

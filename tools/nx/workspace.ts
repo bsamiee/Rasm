@@ -12,16 +12,11 @@ const _Toml = Schema.String.pipe(
     }),
 );
 const _Project = _Toml.pipe(Schema.decodeTo(Schema.Struct({ project: Schema.Struct({ name: Schema.String }) })));
-const _Pytest = _Toml.pipe(
-    Schema.decodeTo(Schema.Struct({ tool: Schema.Struct({ pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files' })) }) })),
-);
+const _Pytest = _Toml.pipe(Schema.decodeTo(Schema.Struct({ tool: Schema.Struct({ pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files' })) }) })));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _PROJECTS: Record<
-    string,
-    (file: Path.Path.Parsed, workspace: string) => Effect.Effect<ProjectConfiguration, Schema.SchemaError | PlatformError.PlatformError, FileSystem.FileSystem | Path.Path>
-> = {
+const _PROJECTS: Record<string, (file: Path.Path.Parsed, workspace: string) => Effect.Effect<ProjectConfiguration, Schema.SchemaError | PlatformError.PlatformError, FileSystem.FileSystem | Path.Path>> = {
     '*.csproj': ({ dir }) =>
         Effect.map(Path.Path, (path) => {
             const plugin = dir.startsWith('apps/') && path.basename(dir) === 'rhino';
@@ -39,13 +34,7 @@ const _PROJECTS: Record<
         }),
     'pyproject.toml': Effect.fnUntraced(function* ({ dir, base }, workspace) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const [{ project }, { tool }] = yield* Effect.all(
-            [
-                Effect.flatMap(fs.readFileString(path.join(workspace, dir, base)), Schema.decodeEffect(_Project)),
-                Effect.flatMap(fs.readFileString(path.join(workspace, base)), Schema.decodeEffect(_Pytest)),
-            ],
-            { concurrency: 'unbounded' },
-        );
+        const [{ project }, { tool }] = yield* Effect.all([Effect.flatMap(fs.readFileString(path.join(workspace, dir, base)), Schema.decodeEffect(_Project)), Effect.flatMap(fs.readFileString(path.join(workspace, base)), Schema.decodeEffect(_Pytest))], { concurrency: 'unbounded' });
         const tests = yield* fs.glob(`**/{${tool.pytest.pythonFiles.join(',')}}`, { root: path.join(workspace, dir) });
         return { root: dir, name: project.name, tags: ['language:python'], targets: Array.isReadonlyArrayNonEmpty(tests) ? { check: {}, test: {} } : {} };
     }),
@@ -63,10 +52,7 @@ const _project = Effect.fnUntraced(function* (file: string, workspace: string) {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const _runtime = ManagedRuntime.make(NodeServices.layer);
-const createNodes: CreateNodes = [
-    `*/**/{${Record.keys(_PROJECTS).join(',')}}`,
-    (files, options, context): Promise<CreateNodesResultArray> => createNodesFromFiles((file) => _runtime.runPromise(_project(file, context.workspaceRoot)), files, options, context),
-];
+const createNodes: CreateNodes = [`*/**/{${Record.keys(_PROJECTS).join(',')}}`, (files, options, context): Promise<CreateNodesResultArray> => createNodesFromFiles((file) => _runtime.runPromise(_project(file, context.workspaceRoot)), files, options, context)];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

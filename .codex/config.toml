@@ -1,3 +1,5 @@
+# --- [MCP_SERVERS] ----------------------------------------------------------------------
+
 [mcp_servers.adobe]
 command = "mise"
 args = ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts"]
@@ -7,14 +9,63 @@ command = "mise"
 args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
 required = true
 startup_timeout_sec = 120
-tool_timeout_sec = 300
-default_tools_approval_mode = "approve"
 
-[mcp_servers.rhino-mcp-platform]
+[mcp_servers.binlog]
 command = "mise"
-args = ["exec", "--", "rhino-mcp-router"]
-startup_timeout_sec = 20
-tool_timeout_sec = 180
+args = ["exec", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"]
+
+[mcp_servers.nuget]
+command = "mise"
+args = ["exec", "--", "dotnet", "dnx", "NuGet.Mcp.Server"]
+
+[mcp_servers.ast-grep]
+command = "mise"
+args = ["exec", "--", "ast-grep-server"]
+
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"
+bearer_token_env_var = "GH_PROJECTS_TOKEN"
+
+[mcp_servers.github.http_headers]
+X-MCP-Toolsets = "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search"
+X-MCP-Exclude-Tools = "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file"
+X-MCP-Features = "file_blame,issue_dependencies"
+
+[mcp_servers.exa]
+url = "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run"
+
+[mcp_servers.exa.env_http_headers]
+x-api-key = "EXA_API_KEY"
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+bearer_token_env_var = "CONTEXT7_API_KEY"
+
+[mcp_servers.deepwiki]
+url = "https://mcp.deepwiki.com/mcp"
+
+[mcp_servers.greptile]
+url = "https://api.greptile.com/mcp"
+bearer_token_env_var = "GREPTILE_API_KEY"
+enabled = false
+
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+
+[mcp_servers.claudeCodeDocs]
+url = "https://code.claude.com/docs/mcp"
+
+[mcp_servers.illustrator]
+url = "http://localhost:18412/v1/mcp"
+bearer_token_env_var = "ILLUSTRATOR_MCP_TOKEN"
+
+[mcp_servers.arena]
+url = "https://mcp.are.na/mcp"
+enabled = false
+
+[mcp_servers.xcode]
+command = "xcrun"
+args = ["mcpbridge"]
 
 [mcp_servers.lldb]
 command = "xcrun"
@@ -22,23 +73,25 @@ args = ["lldb-mcp"]
 startup_timeout_sec = 20
 tool_timeout_sec = 120
 
+[mcp_servers.rhino-mcp-platform]
+command = "mise"
+args = ["exec", "--", "rhino-mcp-router"]
+startup_timeout_sec = 20
+tool_timeout_sec = 180
+
 [mcp_servers.blender]
 command = "mise"
 args = ["exec", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
-tool_timeout_sec = 300
-default_tools_approval_mode = "approve"
 
 [mcp_servers.mcp-for-blender]
 command = "mise"
 args = ["exec", "--", "mcp-for-blender"]
 tool_timeout_sec = 180
-default_tools_approval_mode = "approve"
+
+# --- [PLUGINS] --------------------------------------------------------------------------
+
+[plugins."argus@rasm"]
+enabled = true
 
 [plugins."playwright@rasm"]
 enabled = true
-
-[plugins."playwright@rasm".mcp_servers.playwright]
-default_tools_approval_mode = "approve"
-
-[plugins."playwright@rasm".mcp_servers.playwright-test]
-default_tools_approval_mode = "approve"

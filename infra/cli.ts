@@ -8,9 +8,7 @@ import { parse } from 'yaml';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const _Steps = Schema.Array(
-    Schema.Struct({ uses: Schema.optionalKey(Schema.Union([Schema.TemplateLiteral(['./', Schema.String]), Schema.TemplateLiteralParser([Schema.String, '@', Schema.String])])) }),
-);
+const _Steps = Schema.Array(Schema.Struct({ uses: Schema.optionalKey(Schema.Union([Schema.TemplateLiteral(['./', Schema.String]), Schema.TemplateLiteralParser([Schema.String, '@', Schema.String])])) }));
 const _Actions = Schema.Struct({
     workflows: Schema.Array(
         Schema.Struct({
@@ -31,12 +29,8 @@ const _Secrets = Config.all(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.Success<typeof _Secrets>): Record.ReadonlyRecord<string, unknown> => {
-    const patternsAlloweds = [...workflows.flatMap(({ jobs }) => Record.values(jobs).flatMap(({ steps }) => steps)), ...actions.flatMap(({ runs }) => runs.steps)].flatMap(({ uses }) =>
-        typeof uses === 'object' ? [`${uses[0]}@*`] : [],
-    );
-    const requiredChecks = workflows.flatMap(({ jobs }) =>
-        Record.toEntries(jobs).flatMap(([id, { name, needs }]) => (needs !== undefined && Equal.equals(Array.difference(Record.keys(jobs), needs), [id]) ? [{ context: name ?? id }] : [])),
-    );
+    const patternsAlloweds = [...workflows.flatMap(({ jobs }) => Record.values(jobs).flatMap(({ steps }) => steps)), ...actions.flatMap(({ runs }) => runs.steps)].flatMap(({ uses }) => (typeof uses === 'object' ? [`${uses[0]}@*`] : []));
+    const requiredChecks = workflows.flatMap(({ jobs }) => Record.toEntries(jobs).flatMap(([id, { name, needs }]) => (needs !== undefined && Equal.equals(Array.difference(Record.keys(jobs), needs), [id]) ? [{ context: name ?? id }] : [])));
     const projectArgs = { name: 'rasm', description: 'Repository and service secrets' } as const satisfies ProjectArgs;
     const repositoryArgs = {
         name: 'Rasm',
@@ -59,10 +53,7 @@ const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.
     return {
         repository: repository.fullName,
         configs: Record.values(configs),
-        secrets: secrets.map(
-            ({ config, name, value }) =>
-                new Secret(`${projectArgs.name}.${config}.${name}`, { project: project.name, config: configs[config], name, value: Redacted.value(value) } satisfies SecretArgs).name,
-        ),
+        secrets: secrets.map(({ config, name, value }) => new Secret(`${projectArgs.name}.${config}.${name}`, { project: project.name, config: configs[config], name, value: Redacted.value(value) } satisfies SecretArgs).name),
         securityUpdates: new RepositoryDependabotSecurityUpdates(`${repositoryArgs.name}-security-updates`, { repository: vulnerabilityAlerts.repository, enabled: true }).enabled,
         ruleset: new RepositoryRuleset(`${repositoryArgs.name}-main`, {
             repository: repository.name,

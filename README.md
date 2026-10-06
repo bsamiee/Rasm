@@ -48,7 +48,7 @@ Rasm/
 ├── .github/                  # Continuous integration and repository workflows
 ├── .claude/                  # Agent harness knowledge and settings
 ├── .mcp.json                 # Agent harness MCP servers
-├── .codex/                   # Codex harness settings
+├── .codex/                   # Codex harness knowledge and settings
 ├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
 └── README.md
 ```
