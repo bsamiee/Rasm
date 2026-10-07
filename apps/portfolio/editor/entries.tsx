@@ -27,7 +27,7 @@ function EntryList({
     entries: readonly (typeof Entry.Type)[];
     selected: string | undefined;
     locked: (entry: typeof Entry.Type) => boolean;
-    onChange: (entries: readonly (typeof Entry.Type)[]) => void;
+    onChange: (update: (entries: readonly (typeof Entry.Type)[]) => readonly (typeof Entry.Type)[]) => void;
     onSelect: (entry: typeof Entry.Type) => void;
     onRemove: (entry: typeof Entry.Type) => void;
 }): ReactNode {
@@ -45,12 +45,12 @@ function EntryList({
         </ReorderableList>
     );
 }
-function EntryFields({ entry, onChange }: { entry: typeof Entry.Type; onChange: (entry: typeof Entry.Type) => void }): ReactNode {
+function EntryFields({ entry, onChange }: { entry: typeof Entry.Type; onChange: (update: (entry: typeof Entry.Type) => typeof Entry.Type) => void }): ReactNode {
     return (
         <>
             <div className="field-pair">
-                <Field id={titleId(entry)} label="Title" onChange={(title): void => onChange({ ...entry, title })} placeholder="Project or study title" value={entry.title} />
-                <SelectField label="Entry type" onChange={({ id }): void => onChange({ ...entry, kind: id })} options={kinds} value={entry.kind} />
+                <Field id={titleId(entry)} label="Title" onChange={(title): void => onChange((current) => ({ ...current, title }))} placeholder="Project or study title" value={entry.title} />
+                <SelectField label="Entry type" onChange={({ id }): void => onChange((current) => ({ ...current, kind: id }))} options={kinds} value={entry.kind} />
             </div>
             <Disclosure className="flex flex-col gap-[18px]">
                 <Button className="min-h-11 text-left text-sm" slot="trigger">
@@ -58,20 +58,20 @@ function EntryFields({ entry, onChange }: { entry: typeof Entry.Type; onChange: 
                 </Button>
                 <DisclosurePanel className="flex flex-col gap-[18px] py-4">
                     <div className="field-pair">
-                        <Field label="Year" onChange={(year): void => onChange({ ...entry, year })} value={entry.year} />
-                        <Field label="Location" onChange={(location): void => onChange({ ...entry, location })} value={entry.location} />
+                        <Field label="Year" onChange={(year): void => onChange((current) => ({ ...current, year }))} value={entry.year} />
+                        <Field label="Location" onChange={(location): void => onChange((current) => ({ ...current, location }))} value={entry.location} />
                     </div>
-                    <Field label="Description" multiline={true} onChange={(description): void => onChange({ ...entry, description })} value={entry.description} />
+                    <Field label="Description" multiline={true} onChange={(description): void => onChange((current) => ({ ...current, description }))} value={entry.description} />
                     <div className="field-pair">
-                        <Field label="Role" onChange={(role): void => onChange({ ...entry, role })} value={entry.role} />
-                        <Field label="Credits" onChange={(credits): void => onChange({ ...entry, credits })} value={entry.credits} />
+                        <Field label="Role" onChange={(role): void => onChange((current) => ({ ...current, role }))} value={entry.role} />
+                        <Field label="Credits" onChange={(credits): void => onChange((current) => ({ ...current, credits }))} value={entry.credits} />
                     </div>
                 </DisclosurePanel>
             </Disclosure>
             {entry.cover && (
                 <div className="flex items-center justify-between gap-2.5">
                     <span className="eyebrow">Chapter thumbnail · {entry.cover.asset.name}</span>
-                    <button className="button button-ghost" onClick={(): void => onChange(Struct.omit(entry, ['cover']))} type="button">
+                    <button className="button button-ghost" onClick={(): void => onChange(Struct.omit(['cover']))} type="button">
                         Clear thumbnail
                     </button>
                 </div>

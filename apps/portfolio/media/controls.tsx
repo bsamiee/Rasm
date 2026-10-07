@@ -6,7 +6,7 @@ import { Button } from 'react-aria-components';
 
 function ZoomControls({ zoomOut, fit, zoomIn, href, linkLabel, children }: { zoomOut: () => void; fit: () => void; zoomIn: () => void; href: string; linkLabel: string; children?: ReactNode }): ReactElement {
     return (
-        <div className="flex items-center gap-2 pt-1 pb-2 [&>button]:min-w-11">
+        <div className="flex flex-wrap items-center gap-2 pt-1 pb-2 landscape-short:col-start-2 landscape-short:row-start-1 landscape-short:py-0 [&>button]:min-w-11">
             <Button aria-label="Zoom out" className="button button-outline" onPress={zoomOut}>
                 <Minus className="size-4" strokeLinecap="butt" />
             </Button>

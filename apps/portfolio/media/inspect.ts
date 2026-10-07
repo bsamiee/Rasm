@@ -9,7 +9,7 @@ const pdfEngine = localEngine();
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inspectFile = Effect.fnUntraced(function* (file: Blob, id: string, name: string): Effect.fn.Return<typeof Asset.Type, Cause.UnknownError | Schema.SchemaError, Scope.Scope> {
+const inspectFile = Effect.fnUntraced(function* (file: Blob, id: string, name: string, mime: string): Effect.fn.Return<typeof Asset.Type, Cause.UnknownError | Schema.SchemaError, Scope.Scope> {
     const pdfPages = Effect.gen(function* () {
         const bytes = yield* Effect.tryPromise(() => file.arrayBuffer());
         const handle = yield* Effect.acquireRelease(
@@ -39,12 +39,12 @@ const inspectFile = Effect.fnUntraced(function* (file: Blob, id: string, name: s
             element.src = url;
         });
     });
-    const measured = yield* Match.value(file.type).pipe(
+    const measured = yield* Match.value(mime).pipe(
         Match.when(Match.is(...PdfAsset.fields.mime.literals), () => pdfPages),
         Match.when(Match.is(...ImageAsset.fields.mime.literals), () => imageSize),
         Match.orElse(() => videoSize),
     );
-    return yield* Schema.decodeUnknownEffect(Asset)({ id, name, size: file.size, mime: file.type, ...measured });
+    return yield* Schema.decodeUnknownEffect(Asset)({ id, name, size: file.size, mime, ...measured });
 }, Effect.scoped);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

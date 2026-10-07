@@ -4,12 +4,13 @@ import { LinkLayer, linkPlugin } from '@embedpdf/react/link';
 import { RenderLayer, renderPlugin } from '@embedpdf/react/render';
 import { useDocumentStatus, Viewer } from '@embedpdf/react/runtime';
 import { SelectionClipboard, SelectionHandles, SelectionLayer, selectionPlugin } from '@embedpdf/react/selection';
-import { Stage, stagePlugin, useStage, useZoom } from '@embedpdf/react/stage';
+import { Stage, stagePlugin, usePageList, usePages, useStage, useZoom } from '@embedpdf/react/stage';
 import { Effect, Match, Struct } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type ReactElement, type ReactNode, useId, useLayoutEffect, useState } from 'react';
-import { ToggleButton } from 'react-aria-components';
+import { Button, ToggleButton } from 'react-aria-components';
 import type { Placement } from '../model/placement.ts';
 import { ZoomControls } from './controls.tsx';
 import { mediaUrl, placementAlt } from './display.ts';
@@ -26,7 +27,7 @@ function SheetStage({ page, interactive }: { page: number; interactive: boolean 
         <Stage className={interactive ? 'size-full' : 'pointer-events-none size-full'} interaction={interactive} overlay={interactive && <SelectionHandles />} zoomGestures={interactive}>
             {(): ReactElement => (
                 <>
-                    <RenderLayer annotations={interactive} />
+                    <RenderLayer />
                     {interactive && (
                         <>
                             <SelectionLayer />
@@ -41,14 +42,29 @@ function SheetStage({ page, interactive }: { page: number; interactive: boolean 
 function SheetViewer({ page, href, layoutId }: { page: number; href: string; layoutId: string }): ReactElement {
     const { zoomIn, zoomOut, fitPage } = useZoom();
     const { activeToolId, activate } = useTool();
+    const { currentPage, pageCount, prev, next } = usePages();
+    const { pages } = usePageList();
+    const label = pages[currentPage]?.label;
     return (
         <>
-            <ZoomControls fit={fitPage} href={href} linkLabel="Original PDF" zoomIn={zoomIn} zoomOut={zoomOut}>
+            <ZoomControls fit={fitPage} href={`${href}#page=${currentPage + 1}`} linkLabel="Original PDF" zoomIn={zoomIn} zoomOut={zoomOut}>
                 <ToggleButton className="button button-outline" isSelected={activeToolId === 'pan'} onChange={(pan): void => activate(pan ? 'pan' : 'pointer')}>
                     Pan
                 </ToggleButton>
+                <div className="flex items-center gap-2 [&>button]:min-w-11">
+                    <Button aria-label="Previous sheet" className="button button-outline" isDisabled={currentPage === 0} onPress={(): void => prev({ behavior: 'instant' })}>
+                        <ChevronLeft className="size-4" strokeLinecap="butt" />
+                    </Button>
+                    <span aria-live="polite" className="text-muted text-xs">
+                        Sheet {currentPage + 1} of {pageCount}
+                        {label ? ` · ${label}` : ''}
+                    </span>
+                    <Button aria-label="Next sheet" className="button button-outline" isDisabled={currentPage + 1 === pageCount} onPress={(): void => next({ behavior: 'instant' })}>
+                        <ChevronRight className="size-4" strokeLinecap="butt" />
+                    </Button>
+                </div>
             </ZoomControls>
-            <motion.div className="relative min-h-0 flex-1 overflow-hidden bg-surface" layoutId={layoutId}>
+            <motion.div className="relative min-h-0 flex-1 overflow-hidden bg-surface landscape-short:col-span-full landscape-short:row-start-2" layoutId={layoutId}>
                 <SheetStage interactive={true} page={page} />
                 <SelectionClipboard />
             </motion.div>
@@ -92,7 +108,7 @@ function PdfSheet({ placement, layoutId }: { placement: Extract<typeof Placement
                 plugins={pdfPlugins}
                 renderError={(): ReactElement => failure}
             >
-                <SheetDocument failure={failure} href={href} layoutId={layoutId} page={placement.page.number} />
+                <SheetDocument failure={failure} href={url} layoutId={layoutId} page={placement.page.number} />
             </Viewer>
         </div>
     );

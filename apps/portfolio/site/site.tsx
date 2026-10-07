@@ -2,7 +2,8 @@
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, type ReactNode, Suspense, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { Button, DialogTrigger } from 'react-aria-components';
+import { Button, Dialog, DialogTrigger, Heading, Modal, ModalOverlay } from 'react-aria-components';
+import { ErrorBoundary } from 'react-error-boundary';
 import { MediaFigure } from '../media/figure.tsx';
 import type { PortfolioData, Session } from '../model/document.ts';
 import { Chapter } from './chapter.tsx';
@@ -49,22 +50,40 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                                 Edit portfolio
                             </Button>
                             {editor !== 'unopened' && (
-                                <Suspense
+                                <ErrorBoundary
                                     fallback={
-                                        <div className="p-9" role="status">
-                                            Opening editor…
-                                        </div>
+                                        <ModalOverlay className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 p-5" isDismissable={true}>
+                                            <Modal className="w-full max-w-lg bg-background p-9">
+                                                <Dialog className="flex flex-col gap-5">
+                                                    <Heading className="text-2xl tracking-[-0.025em]" slot="title">
+                                                        The editor could not open
+                                                    </Heading>
+                                                    <p className="hint">Your published portfolio is still available. Close this message to return to it.</p>
+                                                    <Button className="button self-start" slot="close">
+                                                        Close
+                                                    </Button>
+                                                </Dialog>
+                                            </Modal>
+                                        </ModalOverlay>
                                     }
                                 >
-                                    <Editor
-                                        onPreview={setPreview}
-                                        onPublish={(value): void => {
-                                            setPublished(value);
-                                            setPreview(undefined);
-                                        }}
-                                        published={published.portfolio}
-                                    />
-                                </Suspense>
+                                    <Suspense
+                                        fallback={
+                                            <div className="p-9" role="status">
+                                                Opening editor…
+                                            </div>
+                                        }
+                                    >
+                                        <Editor
+                                            onPreview={setPreview}
+                                            onPublish={(value): void => {
+                                                setPublished(value);
+                                                setPreview(undefined);
+                                            }}
+                                            published={published.portfolio}
+                                        />
+                                    </Suspense>
+                                </ErrorBoundary>
                             )}
                         </DialogTrigger>
                     ) : (
@@ -115,7 +134,7 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                                 {Boolean(portfolio.introduction) && <p className="lead">{portfolio.introduction}</p>}
                                 {populated && (
                                     <a className="eyebrow plain-link gap-1.5" href="#work">
-                                        Explore the index
+                                        View projects
                                         <ArrowDown className="size-3" strokeLinecap="butt" strokeLinejoin="miter" />
                                     </a>
                                 )}

@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { Effect, Schema } from 'effect';
 import { HttpRouter, type HttpServerRequest, HttpServerResponse } from 'effect/http';
-import { renderToString } from 'react-dom/server';
+import { renderToReadableStream } from 'react-dom/server';
 import { Bootstrap } from '../model/document.ts';
 import { Site } from '../site/site.tsx';
 import { readDocument, unavailable } from './database.ts';
@@ -14,9 +14,10 @@ const page = HttpRouter.add(
     '/',
     Effect.fn('page')(
         function* (request: HttpServerRequest.HttpServerRequest) {
-            const bootstrap = yield* Effect.all({ initial: readDocument('published'), session }, { concurrency: 'unbounded' });
-            const template = yield* Effect.tryPromise(() => env.ASSETS.fetch(request.originalUrl));
+            const [bootstrap, template] = yield* Effect.all([Effect.all({ initial: readDocument('published'), session }, { concurrency: 'unbounded' }), Effect.tryPromise(() => env.ASSETS.fetch(request.originalUrl))], { concurrency: 'unbounded' });
             const serialized = yield* Schema.encodeEffect(Schema.fromJsonString(Bootstrap))(bootstrap);
+            const markup = yield* Effect.tryPromise((signal) => renderToReadableStream(<Site {...bootstrap} />, { signal }));
+            yield* Effect.tryPromise(() => markup.allReady);
             const { name, introduction } = bootstrap.initial.portfolio;
             return HttpServerResponse.raw(
                 new HTMLRewriter()
@@ -36,7 +37,7 @@ const page = HttpRouter.add(
                     })
                     .on('#portfolio', {
                         element: (element): void => {
-                            element.setInnerContent(renderToString(<Site {...bootstrap} />), { html: true });
+                            element.setInnerContent(markup, { html: true });
                         },
                     })
                     .on('#portfolio-data', {

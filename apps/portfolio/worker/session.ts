@@ -15,7 +15,8 @@ const session = Effect.gen(function* () {
     return yield* Option.match(Option.fromNullishOr(headers['oai-authenticated-user-id']), {
         onNone: () => Effect.succeed<typeof Session.Type>({ kind: 'visitor', signedIn: false }),
         onSome: (userId) =>
-            (headers['oai-authenticated-user-email']?.toLowerCase() === email ? registerOwner(email, userId) : ownerUserId(email)).pipe(
+            ownerUserId(email).pipe(
+                Effect.flatMap((registered) => (Option.isNone(registered) && headers['oai-authenticated-user-email']?.toLowerCase() === email ? registerOwner(email, userId) : Effect.succeed(registered))),
                 Effect.map(Option.exists((registered) => registered.userId === userId)),
                 Effect.map((owned): typeof Session.Type => (owned ? { kind: 'owner' } : { kind: 'visitor', signedIn: true })),
             ),

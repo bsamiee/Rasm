@@ -29,7 +29,7 @@ const Portfolio = Schema.Struct({ name: Schema.String, introduction: Schema.Stri
 );
 const StoredPortfolio = Schema.toEncoded(Portfolio);
 const PortfolioData = Schema.Struct({ portfolio: StoredPortfolio, assets: AssetCollection }).pipe(
-    Schema.decodeTo(Schema.Struct({ portfolio: Schema.toType(Portfolio), assets: AssetCollection }), {
+    Schema.decodeTo(Schema.Struct({ portfolio: Schema.toType(Portfolio), assets: Schema.toType(AssetCollection) }), {
         decode: SchemaGetter.transformEffect((data) =>
             SchemaParser.decodeEffect(Portfolio)(data.portfolio).pipe(
                 Effect.provideService(Assets, data.assets),

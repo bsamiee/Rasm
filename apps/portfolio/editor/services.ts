@@ -1,5 +1,4 @@
-import { BrowserCrypto } from '@effect/platform-browser';
-import { Crypto, Effect, Record, Schema, Struct } from 'effect';
+import { Effect, Record, Schema } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { AsyncResult, Atom, AtomHttpApi } from 'effect/reactivity';
 import { Api } from '../model/api.ts';
@@ -8,7 +7,7 @@ import { Portfolio, type PortfolioData } from '../model/document.ts';
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class PortfolioClient extends AtomHttpApi.Service<PortfolioClient>()('PortfolioClient', { api: Api, httpClient: FetchHttpClient.layer }) {}
-const draftRequest = PortfolioClient.query('content', 'draft', {});
+const draftRequest = PortfolioClient.runtime.atom(PortfolioClient.use((api) => api.content.draft({})));
 const draft = Atom.writable(
     (get) => get(draftRequest),
     (context, value: Atom.Type<typeof draftRequest>) => context.setSelf(value),
@@ -41,10 +40,6 @@ const deleteRequest = PortfolioClient.runtime
     )
     .pipe(Atom.keepAlive);
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const randomId = (): string => Crypto.Crypto.use(Struct.get('randomUUIDv4')).pipe(Effect.provide(BrowserCrypto.layer), Effect.runSync);
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { deleteRequest, draft, draftRequest, randomId, saveRequest };
+export { deleteRequest, draft, draftRequest, saveRequest };

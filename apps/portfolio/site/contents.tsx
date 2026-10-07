@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { entryTitle } from '../media/display.ts';
 import type { Portfolio } from '../model/document.ts';
 import { fragment, type Navigation, numeral } from './navigation.ts';
@@ -53,15 +53,15 @@ function ProjectIndex({ portfolio, navigation }: { portfolio: typeof Portfolio.T
     );
 }
 function StickyBar({ portfolio, navigation, children }: { portfolio: typeof Portfolio.Type; navigation: Navigation; children: ReactNode }): ReactNode {
+    const measure = useCallback((node: HTMLDivElement): (() => void) => {
+        const update = (): void => document.documentElement.style.setProperty('--sticky-height', `${node.getBoundingClientRect().height}px`);
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(node);
+        return (): void => observer.disconnect();
+    }, []);
     return (
-        <div
-            className="sticky top-0 z-30"
-            ref={(node: HTMLDivElement): (() => void) => {
-                const observer = new ResizeObserver(() => document.documentElement.style.setProperty('--sticky-height', `${node.getBoundingClientRect().height}px`));
-                observer.observe(node);
-                return (): void => observer.disconnect();
-            }}
-        >
+        <div className="sticky top-0 z-30" ref={measure}>
             {children}
             {portfolio.entries.length > 0 && (
                 <label className="hidden items-center justify-between gap-4 border-line border-b bg-background px-[22px] py-2 max-md:flex">

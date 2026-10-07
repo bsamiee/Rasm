@@ -36,7 +36,7 @@ function PlacementFields({ value, onChange, onHero, onCover }: { value: typeof P
                 </div>
             )}
             <Field label="Accessible description" onChange={(alt): void => onChange({ ...value, alt })} placeholder="What does this image or sheet communicate?" value={value.alt ?? ''} />
-            <Field label={value.kind === 'video' ? 'Description / transcript' : 'Detailed drawing description'} multiline={true} onChange={(description): void => onChange({ ...value, description })} value={value.description ?? ''} />
+            <Field label={value.kind === 'video' ? 'Description / transcript' : 'Detailed description'} multiline={true} onChange={(description): void => onChange({ ...value, description })} value={value.description ?? ''} />
             <div className="actions">
                 {onHero && (
                     <button className="button button-outline" onClick={onHero} type="button">

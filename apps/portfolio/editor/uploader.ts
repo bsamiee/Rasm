@@ -1,9 +1,8 @@
 import { BrowserCrypto } from '@effect/platform-browser';
 import Uppy, { type Body, type Meta, type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
-import { Array, Crypto, Effect, Match, Struct } from 'effect';
+import { Array, Crypto, Effect, Equivalence, Match, Struct } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
-import { inspectFile } from '../media/inspect.ts';
 import { type Asset, mediaTypes, uploadLimit } from '../model/asset.ts';
 import type { PortfolioData } from '../model/document.ts';
 import { type Composition, createComposition, placementsFor } from '../model/placement.ts';
@@ -32,7 +31,13 @@ const destination = Atom.make<Destination>({ kind: 'library' }).pipe(Atom.keepAl
 const uploads = Atom.make((get): Uppy<UploadMeta, Body> => {
     const uploader = new Uppy<UploadMeta, Body>({
         restrictions: { maxFileSize: uploadLimit, allowedFileTypes: [...mediaTypes] },
+    }).use(XHRUpload, { endpoint: '/api/media', allowedMetaFields: ['asset'], limit: 3 });
+    const beforeFileAdded = uploader.opts.onBeforeFileAdded;
+    uploader.setOptions({
         onBeforeFileAdded: (file, files) => {
+            if (beforeFileAdded(file, files) === false) {
+                return false;
+            }
             const target = get.registry.get(destination);
             if (target.kind === 'hero' && Object.values(files).some((item) => item.meta.destination.kind === 'hero' && !item.progress.uploadComplete)) {
                 uploader.info('Finish or remove the queued hero file before adding another.', 'info');
@@ -40,7 +45,7 @@ const uploads = Atom.make((get): Uppy<UploadMeta, Body> => {
             }
             return { ...file, meta: { ...file.meta, destination: target } };
         },
-    }).use(XHRUpload, { endpoint: '/api/media', allowedMetaFields: ['asset'], limit: 3 });
+    });
     uploader.addPreProcessor((ids) => Effect.forEach(ids, (id) => prepare(uploader, id), { concurrency: 2, discard: true }).pipe(Effect.provide(BrowserCrypto.layer), Effect.runPromise));
     uploader.on('upload-success', (file) => {
         const prepared = file?.meta.prepared;
@@ -56,6 +61,16 @@ const uploads = Atom.make((get): Uppy<UploadMeta, Body> => {
     get.addFinalizer(() => uploader.destroy());
     return uploader;
 }).pipe(Atom.keepAlive);
+const pendingUploads = Atom.make((get): readonly Destination[] => {
+    const uploader = get(uploads);
+    const pending = (): readonly Destination[] =>
+        uploader
+            .getFiles()
+            .filter((file) => !file.progress.uploadComplete)
+            .map((file) => file.meta.destination);
+    get.addFinalizer(uploader.store.subscribe(() => get.setSelf(pending())));
+    return pending();
+}).pipe(Atom.withEquality(Equivalence.Array(Equivalence.strictEqual<Destination>())));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -71,6 +86,9 @@ const removed = (uploader: Uppy<UploadMeta, Body>, id: string): Effect.Effect<vo
     });
 const prepare = Effect.fnUntraced(function* (uploader: Uppy<UploadMeta, Body>, id: string) {
     const file = uploader.getFile(id);
+    if (!file) {
+        return;
+    }
     const { data } = file;
     const complete = (): void => uploader.emit('preprocess-complete', uploader.getFile(id));
     if (file.meta.prepared || !(data instanceof Blob)) {
@@ -78,7 +96,8 @@ const prepare = Effect.fnUntraced(function* (uploader: Uppy<UploadMeta, Body>, i
     }
     const crypto = yield* Crypto.Crypto;
     const inspected = Effect.gen(function* () {
-        const asset = yield* inspectFile(data, yield* crypto.randomUUIDv4, file.name);
+        const { inspectFile } = yield* Effect.tryPromise(() => import('../media/inspect.ts'));
+        const asset = yield* inspectFile(data, yield* crypto.randomUUIDv4, file.name, file.type);
         const compositions = yield* Effect.forEach(placementsFor(asset), (placement) => Effect.map(crypto.randomUUIDv4, (key) => createComposition(key, placement)));
         return { asset, compositions } satisfies Prepared;
     });
@@ -113,4 +132,4 @@ const receive = (data: typeof PortfolioData.Type, uploaded: Uploaded): typeof Po
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Destination, destination, type UploadMeta, uploads };
+export { type Destination, destination, pendingUploads, uploads };

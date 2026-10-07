@@ -8,12 +8,12 @@ import { PlacementFields } from './placement.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function Identity({ portfolio, onChange, onHero, onChooseHero }: { portfolio: typeof Portfolio.Type; onChange: (portfolio: typeof Portfolio.Type) => void; onHero: (hero: typeof Placement.Type | undefined) => void; onChooseHero: () => void }): ReactNode {
+function Identity({ portfolio, onChange, onHero, onChooseHero }: { portfolio: typeof Portfolio.Type; onChange: (update: (portfolio: typeof Portfolio.Type) => typeof Portfolio.Type) => void; onHero: (hero: typeof Placement.Type | undefined) => void; onChooseHero: () => void }): ReactNode {
     return (
         <>
-            <Field label="Display name" onChange={(name): void => onChange({ ...portfolio, name })} placeholder="Your name or studio" value={portfolio.name} />
-            <Field label="Introduction" multiline={true} onChange={(introduction): void => onChange({ ...portfolio, introduction })} placeholder="Optional short introduction" value={portfolio.introduction} />
-            <Field description="Enter a complete email address, or leave this blank." id={emailId} label="Public contact email" onChange={(email): void => onChange({ ...portfolio, email })} placeholder="Optional" type="email" value={portfolio.email} />
+            <Field label="Display name" onChange={(name): void => onChange((current) => ({ ...current, name }))} placeholder="Your name or studio" value={portfolio.name} />
+            <Field label="Introduction" multiline={true} onChange={(introduction): void => onChange((current) => ({ ...current, introduction }))} placeholder="Optional short introduction" value={portfolio.introduction} />
+            <Field description="Enter a complete email address, or leave this blank." id={emailId} label="Public contact email" onChange={(email): void => onChange((current) => ({ ...current, email }))} placeholder="Optional" type="email" value={portfolio.email} />
             <h3 className="mt-2 text-[26px] tracking-[-0.035em]">Hero placement</h3>
             {portfolio.hero ? (
                 <>

@@ -238,6 +238,7 @@
         "papaparse": "catalog:",
         "parquet-wasm": "catalog:",
         "parse5": "catalog:",
+        "partial-content": "catalog:",
         "playwright": "catalog:",
         "plist": "catalog:",
         "prosemirror-collab": "catalog:",

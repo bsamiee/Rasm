@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { type Cause, Effect, Function, Match, Predicate, Result, Schema, Sink, Stream } from 'effect';
 import { HttpRouter, type HttpServerRequest, HttpServerResponse, HttpStatus, type Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
+import { evaluateConditionalRequest } from 'partial-content';
 import { Api } from '../model/api.ts';
 import { Asset, Id } from '../model/asset.ts';
 import { deleteAsset, isPublished, storeAsset, unavailable } from './database.ts';
@@ -73,23 +74,20 @@ const download = HttpRouter.add(
         function* (request: HttpServerRequest.HttpServerRequest) {
             const { id } = yield* HttpRouter.schemaPathParams(Schema.Struct({ id: Id }));
             yield* Effect.filterOrElse(isPublished(id), Function.identity, () => authorize);
-            const conditions = new Headers(request.headers);
-            const object = yield* Effect.tryPromise(() => env.BUCKET.get(id, { range: conditions, onlyIf: conditions })).pipe(Effect.filterOrFail(Predicate.isNotNull, () => new HttpApiError.NotFound()));
-            const headers = new Headers([
-                ['Accept-Ranges', 'bytes'],
-                ['Cache-Control', 'private, no-cache'],
-                ['ETag', object.httpEtag],
-                ['X-Content-Type-Options', 'nosniff'],
-            ]);
-            object.writeHttpMetadata(headers);
-            return 'body' in object
-                ? Match.value(object.range).pipe(
-                      Match.when({ offset: Match.number, length: (length: number) => length < object.size }, ({ offset, length }) =>
-                          HttpServerResponse.raw(object.body, { status: HttpStatus.fromLiteral('PartialContent'), headers, contentLength: length }).pipe(HttpServerResponse.setHeader('Content-Range', `bytes ${offset}-${offset + length - 1}/${object.size}`)),
-                      ),
-                      Match.orElse(() => HttpServerResponse.raw(object.body, { headers, contentLength: object.size })),
-                  )
-                : HttpServerResponse.empty({ status: HttpStatus.fromLiteral('NotModified'), headers });
+            const requested = new Headers(request.headers);
+            const conditional = ['Range', 'If-Match', 'If-None-Match', 'If-Modified-Since', 'If-Unmodified-Since'].some((header) => requested.has(header));
+            const metadata = yield* Effect.tryPromise((): Promise<R2Object | R2ObjectBody | null> => (conditional ? env.BUCKET.head(id) : env.BUCKET.get(id))).pipe(Effect.filterOrFail(Predicate.isNotNull, () => new HttpApiError.NotFound()));
+            const response = evaluateConditionalRequest(requested, { totalSize: metadata.size, etag: metadata.httpEtag, lastModified: metadata.uploaded.toUTCString() });
+            const headers = new Headers(response.headers);
+            metadata.writeHttpMetadata(headers);
+            headers.set('Cache-Control', 'private, no-cache');
+            headers.set('X-Content-Type-Options', 'nosniff');
+            if (response.status !== HttpStatus.fromLiteral('Ok') && response.status !== HttpStatus.fromLiteral('PartialContent')) {
+                return HttpServerResponse.empty({ status: response.status, headers });
+            }
+            const object =
+                'body' in metadata ? metadata : yield* Effect.tryPromise(() => env.BUCKET.get(id, response.range === null ? {} : { range: { offset: response.range.start, length: response.range.end - response.range.start + 1 } })).pipe(Effect.filterOrFail(Predicate.isNotNull, () => new HttpApiError.NotFound()));
+            return HttpServerResponse.raw(object.body, { status: response.status, headers });
         },
         Effect.catchTag('SchemaError', () => Effect.fail(new HttpApiError.NotFound())),
         Effect.catchTag('UnknownError', unavailable),

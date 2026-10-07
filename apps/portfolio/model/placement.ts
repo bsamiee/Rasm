@@ -14,10 +14,10 @@ const sheet = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('pdf'),
 const film = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('video') });
 const StoredPlacement = Schema.Union([drawing, photograph, sheet, film]);
 const ResolvedPlacement = Schema.Union([
-    drawing.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: ImageAsset })),
-    photograph.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: ImageAsset })),
-    sheet.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: PdfAsset, page: Schema.Struct({ ...Page.fields, number: pageNumber }) })),
-    film.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: VideoAsset })),
+    drawing.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: Schema.toType(ImageAsset) })),
+    photograph.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: Schema.toType(ImageAsset) })),
+    sheet.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: Schema.toType(PdfAsset), page: Schema.Struct({ ...Page.fields, number: pageNumber }) })),
+    film.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: Schema.toType(VideoAsset) })),
 ]);
 const Placement = StoredPlacement.pipe(
     Schema.decodeTo(ResolvedPlacement, {

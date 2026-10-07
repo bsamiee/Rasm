@@ -1,16 +1,17 @@
-import { ArrowUpRight, X } from 'lucide-react';
+import { Expand, X } from 'lucide-react';
 import { motion, useInView } from 'motion/react';
 import { type ComponentProps, type CSSProperties, lazy, type ReactElement, Suspense, useId, useRef } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal, ModalOverlay, Text } from 'react-aria-components';
+import { ErrorBoundary } from 'react-error-boundary';
 import type { Placement } from '../model/placement.ts';
-import { mediaRatio, placementTitle, sheetLabel } from './display.ts';
+import { mediaRatio, mediaUrl, placementTitle, sheetLabel } from './display.ts';
 import { Media } from './element.tsx';
-import { MediaLoading } from './status.tsx';
+import { MediaFailure, MediaLoading } from './status.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const ZoomViewer = lazy(() => import('./viewer.tsx').then((module) => ({ default: module.ZoomViewer })));
-function MediaFigure({ placement, active, priority, presentation }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: Exclude<ComponentProps<typeof Media>['presentation'], 'expanded'> }): ReactElement {
+function MediaFigure({ placement, active, priority, presentation, preload }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: Exclude<ComponentProps<typeof Media>['presentation'], 'expanded'>; preload?: boolean }): ReactElement {
     const layoutId = useId();
     const figure = useRef<HTMLElement>(null);
     const nearby = useInView(figure, { margin: '200px' });
@@ -19,7 +20,7 @@ function MediaFigure({ placement, active, priority, presentation }: { placement:
     const expandable = presentation === 'expandable' && placement.kind !== 'video';
     const description = placement.description && (
         <details className="hint landscape-short:col-span-full landscape-short:row-start-3">
-            <summary className="list-item min-h-11 cursor-pointer content-center">{placement.kind === 'video' ? 'Description / transcript' : 'Drawing description'}</summary>
+            <summary className="list-item min-h-11 cursor-pointer content-center">{placement.kind === 'video' ? 'Description / transcript' : 'Detailed description'}</summary>
             <p className="max-h-[25svh] overflow-auto whitespace-pre-line">{placement.description}</p>
         </details>
     );
@@ -27,7 +28,7 @@ function MediaFigure({ placement, active, priority, presentation }: { placement:
         // biome-ignore lint/nursery/noInlineStyles: Aspect ratio comes from the uploaded dimensions
         <figure className="w-[min(100%,calc(var(--media-height)*var(--media-ratio)))] min-w-0" ref={figure} style={style}>
             <motion.div {...(expandable && { layoutId })} className="relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden bg-surface">
-                {(priority || nearby) && <Media active={active && visible} key={placement.asset.id} placement={placement} presentation={presentation} priority={priority} />}
+                {(priority || preload || nearby) && <Media active={active && visible} key={placement.asset.id} placement={placement} preload={preload} presentation={presentation} priority={priority} />}
             </motion.div>
             {presentation !== 'thumbnail' && (
                 <>
@@ -38,7 +39,7 @@ function MediaFigure({ placement, active, priority, presentation }: { placement:
                             <DialogTrigger>
                                 <Button aria-label={`Expand ${placementTitle(placement)}`} className="ml-auto gap-1 whitespace-nowrap text-[13px] text-foreground text-link hover:text-accent-text">
                                     Expand
-                                    <ArrowUpRight className="size-6" strokeLinecap="butt" strokeLinejoin="miter" />
+                                    <Expand className="size-6" strokeLinecap="butt" strokeLinejoin="miter" />
                                 </Button>
                                 <ModalOverlay className="fixed inset-0 z-50 bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-[fade_200ms_reverse]" isDismissable={true}>
                                     <Modal>
@@ -56,11 +57,13 @@ function MediaFigure({ placement, active, priority, presentation }: { placement:
                                                     </Button>
                                                 </div>
                                                 <Text className="wrap-anywhere text-[13px] text-muted landscape-short:hidden" elementType="p" slot="description">
-                                                    {placement.kind === 'pdf' ? sheetLabel(placement) : 'Scroll or pinch to zoom. Drag to move.'}
+                                                    {placement.kind === 'pdf' ? 'Select text to copy. Use Pan to move around a sheet.' : 'Scroll or pinch to zoom. Drag or use arrow keys to move. Use + and − to zoom.'}
                                                 </Text>
-                                                <Suspense fallback={<MediaLoading />}>
-                                                    <ZoomViewer layoutId={layoutId} placement={placement} />
-                                                </Suspense>
+                                                <ErrorBoundary fallback={<MediaFailure href={mediaUrl(placement)} linkLabel="Open original" message="The expanded viewer could not be loaded." />}>
+                                                    <Suspense fallback={<MediaLoading />}>
+                                                        <ZoomViewer layoutId={layoutId} placement={placement} />
+                                                    </Suspense>
+                                                </ErrorBoundary>
                                                 {description}
                                             </motion.div>
                                         </Dialog>

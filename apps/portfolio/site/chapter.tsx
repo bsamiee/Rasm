@@ -1,6 +1,6 @@
 import useEmblaCarousel from 'embla-carousel-react';
 import { useInView, useReducedMotion } from 'motion/react';
-import { type ReactNode, useEffect, useEffectEvent, useId, useRef, useSyncExternalStore } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useEffectEvent, useId, useRef, useSyncExternalStore } from 'react';
 import { CompositionGrid } from '../media/composition.tsx';
 import { compositionLabel, entryTitle } from '../media/display.ts';
 import { MediaFigure } from '../media/figure.tsx';
@@ -37,6 +37,21 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
         ] as const
     ).filter(([, value]) => value);
     const select = useEffectEvent(() => navigation.select(entry.id, entry.compositions[api.selectedSnap()]?.id));
+    const navigate = (event: KeyboardEvent<HTMLButtonElement>): void => {
+        if (event.altKey || event.ctrlKey || event.metaKey) {
+            return;
+        }
+        switch (event.key) {
+            case 'ArrowLeft':
+                event.preventDefault();
+                api.goToPrev();
+                break;
+            case 'ArrowRight':
+                event.preventDefault();
+                api.goToNext();
+                break;
+        }
+    };
     useEffect(() => {
         const allowDrag = (_api: unknown, { detail }: { readonly detail: Event }): boolean => !(detail.target instanceof Element && detail.target.closest('a,button,video'));
         const release = (): void => {
@@ -86,7 +101,7 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
                             ))}
                         </div>
                     </div>
-                    <div className="mt-6 flex items-center gap-4 border-line border-t pt-3 max-sm:flex-wrap max-sm:gap-2">
+                    <fieldset aria-label={`${title} composition navigation`} className="mt-6 flex min-w-0 items-center gap-4 border-line border-t pt-3 max-sm:flex-wrap max-sm:gap-2">
                         <span aria-atomic="true" aria-live="polite" className="eyebrow shrink-0 text-accent-text">
                             {numeral(selectedSnap + 1)} / {numeral(entry.compositions.length)}
                         </span>
@@ -98,19 +113,19 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
                             ))}
                         </select>
                         <div className="ml-auto flex max-sm:w-full max-sm:justify-between">
-                            <button aria-disabled={!api.canGoToPrev()} className="button button-ghost" onClick={(): void => api.goToPrev()} type="button">
+                            <button aria-disabled={!api.canGoToPrev()} className="button button-ghost" onClick={(): void => api.goToPrev()} onKeyDown={navigate} type="button">
                                 Previous
                             </button>
-                            <button aria-disabled={!api.canGoToNext()} className="button button-ghost" onClick={(): void => api.goToNext()} type="button">
+                            <button aria-disabled={!api.canGoToNext()} className="button button-ghost" onClick={(): void => api.goToNext()} onKeyDown={navigate} type="button">
                                 Next
                             </button>
                         </div>
-                    </div>
+                    </fieldset>
                 </section>
             ) : (
                 <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
                     <h3 className="text-xl">No compositions yet</h3>
-                    <p className="hint">Add files in the editor to compose this entry.</p>
+                    <p className="hint">Drawings and images will appear here as they are published.</p>
                 </div>
             )}
             {details.length > 0 && (

@@ -18,7 +18,7 @@ interface Choice {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const popover = 'max-h-[50vh] max-w-[min(480px,calc(100vw-32px))] overflow-auto border border-control-line bg-background';
-const option = 'min-h-11 cursor-pointer px-4 py-2.5 outline-none focused:bg-foreground focused:text-background';
+const option = 'min-h-11 cursor-pointer px-4 py-2.5 focus:bg-foreground focus:text-background';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -122,7 +122,7 @@ function ConfirmDialog({ label, description, onConfirm, disabled }: { label: str
         </DialogTrigger>
     );
 }
-function RequestAlert({ error, onField }: { error: RequestFailure; onField?: (path: readonly PropertyKey[]) => void }): ReactNode {
+function RequestAlert({ error, conflict, onField }: { error: RequestFailure; conflict: string; onField?: (path: readonly PropertyKey[]) => void }): ReactNode {
     return (
         <div className="border-accent-text border-l-[3px] bg-surface p-4 text-sm" role="alert">
             {Match.value(error).pipe(
@@ -149,7 +149,7 @@ function RequestAlert({ error, onField }: { error: RequestFailure; onField?: (pa
                     </>
                 )),
                 Match.tag('Forbidden', () => <p>Sign in with the owner account to edit.</p>),
-                Match.tag('Conflict', () => <p>A file is still used by saved or published work. Remove its placements and save before trying again.</p>),
+                Match.tag('Conflict', () => <p>{conflict}</p>),
                 Match.tag('ServiceUnavailable', () => <p>The service is unavailable. Your changes remain here.</p>),
                 Match.orElse(() => <p>The request could not finish. Your changes remain here; try again.</p>),
             )}

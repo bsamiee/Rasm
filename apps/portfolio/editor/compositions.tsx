@@ -1,3 +1,5 @@
+import { BrowserCrypto } from '@effect/platform-browser';
+import { Effect } from 'effect';
 import { type ReactNode, useState } from 'react';
 import { Button } from 'react-aria-components';
 import { CompositionGrid } from '../media/composition.tsx';
@@ -7,7 +9,6 @@ import type { Composition, Placement } from '../model/placement.ts';
 import { ConfirmDialog, MenuButton, SelectField } from './controls.tsx';
 import { PlacementFields } from './placement.tsx';
 import { ReorderableList } from './reorderable.tsx';
-import { randomId } from './services.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,9 +25,9 @@ const alignments = [
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function CompositionEditor({ entry, item, onChange, onHero }: { entry: typeof Entry.Type; item: typeof Composition.Type; onChange: (entry: typeof Entry.Type) => void; onHero: (placement: typeof Placement.Type) => void }): ReactNode {
+function CompositionEditor({ entry, item, onChange, onHero }: { entry: typeof Entry.Type; item: typeof Composition.Type; onChange: (update: (entry: typeof Entry.Type) => typeof Entry.Type) => void; onHero: (placement: typeof Placement.Type) => void }): ReactNode {
     const [first, second] = item.items;
-    const replace = (...values: readonly (typeof Composition.Type)[]): void => onChange({ ...entry, compositions: entry.compositions.flatMap((candidate) => (candidate.id === item.id ? values : [candidate])) });
+    const replace = (...values: readonly (typeof Composition.Type)[]): void => onChange((current) => ({ ...current, compositions: current.compositions.flatMap((candidate) => (candidate.id === item.id ? values : [candidate])) }));
     const singles = entry.compositions.filter((candidate) => candidate.id !== item.id && candidate.items.length === 1);
     return (
         <div className="flex flex-col gap-[18px] border-foreground border-t pt-[25px]">
@@ -35,15 +36,15 @@ function CompositionEditor({ entry, item, onChange, onHero }: { entry: typeof En
                 <SelectField label="Scale" onChange={({ id }): void => replace({ ...item, scale: id })} options={scales} value={item.scale} />
                 <SelectField label="Alignment" onChange={({ id }): void => replace({ ...item, align: id })} options={alignments} value={item.align} />
             </div>
-            <PlacementFields onChange={(placement): void => replace({ ...item, items: second ? [placement, second] : [placement] })} onCover={(): void => onChange({ ...entry, cover: first })} onHero={(): void => onHero(first)} value={first} />
-            {second && <PlacementFields onChange={(placement): void => replace({ ...item, items: [first, placement] })} onCover={(): void => onChange({ ...entry, cover: second })} onHero={(): void => onHero(second)} value={second} />}
+            <PlacementFields onChange={(placement): void => replace({ ...item, items: second ? [placement, second] : [placement] })} onCover={(): void => onChange((current) => ({ ...current, cover: first }))} onHero={(): void => onHero(first)} value={first} />
+            {second && <PlacementFields onChange={(placement): void => replace({ ...item, items: [first, placement] })} onCover={(): void => onChange((current) => ({ ...current, cover: second }))} onHero={(): void => onHero(second)} value={second} />}
             <div className="actions">
                 {second ? (
                     <>
                         <button className="button button-outline" onClick={(): void => replace({ ...item, items: [second, first] })} type="button">
                             Swap pair order
                         </button>
-                        <button className="button button-outline" onClick={(): void => replace({ ...item, items: [first] }, { ...item, id: randomId(), items: [second] })} type="button">
+                        <button className="button button-outline" onClick={(): void => replace({ ...item, items: [first] }, { ...item, id: Effect.runSync(BrowserCrypto.WebCrypto).randomUUID(), items: [second] })} type="button">
                             Unpair
                         </button>
                     </>
@@ -51,7 +52,7 @@ function CompositionEditor({ entry, item, onChange, onHero }: { entry: typeof En
                     singles.length > 0 && (
                         <MenuButton
                             label="Pair with"
-                            onAction={({ pair }): void => onChange({ ...entry, compositions: entry.compositions.filter((candidate) => candidate.id !== pair.id).map((candidate) => (candidate.id === item.id ? { ...candidate, items: [first, pair.items[0]] } : candidate)) })}
+                            onAction={({ pair }): void => onChange((current) => ({ ...current, compositions: current.compositions.filter((candidate) => candidate.id !== pair.id).map((candidate) => (candidate.id === item.id ? { ...candidate, items: [first, pair.items[0]] } : candidate)) }))}
                             options={singles.map((pair) => ({ id: pair.id, label: placementLabel(pair.items[0]), pair }))}
                         >
                             Pair with
@@ -63,7 +64,7 @@ function CompositionEditor({ entry, item, onChange, onHero }: { entry: typeof En
         </div>
     );
 }
-function Compositions({ entry, onChange, onHero, onUpload }: { entry: typeof Entry.Type; onChange: (entry: typeof Entry.Type) => void; onHero: (placement: typeof Placement.Type) => void; onUpload: () => void }): ReactNode {
+function Compositions({ entry, onChange, onHero, onUpload }: { entry: typeof Entry.Type; onChange: (update: (entry: typeof Entry.Type) => typeof Entry.Type) => void; onHero: (placement: typeof Placement.Type) => void; onUpload: () => void }): ReactNode {
     const [selected, setSelected] = useState<string>();
     const item = entry.compositions.find((candidate) => candidate.id === selected);
     return (
@@ -77,7 +78,7 @@ function Compositions({ entry, onChange, onHero, onUpload }: { entry: typeof Ent
                 </button>
             </div>
             <p className="note">Each composition is one step in this project. Pair related sheets explicitly; drawings always retain their full extent.</p>
-            <ReorderableList items={entry.compositions} label={`${entryTitle(entry)} compositions`} onChange={(compositions): void => onChange({ ...entry, compositions })} textValue={compositionLabel}>
+            <ReorderableList items={entry.compositions} label={`${entryTitle(entry)} compositions`} onChange={(update): void => onChange((current) => ({ ...current, compositions: update(current.compositions) }))} textValue={compositionLabel}>
                 {(candidate): ReactNode => (
                     <Button aria-pressed={selected === candidate.id} className="wrap-anywhere block w-full pb-2.5 text-left text-sm aria-pressed:text-accent-text aria-pressed:underline aria-pressed:underline-offset-[5px]" onPress={(): void => setSelected(selected === candidate.id ? undefined : candidate.id)}>
                         {compositionLabel(candidate)}

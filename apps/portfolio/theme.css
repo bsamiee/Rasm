@@ -45,7 +45,8 @@
             scroll-behavior: smooth;
         }
     }
-    :focus-visible {
+    :focus-visible,
+    [data-focus-visible] {
         @apply outline-2 outline-offset-4 outline-accent-text;
     }
     a,

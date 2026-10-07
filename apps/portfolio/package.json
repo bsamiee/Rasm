@@ -17,9 +17,11 @@
         "embla-carousel-react": "catalog:",
         "lucide-react": "catalog:",
         "motion": "catalog:",
+        "partial-content": "catalog:",
         "react": "catalog:",
         "react-aria-components": "catalog:",
         "react-dom": "catalog:",
+        "react-error-boundary": "catalog:",
         "react-zoom-pan-pinch": "catalog:",
         "tailwindcss": "catalog:",
         "tailwindcss-react-aria-components": "catalog:"

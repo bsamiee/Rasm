@@ -1,8 +1,7 @@
 import { useAtom, useAtomValue } from '@effect/atom-react';
 import Dashboard from '@uppy/react/dashboard';
 import type { ReactNode } from 'react';
-import '@uppy/core/css/style.min.css';
-import '@uppy/dashboard/css/style.min.css';
+import './uploads.css';
 import { entryTitle } from '../media/display.ts';
 import type { Entry } from '../model/document.ts';
 import { SelectField } from './controls.tsx';

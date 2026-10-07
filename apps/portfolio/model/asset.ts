@@ -11,9 +11,9 @@ const extent = Schema.Finite.check(Schema.isGreaterThan(0));
 const Dimensions = Schema.Struct({ width: extent, height: extent });
 const Page = Schema.Struct({ ...Dimensions.fields, label: Schema.optionalKey(Schema.String) });
 const file = { id: Id, name: Schema.NonEmptyString, size: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: uploadLimit })) };
-const ImageAsset = Schema.Struct({ ...file, mime: Schema.Literals(['image/jpeg', 'image/png', 'image/webp', 'image/avif']), ...Dimensions.fields });
-const VideoAsset = Schema.Struct({ ...file, mime: Schema.Literals(['video/mp4', 'video/webm']), ...Dimensions.fields });
-const PdfAsset = Schema.Struct({ ...file, mime: Schema.Literals(['application/pdf']), pages: Schema.NonEmptyArray(Page) });
+class ImageAsset extends Schema.Class<ImageAsset>('ImageAsset')({ ...file, mime: Schema.Literals(['image/jpeg', 'image/png', 'image/webp', 'image/avif']), ...Dimensions.fields }) {}
+class VideoAsset extends Schema.Class<VideoAsset>('VideoAsset')({ ...file, mime: Schema.Literals(['video/mp4', 'video/webm']), ...Dimensions.fields }) {}
+class PdfAsset extends Schema.Class<PdfAsset>('PdfAsset')({ ...file, mime: Schema.Literals(['application/pdf']), pages: Schema.NonEmptyArray(Page) }) {}
 const Asset = Schema.Union([ImageAsset, VideoAsset, PdfAsset]);
 const AssetCollection = Schema.Record(Schema.String, Asset);
 const mediaTypes = Asset.members.flatMap((member) => member.fields.mime.literals);

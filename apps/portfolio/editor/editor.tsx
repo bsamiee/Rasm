@@ -1,9 +1,9 @@
 import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
-import type { Body, UppyFile } from '@uppy/core';
-import { useUppyState } from '@uppy/react';
-import { Array, Match, Optic, Option, Struct } from 'effect';
+import { BrowserCrypto } from '@effect/platform-browser';
+import { Array, Effect, Match, Optic, Option, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { type ReactNode, useEffect, useId, useState } from 'react';
+import { X } from 'lucide-react';
+import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { Button, Dialog, Heading, type Key, Modal, ModalOverlay, Tab, TabList, TabPanel, Tabs, Text } from 'react-aria-components';
 import { createEntry, type Entry, type Portfolio, type PortfolioData } from '../model/document.ts';
 import { type Placement, placementsFor } from '../model/placement.ts';
@@ -14,17 +14,17 @@ import { emailId, focus, titleId } from './focus.ts';
 import { Identity } from './identity.tsx';
 import { Library } from './library.tsx';
 import { ReuseFile } from './reuse.tsx';
-import { deleteRequest, draft, draftRequest, randomId, saveRequest } from './services.ts';
-import { destination, type UploadMeta, uploads } from './uploader.ts';
-import { Uploads } from './uploads.tsx';
+import { deleteRequest, draft, draftRequest, saveRequest } from './services.ts';
+import { type Destination, destination, pendingUploads } from './uploader.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const tab = 'min-h-11 cursor-pointer px-3.5 py-2.5 text-sm outline-none selected:text-accent-text selected:shadow-[inset_0_-2px_var(--color-accent-text)] max-sm:p-2 max-sm:text-xs';
+const tab = 'min-h-11 cursor-pointer px-3.5 py-2.5 text-sm selected:text-accent-text selected:shadow-[inset_0_-2px_var(--color-accent-text)] max-sm:p-2 max-sm:text-xs';
 const tabPanel = 'flex flex-col gap-5 data-inert:hidden';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+const Uploads = lazy(() => import('./uploads.tsx').then((module) => ({ default: module.Uploads })));
 function EditorDialog({ description, busy, children }: { description: string; busy: boolean; children?: ReactNode }): ReactNode {
     return (
         <ModalOverlay className="fixed inset-0 z-50 bg-foreground/55" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
@@ -37,8 +37,8 @@ function EditorDialog({ description, busy, children }: { description: string; bu
                         <Text className="mt-2 text-muted text-sm" elementType="p" slot="description">
                             {description}
                         </Text>
-                        <Button aria-label="Close portfolio editor" className="absolute top-5 right-5 min-h-11 min-w-11 text-[28px]" isDisabled={busy} slot="close">
-                            Close
+                        <Button aria-label="Close portfolio editor" className="absolute top-5 right-5 grid min-h-11 min-w-11 place-items-center" isDisabled={busy} slot="close">
+                            <X className="size-6" />
                         </Button>
                     </div>
                     {children}
@@ -47,8 +47,9 @@ function EditorDialog({ description, busy, children }: { description: string; bu
         </ModalOverlay>
     );
 }
-function DraftEditor({ data, published, changed, pending, onPreview }: { data: typeof PortfolioData.Type; published: typeof Portfolio.Type; changed: boolean; pending: readonly UppyFile<UploadMeta, Body>[]; onPreview: (data: typeof PortfolioData.Type) => void }): ReactNode {
+function DraftEditor({ data, published, changed, pending, onPreview }: { data: typeof PortfolioData.Type; published: typeof Portfolio.Type; changed: boolean; pending: readonly Destination[]; onPreview: (data: typeof PortfolioData.Type) => void }): ReactNode {
     const ids = useId();
+    const publish = useRef<HTMLButtonElement>(null);
     const setDraft = useAtomSet(draft);
     const setTarget = useAtomSet(destination);
     const [selected, setSelected] = useState<string>();
@@ -61,9 +62,9 @@ function DraftEditor({ data, published, changed, pending, onPreview }: { data: t
     const current = data.portfolio.entries.find((item) => item.id === selected);
     const show = (name: 'entries' | 'files' | 'identity'): void => setSelectedTab(`${ids}${name}`);
     const setHero = (hero: typeof Placement.Type | undefined): void => setDraft(AsyncResult.map(Optic.replace(portfolio.optionalKey('hero'), hero)));
-    const updateEntry = (updated: typeof Entry.Type): void => setDraft(AsyncResult.map(entries.modify(Array.map((item) => (item.id === updated.id ? updated : item)))));
+    const updateEntry = (update: (entry: typeof Entry.Type) => typeof Entry.Type): void => setDraft(AsyncResult.map(entries.modify(Array.map((item) => (item.id === selected ? update(item) : item)))));
     const create = (kind: typeof Entry.Type.kind): void => {
-        const created = createEntry(randomId(), kind);
+        const created = createEntry(Effect.runSync(BrowserCrypto.WebCrypto).randomUUID(), kind);
         setDraft(AsyncResult.map(entries.modify(Array.append(created))));
         setSelected(created.id);
         setTarget({ kind: 'entry', id: created.id });
@@ -98,14 +99,17 @@ function DraftEditor({ data, published, changed, pending, onPreview }: { data: t
                 <Button className="button button-outline" isDisabled={busy} onPress={(): void => onPreview(data)} slot="close">
                     Preview
                 </Button>
-                <button aria-describedby={pending.length > 0 ? `${ids}uploads` : undefined} className="button" disabled={busy || pending.length > 0} form={`${ids}form`} formAction={(): void => submit({ snapshot: data, publish: true })} type="submit">
+                <button aria-describedby={pending.length > 0 ? `${ids}uploads` : undefined} className="button" disabled={busy || pending.length > 0} form={`${ids}form`} ref={publish} type="submit">
                     Publish
                 </button>
                 <p className="min-h-[18px] w-full text-[13px] text-muted" role="status">
                     {status}
                 </p>
-                {Option.match(AsyncResult.error(operation), { onNone: (): ReactNode => null, onSome: (failure) => <RequestAlert error={failure.error} onField={(path): void => locate(path, failure.portfolio)} /> })}
-                {Option.match(AsyncResult.error(deletion), { onNone: (): ReactNode => null, onSome: (failure) => <RequestAlert error={failure} /> })}
+                {Option.match(AsyncResult.error(operation), {
+                    onNone: (): ReactNode => null,
+                    onSome: (failure) => <RequestAlert conflict="An asset in this draft is no longer available. Remove its placement or upload it again before saving." error={failure.error} onField={(path): void => locate(path, failure.portfolio)} />,
+                })}
+                {Option.match(AsyncResult.error(deletion), { onNone: (): ReactNode => null, onSome: (failure) => <RequestAlert conflict="This file is still used by saved or published work. Remove its placements, save, and publish before deleting." error={failure} /> })}
                 {pending.length > 0 && (
                     <p className="w-full text-[13px] text-muted" id={`${ids}uploads`}>
                         {pending.length} {pending.length === 1 ? 'file needs' : 'files need'} attention. Finish, retry, or remove queued files before publishing.{' '}
@@ -139,8 +143,8 @@ function DraftEditor({ data, published, changed, pending, onPreview }: { data: t
                         </div>
                         <EntryList
                             entries={data.portfolio.entries}
-                            locked={(item): boolean => pending.some((file) => file.meta.destination.kind === 'entry' && file.meta.destination.id === item.id)}
-                            onChange={(items): void => setDraft(AsyncResult.map(Optic.replace(entries, items)))}
+                            locked={(item): boolean => pending.some((target) => target.kind === 'entry' && target.id === item.id)}
+                            onChange={(update): void => setDraft(AsyncResult.map(entries.modify(update)))}
                             onRemove={(item): void => {
                                 setDraft(AsyncResult.map(entries.modify(Array.filter((candidate) => candidate.id !== item.id))));
                                 setSelected((value) => (value === item.id ? undefined : value));
@@ -171,17 +175,18 @@ function DraftEditor({ data, published, changed, pending, onPreview }: { data: t
                                         show('files');
                                     }}
                                 />
-                                <ReuseFile assets={data.assets} onAdd={(compositions): void => updateEntry({ ...current, compositions: [...current.compositions, ...compositions] })} />
+                                <ReuseFile assets={data.assets} onAdd={(compositions): void => updateEntry((entry) => ({ ...entry, compositions: [...entry.compositions, ...compositions] }))} />
                             </div>
                         )}
                     </TabPanel>
-                    <TabPanel className={tabPanel} id={`${ids}files`} shouldForceMount={true}>
-                        <Uploads entries={data.portfolio.entries} />
+                    <TabPanel className={tabPanel} id={`${ids}files`}>
+                        <Suspense fallback={<p role="status">Loading files…</p>}>
+                            <Uploads entries={data.portfolio.entries} />
+                        </Suspense>
                         <Library assets={data.assets} draft={data.portfolio} onDelete={(asset): void => deleteAsset(asset.id)} onHero={(asset): void => setHero(Array.headNonEmpty(placementsFor(asset)))} published={published} />
                     </TabPanel>
                     <TabPanel className={tabPanel} id={`${ids}identity`} shouldForceMount={true}>
                         <form
-                            action={(): void => submit({ snapshot: data, publish: false })}
                             className="flex flex-col gap-5"
                             id={`${ids}form`}
                             onInvalidCapture={(event): void => {
@@ -189,9 +194,13 @@ function DraftEditor({ data, published, changed, pending, onPreview }: { data: t
                                 show('identity');
                                 focus(emailId);
                             }}
+                            onSubmit={(event): void => {
+                                event.preventDefault();
+                                submit({ snapshot: data, publish: event.submitter === publish.current });
+                            }}
                         >
                             <Identity
-                                onChange={(value): void => setDraft(AsyncResult.map(Optic.replace(portfolio, value)))}
+                                onChange={(update): void => setDraft(AsyncResult.map(portfolio.modify(update)))}
                                 onChooseHero={(): void => {
                                     setTarget({ kind: 'hero' });
                                     show('files');
@@ -211,7 +220,7 @@ function Editor({ onPublish, ...props }: { published: typeof Portfolio.Type; onP
     const loaded = useAtomValue(draft);
     const operation = useAtomValue(saveRequest);
     const reload = useAtomRefresh(draft);
-    const pending = useUppyState(useAtomValue(uploads), (state) => Object.values(state.files).filter((file) => !file.progress.uploadComplete));
+    const pending = useAtomValue(pendingUploads);
     const baseline = Option.orElse(Option.map(AsyncResult.value(operation), Struct.get('snapshot')), () => AsyncResult.value(initial));
     const changed = Option.exists(Option.all({ data: AsyncResult.value(loaded), saved: baseline }), ({ data, saved }) => data.portfolio !== saved.portfolio);
     const unsaved = changed || pending.length > 0;
@@ -232,7 +241,7 @@ function Editor({ onPublish, ...props }: { published: typeof Portfolio.Type; onP
         onError: (error) => (
             <EditorDialog busy={false} description="Your draft could not be loaded.">
                 <div className="flex flex-col gap-5 px-9 py-6">
-                    <RequestAlert error={error} />
+                    <RequestAlert conflict="Your draft changed. Try loading it again." error={error} />
                     <button className="button self-start" onClick={reload} type="button">
                         Try again
                     </button>
