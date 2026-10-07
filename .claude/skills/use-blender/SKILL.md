@@ -208,7 +208,7 @@ bpy.ops.wm.revert_mainfile()
 Snippets hold each rule:
 - Globals reset per call, later calls reaching data by name through `bpy.data.<collection>["<name>"]`
 - New data-blocks take a `.001` suffix on a name another holds, later code reading the `name` the new ID took
-- Use configuration.md for scene units
+- Use [configuration.md](references/configuration.md) for scene units
 - Use data-API writes where available, with target scene overrides for context-reading property callbacks
 - Calls hold the first window with no area or region
 - State an event-loop pass applies (workspace switches, area sizes, view matrices) reads in a deferred step or the next call
@@ -235,7 +235,7 @@ Snippets hold each rule:
 - `mcp-for-blender` `execute_blender_code` answers printed output alone and drops `result`, a raise answering with its traceback
 - Server tools a script replaces answer a hook refusal naming the replacing call
 
-Use execution.md for `Faults` a script returns.
+Use [execution.md](references/execution.md) for script faults and deferred passes.
 
 ## [07]-[CAPTURE]
 

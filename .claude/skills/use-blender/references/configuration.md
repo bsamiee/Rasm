@@ -240,7 +240,7 @@ result = {"dpi": system.dpi, "pixel_size": pixel, "widget_unit": widget, "area_h
 
 ## [09]-[UNITS]
 
-Geometry coordinates use Blender units, with meters equal to coordinates times `unit_settings.scale_length`. Divide meter inputs by `scale_length` before geometry writes. Unit systems change display and typed input alone. `bpy.ops.interface.units(system="<IMPERIAL|METRIC>")` switches every scene and dependent setting:
+Multiplying geometry coordinates in Blender units by `unit_settings.scale_length` gives meters. Divide meter inputs by `scale_length` before geometry writes. Unit systems change display and typed input alone. `bpy.ops.interface.units(system="<IMPERIAL|METRIC>")` switches every scene and dependent setting:
 - `tools/interface/blender/extension/unit_system.py` declares those settings: unit tokens, merge tolerance, clip ranges, sheet scale, add-on lengths
 - Scenes set outside the operator take `unit_settings.system` first, each system write resetting `length_unit` and `mass_unit`, then each unit token
 - Unit tokens take the system's items alone (`temperature_unit = "CELSIUS"` raises under IMPERIAL), a raising tuple assignment keeping earlier targets
