@@ -5,7 +5,7 @@ severity: error
 utils:
     renamed-call:
         kind: function_call
-        has: {field: name, regex: '(?i)^(ifnull|iif|substring|string_agg)$'}
+        has: {field: name, regex: '(?i)^(ifnull|substring|string_agg)$'}
     json-call:
         kind: function_call
         all:
@@ -144,7 +144,7 @@ rule:
         - matches: is-not-comparison
         - kind: is_null_expression
         - matches: conditional-aggregate
-        - any: [{matches: renamed-call}, {matches: choice-without-else}, {matches: choice-with-else}]
+        - matches: renamed-call
           not: {inside: {kind: normal_function_arguments, inside: {matches: conditional-aggregate}}}
 rewriters:
     - id: counted
@@ -190,17 +190,6 @@ rewriters:
         GROUPED_CASE: {replace: {source: $CASEG, replace: '(?s)^(.+)$', by: '($1)'}}
         OVER_CLAUSE: {replace: {source: $OVER, replace: '(?s)^(.+)$', by: ' $1'}}
       fix: $AGGREGATE($DISTINCT_WORD$THEN$SEPARATOR_PARAMETER$ORDER_CLAUSE) filter (where $SUBJECT_EQUAL$GROUPED_SUBJECT_EQUAL$CASE$GROUPED_CASE$COND)$OVER_CLAUSE
-    - id: chosen-without-else
-      rule: {matches: choice-without-else}
-      transform: &choice
-        SUBJECT_EQUAL: {replace: {source: $SUBJECT, replace: '(?s)^(.+)$', by: '$1 = '}}
-        GROUPED_SUBJECT_EQUAL: {replace: {source: $SUBJECTG, replace: '(?s)^(.+)$', by: '($1) = '}}
-        GROUPED_CASE: {replace: {source: $CASEG, replace: '(?s)^(.+)$', by: '($1)'}}
-      fix: if($SUBJECT_EQUAL$GROUPED_SUBJECT_EQUAL$CASE$GROUPED_CASE$COND, $THEN, null)
-    - id: chosen-with-else
-      rule: {matches: choice-with-else}
-      transform: *choice
-      fix: if($SUBJECT_EQUAL$GROUPED_SUBJECT_EQUAL$CASE$GROUPED_CASE$COND, $THEN, $ELSE)
     - id: json-grouped
       rule:
         matches: json-call
@@ -222,8 +211,7 @@ rewriters:
       rule: {kind: identifier, pattern: _NAME, inside: {field: name, matches: renamed-call}}
       transform:
         COALESCE: {replace: {source: $NAME, replace: '(?i)^ifnull$', by: coalesce}}
-        CONDITIONAL: {replace: {source: $COALESCE, replace: '(?i)^iif$', by: if}}
-        SLICE: {replace: {source: $CONDITIONAL, replace: '(?i)^substring$', by: substr}}
+        SLICE: {replace: {source: $COALESCE, replace: '(?i)^substring$', by: substr}}
         CONCATENATION: {replace: {source: $SLICE, replace: '(?i)^string_agg$', by: group_concat}}
       fix: $CONCATENATION
     - id: compared
@@ -250,7 +238,8 @@ rewriters:
       rule: {kind: is_null_expression, has: {field: operand, pattern: _OPERAND}}
       fix: $OPERAND is not null
 transform:
-    FIXED: {rewrite: {source: $NODE, rewriters: [counted, counted-value, filtered, chosen-without-else, chosen-with-else, json-grouped, json-operator, star, renamed, compared, not-distinct-from, distinct-from, is-null, is-not-null]}}
+    FIXED: {rewrite: {source: $NODE, rewriters: [counted, counted-value, filtered, json-grouped, json-operator, star, renamed, compared, not-distinct-from, distinct-from, is-null, is-not-null]}}
 fix: $FIXED
 message: '`$NODE` is a second spelling of `$FIXED`'
-note: Use the fix's spelling, one spelling per operation SQLite and DuckDB both read
+note: >-
+    Use the fix's spelling, one spelling per operation SQLite and DuckDB both read. Scalar CASE and iif remain because Cloudflare D1 rejects if through its function authorizer

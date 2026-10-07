@@ -1,6 +1,7 @@
 import { BrowserCrypto } from '@effect/platform-browser';
 import { Array, Effect, Option, Record, Struct } from 'effect';
-import { type ReactNode, useState } from 'react';
+import { Check } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { CheckboxButton, CheckboxField } from 'react-aria-components';
 import { placementLabel } from '../media/display.ts';
 import { MediaFigure } from '../media/figure.tsx';
@@ -10,64 +11,94 @@ import { MenuButton } from './controls.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function ReuseFile({ assets, onAdd }: { assets: typeof AssetCollection.Type; onAdd: (compositions: readonly (typeof Composition.Type)[]) => void }): ReactNode {
-    const [sourceId, setSourceId] = useState(Option.none<string>());
-    const [selected, setSelected] = useState<readonly number[]>([]);
+function ReuseFile({
+    assets,
+    sourceId,
+    selected,
+    onSource,
+    onSelect,
+    onAdd,
+}: {
+    assets: typeof AssetCollection.Type;
+    sourceId: Option.Option<string>;
+    selected: readonly number[];
+    onSource: (id: Option.Option<string>) => void;
+    onSelect: (indices: readonly number[]) => void;
+    onAdd: (compositions: readonly (typeof Composition.Type)[]) => void;
+}): ReactNode {
     const source = Option.flatMap(sourceId, (id) => Record.get(assets, id));
-    const sheets = Option.match(source, { onNone: () => [], onSome: placementsFor });
-    const chosen = Array.getSomes(selected.map((index) => Array.get(sheets, index)));
+    const sheets = Option.match(source, { onNone: () => [], onSome: (asset) => placementsFor(asset, true) });
+    const order = new Map(selected.map((index, position) => [index, position]));
+    const pdf = Option.exists(source, (asset) => asset.mime === 'application/pdf');
+    const chosen = pdf ? Array.getSomes(selected.map((index) => Array.get(sheets, index))) : sheets;
     return (
-        <div className="flex flex-col gap-4 bg-surface p-6 max-sm:p-4">
-            <h4 className="text-[17px] tracking-[-0.02em]">Reuse a source file</h4>
-            <p className="note">Select PDF sheets in the order you want them to appear. Each sheet becomes a composition. Publishing any sheet makes the whole original document public, including unselected pages.</p>
+        <div className="flex min-w-0 flex-col gap-4">
+            {pdf && <p className="hint">Select sheets in presentation order. Publishing a sheet makes the entire original PDF public, including unselected pages.</p>}
             <MenuButton
                 label="Source file"
                 onAction={({ asset }): void => {
-                    setSourceId(Option.some(asset.id));
-                    setSelected(asset.mime === 'application/pdf' ? [] : [0]);
+                    onSource(Option.some(asset.id));
+                    onSelect([]);
                 }}
                 options={Object.values(assets).map((asset) => ({ id: asset.id, label: asset.name, asset }))}
             >
                 {Option.match(source, { onNone: () => 'Select a file', onSome: Struct.get('name') })}
             </MenuButton>
-            {Option.exists(source, (asset) => asset.mime === 'application/pdf') && (
-                <div className="flex max-h-[360px] flex-wrap gap-3 overflow-auto [--media-height:130px]">
-                    <div className="actions w-full">
-                        <button className="button button-ghost" onClick={(): void => setSelected(sheets.map((_, index) => index))} type="button">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="hint">
+                    {chosen.length} selected{pdf ? ` · ${sheets.length} sheets` : ''}
+                </p>
+                <button
+                    className="button button-outline"
+                    disabled={chosen.length === 0}
+                    onClick={(): void => {
+                        const crypto = Effect.runSync(BrowserCrypto.WebCrypto);
+                        onAdd(chosen.map((placement) => createComposition(crypto.randomUUID(), placement)));
+                        onSource(Option.none());
+                        onSelect([]);
+                    }}
+                    type="button"
+                >
+                    Add {chosen.length} {chosen.length === 1 ? 'composition' : 'compositions'}
+                </button>
+            </div>
+            {pdf && (
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,140px),1fr))] gap-3 [--media-height:160px]">
+                    <div className="actions col-span-full">
+                        <button className="button button-ghost" onClick={(): void => onSelect(sheets.map((_, index) => index))} type="button">
                             All sheets
                         </button>
-                        <button className="button button-ghost" onClick={(): void => setSelected([])} type="button">
+                        <button className="button button-ghost" onClick={(): void => onSelect([])} type="button">
                             Clear
                         </button>
                     </div>
                     {sheets.map((placement, index) => {
-                        const order = selected.indexOf(index);
+                        const position = order.get(index);
                         return (
-                            <div className="w-[calc(50%-6px)] bg-background p-3" key={placementLabel(placement)}>
-                                <MediaFigure active={true} placement={placement} presentation="thumbnail" priority={false} />
-                                <CheckboxField className="group flex min-h-11 items-center gap-2" isSelected={order >= 0} onChange={(checked): void => setSelected(checked ? [...selected, index] : Array.remove(selected, order))}>
-                                    <CheckboxButton className="size-5 border border-control-line group-selected:border-accent-text group-selected:bg-accent-text" />
-                                    {placement.kind === 'pdf' ? placement.page.label || `Sheet ${index + 1}` : placementLabel(placement)}
-                                    {order >= 0 ? ` · Order ${order + 1}` : ''}
+                            <div className="min-w-0 bg-background p-3" key={placementLabel(placement)}>
+                                <MediaFigure active={true} placement={placement} presentation="thumbnail" priority={false} renderMedia={true} />
+                                <CheckboxField isSelected={position !== undefined} onChange={(checked): void => onSelect(checked ? [...selected, index] : selected.filter((value) => value !== index))}>
+                                    <CheckboxButton className="group flex min-h-11 w-full items-center gap-2 text-left">
+                                        <span className="grid size-5 shrink-0 place-items-center border border-control-line group-selected:border-accent-text group-selected:bg-accent-text group-selected:text-background">
+                                            <Check className="size-3.5 opacity-0 group-selected:opacity-100" />
+                                        </span>
+                                        <span className="wrap-anywhere min-w-0 text-sm">
+                                            {placement.kind === 'pdf' ? placement.page.label || `Sheet ${index + 1}` : placementLabel(placement)}
+                                            {position !== undefined && <span className="block text-muted text-xs">Order {position + 1}</span>}
+                                        </span>
+                                    </CheckboxButton>
                                 </CheckboxField>
                             </div>
                         );
                     })}
                 </div>
             )}
-            <button
-                className="button button-outline"
-                disabled={chosen.length === 0}
-                onClick={(): void => {
-                    const crypto = Effect.runSync(BrowserCrypto.WebCrypto);
-                    onAdd(chosen.map((placement) => createComposition(crypto.randomUUID(), placement)));
-                    setSourceId(Option.none());
-                    setSelected([]);
-                }}
-                type="button"
-            >
-                Add compositions
-            </button>
+            {!pdf &&
+                chosen.map((placement) => (
+                    <div className="[--media-height:240px]" key={placement.asset.id}>
+                        <MediaFigure active={true} placement={placement} presentation="expandable" priority={false} renderMedia={true} />
+                    </div>
+                ))}
         </div>
     );
 }

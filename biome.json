@@ -70,6 +70,7 @@
                     "complexity": {
                         "noExcessiveCognitiveComplexity": "off",
                         "noExcessiveLinesPerFunction": "off",
+                        "noForEach": "off",
                         "useMaxParams": { "level": "error", "options": { "max": 8 } }
                     },
                     "correctness": { "noSolidDestructuredProps": "off", "noUndeclaredVariables": "off", "noUnresolvedImports": "off", "useQwikValidLexicalScope": "off" },

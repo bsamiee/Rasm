@@ -30,7 +30,6 @@ utils:
             - kind: ERROR
               has: {matches: generic-tag}
               precedes: {kind: template_string}
-              inside: {kind: ternary_expression}
 rule:
     any:
         - kind: ERROR

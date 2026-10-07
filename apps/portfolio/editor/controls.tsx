@@ -18,7 +18,7 @@ interface Choice {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const popover = 'max-h-[50vh] max-w-[min(480px,calc(100vw-32px))] overflow-auto border border-control-line bg-background';
-const option = 'min-h-11 cursor-pointer px-4 py-2.5 focus:bg-foreground focus:text-background';
+const option = 'min-h-11 cursor-pointer wrap-anywhere px-4 py-2.5 focus:bg-foreground focus:text-background';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ function Field({ label, placeholder, description, multiline, ...props }: FieldPr
             <Label>{label}</Label>
             {multiline ? <TextArea className="control min-h-[90px] resize-y" placeholder={placeholder} /> : <Input className="control" {...(placeholder === undefined ? {} : { placeholder })} />}
             {description && (
-                <Text className="note mt-[13px]" slot="description">
+                <Text className="hint mt-[13px]" slot="description">
                     {description}
                 </Text>
             )}
@@ -55,7 +55,7 @@ function SelectField<T extends Choice>({ label, value, options, onChange }: { la
             <Popover className={popover}>
                 <ListBox className="outline-none" items={options}>
                     {(item): ReactNode => (
-                        <ListBoxItem className={option} id={item.id} textValue={item.label}>
+                        <ListBoxItem className={`${option} selected:underline selected:underline-offset-4`} id={item.id} textValue={item.label}>
                             {item.label}
                         </ListBoxItem>
                     )}
@@ -80,9 +80,11 @@ function SliderField({ label, value, onChange }: { label: string; value: number;
 function MenuButton<T extends Choice>({ label, options, onAction, children }: { label: string; options: readonly T[]; onAction: (choice: T) => void; children: ReactNode }): ReactNode {
     return (
         <MenuTrigger>
-            <Button className="button button-outline">{children}</Button>
+            <Button className="button button-outline wrap-anywhere min-w-0 max-w-full whitespace-normal text-left" isDisabled={options.length === 0}>
+                {children}
+            </Button>
             <Popover className={popover}>
-                <Menu aria-label={label} className="outline-none" items={options}>
+                <Menu aria-label={label} className="outline-none" dependencies={[onAction]} items={options}>
                     {(item): ReactNode => (
                         <MenuItem className={option} id={item.id} onAction={(): void => onAction(item)} textValue={item.label}>
                             {item.label}
@@ -101,19 +103,19 @@ function ConfirmDialog({ label, description, onConfirm, disabled }: { label: str
             </Button>
             <ModalOverlay className="fixed inset-0 z-[60] bg-foreground/55">
                 <Modal>
-                    <Dialog className="fixed top-1/2 left-1/2 z-[61] w-[min(480px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 bg-background p-7 outline-none" role="alertdialog">
+                    <Dialog className="fixed top-1/2 left-1/2 z-[61] max-h-[calc(100dvh-32px)] w-[min(480px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 overflow-auto bg-background p-7 outline-none" role="alertdialog">
                         <Heading className="text-[26px] tracking-[-0.03em]" slot="title">
                             {label}?
                         </Heading>
                         <Text className="hint mt-3.5 mb-6" elementType="p" slot="description">
                             {description}
                         </Text>
-                        <div className="flex justify-end gap-2.5">
+                        <div className="flex flex-wrap justify-end gap-2.5">
                             <Button autoFocus={true} className="button button-outline" slot="close">
                                 Keep
                             </Button>
                             <Button className="button" onPress={onConfirm} slot="close">
-                                Remove
+                                {label}
                             </Button>
                         </div>
                     </Dialog>
@@ -148,6 +150,7 @@ function RequestAlert({ error, conflict, onField }: { error: RequestFailure; con
                         </ul>
                     </>
                 )),
+                Match.tag('PreconditionFailed', () => <p>A newer draft was saved in another tab. Your changes remain here. Reloading replaces these unsaved edits with that draft.</p>),
                 Match.tag('Forbidden', () => <p>Sign in with the owner account to edit.</p>),
                 Match.tag('Conflict', () => <p>{conflict}</p>),
                 Match.tag('ServiceUnavailable', () => <p>The service is unavailable. Your changes remain here.</p>),

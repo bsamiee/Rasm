@@ -39,6 +39,9 @@
 /* --- [BASE] -------------------------------------------------------------------------- */
 
 @layer base {
+    #portfolio {
+        @apply [--index-gap:clamp(2rem,4vw,3.5rem)] [--index-width:clamp(11rem,12vw,18rem)] [--page-gutter:38px] max-md:[--page-gutter:22px];
+    }
     html {
         scroll-padding-top: calc(var(--sticky-height, 0px) + 24px);
         @variant motion-safe {
@@ -48,6 +51,11 @@
     :focus-visible,
     [data-focus-visible] {
         @apply outline-2 outline-offset-4 outline-accent-text;
+    }
+    .lucide {
+        stroke-width: 1.5;
+        stroke-linecap: butt;
+        stroke-linejoin: miter;
     }
     a,
     button,
@@ -74,7 +82,7 @@
     @apply inline-flex min-h-11 items-center justify-center gap-2 bg-foreground px-4 py-2.5 text-sm whitespace-nowrap text-background hover:brightness-[0.92] disabled:opacity-45 aria-disabled:text-muted;
 }
 @utility button-ghost {
-    @apply bg-transparent text-inherit;
+    @apply bg-transparent text-inherit selected:bg-foreground selected:text-background selected:underline selected:underline-offset-4;
 }
 @utility button-outline {
     @apply border border-control-line bg-background text-foreground;
@@ -95,13 +103,10 @@
     @apply text-sm leading-[1.6] text-muted;
 }
 @utility lead {
-    @apply max-w-[55ch] text-lg leading-[1.6] whitespace-pre-line max-sm:text-base;
+    @apply min-w-0 max-w-[55ch] wrap-anywhere text-lg leading-[1.6] whitespace-pre-line max-sm:text-base;
 }
 @utility meta-line {
     @apply mt-[5px] block text-xs text-muted;
-}
-@utility note {
-    @apply text-[13px] leading-[1.6] text-muted;
 }
 @utility plain-link {
     @apply inline-flex min-h-11 shrink-0 items-center hover:text-accent-text;

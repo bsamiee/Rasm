@@ -1,28 +1,34 @@
-import { displaySize } from '@embedpdf/core-geometry';
-import { localEngine } from '@embedpdf/engine';
-import { Cause, Effect, Match, Schema, type Scope } from 'effect';
+import { Array, Cause, Effect, Match, Option, Schema, type Scope, Struct } from 'effect';
 import { Asset, ImageAsset, PdfAsset } from '../model/asset.ts';
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-const pdfEngine = localEngine();
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inspectFile = Effect.fnUntraced(function* (file: Blob, id: string, name: string, mime: string): Effect.fn.Return<typeof Asset.Type, Cause.UnknownError | Schema.SchemaError, Scope.Scope> {
-    const pdfPages = Effect.gen(function* () {
-        const bytes = yield* Effect.tryPromise(() => file.arrayBuffer());
-        const handle = yield* Effect.acquireRelease(
-            Effect.tryPromise(() => pdfEngine.open({ kind: 'bytes', id, bytes }, { scope: ['*'] })),
-            (opened) => Effect.promise(() => opened.close()),
+const inspectFile = Effect.fnUntraced(function* (file: Blob, id: string, name: string, mime: string): Effect.fn.Return<{ readonly asset: typeof Asset.Type; readonly renditions: File[] }, Cause.UnknownError | Schema.SchemaError, Scope.Scope> {
+    const image = Effect.gen(function* () {
+        const source = yield* Effect.acquireRelease(
+            Effect.tryPromise(() => createImageBitmap(file)),
+            (bitmap) => Effect.sync(() => bitmap.close()),
         );
-        const { pages } = yield* Effect.tryPromise(() => handle.pages.list());
-        return { pages: pages.map(({ size, rotation, userUnit, label }) => ({ ...displaySize({ width: size.width * userUnit, height: size.height * userUnit }, rotation), ...(label === null ? {} : { label }) })) };
+        const minimumPreviewWidth = 256;
+        const previews = yield* Effect.forEach(
+            Array.unfold(Math.floor(source.width / 2), (width) => (width >= minimumPreviewWidth ? Option.some([width, Math.floor(width / 2)] as const) : Option.none())),
+            Effect.fnUntraced(function* (width: number) {
+                const bitmap = yield* Effect.acquireRelease(
+                    Effect.tryPromise(() => createImageBitmap(source, { resizeWidth: width, resizeQuality: 'high' })),
+                    (resized) => Effect.sync(resized.close.bind(resized)),
+                );
+                const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+                const context = canvas.getContext('2d');
+                if (context === null) {
+                    return yield* Effect.fail(new Cause.UnknownError('The browser could not create an image preview.'));
+                }
+                context.drawImage(bitmap, 0, 0);
+                const blob = yield* Effect.tryPromise(() => canvas.convertToBlob({ type: mime === 'image/jpeg' ? mime : 'image/png' }));
+                return blob.size < file.size ? Option.some({ width: bitmap.width, file: new File([blob], String(bitmap.width), { type: blob.type }) }) : Option.none();
+            }, Effect.scoped),
+        ).pipe(Effect.map(Array.getSomes));
+        return { metadata: { width: source.width, height: source.height, ...(Array.isArrayNonEmpty(previews) && { renditions: previews.map((preview) => ({ width: preview.width, size: preview.file.size, mime: preview.file.type })) }) }, renditions: previews.map(Struct.get('file')) };
     });
-    const imageSize = Effect.acquireRelease(
-        Effect.tryPromise(() => createImageBitmap(file)),
-        (bitmap) => Effect.sync(() => bitmap.close()),
-    ).pipe(Effect.map(({ width, height }) => ({ width, height })));
     const videoSize = Effect.gen(function* () {
         const { element, url } = yield* Effect.acquireRelease(
             Effect.sync(() => ({ element: Object.assign(document.createElement('video'), { preload: 'metadata' }), url: URL.createObjectURL(file) })),
@@ -40,13 +46,19 @@ const inspectFile = Effect.fnUntraced(function* (file: Blob, id: string, name: s
         });
     });
     const measured = yield* Match.value(mime).pipe(
-        Match.when(Match.is(...PdfAsset.fields.mime.literals), () => pdfPages),
-        Match.when(Match.is(...ImageAsset.fields.mime.literals), () => imageSize),
-        Match.orElse(() => videoSize),
+        Match.when(Match.is(...PdfAsset.fields.mime.literals), () =>
+            Effect.tryPromise(() => import('./engine.ts')).pipe(
+                Effect.flatMap(({ inspectPdf }) => inspectPdf(file)),
+                Effect.map((metadata) => ({ metadata, renditions: [] })),
+            ),
+        ),
+        Match.when(Match.is(...ImageAsset.fields.mime.literals), () => image),
+        Match.orElse(() => videoSize.pipe(Effect.map((metadata) => ({ metadata, renditions: [] })))),
     );
-    return yield* Schema.decodeUnknownEffect(Asset)({ id, name, size: file.size, mime, ...measured });
+    const asset = yield* Schema.decodeUnknownEffect(Asset)({ id, name, size: file.size, mime, ...measured.metadata });
+    return { asset, renditions: measured.renditions };
 }, Effect.scoped);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { inspectFile, pdfEngine };
+export { inspectFile };

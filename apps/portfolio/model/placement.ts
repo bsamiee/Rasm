@@ -11,13 +11,32 @@ const pageNumber = Schema.Int.check(Schema.isGreaterThan(0));
 const drawing = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('image'), role: Schema.Literal('drawing'), framing: contain });
 const photograph = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('image'), role: Schema.Literal('photograph'), framing: Schema.Union([contain, cover]) });
 const sheet = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('pdf'), page: pageNumber });
-const film = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('video') });
+const film = Schema.Struct({
+    ...text,
+    assetId: Id,
+    kind: Schema.Literal('video'),
+    poster: Schema.optionalKey(
+        Schema.Struct({ assetId: Id }).pipe(
+            Schema.decodeTo(Schema.toType(ImageAsset), {
+                decode: SchemaGetter.transformEffect(({ assetId }) =>
+                    Assets.use((assets) =>
+                        Match.value(assets[assetId]).pipe(
+                            Match.when({ mime: Match.is(...ImageAsset.fields.mime.literals) }, Effect.succeed<ImageAsset>),
+                            Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'The poster image is missing or is not an image' }))),
+                        ),
+                    ),
+                ),
+                encode: SchemaGetter.transform((asset) => ({ assetId: asset.id })),
+            }),
+        ),
+    ),
+});
 const StoredPlacement = Schema.Union([drawing, photograph, sheet, film]);
 const ResolvedPlacement = Schema.Union([
     drawing.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: Schema.toType(ImageAsset) })),
     photograph.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: Schema.toType(ImageAsset) })),
     sheet.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: Schema.toType(PdfAsset), page: Schema.Struct({ ...Page.fields, number: pageNumber }) })),
-    film.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, asset: Schema.toType(VideoAsset) })),
+    film.mapFields(({ assetId: _assetId, ...fields }) => ({ ...fields, poster: Schema.toType(fields.poster), asset: Schema.toType(VideoAsset) })),
 ]);
 const Placement = StoredPlacement.pipe(
     Schema.decodeTo(ResolvedPlacement, {
@@ -47,11 +66,12 @@ class Assets extends Context.Service<Assets, typeof AssetCollection.Type>()('por
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const placementsFor: (asset: typeof Asset.Type) => Array.NonEmptyReadonlyArray<typeof Placement.Type> = Match.type<typeof Asset.Type>().pipe(
-    Match.when({ mime: 'application/pdf' }, (asset) => Array.map(asset.pages, (page, index): typeof Placement.Type => ({ kind: 'pdf', asset, page: { ...page, number: index + 1 }, caption: '' }))),
-    Match.when({ mime: Match.is(...VideoAsset.fields.mime.literals) }, (asset) => [{ kind: 'video', asset, caption: '' }] as const),
-    Match.orElse((asset) => [{ kind: 'image', asset, caption: '', role: 'drawing', framing: { mode: 'contain' } }] as const),
-);
+const placementsFor = (asset: typeof Asset.Type, allPages: boolean): Array.NonEmptyReadonlyArray<typeof Placement.Type> =>
+    Match.value(asset).pipe(
+        Match.when({ mime: 'application/pdf' }, (document) => Array.map(allPages ? document.pages : Array.of(Array.headNonEmpty(document.pages)), (page, index): typeof Placement.Type => ({ kind: 'pdf', asset: document, page: { ...page, number: index + 1 }, caption: '' }))),
+        Match.when({ mime: Match.is(...VideoAsset.fields.mime.literals) }, (video) => [{ kind: 'video', asset: video, caption: '' }] as const),
+        Match.orElse((image) => [{ kind: 'image', asset: image, caption: '', role: 'drawing', framing: { mode: 'contain' } }] as const),
+    );
 const placementDimensions = (placement: typeof Placement.Type): typeof Dimensions.Type => (placement.kind === 'pdf' ? placement.page : placement.asset);
 const createComposition = (id: string, ...items: typeof Composition.Type.items): typeof Composition.Type => ({ id, items, scale: 'full', align: 'center' });
 

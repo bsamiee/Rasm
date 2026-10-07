@@ -1,40 +1,61 @@
-import { Effect, Record, Schema } from 'effect';
+import { Effect, Record, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { AsyncResult, Atom, AtomHttpApi } from 'effect/reactivity';
-import { Api } from '../model/api.ts';
-import { Portfolio, type PortfolioData } from '../model/document.ts';
+import { ClientApi, type PendingUpload } from '../model/api.ts';
+import type { PortfolioData } from '../model/document.ts';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class PortfolioClient extends AtomHttpApi.Service<PortfolioClient>()('PortfolioClient', { api: Api, httpClient: FetchHttpClient.layer }) {}
+class PortfolioClient extends AtomHttpApi.Service<PortfolioClient>()('PortfolioClient', { api: ClientApi, httpClient: FetchHttpClient.layer }) {}
 const draftRequest = PortfolioClient.runtime.atom(PortfolioClient.use((api) => api.content.draft({})));
+const pendingRequest = PortfolioClient.runtime.atom(PortfolioClient.use((api) => api.media.pending({})));
 const draft = Atom.writable(
-    (get) => get(draftRequest),
-    (context, value: Atom.Type<typeof draftRequest>) => context.setSelf(value),
+    (get) => AsyncResult.map(get(draftRequest), Struct.get('body')),
+    (context, value: AsyncResult.AsyncResult<typeof PortfolioData.Type, Atom.Failure<typeof draftRequest>>) => context.setSelf(value),
     (refresh) => refresh(draftRequest),
 ).pipe(Atom.keepAlive);
 const saveRequest = PortfolioClient.runtime
     .fn(
-        Effect.fnUntraced(function* (input: { readonly snapshot: typeof PortfolioData.Type; readonly publish: boolean }) {
+        Effect.fnUntraced(function* (input: { readonly snapshot: typeof PortfolioData.Type; readonly publish: boolean; readonly etag: string }) {
             const api = yield* PortfolioClient;
-            yield* Schema.encodeEffect(Portfolio)(input.snapshot.portfolio).pipe(
-                Effect.flatMap((payload) => (input.publish ? api.content.publish({ payload }) : api.content.save({ payload }))),
-                Effect.mapError((error) => ({ error, portfolio: input.snapshot.portfolio })),
-            );
-            return input;
+            const request = { payload: input.snapshot.portfolio, headers: { 'if-match': input.etag } };
+            const response = yield* (input.publish ? api.content.publish(request) : api.content.save(request)).pipe(Effect.mapError((error) => ({ error, portfolio: input.snapshot.portfolio })));
+            return { ...input, etag: response.headers['draft-etag'] };
         }),
+    )
+    .pipe(Atom.keepAlive);
+const reloadRequest = PortfolioClient.runtime
+    .fn((_: undefined, get) =>
+        PortfolioClient.use((api) => api.content.draft({})).pipe(
+            Effect.tap((response) =>
+                Effect.sync(() => {
+                    get.registry.set(draft, AsyncResult.success(response.body));
+                    get.registry.set(saveRequest, Atom.Reset);
+                }),
+            ),
+        ),
     )
     .pipe(Atom.keepAlive);
 const deleteRequest = PortfolioClient.runtime
     .fn((id: string, get) =>
         PortfolioClient.use((api) => api.media.delete({ params: { id } })).pipe(
-            Effect.andThen(
-                Effect.sync(() =>
-                    get.registry.update(
-                        draft,
-                        AsyncResult.map((data) => ({ ...data, assets: Record.remove(data.assets, id) })),
-                    ),
-                ),
+            Effect.tapError(() => Effect.sync(() => get.registry.refresh(pendingRequest))),
+            Effect.andThen(Effect.sync(() => get.registry.update(draft, AsyncResult.map(Struct.evolve({ assets: Record.remove(id) }))))),
+        ),
+    )
+    .pipe(Atom.keepAlive);
+
+const discardRequest = PortfolioClient.runtime
+    .fn((upload: typeof PendingUpload.Type, get) =>
+        PortfolioClient.use((api) => api.media.discard({ params: { id: upload.id } })).pipe(
+            Effect.mapError((error) => ({ upload, error })),
+            Effect.tap(() =>
+                Effect.sync(() => {
+                    if (upload.status === 'removing') {
+                        get.registry.update(draft, AsyncResult.map(Struct.evolve({ assets: Record.remove(upload.id) })));
+                    }
+                    get.registry.refresh(pendingRequest);
+                }),
             ),
         ),
     )
@@ -42,4 +63,4 @@ const deleteRequest = PortfolioClient.runtime
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { deleteRequest, draft, draftRequest, saveRequest };
+export { deleteRequest, discardRequest, draft, draftRequest, pendingRequest, reloadRequest, saveRequest };

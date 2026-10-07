@@ -1,16 +1,20 @@
+import { useAtom } from '@effect/atom-react';
 import useEmblaCarousel from 'embla-carousel-react';
+import { ArrowLeft, ArrowRight, Grid2x2, X } from 'lucide-react';
 import { useInView, useReducedMotion } from 'motion/react';
 import { type KeyboardEvent, type ReactNode, useEffect, useEffectEvent, useId, useRef, useSyncExternalStore } from 'react';
+import { Button, Dialog, DialogTrigger, GridLayout, GridList, GridListItem, Heading, Modal, ModalOverlay, Size, Virtualizer } from 'react-aria-components';
 import { CompositionGrid } from '../media/composition.tsx';
-import { compositionLabel, entryTitle } from '../media/display.ts';
+import { compositionLabel, entryTitle, numeral } from '../media/display.ts';
 import { MediaFigure } from '../media/figure.tsx';
 import type { Entry } from '../model/document.ts';
-import { type Navigation, numeral } from './navigation.ts';
+import { dialogOpen, type Navigation } from './navigation.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index: number; navigation: Navigation }): ReactNode {
     const slideDuration = 28;
+    const overviewItem = { width: 120, height: 180 };
     const reduced = useReducedMotion();
     const [viewport, clientApi, serverApi] = useEmblaCarousel({ align: 'start', duration: reduced ? 0 : slideDuration });
     const api = clientApi ?? serverApi;
@@ -25,10 +29,11 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
         serverApi.selectedSnap,
     );
     const headingId = useId();
+    const [isOpen, setOpen] = useAtom(dialogOpen(headingId));
     const chapter = useRef<HTMLElement>(null);
     const near = useInView(chapter, { margin: '700px' });
     const visible = useInView(chapter);
-    const selected = navigation.selections[entry.id];
+    const selected = navigation.selected(entry);
     const title = entryTitle(entry);
     const details = (
         [
@@ -36,7 +41,12 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
             ['Credits', entry.credits],
         ] as const
     ).filter(([, value]) => value);
-    const select = useEffectEvent(() => navigation.select(entry.id, entry.compositions[api.selectedSnap()]?.id));
+    const select = useEffectEvent(() => {
+        const composition = entry.compositions[api.selectedSnap()]?.id;
+        if (composition !== navigation.selected(entry)) {
+            navigation.select(entry.id, composition);
+        }
+    });
     const navigate = (event: KeyboardEvent<HTMLButtonElement>): void => {
         if (event.altKey || event.ctrlKey || event.metaKey) {
             return;
@@ -71,67 +81,113 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
         }
     }, [api, selected, entry.compositions]);
     return (
-        <section aria-labelledby={headingId} className="border-line border-b pt-[76px] pb-[88px] max-md:pt-[55px] max-md:pb-[66px]" id={entry.id} ref={chapter}>
-            <div className="eyebrow flex justify-between gap-[30px] text-muted max-sm:flex-wrap max-sm:gap-2">
-                <span className="text-accent-text">
-                    {numeral(index + 1)} / {entry.kind === 'study' ? 'Independent study' : 'Project'}
-                </span>
-                <span>{[entry.year, entry.location].filter(Boolean).join(' / ')}</span>
-            </div>
-            <div className="mt-[25px] mb-8 flex items-center justify-between gap-9 max-sm:gap-4">
-                <h2 className="wrap-anywhere min-w-0 text-[clamp(38px,5.7vw,82px)] leading-[1.04] tracking-[-0.045em] max-md:text-[clamp(36px,8vw,68px)]" id={headingId} tabIndex={-1}>
+        <section aria-labelledby={headingId} className="border-line border-b pt-14 pb-16 last:border-b-0 max-md:pt-10 max-md:pb-12" id={entry.id} ref={chapter}>
+            <div className="mb-8 grid grid-cols-1 items-start gap-x-8 gap-y-6 @min-[48rem]:has-[>div>figure]:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="eyebrow col-start-1 row-start-1 flex min-w-0 flex-col gap-2 text-muted">
+                    <span className="inline-flex items-baseline gap-3">
+                        <span className="text-accent-text">[{numeral(index + 1)}]</span>
+                        {entry.kind === 'study' ? 'Study' : 'Project'}
+                    </span>
+                    {(entry.year || entry.location) && <span className="wrap-anywhere">{[entry.year, entry.location].filter(Boolean).join(' / ')}</span>}
+                </div>
+                <h3 className="wrap-anywhere col-start-1 row-start-2 min-w-0 text-balance text-[clamp(2.25rem,calc(1.25rem+3.6cqw),4.5rem)] leading-[1.05] tracking-[-0.035em] outline-none" id={headingId} tabIndex={-1}>
                     {title}
-                </h2>
+                </h3>
                 {entry.cover !== undefined && (
-                    <div className="w-[90px] shrink-0 [--media-height:80px] max-sm:w-[60px]">
-                        <MediaFigure active={false} placement={entry.cover} presentation="thumbnail" priority={false} />
+                    <div className="col-start-2 row-span-2 row-start-1 @max-[48rem]:hidden w-45 self-end [--media-height:11.25rem]">
+                        <MediaFigure active={false} placement={entry.cover} presentation="thumbnail" priority={false} renderMedia={true} />
                     </div>
                 )}
+                {Boolean(entry.description) && <p className="lead col-span-full max-w-[64ch] hyphens-auto text-justify leading-[1.55] [hyphenate-limit-chars:7_3_3] [text-align-last:start]">{entry.description}</p>}
             </div>
-            {Boolean(entry.description) && <p className="lead mb-10">{entry.description}</p>}
             {entry.compositions.length > 0 ? (
-                <section aria-label={`${title} compositions`} aria-roledescription="carousel" className="touch-pan-y touch-pinch-zoom">
-                    <div className="overflow-hidden" ref={viewport}>
-                        <div className="flex">
-                            {entry.compositions.map((composition, slide) => (
-                                // biome-ignore lint/a11y/useSemanticElements: Slides are ARIA groups inside the carousel region
-                                <div aria-label={`${slide + 1} of ${entry.compositions.length}`} aria-roledescription="slide" className="min-w-0 flex-[0_0_100%]" inert={slide !== selectedSnap} key={composition.id} role="group">
-                                    <CompositionGrid active={visible && slide === selectedSnap} composition={composition} preview={false} renderMedia={near && Math.abs(slide - selectedSnap) <= 1} />
-                                </div>
-                            ))}
+                // biome-ignore lint/a11y/useSemanticElements: A carousel group belongs within its named project region
+                <div aria-label={`${title} compositions`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom" role="group">
+                    <div className={entry.compositions.length > 1 ? 'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-2' : ''}>
+                        {entry.compositions.length > 1 && (
+                            <>
+                                <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
+                                    <Button className="col-start-1 row-start-1 inline-flex min-h-11 items-center gap-2 justify-self-start text-xs hover:text-accent-text">
+                                        <Grid2x2 aria-hidden="true" className="size-4" />
+                                        Overview
+                                    </Button>
+                                    <ModalOverlay className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/35 p-4" isDismissable={true}>
+                                        <Modal className="flex max-h-[calc(var(--visual-viewport-height)-2rem)] w-full max-w-5xl flex-col border border-line bg-background p-5 shadow-xl max-sm:p-3">
+                                            <Dialog className="flex min-h-0 flex-col outline-none">
+                                                {({ close }): ReactNode => (
+                                                    <>
+                                                        <div className="mb-5 flex shrink-0 items-start justify-between gap-4">
+                                                            <div className="min-w-0">
+                                                                <Heading className="eyebrow text-muted" slot="title">
+                                                                    Contact sheet
+                                                                </Heading>
+                                                                <p className="wrap-anywhere mt-2 text-xl leading-tight">{title}</p>
+                                                            </div>
+                                                            <Button aria-label="Close overview" className="grid size-11 shrink-0 place-items-center hover:text-accent-text" slot="close">
+                                                                <X aria-hidden="true" className="size-5" />
+                                                            </Button>
+                                                        </div>
+                                                        <Virtualizer layout={GridLayout} layoutOptions={{ minItemSize: new Size(overviewItem.width, overviewItem.height), maxColumns: 4 }}>
+                                                            <GridList aria-label={`Views in ${title}`} className="max-h-[min(36rem,65dvh)] min-h-0 overflow-auto overscroll-contain outline-none" layout="grid">
+                                                                {entry.compositions.map((composition, slide) => (
+                                                                    <GridListItem
+                                                                        className="cursor-pointer border border-transparent p-2 outline-none hover:bg-surface focus-visible:outline-2 focus-visible:outline-accent-text focus-visible:-outline-offset-2 has-aria-[current=true]:border-accent-text"
+                                                                        id={slide}
+                                                                        key={composition.id}
+                                                                        onAction={(): void => {
+                                                                            api.goTo(slide);
+                                                                            close();
+                                                                        }}
+                                                                        textValue={compositionLabel(composition)}
+                                                                    >
+                                                                        <CompositionGrid active={false} composition={composition} presentation="thumbnail" renderMedia={true} />
+                                                                        <div aria-current={slide === selectedSnap ? true : undefined} className="mt-3 flex flex-col gap-1 text-sm leading-snug underline-offset-4 aria-[current=true]:underline">
+                                                                            <span className="eyebrow text-muted">View {numeral(slide + 1)}</span>
+                                                                            <span className="wrap-anywhere line-clamp-3 min-w-0">{compositionLabel(composition)}</span>
+                                                                        </div>
+                                                                    </GridListItem>
+                                                                ))}
+                                                            </GridList>
+                                                        </Virtualizer>
+                                                    </>
+                                                )}
+                                            </Dialog>
+                                        </Modal>
+                                    </ModalOverlay>
+                                </DialogTrigger>
+                                <button aria-disabled={!api.canGoToPrev()} aria-label="Previous view" className="button button-ghost col-start-2 row-start-1 size-11 p-0 not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line" onClick={(): void => api.goToPrev()} onKeyDown={navigate} type="button">
+                                    <ArrowLeft aria-hidden="true" className="size-5" />
+                                </button>
+                                <button aria-disabled={!api.canGoToNext()} aria-label="Next view" className="button button-ghost col-start-3 row-start-1 size-11 p-0 not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line" onClick={(): void => api.goToNext()} onKeyDown={navigate} type="button">
+                                    <ArrowRight aria-hidden="true" className="size-5" />
+                                </button>
+                                <span aria-atomic="true" aria-live="polite" className="sr-only">
+                                    View {selectedSnap + 1} of {entry.compositions.length}
+                                </span>
+                            </>
+                        )}
+                        <div className={entry.compositions.length > 1 ? 'col-span-full row-start-2 min-w-0 overflow-hidden' : 'overflow-hidden'} ref={viewport}>
+                            <div className="flex items-start">
+                                {entry.compositions.map((composition, slide) => (
+                                    // biome-ignore lint/a11y/useSemanticElements: Slides are ARIA groups inside the carousel region
+                                    <div aria-label={`${slide + 1} of ${entry.compositions.length}`} aria-roledescription="slide" className="min-w-0 flex-[0_0_100%] [&[inert]]:[contain:size]" inert={slide !== selectedSnap} key={composition.id} role="group">
+                                        <CompositionGrid active={visible && slide === selectedSnap} composition={composition} presentation="expandable" renderMedia={near && Math.abs(slide - selectedSnap) <= 1} />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                    <fieldset aria-label={`${title} composition navigation`} className="mt-6 flex min-w-0 items-center gap-4 border-line border-t pt-3 max-sm:flex-wrap max-sm:gap-2">
-                        <span aria-atomic="true" aria-live="polite" className="eyebrow shrink-0 text-accent-text">
-                            {numeral(selectedSnap + 1)} / {numeral(entry.compositions.length)}
-                        </span>
-                        <select aria-label={`Choose a composition in ${title}`} className="control min-w-0 max-w-[60%] flex-1 truncate text-[13px] max-sm:max-w-none" onChange={(event): void => api.goTo(event.target.selectedIndex)} value={selectedSnap}>
-                            {entry.compositions.map((composition, slide) => (
-                                <option key={composition.id} value={slide}>
-                                    {slide + 1} — {compositionLabel(composition)}
-                                </option>
-                            ))}
-                        </select>
-                        <div className="ml-auto flex max-sm:w-full max-sm:justify-between">
-                            <button aria-disabled={!api.canGoToPrev()} className="button button-ghost" onClick={(): void => api.goToPrev()} onKeyDown={navigate} type="button">
-                                Previous
-                            </button>
-                            <button aria-disabled={!api.canGoToNext()} className="button button-ghost" onClick={(): void => api.goToNext()} onKeyDown={navigate} type="button">
-                                Next
-                            </button>
-                        </div>
-                    </fieldset>
-                </section>
+                </div>
             ) : (
                 <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-                    <h3 className="text-xl">No compositions yet</h3>
+                    <h4 className="text-xl">No compositions yet</h4>
                     <p className="hint">Drawings and images will appear here as they are published.</p>
                 </div>
             )}
             {details.length > 0 && (
                 <dl className="mt-10 flex gap-12 text-sm leading-[1.6] max-sm:flex-wrap max-sm:gap-6">
                     {details.map(([label, value]) => (
-                        <div key={label}>
+                        <div className="wrap-anywhere min-w-0" key={label}>
                             <dt className="text-muted text-xs uppercase tracking-[0.04em]">{label}</dt>
                             <dd className="whitespace-pre-line">{value}</dd>
                         </div>

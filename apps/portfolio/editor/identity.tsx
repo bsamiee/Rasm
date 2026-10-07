@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { MediaFigure } from '../media/figure.tsx';
+import type { AssetCollection } from '../model/asset.ts';
 import type { Portfolio } from '../model/document.ts';
 import type { Placement } from '../model/placement.ts';
 import { Field } from './controls.tsx';
@@ -8,7 +9,19 @@ import { PlacementFields } from './placement.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function Identity({ portfolio, onChange, onHero, onChooseHero }: { portfolio: typeof Portfolio.Type; onChange: (update: (portfolio: typeof Portfolio.Type) => typeof Portfolio.Type) => void; onHero: (hero: typeof Placement.Type | undefined) => void; onChooseHero: () => void }): ReactNode {
+function Identity({
+    assets,
+    portfolio,
+    onChange,
+    onHero,
+    onChooseHero,
+}: {
+    assets: typeof AssetCollection.Type;
+    portfolio: typeof Portfolio.Type;
+    onChange: (update: (portfolio: typeof Portfolio.Type) => typeof Portfolio.Type) => void;
+    onHero: (hero: typeof Placement.Type | undefined) => void;
+    onChooseHero: () => void;
+}): ReactNode {
     return (
         <>
             <Field label="Display name" onChange={(name): void => onChange((current) => ({ ...current, name }))} placeholder="Your name or studio" value={portfolio.name} />
@@ -18,16 +31,16 @@ function Identity({ portfolio, onChange, onHero, onChooseHero }: { portfolio: ty
             {portfolio.hero ? (
                 <>
                     <div className="flex justify-center [--media-height:320px]">
-                        <MediaFigure active={true} placement={portfolio.hero} presentation="full" priority={false} />
+                        <MediaFigure active={true} placement={portfolio.hero} presentation="full" priority={false} renderMedia={true} />
                     </div>
-                    <PlacementFields onChange={onHero} value={portfolio.hero} />
+                    <PlacementFields assets={assets} onChange={onHero} value={portfolio.hero} />
                     <button className="button button-outline" onClick={(): void => onHero(undefined)} type="button">
                         Clear hero
                     </button>
                 </>
             ) : (
                 <div className="actions">
-                    <p className="note">Choose an existing file or add a new hero. No extra copy is created.</p>
+                    <p className="hint">Choose an existing file or add a new hero. No extra copy is created.</p>
                     <button className="button button-outline" onClick={onChooseHero} type="button">
                         Choose hero file
                     </button>

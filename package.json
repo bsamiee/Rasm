@@ -239,6 +239,7 @@
         "parquet-wasm": "catalog:",
         "parse5": "catalog:",
         "partial-content": "catalog:",
+        "pdfjs-dist": "catalog:",
         "playwright": "catalog:",
         "plist": "catalog:",
         "prosemirror-collab": "catalog:",
@@ -280,6 +281,7 @@
         "typescript": "catalog:",
         "uplot": "catalog:",
         "vite": "catalog:",
+        "vite-plugin-static-copy": "catalog:",
         "vitest": "catalog:",
         "vscode-languageserver-protocol": "catalog:",
         "watlas": "catalog:",
@@ -340,7 +342,8 @@
                         "actionlint",
                         "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed",
                         "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --use-version java-27 --cache .cache/pmd/java --no-progress"
-                    ]
+                    ],
+                    "parallel": false
                 }
             },
             "format": {

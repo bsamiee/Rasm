@@ -1,47 +1,106 @@
 import { env } from 'cloudflare:workers';
-import { type Cause, Effect, Function, Match, Predicate, Result, Schema, Sink, Stream } from 'effect';
-import { HttpRouter, type HttpServerRequest, HttpServerResponse, HttpStatus, type Multipart } from 'effect/http';
+import { BrowserCrypto } from '@effect/platform-browser';
+import { Array, Crypto, Effect, Exit, flow, Match, Option, Schema, Sink, Stream } from 'effect';
+import { HttpRouter, HttpServerRequest, HttpServerResponse, type Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
-import { evaluateConditionalRequest } from 'partial-content';
+import { r2Store } from 'partial-content/r2';
+import { serveObjectRaw } from 'partial-content/web';
 import { Api } from '../model/api.ts';
 import { Asset, Id } from '../model/asset.ts';
-import { deleteAsset, isPublished, storeAsset, unavailable } from './database.ts';
+import { readAsset, unavailable } from './database.ts';
 import { authorize } from './session.ts';
+import { attachUpload, beginUpload, completeUpload, finishRelease, readPendingUploads, releaseUploads } from './storage.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Upload = { readonly stage: 'asset' } | { readonly stage: 'file' | 'complete'; readonly asset: typeof Asset.Type };
+type Upload =
+    | { readonly stage: 'asset' }
+    | {
+          readonly stage: 'files' | 'stored';
+          readonly asset: typeof Asset.Type;
+          readonly attemptId: string;
+          readonly files: readonly { readonly key: string; readonly field: 'file' | 'renditions'; readonly name?: string; readonly mime: string; readonly size: number }[];
+      };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const putObject = Effect.fnUntraced(function* (asset: typeof Asset.Type, content: Stream.Stream<Uint8Array, Multipart.MultipartError>) {
-    const existing = yield* Effect.tryPromise(() => env.BUCKET.head(asset.id));
-    return yield* Match.value(existing).pipe(
-        Match.when(Match.null, () => {
-            const body = new FixedLengthStream(asset.size);
-            return Effect.all(
-                [
-                    Stream.run(content, Sink.fromWritableStream({ evaluate: () => body.writable, onError: () => new HttpApiError.BadRequest() })),
-                    Effect.tryPromise(() => env.BUCKET.put(asset.id, body.readable, { onlyIf: new Headers({ 'If-None-Match': '*' }), httpMetadata: { contentType: asset.mime } })).pipe(Effect.filterOrFail(Predicate.isNotNull, () => new HttpApiError.Conflict())),
-                ],
-                { concurrency: 'unbounded', mode: 'result' },
-            ).pipe(Effect.flatMap(([written, stored]) => Effect.fromResult(Result.isFailure(stored) && stored.failure._tag === 'Conflict' ? stored : Result.andThen(written, stored))));
+const releaseObjects = Effect.fnUntraced(function* (target: Parameters<typeof releaseUploads>[0]) {
+    const objects = yield* releaseUploads(target);
+    const [, failures] = yield* Effect.partition(
+        objects,
+        Effect.fnUntraced(function* ({ key, uploadId }) {
+            if (uploadId !== null) {
+                yield* Effect.tryPromise(() => env.BUCKET.resumeMultipartUpload(key, uploadId).abort());
+            }
+            yield* Effect.tryPromise(() => env.BUCKET.delete(key));
+            yield* finishRelease(key);
         }),
-        Match.when({ size: asset.size, httpMetadata: { contentType: asset.mime } }, () => Stream.runDrain(content)),
-        Match.orElse(() => Effect.fail(new HttpApiError.Conflict())),
+        { concurrency: 'unbounded' },
     );
+    if (Array.isReadonlyArrayNonEmpty(failures)) {
+        yield* Effect.logError(...failures);
+        return yield* new HttpApiError.ServiceUnavailable();
+    }
 });
-const advance = (current: Upload, incoming: Multipart.Part): Effect.Effect<Upload, HttpApiError.BadRequest | HttpApiError.Conflict | Cause.UnknownError | Multipart.MultipartError> =>
-    Match.value({ state: current, part: incoming }).pipe(
-        Match.when({ state: { stage: 'asset' }, part: { _tag: 'Field', key: 'asset' } }, ({ part }) =>
-            Schema.decodeUnknownEffect(Schema.fromJsonString(Asset))(part.value).pipe(
-                Effect.mapError(() => new HttpApiError.BadRequest()),
-                Effect.map((asset): Upload => ({ stage: 'file', asset })),
-            ),
+const putObject = Effect.fnUntraced(function* (object: { readonly key: string; readonly mime: string; readonly size: number }, content: Stream.Stream<Uint8Array, Multipart.MultipartError>) {
+    const upload = yield* Effect.acquireRelease(
+        Effect.tryPromise(() => env.BUCKET.createMultipartUpload(object.key, { httpMetadata: { contentType: object.mime } })),
+        (handle, exit) => (Exit.isSuccess(exit) ? Effect.void : Effect.tryPromise(() => handle.abort()).pipe(Effect.catchTag('UnknownError', Effect.logError))),
+    );
+    yield* attachUpload(object.key, upload.uploadId);
+    const body = new FixedLengthStream(object.size);
+    const [, part] = yield* Effect.all([Stream.run(content, Sink.fromWritableStream({ evaluate: () => body.writable, onError: () => new HttpApiError.BadRequest() })), Effect.tryPromise(() => upload.uploadPart(1, body.readable))], { concurrency: 'unbounded' });
+    yield* Effect.tryPromise(() => upload.complete([part]));
+});
+const advance = Effect.fnUntraced(function* (current: Upload, part: Multipart.Part) {
+    return yield* Match.value({ current, part }).pipe(
+        Match.when({ current: { stage: 'asset' }, part: { _tag: 'Field', key: 'asset' } }, ({ part: field }) =>
+            Effect.gen(function* () {
+                const asset = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Asset))(field.value).pipe(Effect.mapError(() => new HttpApiError.BadRequest()));
+                const crypto = yield* Crypto.Crypto;
+                const attemptId = yield* crypto.randomUUIDv4;
+                const files: Extract<Upload, { stage: 'files' | 'stored' }>['files'] = [
+                    ...('renditions' in asset ? (asset.renditions ?? []).map((rendition) => ({ ...rendition, key: `${attemptId}/${rendition.width}`, field: 'renditions' as const, name: String(rendition.width) })) : []),
+                    { key: attemptId, field: 'file', mime: asset.mime, size: asset.size },
+                ];
+                const existing = yield* Effect.acquireRelease(
+                    beginUpload(
+                        asset,
+                        attemptId,
+                        files.map(({ key }) => key),
+                    ),
+                    () => releaseObjects({ attemptId }).pipe(Effect.catchTag(['ServiceUnavailable', 'Conflict'], Effect.logError)),
+                );
+                return { stage: Option.isSome(existing) ? 'stored' : 'files', asset, attemptId, files } satisfies Upload;
+            }),
         ),
-        Match.when({ state: { stage: 'file' }, part: { _tag: 'File' } }, ({ state, part }) => Effect.as(putObject(state.asset, part.content), { stage: 'complete', asset: state.asset } satisfies Upload)),
+        Match.when({ current: { stage: Match.is('files', 'stored') }, part: { _tag: 'File' } }, ({ current: state, part: file }) =>
+            Effect.gen(function* () {
+                const object = yield* Option.match(Array.head(state.files), { onNone: () => Effect.fail(new HttpApiError.BadRequest()), onSome: Effect.succeed });
+                if (file.key !== object.field || (object.name !== undefined && file.name !== object.name)) {
+                    return yield* new HttpApiError.BadRequest();
+                }
+                yield* state.stage === 'stored' ? Stream.runDrain(file.content) : putObject(object, file.content);
+                return { ...state, files: state.files.slice(1) } satisfies Upload;
+            }),
+        ),
         Match.orElse(() => Effect.fail(new HttpApiError.BadRequest())),
     );
+});
+const readMedia = Effect.fn('readMedia')(
+    function* (request: HttpServerRequest.HttpServerRequest) {
+        const { id, width } = yield* HttpRouter.schemaPathParams(Schema.Struct({ id: Id, width: Schema.OptionFromOptionalKey(Schema.NumberFromString) }));
+        const asset = yield* readAsset(id, width);
+        if (!asset.published) {
+            yield* authorize;
+        }
+        const requested = yield* HttpServerRequest.toWeb(request);
+        const run = Effect.runSyncWith(yield* Effect.context());
+        const response = yield* Effect.promise(() => serveObjectRaw(r2Store({ bucket: env.BUCKET, reservedPrefix: '' }), { disposition: 'inline', securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }), onError: flow(Effect.logError, run) })(requested, { key: asset.objectKey, mime: asset.mime }));
+        return HttpServerResponse.raw(response.body instanceof ReadableStream ? response.body.pipeThrough(new FixedLengthStream(Number(response.headers['Content-Length']))) : response.body, response);
+    },
+    Effect.catchTag('SchemaError', () => Effect.fail(new HttpApiError.NotFound())),
+);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -50,49 +109,25 @@ const media = HttpApiBuilder.group(Api, 'media', (handlers) =>
         upload: Effect.fn('upload')(
             function* ({ payload }) {
                 const uploaded = yield* Stream.runFoldEffect(payload, (): Upload => ({ stage: 'asset' }), advance);
-                return yield* Match.value(uploaded).pipe(
-                    Match.when({ stage: 'complete' }, ({ asset }) => Effect.as(storeAsset(asset), { id: asset.id })),
-                    Match.orElse(() => Effect.fail(new HttpApiError.BadRequest())),
-                );
+                if (uploaded.stage === 'asset' || uploaded.files.length > 0) {
+                    return yield* new HttpApiError.BadRequest();
+                }
+                if (uploaded.stage === 'files') {
+                    yield* completeUpload(uploaded.attemptId);
+                }
+                return { id: uploaded.asset.id };
             },
+            Effect.provide(BrowserCrypto.layer),
+            Effect.scoped,
             Effect.catchTag('MultipartError', () => Effect.fail(new HttpApiError.BadRequest())),
-            Effect.catchTag('UnknownError', unavailable),
+            Effect.catchTag(['UnknownError', 'PlatformError'], unavailable),
         ),
-        delete: Effect.fn('delete')(
-            function* ({ params }) {
-                yield* deleteAsset(params.id);
-                yield* Effect.tryPromise(() => env.BUCKET.delete(params.id));
-            },
-            Effect.catchTag('UnknownError', unavailable),
-        ),
+        pending: () => readPendingUploads(),
+        discard: ({ params }) => releaseObjects({ assetId: params.id, remove: false }),
+        delete: ({ params }) => releaseObjects({ assetId: params.id, remove: true }),
     }),
 );
-const download = HttpRouter.add(
-    'GET',
-    '/api/media/:id',
-    Effect.fn('download')(
-        function* (request: HttpServerRequest.HttpServerRequest) {
-            const { id } = yield* HttpRouter.schemaPathParams(Schema.Struct({ id: Id }));
-            yield* Effect.filterOrElse(isPublished(id), Function.identity, () => authorize);
-            const requested = new Headers(request.headers);
-            const conditional = ['Range', 'If-Match', 'If-None-Match', 'If-Modified-Since', 'If-Unmodified-Since'].some((header) => requested.has(header));
-            const metadata = yield* Effect.tryPromise((): Promise<R2Object | R2ObjectBody | null> => (conditional ? env.BUCKET.head(id) : env.BUCKET.get(id))).pipe(Effect.filterOrFail(Predicate.isNotNull, () => new HttpApiError.NotFound()));
-            const response = evaluateConditionalRequest(requested, { totalSize: metadata.size, etag: metadata.httpEtag, lastModified: metadata.uploaded.toUTCString() });
-            const headers = new Headers(response.headers);
-            metadata.writeHttpMetadata(headers);
-            headers.set('Cache-Control', 'private, no-cache');
-            headers.set('X-Content-Type-Options', 'nosniff');
-            if (response.status !== HttpStatus.fromLiteral('Ok') && response.status !== HttpStatus.fromLiteral('PartialContent')) {
-                return HttpServerResponse.empty({ status: response.status, headers });
-            }
-            const object =
-                'body' in metadata ? metadata : yield* Effect.tryPromise(() => env.BUCKET.get(id, response.range === null ? {} : { range: { offset: response.range.start, length: response.range.end - response.range.start + 1 } })).pipe(Effect.filterOrFail(Predicate.isNotNull, () => new HttpApiError.NotFound()));
-            return HttpServerResponse.raw(object.body, { status: response.status, headers });
-        },
-        Effect.catchTag('SchemaError', () => Effect.fail(new HttpApiError.NotFound())),
-        Effect.catchTag('UnknownError', unavailable),
-    ),
-);
+const download = HttpRouter.addAll((['/api/media/:id', '/api/media/:id/:width'] as const).map((path) => HttpRouter.route('GET', path, readMedia)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

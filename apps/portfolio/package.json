@@ -6,18 +6,17 @@
         "@effect/atom-react": "catalog:",
         "@effect/platform-browser": "catalog:",
         "@effect/sql-d1": "catalog:",
-        "@embedpdf/core-geometry": "catalog:",
-        "@embedpdf/engine": "catalog:",
-        "@embedpdf/react": "catalog:",
         "@uppy/core": "catalog:",
         "@uppy/dashboard": "catalog:",
         "@uppy/react": "catalog:",
         "@uppy/xhr-upload": "catalog:",
+        "@use-gesture/react": "catalog:",
         "effect": "catalog:",
         "embla-carousel-react": "catalog:",
         "lucide-react": "catalog:",
         "motion": "catalog:",
         "partial-content": "catalog:",
+        "pdfjs-dist": "catalog:",
         "react": "catalog:",
         "react-aria-components": "catalog:",
         "react-dom": "catalog:",
@@ -35,6 +34,7 @@
         "@types/react-dom": "catalog:",
         "@vitejs/plugin-react": "catalog:",
         "oxc-transform-react": "catalog:",
-        "vite": "catalog:"
+        "vite": "catalog:",
+        "vite-plugin-static-copy": "catalog:"
     }
 }

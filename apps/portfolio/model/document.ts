@@ -1,10 +1,10 @@
-import { Array, Effect, Schema, SchemaGetter, SchemaParser, Struct } from 'effect';
+import { Array, Effect, Schema, type SchemaAST, SchemaIssue, SchemaParser, Struct } from 'effect';
 import { AssetCollection, Id } from './asset.ts';
 import { Assets, Composition, Placement } from './placement.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const emptyPortfolio: typeof StoredPortfolio.Type = { name: '', introduction: '', email: '', entries: [] };
+const emptyPortfolio = { name: '', introduction: '', email: '', entries: [] } as const satisfies typeof StoredPortfolio.Type;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,16 +28,24 @@ const Portfolio = Schema.Struct({ name: Schema.String, introduction: Schema.Stri
     ),
 );
 const StoredPortfolio = Schema.toEncoded(Portfolio);
-const PortfolioData = Schema.Struct({ portfolio: StoredPortfolio, assets: AssetCollection }).pipe(
-    Schema.decodeTo(Schema.Struct({ portfolio: Schema.toType(Portfolio), assets: Schema.toType(AssetCollection) }), {
-        decode: SchemaGetter.transformEffect((data) =>
-            SchemaParser.decodeEffect(Portfolio)(data.portfolio).pipe(
-                Effect.provideService(Assets, data.assets),
-                Effect.map((portfolio) => ({ ...data, portfolio })),
-            ),
-        ),
-        encode: SchemaGetter.transformEffect((data) => SchemaParser.encodeEffect(Portfolio)(data.portfolio).pipe(Effect.map((portfolio) => ({ ...data, portfolio })))),
-    }),
+const envelope = Schema.Struct({ portfolio: Portfolio, assets: AssetCollection });
+const PortfolioData = Schema.make<Schema.Codec<typeof envelope.Type, typeof envelope.Encoded>>(
+    Schema.declareConstructor<typeof envelope.Type, typeof envelope.Encoded>()(
+        [envelope.fields.portfolio, envelope.fields.assets],
+        ([portfolio, assets]) => {
+            const parse = SchemaParser.decodeUnknownEffect(Schema.Struct({ portfolio: Schema.Unknown, assets }));
+            const resolve = SchemaParser.decodeUnknownEffect(portfolio);
+            return Effect.fnUntraced(function* (input: unknown, _ast: SchemaAST.Declaration, options: SchemaAST.ParseOptions): Effect.fn.Return<typeof envelope.Type, SchemaIssue.Issue> {
+                const data = yield* parse(input, options);
+                const resolved = yield* resolve(data.portfolio, options).pipe(
+                    Effect.provideService(Assets, data.assets),
+                    Effect.mapError((issue) => new SchemaIssue.Pointer(['portfolio'], issue)),
+                );
+                return { ...data, portfolio: resolved };
+            });
+        },
+        { toCodecJson: () => undefined },
+    ).ast,
 );
 const Session = Schema.Union([Schema.Struct({ kind: Schema.Literal('owner') }), Schema.Struct({ kind: Schema.Literal('visitor'), signedIn: Schema.Boolean })]);
 const Bootstrap = Schema.Struct({ initial: PortfolioData, session: Session });
