@@ -1,7 +1,7 @@
 import { BrowserCrypto } from '@effect/platform-browser';
 import Uppy, { type Body, type Meta, type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
-import { Array, Crypto, Effect, Equivalence, Function, Match, Struct } from 'effect';
+import { Array, Crypto, Effect, Equivalence, Function, Match, Option, Struct } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { type Asset, mediaTypes, uploadLimit } from '../model/asset.ts';
 import type { PortfolioData } from '../model/document.ts';
@@ -118,15 +118,17 @@ const prepare = Effect.fnUntraced(function* (uploader: Uppy<UploadMeta, Body>, i
             onFailure: (error) =>
                 Effect.promise(async () => {
                     const { PasswordException, InvalidPDFException } = await import('pdfjs-dist');
-                    uploader.emit('upload-error', file, {
-                        name: error.name,
-                        message: Match.value(error.cause).pipe(
-                            Match.when(Match.instanceOf(PasswordException), Function.constant('This PDF is password protected. Remove it and add an unlocked export.')),
-                            Match.when(Match.instanceOf(InvalidPDFException), Function.constant('This PDF could not be read. Remove it and add a fresh PDF export.')),
-                            // ast-grep-ignore: no-rendered-cause-tsx -- Uppy upload-error requires the final display message at this boundary.
-                            Match.orElse(Function.constant(error.message)),
-                        ),
-                    });
+                    const rejected = Match.value(error.cause).pipe(
+                        Match.when(Match.instanceOf(PasswordException), Function.constant('This PDF is password protected. Add an unlocked export.')),
+                        Match.when(Match.instanceOf(InvalidPDFException), Function.constant('This PDF could not be read. Add a fresh PDF export.')),
+                        Match.option,
+                    );
+                    if (Option.isSome(rejected)) {
+                        uploader.info(`${file.name}: ${rejected.value}`, 'error', uploader.opts.infoTimeout);
+                        uploader.removeFile(id);
+                        return;
+                    }
+                    uploader.emit('upload-error', file, error);
                     complete();
                 }),
         }),
