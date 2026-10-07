@@ -375,7 +375,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 - `IO.Retry(Schedule.recurs(3))` means `Forever.Take(3)`
 - `maxCumulativeDelay` stops the schedule once the accumulated delay crosses its budget, `resetAfter` restarts the policy at that crossing
-- Each wall-clock constructor takes an optional `Func<DateTime>?` clock, `() => clock.GetCurrentInstant().ToDateTimeUtc()` adapts a NodaTime `IClock`
+- Each wall-clock constructor takes an optional `Func<DateTime>?` clock, `() => time.GetUtcNow().UtcDateTime` adapts the `TimeProvider` argument
 
 ### [02.7]-[FINT]
 

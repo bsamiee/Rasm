@@ -185,8 +185,8 @@ Function dependencies decouple the consumer from the implementation, take a dete
 Runtime record holds the configuration and implements one `Has` trait per capability, the workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies, `Eff<RT, A>.Lift(Func<Fin<A>>)` lifts a `Fin` into the query, a `from` clause binds the `IO<Unit>` dependency, and the host runs the effect once with `Run(rt)`, which returns `Fin<A>`:
 
 ```csharp
-internal sealed record OwnerUnknown() : Expected("the owner is unknown", 101);
-internal sealed record AppRuntime(ConnectionIO Connection, ZonedClock Clock) : Has<Eff<AppRuntime>, ConnectionIO> {
+internal sealed record OwnerUnknown() : Expected("the owner is unknown", (int)Codes.OwnerUnknown);
+internal sealed record AppRuntime(ConnectionIO Connection, TimeProvider Time) : Has<Eff<AppRuntime>, ConnectionIO> {
     static K<Eff<AppRuntime>, ConnectionIO> Has<Eff<AppRuntime>, ConnectionIO>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Connection);
 }
 
@@ -203,11 +203,14 @@ internal static class Workflow {
 
 internal static class Host {
     public static Fin<Entry> Book(AppRuntime runtime, Func<Command, IO<Unit>> save, Command command) =>
-        Workflow.Book(Validators.NotPast(runtime.Clock.GetCurrentDate()), Lookups<AppRuntime>.Lookup, save, command).Run(runtime);
+        Workflow.Book(Validators.NotPast(Today(runtime.Time)), Lookups<AppRuntime>.Lookup, save, command).Run(runtime);
+
+    private static LocalDate Today(TimeProvider time) =>
+        time.GetCurrentInstant().InZone(BclDateTimeZone.FromTimeZoneInfo(time.LocalTimeZone)).Date;
 }
 ```
 
-Framework entry points stay thin while the behavior they invoke arrives as narrow functions, composition is ordinary function application without an inversion-of-control container, and `Validators.NotPast` is the date-taking validator factory that the host specializes once per request with the date its `ZonedClock` reads.
+Framework entry points stay thin while the behavior they invoke arrives as narrow functions, composition is ordinary function application without an inversion-of-control container, and `Validators.NotPast` is the date-taking validator factory that the host specializes once per request with the date its `TimeProvider` reads.
 
 ## [06]-[END_TO_END_FLOW]
 
@@ -251,7 +254,7 @@ Immutable state stays separate from behavior, and a pure transition returns its 
 
 ```csharp
 internal sealed record State(decimal Balance);
-internal sealed record Insufficient() : Expected("insufficient balance", 902);
+internal sealed record Insufficient() : Expected("insufficient balance", (int)Codes.Insufficient);
 
 internal static class Transitions {
     public static Fin<State> Debit(this State state, decimal amount) =>
@@ -259,13 +262,13 @@ internal static class Transitions {
 }
 ```
 
-Boundary services expose reads as `OptionT<IO, A>` and writes as `IO<Unit>` while the transition stays pure: the repository lifts its `Option` read with `OptionT.lift`, `Run` unwraps the `OptionT` layer, `ToFin` with a typed `Expected` puts absence on the `IO` error channel, and `IO.lift(Fin<A>)` lifts the transition's rejection onto the same channel:
+Boundary services expose reads as `IO<Option<A>>` and writes as `IO<Unit>` while the transition stays pure: the repository lifts its `Option` read with `IO.lift`, the one consumer matches absence once through `ToFin` with a typed `Expected` that puts it on the `IO` error channel, and `IO.lift(Fin<A>)` lifts the transition's rejection onto the same channel:
 
 ```csharp
-internal sealed record NotFound() : Expected("state not found", 903);
+internal sealed record NotFound() : Expected("state not found", (int)Codes.NotFound);
 
 internal interface IRepository<T> {
-    public OptionT<IO, T> Get(Guid id);
+    public IO<Option<T>> Get(Guid id);
     public IO<Unit> Save(Guid id, T value);
 }
 internal interface INotifier {
@@ -275,7 +278,7 @@ internal interface INotifier {
 internal sealed class MemoryStates : IRepository<State> {
     private readonly AtomHashMap<Guid, State> store = AtomHashMap<Guid, State>();
 
-    public OptionT<IO, State> Get(Guid id) => OptionT.lift<IO, State>(IO.lift(() => store.Find(id)));
+    public IO<Option<State>> Get(Guid id) => IO.lift(() => store.Find(id));
     public IO<Unit> Save(Guid id, State value) => IO.lift(() => store.AddOrUpdate(id, value));
 }
 internal sealed class Handler(IRepository<State> states, INotifier notifier) {
@@ -286,8 +289,8 @@ internal sealed class Handler(IRepository<State> states, INotifier notifier) {
         from __ in notifier.Send(command, next)
         select unit;
 
-    private static IO<State> Require(OptionT<IO, State> lookup) =>
-        lookup.Run().As().Bind(static option => IO.lift(option.ToFin(new NotFound())));
+    private static IO<State> Require(IO<Option<State>> lookup) =>
+        lookup.Bind(static option => IO.lift(option.ToFin(new NotFound())));
 }
 ```
 

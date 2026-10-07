@@ -55,7 +55,7 @@ Impure functions have hidden inputs (the current time, database contents, the en
 
 ## [02]-[INJECTION]
 
-Reading `SystemClock.Instance.GetCurrentInstant()` inside a validator makes the result depend on the system clock, the code that constructs the validator reads the date once and injects the value, which makes the check deterministic and applies to configuration, environment settings, and request-scoped values, with the tradeoff that the object must not outlive the validity of the captured snapshot:
+Reading `TimeProvider.System.GetCurrentInstant()` inside a validator makes the result depend on the system clock, the code that constructs the validator reads the date once and injects the value, which makes the check deterministic and applies to configuration, environment settings, and request-scoped values, with the tradeoff that the object must not outlive the validity of the captured snapshot:
 
 ```csharp
 internal sealed record Command(LocalDate Date, string Code);
@@ -255,13 +255,16 @@ internal static class Layers {
 }
 ```
 
-Each `Bind` understands only its outer effect, nested effects do not compose directly. A lookup that can return no value stays inside `OptionT<IO, A>` while it consumes an `IO<A>` through `OptionT.liftIO`, an operation that returns a non-generic `Task` adapts through an `async` lambda that returns `unit`, and an `Eff<RT, A>` exits asynchronously through `RunAsync(rt)`, which returns `Task<Fin<A>>`:
+Each `Bind` understands only its outer effect, nested effects do not compose directly. A lookup that can return no value answers `IO<Option<A>>`, its consumer matches the inner `Option` once and binds the next `IO<A>` on the same channel, an operation that returns a non-generic `Task` adapts through an `async` lambda that returns `unit`, and an `Eff<RT, A>` exits asynchronously through `RunAsync(rt)`, which returns `Task<Fin<A>>`:
 
 ```csharp
+internal sealed record StateMissing() : Expected("no state has this id", (int)Codes.StateMissing);
+
 internal static class Stacks {
-    public static OptionT<IO, decimal> Converted(Func<Guid, OptionT<IO, State>> lookup, Guid id, IO<decimal> rate) =>
-        from state in lookup(id)
-        from factor in OptionT.liftIO<IO, decimal>(rate)
+    public static IO<decimal> Converted(Func<Guid, IO<Option<State>>> lookup, Guid id, IO<decimal> rate) =>
+        from found in lookup(id)
+        from state in IO.lift(found.ToFin(new StateMissing()))
+        from factor in rate
         select state.Balance * factor;
     public static IO<Unit> Publish(Func<Task> publish) =>
         IO.liftAsync(async () => {
@@ -272,4 +275,4 @@ internal static class Stacks {
 }
 ```
 
-Reduce unnecessary effects before building the workflow, and adapt every operation to `IO` at its boundary: a `Validation` from the validation boundary enters through `ToFin` and `IO.lift`, a `Fin` from a pure transition enters through `IO.lift`, and an `OptionT<IO, A>` read leaves the stack through `Run()` and `ToFin` with a typed `Expected`.
+Reduce unnecessary effects before building the workflow, and adapt every operation to `IO` at its boundary: a `Validation` from the validation boundary enters through `ToFin` and `IO.lift`, a `Fin` from a pure transition enters through `IO.lift`, and an `IO<Option<A>>` read meets its one match through `ToFin` with a typed `Expected` under `IO.lift`.

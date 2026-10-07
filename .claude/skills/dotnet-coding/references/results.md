@@ -8,8 +8,8 @@ Each validator has one shape: it accepts the request, returns it on success for 
 
 ```csharp
 internal sealed record Command(string Code, LocalDate Date);
-internal sealed record InvalidCode() : Expected("code is not 8 or 11 alphanumerics", Codes.InvalidCode);
-internal sealed record DateIsPast() : Expected("date is not in the future", Codes.DateIsPast);
+internal sealed record InvalidCode() : Expected("code is not 8 or 11 alphanumerics", (int)Codes.InvalidCode);
+internal sealed record DateIsPast() : Expected("date is not in the future", (int)Codes.DateIsPast);
 
 internal static class Rules {
     public static Fin<Command> ValidCode(Command command) =>
@@ -62,9 +62,9 @@ internal static class Validators {
 `Fin<A>` applies a function only to `Succ`, and `Fail` bypasses it and keeps its error. `Map` transforms the value with `A -> B`, `Bind` composes a step with `A -> Fin<B>`. `Fin` has no `Where`, a predicate supplies `bool` and no `Error`, a check is a validator that constructs its error and composes with `Bind`, or a `guard` clause in a query:
 
 ```csharp
-internal sealed record ZeroDivisor() : Expected("divisor is 0", Codes.ZeroDivisor);
-internal sealed record NegativeRatio() : Expected("ratio is negative", Codes.NegativeRatio);
-internal sealed record NegativeValue() : Expected("value is negative", Codes.NegativeValue);
+internal sealed record ZeroDivisor() : Expected("divisor is 0", (int)Codes.ZeroDivisor);
+internal sealed record NegativeRatio() : Expected("ratio is negative", (int)Codes.NegativeRatio);
+internal sealed record NegativeValue() : Expected("value is negative", (int)Codes.NegativeValue);
 
 internal static class Roots {
     public static Fin<double> Ratio(double x, double y) =>
@@ -124,7 +124,7 @@ internal static class Lifting {
 C# translates query clauses into method calls by name and signature, and an effect needs no `IEnumerable<T>` to take part: one `from` with `select` calls `Select`, an alias of `Map`, and every further `from` calls the ternary `SelectMany` that passes earlier values into the final projection without nested lambdas, one query shape runs over `Option` and over `Validation<Error, A>`:
 
 ```csharp
-internal sealed record NotANumber() : Expected("not a number", Codes.NotANumber);
+internal sealed record NotANumber() : Expected("not a number", (int)Codes.NotANumber);
 
 internal static class Queries {
     public static Validation<Error, int> ValidInt(string text) => parseInt(text).ToValidation<Error>(new NotANumber());
@@ -171,21 +171,21 @@ For an optional lookup the boundary translates `None` to not found and `Some(val
 
 ## [04]-[UNIONS]
 
-Discriminated unions hold exactly one of their alternatives, consumers pattern-match the value to reach its case and that case's data, and components that do not care which case they hold pass the union unchanged. Cases can be unrelated alternatives that share only an API type or a collection. Lookup outcomes are found, absent, and failed, `OptionT<IO, Item>` names each: `Some` is the found item, `None` is absence, and a lookup failure sits on the `IO` error channel:
+Discriminated unions hold exactly one of their alternatives, consumers pattern-match the value to reach its case and that case's data, and components that do not care which case they hold pass the union unchanged. Cases can be unrelated alternatives that share only an API type or a collection. Lookup outcomes are found, absent, and failed, `IO<Option<Item>>` names each: `Some` is the found item, `None` is absence, and a lookup failure sits on the `IO` error channel:
 
 ```csharp
 internal sealed record Item(int Id, string Name);
 
 internal static class Lookups {
-    public static OptionT<IO, Item> Find(Func<int, Item?> store, int id) =>
-        OptionT.lift<IO, Item>(IO.lift(() => Optional(store(id))));
-    public static IO<string> Describe(OptionT<IO, Item> lookup) =>
-        lookup.Match(Some: static item => item.Name, None: static () => "no such item").As();
+    public static IO<Option<Item>> Find(Func<int, Item?> store, int id) =>
+        IO.lift(() => Optional(store(id)));
+    public static IO<string> Describe(IO<Option<Item>> lookup) =>
+        lookup.Map(static found => found.Match(Some: static item => item.Name, None: static () => "no such item"));
     public static IO<Unit> Notify(Action<string> transport, string address) => IO.lift(() => transport(address));
 }
 ```
 
-`Optional` maps the `null` of a missing row to `None`, `IO.lift` captures a thrown lookup failure as an `Exceptional` error, `OptionT.Match` returns `K<IO, B>` and `.As()` restores `IO<B>`, and the host receives the lookup failure in the `Fin` that `RunSafe()` returns, no caller infers the outcome from `null`, a status flag, or optional metadata. `Notify` returns `IO<Unit>`, where `Unit` is completion and the error channel holds transport failures.
+`Optional` maps the `null` of a missing row to `None`, `IO.lift` captures a thrown lookup failure as an `Exceptional` error, `Describe` is the one consumer and matches the inner `Option` once inside `Map`, and the host receives the lookup failure in the `Fin` that `RunSafe()` returns, no caller infers the outcome from `null`, a status flag, or optional metadata. `Notify` returns `IO<Unit>`, where `Unit` is completion and the error channel holds transport failures.
 
 External input refines into typed cases in stages: the read comes in as a `Func<string>` dependency that another implementation can replace, `IO.lift` captures a read failure on the error channel, the text classifies once, and application code consumes the classified case:
 

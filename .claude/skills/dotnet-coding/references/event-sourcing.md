@@ -102,10 +102,10 @@ Commands are imperative requests (`Debit`) that can be invalid, ignored, or inte
 internal sealed record Debit(Guid EntryId, decimal Amount, string Target) {
     public Event ToEvent() => new Event.Debited(EntryId, Amount, Target);
 }
-internal sealed record NotActive() : Expected("entry is not active", Codes.NotActive);
-internal sealed record InsufficientBalance() : Expected("insufficient balance", Codes.InsufficientBalance);
-internal sealed record NotFound() : Expected("entry not found", Codes.NotFound);
-internal sealed record InvalidAmount() : Expected("amount is not positive", Codes.InvalidAmount);
+internal sealed record NotActive() : Expected("entry is not active", (int)Codes.NotActive);
+internal sealed record InsufficientBalance() : Expected("insufficient balance", (int)Codes.InsufficientBalance);
+internal sealed record NotFound() : Expected("entry not found", (int)Codes.NotFound);
+internal sealed record InvalidAmount() : Expected("amount is not positive", (int)Codes.InvalidAmount);
 
 internal static partial class Entry {
     public static Fin<(Event Event, Snapshot Snapshot)> Debit(Snapshot snapshot, Debit command) =>

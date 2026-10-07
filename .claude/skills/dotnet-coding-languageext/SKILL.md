@@ -43,6 +43,8 @@ Each conversion is a method on the source type named for the target, and convert
 
 ```csharp
 internal static class Conversions {
+    public static Fin<T> Validated<T, TRaw, TError>(TRaw raw) where T : IObjectFactory<T, TRaw, TError> where TError : Error, IValidationError<TError> =>
+        T.Validate(raw, CultureInfo.InvariantCulture, out T? item) is { } error ? error : item!;
     public static Fin<int> Required(Option<int> value) => value.ToFin(new NotFound());
     public static Validation<Error, int> Checked(Option<int> value) => value.ToValidation<Error>(new NotFound());
     public static Option<Quantity> Present(Fin<Quantity> quantity) => quantity.ToOption();
@@ -58,7 +60,7 @@ internal static class Conversions {
 
 - `ToOption` on a `Fin` drops the failure reason
 - `Validation` becomes `Fin` at the end of input validation
-- `Fin` from a `From` factory becomes `Validation` before it combines with independent validations
+- `Fin` from the generic `Validated` crossing over a generated `Validate` becomes `Validation` before it combines with independent validations
 - `Try`, `IO`, and `Eff` return `Fin` when run
 
 ## [02]-[OPERATIONS]
@@ -89,27 +91,29 @@ Values in context have type `F<A>`, and the type constructor supplies the comput
 
 ## [03]-[ERRORS]
 
-Domain errors are `sealed record`s extending `Expected` with a message and a code:
+Domain errors are `sealed record`s extending `Expected` with a message and a member of the raising namespace's `Codes` enum:
 - `Exceptional` is the error `Try` and `IO` produce from a captured exception
 - `ManyErrors` is the error `+` and `Validation` produce from accumulation
 - `Errors` holds the shared values (`Errors.TimedOut`, `Errors.None`)
+- Each namespace that raises errors declares its `Codes` enum numbered from 0 in declaration order, shadowing the parent namespace's `Codes`
+- A record raised from two or more namespaces sits in their nearest common parent
 
 ```csharp
-internal static class Codes {
-    public const int InvalidQuantity = 2101;
-    public const int NotFound = 2103;
-    public const int Rejected = 2106;
+internal enum Codes {
+    InvalidQuantity,
+    NotFound,
+    Rejected,
 }
 
-internal sealed record InvalidQuantity() : Expected("quantity out of range", Codes.InvalidQuantity);
-internal sealed record NotFound() : Expected("item not found", Codes.NotFound);
+internal sealed record InvalidQuantity() : Expected("quantity out of range", (int)Codes.InvalidQuantity);
+internal sealed record NotFound() : Expected("item not found", (int)Codes.NotFound);
 internal sealed record Rejected : Expected {
-    public Rejected(Error cause) : base("request rejected", Codes.Rejected, cause) { }
+    public Rejected(Error cause) : base("request rejected", (int)Codes.Rejected, cause) { }
 }
 
 internal static class Classify {
     public static bool Retryable(Error error) => error.Is(Errors.TimedOut) || error.HasException<IOException>();
-    public static bool IsRejection(Error error) => error.HasCode(Codes.InvalidQuantity) || error.IsType<NotFound>();
+    public static bool IsRejection(Error error) => error.HasCode((int)Codes.InvalidQuantity) || error.IsType<NotFound>();
     public static int QuantityFaults(Error error) => error.Filter<InvalidQuantity>().Count;
     public static Option<Error> RejectionCause(Error error) => error.Filter<Rejected>().Head is Rejected rejected ? rejected.Inner : None;
 }
@@ -118,8 +122,8 @@ internal static class Classify {
 - `IsType<E>` tests and `Filter<E>` selects the `E` leaves of a `ManyErrors`, `Filter<E>` returns an `Error`: the one leaf, a `ManyErrors` of the leaves, or `Errors.None`
 - `Count` returns the number of leaves, `Head` the first leaf, `Errors.None` holds no leaf and is its own `Head`
 - `Filter<E>().Head is E <case>` binds the first `E` leaf to read its fields, `Errors.None` fails the pattern
-- `HasCode` and `Catch(int)` select a code the same package declares
-- Codes from many packages meet in one `ManyErrors` where `IsType<E>` separates them
+- `HasCode` and `Catch(int)` select a code inside the declaring namespace alone, since codes repeat across namespaces
+- Codes from many namespaces meet in one `ManyErrors` where `IsType<E>` separates them
 - `Error.New(string, Error)` has code `0`
 - `IsType`, `HasCode`, `Is`, and `Catch` do not descend into `Inner`, only the typed record that wraps a cause stays classifiable
 - `Error` implements `Monoid<Error>`, a custom failure type implements `Monoid<F>` before `Validation<F, A>` accumulates it
@@ -130,14 +134,16 @@ Recovery is a function from an error to the same result type, and the overloads 
 
 ```csharp
 internal static class Recovery {
-    public static Fin<Quantity> ByCode(Fin<Quantity> quantity) => quantity.Catch(Codes.InvalidQuantity, static _ => Quantity.From(0)).As();
-    public static Fin<Quantity> ByValue(Fin<Quantity> quantity) => quantity.Catch(new InvalidQuantity(), static _ => Quantity.From(0)).As();
-    public static Fin<Quantity> ByPredicate(Fin<Quantity> quantity) => quantity.Catch(static error => error.IsExpected, static _ => Quantity.From(0)).As();
-    public static IO<Item> Cached(IO<Item> load, Item cached) => load.Catch(Codes.NotFound, _ => IO.pure(cached)).As();
+    public static Fin<Quantity> ByCode(Fin<Quantity> quantity) => quantity.Catch((int)Codes.InvalidQuantity, static _ => Zero).As();
+    public static Fin<Quantity> ByValue(Fin<Quantity> quantity) => quantity.Catch(new InvalidQuantity(), static _ => Zero).As();
+    public static Fin<Quantity> ByPredicate(Fin<Quantity> quantity) => quantity.Catch(static error => error.IsExpected, static _ => Zero).As();
+    public static IO<Item> Cached(IO<Item> load, Item cached) => load.Catch((int)Codes.NotFound, _ => IO.pure(cached)).As();
     public static IO<Item> Fallback(IO<Item> primary, IO<Item> secondary) => primary | secondary;
-    public static Fin<Quantity> Rebound(Fin<Quantity> quantity) => quantity.BindFail(static error => error.HasCode(Codes.InvalidQuantity) ? Quantity.From(0) : error);
+    public static Fin<Quantity> Rebound(Fin<Quantity> quantity) => quantity.BindFail(static error => error.HasCode((int)Codes.InvalidQuantity) ? Zero : error);
     public static Fin<Quantity> WithContext(Fin<Quantity> quantity) => quantity.MapFail(static error => new Rejected(error));
     public static int AtHost(Fin<int> result) => result.IfFail(static _ => -1);
+
+    private static Fin<Quantity> Zero => Conversions.Validated<Quantity, int, InvalidQuantity>(0);
 }
 ```
 
@@ -179,7 +185,7 @@ internal static class Guards {
 ```csharp
 internal static class Construction {
     public static IO<int> Plain => IO.lift(static () => 1);
-    public static IO<int> Folded => IO.lift(static () => Quantity.From(2).Map(static q => (int)q));
+    public static IO<int> Folded => IO.lift(static () => Conversions.Validated<Quantity, int, InvalidQuantity>(2).Map(static q => (int)q));
     public static IO<bool> Carried => IO.lift<Fin<int>>(static () => Pure(3)).Map(static fin => fin.IsSucc);
     public static IO<int> TokenAware => IO.liftAsync(static env => Remote.FetchAsync(6, env.Token));
 }

@@ -161,7 +161,7 @@ internal static class Stacks {
 
 ```csharp
 internal sealed record Session(Principal Current, Seq<Permission> Permissions);
-internal sealed record AccessDenied() : Expected("access denied", 9001);
+internal sealed record AccessDenied() : Expected("access denied", (int)Codes.AccessDenied);
 
 internal static class Access {
     public static K<M, Principal> Current<M>() where M : Readable<M, Session> =>

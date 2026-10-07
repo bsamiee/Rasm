@@ -61,7 +61,7 @@ internal static class Branches {
 `OnError` is terminal: when a derived stream reports an error, that stream and every downstream stream terminate while upstream streams continue, only part of the dataflow stays active. Apply the operation with `Map`, return a `Fin<R>` per item, keep both cases in one stream by translating them to a common output with `Match`, or reduce the stream into values and errors:
 
 ```csharp
-internal sealed record UnknownCode() : Expected("unknown code", 1901);
+internal sealed record UnknownCode() : Expected("unknown code", (int)Codes.UnknownCode);
 
 internal static class Failures {
     public static Fin<decimal> Rate(HashMap<string, decimal> table, string code) => table.Find(code).ToFin(new UnknownCode());
@@ -181,7 +181,7 @@ internal sealed class Counter(Conduit<Increment, Increment> inbox) {
 Event sourcing reconstructs a correct aggregate from concurrent events, but it does not protect a rule that depends on the state observed before an event is created: concurrent debits can each validate against the same snapshot, both events are accepted, and replaying them yields a balance that violates the limit while the log stays internally consistent. Associate one process with each entity, and one server process hosts millions of them when it is the sole route for changes, while cross-process access needs actors. The responsibilities separate into an immutable snapshot, pure functions that validate a command and compute the event with the next state, and the process that owns the current state and serializes commands:
 
 ```csharp
-internal sealed record Overdrawn() : Expected("debit exceeds the limit", 2001);
+internal sealed record Overdrawn() : Expected("debit exceeds the limit", (int)Codes.Overdrawn);
 internal sealed record Snapshot(decimal Balance, decimal Limit);
 internal sealed record Debited(decimal Amount);
 internal sealed record Debit(decimal Amount, Conduit<Fin<Snapshot>, Fin<Snapshot>> Replies);
@@ -226,28 +226,27 @@ Command path evaluates the pure transition against the current state, retains th
 Controllers need the one live process for an entity id, and an application-wide `AtomHashMap<Guid, EntityProcess>` owns that map. Registries that load missing state inside their update stall every lookup until the read completes, and the update reruns on conflict, the load happens in the caller's `IO` outside the registry: read `Find(id)` and return the existing process, otherwise load the state, start the process, and register it with `FindOrAdd(id, started)`, and its atomic check and add alone makes creation unique, the process that `FindOrAdd` did not return completes its inbox:
 
 ```csharp
-internal sealed record UnknownEntity() : Expected("no entity has this id", 2002);
+internal sealed record UnknownEntity() : Expected("no entity has this id", (int)Codes.UnknownEntity);
 
 internal static class Registry {
-    public static OptionT<IO, EntityProcess> Lookup(
+    public static IO<EntityProcess> Lookup(
         AtomHashMap<Guid, EntityProcess> processes,
-        Func<Guid, OptionT<IO, Snapshot>> load,
+        Func<Guid, IO<Option<Snapshot>>> load,
         Func<Debited, IO<Unit>> persist,
         Guid id) =>
         processes.Find(id).Match(
-            Some: OptionT.Some<IO, EntityProcess>,
+            Some: static process => IO.pure(process),
             None: () =>
-                from state in load(id)
+                from found in load(id)
+                from state in IO.lift(found.ToFin(new UnknownEntity()))
                 from started in EntityProcess.Start(persist, state)
                 from resolved in IO.lift(() => processes.FindOrAdd(id, started))
                 from _ in ReferenceEquals(resolved, started) ? IO.pure(unit) : started.Inbox.Complete()
                 select resolved);
-    public static IO<EntityProcess> Require(OptionT<IO, EntityProcess> lookup) =>
-        lookup.Run().As().Bind(static found => IO.lift(found.ToFin(new UnknownEntity())));
 }
 ```
 
-Load and registration share one stack, the lookup is an `OptionT<IO, EntityProcess>`, the query ends with `None` when storage has no such entity, and `Require` at the controller boundary maps `None` to a typed `Expected` on the `IO` error channel, a rejected command and a missing entity use the same result type. The design rules:
+Load and registration share one `IO` chain, the load answers `IO<Option<Snapshot>>`, and the registry matches its `None` once into a typed `Expected` on the `IO` error channel when storage has no such entity, a rejected command and a missing entity use the same result type. The design rules:
 - Give an agent responsibility for owning and transitioning state, and move work that uses no owned state and needs no ordering outside the inbox
 - Make message types express intent (`Debit`, `Increment`)
 - Return immutable snapshots or derived results, even through a reply

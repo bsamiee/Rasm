@@ -21,7 +21,7 @@ Covers the decisions of writing C# under the workspace standards (TOTALITY, FLOW
 Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as unqualified names:
 - `Seq<A>` is the default collection in domain code
 - `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types
-- NodaTime `Instant`, `LocalDate`, and `Duration` are the time types, the clock enters as `IClock` or `Func<Instant>`
+- NodaTime `Instant`, `LocalDate`, and `Duration` are the time types, the clock enters as one `TimeProvider` argument
 - `Duration` names `NodaTime.Duration`, `LanguageExt.Duration` spells the library's delay type
 - Value objects, smart enums, and unions come from the Thinktecture generator
 
@@ -88,7 +88,7 @@ internal static class Factories {
 }
 ```
 
-Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters for useful left-to-right application: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is `Func<Instant>`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into functions of that shape, partially applies dependencies and policies, and injects only specialized functions into handlers. Top-level entry points compose functions from lower-level components with dependencies pointing downward, a layer calls any lower layer, and a low-level I/O call makes every delegating layer impure.
+Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters for useful left-to-right application: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is a `TimeProvider`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into functions of that shape, partially applies dependencies and policies, and injects only specialized functions into handlers. Top-level entry points compose functions from lower-level components with dependencies pointing downward, a layer calls any lower layer, and a low-level I/O call makes every delegating layer impure.
 
 Select the form by the call site:
 - Specialization when it simplifies call sites
@@ -247,11 +247,11 @@ Give each step a function and select the operator by the step's signature and by
 - Errors from one traversed element hold the element index as a typed field
 - Values stay in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling
 - Nested `Bind` calls become a query
-- Nested contexts (`IO<Option<A>>`) compose through a transformer (`OptionT<IO, A>`)
+- Nested contexts (`IO<Option<A>>`) stay nested, the consumer matches the inner `Option` once and no chain binds through it with a transformer
 - Stacks that appear throughout a workflow become a dedicated type
 
 ```csharp
-internal sealed record InvalidCommand() : Expected("command is invalid", 901);
+internal sealed record InvalidCommand() : Expected("command is invalid", (int)Codes.InvalidCommand);
 
 internal static class Workflow {
     public static Fin<State> Handle(Command command, State state) =>
@@ -266,26 +266,33 @@ Workflow runs in domain order (normalize, validate, transition), `Fin` handles t
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift`. Each package declares its errors as `sealed record`s extending `Expected` with a message and a code from the package's `Codes` class, beside the function that returns them or the value object they protect:
+Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift`. Each namespace that raises errors declares a `Codes` enum numbered from 0 in declaration order, shadowing the parent namespace's `Codes`, and its errors as `sealed record`s extending `Expected` with a message and a `Codes` member. A record raised from two or more namespaces sits in their nearest common parent:
 
 ```csharp
-internal sealed record InvalidQuantity() : Expected("quantity out of range", Codes.InvalidQuantity), IValidationError<InvalidQuantity> {
+internal enum Codes {
+    InvalidQuantity,
+}
+
+internal sealed record InvalidQuantity() : Expected("quantity out of range", (int)Codes.InvalidQuantity), IValidationError<InvalidQuantity> {
     public static InvalidQuantity Create(string message) => new();
 }
 
 [ValueObject<int>]
 [ValidationError<InvalidQuantity>]
 internal readonly partial struct Quantity {
-    public static Fin<Quantity> From(int value) => Validate(value, provider: null, out Quantity item) is { } error ? error : item;
-
     static partial void ValidateFactoryArguments(ref InvalidQuantity? validationError, ref int value) {
         if (value is < 0 or > 1_000)
             validationError = new InvalidQuantity();
     }
 }
+
+internal static class Conversions {
+    public static Fin<T> Validated<T, TRaw, TError>(TRaw raw) where T : IObjectFactory<T, TRaw, TError> where TError : Error, IValidationError<TError> =>
+        T.Validate(raw, CultureInfo.InvariantCulture, out T? item) is { } error ? error : item!;
+}
 ```
 
-`Validate` is the generated hook, the `From` factory maps it to `Fin<Quantity>`, every consumer receives a validated value and none re-validates. Consumers classify an error with `Is`, `HasCode`, `IsType<E>`, and `Filter<E>`, a package translates a dependency error it reacts to with `MapFail` into its own `Expected` that keeps the original as `Inner`. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. The host separates them in one `Match`, `Expected` or `ManyErrors` renders the business errors and `Exceptional` logs the detail and renders a generic failure.
+`Validate` is the generated hook and the one construction path, no value type declares a `From` factory of its own. A raw value crosses into its value type through the one generic `Validated` conversion, `Conversions.Validated<Quantity, int, InvalidQuantity>(raw)` answering `Fin<Quantity>`, and back through `ToValue()`; every consumer receives a validated value and none re-validates. Consumers classify an error by type with `IsType<E>` and `Filter<E>`, and `HasCode` and `Catch(int)` select a code inside the declaring namespace alone, since codes repeat across namespaces. A package translates a dependency error it reacts to with `MapFail` into its own `Expected` that keeps the original as `Inner`. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. The host separates them in one `Match`, `Expected` or `ManyErrors` renders the business errors and `Exceptional` logs the detail and renders a generic failure.
 
 ### [04.3]-[UNIONS]
 
@@ -314,8 +321,8 @@ internal abstract partial record Identity {
 | :-----: | :------------------------------------------------------------------------ | :-------------------------------------------- |
 |  [01]   | `Match` in the middle of a pipeline unwraps a value the next step relifts | `Bind` the next step                          |
 |  [02]   | `IfNone` with an arbitrary default hides absence                          | `ToFin` with an `Error`                       |
-|  [03]   | Matching on message text couples the consumer to prose                    | `HasCode` or `IsType<E>`                      |
-|  [04]   | `Option` nested inside an effect forces an unwrap per layer               | `OptionT<IO, A>`                              |
+|  [03]   | Matching on message text couples the consumer to prose                    | `IsType<E>` or `Filter<E>`                    |
+|  [04]   | `OptionT<IO, A>` or a match per step over an `Option` inside an effect    | `IO<Option<A>>` matched once by its consumer  |
 |  [05]   | `Fin` nested inside an effect duplicates the failure channel              | Typed `Expected` on the `IO` error channel    |
 |  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step        |
 |  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary               |
@@ -348,7 +355,7 @@ internal static class Host {
 Inject the narrowest dependency that represents what the consumer needs: a value for a stable snapshot, an `IO<A>` for an operation that must run on demand, and a runtime `RT` for a consumer that reads many capabilities. Wrapping the clock behind an interface does not make the consumer pure, and injecting the date makes it deterministic:
 
 ```csharp
-internal sealed record DateIsPast() : Expected("the date is in the past", 100);
+internal sealed record DateIsPast() : Expected("the date is in the past", (int)Codes.DateIsPast);
 
 internal static class Validators {
     public static Func<Command, Validation<Error, Command>> NotPast(LocalDate today) =>
@@ -356,7 +363,7 @@ internal static class Validators {
 }
 ```
 
-Host reads the date once from a `ZonedClock` (`clock.InZone(zone)`) through `GetCurrentDate()`, request handling supplies the command later, and a test supplies a date without a fake clock. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside the release action.
+Host reads the date once from its `TimeProvider` argument (`time.GetCurrentInstant().InZone(BclDateTimeZone.FromTimeZoneInfo(time.LocalTimeZone)).Date`), request handling supplies the command later, and a test supplies a date without a fake clock. The same argument supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside the `IO` that consumes it, and only the composition root names `TimeProvider.System`. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside the release action.
 
 ### [05.2]-[POLICIES]
 
