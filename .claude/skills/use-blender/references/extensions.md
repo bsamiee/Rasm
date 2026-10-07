@@ -34,28 +34,36 @@ Panels, draw handlers, timers, and status text each take one form:
 
 ## [02]-[PACKAGE]
 
-New extensions are one folder named after the manifest id, checked and zipped by Blender's own commands:
-1. `validate` names each invalid key and exits 1
-2. `cp -RL` resolves linked files into a copy, `build` packing files alone
-3. `build` writes `<id>-<version>.zip` into an existing folder, `unzip -l` listing its members
+Use `nx run <project>:pack` for repository extension projects.
+
+Project manifests declare `platforms`. Packing adds `wheels` to staged manifests and writes platform archives under `.artifacts/blender/<project>/`.
+
+Prepared extensions build from a folder containing `blender_manifest.toml`. Default file discovery skips symbolic links:
 
 ```bash
-# Manifest check, a copy with links resolved, its zip under <dist>, then the zip's members
-blender --factory-startup -c extension validate <source>
 cp -RL <source> <copy>
 mkdir -p <dist>
 blender --factory-startup -c extension build --source-dir <copy> --output-dir <dist>
 unzip -l <dist>/<id>-<version>.zip
 ```
 
-- Folders hold `blender_manifest.toml` beside `__init__.py`, siblings import relatively, and installs import as `bl_ext.<repository>.<id>`
-- Required keys are `schema_version`, `id`, `name`, `tagline`, `version`, `type`, `maintainer`, `license`, and `blender_version_min`
-- `platforms` stays absent on a pure-Python package, a listed platform hiding the package on every platform the list omits
-- `wheels` lists `./wheels/<file>.whl` paths of unmodified PyPI wheels, one per dependency and platform tag, and Blender reads no wheel metadata
-- `validate` runs before every build, holding `tagline` to 64 characters where the loader accepts more
+- `blender_manifest.toml` sits beside add-on `__init__.py` or theme XML
+- Installed add-ons import as `bl_ext.<repository>.<id>` and import sibling modules relatively
+- Use [Blender's manifest documentation](https://docs.blender.org/manual/en/latest/advanced/extensions/getting_started.html) for required keys
+- `platforms` restricts package availability regardless of implementation language, with omission allowing every platform
+- `wheels` lists `./wheels/<file>.whl` paths for bundled dependencies, including transitive dependencies Blender does not supply
+- Bundled wheels must cover every supported platform
+- Blender selects wheels by filename tags and resolves no dependencies from wheel metadata
+- `build` checks manifest metadata and tags strictly before writing, including `tagline` at 64 characters where loading accepts more
+- Build output folders must exist before the command runs
+- `validate <source-or-zip>` checks a folder or archive without building and exits 1 on invalid metadata
 - `validate` and `build` run on the user's tree and leave its shared wheels as they are
-- `--split-platforms` writes one `<id>-<version>-<platform>.zip` per manifest platform
-- `packaged` in `tools/interface/blender/packages.py` builds the repository's extension from a resolved `extension/` copy through `--output-filepath`
+- `--split-platforms` requires `platforms` and writes `<id>-<version>-<platform>.zip` per entry, replacing platform hyphens with underscores
+- Split archives hold compatible wheels and `[build.generated]` metadata restricting installation to their platform
+
+Blender's [wheel requirements](https://docs.blender.org/manual/en/latest/advanced/extensions/python_wheels.html) require unmodified PyPI wheels.
+
+Use `tools/interface/blender/packages.py` for interface extension packaging.
 
 ## [03]-[ISOLATED_TREE]
 
@@ -92,6 +100,8 @@ env BLENDER_USER_RESOURCES=<tree> TMPDIR=<tree>/tmp /usr/bin/open -n -g -W -a Bl
 - Headless enables register classes and draw functions, and the timer tick adding keymap items runs in a GUI
 
 ## [04]-[INSTALLS]
+
+Use `nx run <project>:install` for repository extension projects.
 
 Each package kind has one command line and one call inside a running Blender:
 
