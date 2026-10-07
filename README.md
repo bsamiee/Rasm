@@ -147,6 +147,7 @@ flowchart LR
 - Java: `google-java-format --aosp` and `pmd check` at zero findings
 - Tree: `yamllint`, `yamlfmt -lint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
 - Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format` per Xcode project
+- Checks run through Nx targets alone, each target with every command, dependency, and path the target declares
 - Failing checks are fixed in the code or the rule, severity stays as configured
 
 ## [06]-[STRUCTURE]
