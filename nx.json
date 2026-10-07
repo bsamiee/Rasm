@@ -23,8 +23,8 @@
             {
                 "filter": { "projects": ["tag:language:swift"] },
                 "executor": "nx:run-commands",
+                "cache": false,
                 "inputs": ["default", "xcode", "{workspaceRoot}/Xcode.xcconfig"],
-                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build/Products/Debug", "{projectRoot}/buildServer.json"],
                 "options": {
                     "cwd": "{projectRoot}",
                     "commands": [
@@ -35,6 +35,13 @@
                 }
             },
             { "filter": { "projects": ["tag:language:typescript"] }, "inputs": ["production", "^production", "typescript"] },
+            {
+                "filter": { "projects": ["tag:bundler:vite"] },
+                "command": "vite build",
+                "options": { "cwd": "{projectRoot}" },
+                "configurations": { "serve": { "command": "vite" } },
+                "outputs": ["{projectRoot}/dist"]
+            },
             {
                 "filter": { "projects": ["tag:host:uxp"] },
                 "command": "vite build --config $NX_WORKSPACE_ROOT/vite.config.ts",
@@ -119,8 +126,7 @@
                 "filter": { "projects": ["tag:language:typescript"] },
                 "command": "tsc --build --pretty false",
                 "cache": true,
-                "dependsOn": ["^typecheck"],
-                "inputs": ["default", { "dependentTasksOutputFiles": "**/*.d.ts", "transitive": true }, "typescript", { "externalDependencies": ["typescript"] }],
+                "inputs": ["default", "^default", "typescript", { "externalDependencies": ["typescript"] }],
                 "options": { "cwd": "{projectRoot}" },
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
             }
@@ -154,5 +160,5 @@
             }
         ]
     },
-    "plugins": [{ "plugin": "@nx/vitest", "exclude": ["vitest.config.ts", "vite.config.ts"], "options": { "testMode": "run" } }, { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } }, { "plugin": "./tools/nx/workspace.ts" }]
+    "plugins": [{ "plugin": "@nx/vitest", "include": ["**/vitest.config.ts"], "exclude": ["vitest.config.ts"], "options": { "testMode": "run" } }, { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } }, { "plugin": "./tools/nx/workspace.ts" }]
 }

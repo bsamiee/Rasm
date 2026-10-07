@@ -41,6 +41,7 @@ jobs:
                 fetch-depth: 0
                 filter: tree:0
                 persist-credentials: false
+            - uses: maxim-lobanov/setup-xcode@v1.7.0
             - uses: ./.github/actions/setup
             - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= COMPILER_INDEX_STORE_ENABLE=NO
 

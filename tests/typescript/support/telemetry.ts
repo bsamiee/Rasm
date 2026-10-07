@@ -24,11 +24,11 @@ const snapshot: Effect.Effect<readonly MetricDataPoint[]> = Effect.map(
         const dataPoint = (occurrence: Option.Option<string>, value: number): MetricDataPoint => [{ id: entry.id, attributes: entry.attributes, kind: entry.type, occurrence }, value];
         return Match.value(entry).pipe(
             Match.discriminatorsExhaustive('type')({
-                ['Counter']: ({ state }) => [dataPoint(Option.none(), Number(state.count))],
-                ['Gauge']: ({ state }) => [dataPoint(Option.none(), Number(state.value))],
-                ['Frequency']: ({ state }) => Array.map(Array.fromIterable(state.occurrences), ([occurrence, count]) => dataPoint(Option.some(occurrence), count)),
-                ['Histogram']: ({ state }) => [dataPoint(Option.none(), state.count)],
-                ['Summary']: ({ state }) => [dataPoint(Option.none(), state.count)],
+                Counter: ({ state }) => [dataPoint(Option.none(), Number(state.count))],
+                Gauge: ({ state }) => [dataPoint(Option.none(), Number(state.value))],
+                Frequency: ({ state }) => Array.map(Array.fromIterable(state.occurrences), ([occurrence, count]) => dataPoint(Option.some(occurrence), count)),
+                Histogram: ({ state }) => [dataPoint(Option.none(), state.count)],
+                Summary: ({ state }) => [dataPoint(Option.none(), state.count)],
             }),
         );
     }),

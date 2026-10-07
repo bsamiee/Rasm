@@ -31,19 +31,8 @@ nonisolated enum CodexProtocol {
     }
 
     struct ErrorObject: Codable, Sendable {
-        let code: Int?
-        let message: String?
-
-        init(code: Int, message: String) {
-            self.code = code
-            self.message = message
-        }
-
-        init(from decoder: any Decoder) {
-            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-            code = try? container?.decodeIfPresent(Int.self, forKey: .code)
-            message = try? container?.decodeIfPresent(String.self, forKey: .message)
-        }
+        let code: Int
+        let message: String
     }
 
     struct ErrorReply: Encodable, Sendable {
@@ -117,7 +106,7 @@ nonisolated enum CodexProtocol {
 
     struct ConfigReadParams: Encodable, Sendable {
         let includeLayers: Bool
-        let cwd: String
+        let cwd: String?
     }
 
     struct GreetingConfig: Encodable, Sendable {
@@ -179,15 +168,6 @@ nonisolated enum CodexProtocol {
     // --- [MESSAGES]
     struct InitializeResult: Decodable, Sendable {
         let userAgent: String?
-
-        enum CodingKeys: CodingKey {
-            case userAgent
-        }
-
-        init(from decoder: any Decoder) {
-            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-            userAgent = try? container?.decodeIfPresent(String.self, forKey: .userAgent)
-        }
     }
 
     struct RateLimitWindow: Decodable, Sendable {
@@ -247,13 +227,13 @@ nonisolated enum CodexProtocol {
         let codexErrorInfo: JSONValue?
     }
 
-    enum TurnStatus: String, Sendable {
+    enum TurnStatus: String, Decodable, Sendable {
         case completed, interrupted, failed
     }
 
     struct Turn: Decodable, Sendable {
         let id: String
-        let status: String
+        let status: Lenient<TurnStatus>
         let error: TurnError?
     }
 
@@ -277,12 +257,20 @@ nonisolated enum CodexProtocol {
         let error: String?
     }
 
+    enum AuthCredentialsStore: String, Decodable, Sendable {
+        case file, keyring, auto, ephemeral
+    }
+
     struct EffectiveConfig: Decodable, Sendable {
         struct Config: Decodable, Sendable {
             let mcpServers: [String: JSONValue]?
+            let authCredentialsStore: AuthCredentialsStore?
+            let forcedWorkspace: JSONValue?
 
             enum CodingKeys: String, CodingKey {
                 case mcpServers = "mcp_servers"
+                case authCredentialsStore = "cli_auth_credentials_store"
+                case forcedWorkspace = "forced_chatgpt_workspace_id"
             }
         }
         let config: Config
@@ -422,7 +410,7 @@ nonisolated enum CodexProtocol {
                 }
             }
             .flatMap { completed -> Result<Void, CodexFailure> in
-                switch (TurnStatus(rawValue: completed.turn.status), completed.turn.error) {
+                switch (completed.turn.status.value, completed.turn.error) {
                     case (.completed, _): .success(())
                     case (.interrupted, _): .failure(.cancelled)
                     case (.failed, .some(let error)) where error.codexErrorInfo == .string("unauthorized"):
@@ -463,7 +451,7 @@ nonisolated enum CodexProtocol {
     }
 }
 
-nonisolated struct CodexAuthFile: Sendable {
+nonisolated enum CodexAuthFile {
     private struct Document: Decodable, Sendable {
         struct Tokens: Decodable, Sendable {
             let idToken: String?
@@ -473,12 +461,6 @@ nonisolated struct CodexAuthFile: Sendable {
                 case idToken = "id_token"
                 case accountID = "account_id"
             }
-
-            init(from decoder: any Decoder) {
-                let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-                idToken = try? container?.decodeIfPresent(String.self, forKey: .idToken)
-                accountID = try? container?.decodeIfPresent(String.self, forKey: .accountID)
-            }
         }
 
         let authMode: String?
@@ -487,12 +469,6 @@ nonisolated struct CodexAuthFile: Sendable {
         enum CodingKeys: String, CodingKey {
             case tokens
             case authMode = "auth_mode"
-        }
-
-        init(from decoder: any Decoder) throws {
-            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-            authMode = try? container?.decodeIfPresent(String.self, forKey: .authMode)
-            tokens = try container?.decodeIfPresent(Tokens.self, forKey: .tokens)
         }
     }
 
@@ -509,14 +485,6 @@ nonisolated struct CodexAuthFile: Sendable {
                 case userID = "user_id"
                 case chatgptPlanType = "chatgpt_plan_type"
             }
-
-            init(from decoder: any Decoder) {
-                let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-                chatgptAccountID = try? container?.decodeIfPresent(String.self, forKey: .chatgptAccountID)
-                chatgptUserID = try? container?.decodeIfPresent(String.self, forKey: .chatgptUserID)
-                userID = try? container?.decodeIfPresent(String.self, forKey: .userID)
-                chatgptPlanType = try? container?.decodeIfPresent(String.self, forKey: .chatgptPlanType)
-            }
         }
 
         let email: String?
@@ -526,19 +494,11 @@ nonisolated struct CodexAuthFile: Sendable {
             case email
             case auth = "https://api.openai.com/auth"
         }
-
-        init(from decoder: any Decoder) throws {
-            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-            email = try? container?.decodeIfPresent(String.self, forKey: .email)
-            auth = try container?.decodeIfPresent(Auth.self, forKey: .auth)
-        }
     }
 
     static let name: String = "auth.json"
 
-    let identity: AccountIdentity
-
-    static func read(at url: URL) -> Result<Self?, CodexFailure> {
+    static func read(at url: URL) -> Result<AccountIdentity?, CodexFailure> {
         ifPresent { try Data(contentsOf: url) }
             .mapError(CodexFailure.storage)
             .flatMap { data in
@@ -550,7 +510,7 @@ nonisolated struct CodexAuthFile: Sendable {
             }
     }
 
-    private static func parse(_ document: Document) -> Result<Self?, CodexFailure> {
+    private static func parse(_ document: Document) -> Result<AccountIdentity?, CodexFailure> {
         if let mode: String = document.authMode, CodexProtocol.AuthMode(rawValue: mode) != .chatgpt {
             return .failure(.subscriptionRequired)
         }
@@ -566,8 +526,7 @@ nonisolated struct CodexAuthFile: Sendable {
                         (claims.auth?.chatgptUserID ?? claims.auth?.userID)
                         .map(Result.success) ?? .failure(AggregateError(first: "user identifier", remaining: []))
                     let email: Result<String, AggregateError<String>> =
-                        claims.email.map(Result.success)
-                        ?? .failure(AggregateError(first: "account email", remaining: []))
+                        claims.email.map(Result.success) ?? .failure(AggregateError(first: "account email", remaining: []))
                     return combine(user, workspace, email)
                         .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
                         .map { user, workspace, email in (user, workspace, email, claims.auth?.chatgptPlanType) }
@@ -576,7 +535,6 @@ nonisolated struct CodexAuthFile: Sendable {
                     AccountIdentity.make(accountID: user, organizationID: workspace, email: email, plan: plan)
                         .mapError { _ in .invalidResponse(field: "account identity") }
                 }
-                .map(Self.init(identity:))
                 .map(Optional.some)
         } else {
             .success(nil)
@@ -592,32 +550,5 @@ nonisolated struct CodexAuthFile: Sendable {
         return Data(base64Encoded: padded).map { data in
             Result { try JSONDecoder().decode(Claims.self, from: data) }.mapError { _ in unreadable }
         } ?? .failure(unreadable)
-    }
-}
-
-nonisolated enum CodexConfigFile {
-    static func switchable(at url: URL) -> Result<Void, CodexFailure> {
-        ifPresent { try String(contentsOf: url, encoding: .utf8) }
-            .mapError(CodexFailure.storage)
-            .flatMap { text in text.map(parse) ?? .success(()) }
-    }
-
-    private static func parse(_ text: String) -> Result<Void, CodexFailure> {
-        let top: [Substring] = text.split(separator: "\n").prefix { line in
-            !line.trimmingCharacters(in: .whitespaces).hasPrefix("[")
-        }
-        let store: String? = top.lazy.compactMap { line in
-            line.firstMatch(of: /^\s*cli_auth_credentials_store\s*=\s*"([^"]*)"/).map { match in
-                String(match.1)
-            }
-        }.first
-        let forced: Bool = top.contains { line in
-            line.contains(/^\s*forced_chatgpt_workspace_id\s*=/)
-        }
-        return switch (store, forced) {
-            case (.some(let store), _) where store != "file": .failure(.keyringStorage)
-            case (_, true): .failure(.forcedWorkspace)
-            case (_, false): .success(())
-        }
     }
 }

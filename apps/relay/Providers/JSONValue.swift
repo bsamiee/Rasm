@@ -12,21 +12,15 @@ nonisolated enum JSONValue: Codable, Equatable, Sendable {
 
     init(from decoder: any Decoder) throws {
         let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
-        self = try container.decodeNil() ? .null : Self.value(in: container)
-    }
-
-    private static func value(in container: any SingleValueDecodingContainer) throws -> Self {
-        let first: Result<Self, any Error> = Result { try .bool(container.decode(Bool.self)) }
-        let candidates: [() throws -> Self] = [
-            { try .number(container.decode(Double.self)) },
-            { try .string(container.decode(String.self)) },
-            { try .array(container.decode([Self].self)) },
-            { try .object(container.decode([String: Self].self)) },
-        ]
-        return try candidates.reduce(first) { outcome, candidate in
-            outcome.flatMapError { _ in Result(catching: candidate) }
-        }
-        .get()
+        self =
+            try container.decodeNil()
+            ? .null
+            : Result { try .bool(container.decode(Bool.self)) }
+                .flatMapError { _ in Result { try .number(container.decode(Double.self)) } }
+                .flatMapError { _ in Result { try .string(container.decode(String.self)) } }
+                .flatMapError { _ in Result { try .array(container.decode([Self].self)) } }
+                .flatMapError { _ in Result { try .object(container.decode([String: Self].self)) } }
+                .get()
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -62,5 +56,25 @@ nonisolated extension JSONDocument: Encodable where Known: Encodable {
     func encode(to encoder: any Encoder) throws {
         try fields.encode(to: encoder)
         try known.encode(to: encoder)
+    }
+}
+
+nonisolated struct Lenient<Value: Decodable & Sendable>: Decodable, Sendable {
+    let value: Value?
+
+    init(value: Value?) {
+        self.value = value
+    }
+
+    init(from decoder: any Decoder) {
+        value = try? Value(from: decoder)
+    }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+nonisolated extension KeyedDecodingContainer {
+    func decode<Value>(_: Lenient<Value>.Type, forKey key: Key) -> Lenient<Value> {
+        Lenient(value: try? decode(Value.self, forKey: key))
     }
 }

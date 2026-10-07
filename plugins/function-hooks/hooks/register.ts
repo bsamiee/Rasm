@@ -297,7 +297,7 @@ const _observed = async ($: EngineInterface, database: Once<Option<Database>>, e
 const _observation = (on: On, options: PluginOptions, database: Once<Option<Database>>): void => {
     const observer: Observer = { chosen: settings(options), spawning: new Set() };
 
-    on('classic.*', { ['hook_event_name']: _RECORDED }, async ($, e, next) => {
+    on('classic.*', { hook_event_name: _RECORDED }, async ($, e, next) => {
         if (next.is('!classic.PreToolUse', e)) {
             await _observed($, database, e, observer);
         }
@@ -320,8 +320,8 @@ const _observation = (on: On, options: PluginOptions, database: Once<Option<Data
 };
 
 const register: Register = (on, options) => {
-    const walking = options['walkPolicy'] === true;
-    const observing = options['observation'] === true;
+    const walking = options.walkPolicy === true;
+    const observing = options.observation === true;
     const database = _once<Option<Database>>();
 
     on('tool.call', async ($, e, next) => {

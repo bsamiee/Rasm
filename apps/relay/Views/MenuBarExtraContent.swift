@@ -10,14 +10,7 @@ struct AccountRemovalAlert: ViewModifier {
     @Binding var model: AccountModel?
 
     func body(content: Content) -> some View {
-        content.alert(
-            Self.title,
-            isPresented: Binding(
-                get: { model != nil },
-                set: { if !$0 { model = nil } },
-            ),
-            presenting: model,
-        ) { model in
+        content.alert(Self.title, item: $model) { model in
             Button("Cancel", role: .cancel) {}
                 .keyboardShortcut(.defaultAction)
             Button(Self.title, role: .destructive) { store.remove(model.account.id) }
@@ -62,6 +55,8 @@ struct MenuBarExtraContent: View {
             ScrollView {
                 TimelineView(.everyMinute) { context in accounts(at: context.date) }
             }
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .frame(maxHeight: 960)
             .fixedSize(horizontal: false, vertical: true)
             .scrollBounceBehavior(.basedOnSize)
 
@@ -81,8 +76,9 @@ struct MenuBarExtraContent: View {
                 .buttonStyle(.accessoryBar)
                 .accessibilityLabel("Relay menu")
             }
+            .padding(.horizontal, 16)
         }
-        .padding(16)
+        .padding(.vertical, 16)
         .frame(width: 384)
         .background(PanelToolTips())
         .onAppear { store.setMenuBarExtraVisible(true) }
@@ -212,7 +208,7 @@ private struct AccountCard: View {
         }
         if let usage {
             let weekly: [QuotaWindow] = [usage.weekly].compactMap(\.self) + usage.models
-            ForEach(Array(weekly.enumerated()), id: \.offset) { offset, window in
+            ForEach(weekly.enumerated(), id: \.offset) { offset, window in
                 UsageGauge(
                     title: window.kind.name,
                     reading: UsagePresentation.reading(window, at: now),

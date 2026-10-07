@@ -1,5 +1,7 @@
+import Darwin
 import Foundation
 import Subprocess
+import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -63,31 +65,20 @@ private nonisolated struct ClaudeUserMessage: Encodable, Sendable {
 }
 
 private nonisolated struct ClaudeRateLimitInfo: Decodable, Sendable {
-    let fiveHourResetsAt: Double?
-    let rateLimitType: ClaudeRateLimitType?
+    struct Windows: Decodable, Sendable {
+        struct Window: Decodable, Sendable {
+            let resetsAt: Double?
+        }
+
+        let fiveHour: Window?
+    }
+
+    let unifiedWindows: Windows?
+    let rateLimitType: Lenient<ClaudeRateLimitType>
     let resetsAt: Double?
 
-    enum CodingKeys: CodingKey {
-        case unifiedWindows, fiveHour, rateLimitType, resetsAt
-    }
-
     var sessionResetSeconds: Double? {
-        fiveHourResetsAt ?? (rateLimitType == .fiveHour ? resetsAt : nil)
-    }
-
-    init(from decoder: any Decoder) {
-        let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-        let windows: KeyedDecodingContainer<CodingKeys>? = try? container?.nestedContainer(
-            keyedBy: CodingKeys.self,
-            forKey: .unifiedWindows,
-        )
-        let fiveHour: KeyedDecodingContainer<CodingKeys>? = try? windows?.nestedContainer(
-            keyedBy: CodingKeys.self,
-            forKey: .fiveHour,
-        )
-        fiveHourResetsAt = try? fiveHour?.decodeIfPresent(Double.self, forKey: .resetsAt)
-        rateLimitType = try? container?.decodeIfPresent(ClaudeRateLimitType.self, forKey: .rateLimitType)
-        resetsAt = try? container?.decodeIfPresent(Double.self, forKey: .resetsAt)
+        unifiedWindows?.fiveHour?.resetsAt ?? (rateLimitType.value == .fiveHour ? resetsAt : nil)
     }
 }
 
@@ -95,61 +86,29 @@ private nonisolated struct ClaudeModelOption: Decodable, Sendable {
     let value: String?
     let resolvedModel: String?
     let disabled: Bool?
-
-    enum CodingKeys: CodingKey {
-        case value, resolvedModel, disabled
-    }
-
-    init(from decoder: any Decoder) {
-        let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-        value = try? container?.decodeIfPresent(String.self, forKey: .value)
-        resolvedModel = try? container?.decodeIfPresent(String.self, forKey: .resolvedModel)
-        disabled = try? container?.decodeIfPresent(Bool.self, forKey: .disabled)
-    }
 }
 
 private nonisolated struct ClaudeControlResponse: Decodable, Sendable {
-    let requestID: String?
-    let subtype: ClaudeSubtype?
-    let models: [ClaudeModelOption]?
-
-    enum CodingKeys: CodingKey {
-        case requestId, subtype, response, models
+    struct Response: Decodable, Sendable {
+        let models: [ClaudeModelOption]?
     }
 
-    init(from decoder: any Decoder) {
-        let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-        let payload: KeyedDecodingContainer<CodingKeys>? = try? container?.nestedContainer(
-            keyedBy: CodingKeys.self,
-            forKey: .response,
-        )
-        requestID = try? container?.decodeIfPresent(String.self, forKey: .requestId)
-        subtype = try? container?.decodeIfPresent(ClaudeSubtype.self, forKey: .subtype)
-        models = try? payload?.decodeIfPresent([ClaudeModelOption].self, forKey: .models)
+    let requestID: String?
+    let subtype: Lenient<ClaudeSubtype>
+    let response: Response?
+
+    enum CodingKeys: String, CodingKey {
+        case requestID = "requestId"
+        case subtype, response
     }
 }
 
 private nonisolated struct ClaudeMessage: Decodable, Sendable {
-    let type: ClaudeMessageType?
-    let subtype: ClaudeSubtype?
+    let type: Lenient<ClaudeMessageType>
+    let subtype: Lenient<ClaudeSubtype>
     let isError: Bool?
     let rateLimitInfo: ClaudeRateLimitInfo?
     let response: ClaudeControlResponse?
-
-    enum CodingKeys: CodingKey {
-        case type, subtype, isError, rateLimitInfo, response
-    }
-
-    init(from decoder: any Decoder) throws {
-        let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-        type = try? container?.decodeIfPresent(ClaudeMessageType.self, forKey: .type)
-        subtype = try? container?.decodeIfPresent(ClaudeSubtype.self, forKey: .subtype)
-        isError = try? container?.decodeIfPresent(Bool.self, forKey: .isError)
-        rateLimitInfo = try container?.decodeIfPresent(ClaudeRateLimitInfo.self, forKey: .rateLimitInfo)
-        response = try container.flatMap { keyed in
-            try keyed.contains(.response) ? keyed.decode(ClaudeControlResponse.self, forKey: .response) : nil
-        }
-    }
 }
 
 private nonisolated enum ClaudeSessionPhase: Sendable {
@@ -175,18 +134,56 @@ private nonisolated enum ClaudeSessionStep: Sendable {
 
 nonisolated enum ClaudeSession {
     static func run(
-        invocation: ProcessInvocation,
-        sessionID: UUID,
+        executable: Executable,
+        token: ClaudeOAuthToken,
+        environment: [String: String],
+        workingDirectory: URL,
     ) async -> Result<Date?, ClaudeFailure> {
-        let outcome: Result<(Result<Date?, ClaudeFailure>, TerminationStatus), ProcessFailure> =
-            await ProcessRun.stream(invocation, deadline: .seconds(120)) { execution in
-                await readMessages(execution: execution, sessionID: sessionID)
+        await Result { try FileDescriptor.pipe() }.mapError(ClaudeFailure.filesystem)
+            .flatMap { pipe in
+                Result { try pipe.writeEnd.closeAfter { try pipe.writeEnd.writeAll(token.accessToken.utf8) } }
+                    .map { _ in pipe.readEnd }
+                    .mapError { error in
+                        try? pipe.readEnd.close()
+                        return .filesystem(error)
+                    }
             }
-        return outcome.mapError(ClaudeFailure.init(process:)).flatMap { result, status in
-            result.flatMap { reset in
-                status.isSuccess ? .success(reset) : .failure(.process(.exit(status)))
+            .bind { descriptor in
+                defer { try? descriptor.close() }
+                let sessionID: UUID = UUID()
+                let tokenVariables: [String: String?] = [
+                    "CLAUDE_CODE_SUBSCRIPTION_TYPE": token.document.known.subscriptionType,
+                    "CLAUDE_CODE_RATE_LIMIT_TIER": token.document.known.rateLimitTier,
+                    "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR": String(descriptor.rawValue),
+                ]
+                var invocation: Configuration = ProcessRun.configuration(
+                    executable: executable,
+                    arguments: [
+                        "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+                        "--tools", "", "--setting-sources=", "--strict-mcp-config", "--disable-slash-commands",
+                        "--no-session-persistence", "--max-turns", "1", "--session-id", sessionID.uuidString,
+                        "--system-prompt", "Reply with one word.",
+                        "--settings", "{\"disableAllHooks\":true,\"autoMemoryEnabled\":false}",
+                    ],
+                    environment: environment.merging(tokenVariables.compactMapValues(\.self)) { _, new in new },
+                    workingDirectory: workingDirectory,
+                )
+                let source: Int32 = descriptor.rawValue
+                unsafe invocation.platformOptions.preSpawnProcessConfigurator = { _, actions in
+                    guard unsafe posix_spawn_file_actions_addinherit_np(&actions, source) == 0 else {
+                        throw ProcessFailure.descriptorNotInherited(source)
+                    }
+                }
+                return await ProcessRun.stream(invocation, deadline: .seconds(120)) { execution in
+                    await readMessages(execution: execution, sessionID: sessionID)
+                }
+                .mapError(ClaudeFailure.init(process:))
             }
-        }
+            .flatMap { result, status in
+                result.flatMap { reset in
+                    status.isSuccess ? .success(reset) : .failure(.process(.exit(status)))
+                }
+            }
     }
 
     private static func readMessages(
@@ -236,20 +233,20 @@ nonisolated enum ClaudeSession {
         sessionID: UUID,
     ) async -> Result<ClaudeSessionStep, ClaudeFailure> {
         guard !Task.isCancelled else { return .failure(.cancelled) }
-        if message.type == .rateLimitEvent, let seconds: Double = message.rateLimitInfo?.sessionResetSeconds {
+        if message.type.value == .rateLimitEvent, let seconds: Double = message.rateLimitInfo?.sessionResetSeconds {
             return .success(
                 .awaiting(phase, sessionReset: Date(timeIntervalSince1970: seconds))
             )
         }
-        if case .greeting = phase, message.type == .result {
-            return message.subtype == .success && message.isError != true
+        if case .greeting = phase, message.type.value == .result {
+            return message.subtype.value == .success && message.isError != true
                 ? .success(.finished(sessionReset: sessionReset)) : .failure(.greetingFailed)
         }
-        guard message.type == .controlResponse,
+        guard message.type.value == .controlResponse,
             let response: ClaudeControlResponse = message.response,
             response.requestID == phase.requestID
         else { return .success(.awaiting(phase, sessionReset: sessionReset)) }
-        guard response.subtype == .success else { return .failure(.protocolFailure) }
+        guard response.subtype.value == .success else { return .failure(.protocolFailure) }
         switch phase {
             case .initializing:
                 return await sendControlRequest(
@@ -260,7 +257,7 @@ nonisolated enum ClaudeSession {
                 )
             case .readingModels:
                 return
-                    if let model: ClaudeModelOption = response.models?.first(where: { item in
+                    if let model: ClaudeModelOption = response.response?.models?.first(where: { item in
                         item.disabled != true
                             && (item.value == "haiku" || item.resolvedModel?.hasPrefix("claude-haiku-") == true)
                     }),

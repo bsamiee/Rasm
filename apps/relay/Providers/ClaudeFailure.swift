@@ -19,43 +19,34 @@ nonisolated enum ClaudeEndpoint: String, Sendable {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-nonisolated struct ClaudeAPIError: Sendable {
+nonisolated struct ClaudeAPIError: Decodable, Sendable {
     let type: String
     let message: String
 }
 
 nonisolated struct ClaudeErrorBody: Decodable, Sendable {
-    struct ErrorObject: Decodable, Sendable {
-        let type: String?
-        let message: String?
+    enum Field: Decodable, Sendable {
+        case code(String)
+        case detail(ClaudeAPIError)
 
-        enum CodingKeys: CodingKey {
-            case type, message
+        init(from decoder: any Decoder) throws {
+            let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
+            self = try Result { try .code(container.decode(String.self)) }
+                .flatMapError { _ in Result { try .detail(container.decode(ClaudeAPIError.self)) } }
+                .get()
         }
 
-        init(from decoder: any Decoder) {
-            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
-            type = try? container?.decodeIfPresent(String.self, forKey: .type)
-            message = try? container?.decodeIfPresent(String.self, forKey: .message)
+        var code: String {
+            switch self {
+                case .code(let code): code
+                case .detail(let detail): detail.type
+            }
         }
     }
 
-    let errorCode: String?
-    let error: ErrorObject?
+    let error: Field?
     let errorDescription: String?
     let errorUri: String?
-
-    enum CodingKeys: CodingKey {
-        case error, errorDescription, errorUri
-    }
-
-    init(from decoder: any Decoder) throws {
-        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
-        errorCode = try? container.decodeIfPresent(String.self, forKey: .error)
-        error = try container.decodeIfPresent(ErrorObject.self, forKey: .error)
-        errorDescription = try? container.decodeIfPresent(String.self, forKey: .errorDescription)
-        errorUri = try? container.decodeIfPresent(String.self, forKey: .errorUri)
-    }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -114,10 +105,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
     }
 
     var isCancellation: Bool {
-        switch cause {
-            case .cancelled, .process(.cancelled): true
-            default: false
-        }
+        if case .cancelled = cause { true } else { false }
     }
 
     var retryAfter: Date? {
@@ -165,14 +153,9 @@ nonisolated extension ClaudeFailure {
         at now: Date,
     ) -> ClaudeFailure {
         let decoded: ClaudeErrorBody? = try? ClaudeEndpoint.decoder.decode(ClaudeErrorBody.self, from: body)
-        let code: String? = decoded?.errorCode ?? decoded?.error?.type
+        let code: String? = decoded?.error?.code
         let onHold: Bool = [decoded?.errorDescription, code].contains("account_on_hold")
-        let detail: ClaudeAPIError? =
-            if let type: String = decoded?.error?.type, let message: String = decoded?.error?.message {
-                ClaudeAPIError(type: type, message: message)
-            } else {
-                nil
-            }
+        let detail: ClaudeAPIError? = if case .detail(let detail)? = decoded?.error { detail } else { nil }
         let rejected: ClaudeFailure = .http(endpoint, status: status, error: detail)
         return switch endpoint {
             case _ where status == 429: .rateLimited(endpoint, until: retryDate(header, at: now))

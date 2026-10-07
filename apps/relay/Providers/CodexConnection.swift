@@ -146,22 +146,12 @@ actor CodexConnection {
         method: CodexProtocol.Method,
         serverVersion: String?,
     ) -> Result<JSONValue, CodexFailure> {
-        if let error {
-            let code: Result<Int, AggregateError<String>> =
-                error.code.map(Result.success) ?? .failure(AggregateError(first: "error code", remaining: []))
-            let description: Result<String, AggregateError<String>> =
-                error.message.map(Result.success)
-                ?? .failure(AggregateError(first: "error message", remaining: []))
-            return combine(code, description)
-                .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
-                .flatMap { code, description in
-                    .failure(
-                        .requestRejected(method: method, code: code, message: description, serverVersion: serverVersion)
-                    )
-                }
+        switch (error, result) {
+            case (.some(let error), _):
+                .failure(.requestRejected(method: method, code: error.code, message: error.message, serverVersion: serverVersion))
+            case (.none, .some(let result)): .success(result)
+            case (.none, .none): .failure(.invalidResponse(field: "request result"))
         }
-        return result.map(Result.success)
-            ?? .failure(.invalidResponse(field: "request result"))
     }
 
     // --- [NOTIFICATIONS]
@@ -292,60 +282,54 @@ actor CodexConnection {
     }
 
     private func receive(_ message: CodexProtocol.ServerMessage) async {
-        if case .request(let id) = message {
-            let refusal: Result<Void, CodexFailure> = await write(
-                CodexProtocol.ErrorReply(
-                    id: id,
-                    error: CodexProtocol.ErrorObject(code: -32601, message: "Relay does not provide agent tools"),
+        switch message {
+            case .request(let id):
+                let refusal: Result<Void, CodexFailure> = await write(
+                    CodexProtocol.ErrorReply(
+                        id: id,
+                        error: CodexProtocol.ErrorObject(code: -32601, message: "Relay does not provide agent tools"),
+                    )
                 )
-            )
-            if case .failure(let error) = refusal { finish(error) }
-            return
-        }
-        if case .response(let id, let error, let result) = message {
-            let serverVersion: String? = serverVersion
-            let awaited:
-                (
-                    reply: Result<JSONValue, CodexFailure>,
-                    continuation: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>
-                )? = registry.withLock { state in
-                    switch state.replies[id] {
-                        case .unclaimed(let method):
-                            state.replies[id] = .arrived(
-                                Self.reply(error: error, result: result, method: method, serverVersion: serverVersion)
-                            )
-                            return nil
-                        case .awaited(let method, let continuation):
-                            state.replies.removeValue(forKey: id)
-                            return (
-                                Self.reply(error: error, result: result, method: method, serverVersion: serverVersion),
-                                continuation,
-                            )
-                        case .arrived, .none: return nil
+                if case .failure(let error) = refusal { finish(error) }
+            case .response(let id, let error, let result):
+                let serverVersion: String? = serverVersion
+                let awaited:
+                    (
+                        reply: Result<JSONValue, CodexFailure>,
+                        continuation: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>
+                    )? = registry.withLock { state in
+                        switch state.replies[id] {
+                            case .unclaimed(let method):
+                                state.replies[id] = .arrived(
+                                    Self.reply(error: error, result: result, method: method, serverVersion: serverVersion)
+                                )
+                                return nil
+                            case .awaited(let method, let continuation):
+                                state.replies.removeValue(forKey: id)
+                                return (
+                                    Self.reply(error: error, result: result, method: method, serverVersion: serverVersion),
+                                    continuation,
+                                )
+                            case .arrived, .none: return nil
+                        }
                     }
+                if let awaited { awaited.continuation.resume(returning: awaited.reply) }
+            case .notification(.accountRateLimitsUpdated, let params):
+                if let updated: CodexProtocol.RateLimitsUpdated = Self.decode(CodexProtocol.RateLimitsUpdated.self, params) {
+                    updatesContinuation.yield(updated)
                 }
-            if let awaited { awaited.continuation.resume(returning: awaited.reply) }
-            return
-        }
-        guard case .notification(let method, let params) = message else { return }
-        if method == .accountRateLimitsUpdated,
-            let updated: CodexProtocol.RateLimitsUpdated = Self.decode(
-                CodexProtocol.RateLimitsUpdated.self,
-                params,
-            )
-        {
-            updatesContinuation.yield(updated)
-            return
-        }
-        let waiter: NotificationWaiter? = registry.withLock { state in
-            state.waiters[method]?.firstIndex(where: { waiter in waiter.matches(params) })
-                .flatMap { index in state.waiters[method]?.remove(at: index) }
-        }
-        let retainedNotifications: Set<CodexProtocol.Method> = [.accountLoginCompleted, .turnCompleted]
-        if let waiter {
-            waiter.continuation.resume(returning: .success(params))
-        } else if retainedNotifications.contains(method) {
-            notifications[method, default: []].append(params)
+            case .notification(let method, let params):
+                let waiter: NotificationWaiter? = registry.withLock { state in
+                    state.waiters[method]?.firstIndex(where: { waiter in waiter.matches(params) })
+                        .flatMap { index in state.waiters[method]?.remove(at: index) }
+                }
+                let retainedNotifications: Set<CodexProtocol.Method> = [.accountLoginCompleted, .turnCompleted]
+                if let waiter {
+                    waiter.continuation.resume(returning: .success(params))
+                } else if retainedNotifications.contains(method) {
+                    notifications[method, default: []].append(params)
+                }
+            case .ignored: return
         }
     }
 }

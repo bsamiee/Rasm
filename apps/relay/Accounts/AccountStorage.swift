@@ -13,8 +13,7 @@ nonisolated struct SavedAccount: Sendable {
 
 nonisolated enum AccountStorageError: Error {
     case invalidAccount(id: UUID, error: IdentityError)
-    case invalidUsage(id: UUID, kind: String, failure: QuotaFailure)
-    case invalidWindowKind(id: UUID, kind: String)
+    case invalidUsage(id: UUID, kind: QuotaKind, failure: QuotaFailure)
     case duplicateAccount(id: UUID)
 }
 
@@ -159,41 +158,22 @@ actor AccountStorage {
     }
 
     private struct Window: Codable {
-        let kind: String
+        let kind: QuotaKind
         let percent: Double
         let resetsAt: Date?
         let rejected: Bool
 
         init(_ value: QuotaWindow) {
-            kind =
-                switch value.kind {
-                    case .session: "session"
-                    case .weekly: "weekly"
-                    case .model(let name): "model:\(name)"
-                }
+            kind = value.kind
             percent = value.used.percent
             resetsAt = value.resetsAt
             rejected = value.rejected
         }
 
         func quotaWindow(id: UUID) -> Result<QuotaWindow, AggregateError<AccountStorageError>> {
-            let quotaKind: Result<QuotaKind, AggregateError<AccountStorageError>> =
-                switch kind {
-                    case "session": .success(.session)
-                    case "weekly": .success(.weekly)
-                    default:
-                        kind.wholeMatch(of: /model:(.+)/)
-                            .map { match in QuotaKind.model(String(match.output.1)) }
-                            .map(Result<QuotaKind, AggregateError<AccountStorageError>>.success)
-                            ?? .failure(AggregateError(first: .invalidWindowKind(id: id, kind: kind), remaining: []))
-                }
-            let amount: Result<UsageAmount, AggregateError<AccountStorageError>> = UsageAmount.make(percent: percent)
-                .mapError { failure in
-                    AggregateError(first: .invalidUsage(id: id, kind: kind, failure: failure), remaining: [])
-                }
-            return combine(quotaKind, amount).map { quotaKind, amount in
-                QuotaWindow(kind: quotaKind, used: amount, resetsAt: resetsAt, rejected: rejected)
-            }
+            UsageAmount.make(percent: percent)
+                .mapError { failure in AggregateError(first: .invalidUsage(id: id, kind: kind, failure: failure), remaining: []) }
+                .map { amount in QuotaWindow(kind: kind, used: amount, resetsAt: resetsAt, rejected: rejected) }
         }
     }
 

@@ -8,6 +8,7 @@
     "formatter": { "useEditorconfig": true, "lineWidth": 320 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
     "json": { "formatter": { "expand": "auto" } },
+    "css": { "parser": { "tailwindDirectives": true } },
     "assist": { "actions": { "source": { "useSortedAttributes": "on", "useSortedPackageJson": "on", "useSortedProperties": "on" } } },
     "linter": {
         "domains": { "project": "all", "react": "all", "test": "all", "types": "all" },
@@ -39,7 +40,7 @@
                 "noUnmodifiedLoopCondition": "error",
                 "noUnnecessaryTemplateExpression": "error",
                 "useArraySome": "error",
-                "useBaseline": "error",
+                "useBaseline": { "level": "error", "options": { "available": "newly" } },
                 "useConsistentObjectKeys": "error",
                 "useControlLabel": "error",
                 "useDomNodeTextContent": "error",
@@ -69,26 +70,28 @@
                     "complexity": {
                         "noExcessiveCognitiveComplexity": "off",
                         "noExcessiveLinesPerFunction": "off",
-                        "useLiteralKeys": "off",
                         "useMaxParams": { "level": "error", "options": { "max": 8 } }
                     },
-                    "correctness": { "noUndeclaredVariables": "off", "noUnresolvedImports": "off", "useQwikValidLexicalScope": "off" },
+                    "correctness": { "noSolidDestructuredProps": "off", "noUndeclaredVariables": "off", "noUnresolvedImports": "off", "useQwikValidLexicalScope": "off" },
+                    "performance": { "noImgElement": "off", "useSolidForComponent": "off" },
                     "security": { "noSecrets": "off" },
                     "style": {
                         "noExcessiveClassesPerFile": "off",
                         "noExcessiveLinesPerFile": "off",
                         "noInferrableTypes": "off",
+                        "noJsxLiterals": "off",
                         "noParameterAssign": { "level": "error", "options": { "propertyAssignment": "deny" } },
                         "noTernary": "off",
                         "useDefaultSwitchClause": "off",
-                        "useNamingConvention": { "level": "error", "options": { "strictCase": false } },
+                        "useNamingConvention": "off",
                         "useReadonlyClassProperties": { "level": "error", "options": { "checkAllProperties": true } }
                     },
-                    "suspicious": { "noShadowRestrictedNames": "off" }
+                    "suspicious": { "noLeakedRender": "off", "noReactSpecificProps": "off", "noShadowRestrictedNames": "off" }
                 }
             }
         },
         { "includes": ["**/vitest.config.ts", "**/vite.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
+        { "includes": ["apps/portfolio/**/*.tsx"], "linter": { "rules": { "performance": { "noJsxPropsBind": "off" } } } },
         {
             "includes": ["plugins/**"],
             "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } }

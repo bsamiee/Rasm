@@ -1,4 +1,3 @@
-import Darwin
 import Foundation
 import Subprocess
 import System
@@ -8,22 +7,6 @@ import System
 nonisolated protocol DeadlineFailure: Error {
     static var timedOut: Self { get }
     static var cancelled: Self { get }
-}
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-nonisolated struct ProcessInvocation: Sendable {
-    let executable: Executable
-    let arguments: [String]
-    let environment: [String: String]
-    let workingDirectory: URL
-    let inheritedInput: FileDescriptor?
-}
-
-nonisolated struct ProcessOutput: Sendable {
-    let status: TerminationStatus
-    let standardOutput: String
-    let standardError: String
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -70,7 +53,7 @@ nonisolated enum ProcessRun {
     }
 
     static func stream<Value: Sendable>(
-        _ invocation: ProcessInvocation,
+        _ invocation: Configuration,
         deadline: Duration?,
         _ body:
             @escaping @Sendable (Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>)
@@ -83,11 +66,7 @@ nonisolated enum ProcessRun {
                     ExecutionResult<Result<Value, ProcessFailure>, SequenceOutput, DiscardedOutput>, any Error
                 > = await Result {
                     try await Subprocess.run(
-                        invocation.executable,
-                        arguments: Arguments(invocation.arguments),
-                        environment: environment(invocation.environment),
-                        workingDirectory: FilePath(invocation.workingDirectory.path),
-                        platformOptions: platformOptions(inheriting: invocation.inheritedInput),
+                        invocation,
                         input: .inputWriter,
                         output: .sequence,
                         error: .discarded,
@@ -105,10 +84,10 @@ nonisolated enum ProcessRun {
     }
 
     static func collect<Input: InputProtocol>(
-        _ invocation: ProcessInvocation,
+        _ invocation: Configuration,
         deadline: Duration,
         input: Input = .none,
-    ) async -> Result<ProcessOutput, ProcessFailure> {
+    ) async -> Result<ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>>, ProcessFailure> {
         await withDeadline(deadline) {
             guard !Task.isCancelled else { return .failure(.cancelled) }
             let outcome:
@@ -116,23 +95,13 @@ nonisolated enum ProcessRun {
                     ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>>, any Error
                 > = await Result {
                     try await Subprocess.run(
-                        invocation.executable,
-                        arguments: Arguments(invocation.arguments),
-                        environment: environment(invocation.environment),
-                        workingDirectory: FilePath(invocation.workingDirectory.path),
-                        platformOptions: platformOptions(inheriting: invocation.inheritedInput),
+                        invocation,
                         input: input,
                         output: .string(limit: 1 << 20),
                         error: .string(limit: 1 << 20),
                     )
                 }
-            return outcome.mapError(failure).map { result in
-                ProcessOutput(
-                    status: result.terminationStatus,
-                    standardOutput: result.standardOutput,
-                    standardError: result.standardError,
-                )
-            }
+            return outcome.mapError(failure)
         }
     }
 
@@ -145,28 +114,27 @@ nonisolated enum ProcessRun {
         }
     }
 
-    private static func environment(_ variables: [String: String]) -> Environment {
-        .custom(
-            Dictionary(
-                uniqueKeysWithValues: variables.compactMap { key, value in
-                    Environment.Key(rawValue: key).map { key in (key, value) }
-                }
-            )
-        )
-    }
-
-    private static func platformOptions(inheriting descriptor: FileDescriptor?) -> PlatformOptions {
+    static func configuration(
+        executable: Executable,
+        arguments: [String],
+        environment: [String: String],
+        workingDirectory: URL,
+    ) -> Configuration {
         var options: PlatformOptions = PlatformOptions()
         options.createSession = true
         options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: .seconds(2))]
-        if let descriptor {
-            let source: Int32 = descriptor.rawValue
-            unsafe options.preSpawnProcessConfigurator = { _, actions in
-                guard unsafe posix_spawn_file_actions_addinherit_np(&actions, source) == 0 else {
-                    throw ProcessFailure.descriptorNotInherited(source)
-                }
-            }
-        }
-        return options
+        return Configuration(
+            executable: executable,
+            arguments: Arguments(arguments),
+            environment: .custom(
+                Dictionary(
+                    uniqueKeysWithValues: environment.map { key, value in
+                        (Environment.Key(stringLiteral: key), value)
+                    }
+                )
+            ),
+            workingDirectory: FilePath(workingDirectory.path),
+            platformOptions: options,
+        )
     }
 }

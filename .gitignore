@@ -5,6 +5,8 @@ node_modules/
 # --- [TOOL_WRITES] ------------------------------------------------------------
 
 .cache/
+dist/
+.wrangler/
 **/.artifacts/
 .playwright-cli/
 .vs/

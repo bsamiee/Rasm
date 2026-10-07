@@ -1,6 +1,6 @@
 # [TYPESCRIPT]
 
-pnpm resolves every version through the workspace catalog, `tsc --build` checks each composite project, Biome lints and formats every file.
+pnpm resolves every version through the workspace catalog, `tsc --build` checks each project, Biome lints and formats every file.
 
 ## [01]-[CATALOG]
 
@@ -18,7 +18,7 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 ## [02]-[COMPILER]
 
 - `${configDir}` in a base configuration's path fields resolves to the extending file's directory
-- `tsc --build` on a `composite` project writes declarations and build info under `outDir`
+- `tsc --build` under `noEmit` and `incremental` writes each project's build info under `outDir` and no declaration, packages import each other's `.ts` source through `exports`
 - `types` defaults to `[]`, a project lists `["node"]` where a file reads `import.meta.dirname` or a `node:` module, a UXP plugin its host typings
 - `adobe:` host modules of a UXP plugin resolve through the `with-protocol` entry of a host typings package named in `types`
 - `paths` row maps a host module no `with-protocol` entry declares (`adobe:indesign`) to a generated module
@@ -26,7 +26,6 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - `files` or `references` keys suppress TS18003 (no inputs)
 - `include` globs resolve to TypeScript extensions alone, `files` lists an imported JSON file (`package.json` for `version`) or TS6307 reports it
 - `tsconfig.base.json` excludes a project's `vitest.config.ts`, root `tsconfig.json` includes each one
-- Generated declaration files import a package by its specifier through the project's `node_modules` link, a `.pnpm/<hash>` path pins one install
 
 ## [03]-[EXECUTION]
 
@@ -46,5 +45,4 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - Scanner skips ambient `declare module` declarations, `tsc --build` reads them
 - `none` on a domain leaves on each domain rule a group severity enables, an `off` rule row silences one that fires (`useQwikValidLexicalScope`)
 - `organizeImports` runs by default, every other source action is a row
-- `useNamingConvention` takes `strictCase: false` for a host's acronym class names
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes

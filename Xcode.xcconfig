@@ -1,5 +1,5 @@
 // --- [BUILD] ---------------------------------------------------------------------------
-MACOSX_DEPLOYMENT_TARGET = 26.6
+MACOSX_DEPLOYMENT_TARGET = 27.0
 ARCHS = arm64
 ALWAYS_SEARCH_USER_PATHS = NO
 DEAD_CODE_STRIPPING = YES

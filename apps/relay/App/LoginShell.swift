@@ -7,7 +7,7 @@ import System
 nonisolated enum LoginShellFailure: Error {
     case shellUnset
     case run(ProcessFailure)
-    case terminationStatus(ProcessOutput)
+    case terminationStatus(ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>>)
     case markerNotFound
 }
 
@@ -34,19 +34,18 @@ nonisolated enum LoginShell {
         let script: String = "printf %s \(marker); printf '%s\\0' \(fields); printf %s \(marker)"
         return await shell.bind { executable in
             await ProcessRun.collect(
-                ProcessInvocation(
+                ProcessRun.configuration(
                     executable: executable,
                     arguments: ["-lc", script],
                     environment: process,
                     workingDirectory: .homeDirectory,
-                    inheritedInput: nil,
                 ),
                 deadline: .seconds(5),
             )
             .mapError(LoginShellFailure.run)
         }
         .flatMap { output in
-            output.status.isSuccess ? .success(output) : .failure(.terminationStatus(output))
+            output.terminationStatus.isSuccess ? .success(output) : .failure(.terminationStatus(output))
         }
         .flatMap { output -> Result<String, LoginShellFailure> in
             let parts: [Substring] = output.standardOutput.split(

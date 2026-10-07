@@ -19,7 +19,7 @@ utils:
     unsafe-expression:
         kind: ERROR
         regex: '^[A-Za-z_]\w*$'
-        follows: {kind: 'simple_identifier, user_type', regex: '^unsafe$'}
+        follows: {kind: 'simple_identifier, type_identifier, user_type, directly_assignable_expression', regex: '^unsafe$'}
     case-pattern-guard:
         kind: ERROR
         regex: '^where\s'

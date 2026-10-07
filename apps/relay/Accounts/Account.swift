@@ -60,7 +60,7 @@ nonisolated enum RefreshTrigger: Equatable, Sendable {
     case userAction
 }
 
-nonisolated protocol ProviderFailure: LocalizedError {
+nonisolated protocol ProviderFailure: DeadlineFailure, LocalizedError {
     static func process(_ failure: ProcessFailure) -> Self
 
     var requiresSignIn: Bool { get }
@@ -69,7 +69,7 @@ nonisolated protocol ProviderFailure: LocalizedError {
     var retryAfter: Date? { get }
 }
 
-nonisolated extension ProviderFailure where Self: DeadlineFailure {
+nonisolated extension ProviderFailure {
     init(process failure: ProcessFailure) {
         self =
             switch failure {
@@ -116,15 +116,12 @@ nonisolated struct AccountIdentity: Equatable, Sendable {
     ) -> Result<Self, AggregateError<IdentityError>> {
         let canonicalID: String = accountID.trimmingCharacters(in: .whitespacesAndNewlines)
         let canonicalEmail: String = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        let canonicalOrganization: String? = organizationID.map { value in
-            value.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
         let checkedID: Result<String, AggregateError<IdentityError>> =
             canonicalID.isEmpty ? .failure(AggregateError(first: .missingAccountID, remaining: [])) : .success(canonicalID)
         let checkedEmail: Result<String, AggregateError<IdentityError>> =
             canonicalEmail.isEmpty ? .failure(AggregateError(first: .missingEmail, remaining: [])) : .success(canonicalEmail)
         let checkedOrganization: Result<String?, AggregateError<IdentityError>> =
-            switch canonicalOrganization {
+            switch organizationID?.trimmingCharacters(in: .whitespacesAndNewlines) {
                 case .none: .success(nil)
                 case .some(let value) where value.isEmpty: .failure(AggregateError(first: .emptyOrganizationID, remaining: []))
                 case .some(let value): .success(value)
@@ -179,12 +176,8 @@ nonisolated enum AuthenticationPhase: Sendable {
 nonisolated struct AuthenticationPresentation: Identifiable, Sendable {
     let id: UUID
     let provider: Provider
-    let phase: AuthenticationPhase
+    var phase: AuthenticationPhase
     let startedAt: Date
-
-    func entering(_ phase: AuthenticationPhase) -> Self {
-        Self(id: id, provider: provider, phase: phase, startedAt: startedAt)
-    }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

@@ -12,17 +12,24 @@ nonisolated struct ClaudeOAuthToken: Sendable {
         let refreshTokenExpiresAt: Double?
         let subscriptionType: String?
         let rateLimitTier: String?
+
+        static let signedOut: Self = Self(
+            accessToken: "",
+            refreshToken: "",
+            scopes: nil,
+            expiresAt: 0,
+            refreshTokenExpiresAt: nil,
+            subscriptionType: nil,
+            rateLimitTier: nil,
+        )
     }
 
-    let fields: [String: JSONValue]
+    let document: JSONDocument<Attributes>
     let accessToken: String
-    let refreshToken: String?
     let scopes: [String]
-    let expiresAt: Date?
-    let refreshTokenExpiresAt: Date?
-    let plan: String?
-    let rateLimitTier: String?
 
+    var expiresAt: Date? { Self.date(document.known.expiresAt) }
+    var refreshTokenExpiresAt: Date? { Self.date(document.known.refreshTokenExpiresAt) }
     var fingerprint: SHA256Digest { SHA256.hash(data: Data(accessToken.utf8)) }
 
     static let refreshMargin: TimeInterval = 300
@@ -37,18 +44,7 @@ nonisolated struct ClaudeOAuthToken: Sendable {
             case (.some(let token), _) where token.isEmpty || document.known.refreshToken?.isEmpty == true:
                 .success(nil)
             case (.some(let token), .some(let scopes)) where !scopes.contains(where: \.isEmpty):
-                .success(
-                    Self(
-                        fields: document.fields,
-                        accessToken: token,
-                        refreshToken: document.known.refreshToken,
-                        scopes: scopes,
-                        expiresAt: date(document.known.expiresAt),
-                        refreshTokenExpiresAt: date(document.known.refreshTokenExpiresAt),
-                        plan: document.known.subscriptionType,
-                        rateLimitTier: document.known.rateLimitTier,
-                    )
-                )
+                .success(Self(document: document, accessToken: token, scopes: scopes))
             case (.some, _): .failure(.invalidCredentials)
         }
     }
@@ -56,22 +52,6 @@ nonisolated struct ClaudeOAuthToken: Sendable {
     private static func date(_ milliseconds: Double?) -> Date? {
         milliseconds.flatMap { value in value > 0 ? Date(timeIntervalSince1970: value / 1000) : nil }
     }
-}
-
-nonisolated struct ClaudeOAuthUpdate: Encodable, Sendable {
-    static let signedOut: Self = Self(
-        accessToken: "",
-        refreshToken: "",
-        expiresAt: 0,
-        refreshTokenExpiresAt: nil,
-        scopes: nil,
-    )
-
-    let accessToken: String
-    let refreshToken: String
-    let expiresAt: Double
-    let refreshTokenExpiresAt: Double?
-    let scopes: [String]?
 }
 
 nonisolated struct ClaudeTokenRequest: Encodable, Sendable {
@@ -99,19 +79,24 @@ nonisolated struct ClaudeTokenResponse: Decodable, Sendable {
     let account: Account?
     let organization: Organization?
 
-    func oauth(replacing token: ClaudeOAuthToken, posted: String, at now: Date) -> JSONDocument<ClaudeOAuthUpdate> {
-        JSONDocument(
-            fields: token.fields,
-            known: ClaudeOAuthUpdate(
-                accessToken: accessToken,
-                refreshToken: refreshToken ?? posted,
-                expiresAt: Self.milliseconds(now.addingTimeInterval(expiresIn)),
-                refreshTokenExpiresAt: refreshTokenExpiresIn.map { interval in
-                    Self.milliseconds(now.addingTimeInterval(interval))
-                },
-                scopes: scope.map { scope in scope.split(separator: " ").map(String.init) },
-            ),
+    func oauth(replacing token: ClaudeOAuthToken, posted: String, at now: Date) -> Result<ClaudeOAuthToken, ClaudeFailure> {
+        ClaudeOAuthToken.make(
+            JSONDocument(
+                fields: token.document.fields,
+                known: ClaudeOAuthToken.Attributes(
+                    accessToken: accessToken,
+                    refreshToken: refreshToken ?? posted,
+                    scopes: scope.map { scope in scope.split(separator: " ").map(String.init) } ?? token.scopes,
+                    expiresAt: Self.milliseconds(now.addingTimeInterval(expiresIn)),
+                    refreshTokenExpiresAt: refreshTokenExpiresIn.map { interval in
+                        Self.milliseconds(now.addingTimeInterval(interval))
+                    } ?? token.document.known.refreshTokenExpiresAt,
+                    subscriptionType: token.document.known.subscriptionType,
+                    rateLimitTier: token.document.known.rateLimitTier,
+                ),
+            )
         )
+        .flatMap { token in token.map(Result.success) ?? .failure(.invalidResponse) }
     }
 
     func identity(plan: String?) -> Result<AccountIdentity?, ClaudeFailure> {
@@ -181,23 +166,9 @@ nonisolated struct ClaudeOAuthAccount: Codable, Sendable {
     }
 }
 
-nonisolated extension ClaudeOAuthAccount {
-    init(from decoder: any Decoder) throws {
-        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
-        accountUuid = try? container.decodeIfPresent(String.self, forKey: .accountUuid)
-        emailAddress = try? container.decodeIfPresent(String.self, forKey: .emailAddress)
-        organizationUuid = try? container.decodeIfPresent(String.self, forKey: .organizationUuid)
-        organizationType = try? container.decodeIfPresent(String.self, forKey: .organizationType)
-    }
+nonisolated struct ClaudeCredentialItem: Codable, Sendable {
+    let claudeAiOauth: JSONDocument<ClaudeOAuthToken.Attributes>?
 }
-
-nonisolated struct ClaudeCredentialItem<OAuth: Sendable>: Sendable {
-    let claudeAiOauth: OAuth?
-}
-
-nonisolated extension ClaudeCredentialItem: Decodable where OAuth: Decodable {}
-
-nonisolated extension ClaudeCredentialItem: Encodable where OAuth: Encodable {}
 
 nonisolated struct ClaudeAccountFile: Decodable, Sendable {
     let oauthAccount: JSONDocument<ClaudeOAuthAccount>?
@@ -240,25 +211,12 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     let configFile: URL
     let directoryConfigFile: URL
     let configDirectoryPath: String?
-    let service: String
     let username: String
 
-    init(
-        directory: URL,
-        configFile: URL,
-        directoryConfigFile: URL,
-        configDirectoryPath: String?,
-        username: String,
-    ) {
-        self.directory = directory
-        self.configFile = configFile
-        self.directoryConfigFile = directoryConfigFile
-        self.configDirectoryPath = configDirectoryPath
-        service =
-            configDirectoryPath.map { value in
-                "Claude Code-credentials-" + SHA256.hash(data: Data(value.utf8)).prefix(4).hexEncoded
-            } ?? "Claude Code-credentials"
-        self.username = username
+    var service: String {
+        configDirectoryPath.map { value in
+            "Claude Code-credentials-" + SHA256.hash(data: Data(value.utf8)).prefix(4).hexEncoded
+        } ?? "Claude Code-credentials"
     }
 
     // --- [KEYCHAIN_ITEM]
@@ -272,40 +230,28 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         }
     }
 
-    func readItem() async -> Result<
-        JSONDocument<ClaudeCredentialItem<JSONDocument<ClaudeOAuthToken.Attributes>>>?, ClaudeFailure
-    > {
+    func readItem() async -> Result<JSONDocument<ClaudeCredentialItem>?, ClaudeFailure> {
         await Keychain.readGenericPassword(service: service, account: username)
             .claude()
             .flatMap { data in
                 data.map { data in
-                    Self.decode(JSONDocument<ClaudeCredentialItem<JSONDocument<ClaudeOAuthToken.Attributes>>>.self, from: data)
+                    Self.decode(JSONDocument<ClaudeCredentialItem>.self, from: data)
                         .map(Optional.some)
                 } ?? .success(nil)
             }
     }
 
     func writeOAuth(
-        _ oauth: some Encodable & Sendable,
-        over item: JSONDocument<ClaudeCredentialItem<JSONDocument<ClaudeOAuthToken.Attributes>>>?,
-    ) async -> Result<JSONDocument<ClaudeOAuthToken.Attributes>, ClaudeFailure> {
-        await Result { try JSONEncoder().encode(oauth) }
-            .mapError(ClaudeFailure.filesystem)
-            .flatMap { data in Self.decode(JSONDocument<ClaudeOAuthToken.Attributes>.self, from: data) }
-            .flatMap { written in
-                Result {
-                    try JSONEncoder().encode(
-                        JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: written))
-                    )
-                }
-                .mapError(ClaudeFailure.filesystem)
-                .map { data in (written, data) }
-            }
-            .bind { written, data in
-                await Keychain.writeGenericPassword(service: service, account: username, data: data)
-                    .claude()
-                    .map { _ in written }
-            }
+        _ oauth: JSONDocument<ClaudeOAuthToken.Attributes>,
+        over item: JSONDocument<ClaudeCredentialItem>?,
+    ) async -> Result<Void, ClaudeFailure> {
+        await Result {
+            try JSONEncoder().encode(
+                JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: oauth))
+            )
+        }
+        .mapError(ClaudeFailure.filesystem)
+        .bind { data in await Keychain.writeGenericPassword(service: service, account: username, data: data).claude() }
     }
 
     func deleteItem() async -> Result<Void, ClaudeFailure> {
@@ -315,7 +261,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     private func content(of token: ClaudeOAuthToken) -> Result<ClaudeStoreContent, ClaudeFailure> {
         readAccount().flatMap { account in
             account.map { account in
-                account.known.identity(plan: token.plan).map { identity in
+                account.known.identity(plan: token.document.known.subscriptionType).map { identity in
                     .credential(ClaudeCredential(token: token, account: account, identity: identity))
                 }
             } ?? .success(.unidentified(token))

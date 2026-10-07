@@ -52,29 +52,28 @@ nonisolated enum Keychain {
         input: Input = .none,
     ) async -> Result<String?, KeychainFailure> {
         await ProcessRun.collect(
-            ProcessInvocation(
+            ProcessRun.configuration(
                 executable: .path("/usr/bin/security"),
                 arguments: arguments,
                 environment: [:],
                 workingDirectory: URL.homeDirectory,
-                inheritedInput: nil,
             ),
             deadline: .seconds(15),
             input: input,
         )
         .mapError(KeychainFailure.process)
         .flatMap { output in
-            switch output.status {
+            switch output.terminationStatus {
                 case .exited(0): .success(output.standardOutput)
                 case .exited(notFoundStatus): .success(nil)
                 case .exited(interactionNotAllowedStatus): .failure(.interactionNotAllowed)
-                case .exited, .signaled: .failure(.failed(output.status))
+                case .exited, .signaled: .failure(.failed(output.terminationStatus))
             }
         }
     }
 
     private static func exitStatus(of status: OSStatus) -> Int32 {
-        Int32(bitPattern: UInt32(bitPattern: status) & 0x00FF_FFFF)
+        Int32(UInt32(bitPattern: status) & 0xFF)
     }
 
     private static func decode(_ printed: String) -> Data {

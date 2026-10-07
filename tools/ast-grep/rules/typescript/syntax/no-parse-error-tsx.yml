@@ -7,11 +7,30 @@ utils:
         regex: '^global$'
         precedes: {kind: statement_block}
         inside: {kind: statement_block, inside: {kind: module}}
+    generic-tag:
+        kind: instantiation_expression
+        has: {field: type_arguments, kind: type_arguments}
+    tag-result:
+        any:
+            - matches: generic-tag
+            - kind: yield_expression
+              has: {matches: tag-result}
+            - kind: ternary_expression
+              has: {field: alternative, matches: tag-result}
     unreported:
         any:
             - inside: {kind: ERROR, stopBy: end}
             - {kind: ERROR, matches: global-augmentation}
             - inside: {kind: expression_statement, matches: global-augmentation}
+            - regex: '^$'
+              inside:
+                kind: non_null_expression
+                has: {matches: tag-result}
+                inside: {kind: call_expression, field: function, has: {field: arguments, kind: template_string}}
+            - kind: ERROR
+              has: {matches: generic-tag}
+              precedes: {kind: template_string}
+              inside: {kind: ternary_expression}
 rule:
     any:
         - kind: ERROR
@@ -22,4 +41,4 @@ labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
 note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-typescript grammar gaps are `global { ... }` augmentations inside a `declare module` body
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-typescript grammar gaps are `global { ... }` augmentations inside a `declare module` body and generic tagged templates

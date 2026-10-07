@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # [TYPESCRIPT_DOCUMENT]
 
-Covers TSDoc comments the TypeScript language service shows on hover and `tsc --build` copies into `.d.ts` output.
+Covers TSDoc comments the TypeScript language service shows on hover.
 
 [REFERENCES]:
 - [01]-[REACT](references/react.md): React component and hook documentation

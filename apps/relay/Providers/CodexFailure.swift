@@ -27,11 +27,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
     var requiresSignIn: Bool {
         switch self {
             case .signInRequired, .subscriptionRequired, .identityChanged, .turnUnauthorized: true
-            case .applicationUnavailable, .process, .cancelled, .timedOut, .connectionClosed,
-                .invalidResponse, .requestRejected, .signInPageUnopened, .signInRefused, .modelUnavailable,
-                .turnFailed, .storage, .keyringStorage, .forcedWorkspace,
-                .desktopLaunch, .desktopQuitRefused:
-                false
+            default: false
         }
     }
 
@@ -40,10 +36,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
     }
 
     var isCancellation: Bool {
-        switch self {
-            case .cancelled, .process(.cancelled): true
-            default: false
-        }
+        if case .cancelled = self { true } else { false }
     }
 
     var retryAfter: Date? { nil }
@@ -70,8 +63,8 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
             case .turnUnauthorized(let message): "OpenAI greeting unauthorized: \(message)"
             case .turnFailed(let message): "OpenAI greeting failed: \(message)"
             case .storage(let error): "Could not access Codex files: \(error.localizedDescription)"
-            case .keyringStorage: "Set cli_auth_credentials_store = \"file\" in config.toml to switch accounts"
-            case .forcedWorkspace: "Unset forced_chatgpt_workspace_id in config.toml to switch accounts"
+            case .keyringStorage: "Account switching requires cli_auth_credentials_store = \"file\""
+            case .forcedWorkspace: "Account switching requires forced_chatgpt_workspace_id to be unset"
             case .desktopLaunch(let error): "Could not open the Codex app: \(error.localizedDescription)"
             case .desktopQuitRefused: "Codex app refused to quit"
         }

@@ -7,10 +7,21 @@ utils:
         kind: call_expression
         has:
             field: function
-            kind: member_expression
-            all:
-                - has: {field: object, matches: effect-effect-module}
-                - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
+            any:
+                - matches: {syntax-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$'}}}
+                - kind: member_expression
+                  all:
+                    - has: {field: object, matches: effect-effect-module}
+                    - has: {field: property, regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$'}
+                - kind: call_expression
+                  has:
+                    field: function
+                    any:
+                        - matches: {syntax-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}}}
+                        - kind: member_expression
+                          all:
+                            - has: {field: object, matches: effect-effect-module}
+                            - has: {field: property, regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}
     effect-combinator:
         kind: call_expression
         any:
@@ -108,6 +119,6 @@ transform:
     COMPOSED: rewrite($CALL, rewriters=[map-first, map-last, suspend])
 fix: $COMPOSED
 message: '`$RUN` starts a separate runtime inside an effect callback'
-note: 'Return the effect from its callback, enclosing runtime then supplies its interruption and context'
+note: 'Return the effect from its callback, `flatMap` in place of `map` and `suspend` in place of `sync` or `promise`, the enclosing runtime then supplies interruption and context'
 labels:
     RUN: {style: primary}

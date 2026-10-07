@@ -210,11 +210,9 @@ struct ScriptingDictionary {
             (AEKeyword(keyAEKeyData), key),
             (AEKeyword(keyAEContainer), encode(fields["from"] ?? .null, as: [])),
         ]
-        return collect(keywords.map { keyword, result in result.map { descriptor in (keyword, descriptor) } }).map { items in
-            guard let specifier: NSAppleEventDescriptor = put(items, into: .record()).coerce(toDescriptorType: DescType(typeObjectSpecifier)) else {
-                preconditionFailure("The Apple Event Manager coerces every record to an object specifier")
-            }
-            return specifier
+        return collect(keywords.map { keyword, result in result.map { descriptor in (keyword, descriptor) } }).flatMap { items in
+            put(items, into: .record()).coerce(toDescriptorType: DescType(typeObjectSpecifier))
+                .map(Result.success) ?? .failure(AggregateError(.descriptorCoercion(type: DescType(typeObjectSpecifier))))
         }
     }
 
@@ -296,6 +294,7 @@ enum Failure: Encodable {
     case unknownTerm(name: String)
     case ambiguousTerm(name: String, codes: [String])
     case undelivered(status: OSStatus)
+    case descriptorCoercion(type: DescType)
     case unanswered(status: OSStatus)
     case reply(status: OSStatus, message: String?, reply: Descriptor?)
 }

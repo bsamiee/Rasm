@@ -37,10 +37,10 @@ interface Decided {
 // --- [DECISION]
 
 const settings = (options: PluginOptions): Settings => ({
-    editThreshold: Number(options['editThreshold']),
-    editAgent: String(options['editAgent']),
-    categoryThreshold: Number(options['categoryThreshold']),
-    categoryAgent: String(options['categoryAgent']),
+    editThreshold: Number(options.editThreshold),
+    editAgent: String(options.editAgent),
+    categoryThreshold: Number(options.categoryThreshold),
+    categoryAgent: String(options.categoryAgent),
 });
 
 const decided = (seen: State, chosen: Settings, busy: readonly string[]): Decided => {

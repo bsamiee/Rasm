@@ -9,6 +9,6 @@ rule:
           has: {field: operator, regex: '^of$'}
         - kind: for_statement, while_statement, do_statement
 message: Loop iterates by statement
-note: 'Return the results as an expression through `Array.map`, `Array.reduce`, `Array.unfold`, or `Effect.forEach` with `discard` for effects, domain logic stays expression-oriented'
+note: '`Array.map(<list>, <f>)` yields a value per element, `Array.reduce(<list>, <initial>, <f>)` folds elements into one value, `Array.unfold(<state>, <step>)` yields values while a state advances, `Effect.forEach(<list>, <f>)` runs an effect per element, `Effect.whileLoop` an effect per state step, and `<list>.forEach(<f>)` a host effect per element outside the runtime'
 labels:
     LOOP: {style: primary}

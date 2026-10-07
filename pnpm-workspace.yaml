@@ -1,6 +1,7 @@
 # --- [WORKSPACE] ------------------------------------------------------------------------
 packages:
     - 'libs/typescript/*'
+    - 'apps/*'
     - 'apps/*/*'
     - 'tests/typescript/*'
     - 'plugins/*'
@@ -152,12 +153,23 @@ catalog:
     workbox-build: 7.4.1
     workbox-window: 7.4.1
     # --- [WEB_UI]
+    '@dnd-kit/helpers': 0.5.1-beta-20260912195958
+    '@dnd-kit/react': 0.5.1-beta-20260912195958
+    '@embedpdf/core-geometry': 3.0.0-next.14
+    '@embedpdf/engine': 3.0.0-next.14
+    '@embedpdf/react': 3.0.0-next.14
+    '@uppy/core': 6.2.0
+    '@uppy/dashboard': 6.0.1
+    '@uppy/react': 6.0.0
+    '@uppy/xhr-upload': 6.0.1
+    embla-carousel-react: 9.0.0-rc03
+    react-zoom-pan-pinch: 4.2.0
     react: 19.3.0-canary-ff8f88fc-20260915
     react-dom: 19.3.0-canary-ff8f88fc-20260915
     '@types/react': 19.3.0
     '@types/react-dom': 19.3.0
     react-aria: 3.52.1
-    react-aria-components: 3.0.0-nightly-99e610236-261004
+    react-aria-components: 3.0.0-nightly-99e610236-261006
     react-stately: 3.50.0
     '@react-aria/live-announcer': 3.5.1
     babel-plugin-react-compiler: 1.0.0
@@ -276,6 +288,9 @@ catalog:
     '@stryker-mutator/core': 10.0.0
     '@stryker-mutator/vitest-runner': 10.0.0
     # --- [TOOLING]
+    '@cloudflare/vite-plugin': 1.63.0
+    '@cloudflare/workers-types': 5.20261006.1
+    '@openai/sites-vite-plugin': 0.2.0
     typescript: 7.1.0-dev.20261004.1
     '@effect/language-service': 0.87.3
     '@effect/docgen': 4.0.0
@@ -294,7 +309,8 @@ catalog:
     tslib: 2.8.1
     '@types/node': 26.4.1
     vite: 8.3.2
-    '@vitejs/plugin-react': 6.1.1
+    '@vitejs/plugin-react': 6.1.2
+    oxc-transform-react: 0.152.0
     '@tailwindcss/vite': 4.3.3
     '@rolldown/plugin-babel': 0.2.4
     rollup-plugin-visualizer: 7.1.1
@@ -350,4 +366,5 @@ allowBuilds:
     esbuild: true
     nx: true
     protobufjs: true
+    workerd: true
     tree-sitter-sqlite3: false

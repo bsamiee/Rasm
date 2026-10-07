@@ -1,0 +1,10 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "outDir": "../../.cache/typescript/out/apps/portfolio",
+        "jsx": "react-jsx",
+        "lib": ["esnext", "dom"],
+        "types": ["vite/client", "@cloudflare/workers-types"]
+    },
+    "files": [".openai/hosting.json"]
+}

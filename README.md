@@ -107,6 +107,7 @@ flowchart LR
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
 - `nx run rasm:interface` applies each `tools/interface/<app>/apply.py`, `-- <app>` one, and prints every outcome as one JSON document
 - Workspace plugin names each project's tags and empty targets by project file, `@nx/dotnet` and `@nx/vitest` infer theirs
+- Project `vite.config.ts` infers `build`, run from that project, and its `serve` configuration runs the Vite development server
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through one setting every run reads, or its skill states why not
@@ -142,7 +143,7 @@ flowchart LR
 - .NET: Roslyn analyzers at `latest-all`, warnings as errors, code style enforced in build
 - Python: `ruff`, `ty`, and `mypy` at zero findings
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
-- Swift: warnings as errors, strict memory safety, Swift 7 upcoming features, `swift-format lint --strict` and `swiftlint lint` at zero findings
+- Swift: warnings as errors, strict memory safety, every supported upcoming feature, `swift-format lint --strict` and `swiftlint lint` at zero findings
 - Java: `google-java-format --aosp` and `pmd check` at zero findings
 - Tree: `yamllint`, `yamlfmt -lint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
 - Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format` per Xcode project

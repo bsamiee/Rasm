@@ -45,24 +45,39 @@ actor CodexClient: ProviderClient {
 
     // --- [SELECTION]
     func currentSelection(known _: [Account]) -> Result<AccountIdentity?, ProviderError> {
-        CodexAuthFile.read(at: liveAuthFile).map { auth in auth?.identity }.mapError(ProviderError.init(failure:))
+        CodexAuthFile.read(at: liveAuthFile).mapError(ProviderError.init(failure:))
     }
 
     func holdsCredential(for account: Account) -> Result<Bool, ProviderError> {
         CodexAuthFile.read(at: paths.codexHome(account.id).appending(path: CodexAuthFile.name))
-            .map { auth in auth?.identity.isSameAccount(as: account.identity) ?? false }
+            .map { identity in identity?.isSameAccount(as: account.identity) ?? false }
             .mapError(ProviderError.init(failure:))
     }
 
     private func identity(at home: URL) -> Result<AccountIdentity, CodexFailure> {
-        CodexAuthFile.read(at: home.appending(path: CodexAuthFile.name)).flatMap { auth in
-            auth.map { auth in .success(auth.identity) } ?? .failure(.signInRequired)
+        CodexAuthFile.read(at: home.appending(path: CodexAuthFile.name)).flatMap { identity in
+            identity.map(Result.success) ?? .failure(.signInRequired)
         }
     }
 
     // --- [SWITCH]
-    func preconditions() -> Result<Void, CodexFailure> {
-        CodexConfigFile.switchable(at: liveHome.appending(path: "config.toml"))
+    func preconditions() async -> Result<Void, CodexFailure> {
+        await connection(for: liveHome).bind { connection in
+            await ProcessRun.withDeadline(Self.requestDeadline) {
+                await connection.request(
+                    CodexProtocol.EffectiveConfig.self,
+                    .configRead,
+                    params: CodexProtocol.ConfigReadParams(includeLayers: false, cwd: nil),
+                )
+            }
+        }
+        .flatMap { response in
+            switch (response.config.authCredentialsStore, response.config.forcedWorkspace) {
+                case (.keyring, _), (.auto, _), (.ephemeral, _): .failure(.keyringStorage)
+                case (_, .some): .failure(.forcedWorkspace)
+                case (_, .none): .success(())
+            }
+        }
     }
 
     func select(
@@ -73,14 +88,14 @@ actor CodexClient: ProviderClient {
         return await preconditions().bind { _ in
             await CodexAuthFile.read(at: incoming).bind {
                 saved -> Result<AccountIdentity, CodexFailure> in
-                guard let saved, saved.identity.isSameAccount(as: account.identity) else {
+                guard let saved, saved.isSameAccount(as: account.identity) else {
                     return .failure(.signInRequired)
                 }
                 await stopServer(liveHome)
                 await stopServer(paths.codexHome(account.id))
                 return await swapAuthFiles(account, candidates: candidates, incoming: incoming)
                     .bind { _ in await CodexDesktop.relaunchIfRunning() }
-                    .map { _ in saved.identity }
+                    .map { _ in saved }
             }
         }
         .mapError(ProviderError.init(failure:))
@@ -92,8 +107,7 @@ actor CodexClient: ProviderClient {
         incoming: URL,
     ) async -> Result<Void, CodexFailure> {
         await CodexAuthFile.read(at: liveAuthFile)
-            .bind { auth -> Result<Void, CodexFailure> in
-                let live: AccountIdentity? = auth?.identity
+            .bind { live -> Result<Void, CodexFailure> in
                 if let live, live.isSameAccount(as: account.identity) {
                     return remove(incoming)
                 }
@@ -205,13 +219,12 @@ actor CodexClient: ProviderClient {
     }
 
     private func logOut(home: URL) async -> Result<Void, CodexFailure> {
-        let outcome: Result<Void, CodexFailure> = await connection(for: home).bind { connection in
+        defer { await stopServer(home) }
+        return await connection(for: home).bind { connection in
             await ProcessRun.withDeadline(Self.requestDeadline) {
                 await connection.request(.accountLogout).map { _ in () }
             }
         }
-        await stopServer(home)
-        return outcome
     }
 
     // --- [USAGE]
@@ -297,12 +310,11 @@ actor CodexClient: ProviderClient {
             .bind { executable in
                 await startServer(
                     home: home,
-                    invocation: ProcessInvocation(
+                    invocation: ProcessRun.configuration(
                         executable: .path(FilePath(executable.path)),
                         arguments: ["app-server"],
                         environment: variables,
                         workingDirectory: workingDirectory,
-                        inheritedInput: nil,
                     ),
                 )
             }
@@ -310,7 +322,7 @@ actor CodexClient: ProviderClient {
 
     private func startServer(
         home: URL,
-        invocation: ProcessInvocation,
+        invocation: Configuration,
     ) async -> Result<CodexConnection, CodexFailure> {
         let ready:
             (

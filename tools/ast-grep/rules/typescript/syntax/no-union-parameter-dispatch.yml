@@ -2,6 +2,19 @@
 id: no-union-parameter-dispatch
 language: tsx
 severity: error
+utils:
+    declared-union:
+        any:
+            - kind: union_type
+              has:
+                any:
+                    - kind: predefined_type
+                      regex: '^(string|number|boolean|bigint|symbol)$'
+                    - kind: literal_type
+                      has: {kind: 'string, number, true, false'}
+                    - matches: declared-union
+            - kind: parenthesized_type
+              has: {matches: declared-union}
 rule:
     any:
         - kind: function_signature
@@ -17,10 +30,13 @@ rule:
                 matches: syntax-function-boundary
                 stopBy: {matches: syntax-function-boundary}
                 all:
-                    - any:
-                        - has: {field: parameter, kind: identifier, pattern: $PARAMETER}
-                        - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $PARAMETER}}
+                    - has:
+                        field: parameters
+                        has:
+                            kind: required_parameter, optional_parameter
+                            all:
+                                - has: {field: pattern, pattern: $PARAMETER}
+                                - has: {field: type, has: {matches: declared-union}}
                     - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
-                    - not: {has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', all: [{has: {field: pattern, pattern: $PARAMETER}}, {has: {field: type, has: {kind: predefined_type, regex: '^unknown$'}}}]}}}
 message: 'Argument shape selects the behavior at runtime through an overload or a `typeof` test'
-note: 'Declare one function per argument shape and decode an unknown input once at the boundary with `Schema`'
+note: 'Declare one function per argument shape, each caller holds one shape and calls its function'

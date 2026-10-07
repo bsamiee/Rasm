@@ -1,24 +1,20 @@
 {
     "compilerOptions": {
         "allowImportingTsExtensions": true,
-        "composite": true,
-        "declarationMap": true,
-        "emitDeclarationOnly": true,
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
+        "incremental": true,
         "lib": ["esnext"],
         "module": "preserve",
         "moduleDetection": "force",
-        "noEmitOnError": true,
-        "noErrorTruncation": true,
+        "noEmit": true,
         "noImplicitOverride": true,
         "noImplicitReturns": true,
-        "noPropertyAccessFromIndexSignature": true,
         "noUncheckedIndexedAccess": true,
         "skipLibCheck": true,
         "target": "esnext",
         "verbatimModuleSyntax": true
     },
-    "include": ["${configDir}/*.ts"],
+    "include": ["${configDir}"],
     "exclude": ["${configDir}/vitest.config.ts"]
 }

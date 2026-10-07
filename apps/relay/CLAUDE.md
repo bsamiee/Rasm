@@ -94,7 +94,7 @@ Relay refreshes Claude tokens as a peer of Claude Code, under the same lock pair
 - Selected account's home is `CODEX_HOME`, else `~/.codex`
 - Identity is `id_token` claims of `auth.json`, a usage response for another workspace fails as `identityChanged`
 - Notifications a later wait claims belong in `retainedNotifications`, `account/rateLimits/updated` updates usage without a request
-- Switch requires top-level `config.toml` to leave `cli_auth_credentials_store` unset or `file` and `forced_chatgpt_workspace_id` unset
+- Switch reads effective configuration through `config/read`, requiring `cli_auth_credentials_store` unset or `file` and `forced_chatgpt_workspace_id` unset
 - Switch stops every server it touches, saves live `auth.json` into the private home of the account it names, then installs the incoming file
 - Finished switch quits and reopens a running desktop app
 
@@ -116,7 +116,8 @@ Session start reads usage and sends one greeting while `AccountUsage.availabilit
 - Usage read runs when the network path turns satisfied (launch included), on panel open, after a switch or selection change, and on schedule
 - Usage read skips an account with a future `retryAfter` or recent usage, except on select, sign-in, session start, or automatic policy
 - Recent usage is `.current` and under 180 s old, a `.stale` snapshot loaded at launch or left by a failed read never counts
-- Schedule ticks every 180 s while the panel is open, else every 5, 15, or 30 minutes by time since it opened, and past each reset and `retryAfter`
+- Schedule ticks every 180 s while the panel is open, else every 5, 15, or 30 minutes by time since it opened
+- Reset and `retryAfter` wakes respect the account's next permitted read, resets observed by a later usage snapshot schedule nothing
 - Each refresh re-reads a signed-out inactive account's private store without network and reconnects it on a stored credential
 - Refreshes and watch events skip while a switch runs
 

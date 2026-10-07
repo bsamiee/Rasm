@@ -1,0 +1,42 @@
+{
+  "default-configuration": "Release",
+  "configurations": [
+    { "name": "Debug", "file": "Xcode.xcconfig" },
+    { "name": "Release", "file": "Xcode.xcconfig" },
+  ],
+  "localizations": {
+    "development": "en",
+    "supported": [
+      "Base",
+    ],
+  },
+  "files": [
+    { "path": "<PROJECT>/../../../Xcode.xcconfig" },
+    { "kind": "folder", "path": ".", "target-membership": [ "AdobeScripting" ] },
+    {
+      "kind": "group",
+      "name": "Products",
+      "children": [
+        { "path": "<PRODUCTS>/AdobeScripting", "id": "917C099D5AE4414EA80932BF", "type": "compiled.mach-o.executable", "index": false },
+      ],
+    },
+  ],
+  "targets": [
+    {
+      "name": "AdobeScripting",
+      "id": "9DD1FABB5D4B42719173E08B",
+      "product": "Products/AdobeScripting",
+      "product-type": "tool",
+      "build-phases": [
+        "compile-sources",
+      ],
+      "build-settings": {
+        "CREATE_INFOPLIST_SECTION_IN_BINARY": "YES",
+        "INFOPLIST_KEY_NSAppleEventsUsageDescription": "Execute requested commands in Adobe applications.",
+        "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.adobe-scripting",
+      },
+    },
+  ],
+  "last-upgrade": "27.2",
+  "last-swift-update": "27.2",
+}

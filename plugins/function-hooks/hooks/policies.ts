@@ -308,12 +308,12 @@ const nxReviver = (key: string, value: unknown): unknown => {
 const _object = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
 
 const decodedManifest = (subject: string, value: unknown): Result<Manifest> => {
-    const declared = (candidate: unknown): candidate is Manifest => _object(candidate) && typeof candidate['name'] === 'string' && _object(candidate['nx']) && _object(candidate['nx']['targets']);
+    const declared = (candidate: unknown): candidate is Manifest => _object(candidate) && typeof candidate.name === 'string' && _object(candidate.nx) && _object(candidate.nx.targets);
     return declared(value) ? ok(value) : fault({ kind: 'invalid', subject, cause: 'name or nx.targets missing' });
 };
 
 const decodedNxJson = (subject: string, value: unknown): Result<NxJsonConfiguration> => {
-    const declared = (candidate: unknown): candidate is NxJsonConfiguration => _object(candidate) && _object(candidate['targetDefaults']);
+    const declared = (candidate: unknown): candidate is NxJsonConfiguration => _object(candidate) && _object(candidate.targetDefaults);
     return declared(value) ? ok(value) : fault({ kind: 'invalid', subject, cause: 'targetDefaults missing' });
 };
 

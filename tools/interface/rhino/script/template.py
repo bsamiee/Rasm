@@ -386,7 +386,6 @@ def target(units: Units) -> Template:
             "TransparentBackground": False,
             "Skylight": {"Enabled": True},
             "LinearWorkflow": {"PreProcessColors": True, "PostProcessGamma": single(gamma), "PostProcessGammaOn": True},
-            "Dithering": {"Enabled": False},
             "GroundPlane": {
                 "Enabled": True,
                 "ShadowOnly": False,

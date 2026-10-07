@@ -21,16 +21,16 @@ interface Columns {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CLASSIC: Columns = {
-    ids: { ['session_id']: 'session_id', ['prompt_id']: 'prompt_id', ['agent_id']: 'agent_id', tool: 'tool_name', ['tool_use_id']: 'tool_use_id' },
-    drops: { ['hook_event_name']: true, ['tool_calls']: { ['tool_response']: true } },
+    ids: { session_id: 'session_id', prompt_id: 'prompt_id', agent_id: 'agent_id', tool: 'tool_name', tool_use_id: 'tool_use_id' },
+    drops: { hook_event_name: true, tool_calls: { tool_response: true } },
     tools: {
-        ['Read']: { ['tool_response']: { pages: true, file: { content: true, base64: true, cells: true } } },
-        ['Write']: { ['tool_response']: { content: true } },
-        ['Edit']: { ['tool_response']: { originalFile: true } },
+        Read: { tool_response: { pages: true, file: { content: true, base64: true, cells: true } } },
+        Write: { tool_response: { content: true } },
+        Edit: { tool_response: { originalFile: true } },
     },
 };
-const CALL: Columns = { ids: { ['agent_id']: 'agentId', tool: 'tool', ['tool_use_id']: 'tool_use_id' }, drops: { trace: { received: true, returned: true } }, tools: {} };
-const TURN: Columns = { ids: { ['agent_id']: 'agentId' }, drops: {}, tools: {} };
+const CALL: Columns = { ids: { agent_id: 'agentId', tool: 'tool', tool_use_id: 'tool_use_id' }, drops: { trace: { received: true, returned: true } }, tools: {} };
+const TURN: Columns = { ids: { agent_id: 'agentId' }, drops: {}, tools: {} };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ const row = (event: Event, value: Payload, columns: Columns, sessionId: string, 
         }),
     );
     const columned = Object.fromEntries(Object.values(columns.ids).map((key) => [key, true] as const));
-    return { ...ids, event, ts, ['session_id']: sessionId, payload: JSON.stringify(_dropped(value, { ...columns.drops, ...(ids.tool === undefined ? {} : columns.tools[ids.tool]), ...columned })) };
+    return { ...ids, event, ts, session_id: sessionId, payload: JSON.stringify(_dropped(value, { ...columns.drops, ...(ids.tool === undefined ? {} : columns.tools[ids.tool]), ...columned })) };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

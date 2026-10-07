@@ -17,7 +17,7 @@ nonisolated struct UsageAmount: Equatable, Sendable {
     }
 }
 
-nonisolated enum QuotaKind: Hashable, Sendable {
+nonisolated enum QuotaKind: Hashable, Codable, Sendable {
     case session
     case weekly
     case model(String)
@@ -40,7 +40,7 @@ nonisolated struct QuotaWindow: Equatable, Sendable {
     var blocks: Bool { used.isExhausted || rejected }
 
     func keepingReset(from previous: Self?, at now: Date) -> Self {
-        if resetsAt == nil, let previous, previous.kind == kind,
+        if resetsAt == nil, let previous,
             let reset: Date = previous.resetsAt, reset > now
         {
             withReset(reset)
@@ -73,9 +73,6 @@ nonisolated struct AccountUsage: Equatable, Sendable {
         windows.filter { window in
             if case .model = window.kind { true } else { false }
         }
-    }
-    var nextReset: Date? {
-        windows.compactMap(\.resetsAt).min()
     }
 
     func availability(at now: Date) -> Availability {

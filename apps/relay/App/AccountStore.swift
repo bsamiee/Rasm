@@ -133,8 +133,8 @@ final class AccountStore {
         if case .failure(let error) = await claude.completePendingSwitch().mapError(ProviderError.init(failure:)) {
             providerIssues[.claude] = error
         }
-        codexPrecondition = (await codex.preconditions()).failure
         guard !accounts.isEmpty else { return }
+        await readCodexPrecondition()
         let orphans: [UUID]
         switch locations.orphanAccountDirectories(excluding: Set(accounts.map(\.account.id))) {
             case .success(let found): orphans = found
@@ -299,28 +299,25 @@ final class AccountStore {
 
     func submitAuthenticationCode(_ code: String) {
         let trimmed: String = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let pending: AuthenticationPresentation = authentication, case .pending = pending.phase,
+        guard case .pending? = authentication?.phase,
             let codes: AsyncStream<String>.Continuation = authenticationCodes, !trimmed.isEmpty
         else { return }
-        authentication = pending.entering(.completing)
+        authentication?.phase = .completing
         codes.yield(trimmed)
         codes.finish()
     }
 
     func cancelAuthentication() {
-        guard let pending: AuthenticationPresentation = authentication else { return }
-        switch pending.phase {
+        switch authentication?.phase {
             case .pending, .completing:
-                authentication = pending.entering(.cancelling)
+                authentication?.phase = .cancelling
                 authenticationTask?.cancel()
-            case .refused, .cancelling: return
+            case .refused, .cancelling, .none: return
         }
     }
 
     func dismissAuthentication() {
-        guard let pending: AuthenticationPresentation = authentication,
-            case .refused = pending.phase
-        else { return }
+        guard case .refused? = authentication?.phase else { return }
         authentication = nil
     }
 
@@ -393,13 +390,8 @@ final class AccountStore {
                         } else {
                             .failure(error)
                         }
-                    authentication = AuthenticationPresentation(
-                        id: id,
-                        provider: provider,
-                        phase: .refused(refusal),
-                        startedAt: Date(),
-                    )
                     if let existing { await record(error, for: existing) }
+                    authentication?.phase = .refused(refusal)
             }
             authenticationTask = nil
         }
@@ -420,14 +412,9 @@ final class AccountStore {
         let replaced: AccountModel?
         switch (duplicate, existing) {
             case (.some(let connected), _) where connected.isConnected || connected.isBusy:
-                authentication = AuthenticationPresentation(
-                    id: id,
-                    provider: provider,
-                    phase: .refused(.alreadyConnected(email: identity.email)),
-                    startedAt: Date(),
-                )
                 connected.issue = nil
                 if existing == nil { await deletePrivateStore(id, provider: provider) }
+                authentication?.phase = .refused(.alreadyConnected(email: identity.email))
                 return
             case (.some(let signedOut), .none): replaced = signedOut
             case (.some, .some), (.none, _): replaced = nil
@@ -455,13 +442,18 @@ final class AccountStore {
         model.authentication = .connected
         model.retryAfter = nil
         model.issue = nil
-        authentication = nil
         await save()
         await readSelection()
+        authentication = nil
         switch existing {
             case .some: await readUsage(model)
             case .none: model.run(.refreshing) { [self] in await readUsage(model) }
         }
+    }
+
+    private func readCodexPrecondition() async {
+        guard accounts.contains(where: { model in model.account.provider == .openAI }) else { return }
+        codexPrecondition = (await codex.preconditions()).failure
     }
 
     private func deletePrivateStore(_ id: UUID, provider: Provider) async {
@@ -506,7 +498,7 @@ final class AccountStore {
         guard isStorageAvailable, !isStopping, !isSwitching else { return }
         let now: Date = Date()
         for model: AccountModel in candidates where !model.isBusy {
-            let due: Bool = model.isUsageReadDue(for: trigger, at: now)
+            let due: Bool = trigger == .userAction || (model.usageReadAfter.map { date in date <= now } ?? true)
             switch (model.isConnected, model.isSelected) {
                 case (true, _) where due, (false, true) where due && trigger == .revalidation:
                     model.run(.refreshing) { [self] in await readUsage(model) }
@@ -575,7 +567,7 @@ final class AccountStore {
                     uniqueKeysWithValues: accounts.map { model in (model.account.id, model.isSelected) }
                 )
                 await readSelection()
-                codexPrecondition = (await codex.preconditions()).failure
+                if file == codex.liveAuthFile { await readCodexPrecondition() }
                 let changed: [AccountModel] = accounts.filter { model in
                     before[model.account.id] != model.isSelected
                 }
@@ -649,7 +641,13 @@ final class AccountStore {
                 }
             }
         let boundary: Duration? = accounts.flatMap { model in
-            [model.usage.usage?.nextReset, model.retryAfter].compactMap(\.self)
+            let resets: [Date] =
+                model.usage.usage.map { usage in
+                    usage.windows.compactMap(\.resetsAt).filter { date in date > usage.observedAt }
+                } ?? []
+            let earliest: Date? = model.usageReadAfter
+            return (resets + [model.retryAfter].compactMap(\.self))
+                .map { date in max(date, earliest ?? date) }
         }
         .filter { date in date > now }
         .min()

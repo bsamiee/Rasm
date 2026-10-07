@@ -41,15 +41,13 @@ final class AccountModel {
             && availability(at: now) == .ready
     }
 
-    func isUsageReadDue(for trigger: RefreshTrigger, at now: Date) -> Bool {
-        let usageReadInterval: TimeInterval = 180
-        let limited: Bool = retryAfter.map { date in date > now } ?? false
-        let recent: Bool =
+    var usageReadAfter: Date? {
+        let nextRead: Date? =
             switch usage {
-                case .current(let usage): now.timeIntervalSince(usage.observedAt) < usageReadInterval
-                case .stale, .unavailable: false
+                case .current(let usage): usage.observedAt.addingTimeInterval(180)
+                case .stale, .unavailable: nil
             }
-        return trigger == .userAction || !limited && !recent
+        return [retryAfter, nextRead].compactMap(\.self).max()
     }
 
     func run(_ operation: AccountOperation, _ work: @escaping @MainActor () async -> Void) {

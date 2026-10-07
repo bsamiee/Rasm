@@ -1,7 +1,6 @@
 import CryptoKit
 import Foundation
 import Subprocess
-import System
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -230,7 +229,7 @@ actor ClaudeClient: ProviderClient {
         into store: ClaudeCredentialStore,
     ) async -> Result<Void, ClaudeFailure> {
         await store.readItem()
-            .bind { item in await store.writeOAuth(credential.token.fields, over: item) }
+            .bind { item in await store.writeOAuth(credential.token.document, over: item) }
             .flatMap { _ in store.writeAccount(credential.account) }
     }
 
@@ -303,12 +302,11 @@ actor ClaudeClient: ProviderClient {
             .bind { _ in await executable() }
             .bind { binary -> Result<Void, ClaudeFailure> in
                 await ProcessRun.stream(
-                    ProcessInvocation(
+                    ProcessRun.configuration(
                         executable: binary,
                         arguments: ["auth", "login", "--claudeai"] + (email.map { email in ["--email", email] } ?? []),
                         environment: processEnvironment(store: store),
                         workingDirectory: paths.workingDirectory,
-                        inheritedInput: nil,
                     ),
                     deadline: .seconds(300),
                 ) { execution in
@@ -316,7 +314,7 @@ actor ClaudeClient: ProviderClient {
                         group.addTask(name: "Login code") {
                             for await code: String in codes {
                                 return await Result {
-                                    _ = try await execution.standardInputWriter.write(Array((code + "\n").utf8))
+                                    _ = try await execution.standardInputWriter.write(code + "\n", using: UTF8.self)
                                     try await execution.standardInputWriter.finish()
                                 }
                                 .mapError(ProcessRun.failure)
@@ -341,12 +339,11 @@ actor ClaudeClient: ProviderClient {
             .bind { _ in await executable() }
             .bind { binary in
                 await ProcessRun.collect(
-                    ProcessInvocation(
+                    ProcessRun.configuration(
                         executable: binary,
                         arguments: ["auth", "logout"],
                         environment: processEnvironment(store: store),
                         workingDirectory: paths.workingDirectory,
-                        inheritedInput: nil,
                     ),
                     deadline: .seconds(60),
                 ).mapError(ClaudeFailure.init(process:))
@@ -381,46 +378,14 @@ actor ClaudeClient: ProviderClient {
             guard case .ready = current.availability(at: Date()) else { return .success(current) }
             return await credential(for: account, isSelected: isSelected, replacing: nil)
                 .bind { stored in
-                    await createDirectories(store: store).bind { _ in await executable() }.map { binary in (stored.token, binary) }
-                }
-                .flatMap { token, binary in
-                    Result { try FileDescriptor.pipe() }.mapError(ClaudeFailure.filesystem).map { pipe in (token, binary, pipe) }
-                }
-                .flatMap { token, binary, pipe in
-                    Result { try pipe.writeEnd.closeAfter { try pipe.writeEnd.writeAll(token.accessToken.utf8) } }
-                        .map { _ in (token, binary, pipe.readEnd) }
-                        .mapError { error in
-                            try? pipe.readEnd.close()
-                            return .filesystem(error)
-                        }
-                }
-                .bind { token, binary, descriptor -> Result<Date?, ClaudeFailure> in
-                    let sessionID: UUID = UUID()
-                    let tokenVariables: [String: String?] = [
-                        "CLAUDE_CODE_SUBSCRIPTION_TYPE": token.plan,
-                        "CLAUDE_CODE_RATE_LIMIT_TIER": token.rateLimitTier,
-                        "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR": String(descriptor.rawValue),
-                    ]
-                    let invocation: ProcessInvocation = ProcessInvocation(
-                        executable: binary,
-                        arguments: [
-                            "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-                            "--tools", "", "--setting-sources=", "--strict-mcp-config", "--disable-slash-commands",
-                            "--no-session-persistence", "--max-turns", "1", "--session-id", sessionID.uuidString,
-                            "--system-prompt", "Reply with one word.",
-                            "--settings", "{\"disableAllHooks\":true,\"autoMemoryEnabled\":false}",
-                        ],
-                        environment: processEnvironment(store: store)
-                            .merging(tokenVariables.compactMapValues(\.self)) { _, new in new },
-                        workingDirectory: paths.workingDirectory,
-                        inheritedInput: descriptor,
-                    )
-                    let outcome: Result<Date?, ClaudeFailure> = await ClaudeSession.run(
-                        invocation: invocation,
-                        sessionID: sessionID,
-                    )
-                    try? descriptor.close()
-                    return outcome
+                    await createDirectories(store: store).bind { _ in await executable() }.bind { binary in
+                        await ClaudeSession.run(
+                            executable: binary,
+                            token: stored.token,
+                            environment: processEnvironment(store: store),
+                            workingDirectory: paths.workingDirectory,
+                        )
+                    }
                 }
                 .mapError(ProviderError.init(failure:))
                 .bind { reset in
@@ -471,7 +436,7 @@ actor ClaudeClient: ProviderClient {
         in store: ClaudeCredentialStore,
         for stale: ClaudeCredential,
     ) async -> Result<ClaudeCredential, ClaudeFailure> {
-        await Task(name: "Claude refresh") {
+        await withTaskCancellationShield {
             await ClaudeLock.withLock(directories: [store.directory]) {
                 await store.read()
                     .flatMap { content in Self.matched(content, to: stale.identity) }
@@ -480,14 +445,14 @@ actor ClaudeClient: ProviderClient {
                             ? self.renew(current, in: store) : .success(current)
                     }
             }
-        }.value
+        }
     }
 
     private func renew(
         _ current: ClaudeCredential,
         in store: ClaudeCredentialStore,
     ) async -> Result<ClaudeCredential, ClaudeFailure> {
-        guard let posted: String = current.token.refreshToken else { return .failure(.signInRequired) }
+        guard let posted: String = current.token.document.known.refreshToken else { return .failure(.signInRequired) }
         let grant: ClaudeTokenRequest = ClaudeTokenRequest(
             refreshToken: posted,
             scope: current.token.scopes.joined(separator: " "),
@@ -506,11 +471,13 @@ actor ClaudeClient: ProviderClient {
             case .failure(.signInRequired):
                 let signedOut: Result<Void, ClaudeFailure> = await store.readItem().bind {
                     item -> Result<Void, ClaudeFailure> in
-                    guard let oauth: JSONDocument<ClaudeOAuthToken.Attributes> = item?.known.claudeAiOauth,
+                    if let oauth: JSONDocument<ClaudeOAuthToken.Attributes> = item?.known.claudeAiOauth,
                         oauth.known.refreshToken == posted
-                    else { return .success(()) }
-                    return await store.writeOAuth(JSONDocument(fields: oauth.fields, known: ClaudeOAuthUpdate.signedOut), over: item)
-                        .map { _ in () }
+                    {
+                        await store.writeOAuth(JSONDocument(fields: oauth.fields, known: ClaudeOAuthToken.Attributes.signedOut), over: item)
+                    } else {
+                        .success(())
+                    }
                 }
                 return .failure(.signInRequired.releasing(signedOut))
             case .failure(let error):
@@ -529,14 +496,13 @@ actor ClaudeClient: ProviderClient {
             if let stored: String = item?.known.claudeAiOauth?.known.refreshToken, !stored.isEmpty, stored != posted {
                 return await store.read().flatMap { content in Self.matched(content, to: current.identity) }
             }
-            return await store.writeOAuth(response.oauth(replacing: current.token, posted: posted, at: now), over: item)
-                .flatMap(ClaudeOAuthToken.make)
-                .flatMap { token in
-                    token.map { token in
-                        .success(ClaudeCredential(token: token, account: current.account, identity: current.identity))
-                    } ?? .failure(.invalidResponse)
+            return await response.oauth(replacing: current.token, posted: posted, at: now)
+                .bind { token in
+                    await store.writeOAuth(token.document, over: item).map { _ in
+                        ClaudeCredential(token: token, account: current.account, identity: current.identity)
+                    }
                 }
-                .flatMap { renewed in response.identity(plan: renewed.token.plan).map { identity in (renewed, identity) } }
+                .flatMap { renewed in response.identity(plan: renewed.token.document.known.subscriptionType).map { identity in (renewed, identity) } }
                 .map { renewed, identity in
                     if let identity { verifiedIdentities[renewed.token.fingerprint] = identity }
                     return renewed
@@ -579,7 +545,7 @@ actor ClaudeClient: ProviderClient {
                         accountUuid: identity.accountID,
                         emailAddress: identity.email,
                         organizationUuid: identity.organizationID,
-                        organizationType: token.plan,
+                        organizationType: token.document.known.subscriptionType,
                     ),
                 )
                 return store.writeAccount(account).map { _ in
@@ -616,7 +582,7 @@ actor ClaudeClient: ProviderClient {
             ],
         )
         .flatMap { data in decode(ClaudeProfile.self, from: data) }
-        .flatMap { profile in profile.identity(plan: token.plan) }
+        .flatMap { profile in profile.identity(plan: token.document.known.subscriptionType) }
     }
 
     // --- [HTTP]
@@ -688,20 +654,19 @@ actor ClaudeClient: ProviderClient {
         environment: [String: String],
         in directory: URL,
     ) async -> String? {
-        let printed: Result<ProcessOutput, ClaudeFailure> = await executable.bind { binary in
+        let printed: Result<ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>>, ClaudeFailure> = await executable.bind { binary in
             await ProcessRun.collect(
-                ProcessInvocation(
+                ProcessRun.configuration(
                     executable: binary,
                     arguments: ["--version"],
                     environment: environment,
                     workingDirectory: directory,
-                    inheritedInput: nil,
                 ),
                 deadline: .seconds(15),
             ).mapError(ClaudeFailure.init(process:))
         }
         return
-            if case .success(let output) = printed, output.status.isSuccess,
+            if case .success(let output) = printed, output.terminationStatus.isSuccess,
             let version: Substring = output.standardOutput.split(whereSeparator: \.isWhitespace).first
         {
             "claude-cli/\(version) (external, cli)"

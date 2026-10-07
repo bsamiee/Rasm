@@ -27,7 +27,7 @@ const _PROJECTS: Record<string, (file: Path.Path.Parsed, workspace: string) => E
             };
         }),
     '.swcrc': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:extendscript'], targets: { build: {} } }),
-    'project.pbxproj': ({ dir }) =>
+    'project.xcproj': ({ dir }) =>
         Effect.map(Path.Path, (path) => {
             const xcodeproj = path.parse(dir);
             return { root: xcodeproj.dir, name: xcodeproj.name, tags: ['language:swift', 'host:macos'], targets: { build: {}, install: {}, upgrade: {}, lint: {}, format: {}, check: {} } };
@@ -39,6 +39,7 @@ const _PROJECTS: Record<string, (file: Path.Path.Parsed, workspace: string) => E
         return { root: dir, name: project.name, tags: ['language:python'], targets: Array.isReadonlyArrayNonEmpty(tests) ? { check: {}, test: {} } : {} };
     }),
     'tsconfig.json': ({ dir }) => Effect.succeed({ root: dir, tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
+    'vite.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['bundler:vite'], targets: { build: {} } }),
     'uxp.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:uxp'], targets: { build: {} } }),
 };
 

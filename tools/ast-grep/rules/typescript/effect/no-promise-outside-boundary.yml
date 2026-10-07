@@ -11,10 +11,12 @@ utils:
         kind: call_expression
         has:
             field: function
-            kind: member_expression
-            all:
-                - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
-                - has: {field: object, matches: effect-effect-module}
+            any:
+                - matches: {syntax-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(runPromise|runPromiseExit)$'}}}
+                - kind: member_expression
+                  all:
+                    - has: {field: object, matches: effect-effect-module}
+                    - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
     main-entry:
         any:
             - not: {inside: {matches: syntax-function-boundary, stopBy: end}}
@@ -28,10 +30,12 @@ utils:
         kind: call_expression
         has:
             field: function
-            kind: member_expression
-            all:
-                - has: {field: object, matches: effect-effect-module}
-                - has: {field: property, regex: '^(promise|tryPromise)$'}
+            any:
+                - matches: {syntax-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(promise|tryPromise)$'}}}
+                - kind: member_expression
+                  all:
+                    - has: {field: object, matches: effect-effect-module}
+                    - has: {field: property, regex: '^(promise|tryPromise)$'}
     promise-boundary:
         any:
             - kind: arrow_function, function_expression
@@ -60,11 +64,38 @@ utils:
                             kind: call_expression
                             has:
                                 field: function
-                                kind: member_expression
-                                all:
-                                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Stream)?$'}, exported: {regex: '^Stream$'}}}}
-                                    - has: {field: property, regex: '^fromAsyncIterable$'}
+                                any:
+                                    - matches: {syntax-import-reference: {source: {regex: '^effect/Stream$'}, exported: {regex: '^fromAsyncIterable$'}}}
+                                    - kind: member_expression
+                                      all:
+                                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Stream)?$'}, exported: {regex: '^Stream$'}}}}
+                                        - has: {field: property, regex: '^fromAsyncIterable$'}
     global-receiver: {matches: syntax-global-reference, regex: '^(globalThis|window|self)(\.(globalThis|window|self))*$'}
+    promise-constructor:
+        any:
+            - {matches: syntax-global-reference, regex: '^Promise$'}
+            - kind: member_expression
+              all:
+                - has: {field: object, matches: global-receiver}
+                - has: {field: property, regex: '^Promise$'}
+            - kind: subscript_expression
+              all:
+                - has: {field: object, matches: global-receiver}
+                - has: {field: index, kind: string, regex: '^[''"]Promise[''"]$'}
+            - matches: syntax-expression-wrapper
+              has: {matches: promise-constructor}
+    promise-combinator:
+        any:
+            - kind: member_expression
+              all:
+                - has: {field: object, matches: promise-constructor}
+                - has: {field: property, regex: '^(all|allSettled|any|race|resolve|reject|withResolvers|try)$'}
+            - kind: subscript_expression
+              all:
+                - has: {field: object, matches: promise-constructor}
+                - has: {field: index, kind: string, regex: '^[''"](all|allSettled|any|race|resolve|reject|withResolvers|try)[''"]$'}
+            - matches: syntax-expression-wrapper
+              has: {matches: promise-combinator}
     fetch-callee:
         any:
             - {matches: syntax-global-reference, regex: '^fetch$'}
@@ -76,6 +107,8 @@ utils:
               all:
                 - has: {field: object, matches: global-receiver}
                 - has: {field: index, kind: string, regex: '^[''"]fetch[''"]$'}
+            - matches: syntax-expression-wrapper
+              has: {matches: fetch-callee}
 rule:
     all:
         - any:
@@ -92,13 +125,12 @@ rule:
             - kind: call_expression
               has: {field: function, matches: fetch-callee, pattern: $PROMISE}
             - kind: new_expression
-              has: {field: constructor, pattern: $PROMISE, regex: '^(globalThis\.)?Promise$', matches: syntax-global-reference}
+              has: {field: constructor, pattern: $PROMISE, matches: promise-constructor}
             - kind: call_expression
               has:
                 field: function
                 pattern: $PROMISE
-                regex: '^(globalThis\.)?Promise\.(all|allSettled|any|race|resolve|reject|withResolvers|try)$'
-                matches: syntax-global-reference
+                matches: promise-combinator
         - not: {inside: {stopBy: {matches: syntax-function-boundary}, matches: promise-boundary}}
 message: '`$PROMISE` runs as a promise outside a promise conversion callback'
-note: '`Effect.tryPromise` converts one promise, `Effect.all` replaces a `Promise` combinator, `HttpClient` replaces `fetch`, and `Stream.fromAsyncIterable` reads an async iterable, each keeps the failure typed'
+note: '`Effect.tryPromise(() => <promise>)` converts an awaited promise, `Effect.callback` replaces `new Promise`, `Effect.all` replaces `Promise.all` and with `mode: "result"` `allSettled`, `Effect.raceAll` and `Effect.race` replace `race` and `any`, `Effect.succeed`, `Effect.fail`, `Deferred.make`, and `Effect.try` replace `resolve`, `reject`, `withResolvers`, and `try`, `HttpClient` replaces `fetch`, and `Stream.fromAsyncIterable` reads an async iterable, each keeping the failure typed'
