@@ -2,15 +2,24 @@
 
 @README.md
 
+- Work runs to completion, guidance files and existing standards decide every open question in place of user input, never hedge or defer, remove/replace tools/code/etc
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one
 - Fix defects at root cause, a wrapper, fallback, guard, or retry that hides the cause is a defect
+- Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
 - `tools/` shares no dependency in either direction with `libs/`, `apps/`, or agent harness code, tools read project files, skills run tools
+- Tool settings and rules that push code against the coding standards are removed at their owner
 - Tests are made at the user's request alone
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections
 - Audits, security scans, supply-chain pins, and approval gates are added on user request alone
+
+- Non-trivial work starts with a task file under tmp outside the project, holding every task with its facts and nothing else
+- Proactively delegate work to sub-agents for search, research, ideation, and writing, never tackle large solo when total workload is non-trivial
+- Any `.md` file that is durable, and part of the project receives a focused adversarial review with `clean-prose` fully read and focused on the git-diff/modified content
+- All code files are adversarially reviewed to rebuild aggressively, initial code is always slop, skills, memory, `CLAUDE/AGENTS.md`, and similar determine quality
+- Reviews are adversarial, reviewers assume code is wrong and commit corrections, a report stands where a task or skill asks for one
 
 ## [01]-[LANGUAGE_STANDARDS]
 

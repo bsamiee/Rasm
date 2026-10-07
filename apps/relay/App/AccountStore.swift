@@ -189,7 +189,7 @@ final class AccountStore {
         model.account.sessionPolicy = policy
         model.automaticStartAttempted = false
         scheduleSave()
-        if policy == .automatic { refresh([model], trigger: .userAction) }
+        if policy == .automatic { refresh([model], trigger: .immediate) }
     }
 
     func moveAccount(_ id: UUID, by offset: Int) {
@@ -281,7 +281,7 @@ final class AccountStore {
         Task(name: "Refresh after switch") { [self] in
             await model.running?.task.value
             guard !isStopping else { return }
-            refresh([model, outgoing].compactMap(\.self), trigger: .userAction)
+            refresh([model, outgoing].compactMap(\.self), trigger: .immediate)
         }
     }
 
@@ -498,7 +498,7 @@ final class AccountStore {
         guard isStorageAvailable, !isStopping, !isSwitching else { return }
         let now: Date = Date()
         for model: AccountModel in candidates where !model.isBusy {
-            let due: Bool = trigger == .userAction || (model.usageReadAfter.map { date in date <= now } ?? true)
+            let due: Bool = trigger == .immediate || (model.usageReadAfter.map { date in date <= now } ?? true)
             switch (model.isConnected, model.isSelected) {
                 case (true, _) where due, (false, true) where due && trigger == .revalidation:
                     model.run(.refreshing) { [self] in await readUsage(model) }
@@ -594,25 +594,21 @@ final class AccountStore {
     }
 
     private func observeCodexUpdates() async {
-        for await update: CodexRateLimitsUpdate in codex.updates {
+        for await home: URL in codex.updates {
             guard
                 let model: AccountModel = accounts.first(where: { model in
                     model.account.provider == .openAI
-                        && codex.home(for: model.account, isSelected: model.isSelected) == update.home
+                        && codex.home(for: model.account, isSelected: model.isSelected) == home
                 })
             else { continue }
-            let previous: AccountUsage? = model.usage.usage
-            await apply(
-                .success(
-                    AccountUsage(
-                        windows: update.windows,
-                        includedUsageAllowed: previous?.includedUsageAllowed,
-                        observedAt: update.observedAt,
-                        signInExpiresAt: nil,
-                    )
-                ),
-                to: model,
-            )
+            while let operation: RunningOperation = model.running
+                ?? accounts.first(where: { account in account.running?.kind == .selecting })?.running
+            {
+                await operation.task.value
+            }
+            guard !Task.isCancelled else { return }
+            guard accounts.contains(where: { account in account === model }) else { continue }
+            refresh([model], trigger: .immediate)
         }
     }
 

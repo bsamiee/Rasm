@@ -177,11 +177,15 @@ nonisolated enum CodexProtocol {
     }
 
     struct RateLimitSnapshot: Decodable, Sendable {
+        static let codexLimitID: String = "codex"
+
         let limitId: String?
         let primary: RateLimitWindow?
         let secondary: RateLimitWindow?
         let rateLimitReachedType: String?
         let spendControlReached: Bool?
+
+        var isCodex: Bool { limitId == nil || limitId == Self.codexLimitID }
     }
 
     struct AccountRateLimits: Decodable, Sendable {
@@ -191,8 +195,8 @@ nonisolated enum CodexProtocol {
         let rateLimitsByLimitId: [String: RateLimitSnapshot]?
 
         var codexLimits: RateLimitSnapshot? {
-            if let byID: [String: RateLimitSnapshot] = rateLimitsByLimitId { return byID["codex"] }
-            return rateLimits.limitId == nil || rateLimits.limitId == "codex" ? rateLimits : nil
+            if let byID: [String: RateLimitSnapshot] = rateLimitsByLimitId { return byID[RateLimitSnapshot.codexLimitID] }
+            return rateLimits.isCodex ? rateLimits : nil
         }
     }
 
@@ -306,7 +310,7 @@ nonisolated enum CodexProtocol {
             : .failure(.identityChanged)
     }
 
-    static func windows(_ limits: RateLimitSnapshot) -> Result<[QuotaWindow], CodexFailure> {
+    private static func windows(_ limits: RateLimitSnapshot) -> Result<[QuotaWindow], CodexFailure> {
         let reached: Bool = limits.rateLimitReachedType != nil || limits.spendControlReached == true
         return traverse([limits.primary, limits.secondary].compactMap(\.self)) { window in
             quotaWindow(window, reached: reached)

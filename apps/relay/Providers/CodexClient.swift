@@ -2,14 +2,6 @@ import Foundation
 import Subprocess
 import System
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-nonisolated struct CodexRateLimitsUpdate: Sendable {
-    let home: URL
-    let windows: [QuotaWindow]
-    let observedAt: Date
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 private struct CodexServer {
@@ -20,11 +12,11 @@ private struct CodexServer {
 actor CodexClient: ProviderClient {
     // --- [STATE]
     nonisolated let liveHome: URL
-    nonisolated let updates: AsyncStream<CodexRateLimitsUpdate>
+    nonisolated let updates: AsyncStream<URL>
     private static let requestDeadline: Duration = .seconds(60)
     private let paths: FileLocations
     private let environment: [String: String]
-    private let updatesContinuation: AsyncStream<CodexRateLimitsUpdate>.Continuation
+    private let updatesContinuation: AsyncStream<URL>.Continuation
     private var servers: [URL: CodexServer] = [:]
 
     init(paths: FileLocations, environment: [String: String]) {
@@ -34,7 +26,7 @@ actor CodexClient: ProviderClient {
             environment["CODEX_HOME"].flatMap { value in
                 value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory)
             } ?? paths.home.appending(path: ".codex", directoryHint: .isDirectory)
-        (updates, updatesContinuation) = AsyncStream<CodexRateLimitsUpdate>.makeStream()
+        (updates, updatesContinuation) = AsyncStream<URL>.makeStream()
     }
 
     nonisolated var liveAuthFile: URL { liveHome.appending(path: CodexAuthFile.name) }
@@ -329,7 +321,7 @@ actor CodexClient: ProviderClient {
                 stream: AsyncStream<Result<CodexConnection, CodexFailure>>,
                 continuation: AsyncStream<Result<CodexConnection, CodexFailure>>.Continuation
             ) = AsyncStream.makeStream()
-        let continuation: AsyncStream<CodexRateLimitsUpdate>.Continuation = updatesContinuation
+        let continuation: AsyncStream<URL>.Continuation = updatesContinuation
         let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") {
             let outcome: Result<(Void, TerminationStatus), ProcessFailure> = await ProcessRun.stream(
                 invocation,
@@ -366,31 +358,21 @@ actor CodexClient: ProviderClient {
     private nonisolated static func serve(
         _ connection: CodexConnection,
         home: URL,
-        updates: AsyncStream<CodexRateLimitsUpdate>.Continuation,
+        updates: AsyncStream<URL>.Continuation,
         ready: AsyncStream<Result<CodexConnection, CodexFailure>>.Continuation,
     ) async {
         await withDiscardingTaskGroup { group in
             group.addTask(name: "codex read") { await connection.read() }
             group.addTask(name: "codex rate limits") {
-                await forward(connection.updates, from: home, into: updates)
+                for await update: CodexProtocol.RateLimitsUpdated in connection.updates where update.rateLimits.isCodex {
+                    updates.yield(home)
+                }
             }
             let initialized: Result<Void, CodexFailure> = await ProcessRun.withDeadline(requestDeadline) {
                 await connection.initialize()
             }
             ready.yield(initialized.map { _ in connection })
             ready.finish()
-        }
-    }
-
-    private nonisolated static func forward(
-        _ updates: AsyncStream<CodexProtocol.RateLimitsUpdated>,
-        from home: URL,
-        into continuation: AsyncStream<CodexRateLimitsUpdate>.Continuation,
-    ) async {
-        for await update: CodexProtocol.RateLimitsUpdated in updates {
-            if case .success(let windows) = CodexProtocol.windows(update.rateLimits) {
-                continuation.yield(CodexRateLimitsUpdate(home: home, windows: windows, observedAt: Date()))
-            }
         }
     }
 

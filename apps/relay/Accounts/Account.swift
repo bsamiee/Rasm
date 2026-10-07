@@ -57,7 +57,7 @@ nonisolated enum AccountOperation: Equatable, Sendable {
 nonisolated enum RefreshTrigger: Equatable, Sendable {
     case background
     case revalidation
-    case userAction
+    case immediate
 }
 
 nonisolated protocol ProviderFailure: DeadlineFailure, LocalizedError {

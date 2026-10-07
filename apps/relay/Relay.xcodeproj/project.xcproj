@@ -70,6 +70,7 @@
         "ENABLE_HARDENED_RUNTIME": "YES",
         "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.utilities",
         "INFOPLIST_KEY_LSUIElement": "YES",
+        "LM_SKIP_METADATA_EXTRACTION": "YES",
         "MARKETING_VERSION": "1.0",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.relay",
         "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
