@@ -400,5 +400,5 @@ public static class TableOps {
 
     // --- [ANSWERS]
     public static IO<TValue> Locked<TValue>(IO<TValue> write, string member) =>
-        write.Catch(static error => error.HasException<InvalidOperationException>(), _ => IO.fail<TValue>(new Refused(member)));
+        write | @catch(static error => error.HasException<InvalidOperationException>(), _ => IO.fail<TValue>(new Refused(member)));
 }

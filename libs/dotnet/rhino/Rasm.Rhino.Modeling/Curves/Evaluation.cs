@@ -65,8 +65,11 @@ public static class CurveEvaluation {
         IO.lift(() =>
             from inside in OutOfDomain.Unless(curve.Domain, t, nameof(Curve.GetLength))
             let length = curve.GetLength(fractionalTolerance, new Interval(curve.Domain.T0, t))
-            from valid in Invalid.Unless(RhinoMath.IsValidDouble(length), nameof(Curve.GetLength))
-            from measured in Refused.Unless((length > 0.0) || (t == curve.Domain.T0), nameof(Curve.GetLength))
+            from measured in (
+                    Invalid.Unless(RhinoMath.IsValidDouble(length), nameof(Curve.GetLength)),
+                    Refused.Unless((length > 0.0) || (t == curve.Domain.T0), nameof(Curve.GetLength)))
+                .Apply(static (_, _) => unit)
+                .As()
             select length);
 
     public static IO<Seq<Vector3d>> Derivatives(Curve curve, double t, int order, CurveEvaluationSide side) =>

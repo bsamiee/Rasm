@@ -50,7 +50,7 @@ public static class AttachedData {
         select (frame, dictionary);
 
     private static IO<A> Guarded<A>(IO<A> call, string member, Func<bool> errorOccurred) =>
-        call.Catch(static error => error.HasException<BinaryArchiveException>(), error => IO.fail<A>(new ArchiveFault(member, errorOccurred(), error)));
+        call | @catch(static error => error.HasException<BinaryArchiveException>(), error => IO.fail<A>(new ArchiveFault(member, errorOccurred(), error)));
 
     private static IO<Unit> Released(Action restore, Func<bool> end, string member) =>
         IO.lift(restore).Bind(_ => IO.lift(() => Refused.Unless(end(), member)));

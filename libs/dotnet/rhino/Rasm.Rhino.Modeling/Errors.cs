@@ -41,7 +41,7 @@ public abstract record NetworkSurfaceFailed : Expected {
 }
 
 /// <summary>Error for variational patch edges that join into an open loop</summary>
-/// <remarks><para><see cref="Brep.CreateVariationalPatch(IEnumerable{Brep.CurveConstraint}, IEnumerable{Brep.CurveConstraint}, IEnumerable{Brep.PointConstraint}, Brep.VariationalPatchSettings, bool, CancellationToken, IProgress{double}, out Brep.VariationalPatchResult)" /> checks nothing before its native call, and edges that join into an open curve end the host process there</para><para>An invalid edge curve returns no patch with the host's reason, an empty edge set returns no patch</para></remarks>
+/// <remarks><para><see cref="Brep.CreateVariationalPatch(IEnumerable{Brep.CurveConstraint}, IEnumerable{Brep.CurveConstraint}, IEnumerable{Brep.PointConstraint}, Brep.VariationalPatchSettings, bool, CancellationToken, IProgress{double}, out Brep.VariationalPatchResult)" /> checks nothing before its native call, and edges that join into an open curve end the host process there</para><para>Invalid edge curves return no patch with the host's reason, and an empty edge set returns none</para></remarks>
 public sealed record OpenBoundary(string Member) : Expected("{Member} must join into closed loops", Codes.OpenBoundary) {
     public static Fin<Unit> Unless(bool closed, string member) => closed ? unit : new OpenBoundary(member);
 }
