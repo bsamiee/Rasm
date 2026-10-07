@@ -613,28 +613,25 @@ final class AccountStore {
     }
 
     private func schedule() async {
-        while !Task.isCancelled, !isStopping {
+        while !Task.isCancelled {
             let delay: Duration = nextRefreshDelay(at: Date(), sincePanelOpen: lastPanelOpen?.duration(to: .now))
             let pause: Task<Void, any Error> = Task(name: "Refresh pause") {
                 try await Task.sleep(for: delay)
             }
             refreshPause = pause
             let slept: Result<Void, any Error> = await pause.result
-            guard !Task.isCancelled, !isStopping else { return }
+            guard !Task.isCancelled else { return }
             if case .success = slept { refresh(accounts, trigger: .background) }
         }
     }
 
     private func nextRefreshDelay(at now: Date, sincePanelOpen recency: Duration?) -> Duration {
         let base: Duration =
-            if isMenuBarExtraVisible {
-                .seconds(180)
-            } else {
-                switch recency {
-                    case .some(..<Duration.seconds(15 * 60)): .seconds(5 * 60)
-                    case .some(..<Duration.seconds(60 * 60)): .seconds(15 * 60)
-                    case .some, .none: .seconds(30 * 60)
-                }
+            switch (isMenuBarExtraVisible, recency) {
+                case (true, _): .seconds(180)
+                case (false, .some(..<Duration.seconds(15 * 60))): .seconds(5 * 60)
+                case (false, .some(..<Duration.seconds(60 * 60))): .seconds(15 * 60)
+                case (false, _): .seconds(30 * 60)
             }
         let boundary: Duration? = accounts.flatMap { model in
             let resets: [Date] =
@@ -655,7 +652,7 @@ final class AccountStore {
     private func record(_ error: ProviderError, for model: AccountModel) async {
         guard !error.failure.isCancellation else { return }
         logger.error(
-            "\(model.account.id.uuidString, privacy: .public) \(model.account.identity.email, privacy: .private): \(String(describing: error), privacy: .public)"
+            "\(model.running?.kind.description ?? "Account operation", privacy: .public) failed for \(model.account.id.uuidString, privacy: .public) \(model.account.identity.email, privacy: .private): \(String(describing: error), privacy: .public)"
         )
         model.issue = error
         if let retryAfter: Date = error.failure.retryAfter {
@@ -672,7 +669,7 @@ final class AccountStore {
     private func report(_ error: ProviderError, provider: Provider) {
         guard !error.failure.isCancellation else { return }
         providerIssues[provider] = error
-        logger.error("\(provider.name, privacy: .public): \(String(describing: error), privacy: .public)")
+        logger.error("\(provider.name, privacy: .public) provider operation failed: \(String(describing: error), privacy: .public)")
     }
 
     // --- [PERSISTENCE]

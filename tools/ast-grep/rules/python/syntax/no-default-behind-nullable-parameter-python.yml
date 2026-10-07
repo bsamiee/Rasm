@@ -54,16 +54,16 @@ utils:
             - has: {kind: string, has: {kind: string_content, regex: '\bNone\b'}}
     signature-default:
         any:
-            - kind: string
-              not: {has: {kind: interpolation}}
-            - kind: integer
-            - kind: float
-            - kind: 'true'
-            - kind: 'false'
+            - matches: python-plain-string
+            - kind: 'integer, float, true, false'
             - kind: unary_operator
               has: {kind: 'integer, float'}
-            - kind: tuple
-              not: {has: {pattern: $_}}
+            - kind: tuple, parenthesized_expression
+              not: {has: {pattern: $_, not: {matches: signature-default}}}
+            - kind: call
+              all:
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(frozenset|tuple)$'}}}}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
             - kind: identifier
               pattern: $ROOT
               matches: module-constant
@@ -75,19 +75,50 @@ utils:
         any:
             - pattern: $P if $P is not None else $D
             - pattern: $D if $P is None else $P
+            - pattern: $P if $P else $D
+            - pattern: $D if not $P else $P
             - pattern: $P or $D
             - kind: if_statement
               all:
                 - has: {field: condition, any: [{pattern: $P is None}, {pattern: not $P}]}
                 - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $D}}, not: {has: {nthChild: 2}}}
                 - not: {has: {kind: "else_clause, elif_clause"}}
+    evaluated:
+        any:
+            - matches: resolution
+            - has:
+                stopBy: {kind: 'lambda, function_definition, conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+                matches: resolution
     top-resolution:
         any:
             - matches: resolution
-            - kind: expression_statement, return_statement
-              has:
-                stopBy: {kind: 'lambda, function_definition, conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
-                matches: resolution
+            - kind: expression_statement, return_statement, raise_statement
+              matches: evaluated
+            - kind: if_statement, while_statement
+              has: {field: condition, matches: evaluated}
+            - kind: for_statement
+              has: {field: right, matches: evaluated}
+            - kind: match_statement, with_statement
+              has: {not: {kind: block}, matches: evaluated}
+    resolving-statement:
+        any:
+            - kind: if_statement
+              matches: resolution
+            - kind: expression_statement
+              has: {kind: assignment, all: [{has: {field: left, pattern: $P}}, {has: {field: right, matches: resolution}}]}
+    raw-read:
+        kind: identifier
+        pattern: $P
+        not:
+            any:
+                - inside: {kind: attribute, field: attribute}
+                - inside: {kind: keyword_argument, field: name}
+                - inside: {kind: assignment, field: left}
+                - inside: {stopBy: end, matches: resolution}
+                - inside: {stopBy: end, follows: {stopBy: end, matches: resolving-statement}}
+    override:
+        kind: decorator
+        has: {matches: {python-member-use: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^override$'}}}}
     rebinding:
         kind: assignment, augmented_assignment, for_statement, named_expression
         any:
@@ -119,9 +150,13 @@ rule:
             - has:
                 field: body
                 any:
-                    - matches: resolution
-                    - has: {matches: top-resolution}
+                    - kind: block
+                      has: {matches: top-resolution}
+                    - not: {kind: block}
+                      matches: evaluated
             - not: {has: {field: body, has: {stopBy: {kind: 'function_definition, lambda'}, matches: rebinding}}}
+            - not: {has: {field: body, has: {stopBy: end, matches: raw-read}}}
+            - not: {inside: {kind: decorated_definition, has: {matches: override}}}
 constraints:
     D: {matches: signature-default}
 message: 'Parameter `$P` accepts None and the body resolves None to `$D`'

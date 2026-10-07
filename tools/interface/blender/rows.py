@@ -1,8 +1,10 @@
-"""Records the host and Blender's Python exchange as JSON, msgspec coding them on the host and the one cattrs converter inside Blender, the look-development image the host downloads and Blender installs, and the file stamp both sides compute."""
+"""Blender interface records exchanged through host msgspec and Blender cattrs, with shared asset and package stamps."""
 
 from collections.abc import Mapping
+from importlib.machinery import BYTECODE_SUFFIXES
 from importlib.util import source_from_cache
 from typing import Final
+import zipfile
 
 from attrs import frozen
 from cattrs.preconf.json import make_converter
@@ -10,6 +12,10 @@ from cattrs.preconf.json import make_converter
 from interface.frame import Task
 from interface.render import MATERIALS
 from interface.report import digest
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Install = Archived | Bundled | Listed
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -20,7 +26,7 @@ LOOK_DEVELOPMENT: Final = MATERIALS / "hdri" / "DaySkyHDRI069A_2K" / "DaySkyHDRI
 
 @frozen
 class Repository:
-    """Remote extension repository by module name, display name, and index address."""
+    """Remote extension repository declaration."""
 
     module: str
     name: str
@@ -28,8 +34,17 @@ class Repository:
 
 
 @frozen
+class Interpreter:
+    """Blender's Python and bundled distribution versions keyed by canonical name."""
+
+    executable: str
+    version: str
+    distributions: Mapping[str, str]
+
+
+@frozen
 class Installation:
-    """Report lines of the converged repositories, Blender's version, enabled remote repository index files by module, bundled add-on ids, Essentials catalog paths, manifest file name, platform tag, system names, machine replacements, interpreter, and numpy version."""
+    """Blender installation facts, enabled remote index paths by module, and repository change report."""
 
     report: str
     version: str
@@ -40,30 +55,37 @@ class Installation:
     platform: str
     systems: frozenset[str]
     machines: Mapping[str, str]
-    python: str
-    numpy: str
+    interpreter: Interpreter
 
 
 @frozen
 class Archive:
-    """Staged package archive and the stamp of its members."""
+    """Staged package archive and member stamp."""
 
     path: str
     stamp: str
 
 
 @frozen
-class Local:
-    """Package the session installs from its staged archive, or enables from Blender's bundled add-ons without one, with the workspaces that place it."""
+class Archived:
+    """Workspace package installed from a staged archive."""
 
     identity: str
-    archive: Archive | None
+    archive: Archive
+    workspaces: tuple[Task, ...]
+
+
+@frozen
+class Bundled:
+    """Workspace package Blender bundles."""
+
+    identity: str
     workspaces: tuple[Task, ...]
 
 
 @frozen
 class Listed:
-    """Package a synced remote repository lists at a version, installed there in the session, with the workspaces that place it."""
+    """Workspace package installed at a remote repository's listed version."""
 
     identity: str
     repository: str
@@ -73,21 +95,21 @@ class Listed:
 
 @frozen
 class Launch:
-    """Session call: its report file, render output folder, unit system member name, built extension's manifest id, bridge port, package rows, and the Visual Studio Code command-line and Inkscape executables found."""
+    """Session arguments with unit enum name, extension manifest id, and optional VS Code and Inkscape executables."""
 
     report: str
     renders: str
     units: str
     extension: str
     port: int
-    packages: tuple[Local | Listed, ...]
+    packages: tuple[Install, ...]
     editor: str | None
     inkscape: str | None
 
 
 @frozen
 class Width:
-    """Logical width and view2d zoom every stored region of an editor's region type takes, editor and region type by name and by their RNA enum value."""
+    """Stored region width and view2d zoom, with editor and region types as RNA names and numeric values."""
 
     editor: str
     space: int
@@ -101,15 +123,20 @@ class Width:
 
 
 def stamp(files: Mapping[str, tuple[int, int]]) -> str:
-    """Digest of one line per relative path with its CRC-32 and size, in path order, a path importlib names the bytecode cache of another path left to the interpreter that rewrites it."""
+    """Digest sorted relative paths, CRC-32 values, and sizes, excluding bytecode caches whose sources are present."""
 
     def cached(name: str) -> bool:
         try:
-            return source_from_cache(name) in files
+            return name.endswith(tuple(BYTECODE_SUFFIXES)) and source_from_cache(name) in files
         except ValueError:
             return False
 
     return digest(b"".join(f"{name}\0{crc}\0{size}\n".encode() for name, (crc, size) in sorted(files.items()) if not cached(name)))
+
+
+def stamped(archive: zipfile.ZipFile) -> str:
+    """Digest archive file members by path, CRC-32, and size."""
+    return stamp({info.filename: (info.CRC, info.file_size) for info in archive.infolist() if not info.is_dir()})
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -118,4 +145,4 @@ JSON: Final = make_converter()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["JSON", "LOOK_DEVELOPMENT", "Archive", "Installation", "Launch", "Listed", "Local", "Repository", "Width", "stamp"]
+__all__ = ["JSON", "LOOK_DEVELOPMENT", "Archive", "Archived", "Bundled", "Install", "Installation", "Interpreter", "Launch", "Listed", "Repository", "Width", "stamp", "stamped"]

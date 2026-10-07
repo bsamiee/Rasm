@@ -8,11 +8,20 @@ utils:
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^===?$'}
-                - has: {kind: 'undefined, null'}
+                - any:
+                    - has: {kind: 'undefined, null'}
+                    - all: [{has: {kind: unary_expression, has: {field: operator, regex: '^typeof$'}}}, {has: {kind: string, regex: '^.undefined.$'}}]
             - kind: unary_expression
               all:
                 - has: {field: operator, regex: '^!$'}
-                - has: {field: argument, kind: 'identifier, member_expression, subscript_expression'}
+                - has:
+                    field: argument
+                    any:
+                        - kind: identifier, member_expression, subscript_expression
+                        - kind: call_expression
+                          all:
+                            - has: {field: function, kind: member_expression, has: {field: property, regex: '^has$'}}
+                            - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^\|\|$'}

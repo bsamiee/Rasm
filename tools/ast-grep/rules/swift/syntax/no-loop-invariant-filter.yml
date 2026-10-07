@@ -10,7 +10,7 @@ utils:
             - not: {kind: if_statement, has: {regex: '^else$'}}
             - not: {has: {field: condition, kind: value_binding_pattern}}
             - not: {has: {kind: value_binding_pattern, stopBy: {kind: statements}}}
-            - has: {kind: statements, matches: {swift-single-statement: {first: {kind: control_transfer_statement, regex: '^continue$'}}}}
+            - has: {kind: statements, matches: {swift-single-statement: {first: {kind: control_transfer_statement, regex: '^(continue|break)$'}}}}
     varying-read:
         any:
             - kind: call_expression

@@ -4,54 +4,131 @@ language: python
 severity: error
 utils:
     first-operand:
-        kind: ":is(identifier, parenthesized_expression, not_operator, comparison_operator, boolean_operator, attribute, subscript, binary_operator, call, unary_operator, await)"
+        kind: identifier, parenthesized_expression, not_operator, comparison_operator, boolean_operator, attribute, subscript, binary_operator, call, unary_operator, await, conditional_expression, named_expression, list, set, tuple, dictionary, pair, list_splat, dictionary_splat, yield
         any:
             - inside: {kind: if_statement, pattern: $IF, field: condition}
             - inside: {kind: parenthesized_expression, matches: first-operand}
             - inside: {kind: not_operator, field: argument, matches: first-operand}
-            - nthChild: 1
-              inside: {kind: comparison_operator, matches: first-operand}
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+              inside: {kind: 'comparison_operator, list, set, tuple, dictionary', matches: first-operand}
+            - nthChild: {position: 2, ofRule: {not: {kind: comment}}}
+              inside: {kind: conditional_expression, matches: first-operand}
+            - inside: {kind: named_expression, field: value, matches: first-operand}
+            - inside: {kind: pair, field: key, matches: first-operand}
             - inside: {kind: boolean_operator, field: left, matches: first-operand}
             - inside: {kind: binary_operator, field: left, matches: first-operand}
             - inside: {kind: attribute, field: object, matches: first-operand}
             - inside: {kind: subscript, field: value, matches: first-operand}
             - inside: {kind: call, field: function, matches: first-operand}
             - inside: {kind: unary_operator, field: argument, matches: first-operand}
-            - inside: {kind: await, matches: first-operand}
+            - inside: {kind: 'await, list_splat, dictionary_splat, yield', matches: first-operand}
     binding-statement:
         kind: expression_statement
         has:
             kind: assignment
             all:
                 - has: {field: left, kind: identifier, pattern: $N}
-                - has: {field: right, pattern: $V, not: {kind: 'assignment, expression_list, yield'}}
+                - has: {field: right, pattern: $V, not: {any: [{kind: assignment}, {regex: '\n'}]}}
                 - not: {has: {field: type, kind: type}}
+    bound-if:
+        kind: if_statement
+        pattern: $IF
+        all:
+            - follows: {stopBy: {not: {kind: comment}}, matches: binding-statement}
+            - has:
+                field: condition
+                any:
+                    - kind: identifier
+                      pattern: $N
+                    - has: {kind: identifier, pattern: $N, matches: first-operand, stopBy: end}
+    fixable-if:
+        matches: bound-if
+        not: {matches: python-multiline-string}
+        follows: {matches: binding-statement, not: {matches: python-multiline-string}}
+    name-slot:
+        kind: identifier
+        any:
+            - inside: {kind: 'assignment, for_statement, for_in_clause', field: left}
+            - inside: {kind: attribute, field: attribute}
+            - inside: {kind: keyword_argument, field: name}
+            - inside: {kind: 'default_parameter, typed_default_parameter, function_definition, class_definition', field: name}
+            - inside: {kind: 'parameters, lambda_parameters, list_splat_pattern, dictionary_splat_pattern'}
+            - nthChild: 1
+              inside: {kind: typed_parameter}
+    later-read:
+        kind: if_statement
+        any:
+            - not: {inside: {stopBy: {kind: 'function_definition, class_definition'}, kind: function_definition}}
+            - inside:
+                stopBy: {kind: function_definition}
+                kind: function_definition
+                has:
+                    stopBy: end
+                    kind: identifier
+                    pattern: $N
+                    not:
+                        any:
+                            - matches: first-operand
+                            - matches: name-slot
+                            - inside: {stopBy: end, matches: binding-statement}
+            - inside:
+                stopBy: {kind: function_definition}
+                kind: 'for_statement, while_statement'
+                not: {has: {field: left, kind: identifier, pattern: $N}}
+                has:
+                    stopBy: end
+                    kind: identifier
+                    pattern: $N
+                    not: {any: [{matches: first-operand}, {matches: name-slot}]}
+    bare-value:
+        kind: if_statement
+        any:
+            - follows:
+                matches: binding-statement
+                has:
+                    kind: assignment
+                    has: {field: right, kind: 'identifier, attribute, subscript, call, string, concatenated_string, float, true, false, none, parenthesized_expression, list, set, tuple, dictionary, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+            - has: {field: condition, kind: identifier}
+              follows: {matches: binding-statement, has: {kind: assignment, has: {field: right, not: {kind: 'expression_list, yield'}}}}
+            - has: {field: condition, stopBy: end, kind: identifier, pattern: $N, matches: first-operand, inside: {kind: parenthesized_expression}}
 rule:
-    kind: if_statement
-    pattern: $IF
-    all:
-        - follows: {stopBy: {not: {kind: comment}}, matches: binding-statement}
-        - has:
-            field: condition
-            any:
-                - kind: identifier
-                  pattern: $N
-                - has: {kind: identifier, pattern: $N, matches: first-operand, stopBy: end}
-        - any:
-            - pattern: $ADJACENT
-              follows: {matches: binding-statement}
-            - pattern: $COMMENTED
-              follows: {kind: comment}
-constraints:
-    V: {not: {regex: '\n'}}
+    any:
+        - all:
+            - matches: fixable-if
+            - matches: later-read
+            - pattern: $BOUND
+        - all:
+            - matches: fixable-if
+            - not: {matches: later-read}
+            - matches: bare-value
+            - pattern: $BARE
+        - all:
+            - matches: fixable-if
+            - not: {matches: later-read}
+            - not: {matches: bare-value}
+            - pattern: $WRAPPED
+        - kind: identifier
+          all:
+            - inside: {stopBy: end, matches: bound-if, not: {matches: fixable-if}}
+            - pattern: $N
+            - matches: first-operand
+            - pattern: $UNFIXED
 rewriters:
     - id: bind-first-operand
       rule: {kind: identifier, pattern: $N, matches: first-operand}
-      fix: "($N := $V)"
+      fix: '($N := ($V))'
+    - id: inline-first-operand
+      rule: {kind: identifier, pattern: $N, matches: first-operand}
+      fix: $V
+    - id: wrap-first-operand
+      rule: {kind: identifier, pattern: $N, matches: first-operand}
+      fix: ($V)
 transform:
-    OUT: rewrite($ADJACENT, rewriters=[bind-first-operand])
+    BIND: rewrite($BOUND, rewriters=[bind-first-operand])
+    INLINE: rewrite($BARE, rewriters=[inline-first-operand])
+    WRAP: rewrite($WRAPPED, rewriters=[wrap-first-operand])
 fix:
-    template: $OUT$COMMENTED
-    expandStart: {kind: expression_statement}
-message: 'Assignment to `$N` precedes an `if` condition that reads it first'
-note: 'Use `(<name> := <value>)` at the name''s first read in the `if` condition with any comment between both statements above the `if`, one expression binds and tests the value'
+    template: $BIND$INLINE$WRAP$UNFIXED
+    expandStart: {matches: binding-statement}
+message: 'Assignment to `$N` precedes its first evaluation in an `if` condition'
+note: 'Remove the assignment of a one-line `<value>` and place it at the first evaluation, as `(<name> := (<value>))` where a later statement, loop pass, or closure reads `<name>` and in parentheses where precedence needs them, intervening comments and multiline strings left unfixed'

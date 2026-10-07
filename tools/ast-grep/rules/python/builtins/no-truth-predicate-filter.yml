@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-truth-predicate-filter
+language: python
+severity: error
+utils:
+    truth-function:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^bool$'}}}
+            - matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^truth$'}}}
+            - kind: parenthesized_expression
+              has: {matches: truth-function}
+    truth-value:
+        any:
+            - {kind: identifier, pattern: $PARAMETER}
+            - kind: parenthesized_expression
+              has: {matches: truth-value}
+            - kind: call
+              all:
+                - has: {field: function, matches: truth-function}
+                - has:
+                    field: arguments
+                    kind: argument_list
+                    has: {matches: truth-value}
+                    not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    truth-predicate:
+        any:
+            - matches: truth-function
+            - kind: lambda
+              all:
+                - has:
+                    field: parameters
+                    kind: lambda_parameters
+                    has: {kind: identifier, pattern: $PARAMETER}
+                    not: {has: {pattern: $_, not: {any: [{kind: identifier, pattern: $PARAMETER}, {kind: 'positional_separator, comment'}]}}}
+                - has: {field: body, matches: truth-value}
+    filter-function:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^filter$'}}}
+            - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^filterfalse$'}}}
+            - kind: parenthesized_expression
+              has: {matches: filter-function}
+    predicate-position:
+        any:
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+              inside:
+                kind: argument_list
+                all:
+                    - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, not: {kind: 'keyword_argument, list_splat, dictionary_splat'}}
+                    - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+                inside: {kind: call, has: {field: function, matches: filter-function, pattern: $FILTER}}
+            - inside: {kind: parenthesized_expression, matches: predicate-position}
+rule:
+    kind: identifier, attribute, lambda
+    all:
+        - matches: predicate-position
+        - matches: truth-predicate
+    not: {has: {kind: comment, stopBy: end}}
+fix: None
+message: 'Replace redundant truth predicates with `None` to use `$FILTER`''s truth test'
+note: 'Identity and truth-conversion predicates repeat the built-in truth test; predicates containing comments stay unchanged'

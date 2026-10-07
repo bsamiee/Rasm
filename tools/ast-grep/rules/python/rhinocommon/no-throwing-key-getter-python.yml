@@ -1,0 +1,186 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throwing-key-getter-python
+language: python
+severity: error
+utils:
+    getter-name:
+        regex: '^Get(Child|Bool|Byte|Bytes|Char|Color|Date|Dictionary|Double|Float|Guid|Integer|Plane|Point|Point3d|Point3f|Rectangle|SettingIsHiddenFromUserInterface|SettingIsReadOnly|SettingType|Size|String|StringDictionary|StringList|UnsignedInteger|Vector3d)$'
+    store-class:
+        regex: '^(Rhino\.(Collections\.)?)?(PersistentSettings|ArchivableDictionary)$'
+    store-type:
+        regex: '^((typing\.)?Optional\[\s*)?(None\s*\|\s*)?(Rhino\.(Collections\.)?)?(PersistentSettings|ArchivableDictionary)(\s*\|\s*None)?\s*\]?$'
+    host-type:
+        regex: '(^|\.)(PlugIn|Command|FileImportPlugIn|FileExportPlugIn|RenderPlugIn|DigitizerPlugIn|UtilityPlugIn)$'
+    host:
+        any:
+            - kind: call
+              has: {field: function, regex: '(^|\.)PlugIn\.Find$'}
+            - kind: identifier
+              matches: {python-typed-parameter: {type: {matches: host-type}}}
+            - kind: identifier
+              regex: '^self$'
+              inside: {kind: class_definition, stopBy: end, has: {field: superclasses, has: {matches: host-type}}}
+    store-source:
+        any:
+            - kind: attribute
+              regex: '\.RhinoAppSettings$'
+            - kind: attribute
+              has: {field: attribute, regex: '^UserDictionary$'}
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: '^(Settings|WindowPositionSettings)$'}
+                - has: {field: object, matches: host}
+            - kind: call
+              has: {field: function, kind: attribute, has: {field: attribute, regex: '^(GetChild|AddChild|FromPlugInId|GetPluginSettings|CommandSettings|GetDictionary|ReadDictionary)$'}}
+            - kind: call
+              has: {field: function, matches: store-class}
+            - kind: call
+              has: {field: function, kind: identifier, pattern: $STORE_FUNCTION}
+              inside:
+                kind: module
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: function_definition
+                    all:
+                        - has: {field: name, pattern: $STORE_FUNCTION}
+                        - has: {field: return_type, matches: store-type}
+            - kind: attribute
+              has: {field: attribute, pattern: $STORE_FIELD}
+              inside:
+                kind: module
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: class_definition
+                    has:
+                        field: body
+                        has:
+                            kind: expression_statement
+                            has: {kind: assignment, all: [{has: {field: left, pattern: $STORE_FIELD}}, {has: {field: type, matches: store-type}}]}
+            - kind: identifier
+              matches: {python-typed-parameter: {type: {matches: store-type}}}
+            - kind: named_expression
+              has: {field: value, matches: store-source}
+            - kind: parenthesized_expression
+              has: {matches: store-source}
+    store-node:
+        any:
+            - matches: store-source
+            - kind: identifier, attribute
+              pattern: $NODE
+              inside:
+                kind: module
+                stopBy: end
+                has:
+                    stopBy: end
+                    any:
+                        - kind: assignment
+                          all:
+                            - has: {field: left, pattern: $NODE}
+                            - any: [{has: {field: type, matches: store-type}}, {has: {field: right, matches: store-source}}]
+                        - kind: assignment
+                          all:
+                            - has: {field: left, kind: pattern_list, has: {pattern: $NODE}}
+                            - has: {field: right, has: {stopBy: end, matches: store-source}}
+                        - kind: named_expression
+                          all:
+                            - has: {field: name, pattern: $NODE}
+                            - has: {field: value, matches: store-source}
+                        - kind: for_in_clause, for_statement
+                          all:
+                            - has: {field: left, pattern: $NODE}
+                            - has: {field: right, kind: 'generator_expression, list_comprehension, set_comprehension', has: {field: body, matches: store-source}}
+    bound-getter-source:
+        any:
+            - kind: attribute
+              all:
+                - has: {field: attribute, matches: getter-name}
+                - has: {field: object, matches: store-node}
+            - kind: call
+              all:
+                - has: {field: function, regex: '^getattr$'}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {nthChild: 3}}
+                        - has: {nthChild: 1, matches: store-node}
+                        - has: {nthChild: 2, kind: string, has: {kind: string_content, matches: getter-name}}
+    bound-getter:
+        any:
+            - matches: bound-getter-source
+            - kind: identifier
+              pattern: $GETTER
+              inside:
+                kind: function_definition, module
+                stopBy: end
+                all:
+                    - regex: '\bGet[A-Z]'
+                    - has:
+                        stopBy: {kind: 'function_definition, class_definition, lambda'}
+                        kind: assignment
+                        all:
+                            - has: {field: left, pattern: $GETTER}
+                            - has: {field: right, matches: bound-getter-source}
+    unbound-getter:
+        kind: attribute
+        all:
+            - has: {field: attribute, matches: getter-name}
+            - has: {field: object, matches: store-class}
+    enum-getter:
+        kind: subscript
+        has:
+            field: value
+            kind: attribute
+            all:
+                - has: {field: attribute, regex: '^GetEnumValue$'}
+                - has: {field: object, matches: store-node}
+    key:
+        any:
+            - kind: string, concatenated_string
+            - kind: identifier
+              matches: {python-typed-parameter: {type: {regex: '^str$'}}}
+    hidden-call:
+        has: {field: function, regex: 'GetSettingIsHiddenFromUserInterface$'}
+    exact-one:
+        has: {nthChild: 1}
+        not: {has: {any: [{nthChild: 2}, {kind: 'list_splat, dictionary_splat'}]}}
+    exact-two:
+        has: {nthChild: 2}
+        not: {has: {any: [{nthChild: 3}, {kind: 'list_splat, dictionary_splat'}]}}
+    exact-three:
+        has: {nthChild: 3}
+        not: {has: {any: [{nthChild: 4}, {kind: 'list_splat, dictionary_splat'}]}}
+rule:
+    pattern: $READ
+    any:
+        - kind: call
+          all:
+            - any: [{matches: hidden-call}, {has: {field: arguments, matches: exact-one}}]
+            - has: {field: function, matches: bound-getter}
+        - kind: call
+          all:
+            - has: {field: function, matches: unbound-getter}
+            - any: [{matches: hidden-call}, {has: {field: arguments, matches: exact-two}}]
+        - kind: call
+          all:
+            - has: {field: function, matches: enum-getter}
+            - has: {field: arguments, any: [{not: {has: {nthChild: 1}}}, {matches: exact-one, has: {nthChild: 1, matches: key}}]}
+        - kind: call
+          all:
+            - has:
+                field: arguments
+                any:
+                    - {matches: exact-two, has: {nthChild: 1, matches: bound-getter}}
+                    - {matches: exact-three, has: {nthChild: 1, matches: unbound-getter}}
+            - has: {field: function, any: [{matches: functools-partial-callee}, {matches: {python-builtin-name: {name: {regex: '^map$'}}}}]}
+        - kind: subscript
+          all:
+            - inside: {kind: module, stopBy: end, regex: '\b(ArchivableDictionary|UserDictionary|GetDictionary|ReadDictionary)\b'}
+            - has: {field: subscript, matches: key}
+            - has: {field: value, matches: store-node}
+            - not: {inside: {kind: assignment, field: left}}
+            - not: {inside: {kind: 'pattern_list, tuple_pattern', inside: {kind: assignment, field: left}}}
+            - not: {inside: {kind: delete_statement, stopBy: {kind: 'subscript, call'}}}
+message: '`$READ` raises when the key is missing'
+note: 'Use `TryGet<Name>(<key>)` or `TryGetValue(<key>)` and branch on `<found>` of its `(<found>, <value>)` tuple, or `AddChild(<key>)` for a settings child to write'

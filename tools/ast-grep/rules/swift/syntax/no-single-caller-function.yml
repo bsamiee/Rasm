@@ -39,7 +39,9 @@ utils:
 rule:
     kind: function_declaration
     all:
-        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+        - any:
+            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+            - inside: {kind: statements}
         - not: {has: {kind: modifiers, any: [{has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}, {has: {regex: '^override$'}}]}}
         - has: {field: name, kind: simple_identifier, pattern: $NAME}
         - has:

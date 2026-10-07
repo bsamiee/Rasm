@@ -1,6 +1,5 @@
-import type { ToolCallInput } from 'claude-code';
-import type { Command, Script } from './command.ts';
-import { fault, none, type Option, ok, type Result, some } from './composition.ts';
+import { type Command, parse, type Scanner, type Script } from './command.ts';
+import { bind, decoded, fault, map, none, type Option, ok, type Result, some } from './composition.ts';
 import { basename, type Invocation, known, type Operands, operands, option, PROGRAMS } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -34,7 +33,7 @@ interface Insertion {
 interface Rewrite {
     readonly command: string;
     readonly note: string;
-    readonly instruction: Option<string>;
+    readonly context: string;
 }
 interface Target {
     readonly project: Option<string>;
@@ -50,6 +49,11 @@ interface TargetConfiguration {
     readonly options?: { readonly command?: string; readonly commands?: readonly { readonly command: string }[] };
     readonly dependsOn?: readonly TargetDependencyConfig[];
 }
+interface Configured {
+    readonly project: Option<string>;
+    readonly key: RegExp;
+    readonly configuration: TargetConfiguration;
+}
 interface Manifest {
     readonly name: string;
     readonly nx: { readonly targets: Readonly<Record<string, TargetConfiguration>> };
@@ -61,19 +65,11 @@ interface NxJsonConfiguration {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CLOUD = 'Library/CloudStorage';
-const LOCK = '.cache/uv-resolver.lock';
-const _WORKTREE = 'creates a second checkout with its own metadata and sync cost';
-const _SECOND_FILES: readonly RegExp[] = [
-    /^(?:project\.json|\.nxignore)$/u,
-    /^(?:\.mise(?:\..+)?\.toml|mise\..+\.toml|\.miserc\.toml|\.rtx\.toml|\.tool-versions|\.nvmrc|\.(?:node|python)-version)$/u,
-    /^tsconfig\.(?!base\.json$).+\.json$/u,
-    /^(?:\.?ruff\.toml|\.?mypy\.ini|pytest\.ini|tox\.ini|setup\.cfg)$/u,
-    /^biome\.jsonc$/u,
-    /^\.yamllint(?:\.yml)?$/u,
-];
+const WORKTREE = 'creates a second checkout with its own metadata and sync cost';
 const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
 const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
+const _DESCRIPTOR = /^\d+$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -119,7 +115,7 @@ const _GIT = {
     revert: { reason: 'reverses committed history', any: true },
     stash: { reason: 'hides uncommitted work other agents depend on', any: true, safe: ['list', 'show'] },
     switch: { reason: 'discards local changes', words: ['-f', '-C', '--discard-changes'], prefixes: ['--force'] },
-    worktree: { reason: _WORKTREE, any: true, safe: ['list'] },
+    worktree: { reason: WORKTREE, any: true, safe: ['list'] },
 } as const satisfies Readonly<Record<string, GitRow>>;
 
 const _isKey = (candidate: string): candidate is Key => Object.hasOwn(_GIT, candidate);
@@ -252,83 +248,124 @@ const _walk = (commands: readonly Command[], walk: Walk): readonly string[] =>
 
 // --- [QUEUE]
 
-const queues = (commands: readonly Command[], reached: readonly Command[]): boolean => {
+const queues = (commands: readonly Command[]): readonly string[] => {
     const always: OptionPredicate = () => true;
     const unfrozen: OptionPredicate = (given) => !given('--frozen');
-    const resolvers: readonly (readonly [readonly string[], OptionPredicate])[] = [
-        [['uv', 'lock'], always],
-        [['uv', 'sync'], unfrozen],
-        [['uv', 'run'], (given): boolean => given('-w', '--with', '--with-editable', '--with-requirements') || !given('--frozen', '--no-sync', '--no-project')],
-        [['uv', 'add'], unfrozen],
-        [['uv', 'remove'], unfrozen],
-        [['uv', 'version'], (given, rest): boolean => !given('--frozen', '--dry-run') && (given('--bump') || rest.length > 0)],
-        [['uv', 'export'], unfrozen],
-        [['uv', 'tree'], unfrozen],
-        [['uv', 'check'], unfrozen],
-        [['uv', 'audit'], unfrozen],
-        [['uv', 'venv'], (given): boolean => given('--seed')],
-        [['uv', 'build'], always],
-        [['uv', 'tool', 'run'], always],
-        [['uv', 'tool', 'install'], always],
-        [['uv', 'tool', 'upgrade'], always],
-        [['uv', 'pip', 'install'], always],
-        [['uv', 'pip', 'sync'], always],
-        [['uv', 'pip', 'compile'], always],
-        [['uvx'], always],
+    const writes: OptionPredicate = (given) => given('-U', '--update-all', '-i', '--interactive') && !given('--stdin');
+    const families: readonly (readonly [string, readonly (readonly [readonly string[], OptionPredicate])[]])[] = [
+        [
+            '.cache/uv-resolver.lock',
+            [
+                [['uv', 'lock'], always],
+                [['uv', 'sync'], unfrozen],
+                [['uv', 'run'], (given): boolean => given('-w', '--with', '--with-editable', '--with-requirements') || !given('--frozen', '--no-sync', '--no-project')],
+                [['uv', 'add'], unfrozen],
+                [['uv', 'remove'], unfrozen],
+                [['uv', 'version'], (given, rest): boolean => !given('--frozen', '--dry-run') && (given('--bump') || rest.length > 0)],
+                [['uv', 'export'], unfrozen],
+                [['uv', 'tree'], unfrozen],
+                [['uv', 'check'], unfrozen],
+                [['uv', 'audit'], unfrozen],
+                [['uv', 'venv'], (given): boolean => given('--seed')],
+                [['uv', 'build'], always],
+                [['uv', 'tool', 'run'], always],
+                [['uv', 'tool', 'install'], always],
+                [['uv', 'tool', 'upgrade'], always],
+                [['uv', 'pip', 'install'], always],
+                [['uv', 'pip', 'sync'], always],
+                [['uv', 'pip', 'compile'], always],
+                [['uvx'], always],
+            ],
+        ],
+        [
+            '.cache/ast-grep-rewrite.lock',
+            [
+                [['ast-grep', 'scan'], writes],
+                [['sg', 'scan'], writes],
+            ],
+        ],
     ];
-    const held = commands.some((command) => command.invocations.some(([program, ...args]) => program === 'lockf' && args.some((word) => word.endsWith(LOCK))));
-    return (
-        !held &&
-        [...commands, ...reached]
-            .flatMap((command) => command.invocations)
-            .some((invocation) => {
-                const { inputs, options } = operands(invocation);
-                const words = [invocation[0], ...inputs];
-                const given = (...names: readonly string[]): boolean => options.some((name) => names.includes(name));
-                return !given('-h', '--help') && resolvers.some(([path, resolves]) => path.every((word, index) => words[index] === word) && resolves(given, words.slice(path.length)));
-            })
-    );
+    const invocations = commands.flatMap((command) => command.invocations);
+    const calls = invocations.map((invocation) => {
+        const { inputs, options } = operands(invocation);
+        return { words: [invocation[0], ...inputs], given: (...names: readonly string[]): boolean => options.some((name) => names.includes(name)) };
+    });
+    const resolved = families.flatMap(([lock, resolvers]) => resolvers.map(([path, resolves]) => ({ lock, path, resolves }))).filter(({ path, resolves }) => calls.some(({ words, given }) => !given('-h', '--help') && path.every((word, index) => words[index] === word) && resolves(given, words.slice(path.length))));
+    return [...new Set(resolved.map(({ lock }) => lock))].filter((lock) => !invocations.some(([program, ...args]) => program === 'lockf' && args.slice(-1).some((file) => _DESCRIPTOR.test(file) || file.endsWith(lock))));
 };
 
-const nxTargets = (commands: readonly Command[]): readonly Target[] =>
+const _nxSpecifiers = (commands: readonly Command[]): readonly (readonly string[])[] =>
     commands
         .flatMap((command) => command.invocations)
         .filter(([program]) => program === 'nx')
         .flatMap(([, ...words]) => words.flatMap((word) => word.slice(word.indexOf('=') + 1).split(',')))
-        .map((item): Target => {
-            const [, target] = item.split(':');
-            return target === undefined ? { project: none, target: item } : { project: some(item.slice(0, item.indexOf(':'))), target };
-        });
+        .map((item) => item.split(':'));
 
-const nxReviver = (key: string, value: unknown): unknown => {
+const _nxReviver = (key: string, value: unknown): unknown => {
     const expanded = (entry: string): object => (key === 'commands' ? { command: entry } : { target: entry.slice(entry.startsWith('^') ? 1 : 0), dependencies: entry.startsWith('^') });
     return Array.isArray(value) && (key === 'commands' || key === 'dependsOn') ? value.map((entry: unknown) => (typeof entry === 'string' ? expanded(entry) : entry)) : value;
 };
 
 const _object = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
 
-const decodedManifest = (subject: string, value: unknown): Result<Manifest> => {
+const _decodedManifest = (subject: string, value: unknown): Result<Manifest> => {
     const declared = (candidate: unknown): candidate is Manifest => _object(candidate) && typeof candidate.name === 'string' && _object(candidate.nx) && _object(candidate.nx.targets);
     return declared(value) ? ok(value) : fault({ kind: 'invalid', subject, cause: 'name or nx.targets missing' });
 };
 
-const decodedNxJson = (subject: string, value: unknown): Result<NxJsonConfiguration> => {
+const _decodedNxJson = (subject: string, value: unknown): Result<NxJsonConfiguration> => {
     const declared = (candidate: unknown): candidate is NxJsonConfiguration => _object(candidate) && _object(candidate.targetDefaults);
     return declared(value) ? ok(value) : fault({ kind: 'invalid', subject, cause: 'targetDefaults missing' });
 };
 
-const targetCommands = (named: readonly Target[], manifest: Manifest, nxJson: NxJsonConfiguration): readonly string[] => {
-    const configured: readonly (Target & { readonly configuration: TargetConfiguration })[] = [
-        ...Object.entries(manifest.nx.targets).map(([target, configuration]) => ({ project: some(manifest.name), target, configuration })),
-        ...Object.entries(nxJson.targetDefaults).flatMap(([target, configurations]) => [configurations].flat().map((configuration) => ({ project: none, target, configuration }))),
+const _key = (key: string): RegExp =>
+    new RegExp(
+        `^${key
+            .replaceAll(/[$()+.[\]\\^|]/gu, '\\$&')
+            .replaceAll('*', '.*')
+            .replaceAll('?', '.')
+            .replaceAll(/\{(?<names>[^}]*)\}/gu, (_brace, names: string) => `(?:${names.replaceAll(',', '|')})`)}$`,
+        'u',
+    );
+
+const _owned = (owner: Option<string>, project: Option<string>): boolean => owner.kind === 'none' || project.kind === 'none' || owner.value === project.value;
+
+const _targetCommands = (specifiers: readonly (readonly string[])[], manifest: Manifest, nxJson: NxJsonConfiguration): readonly string[] => {
+    const configured: readonly Configured[] = [
+        ...Object.entries(manifest.nx.targets).map(([target, configuration]) => ({ project: some(manifest.name), key: _key(target), configuration })),
+        ...Object.entries(nxJson.targetDefaults).flatMap(([target, configurations]) => [configurations].flat().map((configuration) => ({ project: none, key: _key(target), configuration }))),
     ];
-    const upstream = ({ project, configuration }: (typeof configured)[number]): readonly Target[] =>
-        (configuration.dependsOn ?? []).flatMap(({ target, projects, dependencies }) => (projects === undefined ? [dependencies === true ? none : project] : [projects].flat().map(some)).map((owner) => ({ project: owner, target })));
-    const reached = (pending: readonly Target[], seen: ReadonlySet<(typeof configured)[number]>): ReadonlySet<(typeof configured)[number]> => {
-        const found = configured.filter((entry) => !seen.has(entry) && pending.some(({ project, target }) => target === entry.target && (project.kind === 'none' || entry.project.kind === 'none' || project.value === entry.project.value)));
+    const opened = (segments: readonly string[], key: RegExp): number => segments.findLastIndex((_segment, index) => key.test(segments.slice(0, index + 1).join(':'))) + 1;
+    const specified = specifiers.flatMap((segments) => {
+        const readings: readonly (readonly [Option<string>, readonly string[]])[] = [[none, segments], ...segments.slice(0, 1).map((owner) => [some(owner), segments.slice(1)] as const)];
+        const scored = readings.flatMap(([owner, rest]) =>
+            configured.flatMap((entry) => {
+                const depth = _owned(owner, entry.project) ? opened(rest, entry.key) : 0;
+                return depth === 0 ? [] : [{ entry, depth: segments.length - rest.length + depth }];
+            }),
+        );
+        const deepest = Math.max(0, ...scored.map(({ depth }) => depth));
+        return scored.flatMap(({ entry, depth }) => (depth === deepest ? [entry] : []));
+    });
+    const upstream = ({ project, configuration }: Configured): readonly Target[] => (configuration.dependsOn ?? []).flatMap(({ target, projects, dependencies }) => (projects === undefined ? [dependencies === true ? none : project] : [projects].flat().map(some)).map((owner) => ({ project: owner, target })));
+    const reached = (pending: readonly Target[], seen: ReadonlySet<Configured>): ReadonlySet<Configured> => {
+        const found = configured.filter((entry) => !seen.has(entry) && pending.some(({ project, target }) => entry.key.test(target) && _owned(project, entry.project)));
         return found.length === 0 ? seen : reached(found.flatMap(upstream), new Set([...seen, ...found]));
     };
-    return [...reached(named, new Set())].flatMap(({ configuration: { command, options } }) => [command, options?.command, ...(options?.commands ?? []).map((entry) => entry.command)].filter((text) => text !== undefined));
+    return [...reached(specified.flatMap(upstream), new Set(specified))].flatMap(({ configuration: { command, options } }) => [command, options?.command, ...(options?.commands ?? []).map((entry) => entry.command)].filter((text) => text !== undefined));
+};
+
+const locks = async (scan: Scanner, read: (path: string) => Promise<Result<string>>, repo: () => Promise<Option<string>>, make: (folders: readonly string[]) => Promise<Result<unknown>>, commands: readonly Command[]): Promise<Result<readonly string[]>> => {
+    const named = _nxSpecifiers(commands);
+    const root = named.length > 0 || queues(commands).length > 0 ? await repo() : none;
+    if (root.kind === 'none') {
+        return ok([]);
+    }
+    const decode = <T>(path: string, declared: (subject: string, value: unknown) => Result<T>): Promise<Result<T>> => read(`${root.value}/${path}`).then((text) => bind(decoded<unknown>(path, text, _nxReviver), (value) => declared(path, value)));
+    const lines = named.length === 0 ? ok<readonly string[]>([]) : await Promise.all([decode('package.json', _decodedManifest), decode('nx.json', _decodedNxJson)]).then(([manifest, nxJson]) => bind(manifest, (targets) => map(nxJson, (defaults) => _targetCommands(named, targets, defaults))));
+    const reached = await bind(lines, async (text) => (text.length === 0 ? ok([]) : map(await parse(scan, text.join('\n')), (script) => script.commands)));
+    const queued = map(reached, (targeted) => queues([...commands, ...targeted]).map((lock) => `${root.value}/${lock}`));
+    return bind(queued, async (paths) => (paths.length === 0 ? queued : map(await make(paths.map((lock) => lock.slice(0, lock.lastIndexOf('/')))), () => paths)));
 };
 
 // --- [REWRITE]
@@ -364,32 +401,21 @@ const _spliced = (text: string, insertions: readonly Insertion[]): string => {
     return [...done.pieces, decoder.decode(bytes.subarray(done.at))].join('');
 };
 
-const commandRewrite = (commands: readonly Command[], text: string, lock: Option<string>): Option<Rewrite> => {
+const commandRewrite = (commands: readonly Command[], text: string, held: readonly string[]): Option<Rewrite> => {
     const insertions = commands.flatMap(_sd);
-    if (insertions.length === 0 && lock.kind === 'none') {
+    if (insertions.length === 0 && held.length === 0) {
         return none;
     }
     const flags = [...new Set(insertions.map(({ flag }) => flag))].join(' and ');
-    const spliced = _spliced(text, insertions);
+    const note = [...(insertions.length === 0 ? [] : [`sd ran with ${flags} added`]), ...(held.length === 0 ? [] : [`command queued under lockf on ${held.join(' and ')}`])].join(', ');
     return some({
-        command: lock.kind === 'some' ? `{ lockf 9 && {\n${spliced}\n} 9>&-; } 9>>'${lock.value.replaceAll("'", "'\\''")}'` : spliced,
-        note: [...(insertions.length === 0 ? [] : [`sd ran with ${flags} added`]), ...(lock.kind === 'some' ? [`command queued under lockf on ${lock.value}`] : [])].join(', '),
-        instruction: insertions.length === 0 ? none : some(`write ${flags}`),
+        command: held.reduce((body, lock) => `{ lockf 9 && {\n${body}\n} 9>&-; } 9>>'${lock.replaceAll("'", "'\\''")}'`, _spliced(text, insertions)),
+        note,
+        context: insertions.length === 0 ? note : `${note}, write ${flags}`,
     });
 };
 
 // --- [DECISION]
-
-const callRefusal = (e: ToolCallInput): Option<string> => {
-    if (e.tool === 'Write') {
-        const name = basename(e.file_path);
-        return _SECOND_FILES.some((pattern) => pattern.test(name)) ? some(`${name} is a second file beside its owner`) : none;
-    }
-    if (e.tool === 'EnterWorktree') {
-        return some(`EnterWorktree ${_WORKTREE}`);
-    }
-    return e.tool === 'Agent' && e.isolation === 'worktree' ? some(`Agent isolation worktree ${_WORKTREE}`) : none;
-};
 
 const commandRefusal = (tool: 'Bash' | 'Monitor', script: Script, facts: Facts): Option<string> => {
     const { commands } = script;
@@ -401,4 +427,4 @@ const commandRefusal = (tool: 'Bash' | 'Monitor', script: Script, facts: Facts):
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Facts, Rewrite, Walk };
-export { CLOUD, callRefusal, commandRefusal, commandRewrite, decodedManifest, decodedNxJson, gitPaths, LOCK, nxReviver, nxTargets, queues, targetCommands, walkStarts };
+export { CLOUD, commandRefusal, commandRewrite, gitPaths, locks, WORKTREE, walkStarts };

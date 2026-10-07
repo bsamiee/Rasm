@@ -5,18 +5,33 @@ severity: error
 utils:
     invisible:
         regex: '(?:^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}\x{FE0E}\x{FE0F}#*0-9])[\x{200C}\x{200D}\x{FE0E}\x{FE0F}]|(?:^|[^\x{1F3F4}\x{E0020}-\x{E007F}])[\x{E0020}-\x{E007F}]|[\p{Default_Ignorable_Code_Point}--[\x{61C}\x{200B}\x{200C}\x{200D}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FE0E}\x{FE0F}\x{E0020}-\x{E007F}]]'
+    outermost:
+        kind: string
+        matches: invisible
+        not: {inside: {kind: string, stopBy: end}}
+    unescapable:
+        any:
+            - {kind: identifier, matches: invisible}
+            - {kind: string, matches: invisible, regex: '^[a-zA-Z]*[rR]'}
+            - kind: interpolation
+              all:
+                - has: {pattern: $$_DEBUG, regex: '^=$'}
+                - has: {field: expression, matches: invisible}
 rule:
-    kind: string
-    matches: invisible
-    not: {inside: {kind: string, stopBy: end}}
     any:
-        - pattern: $FIXABLE
-          not:
-            any:
-                - regex: '^[a-zA-Z]*[rR]'
-                - regex: '[\x{E0000}-\x{E0FFF}]'
-                - has: {kind: interpolation, matches: invisible, stopBy: end}
-        - pattern: $UNFIXED
+        - matches: outermost
+          not: {regex: '\n'}
+          any:
+            - pattern: $FIXABLE
+              not:
+                any:
+                    - regex: '[\x{E0000}-\x{E0FFF}]'
+                    - matches: unescapable
+                    - has: {matches: unescapable, stopBy: end}
+            - pattern: $UNFIXED
+        - kind: string_start
+          pattern: $UNFIXED
+          inside: {matches: outermost, regex: '\n'}
 transform:
     T00: {replace: {source: $FIXABLE, replace: '\x{AD}', by: '\u00ad'}}
     T01: {replace: {source: $T00, replace: '\x{34F}', by: '\u034f'}}

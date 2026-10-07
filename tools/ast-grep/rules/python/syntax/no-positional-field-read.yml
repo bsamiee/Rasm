@@ -30,8 +30,16 @@ utils:
             - kind: identifier
               matches: {python-bound-parameter: {value: {matches: integer}}}
     constant:
-        matches: python-module-constant
+        kind: 'identifier, attribute'
         not: {regex: '^_?[A-Z]\w*[a-z]\w*\.'}
+        any:
+            - regex: '^(\w+\.)*_?[A-Z][A-Z0-9_]*$'
+            - kind: identifier
+              pattern: $ALIAS
+              inside:
+                kind: module
+                stopBy: end
+                has: {kind: import_from_statement, has: {kind: aliased_import, all: [{has: {field: name, regex: '^_?[A-Z][A-Z0-9_]*$'}}, {has: {field: alias, pattern: $ALIAS}}]}}
     substitution-callback:
         inside: {kind: argument_list, stopBy: {not: {kind: keyword_argument}}, inside: {kind: call, has: {field: function, regex: '(^|\.)subn?$'}}}
     position-binding:
@@ -123,8 +131,10 @@ utils:
               has: {matches: row-value}
             - kind: call
               all:
-                - has: {field: function, kind: identifier, pattern: $MAKER}
+                - has: {field: function, any: [{kind: identifier, pattern: $MAKER}, {kind: attribute, has: {field: attribute, pattern: $MAKER}}]}
                 - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: function_definition, all: [{has: {field: name, pattern: $MAKER}}, {has: {field: return_type, matches: fixed-tuple}}]}}
+            - kind: call
+              has: {field: function, regex: '(^|\.)astuple$'}
     mapping-type:
         regex: '^((typing\.)?Final\[)?(\w+\.)?(Mapping|MutableMapping|dict|MappingProxyType|OrderedDict|defaultdict|Counter|ChainMap)\b'
     mapping-value:
@@ -164,6 +174,18 @@ utils:
     typed-row:
         kind: assignment
         all: [{has: {field: left, kind: identifier, pattern: $ROW}}, {has: {field: type, matches: fixed-tuple}}]
+    typed-field:
+        kind: assignment
+        all:
+            - has: {field: type, matches: fixed-tuple}
+            - has:
+                field: left
+                any:
+                    - kind: attribute
+                      has: {field: attribute, pattern: $FIELD}
+                    - kind: identifier
+                      pattern: $FIELD
+                      inside: {kind: assignment, inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition}}}}
     getter-read:
         kind: subscript
         all: [{has: {field: value, pattern: $ROW}}, {has: {field: subscript, matches: position}}]
@@ -178,6 +200,10 @@ utils:
         all:
             - any:
                 - matches: row-value
+                - kind: attribute
+                  all:
+                    - has: {field: attribute, pattern: $FIELD}
+                    - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: typed-field}}
                 - kind: identifier
                   any:
                     - inside: {kind: for_statement, stopBy: end, matches: element-loop}

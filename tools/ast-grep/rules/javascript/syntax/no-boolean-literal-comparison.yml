@@ -2,13 +2,44 @@
 id: no-boolean-literal-comparison
 language: javascript
 severity: error
+utils:
+    compared:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(===|!==|==|!=)$'}
+                - any:
+                    - all: [{has: {field: right, kind: 'true, false', pattern: $LITERAL}}, {has: {field: left, pattern: $VALUE}}]
+                    - all: [{has: {field: left, kind: 'true, false', pattern: $LITERAL}}, {has: {field: right, pattern: $VALUE}}]
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^Object\.is$'}
+                - has:
+                    field: arguments
+                    not: {has: {nthChild: 3}}
+                    any:
+                        - all: [{has: {nthChild: 2, kind: 'true, false', pattern: $LITERAL}}, {has: {nthChild: 1, pattern: $VALUE}}]
+                        - all: [{has: {nthChild: 1, kind: 'true, false', pattern: $LITERAL}}, {has: {nthChild: 2, pattern: $VALUE}}]
+    affirming:
+        any:
+            - all: [{not: {has: {field: operator, regex: '^!'}}}, {has: {stopBy: end, kind: 'true', pattern: $LITERAL}}]
+            - all: [{has: {field: operator, regex: '^!'}}, {has: {stopBy: end, kind: 'false', pattern: $LITERAL}}]
+    loose:
+        kind: binary_expression, ternary_expression, assignment_expression, augmented_assignment_expression, arrow_function, yield_expression, sequence_expression
 rule:
-    kind: binary_expression
+    kind: binary_expression, call_expression
     pattern: $COMPARISON
     all:
-        - has: {field: operator, regex: '^(===|!==|==|!=)$'}
+        - matches: compared
         - any:
-            - has: {field: left, kind: 'true, false'}
-            - has: {field: right, kind: 'true, false'}
+            - all: [{kind: call_expression}, {matches: affirming}, {has: {stopBy: end, all: [{pattern: $VALUE}, {matches: loose}, {pattern: $KEPT_GROUPED}]}}]
+            - all: [{matches: affirming}, {has: {stopBy: end, all: [{pattern: $VALUE}, {pattern: $KEPT}]}}]
+            - has: {stopBy: end, all: [{pattern: $VALUE}, {matches: loose}, {pattern: $NEGATED_GROUPED}]}
+            - has: {stopBy: end, all: [{pattern: $VALUE}, {pattern: $NEGATED}]}
+transform:
+    GROUP: {replace: {source: $KEPT_GROUPED, replace: '^([\s\S]+)$', by: '($1)'}}
+    NOT: {replace: {source: $NEGATED, replace: '^([\s\S]+)$', by: '!$1'}}
+    NOT_GROUP: {replace: {source: $NEGATED_GROUPED, replace: '^([\s\S]+)$', by: '!($1)'}}
 message: '`$COMPARISON` compares a value with a boolean literal'
 note: 'Test the value or its negation, a boolean value is its own condition'
+fix: $KEPT$GROUP$NOT$NOT_GROUP

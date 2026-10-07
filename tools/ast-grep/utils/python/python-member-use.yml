@@ -3,16 +3,77 @@ id: python-member-use
 language: python
 arguments: [module, name]
 utils:
-    alias-import:
-        kind: aliased_import
-        inside: {kind: import_statement}
+    loader:
+        matches: {python-builtin-identifier: {name: {regex: '^__import__$'}}}
+    module-import:
+        any:
+            - matches: {python-module-import: {module: {matches: module}, binding: {pattern: $MODULE}}}
+            - kind: import_statement
+              has: {kind: dotted_name, pattern: $MODULE, matches: module}
+    source:
+        any:
+            - kind: identifier, attribute
+              pattern: $MODULE
+              all:
+                - not: {matches: python-shadowed-name}
+                - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {regex: '^$'}}}}
+                - any:
+                    - inside:
+                        kind: module, function_definition
+                        stopBy: end
+                        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: module-import}
+                    - inside:
+                        kind: class_definition
+                        stopBy: {kind: 'function_definition, lambda'}
+                        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: module-import}
+            - kind: call
+              all:
+                - has: {field: function, matches: loader}
+                - has:
+                    field: arguments
+                    kind: argument_list
+                    all:
+                        - has:
+                            nthChild: 1
+                            kind: string
+                            has: {kind: string_content, matches: module, not: {regex: '\.'}}
+                            not: {has: {kind: 'escape_sequence, interpolation', stopBy: end}}
+                        - not: {has: {nthChild: 2}}
+    root-import:
+        any:
+            - matches: {python-module-import: {module: {pattern: $ROOT}, binding: {pattern: $ROOT}}}
+            - kind: import_statement
+              has: {kind: dotted_name, has: {nthChild: 1, kind: identifier, pattern: $ROOT}}
+    imported-root:
+        kind: identifier
+        pattern: $ROOT
         all:
-            - has: {field: name, kind: dotted_name, matches: module}
-            - has: {field: alias, kind: identifier, pattern: $ALIAS}
-    module-member:
-        all:
+            - any:
+                - inside:
+                    kind: module, function_definition
+                    stopBy: end
+                    has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: root-import}
+                - inside:
+                    kind: class_definition
+                    stopBy: {kind: 'function_definition, lambda'}
+                    has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: root-import}
+            - not: {matches: {python-conflicting-import: {module: {pattern: $ROOT}, name: {regex: '^$'}}}}
             - not: {matches: python-shadowed-name}
-            - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {regex: "^$"}}}}
+    rooted:
+        any:
+            - matches: imported-root
+            - kind: attribute
+              has: {field: object, matches: rooted}
+    module-reference:
+        any:
+            - matches: source
+            - matches: {python-assigned-name: {value: {matches: source}}}
+            - kind: attribute
+              matches: module
+              has: {field: object, matches: rooted}
+            - kind: list_splat, parenthesized_expression
+              has: {matches: module-reference}
+    module-member:
         any:
             - kind: dotted_name
               matches: name
@@ -23,25 +84,7 @@ utils:
             - kind: attribute
               all:
                 - has: {field: attribute, kind: identifier, matches: name}
-                - has:
-                    field: object
-                    any:
-                        - matches: module
-                        - kind: identifier
-                          pattern: $ALIAS
-                          any:
-                            - inside:
-                                kind: module, function_definition
-                                stopBy: end
-                                has:
-                                    stopBy: {kind: "function_definition, class_definition, lambda"}
-                                    matches: alias-import
-                            - inside:
-                                kind: class_definition
-                                stopBy: {kind: "function_definition, lambda"}
-                                has:
-                                    stopBy: {kind: "function_definition, class_definition, lambda"}
-                                    matches: alias-import
+                - has: {field: object, matches: module-reference}
 rule:
     any:
         - matches: module-member

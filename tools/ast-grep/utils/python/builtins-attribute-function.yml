@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: builtins-attribute-function
+language: python
+arguments: [name]
+utils:
+    builtin-names:
+        regex: '\b(getattr|setattr|delattr|hasattr|dir)\b'
+    inspect-names:
+        regex: '\b(getattr_static|getmembers(_static)?)\b'
+    reference:
+        any:
+            - matches: {python-builtin-name: {name: {all: [{matches: builtin-names}, {matches: name}]}}}
+            - matches: {python-member-use: {module: {regex: '^inspect$'}, name: {all: [{matches: inspect-names}, {matches: name}]}}}
+rule:
+    all:
+        - inside: {kind: module, stopBy: end, any: [{matches: builtin-names}, {matches: inspect-names}]}
+        - any:
+            - matches: reference
+            - matches: {python-assigned-name: {value: {matches: reference}}}

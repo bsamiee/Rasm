@@ -5,6 +5,8 @@ severity: error
 utils:
     operator-import:
         matches: {python-module-import: {module: {regex: '^operator$'}, binding: {pattern: $MODULE}}}
+    math-import:
+        matches: {python-module-import: {module: {regex: '^math$'}, binding: {pattern: $MODULE}}}
     module-shadowed:
         inside:
             kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
@@ -18,24 +20,29 @@ rule:
     kind: attribute
     pattern: $DUNDER
     all:
+        - has: {field: attribute, regex: '^__\w+__$'}
         - has: {field: object, kind: identifier, regex: '^(_?[A-Z][A-Za-z0-9]*|int|float|complex|bool|str|bytes|bytearray|list|tuple|dict|set|frozenset)$', not: {matches: constant}}
-        - has: {field: attribute, regex: '^__(i?(lt|le|eq|ne|ge|gt|add|and|floordiv|lshift|mod|mul|matmul|or|pow|rshift|sub|truediv|xor|concat)|not|abs|index|invert|neg|pos|contains|getitem|setitem|delitem|bool|length_hint|call|len|hash|str|repr|iter|next|divmod|round|format|reversed)__$'}
         - not: {inside: {kind: call, field: function}}
         - not: {inside: {kind: 'assignment, augmented_assignment', field: left}}
         - not: {inside: {kind: comparison_operator}}
         - any:
-            - has: {field: attribute, pattern: $BUILTIN, regex: '^__(len|hash|str|repr|iter|next|divmod|round|format|reversed)__$'}
+            - has: {field: attribute, pattern: $BUILTIN, regex: '^__(len|hash|str|repr|bytes|bool|int|float|complex|abs|iter|next|aiter|anext|divmod|round|format|reversed)__$'}
             - all:
-                - has: {field: attribute, pattern: $NAME}
+                - has: {field: attribute, pattern: $NAME, regex: '^__(i?(lt|le|eq|ne|ge|gt|add|and|floordiv|lshift|mod|mul|matmul|or|pow|rshift|sub|truediv|xor|concat)|not|index|invert|neg|pos|contains|getitem|setitem|delitem|length_hint|call)__$'}
                 - inside: {kind: module, stopBy: end, has: {matches: operator-import}}
                 - not: {matches: module-shadowed}
-            - pattern: $UNBOUND
+            - all:
+                - has: {field: attribute, pattern: $NAME, regex: '^__(floor|ceil|trunc)__$'}
+                - inside: {kind: module, stopBy: end, has: {matches: math-import}}
+                - not: {matches: module-shadowed}
+            - all:
+                - has: {field: attribute, regex: '^__(i?(lt|le|eq|ne|ge|gt|add|and|floordiv|lshift|mod|mul|matmul|or|pow|rshift|sub|truediv|xor|concat)|not|index|invert|neg|pos|contains|getitem|setitem|delitem|length_hint|call|floor|ceil|trunc)__$'}
+                - pattern: $UNBOUND
 transform:
     NAMED: {replace: {source: $NAME, replace: '^__(or|and|not)__$', by: '${1}_'}}
-    TRUTH: {replace: {source: $NAMED, replace: '^__bool__$', by: 'truth'}}
-    OPERATOR: {replace: {source: $TRUTH, replace: '^__(\w+)__$', by: '$1'}}
+    OPERATOR: {replace: {source: $NAMED, replace: '^__(\w+)__$', by: '$1'}}
     QUALIFIED: {replace: {source: $MODULE, replace: '^(.+)$', by: '$1.'}}
     FUNCTION: {replace: {source: $BUILTIN, replace: '^__(\w+)__$', by: '$1'}}
 fix: $FUNCTION$QUALIFIED$OPERATOR$UNBOUND
-message: '`$DUNDER` reads a dunder method as a callable'
-note: 'Use the protocol builtin (`len`, `hash`, `str`, `iter`) or `operator.<name>` after `import operator`, an unbound dunder skips the reflected operand and builtin dispatch'
+message: '`$DUNDER` reads a dunder method as a callable, the protocol builtin (`len`, `bool`, `iter`), `operator.<name>`, or `math.<name>` dispatches it'
+note: 'An unbound dunder skips the reflected operand and the builtin dispatch'

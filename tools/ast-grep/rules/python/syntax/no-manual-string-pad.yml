@@ -3,43 +3,155 @@ id: no-manual-string-pad
 language: python
 severity: error
 utils:
-    shortfall:
-        kind: binary_operator
-        all:
-            - has: {field: operator, regex: '^-$'}
-            - has: {field: right, kind: call, pattern: len($TEXT)}
+    count:
+        any:
+            - &shortfall
+              any:
+                - pattern: $WIDTH - len($TEXT)
+                - pattern: max(0, $WIDTH - len($TEXT))
+                - pattern: max($WIDTH - len($TEXT), 0)
+            - kind: parenthesized_expression
+              has: {matches: count}
+            - kind: identifier
+              matches: {python-assigned-name: {value: *shortfall}}
     derived-count:
         any:
-            - has: {stopBy: end, pattern: len($TEXT)}
+            - &mentions
+              any: [{pattern: len($TEXT)}, {has: {stopBy: end, pattern: len($TEXT)}}]
             - kind: identifier
-              matches: {python-assigned-name: {value: {has: {stopBy: end, pattern: len($TEXT)}}}}
+              matches: {python-assigned-name: {value: *mentions}}
+            - has: {stopBy: end, kind: identifier, matches: {python-assigned-name: {value: *mentions}}}
+    plus:
+        has: {field: operator, regex: '^\+$'}
+    run:
+        kind: binary_operator
+        all: [{has: {field: operator, regex: '^\*$'}}, {has: {kind: string, pattern: $FILL}}]
+    fill-run:
+        any:
+            - all: [{matches: run}, {has: {matches: count}}]
+            - kind: parenthesized_expression
+              has: {matches: fill-run}
+    derived-run:
+        all: [{matches: run}, {has: {matches: derived-count}}]
+    fill-interpolation:
+        kind: interpolation
+        has: {field: expression, matches: fill-run}
+    run-interpolation:
+        kind: interpolation
+        has: {field: expression, matches: run}
+    derived-interpolation:
+        kind: interpolation
+        has: {field: expression, matches: derived-run}
+    text-interpolation:
+        kind: interpolation
+        pattern: {context: 'f"{$TEXT}"', selector: interpolation}
+    left-padded:
+        any:
+            - kind: binary_operator
+              all: [{matches: plus}, {has: {field: left, pattern: $TEXT}}, {has: {field: right, matches: fill-run}}]
+            - kind: binary_operator
+              all:
+                - matches: plus
+                - has: {field: left, kind: binary_operator, all: [{matches: plus}, {has: {field: left, pattern: $HEAD}}, {has: {field: right, pattern: $TEXT}}]}
+                - has: {field: right, matches: fill-run}
+            - kind: augmented_assignment
+              all: [{has: {field: operator, regex: '^\+=$'}}, {has: {field: left, pattern: $TEXT}}, {has: {field: right, matches: fill-run}}]
+    right-padded:
+        kind: binary_operator
+        all:
+            - matches: plus
+            - has: {field: right, pattern: $TEXT}
+            - has:
+                field: left
+                any:
+                    - matches: fill-run
+                    - kind: binary_operator
+                      all: [{matches: plus}, {has: {field: left, pattern: $HEAD}}, {has: {field: right, matches: fill-run}}]
+    field-padded:
+        kind: string
+        has:
+            matches: text-interpolation
+            any: [{precedes: {matches: fill-interpolation}}, {follows: {matches: fill-interpolation}}]
+    centered:
+        any:
+            - kind: binary_operator
+              all:
+                - matches: plus
+                - has: {field: left, kind: binary_operator, all: [{matches: plus}, {has: {field: right, pattern: $TEXT}}, {has: {field: left, matches: run}}]}
+                - has: {field: right, matches: run}
+                - any: [{has: {field: right, matches: derived-run}}, {has: {field: left, has: {field: left, matches: derived-run}}}]
+            - kind: string
+              has:
+                all:
+                    - matches: text-interpolation
+                    - follows: {matches: run-interpolation}
+                    - precedes: {matches: run-interpolation}
+                    - any: [{follows: {matches: derived-interpolation}}, {precedes: {matches: derived-interpolation}}]
+    padded:
+        any: [{matches: left-padded}, {matches: right-padded}, {matches: field-padded}, {matches: centered}]
+    compound-text:
+        has:
+            stopBy: end
+            pattern: $TEXT
+            kind: binary_operator, boolean_operator, comparison_operator, not_operator, unary_operator, conditional_expression, await, lambda
 rule:
     any:
-        - kind: binary_operator
+        - kind: string_start
+          pattern: $UNFIXED
+          inside:
+            kind: string
+            regex: '\n'
+            any: [{matches: padded}, {inside: {stopBy: end, matches: padded}}]
+        - not: {matches: python-multiline-string}
           any:
-            - pattern: $FILL * $LEFT + $TEXT + $FILL * $LEFT
-            - pattern: $FILL * $LEFT + $TEXT + $FILL * ($LEFT + 1)
-          has: {nthChild: 1, stopBy: end, kind: binary_operator, has: {field: right, matches: derived-count}}
-        - kind: string
-          all:
-            - has:
-                kind: interpolation
-                pattern: {context: 'f"{$FILL * $LEFT}"', selector: interpolation}
-                precedes:
-                    kind: interpolation
-                    pattern: {context: 'f"{$TEXT}"', selector: interpolation}
-                    precedes:
-                        kind: interpolation
-                        any:
-                            - pattern: {context: 'f"{$FILL * $LEFT}"', selector: interpolation}
-                            - pattern: {context: 'f"{$FILL * ($LEFT + 1)}"', selector: interpolation}
-            - has: {kind: interpolation, has: {kind: binary_operator, has: {field: right, matches: derived-count}}}
-        - kind: binary_operator
-          any:
-            - pattern: $TEXT + $FILL * ($WIDTH)
-            - pattern: $FILL * ($WIDTH) + $TEXT
-          has: {stopBy: end, kind: parenthesized_expression, has: {matches: shortfall}}
+            - all:
+                - not: {has: {stopBy: end, kind: comment}}
+                - any:
+                    - all: [{matches: left-padded}, {pattern: $LEFT_JUSTIFIED}, {not: {matches: compound-text}}]
+                    - all: [{matches: right-padded}, {pattern: $RIGHT_JUSTIFIED}, {not: {matches: compound-text}}]
+                    - all: [{matches: field-padded}, {pattern: $FIELDS}, {not: {matches: compound-text}}]
+            - all: [{matches: padded}, {pattern: $UNFIXED}]
 constraints:
-    FILL: {kind: string, regex: '^[rRuU]?("([^"\\]|\\.)"|''([^''\\]|\\.)'')$'}
+    FILL:
+        kind: string
+        regex: |-
+            (?x)^(?:
+                (?i:[bu])?(?:"(?:[^"\\\n]|\\(?:[\\'"abfnrtv]|[0-7]{1,3}|x[0-9a-fA-F]{2}))"|'(?:[^'\\\n]|\\(?:[\\'"abfnrtv]|[0-7]{1,3}|x[0-9a-fA-F]{2}))')
+                |(?i:r|rb|br)(?:"[^"\\\n]"|'[^'\\\n]')
+            )$
+rewriters:
+    - id: ljust
+      rule: {kind: binary_operator}
+      transform: &arguments
+        JOINED: {replace: {source: $HEAD, replace: '(?s)^(.+)$', by: '${1} + '}}
+        LISTED: {replace: {source: $FILL, replace: '^(.+)$', by: ', ${1}'}}
+        ARGUMENT: {replace: {source: $LISTED, replace: '^, (?i:[bur]|rb|br)?(?:" "|'' '')$', by: ''}}
+      fix: $JOINED$TEXT.ljust($WIDTH$ARGUMENT)
+    - id: ljust-in-place
+      rule: {kind: augmented_assignment}
+      transform: *arguments
+      fix: $TEXT = $TEXT.ljust($WIDTH$ARGUMENT)
+    - id: rjust
+      rule: {kind: binary_operator}
+      transform: *arguments
+      fix: $JOINED$TEXT.rjust($WIDTH$ARGUMENT)
+    - id: ljust-field
+      rule: {matches: text-interpolation, precedes: {matches: fill-interpolation}}
+      transform: *arguments
+      fix: '{$TEXT.ljust($WIDTH$ARGUMENT)}'
+    - id: rjust-field
+      rule: {matches: text-interpolation, follows: {matches: fill-interpolation, not: {follows: {matches: text-interpolation}}}}
+      transform: *arguments
+      fix: '{$TEXT.rjust($WIDTH$ARGUMENT)}'
+    - id: dropped-run
+      rule:
+        matches: fill-interpolation
+        any: [{follows: {matches: text-interpolation}}, {precedes: {matches: text-interpolation}}]
+      fix: ''
+transform:
+    LEFT_OUT: rewrite($LEFT_JUSTIFIED, rewriters=[ljust-in-place, ljust])
+    RIGHT_OUT: rewrite($RIGHT_JUSTIFIED, rewriters=[rjust])
+    FIELD_OUT: rewrite($FIELDS, rewriters=[ljust-field, rjust-field, dropped-run])
+fix: $LEFT_OUT$RIGHT_OUT$FIELD_OUT$UNFIXED
 message: '`$TEXT` is padded by hand with `$FILL`'
-note: 'Use `format(<text>, f"<fill><align><width>")`, a format spec states fill, alignment, and width'
+note: 'Use `<text>.ljust(<width>, <fill>)` or `<text>.rjust(<width>, <fill>)`, one call states width, fill, and side. Centered text, compound text, comments, and multiline strings require a manual rewrite'

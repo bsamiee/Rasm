@@ -6,22 +6,38 @@ utils:
     first-entry:
         kind: switch_entry
         nthChild: {position: 1, ofRule: {kind: switch_entry}}
+    wrapper:
+        kind: 'try_expression, await_expression, control_transfer_statement'
+    chained:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, pattern: $N}}}
+            - has: {kind: call_suffix, pattern: $B}
+    receiver-call:
+        any:
+            - {matches: wrapper, has: {matches: receiver-call}}
+            - {matches: chained, has: {nthChild: 1, has: {field: target, matches: receiver-call}}}
+            - pattern: $R.$M($$$A)
+    member-call:
+        any:
+            - {matches: wrapper, has: {matches: member-call}}
+            - {matches: chained, has: {nthChild: 1, has: {field: target, matches: member-call}}}
+            - pattern: $_.$M($$$A)
+    receiver-body:
+        kind: statements
+        all:
+            - has: {nthChild: 1, matches: receiver-call}
+            - not: {has: {nthChild: 2}}
+    member-body:
+        kind: statements
+        all:
+            - has: {nthChild: 1, matches: member-call}
+            - not: {has: {nthChild: 2}}
 rule:
     kind: switch_statement
     all:
-        - any:
-            - all:
-                - has: {matches: first-entry, has: {pattern: {context: 'switch s { case .a: await $R.$M($$$A).$N($$$B) }', selector: statements}}}
-                - not: {has: {kind: switch_entry, not: {has: {pattern: {context: 'switch s { case .a: await $_.$M($$$A).$N($$$B) }', selector: statements}}}}}
-            - all:
-                - has: {matches: first-entry, has: {pattern: {context: 'switch s { case .a: await $R.$M($$$A) }', selector: statements}}}
-                - not: {has: {kind: switch_entry, not: {has: {pattern: {context: 'switch s { case .a: await $_.$M($$$A) }', selector: statements}}}}}
-            - all:
-                - has: {matches: first-entry, has: {pattern: {context: 'switch s { case .a: $R.$M($$$A).$N($$$B) }', selector: statements}}}
-                - not: {has: {kind: switch_entry, not: {has: {pattern: {context: 'switch s { case .a: $_.$M($$$A).$N($$$B) }', selector: statements}}}}}
-            - all:
-                - has: {matches: first-entry, has: {pattern: {context: 'switch s { case .a: $R.$M($$$A) }', selector: statements}}}
-                - not: {has: {kind: switch_entry, not: {has: {pattern: {context: 'switch s { case .a: $_.$M($$$A) }', selector: statements}}}}}
+        - has: {matches: first-entry, has: {matches: receiver-body}}
+        - not: {has: {kind: switch_entry, not: {has: {matches: member-body}}}}
         - has: {kind: switch_entry, not: {has: {pattern: $R, stopBy: end}}}
 constraints:
     R: {kind: simple_identifier}

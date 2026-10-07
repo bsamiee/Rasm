@@ -4,17 +4,24 @@ language: java
 severity: error
 rule:
     kind: line_comment, block_comment
-    not:
-        any:
-            - matches: java-divider-comment
-            - regex: '^//\s*(ast-grep-ignore|NOPMD|CPD-OFF|CPD-ON)\b'
-            - regex: '^///\s*@(param|return|throws|exception)\b'
-            - regex: '^///'
-              not:
-                any:
-                    - follows: {kind: line_comment, regex: '^///'}
-                    - regex: '[.!?]\s+[A-Z]'
-            - regex: '^/\*\*'
-              not: {regex: '^/\*\*[^@]*?[.!?]\s+(\*\s*)?[A-Z]'}
+    all:
+        - not:
+            any:
+                - matches: java-divider-comment
+                - regex: '^//\s*(ast-grep-ignore|NOPMD|CPD-OFF|CPD-ON)\b'
+                - regex: '^///\s*@(param|return|throws|exception)\b'
+                - regex: '^///'
+                  not:
+                    any:
+                        - follows: {kind: line_comment, regex: '^///'}
+                        - regex: '[.!?]\s+[A-Z]'
+                - regex: '^/\*\*'
+                  not: {regex: '^/\*\*(?:[^@]|\{@)*?[.!?]\s+(\*\s*)?[A-Z]'}
+        - any:
+            - precedes: {pattern: $NEXT}
+            - pattern: $_
 message: Comment states a fact outside a section divider, a family divider, a one-sentence doc summary, or a tool directive
 note: Delete the comment, a fact code cannot show goes into a name
+fix:
+    template: $NEXT
+    expandEnd: {pattern: $NEXT}

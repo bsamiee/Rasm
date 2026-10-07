@@ -31,7 +31,7 @@ utils:
     ambient-function:
         any:
             - matches: syntax-global-reference
-              regex: '^(globalThis\.)?(Date\.now|Temporal\.Now\.\w+|Math\.random|crypto\.(randomUUID|getRandomValues)|performance\.now|process\.hrtime(\.bigint)?|process\.uptime)$'
+              regex: '^((globalThis|window|self)\.)?(Date\.now|Temporal\.Now\.\w+|Math\.random|crypto\.(randomUUID|getRandomValues)|performance\.(now|timeOrigin)|process\.hrtime(\.bigint)?|process\.uptime)$'
             - matches:
                 syntax-import-reference:
                     source: {regex: '^(node:)?crypto$'}
@@ -55,7 +55,7 @@ utils:
                             exported: {regex: '^hrtime$'}
             - kind: member_expression
               all:
-                - has: {field: property, regex: '^now$'}
+                - has: {field: property, regex: '^(now|timeOrigin)$'}
                 - has:
                     field: object
                     matches:
@@ -66,7 +66,7 @@ rule:
     not: {inside: {matches: service-implementation, stopBy: end}}
     any:
         - kind: new_expression
-          has: {field: constructor, regex: '^(globalThis\.)?Date$', matches: syntax-global-reference}
+          has: {field: constructor, regex: '^((globalThis|window|self)\.)?Date$', matches: syntax-global-reference}
           not: {has: {field: arguments, has: {pattern: $_, not: {kind: comment}}}}
         - kind: call_expression
           has:
@@ -74,7 +74,7 @@ rule:
             any:
                 - matches: ambient-function
                 - matches: syntax-global-reference
-                  regex: '^(globalThis\.)?Date$'
+                  regex: '^((globalThis|window|self)\.)?Date$'
         - matches: ambient-function
           not: {any: [{inside: {kind: call_expression, field: function}}, {inside: {kind: member_expression, field: object}}, {inside: {kind: import_specifier}}]}
     pattern: $READ

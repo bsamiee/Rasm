@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-result-construction
+language: swift
+utils:
+    branch:
+        kind: statements
+        all:
+            - has: {nthChild: 1, matches: swift-result-construction}
+            - not: {has: {nthChild: 2}}
+rule:
+    any:
+        - matches: swift-success-call
+        - matches: swift-failure-call
+        - kind: ternary_expression
+          all:
+            - has: {field: if_true, matches: swift-result-construction}
+            - has: {field: if_false, matches: swift-result-construction}
+        - kind: switch_statement
+          all:
+            - has: {kind: switch_entry}
+            - not: {has: {kind: switch_entry, not: {has: {kind: statements, matches: branch}}}}
+        - kind: if_statement
+          all:
+            - has: {regex: '^else$'}
+            - not: {has: {kind: statements, not: {matches: branch}}}
+            - not: {has: {kind: if_statement, not: {matches: swift-result-construction}}}

@@ -3,8 +3,11 @@ id: no-home-path-literal
 language: swift
 severity: error
 rule:
-    kind: 'line_string_literal, multi_line_string_literal, raw_string_literal'
     pattern: $S
-    has: {kind: 'line_str_text, multi_line_str_text, raw_str_part, raw_str_end_part', regex: '(^|[\s"''#(=:])(~|\$HOME|\$\{HOME\}|/Users/[^/\s"'']+)/'}
+    any:
+        - kind: 'line_string_literal, multi_line_string_literal, raw_string_literal'
+          has: {kind: 'line_str_text, multi_line_str_text, raw_str_part, raw_str_end_part', regex: '(^|[\s"''#(=:])(~|/Users/[^/\s"'']+|/home/[^/\s"'']+)(/|$)|\$\{?HOME\b'}
+        - kind: call_expression
+          has: {nthChild: 1, regex: '^(Foundation\.)?NSHomeDirectory(ForUser)?$'}
 message: '`$S` spells a home path as text, file APIs read it unexpanded and each user or an environment variable decides the directory'
 note: 'Append with `appending(path:)` to `URL.homeDirectory` or to a directory a relocating environment variable names, and let messages name the file or interpolate its resolved path'

@@ -11,7 +11,7 @@ python.uv_venv_auto = "create|source"
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
 GHIDRA_INSTALL_DIR = "{% if os() == 'macos' %}{{ exec(command='brew --prefix ghidra') }}/libexec{% endif %}"
-_.path = ["./node_modules/.bin", "{{ env.GHIDRA_INSTALL_DIR }}/support", "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
+_.path = "./node_modules/.bin{% if os() == 'macos' %}:{{ env.GHIDRA_INSTALL_DIR }}/support:{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin{% endif %}"
 DOTNET_NOLOGO = "1"
 DOTNET_ROLL_FORWARD = "Major"
 DOTNET_CLI_HOME = "{{config_root}}/.cache/dotnet"
@@ -71,6 +71,8 @@ sd = "latest"
 difftastic = "latest"
 duckdb = "latest"
 sqlite = "latest"
+resvg = "latest"
+imagemagick = "latest"
 "pypi:ast-grep/ast-grep-mcp" = "latest"
 "pypi:tavily-cli" = "latest"
 "pypi:mcp-for-blender" = "latest"
@@ -78,3 +80,17 @@ sqlite = "latest"
 "github:akiselev/ghidra-cli" = "latest"
 "github:pmd/pmd" = { version = "7.28.0", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
 "http:xcode-build-server" = { version = "latest", url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/releases", version_json_path = ".[].tag_name", version_order = "semver" }
+
+# --- [BOOTSTRAP] ------------------------------------------------------------------------
+[bootstrap.macos.launchd.agents]
+roslyn-codelens = { program = "{{ mise_bin }}", args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx", "--http", "--port", "7401"], working_directory = "{{config_root}}", keep_alive = true }
+nuget = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7402", "--", "dotnet", "dnx", "NuGet.Mcp.Server"], working_directory = "{{config_root}}", keep_alive = true }
+binlog = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7403", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"], working_directory = "{{config_root}}", keep_alive = true }
+ast-grep = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7404", "--", "ast-grep-server"], working_directory = "{{config_root}}", keep_alive = true }
+rhino-mcp-platform = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7406", "--", "rhino-mcp-router"], working_directory = "{{config_root}}", keep_alive = true }
+blender = { program = "{{ mise_bin }}", args = ["exec", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp", "--transport", "http", "--port", "7407"], working_directory = "{{config_root}}", keep_alive = true }
+mcp-for-blender = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7408", "--", "mcp-for-blender"], working_directory = "{{config_root}}", keep_alive = true }
+adobe = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts", "--port", "7409"], working_directory = "{{config_root}}", keep_alive = true }
+argus = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "plugins/argus/main.ts", "--port", "7410"], working_directory = "{{config_root}}", keep_alive = true }
+playwright = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "mcp", "--headless", "--host", "127.0.0.1", "--port", "7411", "--shared-browser-context", "--caps=config,network,pdf,storage,testing,vision,devtools"], working_directory = "{{config_root}}", keep_alive = true }
+playwright-test = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "run-test-mcp-server", "--headless", "--host", "127.0.0.1", "--port", "7412"], working_directory = "{{config_root}}", keep_alive = true }

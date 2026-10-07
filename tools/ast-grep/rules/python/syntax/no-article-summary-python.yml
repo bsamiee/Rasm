@@ -6,12 +6,43 @@ utils:
     docstring:
         kind: expression_statement
         nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+        not:
+            any:
+                - has: {regex: '^,$'}
+                - has: {kind: string_start, regex: '(?i)[bft]', stopBy: end}
         any:
             - inside: {kind: module}
             - inside: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
+    summary:
+        any:
+            - inside: {matches: docstring}
+            - inside: {kind: parenthesized_expression, matches: summary}
+            - all:
+                - nthChild: {position: 1, ofRule: {kind: string, has: {kind: string_content, regex: '\S'}}}
+                - inside: {kind: concatenated_string, matches: summary}
 rule:
-    kind: string
-    regex: '^(?i:[ru])?("""|''''''|"|'')\s*(The|A|An)\s+\S'
-    inside: {matches: docstring}
-message: 'Docstring summary opens with an article'
-note: 'Use subject noun or verb as the summary''s first word, an article adds a word and states no fact'
+    any:
+        - kind: string_content
+          regex: '^\s*(?i:the|an?)\s+\S'
+          pattern: $DOC
+          inside: {kind: string, matches: summary}
+        - kind: string
+          matches: summary
+          precedes: {kind: string, has: {kind: string_content, regex: '\S'}, pattern: $NEXT, stopBy: end}
+          any:
+            - has: {kind: string_content, regex: '^\s*(?i:the|an?)\s+$'}
+            - all:
+                - has: {kind: string_content, regex: '^\s*(?i:the|an?)$'}
+                - precedes: {kind: string, has: {kind: string_content, regex: '^\s'}, stopBy: {kind: string, has: {kind: string_content}}}
+transform:
+    LEAD: {replace: {source: $DOC, replace: '^(\s*)[\s\S]*$', by: '$1'}}
+    REST: {replace: {source: $DOC, replace: '^\s*(?i:the|an?)\s+', by: ''}}
+    WORD: {convert: {source: $REST, toCase: capitalize}}
+    QUOTE: {replace: {source: $NEXT, replace: '^([^"'']*(?:"""|''''''|"|''))[\s\S]*$', by: '$1'}}
+    TAIL: {replace: {source: $NEXT, replace: '^[^"'']*(?:"""|''''''|"|'')\s*', by: ''}}
+    NOUN: {convert: {source: $TAIL, toCase: capitalize}}
+fix:
+    template: $LEAD$WORD$QUOTE$NOUN
+    expandEnd: {kind: string, has: {kind: string_content, regex: '\S'}, stopBy: end}
+message: 'Remove the article opening a docstring summary'
+note: 'Open summaries with a subject noun or verb'

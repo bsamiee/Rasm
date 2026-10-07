@@ -3,6 +3,10 @@ id: no-optional-array-by-hand
 language: swift
 severity: error
 utils:
+    value-position:
+        any:
+            - inside: {kind: property_declaration, field: value}
+            - inside: {kind: 'assignment, control_transfer_statement', field: result}
     empty-array:
         any:
             - pattern: '[]'
@@ -31,11 +35,24 @@ rule:
                     - pattern: '$X.map { $V in [$V] }'
                     - pattern: '$X.flatMap { $V in [$V] }'
                     - matches: transform-call
+        - kind: switch_statement
+          all:
+            - matches: value-position
+            - has: {field: expr, pattern: $X}
+            - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
+            - has:
+                kind: switch_entry
+                any:
+                    - pattern: {context: 'switch x { case .some(let $V): [$V] }', selector: switch_entry}
+                    - pattern: {context: 'switch x { case let $V?: [$V] }', selector: switch_entry}
+            - has:
+                kind: switch_entry
+                any:
+                    - pattern: {context: 'switch x { case .none: [] }', selector: switch_entry}
+                    - pattern: {context: 'switch x { default: [] }', selector: switch_entry}
         - kind: if_statement
           all:
-            - any:
-                - inside: {kind: property_declaration, field: value}
-                - inside: {kind: 'assignment, control_transfer_statement', field: result}
+            - matches: value-position
             - any:
                 - pattern: 'if let $V = $X { [$V] } else { [] }'
                 - pattern: 'if let $X { [$X] } else { [] }'

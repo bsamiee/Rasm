@@ -36,7 +36,7 @@ from System.Reflection import BindingFlags
 
 from interface.render import LIGHT_TREE
 from interface.report import Row, single
-from interface.rhino.script.accessors import Internal, key, member, opened
+from interface.rhino.script.accessors import Internal, key, member, opened, preference
 from interface.rhino.script.template import SUN_LIGHT_FACTOR
 from interface.roles import Accent, TEXT_POINTS
 from interface.units import ANGLE_STEP
@@ -178,7 +178,7 @@ def rows() -> tuple[Row, ...]:
     return (
         *(member(owner, name, target=target) for owner, targets in members.items() for name, target in targets.items()),
         *(key(path, name, target=target) for path, targets in keys.items() for name, target in targets.items()),
-        Row(label="AppearanceSettings.CommandPromptFontName", read=lambda: AppearanceSettings.GetCurrentState().CommandPromptFontName, write=prompt_font, target=system_family),
+        preference(label="AppearanceSettings.CommandPromptFontName", read=lambda: AppearanceSettings.GetCurrentState().CommandPromptFontName, write=prompt_font, target=system_family),
         *(
             Internal.TAB_PANEL_SETTINGS.setting(name, target=target)
             for name, target in (
@@ -196,7 +196,7 @@ def rows() -> tuple[Row, ...]:
         ),
         Internal.RUNTIME_SETTINGS.setting("NotesRestoreCursorPosition", target=False),
         *(
-            Row(label=f'{domain}["{name}"]', read=partial(read, name), write=lambda value, write=write, name=name: write(value, name), target=target)
+            preference(label=f'{domain}["{name}"]', read=partial(read, name), write=lambda value, write=write, name=name: write(value, name), target=target)
             for domain, read, write, name, target in (
                 (standard, defaults.BoolForKey, defaults.SetBool, "AppleReduceDesktopTinting", True),
                 (standard, defaults.BoolForKey, defaults.SetBool, "SUAutomaticallyUpdate", False),
@@ -206,13 +206,13 @@ def rows() -> tuple[Row, ...]:
                 ("RhinoMonitor", monitor.BoolForKey, monitor.SetBool, "MRShouldIncludeModelFileInReport", False),
             )
         ),
-        Row(
+        preference(
             label=f'{standard}["{languages}"]',
             read=partial(defaults.StringArrayForKey, languages),
             write=lambda value: defaults.SetValueForKey(NSArray.FromStrings(Array[String](list(value))), NSString(languages)),
             target=(english.Parent.Name,),
         ),
-        Row(label="Utilities.DefaultRenderPlugInId", read=lambda: Utilities.DefaultRenderPlugInId, write=Utilities.SetDefaultRenderPlugIn, target=PlugIn.IdFromName("Rhino Render")),
+        preference(label="Utilities.DefaultRenderPlugInId", read=lambda: Utilities.DefaultRenderPlugInId, write=Utilities.SetDefaultRenderPlugIn, target=PlugIn.IdFromName("Rhino Render")),
     )
 
 

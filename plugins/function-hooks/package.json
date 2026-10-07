@@ -2,6 +2,9 @@
     "name": "function-hooks",
     "private": true,
     "type": "module",
+    "devDependencies": {
+        "@types/node": "catalog:"
+    },
     "nx": {
         "targets": {
             "typecheck": {

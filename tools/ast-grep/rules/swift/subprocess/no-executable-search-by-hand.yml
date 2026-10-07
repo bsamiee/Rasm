@@ -4,23 +4,24 @@ language: swift
 severity: error
 utils:
     executable-test:
-        kind: call_expression
-        has:
-            kind: navigation_expression
-            has: {field: suffix, has: {field: suffix, regex: '^isExecutableFile$'}}
-    search-closure:
-        kind: lambda_literal
-        has: {matches: executable-test, stopBy: end}
+        pattern: $TEST
+        any:
+            - kind: simple_identifier
+              regex: '^(isExecutableFile|isExecutableKey)$'
+            - kind: call_expression
+              all:
+                - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)\.)?(access|faccessat)$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, regex: '^X_OK$'}}}}
 rule:
-    kind: call_expression
-    all:
-        - has:
-            kind: navigation_expression
-            has: {field: suffix, has: {field: suffix, regex: '^(first|filter|contains|firstIndex|compactMap)$', pattern: $SEARCH}}
-        - has:
-            kind: call_suffix
-            any:
-                - has: {matches: search-closure}
-                - has: {kind: value_arguments, has: {kind: value_argument, has: {matches: search-closure}}}
-message: '`$SEARCH` tests each directory with `isExecutableFile` to find an executable by hand'
+    any:
+        - kind: call_expression
+          all:
+            - has:
+                nthChild: 1
+                kind: navigation_expression
+                has: {field: suffix, has: {field: suffix, regex: '^(first|last|filter|contains|firstIndex|lastIndex|compactMap|forEach|allSatisfy|reduce|drop|prefix)$'}}
+            - has: {kind: call_suffix, has: {stopBy: end, matches: executable-test}}
+        - kind: for_statement
+          has: {stopBy: end, matches: executable-test}
+message: '`$TEST` tests each candidate directory to find an executable by hand'
 note: 'Run the child as `Executable.name(<name>)` to search its environment''s `PATH`, or resolve a path through `resolveExecutablePath(in:)`'

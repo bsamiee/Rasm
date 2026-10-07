@@ -18,7 +18,6 @@ rule:
             any:
                 - {kind: 'identifier, qualified_name', matches: error-base}
                 - {kind: primary_constructor_base_type, has: {field: type, matches: error-base}}
-                - {kind: primary_constructor_base_type, has: {kind: argument_list, has: {kind: argument, has: {kind: invocation_expression, has: {field: function, regex: '^ErrorOps\.Code\s*<'}}}}}
                 - all:
                     - any: [{matches: base-name}, {kind: primary_constructor_base_type, has: {field: type, matches: base-name}}]
                     - inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, kind: record_declaration, all: [{has: {field: name, pattern: $BASE}}, {matches: csharp-error-record}]}}

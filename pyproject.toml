@@ -5,15 +5,15 @@ name = "rasm"
 version = "0.0.0"
 requires-python = ">=3.13"
 dependencies = [
-    "expression",                                         # Results, options, fault unions, and effect chains of every rasm package
-    "httpx2",                                             # HTTP of batch render targets and notices
+    "expression",                                         # Results, options, fault unions, and collections of every rasm package
+    "httpx2",                                             # HTTP for batch render targets and notices
     "msgspec",                                            # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
-    "numpy",                                              # Arrays of image planes, previews, and analysis, bundled in Blender's Python
-    "opencolorio",                                        # Color processors, config authoring, and LUT bakes, bundled in Blender's Python as PyOpenColorIO
-    "openimageio; python_full_version < '3.15'",          # Image IO and analysis, bundled in Blender's Python as OpenImageIO, no cp315 wheel and the sdist omits the testsuite its CMake copies
-    "psdtags",                                            # Photoshop layer records of layered documents
-    "tifffile",                                           # Linear Raw DNG and the TIFF container of layered documents
-    "tzdata",                                             # IANA time zones zoneinfo reads where the platform holds none
+    "numpy",                                              # Arrays for image planes, previews, and analysis, bundled in Blender
+    "opencolorio",                                        # Color processing, config authoring, and LUT baking, bundled in Blender as PyOpenColorIO
+    "openimageio; python_full_version < '3.15'",          # Image IO and analysis, bundled in Blender as OpenImageIO, no cp315 wheel and no sdist build, its CMake copying the testsuite the sdist excludes
+    "psdtags",                                            # Photoshop layer records for layered documents
+    "tifffile",                                           # Linear Raw DNG and TIFF containers for layered documents
+    "tzdata",                                             # IANA time zones for zoneinfo on platforms without a database
 ]
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
@@ -106,7 +106,7 @@ workspace = [
     "zlib-ng",                                            # zlib-ng and gzip-ng accelerated compression beside zstandard, lz4, and brotli
     "zstandard",                                          # Zstandard compression
     # --- [NUMERICS_SOLVERS]
-    "array-api-compat",                                   # Array API portability shim
+    "array-api-compat",                                   # Array API standard namespaces over NumPy, CuPy, JAX, Dask, and PyTorch arrays
     "array-api-extra",                                    # Supplemental array API functions
     "clarabel",                                           # Clarabel conic solver, a cvxpy backend
     "cvxpy",                                              # Disciplined convex optimization
@@ -119,7 +119,6 @@ workspace = [
     "jaxtyping",                                          # Array and PyTree shape and dtype contracts with beartype, jax-free at import
     "lineax",                                             # JAX linear solvers
     "mpmath",                                             # Arbitrary-precision real and complex math
-    "numpy>=2.5.2",                                       # N-dimensional array implementation, the first release with cp315 wheels, honeybee-radiance-postprocess pins numpy 2.1.0 through lbt-recipes
     "optax",                                              # First-order JAX optimizers for optimistix
     "optimistix",                                         # JAX nonlinear solvers and adjoint VJP
     "pint",                                               # Unit registry and quantity arithmetic
@@ -182,7 +181,7 @@ workspace = [
     "netcdf4",                                            # netCDF-4 field IO
     "numcodecs",                                          # zarr v3 filter and compressor codec registry
     "virtualizarr",                                       # Virtual Zarr aggregation over archival references
-    "xarray",                                             # Labelled field datasets and DataTree arrays
+    "xarray",                                             # Labeled field datasets and DataTree arrays
     "zarr",                                               # Chunked n-D arrays
     # --- [GEOSPATIAL]
     "geoarrow-pyarrow",                                   # GeoArrow ExtensionType registration for pyarrow and geopandas ExtensionDtype interop
@@ -300,7 +299,7 @@ workspace = [
     "drawsvg",                                            # Hierarchical named-layer SVG authoring
     "ezdxf",                                              # DXF read, write, and render
     "fast-sugiyama",                                      # Sugiyama layered placement
-    "grandalf",                                           # Sugiyama and routed diagram layout until fast-sugiyama reaches feature parity
+    "grandalf",                                           # Sugiyama and routed diagram layout until fast-sugiyama covers both
     "igraph",                                             # Leiden, Louvain, and Infomap community detection
     "kiwisolver",                                         # Cassowary constraint layout
     "latex2mathml",                                       # LaTeX-to-MathML front end for ziamath
@@ -324,6 +323,7 @@ workspace = [
 ]
 dev = [
     "anyio",                                              # Structured concurrency for the interface, yak installer, and tests, a required pytest plugin
+    "asttokens",                                          # Source ranges of the rasm imports Blender extension packing rewrites
     "asyncssh",                                           # SSH server double in the test environment fixture
     "attrs",                                              # Frozen records use-blender skill scripts and interface Blender scripts declare, bundled in Blender's Python
     "brotli-stubs",                                       # Stubs for brotli
@@ -332,9 +332,8 @@ dev = [
     "cyclopts",                                           # CLI parser of the interface command
     "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
     "fake-bpy-module-latest",                             # bpy, bmesh, mathutils, and gpu stubs from Blender's main branch for skill scripts
+    "fonttools",                                          # Glyph pens and SVG path parsing for Blender extension packing
     "fsspec",                                             # Memory and directory filesystems in the test environment fixture
-    "rhino-stubs-typed",                                  # RhinoCommon and Grasshopper stubs for the use-rhino skill scripts that run in Rhino's Python
-    "rhino3dm",                                           # openNURBS geometry and 3dm file IO for the use-rhino file3dm script
     "hypothesis",                                         # Property-based tests, a required pytest plugin
     "lxml",                                               # XML trees of Rhino settings and toolbar files and Adobe workspace files
     "mcp",                                                # MCP client for the applications' servers
@@ -344,9 +343,7 @@ dev = [
     "netstandard-stubs",                                  # .NET System stubs typed from .NET Standard 2.0 for the Rhino interface and use-rhino skill scripts
     "opentelemetry-api",                                  # Tracer access in the test runtime plugin
     "opentelemetry-sdk",                                  # Tracer provider and span processor in the test runtime plugin
-    "packaging",                                          # Wheel filename parsing in Blender extension panels, bundled in Blender's Python
-    "ruff",                                               # Linter and formatter rasm:lint and rasm:format run
-    "yamllint",                                           # YAML linter rasm:lint runs
+    "packaging",                                          # Requirement, metadata, pylock, and wheel name parsing for Blender extension panels and packing, bundled in Blender
     "pandas-stubs",                                       # Stubs for pandas
     "psd-tools",                                          # Photoshop settings file action descriptors
     "psutil",                                             # Process lookup, termination, and readings for the interface, skill scripts, and benchmark fixture
@@ -360,10 +357,16 @@ dev = [
     "pytest-socket",                                      # Socket blocking, a required pytest plugin
     "pytest-timeout",                                     # Per-test timeout, a required pytest plugin
     "pytest-xdist",                                       # Parallel test workers, a required pytest plugin
+    "rhino-stubs-typed",                                  # RhinoCommon and Grasshopper stubs for the use-rhino skill scripts that run in Rhino's Python
+    "rhino3dm",                                           # openNURBS geometry and 3dm file IO for the use-rhino file3dm script
+    "ruff",                                               # Linter and formatter rasm:lint and rasm:format run
     "s3fs>=2026.7",                                       # S3 filesystem for tests over moto, aiobotocore caps botocore below the boto3 moto takes and the resolver otherwise falls to 0.4.2
     "scipy-stubs",                                        # Stubs for scipy
+    "skia-pathops",                                       # Glyph stroke expansion and unions per alpha for Blender extension packing
     "sniffio",                                            # Asynchronous runtime detection for the test environment fixture
     "structlog",                                          # Log capture in the test runtime plugin
+    "svgelements",                                        # Glyph SVG parsing with arcs as cubics for Blender extension packing
+    "tomlkit",                                            # Comment-preserving manifest edits for Blender extension packing
     "trio",                                               # AnyIO Trio backend with the autojumping clock for the test doubles
     "ty",                                                 # Type checker rasm:typecheck runs
     "types-geopandas",                                    # Stubs for geopandas
@@ -378,6 +381,7 @@ dev = [
     "types-reportlab",                                    # Stubs for reportlab
     "types-shapely",                                      # Stubs for shapely
     "wcwidth",                                            # Display width of text with wide, combining, and emoji characters
+    "yamllint",                                           # YAML linter rasm:lint runs
 ]
 
 # --- [UV] -------------------------------------------------------------------------------
@@ -406,7 +410,7 @@ preview = true
 target-version = "py315"
 line-length = 200
 src = [".", "libs/python", "tools"]
-per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313", ".claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py" = "py313", "tools/interface/{roles,report,units,render,aliases,frame}.py" = "py313", "tools/interface/rhino/{window,markup}.py" = "py313", "tools/interface/blender/rows.py" = "py313", "tools/interface/*/script/**/*.py" = "py313", "tools/interface/blender/extension/**/*.py" = "py313" }
+per-file-target-version = { "{.claude/skills/use-blender/scripts/*,.claude/skills/use-rhino/scripts/{canvas,document,file3dm,records},tools/interface/{aliases,frame,render,report,roles,units,blender/rows,rhino/markup,rhino/window},tools/interface/{*/script,blender/extension}/**/*,tools/fitout/script}.py" = "py313" }
 format = { line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
@@ -500,7 +504,7 @@ require-lazy = [
 
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python", "tools"] }
-analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "PyObjCTools"] }
+analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "OpenImageIO", "PyObjCTools", "PyOpenColorIO", "svgelements"] }
 rules = { all = "error", dynamic-function-decorator-return = "ignore", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
 overrides = [{ include = ["tools/interface/rhino"], rules = { call-non-callable = "ignore", too-many-positional-arguments = "ignore" } }]
 
@@ -521,14 +525,13 @@ plugins = ["pydantic.mypy"]
 enable_error_code = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 overrides = [
     { module = "tests.*", disallow_any_explicit = false, disallow_any_unimported = false, warn_unreachable = false, disable_error_code = ["arg-type"] },
-    { module = ["fsspec", "fsspec.*", "s3fs"], ignore_missing_imports = true },
-    { module = ["AppKit", "CoreFoundation", "Foundation", "PyObjCTools"], ignore_missing_imports = true },
+    { module = ["AppKit", "CoreFoundation", "Foundation", "OpenImageIO", "PyObjCTools", "PyOpenColorIO", "_bpy", "fontTools.*", "fsspec.*", "pathops", "s3fs", "svgelements"], ignore_missing_imports = true },
     { module = "interface.host", disallow_any_unimported = false, disallow_subclassing_any = false },
+    { module = "fitout.__main__", disallow_any_unimported = false, disallow_subclassing_any = false },
     { module = "interface.rhino.*", disable_error_code = ["abstract", "call-arg", "type-abstract"] },
-    { module = ["OpenImageIO", "PyOpenColorIO", "_bpy"], ignore_missing_imports = true },
 ]
 
-# --- [PYDANTIC_MYPY]
+# --- [PYDANTIC_MYPY] --------------------------------------------------------------------
 
 [tool.pydantic-mypy]
 init_typed = true
@@ -541,7 +544,7 @@ warn_required_dynamic_aliases = true
 strict = true
 cache_dir = ".cache/pytest"
 testpaths = ["tests"]
-pythonpath = [".", "libs/python"]
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py", "bench_*.py"]
 python_functions = ["test_*", "bench_*"]
 collect_imported_tests = false

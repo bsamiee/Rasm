@@ -5,6 +5,7 @@
     "devDependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",
         "@adobe-uxp-types/uxp": "catalog:",
+        "@ast-grep/lang-python": "catalog:",
         "@ast-grep/napi": "catalog:",
         "@aws-sdk/client-s3": "catalog:",
         "@aws-sdk/lib-storage": "catalog:",
@@ -299,14 +300,14 @@
                 "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.csproj", "dotnet"],
                 "outputs": ["{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*"]
             },
-            "browsers": { "command": "playwright install chromium --no-shell", "parallelism": false },
             "grammar": {
                 "executor": "nx:run-commands",
                 "cache": true,
                 "inputs": [{ "externalDependencies": ["@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3"] }, { "runtime": "tree-sitter --version" }],
                 "outputs": ["{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql.so"],
                 "options": {
-                    "commands": ["tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml", "tree-sitter build --output .cache/ast-grep/sql.so node_modules/tree-sitter-sqlite3"]
+                    "commands": ["tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml", "tree-sitter build --output .cache/ast-grep/sql.so node_modules/tree-sitter-sqlite3"],
+                    "parallel": false
                 }
             },
             "rewrite": { "command": "ast-grep scan -U --no-ignore hidden", "parallelism": false, "dependsOn": ["grammar"] },
@@ -314,38 +315,82 @@
                 "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml",
                 "dependsOn": ["grammar"]
             },
-            "lint": {
-                "executor": "nx:run-commands",
+            "lint:ast-grep": {
+                "command": "ast-grep scan --no-ignore hidden --error=no-suppress-all",
                 "cache": true,
+                "parallelism": false,
                 "dependsOn": ["grammar"],
                 "inputs": [
-                    "{workspaceRoot}/**/*",
+                    "{workspaceRoot}/sgconfig.yml",
+                    "{workspaceRoot}/tools/ast-grep/{rules,utils}/**/*",
+                    "pythonFiles",
+                    "yamlFiles",
+                    "javaFiles",
+                    "{workspaceRoot}/**/*.{bash,bats,cgi,command,env,fcgi,ksh,sh,tmux,tool,zsh}",
+                    "{workspaceRoot}/**/*.cs",
+                    "{workspaceRoot}/**/*.{cjs,js,mjs,jsx}",
+                    "{workspaceRoot}/**/*.{py3,bzl,bazel}",
+                    "{workspaceRoot}/**/*.swift",
+                    "{workspaceRoot}/**/*.{ts,tsx}",
+                    "{workspaceRoot}/**/*.{xml,csproj,props,targets,slnx}",
+                    "{workspaceRoot}/**/NuGet.config",
+                    "{workspaceRoot}/**/*.sql",
                     { "dependentTasksOutputFiles": "**/*.so" },
-                    { "runtime": "ast-grep --version" },
-                    { "runtime": "ruff --version" },
-                    { "runtime": "biome --version" },
-                    { "runtime": "yamllint --version" },
-                    { "runtime": "yamlfmt -version" },
-                    { "runtime": "actionlint --version" },
-                    { "runtime": "shellcheck --version" },
-                    { "runtime": "google-java-format --version" },
-                    { "runtime": "pmd --version" }
-                ],
-                "options": {
-                    "commands": [
-                        "ast-grep scan --no-ignore hidden --error=no-suppress-all",
-                        "biome check --error-on-warnings",
-                        "ruff check",
-                        "ruff format --check",
-                        "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint",
-                        "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint",
-                        "actionlint",
-                        "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed",
-                        "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --use-version java-27 --cache .cache/pmd/java --no-progress"
-                    ],
-                    "parallel": false
-                }
+                    { "runtime": "ast-grep --version" }
+                ]
             },
+            "lint:biome": {
+                "command": "biome check --error-on-warnings",
+                "cache": true,
+                "parallelism": false,
+                "inputs": [
+                    "{workspaceRoot}/.editorconfig",
+                    "{workspaceRoot}/**/.{gitignore,ignore}",
+                    "{workspaceRoot}/pnpm-workspace.yaml",
+                    "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}",
+                    "!{workspaceRoot}/**/*.{xcassets,icon}/**",
+                    "!{workspaceRoot}/tools/interface/adobe/script/*.jsx",
+                    { "runtime": "biome --version" }
+                ]
+            },
+            "lint:ruff-check": {
+                "command": "ruff check",
+                "cache": true,
+                "parallelism": false,
+                "inputs": ["pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb,md}", "{workspaceRoot}/**/pyproject.toml", { "runtime": "ruff --version" }]
+            },
+            "lint:ruff-format": {
+                "command": "ruff format --check",
+                "cache": true,
+                "parallelism": false,
+                "inputs": ["pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb,md}", "{workspaceRoot}/**/pyproject.toml", { "runtime": "ruff --version" }]
+            },
+            "lint:yamllint": {
+                "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint",
+                "cache": true,
+                "inputs": ["yamlFiles", "{workspaceRoot}/.yamllint.yaml", { "runtime": "yamllint --version" }]
+            },
+            "lint:yamlfmt": {
+                "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint",
+                "cache": true,
+                "inputs": ["yamlFiles", "{workspaceRoot}/.yamlfmt", { "runtime": "yamlfmt -version" }]
+            },
+            "lint:actionlint": {
+                "command": "actionlint",
+                "cache": true,
+                "inputs": ["{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" }]
+            },
+            "lint:google-java-format": {
+                "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed",
+                "cache": true,
+                "inputs": ["javaFiles", { "runtime": "google-java-format --version" }]
+            },
+            "lint:pmd": {
+                "command": "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --use-version java-27 --cache .cache/pmd/java --no-progress",
+                "cache": true,
+                "inputs": ["javaFiles", "{workspaceRoot}/pmd.xml", { "runtime": "pmd --version" }]
+            },
+            "lint": { "dependsOn": ["lint:ast-grep", "lint:biome", "lint:ruff-check", "lint:ruff-format", "lint:yamllint", "lint:yamlfmt", "lint:actionlint", "lint:google-java-format", "lint:pmd"] },
             "format": {
                 "executor": "nx:run-commands",
                 "dependsOn": ["restore"],
@@ -361,13 +406,22 @@
                     "parallel": false
                 }
             },
-            "typecheck": {
-                "executor": "nx:run-commands",
+            "typecheck:tsc": {
+                "command": "tsc --build --pretty false",
                 "cache": true,
-                "inputs": ["typescript", "python", "{workspaceRoot}/tsconfig.json", "{workspaceRoot}/*.config.ts", "{workspaceRoot}/{infra,tools/nx}/*.ts", "{workspaceRoot}/{apps,libs/typescript,tests/typescript}/**/vitest.config.ts", "{workspaceRoot}/**/*.py", { "externalDependencies": ["typescript"] }],
-                "options": { "commands": ["tsc --build --pretty false", "ty check", "mypy"] },
+                "inputs": [
+                    "typescript",
+                    "{workspaceRoot}/tsconfig.json",
+                    "{workspaceRoot}/*.config.ts",
+                    "{workspaceRoot}/{.codex/hooks,infra,tools/nx,tools/bridge,plugins/function-hooks/hooks}/*.ts",
+                    "{workspaceRoot}/{apps,libs/typescript,tests/typescript}/**/vitest.config.ts",
+                    { "externalDependencies": ["typescript"] }
+                ],
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/root"]
             },
+            "typecheck:ty": { "command": "ty check", "cache": true, "parallelism": false, "inputs": ["python", "pythonFiles", { "runtime": "ty --version" }] },
+            "typecheck:mypy": { "command": "mypy", "cache": true, "inputs": ["python", "pythonFiles", { "runtime": "mypy --version" }] },
+            "typecheck": { "dependsOn": ["typecheck:tsc", "typecheck:ty", "typecheck:mypy"] },
             "check": { "dependsOn": ["lint", "typecheck"] },
             "infra": {
                 "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts",
@@ -378,9 +432,9 @@
             "upgrade": {
                 "executor": "nx:run-commands",
                 "parallelism": false,
-                "dependsOn": [{ "projects": ["tag:language:swift"], "target": "upgrade" }, { "projects": ["tag:host:rhino"], "target": "pack" }],
+                "dependsOn": [{ "projects": ["tag:language:swift"], "target": "upgrade" }, { "projects": ["tag:host:rhino", "tag:host:blender"], "target": "pack" }],
                 "options": {
-                    "commands": ["uv sync --upgrade", "ncu --workspaces --target newest --upgrade --install always", "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props", "mise upgrade", "python -m interface.cli upgrade"],
+                    "commands": ["uv sync --upgrade", "ncu --workspaces --target newest --upgrade --install always", "playwright install chromium --no-shell", "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props", "mise upgrade", "python -m interface.cli upgrade"],
                     "parallel": false
                 }
             },

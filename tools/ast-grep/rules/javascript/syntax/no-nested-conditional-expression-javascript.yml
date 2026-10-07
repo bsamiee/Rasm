@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: ternary_expression
     all:
-        - has: {kind: ternary_expression, stopBy: {not: {kind: 'parenthesized_expression, unary_expression'}}}
-        - not: {inside: {kind: ternary_expression, stopBy: {not: {kind: 'parenthesized_expression, unary_expression'}}}}
+        - has: {kind: ternary_expression, stopBy: {not: {kind: 'parenthesized_expression, unary_expression, template_string, template_substitution'}}}
+        - not: {inside: {kind: ternary_expression, stopBy: {not: {kind: 'parenthesized_expression, unary_expression, template_string, template_substitution'}}}}
 message: 'Conditional expression nests a conditional'
 note: 'Select with an `if` statement per test, or `switch` when every test compares one subject'

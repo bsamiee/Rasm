@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-type-expression
+language: python
+rule:
+    any:
+        - inside: {kind: type, stopBy: end}
+        - inside:
+            kind: subscript
+            field: subscript
+            has: {field: value, regex: '^((\w+\.)*[A-Z][a-z]\w*|dict|frozenset|list|set|tuple|type)$'}

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-blocking-wait
+language: swift
+rule:
+    kind: call_expression
+    any:
+        - has:
+            nthChild: 1
+            any:
+                - kind: simple_identifier
+                  regex: '^(sleep|usleep|nanosleep|CFRunLoopRunInMode)$'
+                - kind: navigation_expression
+                  regex: '^(Foundation\.)?Thread\.sleep$'
+        - all:
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.run$'}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^(until|mode)$'}}}}

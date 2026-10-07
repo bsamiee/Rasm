@@ -13,7 +13,7 @@ utils:
     sleep-task:
         matches: group-call
         all:
-            - has: {stopBy: end, kind: call_expression, pattern: $SLEEP, regex: '^(await\s+)?(Task|\w+|(Continuous|Suspending)Clock\(\))\.sleep\('}
+            - has: {stopBy: end, kind: call_expression, all: [{pattern: $SLEEP}, {pattern: $_.sleep($$$)}]}
             - not:
                 has:
                     stopBy: end

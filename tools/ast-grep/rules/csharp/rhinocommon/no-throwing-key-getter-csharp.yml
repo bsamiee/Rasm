@@ -1,0 +1,207 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throwing-key-getter-csharp
+language: csharp
+severity: error
+utils:
+    dictionary-type:
+        any:
+            - regex: '^((global::)?Rhino\.Collections\.)?ArchivableDictionary\??$'
+            - kind: identifier
+              pattern: $ALIAS
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: using_directive
+                    all:
+                        - has: {field: name, pattern: $ALIAS}
+                        - has: {nthChild: 2, regex: '^((global::)?Rhino\.Collections\.)?ArchivableDictionary$'}
+    dictionary-container:
+        regex: '^((global::)?LanguageExt\.)?(Option|Seq|Lst|Arr|IO|Fin|Eff)\s*<\s*((global::)?Rhino\.Collections\.)?ArchivableDictionary\s*>$'
+    container-node:
+        any:
+            - kind: identifier
+              matches: {csharp-declared-type: {type: {matches: dictionary-container}}}
+            - kind: invocation_expression
+              has: {field: function, regex: '(^|\.)\s*UserDictionary$'}
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    any:
+                        - kind: identifier
+                          pattern: $METHOD
+                        - kind: member_access_expression
+                          has: {field: name, kind: identifier, pattern: $METHOD}
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has:
+                        stopBy: end
+                        kind: method_declaration, local_function_statement
+                        all:
+                            - has: {field: name, pattern: $METHOD}
+                            - any: [{has: {field: returns, matches: dictionary-container}}, {has: {field: type, matches: dictionary-container}}]
+    dictionary-node:
+        any:
+            - kind: member_access_expression
+              has: {field: name, regex: '^UserDictionary$'}
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(GetDictionary|ReadDictionary)$'}}
+            - matches: {csharp-typed-creation: {type: {matches: dictionary-type}}}
+            - kind: cast_expression
+              has: {field: type, matches: dictionary-type}
+            - kind: parenthesized_expression, postfix_unary_expression
+              has: {matches: dictionary-node}
+            - kind: identifier
+              matches: {csharp-declared-type: {type: {matches: dictionary-type}}}
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    any:
+                        - kind: identifier
+                          pattern: $FACTORY
+                        - kind: member_access_expression
+                          has: {field: name, kind: identifier, pattern: $FACTORY}
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has:
+                        stopBy: end
+                        kind: method_declaration, local_function_statement
+                        all:
+                            - has: {field: name, pattern: $FACTORY}
+                            - any: [{has: {field: returns, matches: dictionary-type}}, {has: {field: type, matches: dictionary-type}}]
+            - kind: member_access_expression
+              all:
+                - has: {field: name, kind: identifier, pattern: $MEMBER}
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has:
+                        stopBy: end
+                        any:
+                            - kind: property_declaration, parameter, tuple_element
+                              all: [{has: {field: type, matches: dictionary-type}}, {has: {field: name, pattern: $MEMBER}}]
+                            - kind: field_declaration
+                              has: {kind: variable_declaration, all: [{has: {field: type, matches: dictionary-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $MEMBER}}}]}
+            - kind: identifier
+              pattern: $MEMBER
+              not: {inside: {kind: member_access_expression, field: name}}
+              inside:
+                stopBy: end
+                kind: class_declaration, record_declaration, struct_declaration
+                has:
+                    any:
+                        - kind: parameter_list
+                          has: {kind: parameter, all: [{has: {field: type, matches: dictionary-type}}, {has: {field: name, pattern: $MEMBER}}]}
+                        - kind: declaration_list
+                          has:
+                            any:
+                                - kind: property_declaration
+                                  all: [{has: {field: type, matches: dictionary-type}}, {has: {field: name, pattern: $MEMBER}}]
+                                - kind: field_declaration
+                                  has: {kind: variable_declaration, all: [{has: {field: type, matches: dictionary-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $MEMBER}}}]}
+            - kind: identifier
+              pattern: $LOCAL
+              inside:
+                stopBy: end
+                kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration
+                has:
+                    stopBy: end
+                    any:
+                        - kind: variable_declarator
+                          all: [{has: {field: name, pattern: $LOCAL}}, {has: {nthChild: 2, matches: dictionary-node}}]
+                        - kind: declaration_expression
+                          all:
+                            - has: {field: name, pattern: $LOCAL}
+                            - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '\.\s*TryGetDictionary$'}}}}
+            - kind: identifier
+              pattern: $BOUND
+              inside:
+                stopBy: end
+                kind: lambda_expression
+                all:
+                    - has: {field: parameters, kind: implicit_parameter, pattern: $BOUND}
+                    - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: container-node}}}}}
+            - kind: identifier
+              pattern: $RANGE
+              inside:
+                stopBy: end
+                kind: query_expression
+                has:
+                    kind: from_clause
+                    all:
+                        - has: {field: name, pattern: $RANGE}
+                        - any: [{has: {field: type, matches: dictionary-type}}, {has: {nthChild: {position: 1, reverse: true}, matches: container-node}}]
+    settings-receiver:
+        has:
+            field: function
+            any:
+                - kind: member_access_expression
+                  has: {field: expression, matches: csharp-settings-node}
+                - kind: conditional_access_expression
+                  all: [{has: {field: condition, matches: csharp-settings-node}}, {has: {kind: member_binding_expression}}]
+    dictionary-receiver:
+        has:
+            field: function
+            any:
+                - kind: member_access_expression
+                  has: {field: expression, matches: dictionary-node}
+                - kind: conditional_access_expression
+                  all: [{has: {field: condition, matches: dictionary-node}}, {has: {kind: member_binding_expression}}]
+    receiver:
+        any: [{matches: settings-receiver}, {matches: dictionary-receiver}]
+    one-argument:
+        has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+    key:
+        any:
+            - kind: string_literal, interpolated_string_expression, verbatim_string_literal, raw_string_literal
+            - kind: invocation_expression
+              has: {field: function, regex: '^nameof$'}
+            - kind: identifier
+              matches: {csharp-declared-type: {type: {regex: '^((global::)?System\.)?(string|String)\??$'}}}
+    write:
+        inside: {kind: assignment_expression, field: left, has: {field: operator, regex: '^=$'}}
+rule:
+    pattern: $READ
+    any:
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '\.\s*Get(Bool|Byte|Bytes|Char|Child|Color|Date|Dictionary|Double|Float|Guid|Integer|Plane|Point|Point3d|Point3f|Rectangle|SettingIsReadOnly|SettingType|Size|String|StringDictionary|StringList|UnsignedInteger|Vector3d)$'}
+            - matches: one-argument
+            - matches: receiver
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '\.\s*GetSettingIsHiddenFromUserInterface$'}
+            - matches: settings-receiver
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '\.\s*GetEnumValue\s*<.+>$'}
+            - matches: one-argument
+            - any:
+                - matches: dictionary-receiver
+                - all: [{has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: key}}}}, {matches: settings-receiver}]
+        - kind: member_access_expression
+          all:
+            - inside: {kind: argument, not: {inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}}
+            - any:
+                - all:
+                    - has: {field: name, regex: '^Get(Bool|Byte|Bytes|Char|Child|Color|Date|Dictionary|Double|Float|Guid|Integer|Plane|Point|Point3d|Point3f|Rectangle|SettingIsHiddenFromUserInterface|SettingIsReadOnly|SettingType|Size|String|StringDictionary|StringList|UnsignedInteger|Vector3d)$'}
+                    - has: {field: expression, any: [{matches: csharp-settings-node}, {matches: dictionary-node}]}
+                - all:
+                    - has: {field: name, regex: '^GetEnumValue\s*<.+>$'}
+                    - has: {field: expression, matches: dictionary-node}
+        - kind: element_access_expression
+          all:
+            - not: {matches: write}
+            - has: {field: expression, matches: dictionary-node}
+        - kind: conditional_access_expression
+          all:
+            - has: {kind: element_binding_expression}
+            - not: {matches: write}
+            - has: {field: condition, matches: dictionary-node}
+message: '`$READ` throws when the key is missing'
+note: Use `SettingType.<Kind>.Read(<settings>, <key>)` for a settings value, `TryGet<Name>(<key>, out <value>)` or `TryGetValue(<key>, out <value>)` for a dictionary value, `TryGetChild`, `TryGetSettingType`, `TryGetSettingIsReadOnly`, or `TryGetSettingIsHiddenFromUserInterface` for a settings child or its metadata, and `AddChild(<key>)` for a child to write through

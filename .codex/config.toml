@@ -20,30 +20,23 @@ max_concurrent_threads_per_session = 80
 
 [mcp_servers.adobe]
 default_tools_approval_mode = "approve"
-command = "mise"
-args = ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts"]
+url = "http://127.0.0.1:7409/"
 
 [mcp_servers.roslyn-codelens]
 default_tools_approval_mode = "approve"
-command = "mise"
-args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
-required = true
-startup_timeout_sec = 120
+url = "http://127.0.0.1:7401/"
 
 [mcp_servers.binlog]
 default_tools_approval_mode = "approve"
-command = "mise"
-args = ["exec", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"]
+url = "http://127.0.0.1:7403/"
 
 [mcp_servers.nuget]
 default_tools_approval_mode = "approve"
-command = "mise"
-args = ["exec", "--", "dotnet", "dnx", "NuGet.Mcp.Server"]
+url = "http://127.0.0.1:7402/"
 
 [mcp_servers.ast-grep]
 default_tools_approval_mode = "approve"
-command = "mise"
-args = ["exec", "--", "ast-grep-server"]
+url = "http://127.0.0.1:7404/"
 
 [mcp_servers.github]
 default_tools_approval_mode = "approve"
@@ -104,20 +97,16 @@ tool_timeout_sec = 120
 
 [mcp_servers.rhino-mcp-platform]
 default_tools_approval_mode = "approve"
-command = "mise"
-args = ["exec", "--", "rhino-mcp-router"]
-startup_timeout_sec = 20
+url = "http://127.0.0.1:7406/"
 tool_timeout_sec = 180
 
 [mcp_servers.blender]
 default_tools_approval_mode = "approve"
-command = "mise"
-args = ["exec", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
+url = "http://127.0.0.1:7407/"
 
 [mcp_servers.mcp-for-blender]
 default_tools_approval_mode = "approve"
-command = "mise"
-args = ["exec", "--", "mcp-for-blender"]
+url = "http://127.0.0.1:7408/"
 tool_timeout_sec = 180
 
 # --- [PLUGINS] --------------------------------------------------------------------------
@@ -149,3 +138,26 @@ command = '"$(git rev-parse --show-toplevel)/.codex/hooks/root-cause.sh"'
 [[hooks.SubagentStart.hooks]]
 type = "command"
 command = '"$(git rev-parse --show-toplevel)/.codex/hooks/root-cause.sh"'
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = 'mise exec -- node "$(git rev-parse --show-toplevel)/.codex/hooks/rewrite.ts"'
+
+[[hooks.PreToolUse]]
+matcher = "^mcp__rhino-mcp-platform__"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = 'mise exec -- uv run --script "$(git rev-parse --show-toplevel)/.claude/skills/use-rhino/scripts/hook.py"'
+timeout = 10
+
+[[hooks.PreToolUse]]
+matcher = "^mcp__(blender|mcp-for-blender)__"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = 'mise exec -- uv run --script "$(git rev-parse --show-toplevel)/.claude/skills/use-blender/scripts/wrapper.py"'
+timeout = 10

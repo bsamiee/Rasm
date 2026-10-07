@@ -8,15 +8,25 @@ rule:
     all:
         - has: {kind: Name, regex: '^WriteLinesToFile$'}
         - not: {has: {kind: Attribute, has: {kind: Name, regex: '^WriteOnlyWhenDifferent$'}}}
+        - not: {inside: {stopBy: end, matches: {msbuild-element: {name: {regex: '^Target$'}}}, has: {matches: msbuild-tag, has: {kind: Attribute, has: {kind: Name, regex: '^Outputs$'}}}}}
         - any:
             - has: {matches: {msbuild-attribute: {name: {regex: '^Overwrite$'}, value: {regex: '(?i)^["'']\s*(true|on|yes|!false|!off|!no)\s*["'']$'}}}}
             - all:
                 - has: {kind: Name, pattern: _APPENDING}
                 - not: {has: {kind: Attribute, has: {kind: Name, regex: '^Overwrite$'}}}
+                - has: {matches: {msbuild-attribute: {name: {regex: '^File$'}, value: {pattern: _FILE}}}}
+                - not:
+                    inside:
+                        kind: element
+                        follows:
+                            stopBy: end
+                            any:
+                                - matches: {msbuild-element: {name: {regex: '^Exec$'}}}
+                                - has: {matches: msbuild-tag, has: {kind: Attribute, has: {kind: AttValue, pattern: _FILE}}}
 transform:
     HEAD: replace($TAG, replace='\s*/?>$', by='')
     CLOSE: replace($TAG, replace='(?s)^.*?(\s*/?>)$', by='$1')
     OVERWRITE: replace($APPENDING, replace='^.+$', by=' Overwrite="true"')
 fix: $HEAD$OVERWRITE WriteOnlyWhenDifferent="true"$CLOSE
 message: '`WriteLinesToFile` writes its file on every build, unchanged `Lines` included'
-note: Set `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`
+note: Set `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`, or append after a same-target task writing the file

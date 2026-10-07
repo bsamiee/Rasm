@@ -54,7 +54,8 @@ unzip -l <dist>/<id>-<version>.zip
 - `wheels` lists `./wheels/<file>.whl` paths for bundled dependencies, including transitive dependencies Blender does not supply
 - Bundled wheels must cover every supported platform
 - Blender selects wheels by filename tags and resolves no dependencies from wheel metadata
-- `build` checks manifest metadata and tags strictly before writing, including `tagline` at 64 characters where loading accepts more
+- `build` validates manifests, tags, and add-on root `__init__.*` before writing
+- `build` limits `tagline` to 64 characters where loading accepts more
 - Build output folders must exist before the command runs
 - `validate <source-or-zip>` checks a folder or archive without building and exits 1 on invalid metadata
 - `validate` and `build` run on the user's tree and leave its shared wheels as they are
@@ -103,7 +104,9 @@ env BLENDER_USER_RESOURCES=<tree> TMPDIR=<tree>/tmp /usr/bin/open -n -g -W -a Bl
 
 Use `nx run <project>:install` for repository extension projects.
 
-Each package kind has one command line and one call inside a running Blender:
+Install through Blender running on `<tree>`. Background installs resync shared wheels. GUI exit can overwrite preferences saved by another process.
+
+With no Blender running on `<tree>`, use the command for each package kind:
 
 ```bash
 # Built zip into user_default, enabled, preferences saved
@@ -114,7 +117,7 @@ env BLENDER_USER_RESOURCES=<tree> blender --online-mode -c extension install --s
 ```
 
 ```python
-# [HEADLESS_CALL] Built zip, platform package, and bl_info zip installed and enabled, the records saved
+# [EXECUTE_BLENDER_CODE] Built zip, platform package, and bl_info zip installed and enabled, preferences saved
 import addon_utils
 import bpy
 
@@ -149,7 +152,7 @@ Reinstalls over an enabled copy load the new modules in the running process:
 - `bl_info` reinstalls take the snippet, the disable and `sys.modules` pass loading the new submodules that `addon_install` alone keeps old
 
 ```python
-# [HEADLESS_CALL] bl_info add-on reinstalled over its enabled copy with the new submodules loaded
+# [EXECUTE_BLENDER_CODE] bl_info add-on reinstalled over its enabled copy with new submodules loaded
 import sys
 
 import addon_utils

@@ -5,10 +5,10 @@ severity: error
 utils:
     effect-record:
         pattern: $R
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Record)?$'}, exported: {regex: '^Record$'}}}
+        matches: {effect-module: {name: {regex: '\bRecord$'}}}
     effect-iterable:
         pattern: $M
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Array|/Iterable)?$'}, exported: {regex: '^(Array|Iterable)$'}}}
+        matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}
     key-pair:
         kind: array
         all:
@@ -51,15 +51,29 @@ rule:
                 - has:
                     nthChild: 1
                     kind: call_expression
-                    all:
-                        - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-iterable}}, {has: {field: property, regex: '^map$'}}]}
-                        - has:
-                            field: arguments
-                            all:
-                                - not: {has: {kind: comment}}
-                                - has: {nthChild: 1, pattern: $L}
-                                - has: {nthChild: 2, matches: projection, pattern: $FN}
-                                - not: {has: {nthChild: 3}}
+                    any:
+                        - all:
+                            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-iterable}}, {has: {field: property, regex: '^map$'}}]}
+                            - has:
+                                field: arguments
+                                all:
+                                    - not: {has: {kind: comment}}
+                                    - has: {nthChild: 1, pattern: $L}
+                                    - has: {nthChild: 2, matches: projection, pattern: $FN}
+                                    - not: {has: {nthChild: 3}}
+                        - all:
+                            - has:
+                                field: function
+                                kind: member_expression
+                                all:
+                                    - has: {field: object, pattern: $L, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}
+                                    - has: {field: property, regex: '^map$'}
+                            - has:
+                                field: arguments
+                                all:
+                                    - not: {has: {kind: comment}}
+                                    - has: {nthChild: 1, matches: projection, pattern: $FN}
+                                    - not: {has: {nthChild: 2}}
 rewriters:
     - id: by
       rule:
@@ -102,5 +116,5 @@ transform:
     OP: rewrite($FN, rewriters=[by, with])
     BODY: rewrite($FN, rewriters=[key, bare])
 fix: $R.$OP($L, $BODY)
-message: '`$R.fromEntries` over `$M.map` rebuilds `$R.$OP`'
+message: '`$R.fromEntries` over a mapped list rebuilds `$R.$OP`'
 note: '`Record.fromIterableWith(<list>, <f>)` adds the pair `<f>` returns per element and `Record.fromIterableBy(<list>, <key>)` adds each element under its key, with no entry array between'

@@ -3,12 +3,12 @@
 Policies refuse tool calls. With `observation` true, hook events become database rows, and stop boundaries spawn agents and deliver findings:
 - Use `observation` skill for database reads and writes
 
-[TOOL_CALL]: Function hooks hold one decision the harness takes on every tool call before the tool runs, `deny`, `next` over the call, or `next` over its rewrite
+[TOOL_CALL]: Function hooks answer each tool call before it runs with `deny`, `next` over the call, or `next` over its rewrite
 - ALWAYS use `plugin-authoring` skill for writing or changing a function hook
 - ALWAYS write a policy as a pure function from the parsed call to its refusal, `register.ts` alone reads `$` and answers `deny` or `next`
-- ALWAYS write a rewrite as a pure function from the parsed call and text to a command, a change note, and an optional instruction of what to write
+- ALWAYS write a rewrite as a pure function from the parsed call, its text, and its locks to a command, a note, and model context
 - `register.ts` runs every refusal policy over the parsed call, and queues and rewrites a call no policy refuses
-- `register.ts` logs each note to the transcript and adds it with its instruction to result `context` for the model
+- `register.ts` logs each note to the transcript and adds each rewrite's context to result `context`
 - ALWAYS write `$.ui.log` text as one line
 - ALWAYS fold every policy under the one `tool.call` registration, the first refusing policy is the call's answer
 
@@ -25,29 +25,32 @@ Policies read Bash and Monitor (git, stdin, wait, rewrite), Bash alone (script, 
 - Failed parse refuses the call
 - Redirect words past the first destination are operands of the command, and a statement's redirect belongs to its last command
 - Policies read every program of a command's wrapper chain and the command a launcher runs after `--`
-- `invocation.ts` declares each program's valued options, wrappers, launchers, reader and recursion options, a valued option missing there makes its value an operand
+- Inline bodies (`eval` words, a shell's `-c` operand, operands and `bodies` option values of a program with `bodies`) parse under the same policies
+- `invocation.ts` declares each program's options, bodies, input, and inner command, an undeclared option's value parses as an operand
 - Walker policy joins the Bash policies when `walkPolicy` is true, its default false passes every walker and reads no `HOME` or path
-- Walker policy compares each start operand's real path, or its folder's when the operand does not resolve, with the real path of `~/Library/CloudStorage`
-- Stdin policy refuses a reader program of `invocation.ts` that no operand, pipe, heredoc, herestring, or input redirect on it or an enclosing statement feeds
+- Walker policy compares each start operand's real path, or its folder's for an unresolved operand, with the real path of `~/Library/CloudStorage`
+- Stdin policy refuses an `invocation.ts` reader that no operand, pipe, heredoc, herestring, or input redirect on it or an enclosing statement feeds
 - Bash tool stdin is a character device in foreground and background runs, `rg` with no operand searches the working directory and is no reader
 - Wait policy refuses a program of `policies.ts` that blocks the call on time or another process
 - Wait policy refuses every command inside a `while` or `until` loop not driven by `read` and inside a `for ((;;))` loop
 - Git policy checks each operand of `git reset` and `git checkout` through `$.fs.exists`, an existing path passes `reset` and refuses `checkout`
 - Rewrite policy adds `-A` to an `sd` invocation lacking it whose find holds a line break, line mode never matches one
-- Rewrite policy adds `--` before the find of an `sd` invocation with an operand opening with `-` outside its `invocation.ts` row's `flags` and `valued` options
+- Rewrite policy adds `--` before an `sd` find when an operand opens with `-` outside the `flags` and `valued` options of its `invocation.ts` row
 - Rewrite policy splices top-level commands by the byte spans of their words, a command inside an inline body keeps its text
-- Queue policy wraps a Bash command able to run uv's resolver as `{ lockf 9 && {`, its lines, and `} 9>&-; } 9>>'<root>/.cache/uv-resolver.lock'`
-- Queued commands from every agent, session, and worktree share the main working tree's lock and run one at a time
+- Queue policy wraps a command in `{ lockf 9 && {`, its lines, and `} 9>&-; } 9>>'<root>/<lock>'` once per lock the command needs
+- Queued commands from every agent, session, harness, and worktree share each lock under the main working tree and run one at a time per lock
 - Brace group runs the command in Bash tool's shell with its `cd`, aliases, functions, and exit status unchanged
 - Shell holds the lock on descriptor 9 and closes it for the command, a process the command leaves running holds no lock
-- `policies.ts` `queues` declares uv and uvx commands running the resolver with options and operands that skip, force, or gate a resolve
-- `nx` calls queue when a named target or its `dependsOn` closure in root `package.json` `nx.targets` or `nx.json` `targetDefaults` runs uv's resolver
+- `policies.ts` `queues` declares each lock under `.cache/` with its commands and options, uv and uvx resolves and `ast-grep scan` or `sg scan` writes
+- `nx` calls queue when a target they name or its `dependsOn` closure in root `package.json` or `nx.json` runs a queued command
+- `nx` words resolve by glob to the target keys matching their longest `:` prefix, after an optional project segment
 - Unread or malformed root `package.json` or `nx.json`, or an unparsed target command, refuses the `nx` call
-- Commands holding a `lockf` operand ending in `.cache/uv-resolver.lock` pass unwrapped, a nested lock waits on its own holder
+- `lockf` on a descriptor number skips every wrap and on a lock's path skips that lock's wrap, a nested wrap waits on its own holder
+- Codex's Bash `PreToolUse` hook in `.codex/config.toml` runs the queue and rewrite policies through `.codex/hooks/rewrite.ts`
 
 ## [02]-[RECORDING]
 
-With `observation` true, `Stop`, every classic event the matcher lists, every `turn.*` event, and every refused `tool.call` becomes one row stamped from `$.clock`:
+With `observation` true, `Stop`, `register.ts` `_RECORDED`, `turn.*`, and refused `tool.call` events each become one row stamped from `$.clock`:
 - `observation` false registers the `tool.call` decision alone, opens no database, writes no row, spawns no agent, and sets no status line
 - Read, Write, and Edit call bodies, batch call responses, and deny trace values drop before the write
 - One awaited `sqlite3` process writes the row before `next(e)`, a deny row after the answer

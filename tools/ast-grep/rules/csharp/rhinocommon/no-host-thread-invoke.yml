@@ -51,12 +51,33 @@ utils:
         regex: '^(Invoke|AsyncInvoke|InvokeAsync)(\s*<.+>)?$'
     context-invoke:
         regex: '^(Post|Send)$'
+    main-thread-invoke:
+        regex: '^(Begin)?InvokeOnMainThread$'
+    main-queue:
+        regex: '^((global::)?CoreFoundation\.)?DispatchQueue\s*\.\s*MainQueue$'
+    main-thread:
+        regex: '^((global::)?Foundation\.)?NSThread\s*\.\s*MainThread$'
 rule:
-    kind: member_access_expression, conditional_access_expression
+    kind: identifier, member_access_expression, conditional_access_expression
     pattern: $CALL
     any:
         - kind: member_access_expression
           regex: '^((global::)?Rhino\.)?RhinoApp\s*\.\s*(InvokeAndWait|InvokeOnUiThread)$'
+        - kind: identifier
+          matches: main-thread-invoke
+          inside: {kind: invocation_expression, field: function}
+        - kind: member_access_expression
+          has: {field: name, matches: main-thread-invoke}
+        - kind: conditional_access_expression
+          has: {kind: member_binding_expression, has: {field: name, matches: main-thread-invoke}}
+        - kind: member_access_expression
+          all:
+            - has: {field: name, regex: '^Dispatch(Barrier)?(Async|Sync)$'}
+            - has: {field: expression, matches: main-queue}
+        - kind: 'identifier, member_access_expression'
+          all:
+            - any: [{regex: '^PerformSelector$'}, {has: {field: name, regex: '^PerformSelector$'}}]
+            - inside: {kind: invocation_expression, field: function, has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: main-thread}}}}
         - kind: member_access_expression
           all:
             - has: {field: name, matches: eto-invoke}

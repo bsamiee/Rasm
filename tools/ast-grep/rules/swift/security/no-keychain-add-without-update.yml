@@ -6,13 +6,13 @@ rule:
     pattern: $ARGS
     any:
         - matches: {swift-security-arguments: {subcommand: {regex: '^"add-(generic|internet)-password"$'}}}
-          not: {has: {kind: line_string_literal, regex: '^"-U"$'}}
-        - kind: line_string_literal
-          regex: '^"add-(generic|internet)-password '
-          not: {regex: '\s-U(\s|\\n|"$)'}
+          not: {has: {stopBy: end, kind: line_string_literal, regex: '^"-U"$'}}
+        - kind: line_string_literal, multi_line_string_literal, raw_string_literal
+          regex: '(?m)(?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password(?:[ \t]+(?:(?:[^\n\\ \t"]|\\[^n]){3,}|(?:[^\n\\ \t"-]|\\[^n])(?:[^\n\\ \t"]|\\[^n])|-(?:[^\n\\ \t"U]|\\[^n])|[^\n\\ \t"]|\\[^n]))+[ \t]*(?:"|\\n|$)'
 transform:
     LISTED: {replace: {source: $ARGS, replace: '"(add-(?:generic|internet)-password)"', by: '"$1", "-U"'}}
-    UPDATED: {replace: {source: $LISTED, replace: '^"(add-(?:generic|internet)-password) ', by: '"$1 -U '}}
+    EVERY_OTHER: {replace: {source: $LISTED, replace: '(?m)((?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password)((?:[ \t]+(?:(?:[^\n\\ \t"]|\\[^n]){3,}|(?:[^\n\\ \t"-]|\\[^n])(?:[^\n\\ \t"]|\\[^n])|-(?:[^\n\\ \t"U]|\\[^n])|[^\n\\ \t"]|\\[^n]))+[ \t]*(?:"|\\n|$))', by: '$1 -U$2'}}
+    UPDATED: {replace: {source: $EVERY_OTHER, replace: '(?m)((?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password)((?:[ \t]+(?:(?:[^\n\\ \t"]|\\[^n]){3,}|(?:[^\n\\ \t"-]|\\[^n])(?:[^\n\\ \t"]|\\[^n])|-(?:[^\n\\ \t"U]|\\[^n])|[^\n\\ \t"]|\\[^n]))+[ \t]*(?:"|\\n|$))', by: '$1 -U$2'}}
 fix: $UPDATED
 message: '`$ARGS` adds a keychain item without `-U` and exits 45 with errSecDuplicateItem once the item exists'
 note: 'Pass `-U` to update an existing item in place with its ACL and partition list'

@@ -4,13 +4,9 @@ language: xml
 severity: error
 rule:
     pattern: _TASK
-    any:
-        - all:
-            - matches: {msbuild-element: {name: {pattern: _NAME, regex: '^(Copy|Move)$'}}}
-            - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^SourceFiles$'}, value: {pattern: _GLOB, regex: '[*?]'}}}}}
-        - all:
-            - matches: {msbuild-element: {name: {pattern: _NAME, regex: '^(Delete|Touch)$'}}}
-            - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Files$'}, value: {pattern: _GLOB, regex: '[*?]'}}}}}
+    all:
+        - matches: {msbuild-element: {name: {pattern: _NAME, regex: '^(Copy|Move|Unzip|Delete|Touch)$'}}}
+        - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^(SourceFiles|Files)$'}, value: {pattern: _GLOB, regex: '[*?]'}}}}}
 rewriters:
     - id: pass-item
       rule:
@@ -31,7 +27,7 @@ rewriters:
             - inside:
                 matches: msbuild-tag
                 all:
-                    - has: {kind: Name, pattern: _NAME}
+                    - has: {kind: Name, pattern: _NAME, regex: '^(Copy|Move)$'}
                     - inside: {pattern: _TASK}
                     - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^SourceFiles$'}}, {has: {kind: AttValue, regex: '\*\*'}}]}
       transform:

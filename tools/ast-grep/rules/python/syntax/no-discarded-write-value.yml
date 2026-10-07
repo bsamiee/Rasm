@@ -3,11 +3,20 @@ id: no-discarded-write-value
 language: python
 severity: error
 utils:
-    target-argument:
-        kind: keyword_argument
-        has: {field: name, regex: '^target$'}
+    parameter-read:
+        kind: identifier
+        pattern: $DISCARDED
+        not:
+            any:
+                - inside: {kind: attribute, field: attribute}
+                - inside: {kind: keyword_argument, field: name}
     unread:
-        not: {has: {field: body, has: {stopBy: end, kind: identifier, pattern: $DISCARDED}}}
+        not: {has: {field: body, any: [{matches: parameter-read}, {has: {stopBy: end, matches: parameter-read}}]}}
+    discarding-lambda:
+        kind: lambda
+        all:
+            - has: {field: parameters, has: {nthChild: 1, matches: {python-parameter: {name: {pattern: $DISCARDED}}}}}
+            - matches: unread
     discarding-function:
         kind: function_definition
         all:
@@ -15,26 +24,64 @@ utils:
             - has: {field: parameters, has: {nthChild: {position: 1, reverse: true}, matches: {python-parameter: {name: {pattern: $DISCARDED}}}}}
             - matches: unread
     named-write:
-        kind: identifier
-        pattern: $FN
+        any:
+            - kind: identifier
+              pattern: $FN
+            - kind: attribute
+              all:
+                - has: {field: object, regex: '^(self|cls)$'}
+                - has: {field: attribute, pattern: $FN}
         inside: {kind: module, stopBy: end, has: {stopBy: end, matches: discarding-function}}
     discarding-write:
-        pattern: $WRITE
         any:
-            - kind: lambda
-              all:
-                - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $DISCARDED}}
-                - matches: unread
+            - matches: discarding-lambda
             - matches: named-write
             - kind: call
               all:
                 - has: {field: function, matches: functools-partial-callee}
                 - has: {field: arguments, has: {nthChild: 1, matches: named-write}}
+    write-argument:
+        kind: keyword_argument
+        all:
+            - has: {field: name, regex: '^write$'}
+            - has: {field: value, pattern: $WRITE}
+    target-argument:
+        kind: keyword_argument
+        all:
+            - has: {field: name, regex: '^target$'}
+            - has: {field: value, pattern: $TARGET}
+    one-parameter-lambda:
+        kind: lambda
+        has: {field: parameters, not: {has: {nthChild: 2}}}
 rule:
-    kind: keyword_argument
+    kind: call
     all:
-        - has: {field: name, regex: '^write$'}
-        - has: {field: value, matches: discarding-write}
-        - inside: {kind: argument_list, has: {matches: target-argument}}
-message: '`$WRITE` discards the value the row''s `target` passes it'
-note: 'Use a write that sets the value it receives, the host setter itself where one exists (`write=<setter>`), `target` states once what the row writes'
+        - has: {field: arguments, has: {matches: target-argument}}
+        - has: {field: arguments, has: {matches: write-argument, has: {field: value, matches: discarding-write}}}
+        - any:
+            - pattern: $RESTATED
+              all:
+                - has: {field: arguments, has: {matches: target-argument, has: {field: value, regex: '^(-?[\w.]+|"[^"\\{}]*"|''[^''\\{}]*'')$'}}}
+                - has: {field: arguments, has: {matches: write-argument, has: {field: value, matches: one-parameter-lambda, has: {field: body, pattern: $SETTER($TARGET), has: {field: function, regex: '^[A-Za-z_][\w.]*$'}}}}}
+            - pattern: $ACTION
+              all:
+                - has: {field: function, regex: '^Row$'}
+                - has: {field: arguments, has: {matches: write-argument, has: {field: value, matches: one-parameter-lambda}}}
+                - inside: {kind: module, stopBy: end, has: {kind: import_from_statement, has: {field: name, regex: '^Action$'}}}
+            - pattern: $UNFIXED
+rewriters:
+    - id: setter-write
+      rule: {matches: write-argument}
+      fix: write=$SETTER
+    - id: action-callee
+      rule: {kind: identifier, regex: '^Row$', inside: {kind: call, field: function, pattern: $ACTION}}
+      fix: Action
+    - id: action-write
+      rule: {matches: write-argument, has: {field: value, has: {field: body, pattern: $BODY}}}
+      fix: 'act=lambda: $BODY'
+transform:
+    WRITTEN: {rewrite: {source: $RESTATED, rewriters: [setter-write]}}
+    ACTED: {rewrite: {source: $ACTION, rewriters: [action-callee, action-write]}}
+fix: $WRITTEN$ACTED$UNFIXED
+message: '`$WRITE` discards the target its row passes it'
+note: 'Use the setter receiving the value (`write=<setter>`), or `Action(act=<step>)` for a step reaching the state without the value, `target` states once what the row writes'

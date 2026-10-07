@@ -19,6 +19,7 @@ rule:
         - any:
             - pattern: $R.dropFirst($$$)
             - pattern: $R.removeFirst($$$)
+            - pattern: '$R[$R.index($R.startIndex, offsetBy: $$$)...]'
             - {pattern: $R.suffix($$$), matches: count-difference}
           inside:
             stopBy: end
@@ -28,11 +29,26 @@ rule:
         - any:
             - pattern: $R.dropLast($$$)
             - pattern: $R.removeLast($$$)
+            - pattern: '$R[..<$R.index($R.endIndex, offsetBy: $$$)]'
             - {pattern: $R.prefix($$$), matches: count-difference}
           inside:
             stopBy: end
             any:
                 - {matches: branch, has: {stopBy: end, matches: suffix-test}}
                 - {kind: statements, has: {kind: guard_statement, has: {stopBy: end, matches: suffix-test}}}
+rewriters:
+    - id: trimmed-copy
+      rule:
+        any:
+            - pattern: $R.dropFirst($AFFIX.count)
+            - pattern: '$R[$R.index($R.startIndex, offsetBy: $AFFIX.count)...]'
+            - pattern: $R.suffix($R.count - $AFFIX.count)
+      fix: $R.trimmingPrefix($AFFIX)
+    - id: trimmed-in-place
+      rule: {pattern: $R.removeFirst($AFFIX.count)}
+      fix: $R.trimPrefix($AFFIX)
+transform:
+    TRIMMED: {rewrite: {source: $SLICE, rewriters: [trimmed-copy, trimmed-in-place]}}
+fix: $TRIMMED
 message: '`$SLICE` removes the tested affix `$AFFIX` by a count that restates its length'
 note: 'Drop the affix by one match, `<text>.trimmingPrefix(<affix>)`, `trimPrefix(<affix>)`, or `<text>.replacing(/<affix>\z/, with: "")` where text without it stays unchanged, `<text>.wholeMatch(of: /<affix>(.*)/)?.1` where text without it yields nil'

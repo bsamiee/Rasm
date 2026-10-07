@@ -3,14 +3,47 @@ id: no-raising-catch-all
 language: python
 severity: error
 utils:
-    type-error:
-        kind: raise_statement
-        has: {nthChild: 1, any: [{kind: identifier, regex: '^TypeError$'}, {kind: call, has: {field: function, kind: identifier, regex: '^TypeError$'}}]}
+    unhandled:
+        any:
+            - kind: raise_statement
+              has: {nthChild: 1, any: [{matches: {python-builtin-name: {name: {regex: '^TypeError$'}}}}, {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^TypeError$'}}}}}]}
+            - kind: expression_statement
+              has: {nthChild: 1, kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^assert_never$'}}}}}
     raising-body:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: type-error}
             - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: unhandled}
+    leaving-body:
+        kind: block
+        has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, kind: 'return_statement, raise_statement'}
+    type-test:
+        any:
+            - kind: call
+              all:
+                - not: {has: {field: arguments, has: {stopBy: end, kind: 'call, await, named_expression, yield, lambda'}}}
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(isinstance|issubclass)$'}}}}
+            - kind: boolean_operator
+              all:
+                - has: {field: operator, pattern: $$_OP, regex: '^or$'}
+                - has: {field: left, matches: type-test}
+                - has: {field: right, matches: type-test}
+            - kind: parenthesized_expression
+              has: {matches: type-test}
+    type-chain:
+        kind: if_statement
+        all:
+            - not: {has: {kind: elif_clause, not: {has: {field: condition, matches: type-test}}}}
+            - has: {field: condition, matches: type-test}
+    type-guard:
+        kind: if_statement
+        all:
+            - not: {has: {field: alternative, kind: 'elif_clause, else_clause'}}
+            - has: {field: consequence, matches: leaving-body}
+            - has: {field: condition, matches: type-test}
+    leaving-match:
+        kind: match_statement
+        has: {field: body, not: {has: {kind: case_clause, not: {has: {field: consequence, matches: leaving-body}}}}}
 rule:
     any:
         - kind: case_clause
@@ -18,9 +51,43 @@ rule:
             - has: {kind: case_pattern, any: [{regex: '^_$'}, {has: {kind: dotted_name, not: {has: {nthChild: 2}}}}]}
             - not: {has: {field: guard, kind: if_clause}}
             - has: {field: consequence, matches: raising-body}
+            - any:
+                - follows: {kind: case_clause, pattern: $PREV, stopBy: {not: {kind: comment}}}
+                - pattern: $UNFIXED
         - kind: else_clause
           all:
-            - inside: {kind: if_statement}
+            - follows: {kind: elif_clause, pattern: $ELIF}
             - has: {field: body, matches: raising-body}
-message: 'Catch-all branch raises `TypeError` for a case no earlier branch handles'
-note: 'Delete the catch-all branch and close dispatch on its last handled case, declared inputs reach no other type'
+            - inside: {matches: type-chain}
+        - kind: if_statement
+          all:
+            - not: {has: {kind: elif_clause}}
+            - has: {field: alternative, kind: else_clause, has: {field: body, matches: raising-body}}
+            - matches: type-chain
+            - has: {field: consequence, pattern: $BODY}
+        - kind: raise_statement, expression_statement
+          all:
+            - any:
+                - follows: {matches: leaving-match, pattern: $PREV, stopBy: {not: {kind: comment}}}
+                - all:
+                    - follows: {matches: type-guard, has: {field: consequence, pattern: $BODY}, stopBy: {not: {kind: comment}}}
+                    - not: {follows: {kind: if_statement, stopBy: end, not: {matches: type-guard}}}
+            - matches: unhandled
+rewriters:
+    - id: closing-branch
+      rule: {kind: elif_clause, has: {field: consequence, pattern: $LAST}}
+      fix: |-
+        else:
+            $LAST
+transform:
+    ELSE: {rewrite: {source: $ELIF, rewriters: [closing-branch]}}
+fix:
+    template: $PREV$BODY$ELSE$UNFIXED
+    expandStart:
+        stopBy: end
+        any:
+            - kind: case_clause, elif_clause
+            - any: [{matches: leaving-match}, {matches: type-guard}]
+              precedes: {matches: unhandled, stopBy: {not: {kind: comment}}}
+message: 'Catch-all branch raises for a type no earlier branch handles, the last handled case closes the dispatch'
+note: 'Use a `match` with no catch-all case or an `if` chain whose last handled branch is its `else` or its closing statement, mypy `exhaustive-match` and ty `redundant-condition-strict` check that declared inputs reach no other type. A `match` whose one case is the catch-all takes a manual rewrite'

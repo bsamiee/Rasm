@@ -1,13 +1,13 @@
 import type { ClassicHookInputs, EngineInterface, Frozen, On, PluginOptions, ProcessRunInit, Register, ToolCallInput, ToolCallResult, TurnCompleteInput } from 'claude-code';
 import { atom, read, update } from 'claude-code';
 import { type Command, parse, SCAN, type Scanner } from './command.ts';
-import { bind, decoded, fault, fromUndefined, map, none, type Option, ok, type Result, rendered, some } from './composition.ts';
-import type { Invocation } from './invocation.ts';
+import { bind, decoded, fault, map, none, type Option, ok, type Result, rendered, some } from './composition.ts';
+import { basename, type Invocation } from './invocation.ts';
 import { context, type Delivered, decided, outcome, request, type Settings, type State, settings, status, subject } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, type Payload, row, session, TURN } from './observation/row.ts';
 import { bound, DATABASE, DELIVER, DELTA, INSERT, JUDGE, OPEN, REPORT, STATE } from './observation/sql.ts';
 import type { Facts, Rewrite, Walk } from './policies.ts';
-import { CLOUD, callRefusal, commandRefusal, commandRewrite, decodedManifest, decodedNxJson, gitPaths, LOCK, nxReviver, nxTargets, queues, targetCommands, walkStarts } from './policies.ts';
+import { CLOUD, commandRefusal, commandRewrite, gitPaths, locks, WORKTREE, walkStarts } from './policies.ts';
 import type { Building, Judging, Spawned } from './state.d.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -26,6 +26,14 @@ interface Observer {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const _SECOND_FILES: readonly RegExp[] = [
+    /^(?:project\.json|\.nxignore)$/u,
+    /^(?:\.mise(?:\..+)?\.toml|mise\..+\.toml|\.miserc\.toml|\.rtx\.toml|\.tool-versions|\.nvmrc|\.(?:node|python)-version)$/u,
+    /^tsconfig\.(?!base\.json$).+\.json$/u,
+    /^(?:\.?ruff\.toml|\.?mypy\.ini|pytest\.ini|tox\.ini|setup\.cfg)$/u,
+    /^biome\.jsonc$/u,
+    /^\.yamllint(?:\.yml)?$/u,
+];
 const _SPAWNED = atom({ plugin: 'function-hooks', key: 'spawned' } as const, {});
 const _RECORDED = ['SessionStart', 'PermissionDenied', 'PostToolUse', 'PostToolUseFailure', 'PostToolBatch', 'SubagentStart', 'SubagentStop', 'UserPromptSubmit', 'StopFailure', 'PreCompact', 'PostCompact', 'SessionEnd', 'WorktreeCreate', 'WorktreeRemove'] as const;
 
@@ -70,27 +78,29 @@ const _facts = async ($: EngineInterface, commands: readonly Command[], walking:
     return { existing: existing.flat(), walk };
 };
 
-const _read = <T>($: EngineInterface, path: string, decode: (subject: string, value: unknown) => Result<T>): Promise<Result<T>> =>
-    $.fs.read(path).then(
-        (text) => bind(decoded<unknown>(path, ok(text), nxReviver), (value) => decode(path, value)),
-        (cause: unknown) => fault<T>({ kind: 'unread', subject: path, cause }),
+const _queue = ($: EngineInterface, scan: Scanner, commands: readonly Command[]): Promise<Result<readonly string[]>> =>
+    locks(
+        scan,
+        (path) => $.fs.read(path).then(ok, (cause: unknown) => fault<string>({ kind: 'unread', subject: path, cause })),
+        () => $.session.repo().then((found) => (found === null ? none : some(found.root))),
+        (folders) => _run($, ['mkdir', '-p', ...folders], {}),
+        commands,
     );
 
-const _queue = async ($: EngineInterface, scan: Scanner, commands: readonly Command[]): Promise<Result<Option<string>>> => {
-    const named = nxTargets(commands);
-    const repo = named.length > 0 || queues(commands, []) ? await $.session.repo() : null;
-    if (repo === null) {
-        return ok(none);
+const _callRefusal = (e: ToolCallInput): Option<string> => {
+    if (e.tool === 'Write') {
+        const name = basename(e.file_path);
+        return _SECOND_FILES.some((pattern) => pattern.test(name)) ? some(`${name} is a second file beside its owner`) : none;
     }
-    const lock = `${repo.root}/${LOCK}`;
-    const lines = named.length === 0 ? ok<readonly string[]>([]) : await Promise.all([_read($, `${repo.root}/package.json`, decodedManifest), _read($, `${repo.root}/nx.json`, decodedNxJson)]).then(([manifest, nxJson]) => bind(manifest, (targets) => map(nxJson, (defaults) => targetCommands(named, targets, defaults))));
-    const reached = await bind(lines, async (text) => (text.length === 0 ? ok([]) : map(await parse(scan, text.join('\n')), (script) => script.commands)));
-    return bind(reached, async (targeted) => (queues(commands, targeted) ? map(await _run($, ['mkdir', '-p', lock.slice(0, lock.lastIndexOf('/'))], {}), () => some(lock)) : ok(none)));
+    if (e.tool === 'EnterWorktree') {
+        return some(`EnterWorktree ${WORKTREE}`);
+    }
+    return e.tool === 'Agent' && e.isolation === 'worktree' ? some(`Agent isolation worktree ${WORKTREE}`) : none;
 };
 
 const _decision = async ($: EngineInterface, e: ToolCallInput, walking: boolean): Promise<Decision> => {
     if (!((e.tool === 'Bash' || e.tool === 'Monitor') && e.command !== undefined)) {
-        const refusal = callRefusal(e);
+        const refusal = _callRefusal(e);
         return refusal.kind === 'some' ? { kind: 'deny', reason: refusal.value } : { kind: 'pass' };
     }
     const { command, tool } = e;
@@ -104,7 +114,7 @@ const _decision = async ($: EngineInterface, e: ToolCallInput, walking: boolean)
     if (refusal.kind === 'some') {
         return { kind: 'deny', reason: refusal.value };
     }
-    const queue = tool === 'Bash' ? await _queue($, scan, commands) : ok<Option<string>>(none);
+    const queue = tool === 'Bash' ? await _queue($, scan, commands) : ok<readonly string[]>([]);
     if (queue.kind === 'fault') {
         return { kind: 'deny', reason: `command not queued, ${rendered(queue.fault)}` };
     }
@@ -125,8 +135,7 @@ const _answer = async ($: EngineInterface, decision: Decision, e: ToolCallInput,
     }
     $.ui.log(decision.note);
     const ran = await next(decision.input);
-    const note = decision.instruction.kind === 'some' ? `${decision.note}, ${decision.instruction.value}` : decision.note;
-    return ran.deny === undefined ? { ...ran, context: [...(ran.context ?? []), note] } : ran;
+    return ran.deny === undefined ? { ...ran, context: [...(ran.context ?? []), decision.context] } : ran;
 };
 
 // --- [RECORD]
@@ -181,16 +190,15 @@ const _launch = async ($: EngineInterface, observer: Observer, spawned: Spawned,
     const id = await $.agent.spawn({ prompt, subagentType: spawned.agent, description, cwd: spawned.lineage.worktree }).then(
         (answer) => {
             $.ui.log(outcome(spawned, answer));
-            return fromUndefined(answer.agentId);
+            return answer.agentId;
         },
         (cause: unknown) => {
             $.ui.log(`${spawned.agent} did not spawn, ${String(cause)}`);
-            return none;
         },
     );
     observer.spawning.delete(spawned.agent);
-    if (id.kind === 'some') {
-        await update($, _SPAWNED, (held) => ({ ...held, [id.value]: spawned }));
+    if (id !== undefined) {
+        await update($, _SPAWNED, (held) => ({ ...held, [id]: spawned }));
     }
 };
 

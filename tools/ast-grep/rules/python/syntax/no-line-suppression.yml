@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-line-suppression
+language: python
+severity: error
+rule:
+    kind: comment
+    regex: '#\s*((type|ty|pyright):\s*ignore|ruff:\s*(ignore|disable)|(?i:noqa))\b'
+    any:
+        - follows: {stopBy: end, not: {kind: comment}}
+        - not: {inside: {kind: module}}
+message: 'Checker suppression covers part of a file in place of the file''s one exemption list'
+note: 'Remove the cause, or state the code once in the file-top `# ty: ignore[<code>]`, `# mypy: disable-error-code="<code>"`, or `# ruff: file-ignore[<name>]` directive or the `pyproject.toml` override row naming the file'

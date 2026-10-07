@@ -13,7 +13,7 @@ utils:
                 - inside: {kind: 'function_declaration, protocol_function_declaration, enum_entry', field: name}
                 - inside: {kind: 'parameter, lambda_parameter, tuple_type_item, tuple_expression', field: name}
                 - inside: {kind: parameter, field: external_name}
-                - inside: {kind: 'enum_type_parameters, macro_declaration'}
+                - inside: {kind: 'enum_type_parameters, macro_declaration, precedence_group_declaration'}
             - kind: type_identifier
               any:
                 - inside: {kind: 'class_declaration, protocol_declaration, typealias_declaration, associatedtype_declaration', field: name}

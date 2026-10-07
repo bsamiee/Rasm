@@ -3,33 +3,43 @@ id: no-coined-identifier-python
 language: python
 severity: error
 utils:
-    declared:
-        kind: identifier
+    target:
         any:
-            - inside: {kind: 'function_definition, class_definition', field: name}
-            - inside: {kind: 'parameters, lambda_parameters'}
-            - inside: {kind: 'typed_parameter, list_splat_pattern, dictionary_splat_pattern', inside: {kind: 'parameters, lambda_parameters'}}
-            - inside: {kind: 'default_parameter, typed_default_parameter', field: name}
             - inside: {kind: 'assignment, augmented_assignment, for_statement, for_in_clause', field: left}
-            - inside: {kind: named_expression, field: name}
-            - inside: {kind: as_pattern_target}
+            - inside: {kind: 'parameters, lambda_parameters, as_pattern_target'}
             - inside:
-                kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
-                stopBy: {kind: 'assignment, for_statement, for_in_clause'}
-                inside: {kind: 'assignment, for_statement, for_in_clause', field: left}
-            - inside: {kind: attribute, field: attribute, inside: {kind: assignment, field: left}}
-            - inside: {kind: keyword_argument, field: name, inside: {kind: argument_list, inside: {kind: class_definition}}}
+                kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern, dictionary_splat_pattern, typed_parameter, tuple, list, list_splat, parenthesized_expression'
+                matches: target
+    alias:
+        kind: type
+        inside: {kind: type_alias_statement, field: left}
+    type_parameter:
+        kind: type
+        inside:
+            kind: type_parameter
+            any:
+                - inside: {kind: 'function_definition, class_definition', field: type_parameters}
+                - inside: {kind: generic_type, inside: {matches: alias}}
+rule:
+    kind: identifier
+    pattern: $NAME
+    all:
+        - matches: text-coined-word
+        - any:
+            - matches: target
+            - inside: {kind: 'function_definition, class_definition', field: name}
+            - inside: {kind: 'default_parameter, typed_default_parameter', field: name}
+            - inside: {kind: named_expression, field: name}
+            - inside: {kind: attribute, field: attribute, matches: target}
             - inside: {kind: aliased_import, field: alias}
-            - inside: {kind: type, inside: {kind: type_alias_statement, field: left}}
-            - inside: {kind: type, inside: {kind: type_parameter}}
+            - inside: {matches: alias}
+            - inside: {kind: generic_type, inside: {matches: alias}}
+            - inside: {matches: type_parameter}
+            - inside: {kind: splat_type, inside: {matches: type_parameter}}
+            - inside: {kind: type, nthChild: 1, inside: {kind: constrained_type, inside: {matches: type_parameter}}}
             - inside: {kind: dotted_name, not: {has: {nthChild: 2}}, inside: {kind: 'case_pattern, keyword_pattern'}}
             - inside: {kind: splat_pattern}
             - inside: {kind: as_pattern}
               follows: {regex: '^as$'}
-rule:
-    all:
-        - matches: declared
-        - matches: text-coined-word
-    pattern: $NAME
 message: Declared name `$NAME` holds a coined term
-note: 'Use the host API member, language term, or domain word as the name, a coined term names nothing a reader can look up'
+note: 'Use the host API member, language term, or domain word as the name at the declaration and every reference, a coined term names nothing a reader can look up'

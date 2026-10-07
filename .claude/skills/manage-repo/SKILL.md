@@ -9,7 +9,7 @@ Entries state the principles by which the repository is maintained and improved.
 
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
-- [02]-[TOOLING](references/tooling.md): Tool rows, backends, release settings, version files, install paths, environment templates
+- [02]-[TOOLING](references/tooling.md): Tool rows, backends, release settings, version files, install paths, environment templates, launchd services
 - [03]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, install scripts, compiler projects, direct execution, Biome rows
 - [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
 - [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, analyzer rows

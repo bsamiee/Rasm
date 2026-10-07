@@ -41,7 +41,7 @@ utils:
             - kind: identifier
               regex: '^NaN$'
             - kind: member_expression
-              regex: '^(globalThis\.)?Number\.NaN$'
+              regex: '^((globalThis|window|self)\.)?Number\.NaN$'
             - kind: 'parenthesized_expression, as_expression, satisfies_expression'
               has: {matches: null-or-nan-result}
             - kind: ternary_expression
@@ -73,7 +73,7 @@ utils:
         nthChild: 2
         inside:
             kind: arguments
-            inside: {kind: call_expression, has: {field: function, regex: '^(globalThis\.)?JSON\.stringify$', matches: syntax-global-reference}}
+            inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?JSON\.stringify$', matches: syntax-global-reference}}
     host-contract:
         any: [{matches: component}, {matches: replacer}]
 rule:

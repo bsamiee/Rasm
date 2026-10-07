@@ -4,6 +4,13 @@ language: javascript
 severity: error
 rule:
     kind: comment
-    regex: '^/\*\*\s*(\*\s*)?(The|A|An)\s+\S'
-message: 'Doc comment summary opens with an article'
-note: 'Open the summary with the member''s verb or returned noun, an article states no fact'
+    pattern: $SUMMARY
+    regex: '^/\*\*\s*(\*\s*)?(?i:The|A|An)\s+\S'
+transform:
+    OPENING: {replace: {source: $SUMMARY, replace: '^(/\*\*\s*(?:\*[ \t]*)?)(?i:The|A|An)\s+[\s\S]*$', by: '$1'}}
+    REST: {replace: {source: $SUMMARY, replace: '^/\*\*\s*(?:\*[ \t]*)?(?i:The|A|An)\s+', by: ''}}
+    NOUN: {convert: {source: $REST, toCase: capitalize}}
+    LINE: {replace: {source: $SUMMARY, replace: '^/\*\*[\s*]*([^\n]*?)\s*(?:\*/)?\s*(?:\n[\s\S]*)?$', by: '$1'}}
+message: 'Doc comment summary `$LINE` opens with an article'
+note: 'Open the summary with the noun it names or the verb it performs'
+fix: $OPENING$NOUN

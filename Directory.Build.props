@@ -2,17 +2,24 @@
     <PropertyGroup Label="Workspace">
         <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
-        <LibsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'libs'))</LibsRoot>
         <TestsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tests'))</TestsRoot>
         <AppsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'apps'))</AppsRoot>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classification">
-        <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(LibsRoot)'))">libs</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(TestsRoot)'))">tests</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(AppsRoot)'))">apps</ProjectRole>
         <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(RepoRoot)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/</_RepoRelativeDir>
         <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">common</RhinoHost>
+        <RhinoHost Condition="'$(RhinoHost)' == 'common' and $(MSBuildProjectDirectory.EndsWith('grasshopper', StringComparison.OrdinalIgnoreCase))">grasshopper</RhinoHost>
+        <AssemblyName Condition="'$(RhinoPlugIn)' != ''">$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
+        <_RhinoResourcesDir>$([MSBuild]::NormalizeDirectory('$(RHINO_PATH)', 'Contents', 'Frameworks', 'RhCore.framework', 'Versions', 'A', 'Resources'))</_RhinoResourcesDir>
+        <RhinoResourcesDir Condition="Exists('$(_RhinoResourcesDir)Eto.macOS.dll')">$(_RhinoResourcesDir)</RhinoResourcesDir>
+        <DefaultItemExcludes Condition="'$(RhinoResourcesDir)' == ''">$(DefaultItemExcludes);**/macOS/**</DefaultItemExcludes>
+        <DefaultItemExcludes Condition="'$(RhinoHost)' == 'common'">$(DefaultItemExcludes);grasshopper/**</DefaultItemExcludes>
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Plug-In" Condition="'$(ProjectRole)' == 'apps' and '$(RhinoHost)' != ''">
@@ -24,6 +31,11 @@
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
         <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
         <PublishReferencesSymbols>false</PublishReferencesSymbols>
+        <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
+        <PlatformTarget>AnyCPU</PlatformTarget>
+        <PlugInIcons>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', $(_RepoRelativeDir.Substring(1, $(_RepoRelativeDir.IndexOf('/rhino/')))), 'icons'))</PlugInIcons>
+        <PlugInMark>$(PlugInIcons)mark.svg</PlugInMark>
+        <PlugInPackageIcon Condition="Exists('$(PlugInMark)')">icon.png</PlugInPackageIcon>
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">

@@ -5,19 +5,13 @@ severity: error
 utils:
     numeric-operator: {kind: test_operator, regex: '^-(eq|ne|lt|le|gt|ge)$'}
     named-parameter: {matches: {bash-parameter: {name: {kind: 'variable_name, subscript'}}}}
-    parameter-operand:
-        any:
-            - matches: named-parameter
-            - kind: simple_expansion
-              has: {kind: special_variable_name}
-            - kind: expansion
-              has: {field: operator, regex: '^#$'}
+    expanded: {kind: 'simple_expansion, expansion, command_substitution, arithmetic_expansion'}
     numeric-operand:
         any:
-            - matches: parameter-operand
+            - matches: expanded
             - kind: string
-              has: {matches: parameter-operand}
-              not: {has: {nthChild: 2}}
+              has: {matches: expanded}
+              not: {has: {kind: string_content}}
             - kind: number
             - kind: unary_expression
               has: {kind: number}
@@ -67,12 +61,15 @@ rewriters:
       transform:
         NAME: {replace: {source: $PARAMETER, replace: '^\$\{?|\}?$', by: ''}}
       fix: $NAME
+    - id: keep
+      rule: {matches: expanded, pattern: $KEPT}
+      fix: $KEPT
     - id: unquote
       rule:
         kind: string
         pattern: $QUOTED
       transform:
-        INNER: rewrite($QUOTED, rewriters=[name])
+        INNER: rewrite($QUOTED, rewriters=[name, keep])
         UNQUOTED: {replace: {source: $INNER, replace: '^"|"$', by: ''}}
       fix: $UNQUOTED
     - id: compare
@@ -89,8 +86,8 @@ rewriters:
                 - has: {pattern: $OPERATOR, nthChild: 3}
                 - has: {pattern: $RIGHT, nthChild: 4}
       transform:
-        L: rewrite($LEFT, rewriters=[unquote, name])
-        R: rewrite($RIGHT, rewriters=[unquote, name])
+        L: rewrite($LEFT, rewriters=[unquote, name, keep])
+        R: rewrite($RIGHT, rewriters=[unquote, name, keep])
         EQ: replace($OPERATOR, replace='^-eq$', by='==')
         NE: replace($EQ, replace='^-ne$', by='!=')
         LT: replace($NE, replace='^-lt$', by='<')

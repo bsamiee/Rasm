@@ -4,15 +4,21 @@ language: swift
 severity: error
 rule:
     any:
-        - all:
-            - matches: {swift-security-arguments: {subcommand: {regex: '^"add-(generic|internet)-password"$', pattern: $COMMAND}}}
-            - has: {kind: line_string_literal, regex: '^"-(T|A)"$'}
-        - kind: line_string_literal
-          all:
-            - has: {kind: line_str_text, regex: '^add-(generic|internet)-password( |$)', pattern: $COMMAND}
-            - has: {kind: line_str_text, regex: '(^| )-(T|A)( |$)'}
-        - kind: line_str_text
-          regex: 'set-(generic-password|internet-password|key)-partition-list'
+        - matches: {swift-security-arguments: {subcommand: {regex: '^"(add-(generic|internet)-password|import)"$', pattern: $COMMAND}}}
+          has: {stopBy: end, kind: line_string_literal, regex: '^"-(T|A)"$'}
+        - matches: {swift-security-arguments: {subcommand: {regex: '^"dump-keychain"$', pattern: $COMMAND}}}
+          has: {stopBy: end, kind: line_string_literal, regex: '^"-[adr]*i[adr]*"$', follows: {stopBy: end, regex: '^"dump-keychain"$'}}
+        - matches: {swift-security-arguments: {subcommand: {regex: '^"set-(generic-password|internet-password|key)-partition-list"$', pattern: $COMMAND}}}
+        - kind: line_string_literal, multi_line_string_literal, raw_string_literal
+          pattern: $COMMAND
+          any:
+            - regex: '(?m)(?:^#*"*|\\n)[ \t]*(?:add-(?:generic|internet)-password|import)[ \t](?:(?:[^\n\\]|\\[^n])*[ \t])?-[TA](?:[ \t"]|\\n|$)'
+            - regex: '(?m)(?:^#*"*|\\n)[ \t]*dump-keychain[ \t](?:(?:[^\n\\]|\\[^n])*[ \t])?-[adr]*i[adr]*(?:[ \t"]|\\n|$)'
+            - regex: '(?m)(?:^#*"*|\\n)[ \t]*set-(?:generic-password|internet-password|key)-partition-list[ \t]'
+        - kind: call_expression
+          has: {nthChild: 1, kind: simple_identifier, regex: '^(SecKeychainItemSetAccess(WithPassword)?|SecACLSetContents|SecACLUpdateAuthorizations|SecACLRemove)$', pattern: $COMMAND}
+        - kind: simple_identifier
+          regex: '^kSecAttrAccess$'
           pattern: $COMMAND
 message: '`$COMMAND` rewrites an item ACL or partition list the owning program''s next write restores'
-note: 'Write through `add-generic-password -U` with no `-T` or `-A` and leave partition lists to the owning program'
+note: 'Write data through `add-generic-password -U` or `SecItemUpdate` with no `-T`, `-A`, or `kSecAttrAccess` and leave ACLs and partition lists to the owning program'

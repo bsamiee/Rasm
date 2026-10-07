@@ -5,7 +5,55 @@ severity: error
 utils:
     renamed-call:
         kind: function_call
-        has: {field: name, regex: '(?i)^(ifnull|substring|string_agg)$'}
+        has: {field: name, regex: '(?i)^(ifnull|substring|strpos|lcase|ucase|len|char_length|character_length|pow|ceiling|string_agg|listagg)$'}
+    operator-call:
+        kind: function_call
+        all:
+            - has: {field: name, regex: '(?i)^(like|glob)$', pattern: _OPERATOR}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all:
+                    - has: {nthChild: 1, any: [{matches: sql-operator-expression, pattern: _PATTERNG}, {pattern: _PATTERN}]}
+                    - has: {nthChild: 2, any: [{matches: sql-operator-expression, pattern: _OPERANDG}, {pattern: _OPERAND}]}
+                    - any: [{has: {nthChild: 3, pattern: _ESCAPE}}, {not: {has: {nthChild: 3}}}]
+                    - not: {has: {nthChild: 4}}
+    prefix-call:
+        kind: function_call
+        all:
+            - has: {field: name, regex: '(?i)^(starts_with|prefix)$'}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all: [{has: {nthChild: 1, pattern: _TEXT}}, {has: {nthChild: 2, pattern: _PREFIX}}, {not: {has: {nthChild: 3}}}]
+    single-in:
+        kind: in_list_expression
+        all:
+            - has: {field: operand, not: {kind: tuple_expression}, any: [{matches: sql-operator-expression, pattern: _OPERANDG}, {pattern: _OPERAND}]}
+            - has: {field: values, not: {kind: tuple_expression}, any: [{matches: sql-operator-expression, pattern: _VALUEG}, {pattern: _VALUE}]}
+            - not: {has: {nthChild: 3}}
+    comparison-operand:
+        inside:
+            any:
+                - kind: collate_expression
+                - matches: sql-operator-expression
+                  not:
+                    any:
+                        - {kind: binary_expression, has: {field: operator, regex: '(?i)^(and|or)$'}}
+                        - {kind: unary_expression, has: {field: operator, regex: '(?i)^not$'}}
+    limit-pair:
+        kind: limit_clause
+        all:
+            - has: {regex: '^,$'}
+            - has: {nthChild: 1, pattern: _SKIP}
+            - has: {nthChild: 2, pattern: _COUNT}
+    keyword-spelling:
+        any:
+            - {kind: insert_statement, has: {field: kind, regex: '(?i)^replace$'}}
+            - {kind: join_step, has: {regex: '(?i)^(inner|outer)$'}}
+            - {kind: 'begin_statement, commit_statement, rollback_statement', has: {regex: '(?i)^(transaction|end)$'}}
+            - {kind: 'select_statement, select_clause', has: {regex: '(?i)^all$', follows: {regex: '(?i)^select$'}}}
+            - {kind: 'create_table_statement, create_view_statement, create_trigger_statement', has: {field: temporary, regex: '(?i)^temporary$'}}
     json-call:
         kind: function_call
         all:
@@ -38,6 +86,11 @@ utils:
                             - kind: 'numeric_literal, string_literal, blob_literal, true_literal, false_literal, current_time_literal'
                             - {kind: unary_expression, has: {field: operand, kind: numeric_literal}}
                     - not: {has: {nthChild: 2}}
+    empty-count:
+        kind: function_call
+        all:
+            - has: {field: name, regex: '(?i)^count$'}
+            - not: {has: {field: arguments, regex: '.'}}
     equality:
         kind: binary_expression
         has: {field: operator, regex: '^(==|!=)$'}
@@ -61,21 +114,91 @@ utils:
                 all:
                     - has: {field: operator, regex: '(?i)^not$'}
                     - has: {field: operand, not: {kind: 'null_literal, true_literal, false_literal'}}
+    distinct-null:
+        kind: is_expression
+        all:
+            - has: {regex: '(?i)^distinct$'}
+            - has: {field: right, kind: null_literal}
+    null-test:
+        any:
+            - kind: is_expression
+              all:
+                - has: {field: left, pattern: _VALUE}
+                - has: {field: right, kind: null_literal}
+                - any: [{not: {has: {regex: '(?i)^distinct$'}}}, {has: {regex: '(?i)^not$'}}]
+            - kind: is_null_expression
+              all:
+                - has: {field: operand, pattern: _VALUE}
+                - has: {field: operator, regex: '(?i)^isnull$'}
+    not-null-test:
+        any:
+            - kind: is_expression
+              all:
+                - has: {field: left, pattern: _VALUE}
+                - any:
+                    - has: {field: right, kind: unary_expression, all: [{has: {field: operator, regex: '(?i)^not$'}}, {has: {field: operand, kind: null_literal}}]}
+                    - all: [{has: {field: right, kind: null_literal}}, {has: {regex: '(?i)^distinct$'}}, {not: {has: {regex: '(?i)^not$'}}}]
+            - kind: is_null_expression
+              all:
+                - has: {field: operand, pattern: _VALUE}
+                - not: {has: {field: operator, regex: '(?i)^isnull$'}}
+    equality-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^==?$'}
+            - any:
+                - all: [{has: {field: left, pattern: _VALUE}}, {has: {field: right, pattern: _OTHER}}]
+                - all: [{has: {field: right, pattern: _VALUE}}, {has: {field: left, pattern: _OTHER}}]
+    searched-case:
+        kind: case_expression
+        not: {has: {field: subject, regex: '.'}}
+    coalescing:
+        any:
+            - all:
+                - pattern: {context: 'select case when _ANYTEST then _ANYTHEN else _ANYELSE end', selector: case_expression}
+                - any:
+                    - all: [{has: {field: when, matches: null-test}}, {has: {field: then, pattern: _DEFAULT}}, {has: {field: else, pattern: _VALUE}}]
+                    - all: [{has: {field: when, matches: not-null-test}}, {has: {field: then, pattern: _VALUE}}, {has: {field: else, pattern: _DEFAULT}}]
+            - all:
+                - matches: sql-choice-call
+                - has:
+                    field: arguments
+                    any:
+                        - all: [{has: {nthChild: 1, matches: null-test}}, {has: {nthChild: 2, pattern: _DEFAULT}}, {has: {nthChild: 3, pattern: _VALUE}}]
+                        - all: [{has: {nthChild: 1, matches: not-null-test}}, {has: {nthChild: 2, pattern: _VALUE}}, {has: {nthChild: 3, pattern: _DEFAULT}}]
+    nullifying:
+        any:
+            - all:
+                - pattern: {context: 'select case when _ANYTEST then _ANYTHEN else _VALUE end', selector: case_expression}
+                - has: {field: then, kind: null_literal}
+                - has: {field: when, matches: equality-test}
+            - all:
+                - pattern: {context: 'select case _VALUE when _OTHER then _ANYTHEN else _VALUE end', selector: case_expression}
+                - has: {field: then, kind: null_literal}
+            - all:
+                - matches: sql-choice-call
+                - has: {field: arguments, all: [{has: {nthChild: 3, pattern: _VALUE}}, {has: {nthChild: 2, kind: null_literal}}, {has: {nthChild: 1, matches: equality-test}}]}
+    inner-choice:
+        any:
+            - matches: searched-case
+            - {matches: sql-choice-call, has: {field: arguments, all: [{has: {nthChild: 2, pattern: _ANYTHEN}}, {not: {has: {nthChild: 4}}}]}}
+    choice-chain:
+        any:
+            - {matches: searched-case, has: {field: else, matches: inner-choice}}
+            - {matches: sql-choice-call, has: {field: arguments, all: [{has: {nthChild: 3, matches: inner-choice}}, {not: {has: {nthChild: 4}}}]}}
     simple-case:
         all:
             - has: {field: subject, any: [{matches: sql-operator-expression, pattern: _SUBJECTG}, {pattern: _SUBJECT}]}
             - has: {field: when, any: [{matches: sql-operator-expression, pattern: _CASEG}, {pattern: _CASE}]}
     conditional-call:
-        kind: function_call
-        all:
-            - has: {field: name, regex: '(?i)^i?if$'}
-            - has:
-                field: arguments
-                kind: normal_function_arguments
-                all:
-                    - has: {nthChild: 1, pattern: _COND}
-                    - has: {nthChild: 2, pattern: _THEN}
-                    - not: {has: {nthChild: 4}}
+        matches: sql-choice-call
+        has:
+            field: arguments
+            kind: normal_function_arguments
+            all:
+                - has: {nthChild: 1, pattern: _COND}
+                - has: {nthChild: 2, pattern: _THEN}
+                - not: {has: {nthChild: 4}}
     choice-without-else:
         any:
             - pattern: {context: 'select case when _COND then _THEN end', selector: case_expression}
@@ -118,13 +241,11 @@ utils:
     aggregate:
         kind: function_call
         all:
-            - has: {field: name, regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$'}
+            - any: [{has: {field: name, regex: '(?i)^(min|max|sum|total|avg|count)$'}}, {matches: sql-string-aggregate}]
             - not: {has: {field: filter, kind: filter_clause}}
             - any:
                 - not: {matches: second-argument}
-                - all:
-                    - has: {field: name, regex: '(?i)^(group_concat|string_agg)$'}
-                    - not: {matches: third-argument}
+                - all: [{matches: sql-string-aggregate}, {not: {matches: third-argument}}]
     conditional-aggregate:
         matches: aggregate
         any:
@@ -138,11 +259,21 @@ rule:
     pattern: _NODE
     any:
         - matches: json-call
+        - matches: operator-call
+        - matches: prefix-call
+        - matches: single-in
+        - matches: limit-pair
+        - matches: keyword-spelling
         - matches: count-constant
+        - matches: empty-count
         - matches: equality
         - matches: is-comparison
         - matches: is-not-comparison
+        - matches: distinct-null
         - kind: is_null_expression
+        - matches: coalescing
+        - matches: nullifying
+        - matches: choice-chain
         - matches: conditional-aggregate
         - matches: renamed-call
           not: {inside: {kind: normal_function_arguments, inside: {matches: conditional-aggregate}}}
@@ -181,7 +312,7 @@ rewriters:
             - any: [{has: {field: arguments, has: {kind: order_by_clause, pattern: _ORDER}}}, {not: {has: {field: arguments, has: {kind: order_by_clause}}}}]
             - matches: windowed
       transform:
-        AGGREGATE: {replace: {source: $AGG, replace: '(?i)^string_agg$', by: group_concat}}
+        AGGREGATE: {rewrite: {source: $AGG, rewriters: [renamed]}}
         DISTINCT_WORD: {replace: {source: $DISTINCT, replace: '^(.+)$', by: '$1 '}}
         SEPARATOR_PARAMETER: {replace: {source: $SEPARATOR, replace: '(?s)^(.+)$', by: ', $1'}}
         ORDER_CLAUSE: {replace: {source: $ORDER, replace: '(?s)^(.+)$', by: ' $1'}}
@@ -190,30 +321,129 @@ rewriters:
         GROUPED_CASE: {replace: {source: $CASEG, replace: '(?s)^(.+)$', by: '($1)'}}
         OVER_CLAUSE: {replace: {source: $OVER, replace: '(?s)^(.+)$', by: ' $1'}}
       fix: $AGGREGATE($DISTINCT_WORD$THEN$SEPARATOR_PARAMETER$ORDER_CLAUSE) filter (where $SUBJECT_EQUAL$GROUPED_SUBJECT_EQUAL$CASE$GROUPED_CASE$COND)$OVER_CLAUSE
-    - id: json-grouped
+    - id: grouped
       rule:
-        matches: json-call
+        pattern: _GROUPED
         any:
-            - inside: {kind: 'unary_expression, collate_expression'}
-            - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^(\|\||->>?)$'}}
-      transform: &json
-        GROUPED_JSON: {replace: {source: $JSONG, replace: '(?s)^(.+)$', by: '($1)'}}
-        GROUPED_PATH: {replace: {source: $PATHG, replace: '(?s)^(.+)$', by: '($1)'}}
-      fix: ($JSON$GROUPED_JSON ->> $PATH$GROUPED_PATH)
+            - matches: json-call
+              any:
+                - inside: {kind: 'unary_expression, collate_expression'}
+                - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^(\|\||->>?)$'}}
+            - any: [{matches: operator-call}, {matches: prefix-call}, {matches: single-in}]
+              matches: comparison-operand
+      transform:
+        PLAIN: {rewrite: {source: $GROUPED, rewriters: [json-operator, operator, prefixed, included]}}
+      fix: ($PLAIN)
     - id: json-operator
       rule: {matches: json-call}
-      transform: *json
+      transform:
+        GROUPED_JSON: {replace: {source: $JSONG, replace: '(?s)^(.+)$', by: '($1)'}}
+        GROUPED_PATH: {replace: {source: $PATHG, replace: '(?s)^(.+)$', by: '($1)'}}
       fix: $JSON$GROUPED_JSON ->> $PATH$GROUPED_PATH
+    - id: operator
+      rule: {matches: operator-call}
+      transform:
+        GROUPED_OPERAND: {replace: {source: $OPERANDG, replace: '(?s)^(.+)$', by: '($1)'}}
+        GROUPED_PATTERN: {replace: {source: $PATTERNG, replace: '(?s)^(.+)$', by: '($1)'}}
+        ESCAPE_CLAUSE: {replace: {source: $ESCAPE, replace: '(?s)^(.+)$', by: ' escape $1'}}
+      fix: $OPERAND$GROUPED_OPERAND $OPERATOR $PATTERN$GROUPED_PATTERN$ESCAPE_CLAUSE
+    - id: prefixed
+      rule: {matches: prefix-call}
+      fix: instr($TEXT, $PREFIX) = 1
+    - id: included
+      rule:
+        matches: single-in
+        any: [{has: {regex: '(?i)^not$', pattern: __NOT}}, {not: {has: {regex: '(?i)^not$'}}, has: {regex: '(?i)^in$', pattern: __IN}}]
+      transform:
+        EQUAL: {replace: {source: $IN, replace: '(?i)^in$', by: '='}}
+        UNEQUAL: {replace: {source: $NOT, replace: '(?i)^not$', by: '<>'}}
+        GROUPED_OPERAND: {replace: {source: $OPERANDG, replace: '(?s)^(.+)$', by: '($1)'}}
+        GROUPED_VALUE: {replace: {source: $VALUEG, replace: '(?s)^(.+)$', by: '($1)'}}
+      fix: $OPERAND$GROUPED_OPERAND $EQUAL$UNEQUAL $VALUE$GROUPED_VALUE
+    - id: coalesced
+      rule: {matches: coalescing}
+      fix: coalesce($VALUE, $DEFAULT)
+    - id: nullified
+      rule: {matches: nullifying}
+      fix: nullif($VALUE, $OTHER)
+    - id: merged-case
+      rule:
+        regex: '(?i)^else$'
+        inside: {matches: searched-case}
+        precedes: {matches: inner-choice, pattern: _INNER}
+      transform:
+        ARMS: {rewrite: {source: $INNER, rewriters: [case-arms, call-arms]}}
+      fix: {template: $ARMS, expandEnd: {matches: inner-choice}}
+    - id: merged-call
+      rule:
+        matches: choice-chain
+        has:
+            field: arguments
+            all:
+                - has: {nthChild: 1, pattern: _CHAINCOND}
+                - has: {nthChild: 2, pattern: _CHAINTHEN}
+                - has: {nthChild: 3, pattern: _INNER}
+      transform:
+        ARMS: {rewrite: {source: $INNER, rewriters: [case-arms, call-arms]}}
+      fix: case when $CHAINCOND then $CHAINTHEN $ARMS end
+    - id: case-arms
+      rule: {matches: searched-case, pattern: _INNERCASE}
+      transform:
+        BODY: {substring: {source: $INNERCASE, startChar: 4, endChar: -3}}
+        CASE_ARMS: {replace: {source: $BODY, replace: '^\s+|\s+$', by: ''}}
+      fix: $CASE_ARMS
+    - id: call-arms
+      rule:
+        matches: sql-choice-call
+        has:
+            field: arguments
+            all:
+                - has: {nthChild: 1, pattern: _ARMCOND}
+                - has: {nthChild: 2, pattern: _ARMTHEN}
+                - any: [{has: {nthChild: 3, pattern: _ARMELSE}}, {not: {has: {nthChild: 3}}}]
+      transform:
+        ELSE_ARM: {replace: {source: $ARMELSE, replace: '(?s)^(.+)$', by: ' else $1'}}
+      fix: when $ARMCOND then $ARMTHEN$ELSE_ARM
+    - id: limited
+      rule: {matches: limit-pair}
+      fix: limit $COUNT offset $SKIP
+    - id: insertion
+      rule: {regex: '(?i)^replace$', inside: {kind: insert_statement, field: kind}}
+      fix: insert or replace
+    - id: joined
+      rule: {regex: '(?i)^(inner|outer)$', inside: {kind: join_step}}
+      fix: {template: join, expandEnd: {regex: '(?i)^join$'}}
+    - id: committed
+      rule: {kind: 'begin_statement, commit_statement, rollback_statement', pattern: _STATEMENT}
+      transform:
+        BRIEF: {replace: {source: $STATEMENT, replace: '(?i)\s+transaction\b', by: ''}}
+        COMMITTED: {replace: {source: $BRIEF, replace: '(?i)^end\b', by: commit}}
+      fix: $COMMITTED
+    - id: selected
+      rule: {regex: '(?i)^all$', follows: {regex: '(?i)^select$'}}
+      fix: {template: select, expandStart: {regex: '(?i)^select$'}}
+    - id: temp
+      rule: {regex: '(?i)^temporary$', inside: {kind: 'create_table_statement, create_view_statement, create_trigger_statement', field: temporary}}
+      fix: temp
     - id: star
       rule: {kind: normal_function_arguments, inside: {matches: count-constant}}
       fix: '*'
+    - id: starred
+      rule: {regex: '^\($', precedes: {regex: '^\)$'}, inside: {matches: empty-count}}
+      fix: (*
     - id: renamed
       rule: {kind: identifier, pattern: _NAME, inside: {field: name, matches: renamed-call}}
       transform:
         COALESCE: {replace: {source: $NAME, replace: '(?i)^ifnull$', by: coalesce}}
         SLICE: {replace: {source: $COALESCE, replace: '(?i)^substring$', by: substr}}
-        CONCATENATION: {replace: {source: $SLICE, replace: '(?i)^string_agg$', by: group_concat}}
-      fix: $CONCATENATION
+        CONCATENATION: {replace: {source: $SLICE, replace: '(?i)^(string_agg|listagg)$', by: group_concat}}
+        POSITION: {replace: {source: $CONCATENATION, replace: '(?i)^strpos$', by: instr}}
+        LOWER: {replace: {source: $POSITION, replace: '(?i)^lcase$', by: lower}}
+        UPPER: {replace: {source: $LOWER, replace: '(?i)^ucase$', by: upper}}
+        LENGTH: {replace: {source: $UPPER, replace: '(?i)^(len|char_length|character_length)$', by: length}}
+        POWER: {replace: {source: $LENGTH, replace: '(?i)^pow$', by: power}}
+        CEIL: {replace: {source: $POWER, replace: '(?i)^ceiling$', by: ceil}}
+      fix: $CEIL
     - id: compared
       rule:
         matches: equality
@@ -231,6 +461,15 @@ rewriters:
     - id: distinct-from
       rule: {matches: is-not-comparison, all: [{has: {field: left, pattern: _LEFT}}, {has: {field: right, has: {field: operand, pattern: _RIGHT}}}]}
       fix: $LEFT is distinct from $RIGHT
+    - id: null-identity
+      rule:
+        matches: distinct-null
+        all:
+            - has: {field: left, pattern: _LEFT}
+            - any: [{has: {regex: '(?i)^not$'}}, {has: {regex: '(?i)^distinct$', pattern: __DISTINCTNULL}}]
+      transform:
+        NEGATION: {replace: {source: $DISTINCTNULL, replace: '(?i)^distinct$', by: ' not'}}
+      fix: $LEFT is$NEGATION null
     - id: is-null
       rule: {kind: is_null_expression, all: [{has: {field: operand, pattern: _OPERAND}}, {has: {field: operator, regex: '(?i)^isnull$'}}]}
       fix: $OPERAND is null
@@ -238,7 +477,7 @@ rewriters:
       rule: {kind: is_null_expression, has: {field: operand, pattern: _OPERAND}}
       fix: $OPERAND is not null
 transform:
-    FIXED: {rewrite: {source: $NODE, rewriters: [counted, counted-value, filtered, json-grouped, json-operator, star, renamed, compared, not-distinct-from, distinct-from, is-null, is-not-null]}}
+    FIXED: {rewrite: {source: $NODE, rewriters: [counted, counted-value, filtered, grouped, json-operator, operator, prefixed, included, coalesced, nullified, merged-case, merged-call, limited, insertion, joined, committed, selected, temp, star, starred, renamed, compared, not-distinct-from, distinct-from, null-identity, is-null, is-not-null]}}
 fix: $FIXED
 message: '`$NODE` is a second spelling of `$FIXED`'
 note: >-

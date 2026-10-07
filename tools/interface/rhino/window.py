@@ -135,6 +135,8 @@ class Extent(StrEnum):
     LIBRARIES_LIST_MINIMUM = auto()
 
 
+type DockBar = Bar | tuple[PanelId, ...]
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 TOGGLES: Final = (PanelId.OSNAP, PanelId.SELECTION_FILTERS)
@@ -167,7 +169,7 @@ class Band(TypedDict):
     """Dock site's one band: its size in whole points and its bars in order, a panel container named by its tabs, each with its single-precision share or None as a band's only bar."""
 
     size: int
-    bars: tuple[tuple[Bar | tuple[PanelId, ...], float | None], ...]
+    bars: tuple[tuple[DockBar, float | None], ...]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -214,7 +216,7 @@ def layout(measured: Measured) -> Mapping[Site, Band]:
     extents, sizes = measured["extents"], band_sizes(measured["extents"])
     height = max(math.ceil(grid["count"] / ((sizes[Site.LEFT] - grid["inset"]) // grid["pitch_x"])) * grid["pitch_y"] + grid["chrome"] for grid in measured["grids"].values())
 
-    def split(site: Site, upper: Bar | tuple[PanelId, ...], lower: tuple[PanelId, ...], height: float) -> Band:
+    def split(site: Site, upper: DockBar, lower: tuple[PanelId, ...], height: float) -> Band:
         upper_share, lower_share = shares(extents, side_length(measured, site), height)
         return Band(size=sizes[site], bars=((upper, upper_share), (lower, lower_share)))
 
@@ -228,4 +230,4 @@ def layout(measured: Measured) -> Mapping[Site, Band]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RETURNS", "TOGGLES", "Band", "Bar", "Extent", "Grid", "Measured", "PanelId", "RibbonTab", "Site", "layers_height", "layout", "upper_length"]
+__all__ = ["RETURNS", "TOGGLES", "Band", "Bar", "DockBar", "Extent", "Grid", "Measured", "PanelId", "RibbonTab", "Site", "layers_height", "layout", "upper_length"]

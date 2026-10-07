@@ -3,13 +3,15 @@ id: no-divider-over-imports-csharp
 language: csharp
 severity: error
 rule:
-    kind: comment
-    regex: '^// --- \[IMPORTS\]'
-    any:
+    pattern: $DIVIDER
+    all:
+        - matches: csharp-divider-comment
+        - precedes:
+            stopBy: {not: {kind: comment}}
+            kind: 'extern_alias_directive, using_directive, global_attribute, file_scoped_namespace_declaration, namespace_declaration'
         - precedes: {pattern: $NEXT}
-        - pattern: $_
-message: Divider `[IMPORTS]` names no section
-note: Delete the divider, `using` directives precede every section divider
+message: Divider `$DIVIDER` sits over the preamble
+note: Delete the divider, `extern alias` and `using` directives, assembly attributes, and the namespace line precede every section divider
 fix:
     template: $NEXT
     expandEnd: {pattern: $NEXT}

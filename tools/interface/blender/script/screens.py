@@ -1,8 +1,8 @@
 # ty: ignore[unresolved-attribute]
-# mypy: disable-error-code="arg-type, attr-defined"
+# mypy: disable-error-code="attr-defined"
 """Blender's workspace layouts as split trees, the screen each one builds at its extents, and the region widths the host stores."""
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from enum import auto, Enum, StrEnum
 from inspect import signature
 from itertools import chain
@@ -18,7 +18,7 @@ import bpy
 from interface.blender.rows import JSON, Width
 from interface.blender.script.rna import converge
 from interface.frame import LOWER_EDITOR, RIGHT_COLUMN, Task, TREE_ROWS
-from interface.report import changes, Kind, line, subscript
+from interface.report import changes, Error, Measurement, subscript, Update
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -102,6 +102,8 @@ class Extent(Enum):
                 return advance * (gutter_digits + 2 * txt_numcol_pad + txt_body_lpad + MARGIN_COLUMN) + unit
 
 
+type Node = str | Split
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 TICK: Final = 0.1
@@ -117,8 +119,8 @@ class Split:
     """Area cut along the side's edge into a first part, top or left, and a second part, bottom or right, its sized part at the extent, each part a split or a leaf area's editor by its `ui_type`."""
 
     side: Side
-    first: "str | Split"
-    second: "str | Split"
+    first: Node
+    second: Node
     extent: Extent
 
 
@@ -127,7 +129,7 @@ class Layout:
     """Workspace layout of a task: the split tree left of the right column, Properties context and Bonsai tab, canvas shading, view, and whether its plan frames the modeling extent, asset shelf editors, and canvas sidebar tab."""
 
     task: Task
-    body: str | Split = "VIEW_3D"
+    body: Node = "VIEW_3D"
     context: str
     tab: str = "BLENDER"
     shading: str = "SOLID"
@@ -208,9 +210,12 @@ def region_label(workspace: bpy.types.WorkSpace, area: bpy.types.Area, region: b
 
 
 # --- [CONTEXT]
-def override(window: bpy.types.Window, area: bpy.types.Area | None = None, region: bpy.types.Region | None = None) -> bpy.types.ContextTempOverride:
-    """Context override on the window, which supplies its screen."""
-    return bpy.context.temp_override(window=window, area=area, region=region)
+def operate[**P](
+    operator: Callable[P, object], window: bpy.types.Window, area: bpy.types.Area | None = None, region: bpy.types.Region | None = None, /, *values: P.args, **arguments: P.kwargs
+) -> object:
+    """Operator status of the call with the arguments in a context override on the window, which supplies its screen, and on the area and region."""
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        return operator(*values, **arguments)
 
 
 # --- [WORKSPACES]
@@ -223,8 +228,7 @@ def activate(window: bpy.types.Window, name: str) -> Iterator[float]:
 def duplicate(window: bpy.types.Window, name: str) -> Iterator[float]:
     """Duplicate the window's workspace and rename the copy once the pass after the call shows it."""
     before = set(bpy.data.workspaces)
-    with override(window):
-        bpy.ops.workspace.duplicate()
+    operate(bpy.ops.workspace.duplicate, window)
     copy = next(workspace for workspace in bpy.data.workspaces if workspace not in before)
     yield TICK
     copy.name = name
@@ -233,12 +237,11 @@ def duplicate(window: bpy.types.Window, name: str) -> Iterator[float]:
 def delete(window: bpy.types.Window, name: str) -> Iterator[float]:
     """Show the workspace and delete it, the file dropping it one pass later."""
     yield from activate(window, name)
-    with override(window):
-        bpy.ops.workspace.delete()
+    operate(bpy.ops.workspace.delete, window)
     yield TICK
 
 
-def shaped_workspaces(window: bpy.types.Window, unit_system: ModuleType) -> Iterator[float | str]:
+def shaped_workspaces(window: bpy.types.Window, unit_system: ModuleType) -> Iterator[Update]:
     """Set every workspace to Object Mode, add each missing layout's workspace, and delete every workspace no layout names."""
     names, before = tuple(str(layout.task) for layout in LAYOUTS), tuple(workspace.name for workspace in bpy.data.workspaces)
     yield from chain.from_iterable(converge(unit_system, workspace_label(workspace), workspace, {"object_mode": "OBJECT"}) for workspace in bpy.data.workspaces)
@@ -248,7 +251,7 @@ def shaped_workspaces(window: bpy.types.Window, unit_system: ModuleType) -> Iter
 
 
 # --- [TREES]
-def leaves(node: str | Split) -> tuple[str, ...]:
+def leaves(node: Node) -> tuple[str, ...]:
     """Editors of the tree's leaves in tree order, each first part before its second."""
     match node:
         case str():
@@ -263,7 +266,7 @@ def parted(split: Split, areas: Sequence[bpy.types.Area]) -> tuple[tuple[bpy.typ
     return tuple(ordered[:count]), tuple(ordered[count:])
 
 
-def arranged(node: str | Split, areas: Sequence[bpy.types.Area]) -> bool:
+def arranged(node: Node, areas: Sequence[bpy.types.Area]) -> bool:
     """Whether areas as many as the tree's leaves tile it, each split's cut running clear between its parts."""
     match node:
         case str():
@@ -273,7 +276,7 @@ def arranged(node: str | Split, areas: Sequence[bpy.types.Area]) -> bool:
             return side.clear(upper, lower) and arranged(first, upper) and arranged(second, lower)
 
 
-def paired(node: str | Split, areas: Sequence[bpy.types.Area]) -> tuple[tuple[str, bpy.types.Area], ...]:
+def paired(node: Node, areas: Sequence[bpy.types.Area]) -> tuple[tuple[str, bpy.types.Area], ...]:
     """Each leaf's editor of the tree with the area it holds on a screen the tree tiles, in tree order."""
     match node:
         case str():
@@ -283,7 +286,7 @@ def paired(node: str | Split, areas: Sequence[bpy.types.Area]) -> tuple[tuple[st
             return (*paired(first, upper), *paired(second, lower))
 
 
-def extents(node: str | Split, areas: Sequence[bpy.types.Area]) -> tuple[int, ...]:
+def extents(node: Node, areas: Sequence[bpy.types.Area]) -> tuple[int, ...]:
     """Extent each split's sized part spans across its cut on a screen the tree tiles, splits before their parts."""
     match node:
         case str():
@@ -294,7 +297,7 @@ def extents(node: str | Split, areas: Sequence[bpy.types.Area]) -> tuple[int, ..
             return (high - low, *extents(first, upper), *extents(second, lower))
 
 
-def targets(preferences: bpy.types.Preferences, node: str | Split) -> tuple[int, ...]:
+def targets(preferences: bpy.types.Preferences, node: Node) -> tuple[int, ...]:
     """Declared extent of each split's sized part, splits before their parts."""
     match node:
         case str():
@@ -314,15 +317,14 @@ def cut(preferences: bpy.types.Preferences, areas: Sequence[bpy.types.Area], are
     return (span - target - far - inner if side is Side.LEFT else target + inner + near - 1) / span
 
 
-def divided(window: bpy.types.Window, preferences: bpy.types.Preferences, area: bpy.types.Area, node: str | Split) -> Iterator[float | str]:
+def divided(window: bpy.types.Window, preferences: bpy.types.Preferences, area: bpy.types.Area, node: Node) -> Iterator[Update]:
     """Cut the area at each split's sized extent, the two parts ordered across the cut, splits before their parts, and an error line for a split the area refused as too small."""
     match node:
         case str():
             return
         case Split(side=side, first=first, second=second):
             before, factor = frozenset(each.as_pointer() for each in window.screen.areas), cut(preferences, window.screen.areas[:], area, node)
-            with override(window, area):
-                bpy.ops.screen.area_split(direction=side.direction, factor=factor)
+            operate(bpy.ops.screen.area_split, window, area, direction=side.direction, factor=factor)
             yield TICK
             match [each for each in window.screen.areas if each.as_pointer() not in before]:
                 case [added]:
@@ -330,17 +332,16 @@ def divided(window: bpy.types.Window, preferences: bpy.types.Preferences, area: 
                     yield from divided(window, preferences, upper, first)
                     yield from divided(window, preferences, lower, second)
                 case _:
-                    yield line(Kind.ERROR, f"{area_label(window.workspace, area)} refused its {side} split at factor {factor:.4f}")
+                    yield Error(f"{area_label(window.workspace, area)} refused its {side} split at factor {factor:.4f}")
 
 
-def build_screen(window: bpy.types.Window, preferences: bpy.types.Preferences, unit_system: ModuleType, layout: Layout) -> Iterator[float | str]:
+def build_screen(window: bpy.types.Window, preferences: bpy.types.Preferences, unit_system: ModuleType, layout: Layout) -> Iterator[Update]:
     """Rebuild the screen from its largest area when its areas do not tile the layout's tree at its extents, each split cut at its sized extent, then give each area its leaf's editor."""
     screen, tree, workspace = window.screen, layout.screen, window.workspace
     if (held := extents(tree, screen.areas[:]) if len(screen.areas) == len(leaves(tree)) and arranged(tree, screen.areas[:]) else ()) != (wanted := targets(preferences, tree)):
         before, keep = (tuple(area.ui_type for area in screen.areas), held), max(screen.areas, key=lambda area: area.width * area.height)
         for area in [area for area in screen.areas if area != keep]:
-            with override(window, area):
-                bpy.ops.screen.area_close()
+            operate(bpy.ops.screen.area_close, window, area)
             yield TICK
         yield from divided(window, preferences, keep, tree)
         yield from changes(f"{workspace_label(workspace)}.screens[0].areas", before, (leaves(tree), wanted))
@@ -349,7 +350,7 @@ def build_screen(window: bpy.types.Window, preferences: bpy.types.Preferences, u
 
 
 # --- [REGIONS]
-def region_widths(preferences: bpy.types.Preferences) -> str:
+def region_widths(preferences: bpy.types.Preferences) -> Measurement:
     """Measurement line of the logical width and zoom of the sidebar of every editor a screen places and of each toolbar by editor, types by name and RNA enum value, which the host writes into the saved startup file once Blender quit."""
     zoom, sidebar = tool_zoom(preferences), 260
     toolbar_margin, toolbar_column = 16, 40
@@ -366,7 +367,7 @@ def region_widths(preferences: bpy.types.Preferences) -> str:
         ("SPREADSHEET", "TOOLS"): (155, 1.0),
     }
     spaces, kinds = (owner.bl_rna.properties["type"].enum_items for owner in (bpy.types.Area, bpy.types.Region))
-    return line(Kind.MEASUREMENT, JSON.dumps(tuple(Width(editor, spaces[editor].value, kind, kinds[kind].value, width, factor) for (editor, kind), (width, factor) in widths.items())))
+    return Measurement(JSON.dumps(tuple(Width(editor, spaces[editor].value, kind, kinds[kind].value, width, factor) for (editor, kind), (width, factor) in widths.items())))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -387,7 +388,7 @@ __all__ = [
     "build_screen",
     "device_pixels",
     "leaves",
-    "override",
+    "operate",
     "paired",
     "region_label",
     "region_widths",

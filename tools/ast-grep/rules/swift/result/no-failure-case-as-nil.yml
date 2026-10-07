@@ -2,26 +2,34 @@
 id: no-failure-case-as-nil
 language: swift
 severity: error
+utils:
+    recovery:
+        kind: lambda_literal
+        all:
+            - any:
+                - has: {field: type, has: {stopBy: end, kind: lambda_parameter, has: {field: name, pattern: $E}}}
+                - all:
+                    - not: {has: {field: type, kind: lambda_function_type}}
+                    - has: {stopBy: end, kind: simple_identifier, regex: '^\$0$', pattern: $E}
+            - has: {stopBy: end, matches: swift-success-call, has: {kind: call_suffix, regex: '^\((nil|\.none)\)$'}}
+            - has: {stopBy: end, matches: swift-failure-call, has: {stopBy: end, kind: value_argument, pattern: $E}}
+            - not:
+                has:
+                    stopBy: end
+                    any:
+                        - kind: as_expression
+                        - kind: pattern
+                          has: {field: name, kind: user_type}
+                        - kind: switch_pattern
+                          regex: '^(Foundation\.)?(CocoaError|URLError|POSIXError|MachError)\.'
 rule:
     kind: call_expression
     all:
         - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^flatMapError$'}}}
         - has:
             kind: call_suffix
-            has:
-                kind: lambda_literal
-                all:
-                    - has: {field: type, has: {stopBy: end, kind: lambda_parameter, has: {field: name, pattern: $E}}}
-                    - has: {stopBy: end, kind: call_expression, regex: '^(Result(<[^>]*>)?)?\.success\((nil|\.none)\)$'}
-                    - has: {stopBy: end, kind: call_expression, regex: '^(Result(<[^>]*>)?)?\.failure\(', has: {stopBy: end, kind: value_argument, pattern: $E}}
-                    - not:
-                        has:
-                            stopBy: end
-                            any:
-                                - kind: as_expression
-                                - kind: pattern
-                                  has: {field: name, kind: user_type}
-                                - kind: switch_pattern
-                                  regex: '^(Foundation\.)?(CocoaError|URLError|POSIXError|MachError)\.'
-message: '`flatMapError` maps a failure case of `$E` to `.success(nil)`, one absence spelled as a failure and as `nil`'
+            any:
+                - has: {matches: recovery}
+                - has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, has: {field: value, matches: recovery}}}
+message: '`flatMapError` maps a failure case of `$E` to `.success(nil)` in place of a producer returning `nil` for it'
 note: 'Return `.success(nil)` for the case from its producing function and drop it from its failure type and from each consumer''s `flatMapError`, a host error cast or pattern (`as? CocoaError`, `case CocoaError.fileNoSuchFile`, `.noSuchFileOrDirectory as Errno`) stays a classifying boundary'

@@ -2,28 +2,60 @@
 id: no-geometry-reader-fraction
 language: swift
 severity: error
-rule:
-    pattern: 'GeometryReader { $G in $$$B }'
-    has:
-        stopBy: end
-        kind: value_argument
-        all:
-            - has: {kind: value_argument_label, regex: '^(width|height|(min|ideal|max)(Width|Height))$'}
-            - has:
+utils:
+    reader:
+        kind: call_expression
+        any:
+            - has: {nthChild: 1, regex: '^(SwiftUI\.)?GeometryReader$'}
+            - has: {nthChild: 1, has: {field: suffix, regex: '^\.(onGeometryChange|onPreferenceChange)$'}}
+    proxy-length:
+        kind: navigation_suffix
+        regex: '^\.(width|height)$'
+        inside: {stopBy: end, kind: navigation_expression, matches: {swift-chain-root: {root: {kind: simple_identifier, pattern: $G}}}}
+    reader-closure:
+        kind: lambda_literal
+        inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI\.)?GeometryReader$'}}}
+        any:
+            - has: {field: type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, has: {field: name, pattern: $G}}}}
+            - has: {stopBy: end, kind: simple_identifier, regex: '^\$0$', pattern: $G}
+              not: {has: {field: type, kind: lambda_function_type}}
+    measured:
+        kind: simple_identifier
+        pattern: $LENGTH
+        any:
+            - inside:
                 stopBy: end
-                pattern: $SCALE
-                any:
-                    - pattern: $G.size.$AXIS * $F
-                    - pattern: $F * $G.size.$AXIS
-                    - pattern: $G.size.$AXIS / $F
-                    - pattern: '$G.frame(in: $_).$AXIS * $F'
-                    - pattern: '$F * $G.frame(in: $_).$AXIS'
-                    - pattern: '$G.frame(in: $_).$AXIS / $F'
-                    - pattern: '$G.frame(in: $_).size.$AXIS * $F'
-                    - pattern: '$F * $G.frame(in: $_).size.$AXIS'
-                    - pattern: '$G.frame(in: $_).size.$AXIS / $F'
-        inside: {pattern: $_.frame($$$), stopBy: end}
-constraints:
-    AXIS: {regex: '^(width|height)$'}
-message: '`$SCALE` sizes `.frame` from the `GeometryReader` proxy as a hand-written container fraction'
+                matches: reader-closure
+                has:
+                    stopBy: end
+                    kind: property_declaration
+                    all:
+                        - has: {field: name, has: {field: bound_identifier, pattern: $LENGTH}}
+                        - has: {field: value, has: {stopBy: end, matches: proxy-length}}
+            - inside:
+                stopBy: end
+                kind: class_declaration
+                has:
+                    stopBy: end
+                    kind: assignment
+                    all:
+                        - has: {field: target, has: {stopBy: end, kind: simple_identifier, pattern: $LENGTH}}
+                        - inside: {stopBy: end, matches: reader}
+rule:
+    kind: value_argument
+    all:
+        - has: {field: name, regex: '^(width|height|(min|ideal|max)(Width|Height))$'}
+        - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, has: {field: suffix, regex: '^\.frame$'}}}}}
+        - has:
+            field: value
+            pattern: $SCALE
+            any:
+                - kind: multiplicative_expression
+                - has: {stopBy: end, kind: multiplicative_expression}
+        - any:
+            - all:
+                - inside: {stopBy: end, matches: reader-closure}
+                - has: {field: value, has: {stopBy: end, matches: proxy-length}}
+            - has: {field: value, has: {stopBy: end, matches: measured}}
+message: '`$SCALE` sizes `.frame` from the measured container as a hand-written fraction'
 note: 'Read `configuration.fractionCompleted` in a `ProgressViewStyle`, or `containerRelativeFrame(_:) { length, _ in length * fraction }`'

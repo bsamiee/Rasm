@@ -1,13 +1,12 @@
-# ty: ignore[invalid-argument-type, invalid-return-type, unresolved-attribute, unresolved-import]
-# mypy: disable-error-code="attr-defined, import-not-found, return-value, union-attr"
-# ruff: file-ignore[import-private-name]
+# ty: ignore[invalid-argument-type, invalid-return-type, missing-argument, unresolved-attribute]
+# mypy: disable-error-code="attr-defined, call-arg, return-value, union-attr"
 """Blender add-on settings by owner, MeasureIt_ARCH styles they name, and operator and camera presets in Blender's preset layout."""
 
 from collections.abc import Callable, Iterator, Mapping
 from datetime import timedelta
 from functools import partial
 from importlib import import_module
-from itertools import chain, starmap
+from itertools import starmap
 from math import radians
 from operator import setitem
 from pathlib import Path
@@ -16,7 +15,6 @@ from types import ModuleType
 from typing import Final, TYPE_CHECKING
 from urllib.parse import urlsplit
 
-from _bpy import ops
 from bl_operators.presets import AddPresetOperator
 import bpy
 
@@ -24,7 +22,7 @@ from interface.blender.rows import JSON, Launch
 from interface.blender.script.rna import converge_groups, held, Paint
 from interface.blender.script.startup import ANALYSIS, PLAN_DISTANCE, sun, typed_node
 from interface.render import DAYLIGHT, DPI, LATITUDE, LONGITUDE, MATERIALS, MOMENT, NORTH, OFFSET
-from interface.report import converged, Row, subscript
+from interface.report import Item, Row, subscript
 from interface.roles import Alpha, Annotation, Guide, Ink, Line, Modality, POINT_WIDTH, Selection, Status, Surface, Text
 from interface.units import ANGLE_PRECISION, Length, Units
 
@@ -78,7 +76,7 @@ def settings(unit_system: ModuleType, preferences: bpy.types.Preferences, scene:
     size, (zone, crs) = round(preferences.ui_styles[0].widget.points * preferences.system.ui_scale), site_crs()
     standard, daylight = (value / timedelta(hours=1) for value in (OFFSET, DAYLIGHT))
     gis, blosm, active_point, point_factor = import_module(f"{modules['BlenderGIS']}.prefs"), import_module(f"{modules['Blosm']}.app.blender").BlenderApp, 5, 0.75
-    doc, font = preferences.addons[modules["bonsai"]].preferences.doc.bl_rna.properties, next(font for font in bpy.data.fonts if font.filepath == drawing)
+    doc, font = preferences.addons[modules["bonsai"]].preferences.doc.bl_rna.properties, bpy.data.fonts.load(drawing, check_existing=True)
     return tuple(
         starmap(
             unit_system.Group,
@@ -227,12 +225,7 @@ def settings(unit_system: ModuleType, preferences: bpy.types.Preferences, scene:
                         },
                         "dimensions_settings.dimension_arrow_end_style": "ARCHITECTURAL_TICK",
                         "dimensions_settings.precision": places,
-                    },
-                ),
-                (*working, {"cpc_settings.imperial_fraction_denominator": denominator}),
-                (
-                    *working,
-                    {
+                        "cpc_settings.imperial_fraction_denominator": denominator,
                         "MeasureItArchProps.imperial_precision": denominator,
                         "MeasureItArchProps.metric_precision": places,
                         "MeasureItArchProps.angle_precision": ANGLE_PRECISION,
@@ -356,24 +349,33 @@ def styles(preferences: bpy.types.Preferences, scene: bpy.types.Scene) -> tuple[
     )
 
 
+# --- [PRESETS]
+def preset(folder: str, file: str, text: str) -> Row:
+    """Row writing the text as the file in Blender's user preset folder, the folder created where absent."""
+    path = Path(bpy.utils.user_resource("SCRIPTS", path=f"presets/{folder}", create=True), file)
+
+    def stored() -> str | None:
+        try:
+            return path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return None
+
+    return Row(label=subscript("presets", f"{folder}/{file}"), read=stored, write=partial(path.write_text, encoding="utf-8"), target=text)
+
+
 def presets(modules: Mapping[str, str]) -> tuple[Row, ...]:
     """Rows of operator and camera presets in Blender's user preset folders, each file the script its add-preset operator writes, with folder, define lines, and member paths read from that operator."""
     package, variable = import_module(modules["per_camera_resolution"]), AddPresetOperator.preset_defines[0].partition(" = ")[0]
     camera, members = package.AddPresetCameraResolution, package.PerCameraResolutionProps.bl_rna.properties
     declared = (
         (
-            AddPresetOperator.operator_path(ops.create_function("export_scene", "gltf").idname()),
+            AddPresetOperator.operator_path(bpy.ops.export_scene.gltf.idname()),
             "Interchange",
             AddPresetOperator.preset_defines,
             {f"{variable}.export_format": "GLB", f"{variable}.export_hierarchy_full_collections": True},
         ),
         *(
-            (
-                AddPresetOperator.operator_path(ops.create_function("import_scene", "max").idname()),
-                name,
-                AddPresetOperator.preset_defines,
-                {f"{variable}.scale_objects": scale, f"{variable}.use_collection": True},
-            )
+            (AddPresetOperator.operator_path(bpy.ops.import_scene.max.idname()), name, AddPresetOperator.preset_defines, {f"{variable}.scale_objects": scale, f"{variable}.use_collection": True})
             for name, scale in (("Inches", Length.INCHES.value), ("Feet", Length.FEET.value), ("Millimeters", Length.MILLIMETERS.value), ("Centimeters", 10 * Length.MILLIMETERS), ("Meters", 1.0))
         ),
         *(
@@ -387,36 +389,22 @@ def presets(modules: Mapping[str, str]) -> tuple[Row, ...]:
             for sized in (dict(zip(("resolution_x", "resolution_y"), (round(side / Length.INCHES * DPI) for side in units.paper), strict=True)),)
         ),
     )
-
-    def preset_text(folder: str, name: str) -> str | None:
-        try:
-            return Path(bpy.utils.user_resource("SCRIPTS", path=f"presets/{folder}"), f"{name}.py").read_text(encoding="utf-8")
-        except FileNotFoundError:
-            return None
-
-    def written(folder: str, name: str, text: str) -> None:
-        Path(bpy.utils.user_resource("SCRIPTS", path=f"presets/{folder}", create=True), f"{name}.py").write_text(text, encoding="utf-8")
-
     return tuple(
-        Row(
-            label=subscript("presets", f"{folder}/{name}"),
-            read=partial(preset_text, folder, name),
-            write=partial(written, folder, name),
-            target="".join(("import bpy\n", *(f"{define}\n" for define in defines), "\n", *(f"{path} = {value!r}\n" for path, value in values.items()))),
-        )
+        preset(folder, f"{name}.py", "".join(("import bpy\n", *(f"{define}\n" for define in defines), "\n", *(f"{path} = {value!r}\n" for path, value in values.items()))))
         for folder, name, defines, values in declared
     )
 
 
 # --- [STEPS]
-def configured_addons(unit_system: ModuleType, preferences: bpy.types.Preferences, scene: bpy.types.Scene, launch: Launch, modules: Mapping[str, str]) -> Iterator[str]:
-    """Converge every add-on's declared members under their owner, each labeled by its RNA path from root, then BlenderGIS georeference, MPFB's log level, and presets."""
+def configured_addons(unit_system: ModuleType, preferences: bpy.types.Preferences, scene: bpy.types.Scene, launch: Launch, modules: Mapping[str, str]) -> Iterator[Item]:
+    """Change lines of every add-on's declared members under their owner, each labeled by its RNA path from root, then rows of BlenderGIS georeference, MPFB's log level, and presets."""
     yield from converge_groups(unit_system, settings(unit_system, preferences, scene, launch, modules))
     logs = import_module(f"{modules['mpfb']}.services.logservice").LogService
-    rows = (georeference(scene, modules), Row(label="mpfb.LogService.default_log_level", read=logs.get_default_log_level, write=logs.set_default_log_level, target=logs.WARN), *presets(modules))
-    yield from chain.from_iterable(converged(row) for row in rows)
+    yield georeference(scene, modules)
+    yield Row(label="mpfb.LogService.default_log_level", read=logs.get_default_log_level, write=logs.set_default_log_level, target=logs.WARN)
+    yield from presets(modules)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["configured_addons", "presets", "settings", "styles"]
+__all__ = ["configured_addons", "preset", "presets", "settings", "styles"]

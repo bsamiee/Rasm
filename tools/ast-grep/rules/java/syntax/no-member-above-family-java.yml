@@ -6,7 +6,7 @@ rule:
     kind: >-
         field_declaration, constant_declaration, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, block, class_declaration, interface_declaration, enum_declaration, record_declaration, annotation_type_declaration, annotation_type_element_declaration, enum_constant
     inside: {matches: java-member-list}
-    precedes: {stopBy: end, matches: java-labeled-divider}
-    not: {follows: {stopBy: end, matches: java-labeled-divider}}
+    precedes: {stopBy: end, matches: java-divider-comment}
+    not: {follows: {stopBy: end, matches: java-divider-comment}}
 message: Member of a subdivided owner sits above its first family divider
 note: Open the member's family with a `// --- [<FAMILY>]` divider that names what its members do

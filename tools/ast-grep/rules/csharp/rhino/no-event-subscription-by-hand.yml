@@ -20,15 +20,19 @@ rule:
         - has: {field: operator, regex: '^\+=$'}
         - has: {field: left, matches: event}
         - not: {matches: action}
-        - inside:
-            stopBy: end
-            kind: compilation_unit
-            has:
+        - any:
+            - inside:
                 stopBy: end
-                kind: assignment_expression
-                all:
-                    - has: {field: operator, regex: '^-=$'}
-                    - has: {field: left, matches: event}
-                    - not: {matches: action}
-message: '`+=` and `-=` attach and detach `$EVENT` by hand'
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: assignment_expression
+                    all:
+                        - has: {field: operator, regex: '^-=$'}
+                        - has: {field: left, matches: event}
+                        - not: {matches: action}
+            - all:
+                - has: {field: left, kind: member_access_expression, not: {has: {field: expression, regex: '^(this|base)$'}}}
+                - has: {field: right, kind: 'lambda_expression, anonymous_method_expression'}
+message: '`+=` attaches a handler to `$EVENT` of another object by hand'
 note: Use `Events.Attach<THandler>(h => <source>.<event> += h, h => <source>.<event> -= h, <handler>)` and dispose the returned handle to detach

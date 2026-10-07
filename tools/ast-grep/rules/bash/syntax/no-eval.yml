@@ -8,6 +8,7 @@ utils:
             - kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
             - kind: string, concatenation
               has: {matches: expanded-word}
+    shell: {regex: '^(?:\S+/)?(bash|sh|dash|ksh|zsh)$'}
 rule:
     kind: command
     pattern: $CMD
@@ -17,10 +18,17 @@ rule:
             - has: {field: name, regex: '^(builtin|command)$'}
             - has: {kind: word, regex: '^eval$', nthChild: 2}
         - all:
-            - has: {field: name, regex: '^(?:\S+/)?(bash|sh|dash|ksh|zsh)$'}
-            - has: {matches: expanded-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$'}}
+            - has: {field: name, regex: '^(?:\S+/)?(bash|sh|dash|ksh|zsh|env|exec|sudo|nohup|nice|timeout|xargs)$'}
+            - has: {matches: expanded-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$', follows: {stopBy: end, kind: 'command_name, word', matches: shell}}}
         - all:
-            - has: {field: name, regex: '^(source|\.)$'}
-            - has: {kind: process_substitution, nthChild: 2}
+            - has: {field: name, any: [{matches: shell}, {regex: '^(source|\.)$'}]}
+            - any:
+                - has: {kind: process_substitution, nthChild: 2}
+                - all:
+                    - has: {kind: herestring_redirect, has: {matches: expanded-word}}
+                    - not: {has: {kind: 'word, string, raw_string, concatenation, simple_expansion, expansion', not: {regex: '^(-[a-zA-Z]+|/dev/stdin)$'}}}
+        - all:
+            - has: {field: name, regex: '^trap$'}
+            - has: {matches: expanded-word, nthChild: 2}
 message: '`$CMD` parses expanded data as shell code'
-note: 'Run commands from an array, `"${<command>[@]}"`, and pass values as arguments, `bash -c ''<script>'' _ "$<value>"`'
+note: 'Run commands from an array, `"${<command>[@]}"`, pass values as arguments, `bash -c ''<script>'' _ "$<value>"`, and quote a trap handler to expand at signal time, `trap ''<command> "$<value>"'' <signal>`'

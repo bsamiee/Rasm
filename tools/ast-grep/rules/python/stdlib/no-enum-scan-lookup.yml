@@ -3,45 +3,152 @@ id: no-enum-scan-lookup
 language: python
 severity: error
 utils:
-    scan:
-        kind: generator_expression
+    enum-name:
+        kind: identifier, attribute
+        regex: '^(\w+\.)*_?[A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*$'
+        pattern: $E
+    member-loop:
+        kind: for_in_clause, for_statement
+        all: [{has: {field: left, kind: identifier, pattern: $M}}, {has: {field: right, matches: enum-name}}]
+    item-loop:
+        kind: for_in_clause, for_statement
         all:
-            - not: {has: {kind: 'for_in_clause, if_clause', nthChild: 4}}
+            - has: {field: left, kind: 'pattern_list, tuple_pattern', all: [{has: {nthChild: 1, kind: identifier, pattern: $K}}, {has: {nthChild: 2, kind: identifier, pattern: $M}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: right, pattern: $E.__members__.items(), has: {field: function, has: {field: object, has: {field: object, matches: enum-name}}}}
+    name-test:
+        kind: comparison_operator
+        any: [{pattern: $K == $NAME}, {pattern: $NAME == $K}]
+    key-test:
+        kind: comparison_operator
+        any:
+            - pattern: $M == $VALUE
+            - pattern: $VALUE == $M
+            - pattern: $M.value == $VALUE
+            - pattern: $VALUE == $M.value
+            - pattern: $M.name == $NAME
+            - pattern: $NAME == $M.name
+    scan:
+        kind: generator_expression, list_comprehension
+        all:
+            - has: {field: body, kind: identifier, pattern: $M}
             - any:
-                - pattern: ($M for $M in $E if $M == $V)
-                - pattern: ($M for $M in $E if $V == $M)
-                - pattern: ($M for $M in $E if $M.$KEY == $V)
-                - pattern: ($M for $M in $E if $V == $M.$KEY)
+                - all: [{has: {kind: for_in_clause, matches: member-loop}}, {has: {kind: if_clause, has: {matches: key-test}}}]
+                - all: [{has: {kind: for_in_clause, matches: item-loop}}, {has: {kind: if_clause, has: {matches: name-test}}}]
+            - not: {has: {nthChild: 4}}
+    loop:
+        kind: for_statement
+        all:
+            - has:
+                field: body
+                kind: block
+                all:
+                    - has: {nthChild: 1, kind: if_statement, all: [{has: {field: consequence, kind: block, all: [{has: {nthChild: 1, kind: return_statement, has: {kind: identifier, pattern: $M}}}, {not: {has: {nthChild: 2}}}]}}, {not: {has: {field: alternative, pattern: $_}}}]}
+                    - not: {has: {nthChild: 2}}
+            - any:
+                - all: [{matches: member-loop}, {has: {field: body, has: {kind: if_statement, has: {field: condition, matches: key-test}}}}]
+                - all: [{matches: item-loop}, {has: {field: body, has: {kind: if_statement, has: {field: condition, matches: name-test}}}}]
+            - not: {has: {field: alternative, pattern: $_}}
     filtered:
         kind: call
+        all:
+            - has:
+                field: arguments
+                all:
+                    - has: {nthChild: 1, kind: lambda, all: [{has: {field: parameters, has: {kind: identifier, pattern: $M}}}, {has: {field: body, matches: key-test}}]}
+                    - has: {nthChild: 2, matches: enum-name}
+                    - not: {has: {nthChild: 3}}
+            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^filter$'}}}}
+    tested:
+        kind: generator_expression
+        all:
+            - has: {kind: for_in_clause, matches: member-loop}
+            - has: {field: body, matches: key-test}
+            - not: {has: {nthChild: 3}}
+    keys:
+        kind: set_comprehension, list_comprehension, generator_expression
+        all:
+            - has: {kind: for_in_clause, matches: member-loop}
+            - has: {field: body, any: [{pattern: $M}, {pattern: $M.value}, {all: [{pattern: $M.name}, {pattern: $NAMES}]}]}
+            - not: {has: {nthChild: 3}}
+    collected:
         any:
-            - pattern: 'filter(lambda $M: $M == $V, $E)'
-            - pattern: 'filter(lambda $M: $V == $M, $E)'
-            - pattern: 'filter(lambda $M: $M.$KEY == $V, $E)'
-            - pattern: 'filter(lambda $M: $V == $M.$KEY, $E)'
-    listed:
-        kind: list_comprehension
-        not: {has: {kind: 'for_in_clause, if_clause', nthChild: 4}}
+            - matches: keys
+            - kind: call
+              all:
+                - has: {field: arguments, kind: generator_expression, matches: keys}
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(tuple|list|set|frozenset)$'}}}}
+    mapped:
         any:
-            - pattern: '[$M for $M in $E if $M == $V]'
-            - pattern: '[$M for $M in $E if $V == $M]'
-            - pattern: '[$M for $M in $E if $M.$KEY == $V]'
-            - pattern: '[$M for $M in $E if $V == $M.$KEY]'
+            - kind: dictionary_comprehension
+              all:
+                - has: {kind: for_in_clause, matches: member-loop}
+                - has: {field: body, kind: pair, all: [{has: {field: key, any: [{pattern: $M.value}, {pattern: $M.name}]}}, {has: {field: value, pattern: $M}}]}
+                - not: {has: {nthChild: 3}}
+            - kind: call
+              all:
+                - has:
+                    field: arguments
+                    kind: generator_expression
+                    all:
+                        - has: {kind: for_in_clause, matches: member-loop}
+                        - has: {field: body, any: [{pattern: '($M.value, $M)'}, {pattern: '($M.name, $M)'}]}
+                        - not: {has: {nthChild: 3}}
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^dict$'}}}}
+    found:
+        matches: {python-first-item: {source: {any: [{matches: scan}, {matches: filtered}]}}}
 rule:
     pattern: $SCAN
     any:
+        - kind: call, subscript
+          all:
+            - matches: found
+            - not: {has: {field: arguments, kind: argument_list, has: {nthChild: 2}}}
+            - not: {inside: {stopBy: end, kind: try_statement, has: {kind: except_clause, has: {nthChild: 1, regex: '\b(StopIteration|IndexError|LookupError)\b'}}}}
+            - pattern: $FIXABLE
+        - {matches: found, pattern: $KEPT}
         - kind: call
           all:
-            - has: {field: function, kind: identifier, regex: '^next$'}
-            - any:
-                - has: {field: arguments, kind: generator_expression, matches: scan}
-                - has: {field: arguments, kind: argument_list, has: {nthChild: 1, any: [{matches: scan}, {matches: filtered}]}}
-        - kind: subscript
+            - has: {field: arguments, matches: tested}
+            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^any$'}}}}
+            - pattern: $FIXABLE
+        - kind: comparison_operator
           all:
-            - has: {field: value, matches: listed}
-            - has: {field: subscript, regex: '^0$'}
-constraints:
-    E: {kind: identifier, regex: '^_?[A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*$'}
-    KEY: {regex: '^(value|name)$'}
-message: '`$SCAN` scans the members of `$E` for one member'
-note: 'Use `<enum>(<value>)` by value or `<enum>[<name>]` by name, with `<value> in <enum>` as the membership test, an enum class maps each value and name to its member'
+            - has: {field: operators, regex: '^not\s+in$|^in$'}
+            - has: {nthChild: 2, matches: collected}
+            - not: {has: {nthChild: 3}}
+            - pattern: $FIXABLE
+        - {matches: mapped, pattern: $KEPT}
+        - {matches: loop, pattern: $KEPT}
+rewriters:
+    - id: lookup
+      rule:
+        kind: call, subscript
+        has: {stopBy: end, any: [{matches: scan}, {matches: filtered}]}
+      transform:
+        BY_VALUE: {replace: {source: $VALUE, replace: '(?s)^(.*)$', by: '($1)'}}
+        BY_NAME: {replace: {source: $NAME, replace: '(?s)^(.*)$', by: '[$1]'}}
+      fix: $E$BY_VALUE$BY_NAME
+    - id: test
+      rule:
+        kind: call
+        has: {field: arguments, matches: tested}
+      transform:
+        NEEDLE: {replace: {source: $VALUE, replace: '(?s)^(.*)$', by: '$1'}}
+        NAMED: {replace: {source: $NAME, replace: '(?s)^(.*)$', by: '$1'}}
+        MEMBERS: {replace: {source: $NAME, replace: '(?s)^.*$', by: '.__members__'}}
+      fix: $NEEDLE$NAMED in $E$MEMBERS
+    - id: keyed
+      rule:
+        kind: comparison_operator
+        all:
+            - has: {nthChild: 1, pattern: $NEEDLE}
+            - has: {field: operators, pattern: $$OPERATOR}
+            - has: {nthChild: 2, matches: collected}
+      transform:
+        MEMBERS: {replace: {source: $NAMES, replace: '(?s)^.*$', by: '.__members__'}}
+      fix: $NEEDLE $OPERATOR $E$MEMBERS
+transform:
+    FIXED: {rewrite: {source: $FIXABLE, rewriters: [lookup, test, keyed]}}
+fix: $FIXED$KEPT
+message: '`$SCAN` scans enum members for one member, value, or name, `<enum>(<value>)`, `<enum>[<name>]`, and `<value> in <enum>` look it up'
+note: 'An enum class maps each value and name to its member and tests membership by value, a loop or a default falls through where the lookup raises and keeps its form'

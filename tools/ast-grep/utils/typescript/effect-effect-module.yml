@@ -2,4 +2,4 @@
 id: effect-effect-module
 language: tsx
 rule:
-    matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}
+    matches: {effect-module: {name: {regex: '\bEffect$'}}}

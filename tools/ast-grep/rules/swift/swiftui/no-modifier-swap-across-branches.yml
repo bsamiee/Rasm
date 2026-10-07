@@ -16,39 +16,71 @@ utils:
                         any:
                             - has: {field: value, kind: lambda_literal}
                             - has: {field: name, regex: '^action$'}
-    call-arm:
-        matches: {swift-single-statement: {first: {pattern: '$VIEW($$$)', not: {matches: action-call}}}}
-    modified-arm:
-        kind: statements
+    unmergeable-link:
+        any:
+            - kind: navigation_suffix
+              has: {field: suffix, regex: '^(alignmentGuide|matchedGeometryEffect|id)$'}
+            - kind: call_expression
+              all:
+                - has: {nthChild: 1, kind: simple_identifier}
+                - matches: action-call
+    view-arm:
         matches:
             swift-single-statement:
                 first:
-                    kind: call_expression
-                    has:
-                        nthChild: 1
-                        kind: navigation_expression
-                        all:
-                            - has: {field: target, pattern: $VIEW}
-                            - not: {has: {field: suffix, regex: '^\.alignmentGuide$'}}
-    plain-arm:
-        kind: statements
-        matches: {swift-single-statement: {first: {pattern: $VIEW}}}
+                    all:
+                        - matches: {swift-chain-root: {root: {kind: simple_identifier, pattern: $VIEW}}}
+                        - not:
+                            any:
+                                - matches: unmergeable-link
+                                - has: {stopBy: {not: {kind: 'call_expression, navigation_expression'}}, matches: unmergeable-link}
+    argument-swap:
+        not: {inside: {kind: if_statement}}
+        any:
+            - pattern: 'if $C { $V($L: $A) } else { $V($L: $B) }'
+            - pattern: 'if $C { $V($A) } else { $V($B) }'
 rule:
-    any:
-        - pattern: 'if $C { $VIEW($$$A) } else { $VIEW($$$B) }'
-          all:
-            - not: {pattern: 'if $C { $E } else { $E }'}
-            - not: {has: {kind: statements, has: {matches: action-call}}}
-        - kind: if_statement
-          all:
-            - not: {has: {kind: if_statement}}
-            - has: {matches: modified-arm}
-            - has: {matches: plain-arm}
-        - kind: switch_statement
-          all:
-            - has: {kind: switch_entry, has: {matches: call-arm, pattern: $FIRST}}
-            - has: {kind: switch_entry, has: {matches: call-arm, not: {pattern: $FIRST}}}
-            - not: {has: {kind: switch_entry, not: {has: {matches: call-arm}}}}
-    inside: {matches: swift-view-builder, stopBy: end}
+    kind: 'if_statement, switch_statement'
+    all:
+        - not: {inside: {kind: if_statement}}
+        - has: {stopBy: {not: {kind: 'if_statement, switch_entry'}}, kind: statements, matches: view-arm, pattern: $FIRST}
+        - has: {stopBy: {not: {kind: 'if_statement, switch_entry'}}, kind: statements, not: {pattern: $FIRST}}
+        - not: {has: {stopBy: {not: {kind: 'if_statement, switch_entry'}}, kind: statements, not: {matches: view-arm}}}
+        - has:
+            stopBy: {not: {kind: 'if_statement, switch_entry'}}
+            kind: statements
+            any:
+                - has: {nthChild: 1, kind: simple_identifier, pattern: $VIEW}
+                - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, kind: simple_identifier, pattern: $VIEW, regex: '^[A-Z]'}}
+        - inside: {matches: swift-view-builder, stopBy: end}
+        - pattern: $BRANCH
+rewriters:
+    - id: string-argument
+      rule: {matches: argument-swap}
+      constraints:
+        A: {regex: '^"[^"\\]*"$'}
+        B: {regex: '^"[^"\\]*"$'}
+      transform:
+        LABEL: {replace: {source: $L, replace: '^(.+)$', by: '$1: '}}
+      fix: '$V($LABEL$C ? $A : $B)'
+    - id: member-argument
+      rule: {matches: argument-swap}
+      constraints:
+        A: {regex: '^\.\w+$'}
+        B: {regex: '^\.\w+$'}
+      transform:
+        LABEL: {replace: {source: $L, replace: '^(.+)$', by: '$1: '}}
+      fix: '$V($LABEL$C ? $A : $B)'
+    - id: number-argument
+      rule: {matches: argument-swap}
+      constraints:
+        A: {regex: '^-?\d[\d_]*(\.\d[\d_]*)?$'}
+        B: {regex: '^-?\d[\d_]*(\.\d[\d_]*)?$'}
+      transform:
+        LABEL: {replace: {source: $L, replace: '^(.+)$', by: '$1: '}}
+      fix: '$V($LABEL$C ? $A : $B)'
+transform:
+    MERGED: {rewrite: {source: $BRANCH, rewriters: [string-argument, member-argument, number-argument]}}
+fix: $MERGED
 message: '`$VIEW` takes other arguments or modifiers per branch and resets its state at every condition change'
 note: 'Keep one `<view>` and pass the branch condition as a modifier or argument value (`.tint`, `.disabled`, `.opacity`, a ternary argument), each per-branch view holds its own identity'

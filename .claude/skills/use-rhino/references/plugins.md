@@ -1,6 +1,6 @@
 # [PLUGINS]
 
-Packages install through `yak` on PATH, and packages, libraries, and repository builds load into the running Rhino through `document.assembly`.
+Use `yak` from PATH.
 
 ## [01]-[FIND]
 
@@ -23,10 +23,13 @@ Packages installed while Rhino runs stay out of `get_commands` and `PlugIn.IdFro
 
 ## [03]-[BUILDS]
 
-Repository builds load into the Rhino process every slot shares, and their calls run on a document the task spawned:
-1. `nx run <project>:build` writes `.artifacts/dotnet/bin/<project>/debug/<project>.dll`, a plugin project `<project>.rhp`
-2. `spawn_slot` gives the task's document
-3. `document.assembly("<repository>/.artifacts/dotnet/bin/<project>/debug/<project>.<suffix>")` on that slot returns an `AssemblyRecord`
+Repository builds load into Rhino's shared process for calls on a task document:
+1. `nx run <project>:build` writes a library `.dll` or plugin `.rhp`
+2. `dotnet msbuild <project.csproj> <properties> -getProperty:TargetPath` reads output's absolute path
+3. `spawn_slot` gives the task's document
+4. `document.assembly("<TargetPath>")` in task slot returns an `AssemblyRecord`
+
+`<properties>` repeats explicit build properties as `-p:<name>=<value>` arguments. Omit for defaults.
 
 | [INDEX] | [FIELD]    | [DECIDES]                                                                    |
 | :-----: | :--------- | :--------------------------------------------------------------------------- |
@@ -35,23 +38,24 @@ Repository builds load into the Rhino process every slot shares, and their calls
 |  [03]   | `plugin`   | Plugin id `GetPlugInInfo` and `LoadPlugIn` take, `None` for a library        |
 |  [04]   | `commands` | English names `command` runs, hidden commands included                       |
 
-Rhino holds one assembly per name until it quits, and a build's references bind to the copies it holds:
-- `assembly` on a dependency in the build folder (`Rasm.Rhino.Document.dll`) reads which build a call binds to
-- Builds reading `current` `False` reach Rhino through the setup reference's relaunch, after `nx run <app>:install` for an installed app's package copy
+Rhino holds one assembly per name until it quits:
+- Workspace dependencies beside a plugin are named `<PlugIn>.<Project>.dll`, plain library builds `<Project>.dll`
+- `document.assembly("<dependency path>")` reads which build a call binds to
+- When `current` is `False`, use `setup.md` to relaunch Rhino
+- For an installed app, `nx run <app>:install` updates its package before relaunch
 
 ## [04]-[CALLS]
 
-`command(doc, "<Command> <answers>", "<A::B>")` runs a plugin command like a built-in one, its prompts and options stated in plugin source.
+`command(doc, "<Command> <answers>", "<A::B>")` runs plugin commands. Read plugin source for prompts and options.
 
-Pure functions of a plugin or library take exact inputs in any document with no prompt, here a scale by `factor`:
+Functions take explicit inputs, here scale factor `factor`. `<TargetPath>` names project `Rasm.Rhino.Blocks` output:
 
 ```python
-# Call library functions
 import document
+
+print(document.assembly("<TargetPath>"))
 from LanguageExt import IOExtensions
 from Rhino.Geometry import Point3d, Transform
-
-print(document.assembly("<repository>/.artifacts/dotnet/bin/Rasm.Rhino.Blocks/debug/Rasm.Rhino.Blocks.dll"))
 from Rasm.Rhino.Blocks import BlockState, Definitions, InstanceMotion
 from Rasm.Rhino.Document import ComponentRef
 

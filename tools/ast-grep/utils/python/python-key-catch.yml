@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-key-catch
+language: python
+utils:
+    key-error-class:
+        matches: {python-builtin-name: {name: {regex: '^KeyError$'}}}
+    raised-key-error:
+        any:
+            - matches: key-error-class
+            - kind: call
+              has: {field: function, matches: key-error-class}
+            - kind: parenthesized_expression
+              has: {matches: raised-key-error}
+    key-error-base:
+        matches: {python-builtin-name: {name: {regex: '^(KeyError|LookupError|Exception|BaseException)$'}}}
+    exception-type:
+        any:
+            - matches: key-error-base
+            - kind: 'tuple, parenthesized_expression, as_pattern'
+              has: {matches: exception-type}
+    suppress-callee:
+        matches: {python-member-use: {module: {regex: '^contextlib$'}, name: {regex: '^suppress$'}}}
+    suppression:
+        any:
+            - kind: call
+              all:
+                - has: {field: function, matches: suppress-callee}
+                - has: {field: arguments, has: {matches: exception-type}}
+            - kind: 'parenthesized_expression, as_pattern'
+              has: {matches: suppression}
+    suppression-item:
+        kind: with_item
+        has: {field: value, matches: suppression}
+    deferred-body:
+        any:
+            - inside: {kind: 'function_definition, lambda', field: body}
+            - inside: {kind: for_in_clause, field: left, inside: {kind: generator_expression}}
+            - inside: {kind: generator_expression}
+              not: {kind: for_in_clause, not: {follows: {stopBy: end, kind: for_in_clause}}}
+    matching-handler:
+        kind: except_clause
+        any:
+            - has: {matches: exception-type}
+            - not: {has: {field: value, pattern: $_}}
+    first-handler:
+        all:
+            - matches: matching-handler
+            - not: {follows: {stopBy: end, matches: matching-handler}}
+    key-handler:
+        all:
+            - matches: first-handler
+            - not: {has: {kind: block, has: {kind: raise_statement}}}
+    replacing-handler:
+        all:
+            - matches: first-handler
+            - has: {kind: block, has: {kind: raise_statement, has: {pattern: $RAISED, not: {matches: raised-key-error}}}}
+            - not: {has: {field: value, kind: as_pattern, has: {field: alias, has: {pattern: $RAISED}}}}
+    catch-boundary:
+        any:
+            - matches: deferred-body
+            - inside: {kind: try_statement, field: body, has: {matches: replacing-handler}}
+rule:
+    not: {matches: catch-boundary}
+    any:
+        - inside: {stopBy: {matches: catch-boundary}, kind: try_statement, field: body, has: {matches: key-handler}}
+        - inside:
+            stopBy: {matches: catch-boundary}
+            kind: with_statement
+            field: body
+            has: {kind: with_clause, has: {matches: suppression-item}}
+        - inside:
+            stopBy: {matches: catch-boundary}
+            kind: with_item
+            follows: {stopBy: end, matches: suppression-item}

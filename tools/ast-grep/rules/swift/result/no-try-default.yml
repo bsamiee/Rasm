@@ -33,6 +33,9 @@ utils:
                     - pattern: $VALUE
                     - pattern: {context: 'func f() { return $VALUE }', selector: control_transfer_statement}
             - not: {has: {nthChild: 2}}
+    value-return:
+        kind: control_transfer_statement
+        has: {field: result, not: {any: [{matches: swift-success-call}, {matches: swift-failure-call}]}}
     success-projection:
         kind: switch_entry
         all:
@@ -51,7 +54,9 @@ utils:
     failure-default:
         kind: switch_entry
         all:
-            - has: {kind: switch_pattern, regex: '^\.failure(\(_\))?$'}
+            - any:
+                - has: {kind: switch_pattern, regex: '^\.failure(\(_\))?$'}
+                - has: {kind: default_keyword}
             - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
             - has: {kind: statements, pattern: $TRY}
     default-value:
@@ -72,7 +77,7 @@ utils:
                 matches:
                     swift-single-statement:
                         first:
-                            kind: control_transfer_statement
+                            kind: 'control_transfer_statement, assignment'
                             has: {field: result, matches: default-value}
 rule:
     any:
@@ -98,7 +103,7 @@ rule:
           all:
             - has: {matches: tried-chain}
             - has: {field: op, regex: '^[!=]=$'}
-            - has: {regex: '^nil$'}
+            - has: {any: [{regex: '^nil$'}, {kind: boolean_literal}]}
         - kind: switch_statement
           not: {matches: partition}
           all:
@@ -108,10 +113,32 @@ rule:
         - kind: if_statement
           regex: '^if\s+case\s+(\.success\(let\s+\w+\)|let\s+\.success\(\w+\))\s*='
           all:
-            - has: {kind: pattern, has: {kind: simple_identifier, pattern: $VALUE}}
-            - has: {nthChild: {position: 1, ofRule: {kind: statements}}, matches: projected-body}
-            - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, pattern: $TRY}
             - not: {has: {kind: if_statement}}
             - not: {matches: partition}
-message: '`$TRY` discards the error, and consumers read nil or a default in place of a failure'
-note: 'Recover through `Result { try <call> }.flatMapError { error in <recovered case> }` in place of `(try? <call>) ?? <default>`, a `catch` returning a default, or a `switch` or `if case` projecting `.success`, transform the result through `.map` or `.mapError` in place of `try? <result>.get()`, keep `Result { try <call> }` with a typed failure case in place of the `guard let` form, and match the failure case in place of `(try? <call>) != nil`'
+            - any:
+                - all:
+                    - has: {kind: pattern, has: {kind: simple_identifier, pattern: $VALUE}}
+                    - has: {nthChild: {position: 1, ofRule: {kind: statements}}, matches: projected-body}
+                    - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, pattern: $TRY}
+                - all:
+                    - has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, matches: {swift-single-statement: {first: {matches: value-return}}}}
+                    - any:
+                        - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, pattern: $TRY, matches: {swift-single-statement: {first: {matches: value-return}}}}
+                        - all:
+                            - not: {has: {regex: '^else$'}}
+                            - precedes: {matches: value-return, pattern: $TRY}
+        - kind: guard_statement
+          regex: '^guard\s+case\s+(\.success\(let\s+\w+\)|let\s+\.success\(\w+\))\s*='
+          all:
+            - not: {has: {regex: '^,$'}}
+            - has:
+                kind: statements
+                pattern: $TRY
+                matches:
+                    swift-single-statement:
+                        first:
+                            kind: control_transfer_statement
+                            has: {field: result, not: {matches: swift-failure-call}}
+            - not: {matches: partition}
+message: '`$TRY` discards the error and hands consumers nil or a default in place of the failure a `Result` keeps'
+note: 'Recover through `Result { try <call> }.flatMapError { error in <recovered case> }` in place of `(try? <call>) ?? <default>`, a `catch` returning or assigning a default, or a `switch`, `if case`, or `guard case` projecting `.success`, transform the result through `.map` or `.mapError` in place of `try? <result>.get()`, keep `Result { try <call> }` with a typed failure case in place of the `guard let` form, and match the failure case in place of comparing `try? <call>` with `nil` or a boolean'

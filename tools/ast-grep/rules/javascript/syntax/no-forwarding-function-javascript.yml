@@ -3,44 +3,33 @@ id: no-forwarding-function-javascript
 language: javascript
 severity: error
 utils:
-    named-callee:
-        kind: identifier
-        pattern: $F
-        not:
-            inside:
-                matches: javascript-function-boundary
-                stopBy: {matches: javascript-function-boundary}
-                any:
-                    - has: {field: name, pattern: $F}
-                    - has: {field: parameters, has: {kind: identifier, pattern: $F}}
-    parameters-0:
-        has: {field: parameters, not: {has: {kind: identifier}}}
-    parameters-1:
-        has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $A}}, {not: {has: {nthChild: 2}}}]}
-    parameters-2:
-        has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $A}}, {has: {nthChild: 2, kind: identifier, pattern: $B}}, {not: {has: {nthChild: 3}}}]}
-    parameters-3:
-        has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $A}}, {has: {nthChild: 2, kind: identifier, pattern: $B}}, {has: {nthChild: 3, kind: identifier, pattern: $C}}, {not: {has: {nthChild: 4}}}]}
-    single-statement:
-        kind: statement_block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     forwarded:
         kind: call_expression
-        has: {field: function, matches: named-callee}
-    forwarded-0: {matches: forwarded, pattern: $F()}
-    forwarded-1: {matches: forwarded, pattern: $F($A)}
-    forwarded-2: {matches: forwarded, pattern: '$F($A, $B)'}
-    forwarded-3: {matches: forwarded, pattern: '$F($A, $B, $C)'}
-    result-0: {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-0}}}
-    result-1: {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-1}}}
-    result-2: {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-2}}}
-    result-3: {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: forwarded-3}}}
+        pattern: $CALL
+        has: {field: function, kind: identifier}
+    forwarding-body:
+        any:
+            - matches: forwarded
+            - kind: statement_block
+              not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+              has: {kind: 'return_statement, expression_statement', has: {matches: forwarded}}
 rule:
-    matches: javascript-function-boundary
-    any:
-        - all: [{matches: parameters-0}, {has: {field: body, matches: result-0}}]
-        - all: [{matches: parameters-1}, {has: {field: body, matches: result-1}}]
-        - all: [{matches: parameters-2}, {has: {field: body, matches: result-2}}]
-        - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
+    kind: function_declaration, function_expression, arrow_function, method_definition
+    all:
+        - not: {regex: '^(static\s+)?(async\s|get\s+[\w$\[#]|set\s+[\w$\[#]|\*)'}
+        - has: {field: body, matches: forwarding-body}
+        - any:
+            - all:
+                - has: {field: parameters, pattern: {context: 'function f($$$P) {}', selector: formal_parameters}}
+                - has: {stopBy: end, all: [{kind: call_expression}, {pattern: $CALL}, {pattern: $F($$$P)}]}
+            - all:
+                - has: {field: parameters, pattern: {context: 'function f($$$P, ...$A) {}', selector: formal_parameters}}
+                - has: {stopBy: end, all: [{kind: call_expression}, {pattern: $CALL}, {pattern: '$F($$$P, ...$A)'}]}
+            - all:
+                - has: {field: parameter, kind: identifier, pattern: $A}
+                - has: {stopBy: end, all: [{kind: call_expression}, {pattern: $CALL}, {pattern: $F($A)}]}
+        - not: {has: {field: name, pattern: $F}}
+        - not: {has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $F}}}
+        - not: {has: {field: parameter, pattern: $F}}
 message: 'Function forwards its parameters unchanged to `$F`'
-note: 'Pass `$F` in place of the function where callers pass no further arguments'
+note: 'Call or pass `$F` in place of the function where its callers pass no further arguments'

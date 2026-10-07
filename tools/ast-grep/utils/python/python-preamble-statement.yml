@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-preamble-statement
+language: python
+utils:
+    imports:
+        kind: block
+        not: {has: {pattern: $_, not: {kind: 'import_statement, import_from_statement, comment'}}}
+rule:
+    any:
+        - kind: expression_statement
+          has: {kind: string}
+          nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+        - kind: import_statement, import_from_statement, future_import_statement
+        - kind: if_statement
+          has:
+            field: consequence
+            any: [{has: {matches: typing-type-checking-block}}, {matches: imports}]
+        - kind: try_statement
+          has: {field: body, matches: imports}

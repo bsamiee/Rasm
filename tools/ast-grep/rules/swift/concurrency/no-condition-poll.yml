@@ -3,35 +3,55 @@ id: no-condition-poll
 language: swift
 severity: error
 utils:
-    observed-state:
-        kind: navigation_expression
-        all:
-            - has: {field: suffix, regex: '^\.(isTerminated|isFinishedLaunching|isRunning|isActive|isHidden|isReady|isFinished|isCancelled|isExecuting|fileExists|contentsOfDirectory|attributesOfItem|runningApplications|frontmostApplication|menuBarOwningApplication)$'}
-            - not: {has: {field: target, regex: '^!?Task$'}}
-    sleep-call:
+    timed-wait:
+        kind: call_expression
+        pattern: $SLEEP
         any:
-            - pattern: $_.sleep($$$A)
-            - pattern: usleep($$$A)
-            - pattern: sleep($$$A)
+            - matches: swift-blocking-wait
+            - pattern: $_.sleep($$$)
             - pattern: Task.yield()
-            - pattern: '$_.run(until: $$$A)'
-            - pattern: '$_.run(mode: $M, before: $$$A)'
-            - pattern: CFRunLoopRunInMode($$$A)
-            - pattern: '$_.wait(timeout: $$$A)'
-            - pattern: '$_.wait(wallTimeout: $$$A)'
-rule:
-    kind: 'while_statement, repeat_while_statement, for_statement'
-    all:
-        - has:
-            stopBy: end
-            matches: observed-state
-            pattern: $STATE
+            - pattern: '$_.wait(timeout: $$$)'
+            - pattern: '$_.wait(wallTimeout: $$$)'
+    tested-state:
+        pattern: $_
+        not:
             any:
-                - not: {inside: {kind: statements, stopBy: {kind: 'while_statement, repeat_while_statement, for_statement'}}}
-                - inside:
-                    kind: 'if_statement, guard_statement'
-                    stopBy: {kind: statements}
-                    has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return|throw)\b'}}
-        - has: {stopBy: end, matches: sleep-call, pattern: $SLEEP}
-message: '`$SLEEP` polls `$STATE` on a timer in a loop in place of awaiting its change'
-note: 'Await the change through `Observations { <state> }` for `@Observable` state, `publisher(for: <key path>).values` for a KVO-compliant property, `notifications(named:)` for a posted notification, `DispatchSource.makeFileSystemObjectSource` for a file, or a server push'
+                - kind: 'statements, if_statement, else, comment, multiline_comment'
+                - regex: '^(!?(_Concurrency\.)?Task\.isCancelled|true)$'
+    tested-branch:
+        kind: 'if_statement, guard_statement'
+        has: {matches: tested-state}
+    exit-branch:
+        matches: tested-branch
+        has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return|throw)\b'}}
+    loop-exit:
+        kind: statements
+        has:
+            stopBy: {kind: 'lambda_literal, function_declaration, while_statement, repeat_while_statement, for_statement'}
+            matches: exit-branch
+rule:
+    any:
+        - kind: 'while_statement, repeat_while_statement'
+          all:
+            - has: {stopBy: end, matches: timed-wait}
+            - any:
+                - has: {matches: tested-state}
+                - has: {matches: loop-exit}
+        - kind: for_statement
+          all:
+            - not: {regex: '^for\s+(try\s+)?await\b'}
+            - has: {stopBy: end, matches: timed-wait}
+            - has: {matches: loop-exit}
+        - kind: function_declaration
+          all:
+            - has: {field: name, pattern: $F}
+            - has:
+                stopBy: end
+                any:
+                    - kind: switch_entry
+                    - matches: tested-branch
+                all:
+                    - has: {stopBy: end, matches: timed-wait}
+                    - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, pattern: $F}}
+message: '`$SLEEP` re-tests a condition on a timer in place of awaiting its change'
+note: 'Await the change through `Observations { <state> }` for `@Observable` state, `publisher(for: <key path>).values` for a KVO-compliant property, `notifications(named:)` for a posted notification, `DispatchSource.makeFileSystemObjectSource` for a file, or a server push, and end a periodic loop on task cancellation alone'

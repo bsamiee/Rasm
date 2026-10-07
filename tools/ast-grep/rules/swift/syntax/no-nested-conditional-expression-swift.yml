@@ -2,13 +2,30 @@
 id: no-nested-conditional-expression-swift
 language: swift
 severity: error
+utils:
+    nested-body:
+        matches: {swift-single-statement: {first: {kind: 'if_statement, switch_statement'}}}
+    nesting-branch:
+        any:
+            - kind: if_statement
+              any:
+                - has: {kind: statements, matches: nested-body}
+                - has: {kind: if_statement, matches: nesting-branch}
+            - kind: switch_statement
+              has: {kind: switch_entry, has: {kind: statements, matches: nested-body}}
 rule:
-    kind: ternary_expression
-    not: {inside: {kind: ternary_expression, stopBy: {not: {kind: 'tuple_expression, prefix_expression'}}}}
     any:
-        - has: {kind: ternary_expression, stopBy: {not: {kind: 'tuple_expression, prefix_expression'}}}
-        - inside:
-            matches: {swift-single-statement: {first: {kind: ternary_expression}}}
-            inside: {kind: 'if_statement, switch_entry'}
+        - kind: ternary_expression
+          not: {inside: {kind: ternary_expression, stopBy: {not: {kind: 'tuple_expression, prefix_expression'}}}}
+          any:
+            - has: {kind: ternary_expression, stopBy: {not: {kind: 'tuple_expression, prefix_expression'}}}
+            - inside:
+                matches: {swift-single-statement: {first: {kind: ternary_expression}}}
+                inside: {kind: 'if_statement, switch_entry'}
+        - kind: 'if_statement, switch_statement'
+          matches: nesting-branch
+          any:
+            - inside: {kind: property_declaration, field: value}
+            - inside: {kind: 'assignment, control_transfer_statement', field: result}
 message: 'Conditional expression nests a conditional'
 note: 'Select with one `if` expression per test, a `switch` expression over the combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case, a nested conditional hides the test combination that selects each value'

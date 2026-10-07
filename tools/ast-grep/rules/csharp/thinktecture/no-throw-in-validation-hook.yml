@@ -11,33 +11,22 @@ utils:
         all:
             - has: {field: function, has: {field: name, regex: '^Create$'}}
             - inside: {kind: assignment_expression, field: right, has: {field: left, regex: '^validationError$'}}
-    throwing-body:
-        has:
-            stopBy: end
-            any:
-                - kind: throw_statement, throw_expression
-                - kind: invocation_expression
-                  has: {field: function, matches: throw-callee}
     relay:
-        kind: invocation_expression
-        all:
-            - has:
-                field: function
-                any:
-                    - kind: identifier
-                      pattern: $HELPER
-                    - kind: member_access_expression
-                      has: {field: name, kind: identifier, pattern: $HELPER}
-            - inside:
-                kind: compilation_unit
-                stopBy: end
-                has:
-                    stopBy: end
-                    kind: method_declaration, local_function_statement
-                    all:
-                        - has: {field: name, pattern: $HELPER}
-                        - not: {has: {field: name, regex: '^ValidateFactoryArguments$'}}
-                        - matches: throwing-body
+        matches:
+            csharp-file-method-call:
+                declaration:
+                    not: {matches: csharp-validation-hook}
+                    has:
+                        stopBy: end
+                        any:
+                            - kind: throw_statement, throw_expression
+                            - kind: invocation_expression
+                              has:
+                                field: function
+                                any:
+                                    - matches: throw-callee
+                                    - matches: csharp-throwing-factory
+                                      not: {has: {field: name, regex: '^Create(<.+>)?$'}}
     string-method:
         regex: '^(Trim|TrimStart|TrimEnd|TrimOrNullify|ToUpper|ToUpperInvariant|ToLower|ToLowerInvariant|Normalize|Replace|ReplaceLineEndings|Substring|Remove|Insert|PadLeft|PadRight)$'
     key-path:

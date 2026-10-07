@@ -8,18 +8,20 @@
         "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}"],
         "sharedGlobals": ["{workspaceRoot}/nx.json", "{workspaceRoot}/mise.toml", "{workspaceRoot}/tools/nx/*.ts"],
         "dotnet": ["{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.targets,Directory.Packages.props}", { "runtime": "dotnet --version" }],
+        "rhino": [{ "runtime": "plutil -extract CFBundleVersion raw \"$RHINO_PATH/Contents/Info.plist\"" }],
         "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "runtime": "uv --version" }, { "runtime": "python --version" }],
         "xcode": [{ "runtime": "xcodebuild -version" }],
-        "typescript": ["{workspaceRoot}/tsconfig.base.json", "{workspaceRoot}/package.json", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/pnpm-lock.yaml", { "runtime": "node --version" }]
+        "typescript": ["{workspaceRoot}/tsconfig.base.json", "{workspaceRoot}/package.json", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/pnpm-lock.yaml", { "runtime": "node --version" }],
+        "pythonFiles": ["{workspaceRoot}/**/*.{py,pyi}"],
+        "yamlFiles": ["{workspaceRoot}/**/*.{yml,yaml}"],
+        "javaFiles": ["{workspaceRoot}/**/*.java"]
     },
     "targetDefaults": {
-        "build": [
+        "build{,:*}": [
             { "cache": true },
-            {
-                "filter": { "projects": ["tag:language:dotnet"] },
-                "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }],
-                "inputs": ["...", "dotnet"]
-            },
+            { "filter": { "projects": ["tag:language:dotnet"] }, "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }], "inputs": ["...", "dotnet"] },
+            { "filter": { "projects": ["tag:host:rhino"] }, "inputs": ["...", "rhino"] },
+            { "filter": { "projects": ["tag:host:rhino", "!directory:libs/**"] }, "inputs": ["...", "icons"], "options": { "args": ["--no-restore"] }, "configurations": { "debug": { "args": ["--no-restore", "--configuration", "Debug"] }, "release": { "args": ["--no-restore", "--configuration", "Release"] } } },
             {
                 "filter": { "projects": ["tag:language:swift"] },
                 "executor": "nx:run-commands",
@@ -35,37 +37,21 @@
                 }
             },
             { "filter": { "projects": ["tag:language:typescript"] }, "inputs": ["production", "^production", "typescript"] },
-            {
-                "filter": { "projects": ["tag:bundler:vite"] },
-                "command": "vite build",
-                "options": { "cwd": "{projectRoot}" },
-                "configurations": { "serve": { "command": "vite" } },
-                "outputs": ["{projectRoot}/dist"]
-            },
-            {
-                "filter": { "projects": ["tag:host:uxp"] },
-                "command": "vite build --config $NX_WORKSPACE_ROOT/vite.config.ts",
-                "options": { "cwd": "{projectRoot}" },
-                "inputs": ["...", "{workspaceRoot}/vite.config.ts", { "externalDependencies": ["vite"] }],
-                "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"]
-            },
-            {
-                "filter": { "projects": ["tag:host:extendscript"] },
-                "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**'",
-                "inputs": ["...", { "externalDependencies": ["@swc/core", "@swc/cli"] }],
-                "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"]
-            }
+            { "filter": { "projects": ["tag:bundler:vite"] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "configurations": { "serve": { "command": "vite" } }, "outputs": ["{projectRoot}/dist"] },
+            { "filter": { "projects": ["tag:host:uxp"] }, "command": "vite build --config $NX_WORKSPACE_ROOT/vite.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": ["...", "{workspaceRoot}/vite.config.ts", { "externalDependencies": ["vite"] }], "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"] },
+            { "filter": { "projects": ["tag:host:extendscript"] }, "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**'", "inputs": ["...", { "externalDependencies": ["@swc/core", "@swc/cli"] }], "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"] }
         ],
         "pack": [
             {
                 "filter": { "projects": ["tag:host:rhino"] },
-                "command": "dotnet publish {projectRoot} --no-restore --output .artifacts/rhino/{projectRoot}",
+                "command": "dotnet publish {projectRoot} --no-restore --output .artifacts/rhino/{projectName}",
                 "cache": true,
                 "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
-                "inputs": ["production", "^production", "{workspaceRoot}/.editorconfig", "dotnet", { "runtime": "yak version" }],
-                "outputs": ["{workspaceRoot}/.artifacts/rhino/{projectRoot}"],
+                "inputs": ["production", "^production", "{workspaceRoot}/.editorconfig", "dotnet", "rhino", "icons", { "runtime": "yak version" }],
+                "outputs": ["{workspaceRoot}/.artifacts/rhino/{projectName}"],
                 "parallelism": false
-            }
+            },
+            { "filter": { "projects": ["tag:host:blender"] }, "command": "python -m fitout pack {projectRoot} .artifacts/blender/{projectName}" }
         ],
         "install": [
             {
@@ -81,12 +67,8 @@
                 },
                 "parallelism": false
             },
-            {
-                "filter": { "projects": ["tag:host:rhino"] },
-                "command": "python tools/yak/install.py .artifacts/rhino/{projectRoot}",
-                "dependsOn": ["pack"],
-                "parallelism": false
-            }
+            { "filter": { "projects": ["tag:host:rhino"] }, "command": "python -m fitout install rhino .artifacts/rhino/{projectName}", "dependsOn": ["pack"], "parallelism": false },
+            { "filter": { "projects": ["tag:host:blender"] }, "command": "python -m fitout install blender .artifacts/blender/{projectName}", "dependsOn": ["pack"], "parallelism": false }
         ],
         "upgrade": [
             {
@@ -107,19 +89,10 @@
                 "executor": "nx:run-commands",
                 "cache": true,
                 "inputs": ["default", "xcode", "{workspaceRoot}/.swift-format", "{workspaceRoot}/.swiftlint.yml", { "runtime": "swiftlint version" }],
-                "options": { "commands": ["xcrun swift-format lint --strict --recursive {projectRoot}", "swiftlint lint --quiet {projectRoot}"], "parallel": false }
+                "options": { "commands": ["xcrun swift-format lint --strict --parallel --recursive {projectRoot}", "swiftlint lint --quiet {projectRoot}"], "parallel": false }
             }
         ],
-        "format": [
-            {
-                "filter": { "projects": ["tag:language:swift"] },
-                "executor": "nx:run-commands",
-                "options": {
-                    "commands": ["swiftlint lint --fix --quiet {projectRoot}", "xcrun swift-format format --in-place --recursive {projectRoot}"],
-                    "parallel": false
-                }
-            }
-        ],
+        "format": [{ "filter": { "projects": ["tag:language:swift"] }, "executor": "nx:run-commands", "options": { "commands": ["swiftlint lint --fix --quiet {projectRoot}", "xcrun swift-format format --in-place --parallel --recursive {projectRoot}"], "parallel": false } }],
         "typecheck": [
             { "filter": { "projects": ["tag:language:dotnet"] }, "executor": "nx:noop", "dependsOn": ["build"] },
             {
@@ -129,36 +102,36 @@
                 "inputs": ["default", "^default", "typescript", { "externalDependencies": ["typescript"] }],
                 "options": { "cwd": "{projectRoot}" },
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
+            },
+            {
+                "filter": { "projects": ["tag:language:python"] },
+                "executor": "nx:run-commands",
+                "cache": true,
+                "inputs": ["default", "^default", "python"],
+                "options": {
+                    "args": "--python-version 3.13",
+                    "commands": ["ty check {projectRoot}", "mypy --platform darwin --cache-dir .cache/mypy/darwin {projectRoot}", "mypy --platform linux --cache-dir .cache/mypy/linux {projectRoot}", "mypy --platform win32 --cache-dir .cache/mypy/win32 {projectRoot}"],
+                    "parallel": false
+                }
             }
         ],
         "test": [
             { "cache": true },
-            {
-                "filter": { "projects": ["tag:language:dotnet"] },
-                "inputs": ["...", "dotnet"],
-                "outputs": ["{workspaceRoot}/.artifacts/dotnet/coverage/{projectName}"]
-            },
+            { "filter": { "projects": ["tag:language:dotnet"] }, "inputs": ["...", "dotnet"], "outputs": ["{workspaceRoot}/.artifacts/dotnet/coverage/{projectName}"] },
             {
                 "filter": { "projects": ["tag:language:python"] },
                 "command": "pytest {projectRoot} --cov",
-                "inputs": ["default", "python"],
+                "inputs": ["default", "^default", "python"],
                 "outputs": ["{workspaceRoot}/.artifacts/python/coverage/data/.coverage.{projectName}"],
                 "options": { "env": { "COVERAGE_FILE": ".artifacts/python/coverage/data/.coverage.{projectName}" } }
             },
-            {
-                "filter": { "projects": ["tag:language:typescript"], "plugin": "@nx/vitest" },
-                "inputs": ["...", "typescript", "{workspaceRoot}/vitest.config.ts", "{workspaceRoot}/tests/typescript/support/setup.ts"],
-                "outputs": ["{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"]
-            }
+            { "filter": { "projects": ["tag:language:typescript"], "plugin": "@nx/vitest" }, "inputs": ["...", "typescript", "{workspaceRoot}/vitest.config.ts", "{workspaceRoot}/tests/typescript/support/setup.ts"], "outputs": ["{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"] }
         ],
-        "check": [
-            { "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] },
-            { "filter": { "projects": ["tag:language:python"] }, "dependsOn": [{ "projects": ["rasm"], "target": "typecheck" }, "test"] },
-            {
-                "filter": { "projects": ["tag:language:swift"] },
-                "dependsOn": [{ "target": "build", "params": "forward" }, "lint"]
-            }
-        ]
+        "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] }, { "filter": { "projects": ["tag:language:swift"] }, "dependsOn": [{ "target": "build", "params": "forward" }, "lint"] }]
     },
-    "plugins": [{ "plugin": "@nx/vitest", "include": ["**/vitest.config.ts"], "exclude": ["vitest.config.ts"], "options": { "testMode": "run" } }, { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } }, { "plugin": "./tools/nx/workspace.ts" }]
+    "plugins": [
+        { "plugin": "@nx/vitest", "include": ["**/vitest.config.ts"], "exclude": ["vitest.config.ts"], "options": { "testMode": "run" } },
+        { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } },
+        { "plugin": "./tools/nx/workspace.ts", "exclude": ["tools/interface/**/blender_manifest.toml", "apps/*/blender/theme/blender_manifest.toml"] }
+    ]
 }

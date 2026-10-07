@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-leaving-branch-in-if-else
+language: bash
+severity: error
+utils:
+    leaving-command:
+        kind: command
+        has: {field: name, regex: '^(exit|return|continue|break)$'}
+    then-leaving:
+        matches: leaving-command
+        precedes: {stopBy: end, kind: else_clause}
+rule:
+    kind: if_statement
+    pattern: $IF
+    all:
+        - not: {any: [{has: {kind: elif_clause}}, {has: {field: condition, nthChild: 2}}]}
+        - has: {field: condition, pattern: $COND, precedes: {regex: '^then$', stopBy: {not: {regex: '^;$'}}}}
+        - not: {has: {stopBy: end, kind: 'heredoc_body, string, raw_string', regex: '\n'}}
+        - any:
+            - pattern: $ELSE_LEAVES
+              not: {has: {matches: then-leaving}}
+              has:
+                kind: else_clause
+                pattern: $GUARDED_ELSE
+                has: {matches: leaving-command, pattern: $LEAVE, nthChild: {position: 1, reverse: true}}
+            - pattern: $THEN_LEAVES
+              has:
+                matches: then-leaving
+                pattern: $LEAVE
+                not: {precedes: {stopBy: end, pattern: $_, not: {kind: comment}, precedes: {stopBy: end, kind: else_clause}}}
+              all:
+                - has: {kind: else_clause, pattern: $NESTED_ELSE}
+rewriters:
+    - id: then-statement
+      rule:
+        pattern: $STATEMENT
+        inside: {kind: if_statement, pattern: $IF}
+        not: {any: [{nthChild: 1}, {kind: else_clause}]}
+      fix: $STATEMENT
+transform:
+    OR: {replace: {source: $ELSE_LEAVES, replace: '(?s)^.*$', by: '||'}}
+    AND: {replace: {source: $THEN_LEAVES, replace: '(?s)^.*$', by: '&&'}}
+    GUARD_ELSE_STATEMENTS: {replace: {source: $GUARDED_ELSE, replace: '(?s)^else\s*|\s*$', by: ''}}
+    GUARD_ELSE: {replace: {source: $GUARD_ELSE_STATEMENTS, replace: '\n {4}', by: "\n"}}
+    REST_ELSE_STATEMENTS: {replace: {source: $NESTED_ELSE, replace: '(?s)^else\s*|\s*$', by: ''}}
+    REST_ELSE: {replace: {source: $REST_ELSE_STATEMENTS, replace: '\n {4}', by: "\n"}}
+    GUARD_THEN_STATEMENTS: {rewrite: {source: $THEN_LEAVES, rewriters: [then-statement], joinBy: "\n"}}
+    GUARD_THEN: {replace: {source: $GUARD_THEN_STATEMENTS, replace: '\n {4}', by: "\n"}}
+    REST_THEN_STATEMENTS: {rewrite: {source: $ELSE_LEAVES, rewriters: [then-statement], joinBy: "\n"}}
+    REST_THEN: {replace: {source: $REST_THEN_STATEMENTS, replace: '\n {4}', by: "\n"}}
+fix: |-
+    $COND $OR$AND {
+        $GUARD_ELSE$GUARD_THEN
+    }
+    $REST_THEN$REST_ELSE
+message: '`if $COND` nests one branch while the other ends in `$LEAVE`'
+note: 'Short-circuit the leaving branch, `<condition> || { <else body>; }` or `<condition> && { <then body>; }`, and unnest the other branch below it'

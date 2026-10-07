@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-evaluated-subscript
+language: python
+arguments: [value]
+rule:
+    kind: identifier, attribute
+    matches: value
+    any:
+        - nthChild: 1
+          inside: {kind: generic_type}
+        - inside: {kind: subscript, field: value, stopBy: {not: {kind: parenthesized_expression}}}
+    not:
+        any:
+            - inside: {kind: assignment, field: type, stopBy: end, inside: {kind: function_definition, stopBy: {kind: 'function_definition, class_definition'}}}
+            - matches: typing-type-checking-block

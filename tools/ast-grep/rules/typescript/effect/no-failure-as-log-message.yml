@@ -8,7 +8,12 @@ utils:
         has: {field: property, regex: '^(log|logTrace|logDebug|logInfo|logWarning|logError|logFatal)$'}
     failure-handler:
         kind: call_expression
-        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(tapError|tapErrorTag|catch|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons)$'}}
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(tapError|tapErrorTag|catch|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons)$'}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Layer)$'}}}}
     failure-callback:
         kind: arrow_function, function_expression
         all:
@@ -29,4 +34,4 @@ rule:
             - has: {field: arguments, has: {kind: identifier, pattern: $ERROR}}
             - inside: {matches: failure-callback, stopBy: {matches: syntax-function-boundary}}
 message: '`$LOG` logs the failure as a message value'
-note: '`Effect.tapCause(Effect.logError)` or `Effect.logError(<text>, Cause.fail(<error>))` passes the failure as a log cause, which loggers render with its span frame and `[cause]` chain'
+note: '`tapCause(Effect.logError)` of the same module or `Effect.logError(<text>, Cause.fail(<error>))` passes the failure as a log cause, which loggers render with its span frame and `[cause]` chain'

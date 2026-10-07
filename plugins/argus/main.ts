@@ -1,13 +1,16 @@
 import { execFile } from 'node:child_process';
+import { createServer } from 'node:http';
 import { basename, extname, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
-import { NodeRuntime, NodeServices, NodeStream } from '@effect/platform-node';
+import { NodeHttpServer, NodeRuntime, NodeServices, NodeStream } from '@effect/platform-node';
 import { getEventsSince, type Options, writeSnapshot } from '@parcel/watcher';
 import { Array, Duration, Effect, FileSystem, Layer, Logger, Option, Pool, PubSub, Record, Schema, Stream, String, Struct } from 'effect';
 import { McpProtocol, McpServer, Tool, Toolkit } from 'effect/ai';
+import { Command, Flag } from 'effect/cli';
+import { HttpRouter } from 'effect/http';
 import { ChildProcess } from 'effect/process';
 import {
     ConfigurationRequest,
@@ -64,6 +67,7 @@ const Patch = Schema.Struct({ patch: Schema.String.annotate({ description: 'appl
 const Shell = Schema.Struct({ event: Schema.Literals(['PreToolUse', 'PostToolUse']), toolUseId: Schema.NonEmptyString });
 const Lines = Schema.Struct({ lines: Schema.Array(Schema.String) });
 const HookOutput = Schema.Struct({ hookSpecificOutput: Schema.optionalKey(Schema.Struct({ hookEventName: Schema.Literal('PostToolUse'), additionalContext: Schema.String })) });
+const Port = Schema.Number.check(Schema.isBetween({ minimum: 1, maximum: 65_535 }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -255,18 +259,19 @@ const handlers = tools.toLayer(
     }),
 );
 
-McpServer.toolkit(tools).pipe(
-    Layer.provide([
-        handlers,
-        McpServer.layerStdio({
+const endpoint = McpServer.toolkit(tools).pipe(
+    Layer.provide(handlers),
+    Layer.provide(
+        McpServer.layerHttp({
             instructions: "Read a symbol's definition, references, and type signature from its language server before changing it, and a file's diagnostics after",
             name: plugin.name,
-            protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25],
+            path: '/',
+            protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_06_18],
             version: plugin.version,
         }),
-    ]),
-    Layer.provide(NodeServices.layer),
-    Layer.launch,
-    Effect.provideService(Logger.LogToStderr, true),
-    NodeRuntime.runMain,
+    ),
 );
+
+Command.make(plugin.name, { port: Flag.Int('port').pipe(Flag.withSchema(Port), Flag.withDescription('Loopback port the Streamable HTTP endpoint listens on')) }, ({ port }) =>
+    HttpRouter.serve(endpoint, { disableLogger: true }).pipe(Layer.provide(NodeHttpServer.layerServer(createServer, { host: '127.0.0.1', port })), Layer.launch),
+).pipe(Command.run({ version: plugin.version }), Effect.provide(NodeServices.layer), Effect.provideService(Logger.LogToStderr, true), NodeRuntime.runMain);

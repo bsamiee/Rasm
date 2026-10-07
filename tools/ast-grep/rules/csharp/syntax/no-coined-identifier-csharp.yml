@@ -5,7 +5,7 @@ severity: error
 utils:
     declaration:
         kind: >-
-            class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, enum_member_declaration, delegate_declaration, method_declaration, property_declaration, event_declaration, parameter, parameter_list, variable_declarator, local_function_statement, tuple_element, type_parameter, catch_declaration, declaration_pattern, recursive_pattern, declaration_expression, from_clause
+            class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, enum_member_declaration, delegate_declaration, method_declaration, property_declaration, event_declaration, parameter, parameter_list, variable_declarator, local_function_statement, tuple_element, type_parameter, catch_declaration, declaration_pattern, recursive_pattern, declaration_expression, from_clause, using_directive, extern_alias_directive
     declared:
         any:
             - kind: implicit_parameter
@@ -13,6 +13,7 @@ utils:
               any:
                 - inside: {matches: declaration, field: name}
                 - inside: {kind: foreach_statement, field: left}
+                - inside: {kind: labeled_statement}
                 - inside: {kind: tuple_pattern}
                 - inside: {kind: let_clause}
                   precedes: {regex: '^=$'}

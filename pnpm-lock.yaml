@@ -12,6 +12,9 @@ catalogs:
     '@adobe-uxp-types/uxp':
       specifier: 0.1.4
       version: 0.1.4
+    '@ast-grep/lang-python':
+      specifier: 0.0.6
+      version: 0.0.6
     '@ast-grep/napi':
       specifier: 0.45.3
       version: 0.45.3
@@ -379,7 +382,7 @@ catalogs:
       specifier: 4.6.2
       version: 4.6.2
     '@parcel/watcher':
-      specifier: latest
+      specifier: 2.6.0
       version: 2.6.0
     '@perspective-dev/client':
       specifier: 5.5.1
@@ -884,7 +887,6 @@ overrides:
   '@pulumi/pulumi': 3.268.0-alpha.x8489d0b
   cloudevents>uuid: 14.0.2
   '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
-  '@rolldown/plugin-babel>@babel/plugin-transform-runtime': 8.0.1
   vite-plugin-inspect>@vitejs/devtools-kit: 0.7.6
   '@qualithm/arrow-flight-client>apache-arrow': 21.2.0
   '@use-gesture/react>react': 19.3.0-canary-17eca7b0-20261006
@@ -892,7 +894,6 @@ overrides:
   '@pulumi/pulumi>typescript': 7.1.0-dev.20261006.1
   '@effect/docgen>typescript': 7.1.0-dev.20261006.1
   tsconfck>typescript: 7.1.0-dev.20261006.1
-  '@nx/vitest>vitest': 5.0.3
   '@effect/atom-react>scheduler': 0.28.0-canary-17eca7b0-20261006
 
 importers:
@@ -905,6 +906,9 @@ importers:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
         version: 0.1.4
+      '@ast-grep/lang-python':
+        specifier: 'catalog:'
+        version: 0.0.6
       '@ast-grep/napi':
         specifier: 'catalog:'
         version: 0.45.3
@@ -1108,7 +1112,7 @@ importers:
         version: 2.0.3(@modelcontextprotocol/client@2.3.0)(@modelcontextprotocol/core@2.3.0)(@modelcontextprotocol/server@2.3.0)(react-dom@19.3.0-canary-17eca7b0-20261006(react@19.3.0-canary-17eca7b0-20261006))(react@19.3.0-canary-17eca7b0-20261006)(zod@4.6.5)
       '@modelcontextprotocol/inspector':
         specifier: 'catalog:'
-        version: 2.9.0(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(@types/node@26.4.1)(@types/react@19.3.0)(@vitejs/devtools@0.7.5)(babel-plugin-react-compiler@1.0.0)(esbuild@0.28.2)(jiti@2.7.0)(oxc-transform-react@0.152.0)(react-dom@19.3.0-canary-17eca7b0-20261006(react@19.3.0-canary-17eca7b0-20261006))(terser@5.51.2)(tsx@4.23.13)
+        version: 2.9.0(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(@types/node@26.4.1)(@types/react@19.3.0)(@vitejs/devtools@0.7.5)(babel-plugin-react-compiler@1.0.0)(esbuild@0.28.2)(jiti@2.7.0)(oxc-transform-react@0.152.0)(react-dom@19.3.0-canary-17eca7b0-20261006(react@19.3.0-canary-17eca7b0-20261006))(terser@5.51.2)(tsx@4.23.13)
       '@modelcontextprotocol/server':
         specifier: 'catalog:'
         version: 2.3.0
@@ -1766,6 +1770,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0(effect@4.0.1)(redis@6.2.1(@opentelemetry/api@1.9.1))
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.4.1
       effect:
         specifier: 'catalog:'
         version: 4.0.1
@@ -1856,7 +1863,7 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react':
         specifier: 'catalog:'
-        version: 6.1.2(@rolldown/plugin-babel@0.2.4(@babel/core@8.0.6)(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.152.0)(vite@8.3.3)
+        version: 6.1.2(@rolldown/plugin-babel@0.2.4(@babel/core@8.0.6)(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.152.0)(vite@8.3.3)
       oxc-transform-react:
         specifier: 'catalog:'
         version: 0.152.0
@@ -1886,7 +1893,11 @@ importers:
         specifier: 'catalog:'
         version: 26.4.1
 
-  plugins/function-hooks: {}
+  plugins/function-hooks:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.4.1
 
   tests/typescript/support:
     dependencies:
@@ -1933,6 +1944,14 @@ packages:
   '@asamuzakjp/dom-selector@9.2.0':
     resolution: {integrity: sha512-qKvLetaSd/OTWif9JT0eu1SHBg3H7Nvp9SoMwMxqT5tmYyrxea/P1A5pIfGbnIJlOtm3yVeqw+ORxDOkjN1aEw==}
     engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
+
+  '@ast-grep/lang-python@0.0.6':
+    resolution: {integrity: sha512-eF/bEBspmrxdVuPNihvZDyyJx5qtIpGEMz9l1nNQmrji7NZcUiRNC8WwzYyQCBdy1mj8HZ0Tn4I2q3gp/6Bkiw==}
+    peerDependencies:
+      tree-sitter-cli: 0.25.8
+    peerDependenciesMeta:
+      tree-sitter-cli:
+        optional: true
 
   '@ast-grep/napi-darwin-arm64@0.45.3':
     resolution: {integrity: sha512-rMZJ6frSpR/xSbeV4hiA9WR5hHqk3rVYX8lOqEoUCaUnjEuFXvHdGN4WawJ8pVDq/IqM1UnTtsDSYgUdVmO5DA==}
@@ -1995,6 +2014,9 @@ packages:
   '@ast-grep/napi@0.45.3':
     resolution: {integrity: sha512-bjJsUt0g3UCwbn9bjv7MnoR15rszSm79yPCXn4DWWK0NuYUUqBU/srtNMR4WnpfR7TnfBRdYFoqSNx0pGCNWJg==}
     engines: {node: '>= 10'}
+
+  '@ast-grep/setup-lang@0.0.6':
+    resolution: {integrity: sha512-aSYZNF5nGQMxnwiA3Lcc8zi0AtpGlug47ADgqCgP/2n7p922FbnW7vo1rbW4kKjW72B/3mDdN7uvYidv8JnPnw==}
 
   '@aws-sdk/checksums@3.1001.1':
     resolution: {integrity: sha512-x12Q17KYlJAd3nKf8LV5LV0vt8sh8/6YfQLGPtrGnQf/tW4jqxPGq5GPpuVitpQYM3eUR4XB7CbxZf751NMbLw==}
@@ -5724,7 +5746,7 @@ packages:
     peerDependencies:
       '@nx/eslint': 23.3.0-beta.9
       vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
-      vitest: 5.0.3
+      vitest: ^3.0.0 || ^4.0.0 || ^5.0.0
     peerDependenciesMeta:
       '@nx/eslint':
         optional: true
@@ -6801,7 +6823,7 @@ packages:
     engines: {node: '>=22.12.0 || ^24.0.0'}
     peerDependencies:
       '@babel/core': ^7.29.0 || ^8.0.0-rc.1
-      '@babel/plugin-transform-runtime': 8.0.1
+      '@babel/plugin-transform-runtime': ^7.29.0 || ^8.0.0-rc.1
       '@babel/runtime': ^7.27.0 || ^8.0.0-rc.1
       rolldown: ^1.0.0-rc.5
       vite: ^8.0.0
@@ -13719,6 +13741,10 @@ snapshots:
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.3
 
+  '@ast-grep/lang-python@0.0.6':
+    dependencies:
+      '@ast-grep/setup-lang': 0.0.6
+
   '@ast-grep/napi-darwin-arm64@0.45.3':
     optional: true
 
@@ -13757,6 +13783,8 @@ snapshots:
       '@ast-grep/napi-win32-arm64-msvc': 0.45.3
       '@ast-grep/napi-win32-ia32-msvc': 0.45.3
       '@ast-grep/napi-win32-x64-msvc': 0.45.3
+
+  '@ast-grep/setup-lang@0.0.6': {}
 
   '@aws-sdk/checksums@3.1001.1':
     dependencies:
@@ -17480,7 +17508,7 @@ snapshots:
       react: 19.3.0-canary-17eca7b0-20261006
       react-dom: 19.3.0-canary-17eca7b0-20261006(react@19.3.0-canary-17eca7b0-20261006)
 
-  '@modelcontextprotocol/inspector@2.9.0(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(@types/node@26.4.1)(@types/react@19.3.0)(@vitejs/devtools@0.7.5)(babel-plugin-react-compiler@1.0.0)(esbuild@0.28.2)(jiti@2.7.0)(oxc-transform-react@0.152.0)(react-dom@19.3.0-canary-17eca7b0-20261006(react@19.3.0-canary-17eca7b0-20261006))(terser@5.51.2)(tsx@4.23.13)':
+  '@modelcontextprotocol/inspector@2.9.0(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(@types/node@26.4.1)(@types/react@19.3.0)(@vitejs/devtools@0.7.5)(babel-plugin-react-compiler@1.0.0)(esbuild@0.28.2)(jiti@2.7.0)(oxc-transform-react@0.152.0)(react-dom@19.3.0-canary-17eca7b0-20261006(react@19.3.0-canary-17eca7b0-20261006))(terser@5.51.2)(tsx@4.23.13)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.8)
       '@modelcontextprotocol/client': 2.2.0
@@ -17488,7 +17516,7 @@ snapshots:
       '@modelcontextprotocol/ext-apps': 2.0.3(@modelcontextprotocol/client@2.2.0)(@modelcontextprotocol/core@2.2.0)(@modelcontextprotocol/server@2.2.0)(react-dom@19.3.0-canary-17eca7b0-20261006(react@19.3.0-canary-17eca7b0-20261006))(react@19.3.0)(zod@4.6.5)
       '@modelcontextprotocol/server': 2.2.0
       '@napi-rs/keyring': 1.3.0
-      '@vitejs/plugin-react': 6.1.2(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.152.0)(vite@8.3.3)
+      '@vitejs/plugin-react': 6.1.2(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.152.0)(vite@8.3.3)
       ajv: 8.20.0
       atomically: 2.1.1
       chokidar: 4.0.3
@@ -19319,22 +19347,24 @@ snapshots:
   '@rolldown/binding-win32-x64-msvc@1.2.12':
     optional: true
 
-  '@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3)':
+  '@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3)':
     dependencies:
       '@babel/core': 7.29.7(supports-color@7.2.0)
       picomatch: 4.0.7
       rolldown: 1.2.12
     optionalDependencies:
+      '@babel/plugin-transform-runtime': 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
       '@babel/runtime': 7.29.7
       vite: 8.3.3(@types/node@26.4.1)(@vitejs/devtools@0.7.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
     optional: true
 
-  '@rolldown/plugin-babel@0.2.4(@babel/core@8.0.6)(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3)':
+  '@rolldown/plugin-babel@0.2.4(@babel/core@8.0.6)(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3)':
     dependencies:
       '@babel/core': 8.0.6
       picomatch: 4.0.7
       rolldown: 1.2.12
     optionalDependencies:
+      '@babel/plugin-transform-runtime': 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
       '@babel/runtime': 7.29.7
       vite: 8.3.3(@types/node@26.4.1)(@vitejs/devtools@0.7.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0)
     optional: true
@@ -21553,21 +21583,21 @@ snapshots:
       - srvx
     optional: true
 
-  '@vitejs/plugin-react@6.1.2(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.152.0)(vite@8.3.3)':
+  '@vitejs/plugin-react@6.1.2(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.152.0)(vite@8.3.3)':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.3.3(@types/node@26.4.1)(@vitejs/devtools@0.7.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
     optionalDependencies:
-      '@rolldown/plugin-babel': 0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3)
+      '@rolldown/plugin-babel': 0.2.4(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3)
       babel-plugin-react-compiler: 1.0.0
       oxc-transform-react: 0.152.0
 
-  '@vitejs/plugin-react@6.1.2(@rolldown/plugin-babel@0.2.4(@babel/core@8.0.6)(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.152.0)(vite@8.3.3)':
+  '@vitejs/plugin-react@6.1.2(@rolldown/plugin-babel@0.2.4(@babel/core@8.0.6)(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.152.0)(vite@8.3.3)':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.3.3(@types/node@26.4.1)(@vitejs/devtools@0.7.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0)
     optionalDependencies:
-      '@rolldown/plugin-babel': 0.2.4(@babel/core@8.0.6)(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3)
+      '@rolldown/plugin-babel': 0.2.4(@babel/core@8.0.6)(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.2.12)(vite@8.3.3)
       babel-plugin-react-compiler: 1.0.0
       oxc-transform-react: 0.152.0
 

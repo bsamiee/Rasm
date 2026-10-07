@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-blender-module
+language: python
+utils:
+    root:
+        regex: |-
+            (?x)^(_animsys_refactor|_bl_(console|i18n|previews|rna|text|ui)_utils|_blendfile_header
+            |_bpy(_hydra|_internal|_path|_restrict_state|_types)?|_console_(python|shell)|_cycles|_freestyle
+            |_graphviz_export|_keyingsets_utils|_rna_(info|manual_reference|xml)|addon_utils|aud
+            |bl_(app_override|app_template_utils|app_templates_system|ext|keymap_utils|math|operators|pkg|ui)
+            |blend_render_info|blf|bmesh|bpy(_extras)?|cycles|freestyle|gpu(_extras)?|hydra_storm|idprop|imbuf
+            |io_(anim_bvh|curve_svg|mesh_uv_layout|scene_fbx|scene_gltf2)|keyingsets_builtins|manta|mathutils
+            |nodeitems_(builtins|utils)|node_wrangler|parameter_editor|pose_library|rigify|rna_(keymap_ui|prop_ui)
+            |ui_translate|viewport_vr_preview)(\.\w+)*$
+rule:
+    any:
+        - kind: dotted_name
+          has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, matches: root}
+        - kind: string_content
+          matches: root

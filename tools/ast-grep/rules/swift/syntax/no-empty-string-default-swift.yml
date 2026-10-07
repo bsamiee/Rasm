@@ -24,7 +24,7 @@ rule:
             - not: {inside: {kind: 'additive_expression, interpolated_expression', stopBy: {not: {kind: tuple_expression}}}}
         - kind: switch_entry
           all:
-            - has: {kind: switch_pattern, pattern: $SHAPE}
+            - has: {kind: 'switch_pattern, default_keyword', pattern: $SHAPE}
             - has: {matches: empty-block}
         - kind: guard_statement
           all:

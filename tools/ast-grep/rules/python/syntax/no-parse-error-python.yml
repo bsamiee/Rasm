@@ -3,8 +3,21 @@ id: no-parse-error-python
 language: python
 severity: error
 utils:
+    type-parameter-default:
+        kind: ERROR
+        has: {regex: '^=$'}
+        inside:
+            stopBy: {kind: type_parameter}
+            kind: type_parameter
+            inside:
+                any:
+                    - kind: class_definition
+                    - kind: function_definition
+                    - {kind: generic_type, inside: {kind: type, inside: {kind: type_alias_statement, field: left}}}
     unreported:
-        inside: {kind: ERROR, stopBy: end}
+        any:
+            - inside: {kind: ERROR, stopBy: end}
+            - matches: type-parameter-default
 rule:
     any:
         - kind: ERROR
@@ -13,5 +26,6 @@ rule:
           has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: Grammar failed to parse the span
-note: Use a form the grammar parses, every other rule skips constructs inside a parse error
+message: Span fails to parse, write it in a form tree-sitter-python parses
+note: >-
+    Every other rule skips constructs inside a parse error. Unreported tree-sitter-python grammar gaps are type parameter defaults (`class Box[T = int]`)

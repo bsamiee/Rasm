@@ -12,17 +12,17 @@ utils:
             kind: navigation_expression
             all:
                 - has: {field: target, pattern: $S}
-                - has: {field: suffix, has: {field: suffix, regex: '^(stream|continuation)$'}}
+                - has: {field: suffix, has: {field: suffix, regex: '^(stream|continuation|0|1)$'}}
     stream-label-assignment:
         kind: assignment
         all:
             - has: {field: target, pattern: $STREAM}
-            - has: {field: result, kind: navigation_expression, all: [{has: {field: target, pattern: $S}}, {has: {field: suffix, has: {field: suffix, regex: '^stream$'}}}]}
+            - has: {field: result, kind: navigation_expression, all: [{has: {field: target, pattern: $S}}, {has: {field: suffix, has: {field: suffix, regex: '^(stream|0)$'}}}]}
     continuation-label-assignment:
         kind: assignment
         all:
             - has: {field: target, pattern: $CONTINUATION}
-            - has: {field: result, kind: navigation_expression, all: [{has: {field: target, pattern: $S}}, {has: {field: suffix, has: {field: suffix, regex: '^continuation$'}}}]}
+            - has: {field: result, kind: navigation_expression, all: [{has: {field: target, pattern: $S}}, {has: {field: suffix, has: {field: suffix, regex: '^(continuation|1)$'}}}]}
     local-assignment:
         kind: assignment
         has: {field: result, kind: simple_identifier, any: [{pattern: $X}, {pattern: $Y}]}

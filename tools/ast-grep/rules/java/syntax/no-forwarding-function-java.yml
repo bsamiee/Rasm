@@ -41,8 +41,12 @@ rule:
         - has: {field: name, pattern: $FN}
         - not:
             any:
-                - all: [{has: {field: name, regex: '^main$'}}, {has: {kind: modifiers, regex: '\bstatic\b'}}]
-                - has: {kind: modifiers, has: {kind: marker_annotation, regex: '^@Override$'}}
+                - has: {field: name, regex: '^main$'}
+                - has:
+                    kind: modifiers
+                    any:
+                        - has: {regex: '^synchronized$'}
+                        - has: {kind: 'marker_annotation, annotation', not: {regex: '^@(java\.lang\.)?(Deprecated|SafeVarargs|SuppressWarnings)\b'}}
         - has: {field: parameters, has: {kind: 'formal_parameter, spread_parameter'}}
         - has:
             field: body

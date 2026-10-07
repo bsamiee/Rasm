@@ -21,7 +21,7 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, pattern: $FN, regex: '^(decode|encode)(Unknown)?(Sync|Exit|Option|Result|Effect|Promise)$'}
-                - has: {field: object, pattern: $M, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
+                - has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
 rule:
     kind: call_expression
     all:
@@ -32,7 +32,7 @@ rule:
                 - has: {field: function, kind: identifier, pattern: $CODEC}
                 - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $CODEC}}, {has: {field: value, matches: codec}}]}}
             - all:
-                - has: {field: function, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}}
+                - has: {field: function, matches: effect-pipe-function}
                 - has: {field: arguments, has: {nthChild: 2, matches: codec}}
 message: '`$M.$FN` runs over a literal and checks nothing at run time'
 note: 'Write the `Schema.<operation>` output as a literal of its output type inside its result type''s success constructor'

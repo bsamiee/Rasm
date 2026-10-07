@@ -52,8 +52,9 @@ rule:
         - matches: named-arrow
           not: {matches: fixable-arrow}
           pattern: $KEPT
-        - kind: function_declaration, generator_function_declaration
+        - kind: function_declaration, generator_function_declaration, function_expression
           has: {field: body, matches: returned-gen, not: {has: {kind: comment}}}
+          not: {kind: function_expression, not: {inside: {kind: 'variable_declarator, public_field_definition', field: value}}}
           pattern: $KEPT
 rewriters:
     - id: arrow

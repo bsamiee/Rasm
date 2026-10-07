@@ -8,7 +8,7 @@ utils:
     nested-function:
         any:
             - kind: lambda_expression
-            - kind: method_declaration, constructor_declaration
+            - matches: function
               inside: {matches: function, stopBy: end}
     fourth-function:
         matches: nested-function

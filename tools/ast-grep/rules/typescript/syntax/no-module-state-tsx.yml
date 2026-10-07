@@ -2,6 +2,46 @@
 id: no-module-state-tsx
 language: tsx
 severity: error
+utils:
+    mutable-container:
+        any:
+            - kind: new_expression
+              all:
+                - has: {field: 'constructor', regex: '^((globalThis|window|self)\.)?(Map|Set|WeakMap|WeakSet|Array)$', matches: syntax-global-reference}
+                - not: {has: {field: arguments, has: {pattern: $_, not: {kind: comment}}}}
+            - kind: array, object
+              not: {has: {pattern: $_, not: {kind: comment}}}
+            - kind: call_expression
+              has:
+                field: function
+                kind: member_expression
+                any:
+                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Mutable(Ref|HashMap|HashSet|List))?$'}, exported: {regex: '^(MutableRef|MutableHashMap|MutableHashSet|MutableList)$'}}}}
+                    - all:
+                        - has: {field: property, regex: '^makeUnsafe$'}
+                        - has:
+                            field: object
+                            matches:
+                                syntax-import-reference:
+                                    source: {regex: '^effect(/(Ref|SynchronizedRef|TxRef|TxChunk|Deferred|Latch|Semaphore|PartitionedSemaphore|Scope))?$'}
+                                    exported: {regex: '^(Ref|SynchronizedRef|TxRef|TxChunk|Deferred|Latch|Semaphore|PartitionedSemaphore|Scope)$'}
+            - kind: satisfies_expression
+              has: {nthChild: 1, matches: mutable-container}
+            - kind: as_expression
+              all:
+                - has: {nthChild: 1, matches: mutable-container}
+                - not: {any: [{regex: '\bas\s+const$'}, {has: {nthChild: 2, matches: readonly-annotation}}]}
+            - kind: parenthesized_expression
+              has: {matches: mutable-container}
+    readonly-annotation:
+        any:
+            - kind: generic_type
+              has: {field: name, regex: '^(ReadonlySet|ReadonlyMap|ReadonlyArray)$'}
+            - kind: generic_type
+              all:
+                - has: {field: name, regex: '^Readonly$'}
+                - not: {has: {field: type_arguments, has: {kind: generic_type, has: {field: name, regex: '^(Map|Set|WeakMap|WeakSet)$'}}}}
+            - kind: readonly_type
 rule:
     kind: lexical_declaration
     any:
@@ -14,12 +54,8 @@ rule:
                 kind: variable_declarator
                 all:
                     - has: {field: name, pattern: $NAME}
-                    - has:
-                        field: value
-                        kind: new_expression
-                        all:
-                            - has: {field: 'constructor', regex: '^(Map|Set|WeakMap|WeakSet)$', matches: syntax-global-reference}
-                            - not: {has: {field: arguments, has: {pattern: $_}}}
+                    - has: {field: value, matches: mutable-container}
+                    - not: {has: {field: type, has: {matches: readonly-annotation}}}
     inside:
         any:
             - kind: program

@@ -6,26 +6,28 @@ utils:
     delete-command:
         any:
             - matches: {swift-security-arguments: {subcommand: {regex: '^"delete-(generic|internet)-password"$'}}}
-            - kind: line_string_literal
-              regex: '^"delete-(generic|internet)-password '
-            - pattern: SecItemDelete($$$)
+            - kind: line_string_literal, multi_line_string_literal, raw_string_literal
+              regex: '(?m)(?:^#*"*|\\n)[ \t]*delete-(?:generic|internet)-password[ \t]'
+            - kind: call_expression
+              has: {nthChild: 1, kind: simple_identifier, regex: '^(SecItemDelete|SecKeychainItemDelete)$'}
+    after-delete:
+        inside: {kind: statements}
+        follows: {stopBy: end, any: [{matches: delete-command}, {has: {stopBy: end, matches: delete-command}}]}
 rule:
     pattern: $ADD
     any:
-        - kind: line_string_literal
-          regex: 'delete-(generic|internet)-password .*\\nadd-(generic|internet)-password '
+        - kind: line_string_literal, multi_line_string_literal, raw_string_literal
+          regex: '(?ms)(?:^#*"*|\\n)[ \t]*delete-(?:generic|internet)-password[ \t].*(?:^|\\n)[ \t]*add-(?:generic|internet)-password[ \t]'
         - all:
             - any:
                 - matches: {swift-security-arguments: {subcommand: {regex: '^"add-(generic|internet)-password"$'}}}
-                - kind: line_string_literal
-                  regex: '^"add-(generic|internet)-password '
-                - pattern: SecItemAdd($$$)
+                - kind: line_string_literal, multi_line_string_literal, raw_string_literal
+                  regex: '(?m)(?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password[ \t]'
+                - kind: call_expression
+                  has: {nthChild: 1, kind: simple_identifier, regex: '^(SecItemAdd|SecKeychainAdd(Generic|Internet)Password)$'}
             - any:
-                - inside:
-                    stopBy: end
-                    all:
-                        - inside: {kind: statements}
-                        - follows: {stopBy: end, any: [{matches: delete-command}, {has: {stopBy: end, matches: delete-command}}]}
+                - matches: after-delete
+                - inside: {stopBy: end, matches: after-delete}
                 - inside:
                     stopBy: end
                     kind: call_suffix

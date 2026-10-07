@@ -5,7 +5,8 @@ type Given = readonly [name: string, value: string];
 
 interface Program {
     readonly valued?: readonly string[];
-    readonly pairs?: readonly string[];
+    readonly arities?: Readonly<Record<string, number>>;
+    readonly bodies?: readonly string[];
     readonly flags?: readonly string[];
     readonly ends?: readonly string[];
     readonly leading?: number;
@@ -33,6 +34,51 @@ interface ParsedOption {
 const _ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const _PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', sources: ['-c', '-m', '-V'] };
 const _SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', sources: ['-c'], shell: true };
+const _AST_GREP: Program = {
+    valued: [
+        '-c',
+        '--config',
+        '-r',
+        '--rule',
+        '--rewrite',
+        '--inline-rules',
+        '-p',
+        '--pattern',
+        '--selector',
+        '--strictness',
+        '-k',
+        '--kind',
+        '-l',
+        '--lang',
+        '--format',
+        '--report-style',
+        '--filter',
+        '--min-severity',
+        '--no-ignore',
+        '--globs',
+        '-j',
+        '--threads',
+        '--color',
+        '--heading',
+        '--inspect',
+        '-A',
+        '--after',
+        '-B',
+        '--before',
+        '-C',
+        '--context',
+        '--max-results',
+        '--items',
+        '--type',
+        '--match',
+        '--view',
+        '--outline-rules',
+        '-t',
+        '--test-dir',
+        '--snapshot-dir',
+        '-f',
+    ],
+};
 const _SQL: Program = {
     valued: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'],
     leading: 1,
@@ -130,7 +176,41 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
     mise: { runs: '--' },
     doppler: { runs: '--' },
     op: { runs: '--' },
+    hyperfine: {
+        valued: [
+            '-w',
+            '--warmup',
+            '-m',
+            '--min-runs',
+            '-M',
+            '--max-runs',
+            '-r',
+            '--runs',
+            '--reference-name',
+            '-D',
+            '--parameter-step-size',
+            '-S',
+            '--shell',
+            '--style',
+            '--sort',
+            '-u',
+            '--time-unit',
+            '--export-asciidoc',
+            '--export-csv',
+            '--export-json',
+            '--export-markdown',
+            '--export-orgmode',
+            '--output',
+            '--input',
+            '-n',
+            '--command-name',
+        ],
+        arities: { '-P': 3, '--parameter-scan': 3, '-L': 2, '--parameter-list': 2 },
+        bodies: ['-s', '--setup', '--reference', '-p', '--prepare', '-C', '--conclude', '-c', '--cleanup'],
+    },
     git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
+    'ast-grep': _AST_GREP,
+    sg: _AST_GREP,
     fd: {
         valued: [
             '-C',
@@ -299,7 +379,7 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
     base64: { valued: ['-b', '-i', '-o', '--break', '--input', '--output'], stdin: 'always', sources: ['-i', '--input'] },
     sed: { valued: ['-e', '-f'], leading: 1, supplies: ['-e', '-f', '--expression', '--file'], stdin: 'default' },
     awk: { valued: ['-F', '-v', '-f'], leading: 1, supplies: ['-f'], stdin: 'default' },
-    jq: { valued: ['-L', '--library-path', '--indent'], pairs: ['--arg', '--argjson', '--slurpfile', '--rawfile'], leading: 1, stdin: 'default', sources: ['-n', '--null-input'] },
+    jq: { valued: ['-L', '--library-path', '--indent'], arities: { '--arg': 2, '--argjson': 2, '--slurpfile': 2, '--rawfile': 2 }, leading: 1, stdin: 'default', sources: ['-n', '--null-input'] },
     yq: { valued: ['-o', '-p', '-I', '--output-format', '--input-format', '--indent', '--from-file'], leading: 1, supplies: ['--from-file'], stdin: 'default', sources: ['-n', '--null-input'] },
     sd: {
         valued: ['-f', '-n', '--flags', '--max-replacements'],
@@ -324,12 +404,7 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
 
 // --- [OPTIONS]
 
-const _arity = (row: Program | undefined, name: string): number => {
-    if (row?.pairs?.includes(name) === true) {
-        return 2;
-    }
-    return row?.valued?.includes(name) === true ? 1 : 0;
-};
+const _arity = (row: Program | undefined, name: string): number => row?.arities?.[name] ?? (row?.valued?.includes(name) === true || row?.bodies?.includes(name) === true ? 1 : 0);
 
 const option = (program: string, word: string): ParsedOption => {
     const row = PROGRAMS[program];

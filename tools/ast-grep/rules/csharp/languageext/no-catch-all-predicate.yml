@@ -12,23 +12,49 @@ utils:
                     - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^\|$'}}
             - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, has: {matches: csharp-release-handler}}}
             - not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^OnFailure$'}}}}
+    catch-all:
+        kind: invocation_expression
+        all:
+            - any:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, pattern: $NAME, regex: '^Catch(IO)?(\s*<.+>)?$'}}, {has: {field: expression, pattern: $RECEIVER}}]}
+                - has: {field: function, pattern: $NAME, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}
+            - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}, not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    any:
+                        - has: {field: name, regex: '^[Pp]redicate$'}
+                        - all:
+                            - nthChild: {position: 1, ofRule: {kind: argument}}
+                            - not: {has: {field: name, pattern: $_}}
+                    matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    any:
+                        - has: {field: name, regex: '^[Ff]ail$'}
+                        - all:
+                            - nthChild: {position: 2, ofRule: {kind: argument}}
+                            - not: {has: {field: name, pattern: $_}}
+                    has: {nthChild: {position: 1, reverse: true}, pattern: $HANDLER}
+            - not: {matches: released-failure}
 rule:
     kind: invocation_expression
-    all:
-        - any:
-            - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $NAME, regex: '^Catch(IO)?(\s*<.+>)?$'}}
-            - has: {field: function, pattern: $NAME, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}
-        - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}, not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}
-        - has:
-            field: arguments
-            has:
-                kind: argument
-                any:
-                    - has: {field: name, regex: '^[Pp]redicate$'}
-                    - all:
-                        - nthChild: {position: 1, ofRule: {kind: argument}}
-                        - not: {has: {field: name, pattern: $_}}
-                matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
-        - not: {matches: released-failure}
+    any:
+        - all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: catch-all, has: {field: function, has: {field: name, regex: '^Catch(\s*<.+>)?$'}}}}]}
+            - has: {field: arguments, not: {has: {kind: argument}}}
+        - matches: catch-all
+          not:
+            all:
+                - has: {field: function, has: {field: name, regex: '^Catch(\s*<.+>)?$'}}
+                - inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^As$'}}
+transform:
+    RECEIVER_DOT: {replace: {source: $RECEIVER, replace: '(?s)^(.+)$', by: '${1}.'}}
+    NARROWED: {replace: {source: $NAME, replace: '^Catch(\s*<.+>)?$', by: '.As()'}}
+    CLOSE: {replace: {source: $NARROWED, replace: '(?s)^[^.].*$', by: ''}}
+fix: $RECEIVER_DOT$NAME($HANDLER)$CLOSE
 message: '`$NAME` takes a predicate that accepts every error'
-note: Use `IfFail(<handler>)` on an `IO`, `Catch(<handler>)` or `CatchIO(<handler>)` on another `Fallible` type, or `@catch(<handler>)`, each takes no predicate
+note: Use `Catch(<handler>).As()`, `CatchIO(<handler>)`, or `@catch(<handler>)`, each catches every error with no predicate

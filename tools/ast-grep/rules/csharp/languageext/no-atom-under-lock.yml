@@ -69,12 +69,7 @@ utils:
     mutation:
         kind: invocation_expression
         all:
-            - any:
-                - matches: csharp-atom-transition
-                - matches:
-                    csharp-atom-call:
-                        member:
-                            regex: '^(Add|AddOrUpdateRange|AddRange|Clear|FindOrAdd|FindOrMaybeAdd|Remove|RemoveRange|SetItem|SetItems|TryAdd|TryAddRange|TrySetItem|TrySetItems|Enqueue|Dequeue|DequeueUnsafe|Update)$'
+            - matches: csharp-atom-mutation
             - any:
                 - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $CELL}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL}}}

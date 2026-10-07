@@ -11,7 +11,7 @@ utils:
             kind: identifier
             nthChild: 1
             pattern: $WRAPPER
-            regex: '^(Option|Fin|Either|Validation|Try|IO|Eff)T?$'
+            regex: '^((Option|Fin|Either|Validation|Try|Reader|State|Writer|Identity)T?|IO|Eff|These|ChronicleT|RWST|Free|K)$'
         any:
             - inside:
                 field: returns
@@ -39,18 +39,32 @@ utils:
         inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $HELD}}, {has: {field: type, matches: option}}]}}}
     unwrap-callee:
         kind: member_access_expression
-        has: {field: name, regex: '^(ThrowIfFail|ValueUnsafe|Run|RunUnsafe)$'}
+        has: {field: name, regex: '^(Throw\w*|ValueUnsafe|Run(Unsafe)?(Async)?)$'}
         not:
             all:
                 - has: {field: name, regex: '^ValueUnsafe$'}
                 - has: {field: expression, matches: option-parameter}
-    unwrap-body:
+    type-test-arm:
+        kind: switch_expression_arm
+        not: {has: {kind: when_clause}}
         has:
-            stopBy: end
+            nthChild: 1
             any:
-                - kind: throw_expression, throw_statement
-                - kind: invocation_expression
-                  has: {field: function, matches: unwrap-callee}
+                - kind: declaration_pattern, type_pattern
+                - kind: constant_pattern
+                  has: {kind: 'identifier, generic_name, null_literal'}
+    type-switch-default:
+        kind: throw_expression
+        has: {kind: object_creation_expression, has: {field: type, regex: '^((global::)?System\.(Diagnostics\.)?)?UnreachableException$'}}
+        inside:
+            kind: switch_expression_arm
+            has: {kind: discard, nthChild: 1}
+            inside:
+                kind: switch_expression
+                not: {has: {kind: switch_expression_arm, not: {any: [{has: {kind: discard, nthChild: 1}}, {matches: type-test-arm}]}}}
+    failure:
+        kind: throw_expression, throw_statement
+        not: {matches: type-switch-default}
     mapping-body:
         inside: {field: body, stopBy: end, kind: method_declaration, matches: csharp-mapping-method}
     unwrap:
@@ -60,34 +74,27 @@ utils:
                 field: function
                 matches: unwrap-callee
                 has: {field: name, pattern: $WRAPPER}
-            - kind: throw_expression, throw_statement
+            - matches: failure
               pattern: $WRAPPER
             - kind: cast_expression
               pattern: $WRAPPER
               has:
                 field: value
-                kind: invocation_expression
-                has: {field: function, regex: '(^|\.)From(<.+>)?$'}
-            - kind: invocation_expression
-              pattern: $WRAPPER
-              all:
-                - has:
-                    field: function
-                    any:
-                        - kind: identifier
-                          pattern: $HELPER
-                        - kind: member_access_expression
-                          has: {field: name, kind: identifier, pattern: $HELPER}
-                - inside:
-                    kind: compilation_unit
-                    stopBy: end
-                    has:
-                        stopBy: end
-                        kind: method_declaration, local_function_statement
-                        all:
-                            - has: {field: name, pattern: $HELPER}
-                            - not: {matches: csharp-mapping-method}
-                            - matches: unwrap-body
+                any:
+                    - matches: option-parameter
+                    - kind: invocation_expression
+                      has: {field: function, regex: '(^|\.)From(<.+>)?$'}
+            - pattern: $WRAPPER
+              matches:
+                csharp-file-method-call:
+                    declaration:
+                        not: {matches: csharp-mapping-method}
+                        has:
+                            stopBy: end
+                            any:
+                                - matches: failure
+                                - kind: invocation_expression
+                                  has: {field: function, matches: unwrap-callee}
 rule:
     any:
         - matches: wrapper-type

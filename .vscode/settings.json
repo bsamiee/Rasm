@@ -9,7 +9,8 @@
         "**/node_modules": true,
         "**/.artifacts": true,
         "**/.cache": true,
-        "**/.venv": true
+        "**/.venv": true,
+        "**/__pycache__": true
     },
 
     // --- [FILE_WATCHING] ---------------------------------------------------------------

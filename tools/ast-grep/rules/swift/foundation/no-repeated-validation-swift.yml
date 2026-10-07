@@ -2,12 +2,21 @@
 id: no-repeated-validation-swift
 language: swift
 severity: error
+utils:
+    encoding:
+        any:
+            - pattern: '$ENCODER.encode($VALUE)'
+            - kind: try_expression
+              has: {pattern: '$ENCODER.encode($VALUE)'}
 rule:
     kind: call_expression
     any:
         - pattern: '$VALUE.decode(as: $TYPE)'
         - pattern: '$VALUE.decode(as: $TYPE, $$$REST)'
+        - all:
+            - pattern: '$DECODER.decode($TYPE, from: $ENCODED)'
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^from$'}}, {has: {field: value, matches: encoding}}]}}}
 constraints:
-    TYPE: {regex: '\.self$'}
+    TYPE: {regex: '\.self$|^[a-z_]\w*$'}
 message: '`$VALUE` decodes into `$TYPE` through an encode and a second decode'
-note: 'Decode `$TYPE` in the read that produced `$VALUE`, inside a `JSONDocument` when a write must keep unknown fields'
+note: 'Decode `$TYPE` in the read that produced the value, inside a `JSONDocument` when a write must keep unknown fields'

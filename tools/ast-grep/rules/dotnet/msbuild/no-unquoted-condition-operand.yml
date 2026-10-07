@@ -5,32 +5,40 @@ severity: error
 rule:
     kind: Attribute
     pattern: _CONDITION
-    any:
-        - regex: |-
-            (?x) ^ Condition \s* = \s* " \s*
-            (?: (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ ) \s* (?:==|!=) \s* (?: '[^'"&]*' | [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ )
-            | '[^'"&]*' \s* (?:==|!=) \s* (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ ) )
-            \s* " $
-        - regex: |-
-            (?x) ^ Condition \s* = \s* ' \s*
-            (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ ) \s* (?:==|!=) \s* (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ )
-            \s* ' $
+    has: {kind: Name, regex: '^Condition$'}
+    regex: |-
+        (?x)
+        (?: ^Condition\s*=\s*["']\s* | [\s(] )
+        (?: [$@%]\([A-Za-z_][\w.]*\) | [\w./:-]+ )
+        \s*(?:==|!=)
+        | (?:==|!=)\s*
+        (?: [$@%]\([A-Za-z_][\w.]*\) | [\w./:-]+ )
+        (?: \s | \) | ["']$ )
+        | &quot;[^&'"]*&quot;\s*(?:==|!=) | (?:==|!=)\s*&quot;
+        | ^Condition\s*=\s*'[^']*"
 transform:
+    DELIMITED: {replace: {source: $CONDITION, replace: '(?s)^(Condition\s*=\s*)["''](.*)["'']$', by: '${1}@@${2}@@'}}
+    QUOTED: {replace: {source: $DELIMITED, replace: '"([^"]*)"', by: '''$1'''}}
+    UNESCAPED: {replace: {source: $QUOTED, replace: '&quot;([^&''"]*)&quot;', by: '''$1'''}}
     LEFT:
         replace:
-            source: $CONDITION
-            replace: "^(Condition\\s*=\\s*\"\\s*)((?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))(\\s*(?:==|!=)\\s*(?:'[^'\\\"&]*'|[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+)\\s*\")$"
-            by: "$1'$2'$3"
+            source: $UNESCAPED
+            replace: |-
+                (?x)
+                ( ^Condition\s*=\s*@@\s* | [\s(] )
+                ( [$@%]\([A-Za-z_][\w.]*\) | [\w./:-]+ )
+                ( \s*(?:==|!=) )
+            by: '$1''$2''$3'
     RIGHT:
         replace:
             source: $LEFT
-            replace: "^(Condition\\s*=\\s*\"\\s*'[^'\\\"&]*'\\s*(?:==|!=)\\s*)((?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))(\\s*\")$"
-            by: "$1'$2'$3"
-    SINGLE:
-        replace:
-            source: $RIGHT
-            replace: "^(Condition\\s*=\\s*)'(\\s*)([$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+)(\\s*(?:==|!=)\\s*)([$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+)(\\s*)'$"
-            by: "$1\"$2'$3'$4'$5'$6\""
-fix: $SINGLE
+            replace: |-
+                (?x)
+                ( (?:==|!=)\s* )
+                ( [$@%]\([A-Za-z_][\w.]*\) | [\w./:-]+ )
+                ( \s | \) | @@$ )
+            by: '$1''$2''$3'
+    FIXED: {replace: {source: $RIGHT, replace: '@@', by: '"'}}
+fix: $FIXED
 message: Condition compares an operand outside single quotes
 note: 'Quote both operands, `Condition="''$(<Property>)'' == ''<value>''"`'

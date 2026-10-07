@@ -272,11 +272,10 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
         case None:
             comparison = None
         case _:
-            shared = sorted(before["objects"].keys() & current["objects"].keys())
+            earlier, later = before["objects"].keys(), current["objects"].keys()
+            shared = sorted(earlier & later)
             comparison = Comparison(
-                tuple(sorted(current["objects"].keys() - before["objects"].keys())),
-                tuple(sorted(before["objects"].keys() - current["objects"].keys())),
-                delta(*({**side, "objects": {n: side["objects"][n] for n in shared}} for side in (before, current))),
+                tuple(sorted(later - earlier)), tuple(sorted(earlier - later)), delta(*({**side, "objects": {n: side["objects"][n] for n in shared}} for side in (before, current)))
             )
     text = JSON.dumps(current, sort_keys=True, indent=1)
     path.write_text(text, encoding="utf-8")

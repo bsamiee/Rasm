@@ -1,6 +1,6 @@
 # ty: ignore[invalid-argument-type]
 # mypy: disable-error-code="arg-type"
-"""Blender's color role declaration, the members held for a scope, and the one converge of declared RNA members through the installed extension's value forms."""
+"""Blender's color role declaration, the members held for a scope, and the rows of declared RNA members in the installed extension's value forms."""
 
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
@@ -14,7 +14,7 @@ from attrs import frozen
 import bpy
 from mathutils import Color
 
-from interface.report import converged, Row
+from interface.report import Row
 from interface.roles import fractions
 
 if TYPE_CHECKING:
@@ -70,18 +70,18 @@ def assigned(*changes: "tuple[bpy.types.bpy_struct[object], str, object]") -> Ge
 
 def converge(
     unit_system: ModuleType, label: str, owner: "bpy.types.bpy_struct[object]", declared: Mapping[str, object], assign: "Callable[[bpy.types.bpy_struct[object], str, object], object]" = setattr
-) -> Iterator[str]:
-    """Change lines of every declared path under the owner in order, each written through the assignment where the extension's stored form of its value differs, a color role in the channels its member stores, and a `DIR_PATH` string member's folder created before its row."""
+) -> Iterator[Row]:
+    """Row of every declared path under the owner in order, written through the assignment and compared in the extension's stored form, a color role in the channels its member stores, and a `DIR_PATH` string member's folder created before its row."""
     for path, target in declared.items():
         struct, name = unit_system.member(owner, path)
         if isinstance(prop := struct.bl_rna.properties[name], bpy.types.StringProperty) and prop.subtype == "DIR_PATH" and target:
             Path(str(target)).mkdir(parents=True, exist_ok=True)
         value = target.stored(prop) if isinstance(target, Paint) else target
-        yield from converged(Row(label=f"{label}.{path}", read=partial(unit_system.current, struct, name), write=partial(assign, struct, name), target=value), unit_system.stored)
+        yield Row(label=f"{label}.{path}", read=partial(unit_system.current, struct, name), write=partial(assign, struct, name), target=value, plain=unit_system.stored)
 
 
-def converge_groups(unit_system: ModuleType, groups: "Iterable[Group]") -> Iterator[str]:
-    """Change lines of every group in order, each member written through its group's assignment."""
+def converge_groups(unit_system: ModuleType, groups: "Iterable[Group]") -> Iterator[Row]:
+    """Rows of every group in order, each member written through its group's assignment."""
     return chain.from_iterable(converge(unit_system, group.label, group.struct, group.values, group.assign) for group in groups)
 
 

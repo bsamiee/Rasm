@@ -20,20 +20,32 @@ utils:
               all:
                 - not: {has: {field: parameters, has: {kind: parameter}}}
                 - has: {field: body, matches: held}
-    value-scope:
+    using-scope:
         kind: invocation_expression
         all:
             - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?DisposalOps\s*\.\s*Using(\s*<.+>)?$'}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: value}}}
+    bracket-scope:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bracket$'}}, {has: {field: expression, matches: value}}]}
+            - has: {field: arguments, has: {kind: argument}}
+    scope-body:
+        kind: argument
+        any:
+            - all:
+                - nthChild: 2
+                - inside: {kind: argument_list, inside: {matches: using-scope}}
+            - all:
+                - any: [{has: {field: name, regex: '^Use$'}}, {all: [{nthChild: 1}, {not: {has: {field: name, pattern: $_}}}]}]
+                - inside: {kind: argument_list, inside: {matches: bracket-scope}}
 rule:
     kind: invocation_expression
-    all:
-        - matches: value-scope
-        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $VALUES}}}
-    inside:
-        stopBy: end
-        kind: argument
-        nthChild: 2
-        inside: {kind: argument_list, inside: {matches: value-scope}}
+    any:
+        - matches: using-scope
+          has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $VALUES}}}
+        - matches: bracket-scope
+          has: {field: function, has: {field: expression, pattern: $VALUES}}
+    inside: {stopBy: end, matches: scope-body}
 message: '`$VALUES` opens a second scope inside a scope over acquired values'
 note: Use `DisposalOps.Using(IO.pure((<first>, <second>)), <member>, <body>)` for sequences paired by position, `DisposalOps.Using(IO.pure<Seq<IDisposable>>([.. <first>, .. <second>]), <body>)` otherwise, or `DisposalOps.Release<IDisposable>([.. <first>, .. <second>])` where no body follows

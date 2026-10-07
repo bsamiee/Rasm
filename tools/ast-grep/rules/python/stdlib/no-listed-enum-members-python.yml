@@ -7,12 +7,50 @@ utils:
         kind: class_definition
         all:
             - has: {field: name, pattern: $ENUM}
-            - has: {field: superclasses, has: {regex: '^(enum\.)?(Enum|IntEnum|StrEnum|Flag|IntFlag|ReprEnum)$'}}
-    unlisted-member:
+            - has: {field: superclasses, has: {matches: enum-base}}
+    member:
         kind: expression_statement
+        has: {kind: assignment, all: [{has: {field: left, kind: identifier, not: {regex: '^_'}}}, {has: {field: right, pattern: $_}}]}
+    unlisted-member:
         all:
-            - has: {kind: assignment, all: [{has: {field: left, kind: identifier, not: {regex: '^_'}, pattern: $MEMBER}}, {has: {field: right, pattern: $_}}]}
+            - matches: member
+            - has: {kind: assignment, has: {field: left, pattern: $MEMBER}}
             - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, pattern: $LISTED, has: {pattern: $ENUM.$MEMBER}}}}
+    first-member:
+        all:
+            - matches: member
+            - has: {kind: assignment, has: {field: left, pattern: $FIRST}}
+            - not: {follows: {stopBy: end, matches: member}}
+    next-member:
+        all:
+            - matches: member
+            - has: {kind: assignment, has: {field: left, pattern: $PREVIOUS}}
+            - precedes: {stopBy: {matches: member}, matches: member, has: {kind: assignment, has: {field: left, pattern: $NEXT}}}
+    alias:
+        all:
+            - matches: member
+            - has: {kind: assignment, has: {field: right, pattern: $VALUE, not: {regex: '^(enum\.)?auto\(\)$'}}}
+            - precedes: {stopBy: end, has: {kind: assignment, has: {field: right, pattern: $VALUE}}}
+    declared:
+        inside:
+            kind: module
+            stopBy: end
+            has:
+                stopBy: end
+                matches: enum-class
+                all:
+                    - not: {has: {field: superclasses, regex: 'Flag'}}
+                    - not: {has: {field: body, has: {matches: alias}}}
+    ordered:
+        all:
+            - has: {nthChild: 1, pattern: $ENUM.$FIRST}
+            - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: enum-class, has: {field: body, has: {matches: first-member}}}}
+            - not:
+                has:
+                    all:
+                        - pattern: $ENUM.$PREVIOUS
+                        - precedes: {stopBy: {pattern: $_}, pattern: $ENUM.$NEXT}
+                        - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, matches: enum-class, has: {field: body, has: {matches: next-member}}}}}
 rule:
     kind: 'list, tuple, set'
     pattern: $LISTED
@@ -23,5 +61,32 @@ rule:
         - not: {inside: {kind: assignment, field: right, has: {field: left, kind: 'pattern_list, tuple_pattern'}}}
         - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: enum-class}}
         - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, matches: enum-class, has: {field: body, has: {matches: unlisted-member}}}}}
-message: '`$LISTED` lists every member of `$ENUM`'
-note: 'Use `<enum>` itself for iteration and membership (`tuple(<enum>)`, `<value> in <enum>`), iteration yields every member in declaration order'
+        - any:
+            - all:
+                - matches: declared
+                - any:
+                    - inside: {kind: comparison_operator, has: {field: operators, regex: '^not\s+in$|^in$'}}
+                    - all: [{matches: ordered}, {inside: {kind: 'for_statement, for_in_clause', field: right}}]
+                - has: {nthChild: 1, has: {field: object, pattern: $BARE}}
+            - all:
+                - kind: set
+                - matches: declared
+                - has: {nthChild: 1, has: {field: object, pattern: $SET}}
+            - all:
+                - kind: tuple
+                - matches: declared
+                - matches: ordered
+                - has: {nthChild: 1, has: {field: object, pattern: $TUPLE}}
+            - all:
+                - kind: list
+                - matches: declared
+                - matches: ordered
+                - has: {nthChild: 1, has: {field: object, pattern: $LIST}}
+            - pattern: $KEPT
+transform:
+    SET_CALL: {replace: {source: $SET, replace: '(?s)^(.*)$', by: 'set($1)'}}
+    TUPLE_CALL: {replace: {source: $TUPLE, replace: '(?s)^(.*)$', by: 'tuple($1)'}}
+    LIST_CALL: {replace: {source: $LIST, replace: '(?s)^(.*)$', by: 'list($1)'}}
+fix: $BARE$SET_CALL$TUPLE_CALL$LIST_CALL$KEPT
+message: '`$LISTED` lists every member of `$ENUM`, `$ENUM` itself iterates them in declaration order and tests membership'
+note: 'An enum class yields each canonical member once and answers `in` for members and values'

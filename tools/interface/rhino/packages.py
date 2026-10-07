@@ -1,6 +1,7 @@
-"""Rhino packages `packages.toml` declares, staged under the cache from each row's source and converged through `yak` with every Rhino quit."""
+"""Rhino packages `packages.toml` declares, staged under the cache from each row's source and converged through `yak` while Rhino is closed."""
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from enum import StrEnum
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 import re
@@ -12,10 +13,21 @@ import httpx2
 from lxml import etree
 import msgspec
 
-from interface.host import Applied, Change, downloaded, Error, executed, Failed, fetched, Header, Host, outcome
-from interface.report import ABSENT, digest, subscript
+from interface.host import downloaded, executed, fetched, Host, Outcome, outcome, Result
+from interface.report import ABSENT, Change, digest, Error, Header, subscript
 from interface.rhino.session import Rhino
 from interface.rhino.window import RibbonTab
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Origin(StrEnum):
+    """Owner of a package's archive: Rhino's bundle, which leaves none to stage, a workspace project's `pack` output, or the Yak server."""
+
+    BUNDLED = "bundled"
+    PROJECT = "project"
+    PUBLISHED = "published"
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -24,53 +36,49 @@ TABLE: Final = "packages"
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Source(msgspec.Struct, frozen=True):
-    """GitHub repository whose newest workflow run on a branch uploading a named artifact holds the package, `{major}` standing for Rhino's major version."""
-
-    repository: str
-    branch: str
-    artifact: str
-
-
 class Package(msgspec.Struct, frozen=True):
-    """`packages.toml` row by yak id, staged from its workflow artifact, its project's `pack` output, or the Yak server, with its commands by ribbon tab."""
+    """`packages.toml` row by yak id, the origin of its archive, and its commands by ribbon tab."""
 
     id: str
-    source: Source | None = None
-    project: str | None = None
+    source: Origin = Origin.PUBLISHED
     commands: dict[RibbonTab, tuple[str, ...]] = {}
 
-    def archive(self, cache: Path) -> Path:
-        """Staged yak package of the row under the cache folder."""
-        return cache / f"{self.id}.yak"
+    def archive(self, cache: Path) -> Path | None:
+        """Staged yak archive under the cache, None for a package Rhino bundles."""
+        return None if self.source is Origin.BUNDLED else cache / f"{self.id}.yak"
+
+
+class Build(msgspec.Struct, frozen=True):
+    """Yak package name and version a `manifest.yml` states, with the build's file entries by archive path."""
+
+    name: str
+    version: str
+    entries: Mapping[str, bytes]
+
+    @property
+    def stamp(self) -> str:
+        """Report text of the build, its version and the digest of its entries."""
+        return f"{self.version} {digest(msgspec.msgpack.encode(self.entries, order='deterministic'))}"
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 # --- [ARCHIVES]
-def manifest(content: bytes) -> tuple[str, dict[str, bytes]]:
-    """Version a yak package's `manifest.yml` states and its file entries by name."""
-
-    class Manifest(msgspec.Struct, frozen=True):
-        version: str
-
+def manifest(content: bytes) -> Build:
+    """Build a yak archive's bytes hold, named and versioned by its `manifest.yml`."""
     with zipfile.ZipFile(BytesIO(content)) as archive:
-        return msgspec.yaml.decode(archive.read("manifest.yml"), type=Manifest).version, {entry.filename: archive.read(entry) for entry in archive.infolist() if not entry.is_dir()}
-
-
-def stamped(version: str, entries: Mapping[str, bytes]) -> str:
-    """Report text of a package build, its version and the digest of its entries in name order."""
-    return f"{version} {digest(b''.join(entries[name] for name in sorted(entries)))}"
+        entries = {entry.filename: archive.read(entry) for entry in archive.infolist() if not entry.is_dir()}
+    return msgspec.convert({**msgspec.yaml.decode(entries["manifest.yml"], type=dict[str, object]), "entries": entries}, Build)
 
 
 def concealed(source: Path) -> bytes:
-    """Yak package of the source's entries in order, each `.rui` toolbar file with every group's container opening hidden and its comments and namespace prefixes kept."""
+    """Archive bytes with toolbar containers hidden, preserving entry order, XML comments, and namespace prefixes."""
 
     def hidden(content: bytes) -> bytes:
         root = etree.fromstring(content)
         for info in root.iterfind("tool_bar_groups/tool_bar_group/dock_bar_info"):
-            info.set("visible", str(False))
+            info.set("visible", "False")
         return etree.tostring(root, xml_declaration=True, encoding="utf-8")
 
     buffer = BytesIO()
@@ -80,18 +88,8 @@ def concealed(source: Path) -> bytes:
     return buffer.getvalue()
 
 
-def installed_entries(rhino: Rhino, identity: str, names: Iterable[str]) -> dict[str, bytes]:
-    """Bytes of each named entry the folder of the version `yak list` names installed holds, files beside them ignored, none for a package it does not name."""
-    match rhino.installed.get(identity):
-        case str(version):
-            folder = rhino.directory / identity / version
-            return {name: path.read_bytes() for path in folder.rglob("*") if (name := path.relative_to(folder).as_posix()) in names}
-        case None:
-            return {}
-
-
 async def stored(path: Path) -> bytes | None:
-    """Bytes of a staged archive, None while the cache holds none."""
+    """Bytes of an archive, None while the path holds none."""
     try:
         return await anyio.Path(path).read_bytes()
     except FileNotFoundError:
@@ -100,7 +98,7 @@ async def stored(path: Path) -> bytes | None:
 
 # --- [SOURCES]
 async def declared() -> tuple[Package, ...]:
-    """Package rows `packages.toml` declares in ribbon order."""
+    """Package declarations in ribbon order."""
 
     class Packages(msgspec.Struct, frozen=True):
         packages: tuple[Package, ...]
@@ -108,8 +106,8 @@ async def declared() -> tuple[Package, ...]:
     return msgspec.toml.decode(await anyio.Path(__file__).with_name("packages.toml").read_bytes(), type=Packages).packages
 
 
-async def packaged(folder: Path) -> Path | Error:
-    """Yak package the folder holds, or the count it holds when that is not one."""
+async def packaged(folder: Path) -> Result[Path]:
+    """Sole Yak archive in a folder, or an error naming the archive count."""
     match [Path(path) async for path in anyio.Path(folder).glob("*.yak")]:
         case [archive]:
             return archive
@@ -117,24 +115,8 @@ async def packaged(folder: Path) -> Path | Error:
             return Error(f"{folder} holds {len(found)} yak packages in place of one")
 
 
-async def built(host: Host, rhino: Rhino, source: Source, folder: Path) -> Path | Error:
-    """Yak package the newest unexpired upload of the source's artifact from a run on its branch holds, downloaded into the folder, or the reason none downloads."""
-    major, _ = rhino.release
-    branch, artifact = source.branch.format(major=major), source.artifact.format(major=major)
-    newest = f'[.artifacts[] | select((.expired | not) and .workflow_run.head_branch == "{branch}")] | max_by(.created_at) | .workflow_run.id // empty'
-    listed = await executed(("gh", "api", "-X", "GET", f"repos/{source.repository}/actions/artifacts", "-f", f"name={artifact}", "-f", "per_page=100", "--jq", newest), host.environ)
-    match listed.split() if isinstance(listed, bytes) else listed:
-        case Error() as failed:
-            return failed
-        case [run]:
-            saved = await executed(("gh", "run", "download", run.decode(), "-R", source.repository, "-n", artifact, "-D", str(folder)), host.environ)
-            return saved if isinstance(saved, Error) else await packaged(folder)
-        case _:
-            return Error(f"{source.repository} holds no unexpired {artifact} artifact from a run on {branch}")
-
-
-async def published(client: httpx2.AsyncClient, rhino: Rhino, identity: str) -> str | Error:
-    """Address of the first distribution this Rhino on macOS loads, in server order, of the newest Yak server version holding one, as yak's non-strict compatibility test picks it, or the reason none exists."""
+async def published(client: httpx2.AsyncClient, rhino: Rhino, identity: str, folder: Path) -> Result[Path]:
+    """Archive in the folder downloaded from the newest compatible Yak distribution in server order, using Yak's non-strict compatibility rule."""
 
     class Distribution(msgspec.Struct, frozen=True):
         rhino_version: str
@@ -146,82 +128,75 @@ async def published(client: httpx2.AsyncClient, rhino: Rhino, identity: str) -> 
 
     def loads(distribution: Distribution) -> bool:
         """Whether this Rhino on macOS loads the distribution: any platform but Windows, and any Rhino or a release at or below this one."""
-        match distribution.platform, re.fullmatch(r"rh(\d+)(?:_(\d+))?|any", distribution.rhino_version):
-            case "win", _:
-                return False
-            case _, None:
-                return False
-            case _, tag:
-                return tag[1] is None or (int(tag[1]), int(tag[2] or 0)) <= rhino.release
+        tag = re.fullmatch(r"rh(\d+)(?:_(\d+))?|any", distribution.rhino_version)
+        return distribution.platform != "win" and tag is not None and (tag[1] is None or (int(tag[1]), int(tag[2] or 0)) <= rhino.release)
 
-    match await fetched(client, f"https://yak.rhino3d.com/versions/{identity}", tuple[Version, ...]):
+    match await fetched(client, f"https://yak.rhino3d.com/versions/{identity}", msgspec.json.Decoder(tuple[Version, ...]).decode):
         case Error() as failed:
             return failed
         case versions:
-            return next(
-                (each.url for version in versions for each in version.distributions if loads(each)), Error(f"Yak server publishes no {identity} version Rhino {rhino.bundle.version} on macOS loads")
-            )
+            match next((each.url for version in versions for each in version.distributions if loads(each)), None):
+                case None:
+                    return Error(f"Yak server publishes no {identity} version Rhino {rhino.bundle.version} on macOS loads")
+                case url:
+                    return await downloaded(client, url, folder / f"{identity}.yak")
 
 
-async def staged(host: Host, rhino: Rhino, package: Package) -> tuple[Change | Error, ...]:
-    """Report rows of the package's archive under the cache written from its source with its toolbar files concealed, none while the staged archive holds the same bytes, and the error while its source yields none."""
+async def staged(host: Host, rhino: Rhino, package: Package) -> tuple[Result[Change], ...]:
+    """Change of the package's archive under the cache written from its source with its toolbar containers hidden, none while the cache holds the same bytes or Rhino bundles the package, or the error of a source yielding none."""
+    if (target := package.archive(host.cache)) is None:
+        return ()
     async with anyio.TemporaryDirectory() as temporary:
-        match package:
-            case Package(source=Source() as source):
-                fetched = await built(host, rhino, source, Path(temporary))
-            case Package(project=str() as project):
-                fetched = await packaged(host.root / ".artifacts" / "rhino" / project)
-            case Package(id=identity):
-                match await published(host.client, rhino, identity):
-                    case Error() as failed:
-                        fetched = failed
-                    case url:
-                        fetched = await downloaded(host.client, url, Path(temporary, f"{identity}.yak"))
-        match fetched:
+        match await (packaged(host.artifacts / package.id) if package.source is Origin.PROJECT else published(host.client, rhino, package.id, Path(temporary))):
             case Error() as failed:
                 return (failed,)
             case Path() as archive:
                 content = await anyio.to_thread.run_sync(concealed, archive)
-    archive = package.archive(host.cache)
-    if (before := await stored(archive)) == content:
+    if (before := await stored(target)) == content:
         return ()
-    part = anyio.Path(archive.with_name(f"{archive.name}.part"))
+    part = anyio.Path(target.with_name(f"{target.name}.part"))
     await part.write_bytes(content)
-    await part.replace(archive)
-    return (Change(subscript(TABLE, package.id), ABSENT if before is None else stamped(*manifest(before)), stamped(*manifest(content))),)
+    await part.replace(target)
+    return (Change(subscript(TABLE, package.id), ABSENT if before is None else manifest(before).stamp, manifest(content).stamp),)
 
 
 # --- [INSTALLS]
-async def converged(rhino: Rhino, identity: str, archive: Path, content: bytes) -> tuple[Change, ...]:
-    """Change of the package reinstalled from its staged archive holding the content while the installed build differs from it, none while it matches."""
-    version, entries = manifest(content)
-    if (held := await anyio.to_thread.run_sync(installed_entries, rhino, identity, entries)) == entries:
-        return ()
-    await anyio.run_process([rhino.yak, "uninstall", identity])
-    await anyio.run_process([rhino.yak, "install", archive])
-    return (Change(subscript(TABLE, identity), ABSENT if identity not in rhino.installed else stamped(rhino.installed[identity], held), stamped(version, entries)),)
+async def converged(environ: Mapping[str, str], rhino: Rhino, archive: Path) -> tuple[Result[Change], ...]:
+    """Change of the package the archive holds, reinstalled while the installed build of its name differs in version or entries, the removal kept beside the error of an install failing after it, or the error of an absent archive."""
+    match await stored(archive):
+        case None:
+            return (Error(f"{archive} holds no yak archive"),)
+        case content:
+            build = manifest(content)
+    label, version = subscript(TABLE, build.name), rhino.installed.get(build.name)
+    match version:
+        case None:
+            before = ABSENT
+        case str():
+            folder = anyio.Path(rhino.directory, build.name, version)
+            if (held := Build(build.name, version, {entry: await path.read_bytes() async for path in folder.rglob("*") if (entry := path.relative_to(folder).as_posix()) in build.entries})) == build:
+                return ()
+            if isinstance(failed := await executed((str(rhino.yak), "uninstall", build.name), environ), Error):
+                return (failed,)
+            before = held.stamp
+    added = await executed((str(rhino.yak), "install", str(archive)), environ)
+    return (*(() if version is None else (Change(label, before, ABSENT),)), added) if isinstance(added, Error) else (Change(label, before, build.stamp),)
 
 
-async def install(host: Host, rhino: Rhino, packages: Sequence[Package]) -> tuple[Change, ...] | Error:
-    """Changes of each declared package converged on its staged archive in declared order and of each other installed package uninstalled, or an error naming each declared package the cache holds no archive of."""
-    archives = {package.id: package.archive(host.cache) for package in packages}
-    contents = {identity: content for identity, archive in archives.items() if (content := await stored(archive)) is not None}
-    match [identity for identity in archives if identity not in contents]:
-        case []:
-            changes = [change for identity, content in contents.items() for change in await converged(rhino, identity, archives[identity], content)]
-            if strays := tuple(identity for identity in rhino.installed if identity not in archives):
-                await anyio.run_process([rhino.yak, "uninstall", *strays])
-            return (*changes, *(Change(subscript(TABLE, identity), rhino.installed[identity], ABSENT) for identity in strays))
-        case missing:
-            return Error(f"{host.cache} holds no staged archive of {', '.join(missing)}")
+async def install(host: Host, rhino: Rhino, packages: Sequence[Package]) -> tuple[Result[Change], ...]:
+    """Changes and errors of each declared package converged on its staged archive in declared order, then of each other installed package uninstalled, a package Rhino bundles among them."""
+    archives = {package.id: archive for package in packages if (archive := package.archive(host.cache)) is not None}
+    rows = [row for archive in archives.values() for row in await converged(host.environ, rhino, archive)]
+    removals = [(name, version, await executed((str(rhino.yak), "uninstall", name), host.environ)) for name, version in rhino.installed.items() if name not in archives]
+    return (*rows, *(removed if isinstance(removed, Error) else Change(subscript(TABLE, name), version, ABSENT) for name, version, removed in removals))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-async def upgrade(host: Host) -> tuple[Applied | Failed]:
-    """Stages the newest build of each package `packages.toml` declares under the cache for the Rhino the `rhino-mcp-platform` server row names."""
-    match await Rhino.resolve(host):
+async def upgrade(host: Host) -> tuple[Outcome]:
+    """Stages the newest build of each package `packages.toml` declares under the cache for the Rhino bundle `RHINO_PATH` names."""
+    match await Rhino.resolve(host.environ):
         case Error() as failed:
             return (outcome(host.app, (failed,)),)
         case Rhino() as rhino:
@@ -232,4 +207,4 @@ async def upgrade(host: Host) -> tuple[Applied | Failed]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Package", "declared", "install", "upgrade"]
+__all__ = ["Build", "Package", "converged", "declared", "install", "manifest", "upgrade"]

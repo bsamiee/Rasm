@@ -4,55 +4,60 @@ language: swift
 severity: error
 utils:
     host-entry:
-        inside:
-            stopBy: end
-            kind: function_declaration
-            all:
-                - has: {field: name, regex: '^main$'}
-                - has: {kind: modifiers, has: {kind: property_modifier, regex: '^static$'}}
-                - inside:
-                    kind: 'class_body, enum_class_body'
-                    inside: {kind: class_declaration, has: {kind: modifiers, has: {kind: attribute, regex: '^@main$'}}}
+        any:
+            - inside:
+                stopBy: end
+                kind: function_declaration
+                all:
+                    - has: {field: name, regex: '^main$'}
+                    - has: {kind: modifiers, has: {kind: property_modifier, regex: '^static$'}}
+                    - inside:
+                        kind: 'class_body, enum_class_body'
+                        inside: {kind: class_declaration, has: {kind: modifiers, has: {kind: attribute, regex: '^@main$'}}}
+            - inside:
+                stopBy: {kind: 'function_declaration, lambda_literal, class_declaration, protocol_declaration, property_declaration, init_declaration, deinit_declaration, subscript_declaration'}
+                kind: source_file
     callee:
         any:
             - kind: simple_identifier
             - kind: navigation_expression
-              has: {field: target, kind: simple_identifier, regex: '^(Swift|Foundation|CoreFoundation|Darwin|Glibc|os)$'}
-    stream-call:
-        has: {nthChild: 1, matches: callee, regex: '(^|\.)(fputs|fprintf|vfprintf|fwrite|fputc|putc)$'}
-    descriptor-call:
-        has: {nthChild: 1, matches: callee, regex: '(^|\.)(write|dprintf)$'}
-    diagnostic-call:
+              has: {field: target, kind: simple_identifier, regex: '^(Swift|Foundation|CoreFoundation|Darwin|Glibc|os|System|SystemPackage)$'}
+    standard-stream:
+        pattern: $OUT
         any:
-            - has: {nthChild: 1, matches: callee, regex: '(^|\.)(debugPrint|dump|NSLog|NSLogv|os_log|perror|CFShow)$'}
-            - all:
-                - has: {nthChild: 1, matches: callee, regex: '(^|\.)print$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^to$'}}}}
-            - has: {nthChild: 1, kind: navigation_expression, regex: '^((Foundation\.)?FileHandle|(SystemPackage\.|System\.)?FileDescriptor)\.standardError\.\w+$'}
-            - has: {nthChild: 1, kind: navigation_expression, regex: '^(try\s+)?((Foundation\.)?FileHandle\(fileDescriptor:|(SystemPackage\.|System\.)?FileDescriptor\(rawValue:)\s*(2|STDERR_FILENO)\)\.\w+$'}
-            - all:
-                - matches: stream-call
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, regex: '^stderr$'}}}
-            - all:
-                - matches: descriptor-call
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^STDERR_FILENO$'}}}
-    stdout-call:
+            - kind: navigation_expression
+              regex: '^((Foundation\.)?FileHandle|((SystemPackage|System)\.)?FileDescriptor)\.standard(Output|Error)$'
+            - kind: value_argument
+              regex: '^((Darwin|Glibc)\.)?std(out|err)$'
+              inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: callee, regex: '(^|\.)(fputs|fprintf|vfprintf|fwrite|fputc|putc)$'}}}}
+            - kind: value_argument
+              nthChild: 1
+              regex: '^(((Darwin|Glibc)\.)?STD(OUT|ERR)_FILENO|1|2)$'
+              inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: callee, regex: '(^|\.)(write|dprintf|vdprintf)$'}}}}
+            - kind: value_argument
+              nthChild: 1
+              regex: '^(fileDescriptor|rawValue):\s*(((Darwin|Glibc)\.)?STD(OUT|ERR)_FILENO|1|2)$'
+              inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: callee, regex: '(^|\.)(FileHandle|FileDescriptor)$'}}}}
+    diagnostic:
         any:
-            - has: {nthChild: 1, matches: callee, regex: '(^|\.)(print|puts|putchar|printf|vprintf)$'}
-            - has: {nthChild: 1, kind: navigation_expression, regex: '^((Foundation\.)?FileHandle|(SystemPackage\.|System\.)?FileDescriptor)\.standardOutput\.\w+$'}
-            - has: {nthChild: 1, kind: navigation_expression, regex: '^(try\s+)?((Foundation\.)?FileHandle\(fileDescriptor:|(SystemPackage\.|System\.)?FileDescriptor\(rawValue:)\s*(1|STDOUT_FILENO)\)\.\w+$'}
-            - all:
-                - matches: stream-call
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, regex: '^stdout$'}}}
-            - all:
-                - matches: descriptor-call
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^STDOUT_FILENO$'}}}
+            - matches: standard-stream
+              regex: '(?i)err|\b2$'
+            - kind: call_expression
+              any:
+                - has: {nthChild: 1, matches: callee, pattern: $OUT, regex: '(^|\.)(debugPrint|dump|NSLog|NSLogv|os_log|perror|CFShow)$'}
+                - has: {nthChild: 1, kind: navigation_expression, pattern: $OUT, has: {field: suffix, regex: '^\._printChanges$'}}
+                - all:
+                    - has: {nthChild: 1, matches: callee, pattern: $OUT, regex: '(^|\.)print$'}
+                    - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^to$'}}}}
+    result:
+        any:
+            - matches: standard-stream
+            - kind: call_expression
+              has: {nthChild: 1, matches: callee, pattern: $OUT, regex: '(^|\.)(print|puts|putchar|printf|vprintf)$'}
 rule:
-    kind: call_expression
-    has: {nthChild: 1, pattern: $CALLEE}
     any:
-        - matches: diagnostic-call
-        - matches: stdout-call
+        - matches: diagnostic
+        - matches: result
           not: {matches: host-entry}
-message: '`$CALLEE` writes console output outside the host boundary'
-note: 'Log a diagnostic through `Logger` from `os` with a `privacy:` annotation on each interpolation, a command-line tool writes its result to stdout from `static func main` of its `@main` type alone'
+message: '`$OUT` writes a diagnostic outside `Logger` or a result outside the program entry'
+note: 'Log a diagnostic through `Logger` from `os` with a `privacy:` annotation on each interpolation, and write a command-line result to stdout from the program entry alone, `static func main` of the `@main` type or top-level code of `main.swift`'

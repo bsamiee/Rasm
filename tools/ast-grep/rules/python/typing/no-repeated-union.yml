@@ -3,39 +3,64 @@ id: no-repeated-union
 language: python
 severity: error
 utils:
-    union-operator:
-        kind: binary_operator
-        has: {field: operator, regex: '^\|$'}
     union:
         any:
-            - matches: union-operator
-              not: {inside: {any: [{matches: union-operator}, {kind: type, inside: {kind: union_type}}]}}
-              has: {field: left, matches: union-operator}
             - kind: union_type
-              not: {inside: {kind: union_type}}
-              has: {kind: type, has: {any: [{matches: union-operator}, {kind: union_type}]}}
-    earlier:
+            - kind: binary_operator
+              has: {field: operator, regex: '^\|$'}
+    literal:
+        any:
+            - kind: generic_type
+              all:
+                - has: {kind: type_parameter, has: {kind: type, nthChild: 2}}
+                - has: {kind: identifier, nthChild: 1, matches: literal-name}
+            - kind: subscript
+              all:
+                - has: {nthChild: 3}
+                - has: {field: value, matches: literal-name}
+    literal-name:
+        matches: {python-member-use: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^Literal$'}}}
+    optional:
+        any:
+            - has: {field: right, kind: none}
+            - has: {kind: type, nthChild: {position: 1, reverse: true}, has: {kind: none}}
+    member:
+        any:
+            - inside: {matches: union}
+            - inside: {kind: type, inside: {kind: union_type}}
+    optional-member:
+        any:
+            - inside: {kind: binary_operator, field: left, matches: optional}
+            - inside: {kind: type, nthChild: 1, inside: {kind: union_type, matches: optional}}
+    spelled:
+        all:
+            - any: [{matches: union, not: {matches: optional}}, {matches: literal}]
+            - any: [{not: {matches: member}}, {matches: optional-member}]
+            - matches: python-type-expression
+    spelling:
+        any:
+            - {matches: spelled, pattern: $UNION}
+            - has: {stopBy: end, matches: spelled, pattern: $UNION}
+    aliased:
         inside:
             stopBy: end
+            inside: {kind: module}
             follows:
                 stopBy: end
-                any:
-                    - {matches: union, pattern: $UNION}
-                    - has: {stopBy: end, matches: union, pattern: $UNION}
-    earlier-typed:
-        inside:
-            stopBy: end
-            follows:
-                stopBy: end
-                any:
-                    - {matches: union, pattern: $UNION, inside: {kind: type, stopBy: end}}
-                    - has: {stopBy: end, matches: union, pattern: $UNION, inside: {kind: type, stopBy: end}}
+                kind: type_alias_statement
+                all:
+                    - has: {field: left, has: {kind: identifier}}
+                    - has: {field: right, has: {pattern: $UNION}}
 rule:
-    kind: binary_operator, union_type
-    matches: union
-    pattern: $UNION
-    any:
-        - all: [{inside: {kind: type, stopBy: end}}, {matches: earlier}]
-        - matches: earlier-typed
-message: '`$UNION` repeats a union of three or more members spelled earlier in the file'
-note: 'Use `type <Name> = <union>` under `[TYPES]` and the alias at every site, the union has one spelling'
+    kind: binary_operator, union_type, generic_type, subscript
+    all:
+        - pattern: $UNION
+        - matches: spelled
+        - not: {inside: {kind: type_alias_statement, field: right, stopBy: end}}
+        - not: {matches: aliased}
+        - any:
+            - follows: {stopBy: end, matches: spelling}
+            - precedes: {stopBy: end, matches: spelling}
+            - inside: {stopBy: end, not: {kind: module}, any: [{follows: {stopBy: end, matches: spelling}}, {precedes: {stopBy: end, matches: spelling}}]}
+message: '`$UNION` repeats a union the file spells at another site'
+note: 'Use `type <Name> = <union>` under `[TYPES]` and the name at every site, the union has one spelling'

@@ -5,7 +5,7 @@ severity: error
 utils:
     literal-underscore:
         any:
-            - {kind: string_literal, regex: '\w_|_\w'}
+            - {kind: string_literal, regex: '[\p{L}\p{N}]_|_[\p{L}\p{N}]'}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^\|\|$'}
@@ -31,7 +31,8 @@ rewriters:
       transform:
         NEGATION: {replace: {source: $NOT, replace: '^(.+)$', by: '$1 '}}
         DOUBLED: {replace: {source: $LITERAL, replace: '!', by: '!!'}}
-        ESCAPED: {replace: {source: $DOUBLED, replace: '_', by: '!_'}}
+        WORD_ESCAPED: {replace: {source: $DOUBLED, replace: '([\p{L}\p{N}])_', by: '${1}!_'}}
+        ESCAPED: {replace: {source: $WORD_ESCAPED, replace: '([^!](?:!!)*)_([\p{L}\p{N}])', by: '${1}!_${2}'}}
       fix: $SUBJECT $NEGATION$OPERATOR $ESCAPED escape '!'
 transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [escaped]}}

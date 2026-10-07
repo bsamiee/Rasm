@@ -214,7 +214,7 @@ actor CodexClient: ProviderClient {
         defer { await stopServer(home) }
         return await connection(for: home).bind { connection in
             await ProcessRun.withDeadline(Self.requestDeadline) {
-                await connection.request(.accountLogout).map { _ in () }
+                await connection.request(.accountLogout)
             }
         }
     }

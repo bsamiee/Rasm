@@ -4,12 +4,16 @@ language: tsx
 severity: error
 rule:
     kind: comment
-    regex: '^// --- \[IMPORTS\]'
     any:
-        - precedes: {pattern: $NEXT}
-        - pattern: $_
-message: Divider `[IMPORTS]` names no section
-note: Delete the divider, imports form a preamble above every section
+        - regex: '^// --- \[IMPORTS\]'
+          any:
+            - precedes: {pattern: $NEXT}
+            - pattern: $_
+        - matches: text-section-divider
+          precedes: {stopBy: end, kind: import_statement}
+          pattern: $KEPT
 fix:
-    template: $NEXT
-    expandEnd: {pattern: $NEXT}
+    template: $NEXT$KEPT
+    expandEnd: {pattern: $NEXT, follows: {kind: comment, regex: '^// --- \[IMPORTS\]'}}
+message: Divider labels or precedes the imports
+note: Imports form the preamble above every section, delete an `[IMPORTS]` divider and move any other divider below the last import

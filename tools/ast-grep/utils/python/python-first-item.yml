@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-first-item
+language: python
+arguments: [source]
+utils:
+    sequence-callee:
+        matches: {python-builtin-name: {name: {regex: '^(list|tuple)$'}}}
+    iterator-callee:
+        matches: {python-builtin-name: {name: {regex: '^a?iter$'}}}
+    next-callee:
+        matches: {python-builtin-name: {name: {regex: '^a?next$'}}}
+    copied:
+        any:
+            - matches: source
+            - kind: call
+              all:
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: source}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: function, matches: sequence-callee}
+            - kind: list, tuple
+              all:
+                - has: {nthChild: 1, kind: list_splat, has: {matches: source}}
+                - not: {has: {nthChild: 2}}
+    iterated:
+        any:
+            - matches: source
+            - kind: call
+              all:
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: copied}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: function, matches: iterator-callee}
+rule:
+    any:
+        - kind: call
+          all:
+            - has: {field: arguments, any: [{kind: generator_expression, matches: source}, {kind: argument_list, has: {nthChild: 1, matches: iterated}}]}
+            - has: {field: function, matches: next-callee}
+        - kind: subscript
+          all:
+            - has: {field: subscript, regex: '^0$'}
+            - has: {field: value, matches: copied}
+        - kind: assignment
+          all:
+            - has:
+                field: left
+                kind: pattern_list, list_pattern, tuple_pattern
+                all:
+                    - has: {nthChild: 1, kind: identifier}
+                    - has: {nthChild: 2, kind: list_splat_pattern}
+                    - not: {has: {nthChild: 3}}
+            - has: {field: right, matches: copied}

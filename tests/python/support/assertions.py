@@ -1,4 +1,4 @@
-"""Reusable assertions for algebraic properties, tables, tolerance, results, and state machines."""
+"""Reusable assertions for algebraic properties, tables, tolerance, and results."""
 
 import cmath
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -10,8 +10,6 @@ from typing import Protocol, runtime_checkable, Self
 
 from expression import Option, Result
 from expression.collections import Block
-from hypothesis import settings
-from hypothesis.stateful import RuleBasedStateMachine, run_state_machine_as_test
 import msgspec
 import msgspec.json
 import msgspec.msgpack
@@ -270,14 +268,6 @@ def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder
     return decoded
 
 
-# --- [STATEFUL_TESTING] -----------------------------------------------------------------
-
-
-def run_state_machine[M: RuleBasedStateMachine](machine_cls: type[M], *, steps: int = 200) -> None:
-    """Run a Hypothesis state machine for ``steps`` rule applications per example under the active profile."""
-    run_state_machine_as_test(machine_cls, settings=settings(stateful_step_count=steps))  # type: ignore[no-untyped-call]
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
@@ -308,5 +298,4 @@ __all__ = [
     "assert_none",
     "rejects_counterexample",
     "assert_roundtrip",
-    "run_state_machine",
 ]

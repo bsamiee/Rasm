@@ -17,10 +17,14 @@ utils:
             - kind: await_expression
               has: {field: expr, pattern: $G.waitForAll()}
             - kind: for_statement
-              regex: '^for\s+await\s+_\s+in\b'
+              regex: '^for\s+await\b'
               all:
+                - has: {field: item, has: {kind: wildcard_pattern}}
                 - has: {field: collection, pattern: $G}
                 - not: {has: {kind: statements}}
+            - kind: while_statement
+              regex: '^while\s+(let\s+_\s*=\s*)?await\s+[^{]*\{\s*\}$'
+              has: {stopBy: end, pattern: $G.next()}
 rule:
     pattern: $WAIT
     all:

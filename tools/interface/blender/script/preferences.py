@@ -18,7 +18,7 @@ from interface.blender.script.library import ASSETS
 from interface.blender.script.rna import converge, Paint
 from interface.blender.script.startup import EYE_HEIGHT, HEADLAMP
 from interface.render import DESIGN_TOOLS, MATERIALS
-from interface.report import converged, digest, Kind, line, Row, subscript
+from interface.report import digest, Error, Item, Row, subscript
 from interface.roles import Guide, Typography
 from interface.units import ANGLE_STEP, Length
 
@@ -101,7 +101,7 @@ def declared(preferences: bpy.types.Preferences, launch: Launch, memory: int) ->
         "edit.grease_pencil_default_color": Paint(Guide.CONSTRUCTION),
         "filepaths.font_directory": f"{DESIGN_TOOLS / 'fonts'}/",
         "filepaths.texture_directory": f"{MATERIALS}/",
-        "filepaths.text_editor": "" if launch.editor is None else launch.editor,
+        "filepaths.text_editor": launch.editor or "",
         "filepaths.text_editor_args": "" if launch.editor is None else "-g $filepath:$line:$column",
         "filepaths.use_scripts_auto_execute": True,
         "filepaths.save_version": 3,
@@ -171,7 +171,13 @@ def lights(preferences: bpy.types.Preferences) -> tuple[Row, ...]:
         preferences.studio_lights.refresh()
 
     return tuple(
-        Row(label=subscript("preferences.studio_lights", source.name), read=partial(held, kind, source.name), write=partial(install, kind), target=source)
+        Row(
+            label=subscript("preferences.studio_lights", source.name),
+            read=partial(held, kind, source.name),
+            write=partial(install, kind),
+            target=source,
+            plain=lambda path: None if path is None else digest(path.read_bytes()),
+        )
         for kind, source in (("STUDIO", HEADLAMP), ("WORLD", LOOK_DEVELOPMENT))
     )
 
@@ -196,7 +202,7 @@ def stock_edits(user: bpy.types.KeyConfig) -> Iterator[tuple[str, bpy.types.KeyM
 
 
 # --- [STEPS]
-def converged_preferences(unit_system: ModuleType, preferences: bpy.types.Preferences, keyconfigs: bpy.types.KeyConfigurations, launch: Launch) -> Iterator[str]:
+def converged_preferences(unit_system: ModuleType, preferences: bpy.types.Preferences, keyconfigs: bpy.types.KeyConfigurations, launch: Launch) -> Iterator[Item]:
     """Converge interface font faces, each the one file of its name in the user font folder, then preferences, auto-run exclusion, keyconfig, asset libraries, studio lights, keyconfig preferences, and Cycles devices of the declared compute type."""
     folder, cycles = Path.home() / "Library" / "Fonts", preferences.addons["cycles"].preferences
     for member, face in (("font_path_ui", Typography.INTERFACE), ("font_path_ui_mono", Typography.MONOSPACE)):
@@ -204,10 +210,10 @@ def converged_preferences(unit_system: ModuleType, preferences: bpy.types.Prefer
             case [path]:
                 yield from converge(unit_system, "preferences.view", preferences.view, {member: str(path)})
             case found:
-                yield line(Kind.ERROR, f"preferences.view.{member} finds {len(found)} files {tuple(map(str, found))} named {face.file} under {folder} where one is declared")
+                yield Error(f"preferences.view.{member} finds {len(found)} files {tuple(map(str, found))} named {face.file} under {folder} where one is declared")
     yield from converge(unit_system, "preferences", preferences, declared(preferences, launch, os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") // 4 // 2**20))
-    yield from chain.from_iterable(converged(row) for row in listings(preferences))
-    yield from chain.from_iterable(converged(row, lambda held: None if held is None else digest(held.read_bytes())) for row in lights(preferences))
+    yield from listings(preferences)
+    yield from lights(preferences)
     keyconfig = {"select_mouse": "LEFT", "spacebar_action": "SEARCH", "use_pie_click_drag": True, "v3d_alt_mmb_drag_action": "ABSOLUTE"}
     yield from converge(unit_system, "keyconfigs.active.preferences", keyconfigs.active.preferences, keyconfig)
     cycles.refresh_devices()
@@ -215,12 +221,14 @@ def converged_preferences(unit_system: ModuleType, preferences: bpy.types.Prefer
     yield from converge(unit_system, f"{subscript('preferences.addons', 'cycles')}.preferences", cycles, devices)
 
 
-def bound_keymaps(unit_system: ModuleType, keyconfigs: bpy.types.KeyConfigurations) -> Iterator[str]:
-    """Converge stock user keymap edits and write each changed item's active flag to record the edit in the user keymap diff."""
-    for label, item, active, edits in stock_edits(keyconfigs.user):
-        if lines := tuple(converge(unit_system, label, item, {**edits, "active": active})):
-            item.active = active
-        yield from lines
+def bound_keymaps(unit_system: ModuleType, keyconfigs: bpy.types.KeyConfigurations) -> Iterator[Row]:
+    """Rows of stock user keymap edits, each write followed by its item's active flag so an operator-property edit enters the user keymap diff."""
+
+    def recorded(item: bpy.types.KeyMapItem, struct: "bpy.types.bpy_struct[object]", name: str, value: object, *, active: bool) -> None:
+        setattr(struct, name, value)
+        item.active = active
+
+    return chain.from_iterable(converge(unit_system, label, item, {**edits, "active": active}, partial(recorded, item, active=active)) for label, item, active, edits in stock_edits(keyconfigs.user))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unsubscriptable-class
+language: python
+severity: error
+rule:
+    pattern: $G
+    matches:
+        python-evaluated-subscript:
+            value:
+                any:
+                    - matches: {python-builtin-name: {name: {regex: '^(filter|map|reversed|zip)$'}}}
+                    - matches:
+                        python-member-use:
+                            module:
+                                regex: |-
+                                    (?x)^(
+                                        _?(argparse|contextlib|ctypes|enum|functools|io|ipaddress|itertools|multiprocessing|operator|tempfile|threading|unittest|warnings|weakref)
+                                        |_collections_abc|concurrent\.futures\.process|attrs?|av|bmesh|bpy|flint|google\.protobuf|lxml|matplotlib|netCDF4|networkx|numpy
+                                        |pandas|regex|rustworkx|scipy|shapely
+                                    )(\..+)?$
+                            name:
+                                regex: |-
+                                    (?x)^(
+                                        _SubParsersAction|_BaseExitStack|_GeneratorContextManagerBase|CField|_Pointer|_SimpleCData|member|nonmember|_lru_cache_wrapper
+                                        |singledispatchmethod|BufferedRWPair|BufferedReader|BufferedWriter|TextIOWrapper|_BaseNetwork
+                                        |accumulate|batched|combinations|combinations_with_replacement|compress|count|cycle|dropwhile|filterfalse|groupby|islice
+                                        |pairwise|permutations|product|repeat|starmap|takewhile|zip_longest
+                                        |BaseListProxy|Connection|Finalize|IMapIterator|IMapUnorderedIterator|Synchronized|SynchronizedArray|SynchronizedBase
+                                        |_BaseDictProxy|_ConnectionBase|attrgetter|itemgetter|_TemporaryFileWrapper|serialize_iterator|TextTestResult
+                                        |_AssertLogsContext|_patch|catch_warnings|CallableProxyType|ProxyType|finalize|dict_items|dict_keys|dict_values|_WorkItem
+                                        |Attribute|Converter|Packet|BMElemSeq|BMIter|BMLayerCollection|BMLayerItem|bpy_prop_collection|bpy_prop_collection_idprop
+                                        |bpy_struct|flint_mat|flint_mod_mpoly_context|flint_mpoly|flint_mpoly_context|flint_poly|flint_series|TypeChecker
+                                        |TypeCheckerWithDefault|_ExtensionDict|ElementTreeProducer|Grouper|GrouperView|MathTextParser|_Stack|Variable
+                                        |DegreeView|DiDegreeView|DiGraph|DiMultiDegreeView|EdgeDataView|Graph|InDegreeView|InEdgeDataView|InMultiDegreeView
+                                        |InMultiEdgeDataView|MinDegreeHeuristic|MultiDegreeView|MultiDiGraph|MultiEdgeDataView|MultiGraph|OutDegreeView
+                                        |OutEdgeDataView|OutMultiDegreeView|OutMultiEdgeDataView|PlanarEmbedding|UnionFind|_dispatchable
+                                        |ABCPolyBase|Arrayterator|AxisConcatenator|Expr|GenericObject|MaskedIterator|_DomainedBinaryOperation|_FromStringWorker
+                                        |_MaskedBinaryOperation|_MaskedUFunc|_MaskedUnaryOperation|_Pair|_concrete_ndptr|_extrema_operation|_ndptr|character
+                                        |clear_and_catch_warnings|container|flatiter|flexible|generic|ndenumerate|ufunc
+                                        |BaseStringArray|Categorical|CategoricalAccessor|CategoricalDtype|CategoricalIndex|DatetimeIndexOpsMixin|DatetimeProperties
+                                        |DatetimeTimedeltaMixin|ExtensionIndex|GroupByNthSelector|GroupByPlot|Index|IndexOpsMixin|Interval|IntervalIndex
+                                        |PeriodProperties|Series|StringDtype|StringMethods|Scanner|BFSPredecessors|BFSSuccessors|EdgeIndexMap|WeightedEdgeList
+                                        |DisjointSet|KDTree|MultinomialQMC|MultivariateNormalQMC|NonlinearConstraint|OdeSolution|QMCEngine|cKDTree|netcdf_variable
+                                        |BaseMultipartGeometry|GeometryCollection|GeometrySequence|PreparedGeometry
+                                    )$
+                    - matches:
+                        python-member-use:
+                            module: {regex: '^email(\..+)?$'}
+                            name:
+                                regex: |-
+                                    (?x)^(
+                                        BytesFeedParser|BytesGenerator|BytesHeaderParser|BytesParser|Compat32|DecodedGenerator|EmailMessage|EmailPolicy|FeedParser
+                                        |Generator|HeaderParser|MIMEPart|Message|Parser|Policy|_PolicyBase
+                                    )$
+                    - matches:
+                        python-member-use:
+                            module: {regex: '^openpyxl(\..+)?$'}
+                            name:
+                                regex: |-
+                                    (?x)^(
+                                        ASCII|ArrayDescriptor|Bool|ColorDescriptor|Convertible|CustomPropertyList|DateTime|Default|Descriptor|EmptyTag|Float
+                                        |Integer|Length|MatchPattern|Max|Min|MinMax|MultiSequence|Nested|NestedBool|NestedFloat|NestedInteger|NestedMinMax
+                                        |NestedNoneSet|NestedSequence|NestedSet|NestedString|NestedText|NestedValue|NoneSet|RGB|Sequence|Set|String|Text
+                                        |TextPoint|Tuple|Typed|UniqueSequence|ValueSequence|_TypedProperty
+                                    )$
+                    - matches:
+                        python-member-use:
+                            module: {regex: '^xml(\..+)?$'}
+                            name: {regex: '^(AttributesImpl|Element|ElementTree|ReadOnlySequentialNamedNodeMap|XMLParser|XMLPullParser)$'}
+message: '`$G` defines no `__class_getitem__` and its subscript raises `TypeError` at evaluation'
+note: 'Use the `collections.abc` protocol the value satisfies (`Iterator`, `Callable`) or the class unsubscripted where its type parameters have defaults, each evaluates at run time'

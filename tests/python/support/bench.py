@@ -20,7 +20,6 @@ class BenchmarkCase(msgspec.Struct, frozen=True):
     sizes: tuple[int, ...] = (100, 1_000, 10_000)
     budget_ms: float = 100.0
     budget_statistic: Literal["min", "median", "mean"] = "median"
-    fresh_rounds: int | None = None
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -38,9 +37,7 @@ def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -
     benchmark.group = case.label
     arguments = case.workload(size)
     rss_before = process.memory_info().rss
-    result = (
-        benchmark(case.subject, arguments) if case.fresh_rounds is None else benchmark.pedantic(case.subject, setup=lambda: ((case.workload(size),), {}), rounds=case.fresh_rounds)  # type: ignore[no-untyped-call]
-    )
+    result = benchmark(case.subject, arguments)
     assert benchmark.stats is not None
     observed_ms = getattr(benchmark.stats.stats, case.budget_statistic) * 1000.0
     benchmark.extra_info.update(rss_delta_bytes=process.memory_info().rss - rss_before, budget_ms=case.budget_ms, observed_ms=observed_ms, size=size)

@@ -7,11 +7,15 @@ rule:
     kind: string
     regex: |-
         (?x)
-        (?:^[a-zA-Z]*(?:"""|'''|"|')|\n|\\n|\btell\ application\b[^\n]*?\bto|\})[\ \t]*
-        (?:do\ (?:javascript|script|action)
-          |(?:quit|close\b[^\n]*?)\ saving\ (?:ask|no|yes)
-          |saving\ (?:ask|no|yes)
-          |language\ (?:javascript|uxpscript|applescript\ language)
-        )\b
-message: 'AppleScript source sends an Adobe scripting command by its dictionary term'
-note: 'Use the raw event form (`«event miscDjxM»`, `«event K2  dosc» given «class doLg»:«constant ScLgJSLg»`, `«event aevtquit» given «class savo»:«constant savono  »`), a dictionary term compiles by reading Illustrator and InDesign terminology and launches a quit instance'
+        (?:^[a-zA-Z]*(?:"""|'''|"|')|\n|\\[nr]|[}(]|\b(?:to|return|then|else)\b)[\ \t]*
+        (?:do\ (?:javascript|script|action)|(?:quit|close\b[^\n]*?)\ saving\ (?:ask|no|yes))\b
+        |(?:^[a-zA-Z]*(?:"""|'''|"|')|["}»]|¬[\ \t]*(?:\n|\\[nr]))[\ \t]*
+        (?:saving\ (?:ask|no|yes)[\ \t]*(?:[^\ \ta-z]|$)
+          |language\ (?:javascript|uxpscript|applescript\ language)\b
+          |show\ debugger\b
+          |undo\ (?:mode|name)\b
+        )
+        |(?:^[a-zA-Z]*(?:"""|'''|"|')|["»]|¬[\ \t]*(?:\n|\\[nr]))[\ \t]*with\ arguments\b
+        |\}[\ \t]*with\ arguments[\ \t]*\{\{
+message: 'AppleScript source names an Adobe script command or parameter by its dictionary term'
+note: 'Use the raw Apple event codes the dictionary declares (`«event <code>»` for the command, `given «class <code>»:<value>` for each parameter, `«constant <code>»` for each enumerator), compiling a dictionary term launches a quit Illustrator or InDesign to read its terminology'

@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: faults-member
+language: python
+arguments: [name]
+utils:
+    module:
+        regex: '^(records|results)$'
+rule:
+    any:
+        - matches: {python-member-use: {module: {matches: module}, name: {matches: name}}}
+        - kind: identifier
+          nthChild: 2
+          matches: name
+          inside:
+            kind: dotted_name
+            inside: {kind: class_pattern}
+            has: {nthChild: 1, matches: module}
+            not: {has: {nthChild: 3}}

@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: inspect-member-mapping
+language: python
+utils:
+    dict-callee:
+        any:
+            - kind: parenthesized_expression
+              has: {matches: dict-callee}
+            - matches: {python-builtin-name: {name: {regex: '^dict$'}}}
+    getmembers-callee:
+        any:
+            - kind: parenthesized_expression
+              has: {matches: getmembers-callee}
+            - matches: {python-member-use: {module: {regex: '^inspect$'}, name: {regex: '^getmembers(_static)?$'}}}
+    members:
+        any:
+            - kind: parenthesized_expression
+              has: {matches: members}
+            - kind: call
+              has: {field: function, matches: getmembers-callee}
+    single-argument:
+        kind: argument_list
+        has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, not: {kind: 'list_splat, dictionary_splat, keyword_argument'}}
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    mapping:
+        any:
+            - kind: parenthesized_expression
+              has: {matches: mapping}
+            - kind: named_expression
+              has: {field: value, matches: mapping}
+            - kind: call
+              all:
+                - has: {field: function, matches: dict-callee}
+                - has: {field: arguments, matches: single-argument, has: {matches: members}}
+rule:
+    any:
+        - matches: mapping
+        - matches: {python-assigned-name: {value: {matches: mapping}}}

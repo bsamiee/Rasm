@@ -4,17 +4,15 @@
 
 from collections.abc import Iterator
 from functools import partial
-from itertools import chain
 from pathlib import Path
-import tomllib
 
 import Rhino
 from Rhino.PlugIns import PlugIn, PlugInLoadTime
 from Rhino.Runtime import HostUtils
 from System import Guid
 
-from interface.report import Action, Kind, line, Row
-from interface.rhino.script.accessors import color, found, Internal, key, located, opened
+from interface.report import Error, Item, Skip
+from interface.rhino.script.accessors import action, color, found, Internal, key, located, preference
 from interface.roles import Status
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -33,47 +31,45 @@ def installed() -> dict[str, dict[Path, Guid | None]]:
 
 def registry_child(plugin: Guid) -> tuple[str, ...]:
     """Settings path of the plug-in's record under the registry version holding it."""
-    path, record = ("PlugInRegistry",), str(plugin)
-    return next((*path, version, record) for version in opened(path).ChildKeys if located((*path, version, record)) is not None)
+    registry, record = "PlugInRegistry", str(plugin)
+    versions = located((registry,))
+    return next((registry, version, record) for version in (() if versions is None else versions.ChildKeys) if located((registry, version, record)) is not None)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def rows() -> Iterator[Row | str]:
+def rows() -> Iterator[Item]:
     """Rows of every package plug-in's silent load and marker, then the bundled plug-ins' load modes, a skip line for one Rhino registered no record of, and the agent settings, then the settings of plug-ins a row loads."""
-    held, declared = installed(), tomllib.loads(Path(__file__).parents[1].joinpath("packages.toml").read_text(encoding="utf-8"))["packages"]
-    unwelded = "ShowUnweldedEdges"
-    edges = next(row["id"] for row in declared if unwelded in chain.from_iterable(row.get("commands", {}).values()))
+    held, unwelded = installed(), "ShowUnweldedEdges"
+    plugins = tuple(plugin for files in held.values() for plugin in files.values() if plugin is not None)
+    edges = tuple(plugin for plugin in plugins if unwelded in PlugIn.GetEnglishCommandNames(plugin))
     bundled = {name: PlugIn.IdFromName(name) for name in (f"3DxRhino.{Rhino.RhinoApp.ExeVersion}", "PanelingTools")}
     yield from (
-        Row(
+        preference(
             label=f'PlugIns["{PlugIn.GetPlugInInfo(plugin).Name}"].LoadProtection',
             read=lambda plugin=plugin: found(PlugIn.GetLoadProtection(plugin)),
             write=partial(PlugIn.SetLoadProtection, plugin),
             target=True,
         )
-        for files in held.values()
-        for plugin in files.values()
-        if plugin is not None
+        for plugin in plugins
     )
     yield from (
-        Action(label=f'packages["{package}"]["{marker.name}"]', read=marker.is_file, act=marker.touch, target=True)
+        action(label=f'packages["{package}"]["{marker.name}"]', read=marker.is_file, act=marker.touch, target=True)
         for package, files in held.items()
         for path, plugin in files.items()
         if plugin is None
         for marker in (path.with_name(f"{path.name}.grasshopper-only"),)
     )
-    yield from (key(registry_child(plugin), "LoadMode", target=int(PlugInLoadTime.WhenNeeded)) if plugin != Guid.Empty else line(Kind.SKIP, name) for name, plugin in bundled.items())
+    yield from (key(registry_child(plugin), "LoadMode", target=int(PlugInLoadTime.WhenNeeded)) if plugin != Guid.Empty else Skip(name) for name, plugin in bundled.items())
     yield from (Internal.AI_SETTINGS.setting(name, target=target) for name, target in (("AutoLoadMCP", True), ("DefaultAgentName", "claude"), ("DisabledAgents", ())))
     yield from (
         row
-        for plugin in held[edges].values()
-        if plugin is not None
+        for plugin in edges
         for row in (
             tuple(key((PlugIn.Find(plugin), unwelded), name, target=target) for name, target in (("Color", color(Status.ERROR)), ("Thickness", 1)))
             if PlugIn.LoadPlugIn(plugin)
-            else (line(Kind.ERROR, f'PlugIns["{PlugIn.GetPlugInInfo(plugin).Name}"] did not load, its {unwelded} settings stay unwritten'),)
+            else (Error(f'PlugIns["{PlugIn.GetPlugInInfo(plugin).Name}"] did not load, its {unwelded} settings stay unwritten'),)
         )
     )
 

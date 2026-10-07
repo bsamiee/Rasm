@@ -3,11 +3,16 @@ id: no-spinner-for-control
 language: swift
 severity: error
 utils:
-    spinner: {kind: call_expression, regex: '^ProgressView\('}
+    spinner: {matches: {swift-chain-root: {root: {kind: simple_identifier, regex: '^ProgressView$'}}}}
+    control-root: {kind: simple_identifier, regex: '^(\w*(Button|Link|Picker|Field)|Toggle|Menu|TextEditor|Slider|Stepper|ControlGroup)$'}
+    control: {matches: {swift-chain-root: {root: {matches: control-root}}}}
     spinner-arm:
         matches: {swift-single-statement: {first: {matches: spinner, pattern: $SPINNER}}}
     control-arm:
-        matches: {swift-single-statement: {first: {not: {matches: spinner}, pattern: $CONTROL}}}
+        kind: statements
+        all:
+            - has: {nthChild: 1, matches: {swift-chain-root: {root: {matches: control-root, pattern: $CONTROL}}}}
+            - not: {has: {pattern: $_, not: {any: [{matches: control}, {kind: comment}]}}}
     bound-read:
         all:
             - any:
@@ -16,7 +21,17 @@ utils:
                     kind: 'pattern, switch_pattern'
                     has: {stopBy: end, kind: simple_identifier, follows: {kind: value_binding_pattern}, pattern: $BOUND}
             - has: {kind: statements, not: {matches: spinner-arm}, has: {stopBy: end, pattern: $BOUND}}
+    lone-control:
+        kind: if_statement
+        all:
+            - not: {has: {regex: '^else$'}}
+            - has: {kind: statements, matches: control-arm}
+    then-arm: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}}
+    else-arm: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}}
+    fixed-spinner: {matches: {swift-single-statement: {first: {matches: spinner, pattern: $S}}}}
+    fixed-control: {matches: {swift-single-statement: {first: {matches: control, pattern: $K}}}}
 rule:
+    pattern: $BRANCH
     any:
         - kind: if_statement
           all:
@@ -28,6 +43,46 @@ rule:
           all:
             - has: {kind: switch_entry, has: {matches: spinner-arm}}
             - has: {kind: switch_entry, has: {matches: control-arm}, not: {matches: bound-read}}
+        - kind: if_statement
+          all:
+            - not: {has: {regex: '^else$'}}
+            - has: {kind: statements, matches: spinner-arm}
+            - any:
+                - all:
+                    - pattern: 'if $C { $$$_ }'
+                    - any:
+                        - precedes: {stopBy: end, matches: lone-control, pattern: 'if !$C { $$$_ }'}
+                        - follows: {stopBy: end, matches: lone-control, pattern: 'if !$C { $$$_ }'}
+                - all:
+                    - pattern: 'if !$C { $$$_ }'
+                    - any:
+                        - precedes: {stopBy: end, matches: lone-control, pattern: 'if $C { $$$_ }'}
+                        - follows: {stopBy: end, matches: lone-control, pattern: 'if $C { $$$_ }'}
     inside: {matches: swift-view-builder, stopBy: end}
+rewriters:
+    - id: spinner-on-true
+      rule:
+        pattern: 'if $C { $$$_ } else { $$$_ }'
+        all:
+            - has: {all: [{matches: then-arm}, {matches: fixed-spinner}]}
+            - has: {all: [{matches: else-arm}, {matches: fixed-control}]}
+      fix: "$K\n    .disabled($C)\n    .overlay { if $C { $S } }"
+    - id: spinner-on-negation
+      rule:
+        pattern: 'if !$C { $$$_ } else { $$$_ }'
+        all:
+            - has: {all: [{matches: then-arm}, {matches: fixed-control}]}
+            - has: {all: [{matches: else-arm}, {matches: fixed-spinner}]}
+      fix: "$K\n    .disabled($C)\n    .overlay { if $C { $S } }"
+    - id: spinner-on-false
+      rule:
+        pattern: 'if $C { $$$_ } else { $$$_ }'
+        all:
+            - has: {all: [{matches: then-arm}, {matches: fixed-control}]}
+            - has: {all: [{matches: else-arm}, {matches: fixed-spinner}]}
+      fix: "$K\n    .disabled(!($C))\n    .overlay { if !($C) { $S } }"
+transform:
+    KEPT: {rewrite: {source: $BRANCH, rewriters: [spinner-on-true, spinner-on-negation, spinner-on-false]}}
+fix: $KEPT
 message: '`$SPINNER` removes `$CONTROL` while its operation runs and resets the control''s identity'
 note: 'Keep `<control>` in place under `.disabled(<condition>).overlay { if <condition> { ProgressView() } }`'

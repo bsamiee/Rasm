@@ -6,27 +6,31 @@ utils:
     literal:
         any:
             - kind: string, concatenated_string
+              not: {has: {stopBy: end, kind: string_start, regex: '(?i)[bft]'}}
             - kind: parenthesized_expression
               has: {matches: literal}
-rule:
-    kind: expression_statement
-    all:
-        - any:
+    string-statement:
+        kind: expression_statement
+        any:
             - has: {matches: literal}
-            - has: {kind: assignment, all: [{has: {field: left, regex: '^_$'}}, {has: {field: right, matches: literal}}]}
-        - not: {has: {pattern: $_, nthChild: 2}}
-        - follows:
-            stopBy: {not: {any: [{kind: comment}, {regex: '^;$'}]}}
-            any:
-                - kind: expression_statement
-                  has: {kind: assignment, has: {field: left, pattern: $NAME}}
-                - kind: type_alias_statement
-                  has: {field: left, pattern: $NAME}
-        - any:
-            - follows: {pattern: $PREV}
-            - pattern: $_
+            - has: {kind: assignment, all: [{has: {field: left, kind: identifier, regex: '^_$'}}, {has: {field: right, matches: literal}}]}
+rule:
+    matches: string-statement
+    not:
+        any:
+            - has: {pattern: $_, nthChild: 2}
+            - has: {stopBy: end, kind: comment}
+            - precedes: {regex: '^;$'}
+              not: {follows: {regex: '^;$'}}
+    follows:
+        stopBy: {not: {any: [{kind: comment}, {regex: '^;$'}, {matches: string-statement}]}}
+        any:
+            - kind: expression_statement
+              has: {kind: assignment, has: {field: left, pattern: $NAME}}
+            - kind: type_alias_statement
+              has: {field: left, pattern: $NAME}
 fix:
-    template: $PREV
-    expandStart: {pattern: $PREV}
-message: 'String statement after `$NAME` stands as its docstring'
-note: 'Delete the string and let the name state its meaning, Python attaches no docstring to an assignment or type alias'
+    template: ''
+    expandStart: {regex: '^;$'}
+message: 'String after `$NAME` is a docstring Python never attaches'
+note: 'Names and annotated types state what an assignment or type alias holds'

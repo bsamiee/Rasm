@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
 import os
 from pathlib import Path
+import secrets
 import socket
 from typing import overload, override
 import uuid
@@ -23,15 +24,15 @@ import sniffio
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-def _echo(command: str) -> tuple[str, int]:
-    """Return the default ``SshHost`` exec reply, a ``remote-ok:`` stdout line at exit 0."""
-    return (f"remote-ok:{command}\n", 0)
+def _echo(command: str | None) -> tuple[str, int]:
+    """Return the default ``SshHost`` reply at exit 0, ``remote-ok:<command>`` for an exec request and ``remote-ok`` for a shell session."""
+    return (f"remote-ok:{command}\n" if command is not None else "remote-ok\n", 0)
 
 
 class SshHost(msgspec.Struct, frozen=True):
-    """In-process SSH exec/SFTP host over a socketpair with optional chrooted SFTP."""
+    """In-process SSH exec/SFTP host over a socketpair with optional chrooted SFTP, its handler taking ``None`` for a shell session."""
 
-    handler: Callable[[str], tuple[str, int]] = _echo
+    handler: Callable[[str | None], tuple[str, int]] = _echo
     sftp_root: Path | None = None
     user: str = "test-user"
 
@@ -70,8 +71,8 @@ def _ssh_host(spec: SshHost) -> Generator[Provisioned[Awaitable[asyncssh.SSHClie
         def begin_auth(self, username: str) -> bool:
             return username != spec.user
 
-    async def _exec(process: asyncssh.SSHServerProcess[str]) -> None:  # ruff:ignore[unused-async]
-        text, code = spec.handler(process.command or "")
+    def _exec(process: asyncssh.SSHServerProcess[str]) -> None:
+        text, code = spec.handler(process.command)
         process.stdout.write(text)
         process.exit(code)
 
@@ -113,15 +114,10 @@ def _object_store(spec: ObjectStore) -> Generator[Provisioned[s3fs.S3FileSystem]
     server.start()
     host, port = server.get_host_and_port()
     endpoint = f"http://{host}:{port}"
+    secret = secrets.token_hex()
 
     def _store() -> s3fs.S3FileSystem:
-        return s3fs.S3FileSystem(
-            key="testing",
-            secret="testing",  # ruff:ignore[hardcoded-password-func-arg]
-            endpoint_url=endpoint,
-            client_kwargs={"region_name": spec.region},
-            skip_instance_cache=True,
-        )
+        return s3fs.S3FileSystem(key="testing", secret=secret, endpoint_url=endpoint, client_kwargs={"region_name": spec.region}, skip_instance_cache=True)
 
     try:
         _store().call_s3("create_bucket", Bucket=spec.bucket, **({"CreateBucketConfiguration": {"LocationConstraint": spec.region}} if spec.region != "us-east-1" else {}))

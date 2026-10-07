@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unchecked-item-count
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    sequence-type:
+        regex: '^((global::)?(LanguageExt\.|System\.Collections\.(Generic|Immutable)\.)?(Seq|Lst|Arr|Set|HashSet|Iterable|IEnumerable|IReadOnlyList|IReadOnlyCollection|IReadOnlySet|IList|ICollection|ISet|List|ImmutableArray|ImmutableList)\s*<|.*\[\]$)'
+    sequence:
+        any:
+            - kind: 'collection_expression, array_creation_expression, implicit_array_creation_expression'
+            - kind: invocation_expression
+              has: {field: function, regex: '(^|\.)\s*(toSeq|Seq|Map|Select|Filter|Where|Choose|ToArray|ToList|Strict)(\s*<.+>)?$'}
+            - matches: {csharp-declared-type: {type: {matches: sequence-type}}}
+    counted:
+        kind: member_access_expression
+        any:
+            - all:
+                - has: {field: name, regex: '^(Delete|DeleteGrips|DeleteFaces|RemoveNgons|RemoveRange|SetHatchLines)$'}
+                - not: {has: {field: expression, regex: '(^|\.)\s*Linetypes$'}}
+            - all:
+                - has: {field: name, regex: '^Attach$'}
+                - has: {field: expression, regex: '(^|\.)\s*Worksession$'}
+    compared:
+        inside:
+            kind: argument
+            nthChild: 2
+            inside:
+                kind: argument_list
+                inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?CountMismatch\s*\.\s*Unless$'}}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, matches: counted, has: {field: name, pattern: $MEMBER}}
+        - has: {field: arguments, has: {kind: argument, has: {matches: sequence, pattern: $ITEMS}}}
+        - not: {matches: compared}
+message: '`$MEMBER` returns how many items of `$ITEMS` it deleted or added, and no comparison checks the count'
+note: Use `CountMismatch.Unless(<items>.Count, <call>, nameof(<host type>.<member>))`

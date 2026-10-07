@@ -89,7 +89,7 @@ catalog:
     basic-ftp: 6.2.2
     partial-content: 4.0.0
     chokidar: 5.0.0
-    '@parcel/watcher': latest # Filesystem snapshots for Argus shell hooks
+    '@parcel/watcher': 2.6.0 # Filesystem snapshots for Argus shell hooks
     # --- [SERVICES_OBSERVABILITY]
     '@nats-io/nats-core': "3.4.1-0"
     '@nats-io/transport-node': "3.4.1-0"
@@ -302,7 +302,8 @@ catalog:
     '@nx/dotnet': 23.3.0-beta.9
     '@nx/vitest': 23.3.0-beta.9
     '@ast-grep/napi': 0.45.3 # Structural search and rewrite over syntax trees from Node
-    smol-toml: 1.9.0 # TOML parser for `pyproject.toml` in the workspace plugin
+    '@ast-grep/lang-python': 0.0.6 # Python grammar for Nx import dependencies
+    smol-toml: 1.9.0 # Nx parser for `pyproject.toml` and `blender_manifest.toml`
     '@biomejs/biome': 2.5.15
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
     tree-sitter-sqlite3: 0.1.0
@@ -337,7 +338,6 @@ overrides:
     '@pulumi/pulumi': 'catalog:'
     cloudevents>uuid: 14.0.2
     '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
-    '@rolldown/plugin-babel>@babel/plugin-transform-runtime': 8.0.1
     vite-plugin-inspect>@vitejs/devtools-kit: 'catalog:'
     '@qualithm/arrow-flight-client>apache-arrow': 'catalog:'
     '@use-gesture/react>react': 'catalog:'
@@ -345,7 +345,6 @@ overrides:
     '@pulumi/pulumi>typescript': 'catalog:'
     '@effect/docgen>typescript': 'catalog:'
     'tsconfck>typescript': 'catalog:'
-    '@nx/vitest>vitest': 'catalog:'
     '@effect/atom-react>scheduler': 'catalog:'
 
 # --- [PEER_DEPENDENCIES] ----------------------------------------------------------------
@@ -356,6 +355,7 @@ peerDependencyRules:
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 allowBuilds:
+    '@ast-grep/lang-python': false
     '@datadog/pprof': true
     '@modelcontextprotocol/inspector': true
     '@parcel/watcher': true

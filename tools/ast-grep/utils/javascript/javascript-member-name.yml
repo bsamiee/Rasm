@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: javascript-member-name
+language: javascript
+rule:
+    kind: string, template_string
+    regex: '^[''"`][A-Za-z_$][\w$]*[''"`]$'

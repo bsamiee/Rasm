@@ -8,23 +8,21 @@ utils:
         any:
             - all:
                 - has: {field: property, regex: '^runMain$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^@effect/platform-(node|bun)(/(Node|Bun)Runtime)?$'}, exported: {regex: '^(NodeRuntime|BunRuntime)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(NodeRuntime|BunRuntime|BrowserRuntime)$'}}}}
             - all:
                 - has: {field: property, regex: '^run$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect/cli(/Command)?$'}, exported: {regex: '^Command$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bCommand$'}}}}
     effect-runner:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
             - has: {field: object, matches: effect-effect-module}
-    pipe-function:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}
     piped-program:
         kind: call_expression
         has: {field: arguments, has: {nthChild: 1}}
         any:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
-            - has: {field: function, kind: identifier, matches: pipe-function}
+            - has: {field: function, kind: identifier, matches: effect-pipe-function}
     runner-call:
         kind: call_expression
         all:

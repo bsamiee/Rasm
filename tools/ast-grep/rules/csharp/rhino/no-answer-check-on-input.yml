@@ -20,9 +20,9 @@ utils:
                         has: {field: parameters, any: [{kind: implicit_parameter, pattern: $INPUT}, {has: {kind: parameter, has: {field: name, pattern: $INPUT}}}]}
             - kind: member_access_expression
               has: {field: expression, matches: input}
-    zero:
-        kind: integer_literal
-        regex: '^0$'
+    public-input:
+        matches: input
+        inside: {stopBy: end, kind: method_declaration, has: {kind: modifier, regex: '^public$'}}
     answer-error:
         kind: object_creation_expression
         has: {field: type, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Refused$'}
@@ -44,16 +44,20 @@ rule:
             - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers\s*\.\s*(NonEmpty|Required)(\s*<.+>)?$'}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
         - all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless$'}}, {has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Refused$'}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless$'}}, {has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.Document\.)?(Refused|Missing|CountMismatch)$'}}]}
             - has:
                 field: arguments
                 has:
                     kind: argument
                     nthChild: 1
                     has:
-                        kind: binary_expression
                         any:
-                            - all: [{has: {field: operator, regex: '^>=$'}}, {has: {field: left, matches: input, pattern: $VALUE}}, {has: {field: right, matches: zero}}]
-                            - all: [{has: {field: operator, regex: '^<=$'}}, {has: {field: left, matches: zero}}, {has: {field: right, matches: input, pattern: $VALUE}}]
+                            - kind: identifier
+                              matches: public-input
+                              pattern: $VALUE
+                            - kind: binary_expression, is_pattern_expression, prefix_unary_expression, parenthesized_expression
+                              all:
+                                - has: {stopBy: end, kind: identifier, matches: public-input, pattern: $VALUE}
+                                - not: {has: {stopBy: end, kind: 'invocation_expression, object_creation_expression, member_access_expression, element_access_expression, conditional_access_expression'}}
 message: '`$VALUE` is caller input checked as a host answer'
-note: Use `Limits.AtLeast(0).Check(<value>, <subject>)` for a bound and `Invalid.Unless` over an emptiness test for an id or a sequence, `Answers` errors name a value the host returned
+note: Use `Limits.AtLeast(0).Check(<value>, <subject>)` for a bound and `Invalid.Unless` over an emptiness test for an id or a sequence, `Refused`, `Missing`, and `CountMismatch` name a value the host returned

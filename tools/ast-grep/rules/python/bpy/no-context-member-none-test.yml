@@ -5,13 +5,17 @@ severity: error
 utils:
     context:
         any:
+            - kind: parenthesized_expression
+              has: {matches: context}
             - matches: {python-member-use: {module: {regex: '^bpy$'}, name: {regex: '^context$'}}}
-            - matches: {python-typed-parameter: {type: {regex: '^(bpy\.types\.)?Context$'}}}
+            - matches: {python-typed-parameter: {type: {has: {matches: {python-member-use: {module: {regex: '^bpy\.types$'}, name: {regex: '^Context$'}}}}}}}
     member:
         kind: attribute
-        all:
-            - has: {field: attribute, regex: '^(blend_data|preferences|scene|view_layer|window_manager)$'}
-            - has: {field: object, matches: context}
+        any:
+            - all:
+                - has: {field: attribute, regex: '^(blend_data|preferences|scene|view_layer|window_manager)$'}
+                - has: {field: object, matches: context}
+            - has: {field: attribute, regex: '^active_layer_collection$'}
     tested:
         any:
             - matches: member
@@ -21,20 +25,68 @@ utils:
               has: {matches: tested}
             - kind: identifier
               matches: {python-assigned-name: {value: {matches: member}}}
+    none-value:
+        any:
+            - kind: none
+            - kind: parenthesized_expression
+              has: {matches: none-value}
+    none-pattern:
+        any:
+            - kind: none
+            - kind: case_pattern, union_pattern, as_pattern
+              has: {matches: none-pattern}
+            - kind: tuple_pattern
+              all:
+                - not: {has: {pattern: $$_COMMA, regex: '^,$'}}
+                - has: {matches: none-pattern}
+    truth-position:
+        any:
+            - inside: {kind: parenthesized_expression, matches: truth-position}
+            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
+            - all: [{inside: {kind: assert_statement}}, {nthChild: 1}]
+            - all: [{inside: {kind: conditional_expression}}, {nthChild: 2}]
+            - inside: {kind: if_clause}
+            - inside: {kind: not_operator, field: argument}
+            - inside: {kind: boolean_operator, field: left}
+            - inside: {kind: boolean_operator, field: right, matches: truth-position}
+    optional-wrap:
+        any:
+            - kind: parenthesized_expression
+              has: {matches: optional-wrap}
+            - matches: {python-member-use: {module: {regex: '^expression(\.core)?\.option$'}, name: {regex: '^of_(obj|optional)$'}}}
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: '^of_(obj|optional)$'}
+                - has: {field: object, matches: {python-member-use: {module: {regex: '^expression(\.core)?(\.option)?$'}, name: {regex: '^(Option|option)$'}}}}
+    test-call:
+        regex: '(^|\.)(bool|isinstance|of_obj|of_optional)\)?$'
+        any: [{matches: optional-wrap}, {matches: {python-builtin-name: {name: {regex: '^(bool|isinstance)$'}}}}]
 rule:
     any:
         - kind: comparison_operator
-          all:
-            - has: {nthChild: 1, matches: tested}
-            - has: {nthChild: 2, kind: none}
-        - kind: not_operator
-          has: {field: argument, matches: tested}
-        - kind: boolean_operator
-          has: {field: left, matches: tested}
-        - matches: tested
-          any:
-            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
-            - all: [{inside: {kind: 'assert_statement'}}, {nthChild: 1}]
-            - all: [{inside: {kind: 'conditional_expression'}}, {nthChild: 2}]
-message: 'Condition tests a Blender context member for absence'
-note: 'Use the member with no `None` test, Blender sets it in every script, handler, and operator context although its stub types it `Optional`'
+          has:
+            matches: tested
+            any:
+                - precedes:
+                    regex: '^(is|is\s+not|==|!=)$'
+                    stopBy: {not: {kind: comment}}
+                    precedes: {matches: none-value, stopBy: {not: {kind: comment}}}
+                - follows:
+                    regex: '^(is|is\s+not|==|!=)$'
+                    stopBy: {not: {kind: comment}}
+                    follows: {matches: none-value, stopBy: {not: {kind: comment}}}
+        - all:
+            - not: {inside: {kind: parenthesized_expression}}
+            - any:
+                - matches: truth-position
+                - inside: {kind: match_statement, field: subject, has: {field: body, has: {kind: case_clause, has: {matches: none-pattern}}}}
+                - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                  inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: test-call}}}
+                - inside:
+                    kind: keyword_argument
+                    field: value
+                    has: {field: name, regex: '^value$'}
+                    inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: test-call}}}
+            - matches: tested
+message: 'Absence test reads a Blender context member or `ViewLayer.active_layer_collection`, which Blender always sets'
+note: 'Use the member with no `None` comparison, truth test, `bool` or `isinstance` call, `case None` arm, or `of_optional` wrap, although its stub types it `Optional`'

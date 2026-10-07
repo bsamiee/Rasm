@@ -10,7 +10,8 @@ function descriptor(value) {
 
 function valued(held) {
     var converted = new ActionDescriptor();
-    converted.putObject(stringIDToTypeID('object'), stringIDToTypeID('object'), held);
+    var object = stringIDToTypeID('object');
+    converted.putObject(object, object, held);
     return eval('(' + executeAction(stringIDToTypeID('convertJSONdescriptor'), converted, DialogModes.NO).getString(stringIDToTypeID('json')) + ')');
 }
 

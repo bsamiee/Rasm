@@ -1,24 +1,24 @@
 {
     "mcpServers": {
         "adobe": {
-            "command": "mise",
-            "args": ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts"]
+            "type": "http",
+            "url": "http://127.0.0.1:7409/"
         },
         "roslyn-codelens": {
-            "command": "mise",
-            "args": ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
+            "type": "http",
+            "url": "http://127.0.0.1:7401/"
         },
         "binlog": {
-            "command": "mise",
-            "args": ["exec", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"]
+            "type": "http",
+            "url": "http://127.0.0.1:7403/"
         },
         "nuget": {
-            "command": "mise",
-            "args": ["exec", "--", "dotnet", "dnx", "NuGet.Mcp.Server"]
+            "type": "http",
+            "url": "http://127.0.0.1:7402/"
         },
         "ast-grep": {
-            "command": "mise",
-            "args": ["exec", "--", "ast-grep-server"]
+            "type": "http",
+            "url": "http://127.0.0.1:7404/"
         },
         "github": {
             "type": "http",
@@ -83,16 +83,16 @@
             "args": ["lldb-mcp"]
         },
         "rhino-mcp-platform": {
-            "command": "mise",
-            "args": ["exec", "--", "rhino-mcp-router"]
+            "type": "http",
+            "url": "http://127.0.0.1:7406/"
         },
         "blender": {
-            "command": "mise",
-            "args": ["exec", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"]
+            "type": "http",
+            "url": "http://127.0.0.1:7407/"
         },
         "mcp-for-blender": {
-            "command": "mise",
-            "args": ["exec", "--", "mcp-for-blender"]
+            "type": "http",
+            "url": "http://127.0.0.1:7408/"
         }
     }
 }

@@ -10,7 +10,7 @@ rule:
         - inside:
             kind: member_expression
             field: property
-            has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
+            has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
         - matches: {syntax-import-reference: {source: {regex: '^effect/Schema$'}, exported: {regex: '^is\w+$'}}}
         - inside:
             kind: import_specifier

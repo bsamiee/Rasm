@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unpacked-chain-argument
+language: python
+severity: error
+utils:
+    itertools-chain-callee:
+        any:
+            - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^chain$'}}}
+            - kind: parenthesized_expression
+              has: {matches: itertools-chain-callee}
+rule:
+    kind: call
+    pattern: $CALL
+    all:
+        - has: {field: function, pattern: $F, any: [{matches: itertools-chain-callee}, {kind: list_splat, has: {matches: itertools-chain-callee}}]}
+        - has: {field: arguments, kind: argument_list, has: {kind: list_splat}, not: {has: {kind: 'dictionary_splat, keyword_argument'}}}
+rewriters:
+    - id: sole
+      rule:
+        kind: call
+        pattern: $CALL
+        has:
+            field: arguments
+            kind: argument_list
+            pattern: $ARGS
+            not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+      transform:
+        BODY: rewrite($ARGS, rewriters=[unpack])
+      fix: $F.from_iterable$BODY
+    - id: unpack
+      rule: {kind: list_splat, has: {pattern: $ITERABLES}, inside: {kind: argument_list, pattern: $ARGS}}
+      fix: $ITERABLES
+    - id: flattened
+      rule: {kind: list_splat, has: {pattern: $ITERABLES}, inside: {kind: argument_list, inside: {kind: call, pattern: $CALL, has: {field: function, pattern: $C}}}}
+      transform:
+        CALLEE: {replace: {source: $C, replace: '^\*', by: ''}}
+      fix: $CALLEE.from_iterable($ITERABLES)
+transform:
+    OUT: rewrite($CALL, rewriters=[sole, flattened])
+fix: $OUT
+message: '`$CALL` unpacks iterables into `itertools.chain`, use `chain.from_iterable`'
+note: 'Use `chain.from_iterable(<iterables>)`, `from_iterable` reads the outer iterable lazily with no argument tuple'

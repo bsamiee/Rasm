@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-respelled-type-alias
+language: python
+severity: error
+rule:
+    kind: binary_operator, union_type, generic_type, subscript
+    all:
+        - pattern: $SPELLING
+        - matches: python-type-expression
+        - not: {inside: {kind: type, inside: {kind: type_alias_statement, field: right}}}
+        - inside:
+            stopBy: end
+            inside: {kind: module}
+            follows:
+                stopBy: end
+                kind: type_alias_statement
+                all:
+                    - has: {field: left, has: {kind: identifier, pattern: $ALIAS}}
+                    - has: {field: right, has: {pattern: $SPELLING}}
+fix: $ALIAS
+message: '`$SPELLING` spells the value of type alias `$ALIAS`'
+note: 'Use the alias name, the type has one spelling'

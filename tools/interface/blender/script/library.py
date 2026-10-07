@@ -18,7 +18,7 @@ import numpy as np
 
 from interface.blender.script.screens import TICK
 from interface.render import DESIGN_TOOLS
-from interface.report import changes, digest, Kind, line, subscript
+from interface.report import changes, digest, Error, subscript, Update
 from interface.units import Length
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -97,9 +97,9 @@ def grown(tree: ModuleType, presets: ModuleType, species: Species, trunk_factor:
     presets.apply_trunk_preset(trunk, species.preset)
     presets.apply_preset(branches, species.preset)
     trunk.length, trunk.start_radius, trunk.end_radius = (value * trunk_factor for value in (trunk.length, trunk.start_radius, trunk.end_radius))
-    branches.length = tree.PropertyWrapper(tree.ConstantProperty(presets.TREE_PRESETS[species.preset].branches["length"] * branch_factor))
+    branches.length = tree.PropertyWrapper(tree.ConstantProperty((preset := presets.TREE_PRESETS[species.preset]).branches["length"] * branch_factor))
     trunk.resolution = branches.resolution = PLANTING.resolution
-    if presets.TREE_PRESETS[species.preset].sub_branches:
+    if preset.sub_branches:
         sub_branches = tree.BranchFunction()
         sub_branches.seed = seed + 2
         presets.apply_sub_branch_preset(sub_branches, species.preset)
@@ -129,7 +129,7 @@ def bisected(grow: Callable[[float], Specimen], miss: Callable[[Specimen], float
             return bisected(grow, miss, middle, high, halvings - 1)
 
 
-def fitted(grow: Callable[[float, float], Specimen], specimen: Specimen, rounds: int) -> Specimen | str:
+def fitted(grow: Callable[[float, float], Specimen], specimen: Specimen, rounds: int) -> Specimen | Error:
     """Specimen whose height and width match its species within the tolerance, the trunk and then the branch factor bisected each round, or the error line after the last round."""
     species = specimen.species
     match specimen.height / species.height - 1, specimen.width / species.width - 1:
@@ -137,10 +137,8 @@ def fitted(grow: Callable[[float, float], Specimen], specimen: Specimen, rounds:
             return specimen
         case _ if rounds == 0:
             height, width, declared_height, declared_width = (value / Length.FEET for value in (specimen.height, specimen.width, species.height, species.width))
-            return line(
-                Kind.ERROR,
-                f"{species.name} grows {height:.1f} ft by {width:.1f} ft against its declared {declared_height:.1f} ft by {declared_width:.1f} ft "
-                f"at trunk factor {specimen.trunk:.4f} and branch factor {specimen.branch:.4f} after {PLANTING.rounds} fitting rounds",
+            return Error(
+                f"{species.name} grows {height:.1f} by {width:.1f} ft against its declared {declared_height:.1f} by {declared_width:.1f} ft at trunk factor {specimen.trunk:.4f} and branch factor {specimen.branch:.4f} after {PLANTING.rounds} fitting rounds"
             )
         case _:
             trunk = bisected(lambda factor: grow(factor, specimen.branch), lambda each: each.height / species.height - 1, *PLANTING.bracket, PLANTING.halvings).trunk
@@ -191,7 +189,7 @@ def written(scene: bpy.types.Scene, module: str, author: str, specimens: tuple[S
     bpy.data.batch_remove((*targets, *meshes, text, preview))
 
 
-def built_library(scene: bpy.types.Scene, module: str) -> Iterator[float | str]:
+def built_library(scene: bpy.types.Scene, module: str) -> Iterator[Update]:
     """Rebuild the library from Modular Tree's module when the stamp of its version and the declared planting moved, with the change line from the held stamp to the new one or an error line per species no fitting round grows."""
     info = addon_utils.module_bl_info(sys.modules[module])
     stamp, held = digest(repr((info["version"], PLANTING)).encode()), library_stamp()
@@ -199,7 +197,7 @@ def built_library(scene: bpy.types.Scene, module: str) -> Iterator[float | str]:
         return
     tree, presets = import_module("m_tree"), import_module(f"{module}.python_classes.presets")
     results = tuple(fitted(partial(grown, tree, presets, species), grown(tree, presets, species, 1.0, 1.0), PLANTING.rounds) for species in PLANTING.species)
-    match tuple(result for result in results if isinstance(result, str)):
+    match tuple(result for result in results if isinstance(result, Error)):
         case ():
             yield from written(scene, module, info["name"], tuple(result for result in results if isinstance(result, Specimen)), stamp)
             yield from changes(subscript("library", LIBRARY.name), held, stamp)

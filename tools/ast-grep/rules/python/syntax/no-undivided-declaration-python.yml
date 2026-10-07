@@ -3,16 +3,14 @@ id: no-undivided-declaration-python
 language: python
 severity: error
 rule:
+    kind: expression_statement, type_alias_statement, assert_statement, delete_statement, raise_statement, pass_statement, global_statement, if_statement, for_statement, while_statement, try_statement, with_statement, match_statement, function_definition, class_definition, decorated_definition
     inside: {kind: module}
-    any:
-        - kind: function_definition, class_definition
-          has: {field: name, pattern: $NAME}
-        - kind: decorated_definition
-          has: {field: definition, has: {field: name, pattern: $NAME}}
-        - kind: type_alias_statement
-          has: {field: left, pattern: $NAME}
-        - kind: expression_statement
-          has: {kind: assignment, has: {field: left, pattern: $NAME}}
-    not: {follows: {stopBy: end, matches: text-section-divider}}
-message: Declaration `$NAME` sits above every section divider
-note: 'Use a `# --- [<SECTION>] ` divider dashed to column 90 above the declaration, every declaration sits under a divider'
+    pattern: $STATEMENT
+    not:
+        any:
+            - matches: python-preamble-statement
+            - follows: {stopBy: end, matches: text-section-divider}
+transform:
+    HEAD: {replace: {source: $STATEMENT, replace: '(?s)\n.*$', by: ''}}
+message: Statement `$HEAD` sits above every section divider
+note: 'Place the statement under a `# --- [<SECTION>] ` divider dashed to column 90, the module docstring, imports, `TYPE_CHECKING` blocks, and conditional imports alone precede the first divider'

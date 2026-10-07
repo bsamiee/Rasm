@@ -5,8 +5,8 @@ severity: error
 utils:
     failure-value:
         any:
-            - pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}
-            - {kind: call_expression, regex: '^\.failure\('}
+            - matches: swift-failure-call
+            - {kind: control_transfer_statement, has: {field: result, matches: swift-failure-call}}
     failure-return:
         matches: {swift-single-statement: {first: {matches: failure-value}}}
     failure-entry:
@@ -31,9 +31,19 @@ rule:
         - kind: if_statement
           regex: '^if\s+case\s+(let\s+)?\.failure\b'
           has: {matches: failure-return}
+        - kind: if_statement
+          regex: '^if\s+case\s+(let\s+)?\.success\b'
+          all:
+            - not: {has: {regex: '^,$'}}
+            - not: {has: {kind: if_statement}}
+            - any:
+                - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, matches: failure-return}
+                - all:
+                    - not: {has: {regex: '^else$'}}
+                    - precedes: {kind: control_transfer_statement, has: {field: result, matches: swift-failure-call}}
         - kind: guard_statement
           regex: '^guard\s+case\s+(let\s+)?\.success\b'
           not: {regex: '(?s)^guard\s+case\s+(let\s+)?\.success\b[^,]*,.*\b(case|let|var)\b'}
           has: {matches: failure-return}
-message: 'Statement unpacks a Result to return its failure and bind its value'
+message: 'Statement unpacks a Result to return its failure and bind its value in place of one `flatMap`'
 note: 'Use `<result>.flatMap { value in <continuation> }`, `.bind` where the continuation awaits, and `mapError` first where the failure arm replaces the error, one call skips the continuation on failure'

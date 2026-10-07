@@ -23,7 +23,11 @@ utils:
 rule:
     kind: assignment
     all:
-        - inside: {kind: statements, inside: {kind: function_body, inside: {kind: init_declaration}}}
+        - inside:
+            kind: statements
+            any:
+                - inside: {kind: function_body, inside: {kind: init_declaration}}
+                - inside: {kind: 'didset_clause, willset_clause'}
         - has:
             field: target
             any:
@@ -36,4 +40,4 @@ rule:
             kind: class_declaration
             has: {field: body, has: {matches: stored}}
 message: '`$B` stores a value derived from the stored property `$X`'
-note: 'Declare `<property>` as computed over `<source>` and drop its assignment in `init`, or read `<source>.<member>` at each reader when the derivation reads one member'
+note: 'Declare `<property>` as computed over `<source>` and drop its assignment in `init` or a property observer, or read `<source>.<member>` at each reader when the derivation reads one member'

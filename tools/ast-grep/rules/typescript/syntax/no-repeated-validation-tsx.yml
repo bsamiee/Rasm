@@ -35,6 +35,11 @@ rule:
             - pattern: String($X)
             - has: {field: function, matches: syntax-global-reference}
             - has: {field: arguments, has: {matches: string-parameter}}
+        - kind: template_string
+          all:
+            - not: {has: {kind: 'string_fragment, escape_sequence'}}
+            - has: {kind: template_substitution, has: {matches: string-parameter}}
+            - not: {has: {kind: template_substitution, nthChild: 2}}
         - kind: call_expression
           all:
             - pattern: $X.toString()

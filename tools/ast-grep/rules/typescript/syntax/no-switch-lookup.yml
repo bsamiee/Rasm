@@ -3,24 +3,67 @@ id: no-switch-lookup
 language: tsx
 severity: error
 utils:
+    literal:
+        any:
+            - kind: string, number
+            - kind: template_string
+              not: {has: {kind: template_substitution}}
+    key:
+        pattern: $KEY
+        not: {matches: literal}
+        any:
+            - {kind: identifier, pattern: $ROOT}
+            - has: {stopBy: end, kind: identifier, pattern: $ROOT}
+    computed:
+        any:
+            - kind: call_expression, await_expression, new_expression, yield_expression
+            - has: {stopBy: end, kind: 'call_expression, await_expression, new_expression, yield_expression'}
+            - {kind: identifier, pattern: $ROOT}
+            - has: {stopBy: end, kind: identifier, pattern: $ROOT}
+    value-return:
+        kind: return_statement
+        has: {pattern: $_}
+        not: {has: {matches: computed}}
     returning-case:
         kind: switch_case, switch_default
         all:
             - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
-            - not: {has: {field: body, not: {kind: return_statement}}}
-            - not: {has: {field: body, kind: return_statement, not: {has: {pattern: $_}}}}
+            - not: {has: {field: body, not: {matches: value-return}}}
     literal-case:
         kind: switch_case
-        has: {field: value, any: [{kind: 'string, number'}, {kind: template_string, not: {has: {kind: template_substitution}}}]}
+        has: {field: value, matches: literal}
+    key-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^===$'}
+            - any:
+                - all: [{has: {field: left, matches: key}}, {has: {field: right, matches: literal}}]
+                - all: [{has: {field: right, matches: key}}, {has: {field: left, matches: literal}}]
+    returning-if:
+        kind: if_statement
+        all:
+            - has: {field: condition, has: {matches: key-test}}
+            - has:
+                field: consequence
+                any:
+                    - matches: value-return
+                    - kind: statement_block
+                      has: {matches: value-return}
+                      not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - not: {has: {field: alternative, pattern: $_}}
 rule:
-    kind: switch_statement
-    all:
-        - has: {field: value, has: {pattern: $KEY}}
-        - has:
-            field: body
-            all:
-                - has: {kind: switch_case, has: {field: body, kind: return_statement}}
-                - not: {has: {kind: switch_case, not: {matches: literal-case}}}
-                - not: {has: {kind: 'switch_case, switch_default', not: {matches: returning-case}}}
-message: '`switch` over `$KEY` returns one value per literal case'
+    any:
+        - kind: switch_statement
+          all:
+            - has: {field: value, has: {matches: key}}
+            - has:
+                field: body
+                all:
+                    - has: {kind: switch_case, has: {field: body, kind: return_statement}}
+                    - not: {has: {kind: switch_case, not: {matches: literal-case}}}
+                    - not: {has: {kind: 'switch_case, switch_default', not: {matches: returning-case}}}
+        - matches: returning-if
+          precedes: {matches: returning-if}
+          not: {follows: {matches: returning-if}}
+message: '`$KEY` selects one returned value per literal case'
 note: 'Index a record keyed by the literals and validate the key at the boundary with `Schema.Literals(Struct.keys(<record>))`, each case holds one value'

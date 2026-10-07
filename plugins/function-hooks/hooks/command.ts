@@ -1,4 +1,4 @@
-import { all, bind, decoded, fromUndefined, map, none, type Option, ok, type Result, some } from './composition.ts';
+import { all, bind, decoded, map, type Result } from './composition.ts';
 import { type Invocation, invocations, operands, PROGRAMS } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -121,31 +121,30 @@ const _script = (hits: readonly Hit[], enclosing: Markers, nested: boolean): Scr
     };
 };
 
-const _body = (command: Command): Option<string> => {
-    const invocation = command.invocations.at(-1);
-    if (invocation === undefined) {
-        return none;
-    }
-    const [program, ...rest] = invocation;
-    if (program === 'eval') {
-        return some(rest.join(' '));
-    }
-    const { inputs, options } = operands(invocation);
-    return PROGRAMS[program]?.shell === true && options.includes('-c') ? fromUndefined(inputs[0]) : none;
-};
+const _bodies = (command: Command): readonly string[] =>
+    command.invocations.slice(-1).flatMap((invocation) => {
+        const [program, ...rest] = invocation;
+        if (program === 'eval') {
+            return [rest.join(' ')];
+        }
+        const row = PROGRAMS[program];
+        const bodies = row?.bodies;
+        const { inputs, options, values } = operands(invocation);
+        if (row?.shell === true) {
+            return options.includes('-c') ? inputs.slice(0, 1) : [];
+        }
+        return bodies === undefined ? [] : [...inputs, ...values.flatMap(([name, value]) => (bodies.includes(name) ? [value] : []))];
+    });
 
 // --- [PARSE]
+
+const _joined = (scripts: readonly Script[]): Script => ({ commands: scripts.flatMap(({ commands }) => commands), clocks: scripts.flatMap(({ clocks }) => clocks) });
 
 const _parse = async (scan: Scanner, text: string, nested: boolean, enclosing: Markers): Promise<Result<Script>> =>
     bind(decoded<readonly Hit[]>('ast-grep', await scan(text)), async (hits): Promise<Result<Script>> => {
         const script = _script(hits, enclosing, nested);
-        const placed = await Promise.all(
-            script.commands.map(async (command): Promise<Result<Script>> => {
-                const body = _body(command);
-                return body.kind === 'some' ? map(await _parse(scan, body.value, true, command), (inner) => ({ ...inner, commands: [command, ...inner.commands] })) : ok({ commands: [command], clocks: [] });
-            }),
-        );
-        return map(all(placed), (scripts) => ({ commands: scripts.flatMap(({ commands }) => commands), clocks: [...script.clocks, ...scripts.flatMap(({ clocks }) => clocks)] }));
+        const placed = await Promise.all(script.commands.map(async (command): Promise<Result<Script>> => map(all(await Promise.all(_bodies(command).map((body) => _parse(scan, body, true, command)))), (inner) => _joined([{ commands: [command], clocks: [] }, ...inner]))));
+        return map(all(placed), (scripts) => _joined([{ commands: [], clocks: script.clocks }, ...scripts]));
     });
 
 const parse = (scan: Scanner, command: string): Promise<Result<Script>> => _parse(scan, command, false, { looped: false, polled: false, fed: false });

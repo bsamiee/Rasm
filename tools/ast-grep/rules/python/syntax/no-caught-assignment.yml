@@ -4,49 +4,69 @@ language: python
 severity: error
 utils:
     rejection:
-        kind: identifier
-        regex: '^(TypeError|ValueError|AttributeError|KeyError|RuntimeError)$'
+        matches: {python-builtin-name: {name: {regex: '^(TypeError|ValueError|AttributeError|KeyError|IndexError|LookupError|OverflowError|RuntimeError|Exception|BaseException)$'}}}
+    caught-type:
+        any:
+            - matches: rejection
+            - kind: 'tuple, parenthesized_expression'
+              has: {matches: caught-type}
+            - kind: as_pattern
+              has: {nthChild: 1, matches: caught-type}
     written-value:
         any:
             - kind: 'identifier, integer, float, true, false, none'
-            - kind: 'string, concatenated_string'
-              not: {has: {stopBy: end, kind: interpolation}}
-            - kind: 'unary_operator, tuple, list'
-              not: {has: {stopBy: end, kind: 'attribute, subscript, call'}}
+            - matches: python-plain-string
+            - kind: 'attribute, unary_operator, tuple, list'
+              not: {has: {stopBy: end, kind: 'call, subscript, interpolation, binary_operator, await'}}
+    held-path:
+        kind: 'identifier, attribute'
+        not: {has: {stopBy: end, kind: 'call, subscript'}}
+    target:
+        any:
+            - kind: attribute
+              has: {field: object, matches: held-path}
+            - kind: subscript
+              all:
+                - has: {field: value, matches: held-path}
+                - has: {field: subscript, matches: written-value}
     member-write:
         kind: expression_statement
-        pattern: $WRITE
         any:
             - has:
                 kind: assignment
                 all:
-                    - has: {field: left, kind: attribute, not: {has: {stopBy: end, kind: 'subscript, call'}}}
+                    - has: {field: left, matches: target}
                     - has: {field: right, matches: written-value}
             - has:
                 kind: call
                 all:
-                    - has: {field: function, kind: identifier, regex: '^setattr$'}
+                    - has: {field: function, matches: {python-builtin-name: {name: {regex: '^setattr$'}}}}
                     - has: {field: arguments, has: {nthChild: 3, matches: written-value}}
-    sole-write:
+    exit:
+        any:
+            - kind: 'break_statement, continue_statement, pass_statement, comment'
+            - kind: return_statement
+              not: {has: {pattern: $_, not: {matches: written-value}}}
+    write-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: member-write}
-            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-    suppress-callee:
-        any:
-            - {kind: identifier, regex: '^suppress$'}
-            - {kind: attribute, regex: '^contextlib\.suppress$'}
+            - has: {matches: member-write, pattern: $WRITE}
+            - not: {has: {not: {any: [{matches: member-write}, {matches: exit}]}}}
+    swallowing-handler:
+        kind: except_clause
+        all:
+            - any:
+                - has: {field: value, matches: caught-type}
+                - not: {has: {field: value, pattern: $_}}
+            - not: {has: {kind: block, has: {stopBy: end, kind: raise_statement}}}
+            - not:
+                all:
+                    - has: {field: value, kind: as_pattern, has: {field: alias, has: {kind: identifier, pattern: $ERROR}}}
+                    - has: {kind: block, has: {stopBy: end, kind: identifier, pattern: $ERROR}}
 rule:
-    any:
-        - kind: try_statement
-          all:
-            - has: {field: body, matches: sole-write}
-            - has: {kind: except_clause, has: {stopBy: {kind: block}, matches: rejection}}
-            - not: {has: {kind: 'except_clause, else_clause, finally_clause', has: {stopBy: end, kind: raise_statement}}}
-            - not: {has: {kind: except_clause, has: {kind: block, not: {has: {not: {kind: 'pass_statement, continue_statement, comment'}}}}}}
-        - kind: with_statement
-          all:
-            - has: {kind: with_clause, not: {has: {nthChild: 2}}, has: {kind: with_item, has: {kind: call, all: [{has: {field: function, matches: suppress-callee}}, {has: {field: arguments, has: {matches: rejection}}}]}}}
-            - has: {field: body, matches: sole-write}
+    kind: try_statement
+    all:
+        - has: {field: body, matches: write-block}
+        - has: {matches: swallowing-handler}
 message: '`$WRITE` catches its own error to test whether its target accepts the value'
-note: 'Use the target owner''s declaration to check the value before writing,`bl_rna.properties[<name>]` (`enum_items`, `hard_min`, `hard_max`, `is_readonly`) for a Blender property and `<enum>.__members__.get(<name>)` for an enum name, a checked write states the value it keeps'
+note: 'Use the target owner''s declaration to check the value before writing, `bpy.types.UILayout.enum_item_name(<owner>, <name>, <value>)` for a Blender enum, `bl_rna.properties[<name>]` (`hard_min`, `hard_max`, `is_readonly`) for a Blender range or read-only member, and `<value> in <enum>.__members__` for an enum name, a checked write states the value it keeps'

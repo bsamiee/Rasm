@@ -7,7 +7,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^runCollect$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Stream)?$'}, exported: {regex: '^Stream$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\bStream$'}}}}
     collected:
         any:
             - kind: call_expression
@@ -20,7 +20,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(head|last|reduce|join)$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Array)?$'}, exported: {regex: '^Array$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
     fold:
         any:
             - matches: array-fold
@@ -53,7 +53,7 @@ utils:
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^fromIterable$'}
-                            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Array)?$'}, exported: {regex: '^Array$'}}}}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected, pattern: $COLLECTED}}, {not: {has: {nthChild: 2}}}]}
             - kind: array
               all:

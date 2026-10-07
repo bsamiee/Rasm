@@ -9,18 +9,34 @@ utils:
             - has:
                 nthChild: 1
                 any:
-                    - {kind: call_expression, pattern: $LIFTED}
-                    - {kind: control_transfer_statement, has: {field: result, kind: call_expression, pattern: $LIFTED}}
+                    - matches: swift-result-construction
+                    - {kind: control_transfer_statement, has: {field: result, matches: swift-result-construction}}
             - not: {has: {nthChild: 2}}
-    unlifted:
-        kind: call_expression
-        pattern: $LIFTED
-        has: {kind: call_suffix, has: {kind: value_arguments, all: [{has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $VALUE}}}, {not: {has: {nthChild: 2}}}]}}
+    callback:
+        kind: lambda_literal
+        has: {matches: lifted-body}
     lifting-call:
         kind: call_expression
         all:
             - has: {kind: navigation_expression, all: [{has: {field: target, pattern: $RECEIVER}}, {has: {field: suffix, has: {field: suffix, pattern: $METHOD}}}]}
-            - has: {kind: call_suffix, all: [{has: {kind: lambda_literal, has: {matches: lifted-body}}}, {not: {has: {kind: value_arguments}}}]}
+            - has:
+                kind: call_suffix
+                any:
+                    - all: [{has: {matches: callback}}, {not: {has: {kind: value_arguments}}}]
+                    - has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: callback}}}
+    leaf:
+        kind: call_expression
+        all:
+            - any: [{matches: swift-success-call}, {matches: swift-failure-call}]
+            - has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, all: [{has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $VALUE}}}, {not: {has: {nthChild: 2}}}]}}
+            - inside: {stopBy: {kind: lambda_literal}, kind: lambda_literal, inside: {stopBy: {kind: call_suffix}, kind: call_suffix, inside: {pattern: $CALL}}}
+    sole-leaf:
+        kind: statements
+        has:
+            nthChild: 1
+            any:
+                - matches: leaf
+                - {kind: control_transfer_statement, has: {field: result, matches: leaf}}
     sole-parameter:
         kind: lambda_literal
         any:
@@ -79,15 +95,17 @@ rule:
     any:
         - all:
             - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^flatMap$'}}}
-            - has: {kind: call_suffix, has: {kind: lambda_literal, has: {kind: statements, has: {stopBy: end, pattern: $LIFTED, regex: '^\.success\('}}}}
+            - has: {kind: call_suffix, has: {stopBy: end, matches: lifted-body, has: {stopBy: {kind: lambda_literal}, matches: swift-success-call, pattern: $LIFTED}}}
+            - not: {has: {kind: call_suffix, has: {stopBy: end, matches: lifted-body, has: {stopBy: {kind: lambda_literal}, matches: swift-failure-call}}}}
         - all:
             - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^flatMapError$'}}}
-            - has: {kind: call_suffix, has: {kind: lambda_literal, has: {kind: statements, has: {stopBy: end, pattern: $LIFTED, regex: '^\.failure\('}}}}
+            - has: {kind: call_suffix, has: {stopBy: end, matches: lifted-body, has: {stopBy: {kind: lambda_literal}, matches: swift-failure-call, pattern: $LIFTED}}}
+            - not: {has: {kind: call_suffix, has: {stopBy: end, matches: lifted-body, has: {stopBy: {kind: lambda_literal}, matches: swift-success-call}}}}
 rewriters:
     - id: named-reference
       rule:
         pattern: $CALL
-        has: {kind: call_suffix, has: {matches: sole-parameter, has: {kind: statements, has: {stopBy: end, matches: unlifted, has: {kind: call_suffix, has: {stopBy: end, matches: named-wrap}}}}}}
+        has: {kind: call_suffix, has: {matches: sole-parameter, has: {matches: sole-leaf, has: {stopBy: end, matches: leaf, has: {kind: call_suffix, has: {stopBy: end, matches: named-wrap}}}}}}
       transform:
         MAPPED: {replace: {source: $METHOD, replace: '^flatM', by: 'm'}}
         INIT: {replace: {source: $WRAPPER, replace: '^((?:\w+\.)*[A-Z]\w*)$', by: '$1.init'}}
@@ -99,7 +117,7 @@ rewriters:
         all:
             - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^flatMap$'}}}
             - matches: typed-result
-            - has: {kind: call_suffix, has: {matches: sole-parameter, has: {kind: statements, has: {stopBy: end, matches: unlifted, has: {kind: call_suffix, has: {stopBy: end, matches: case-wrap}}}}}}
+            - has: {kind: call_suffix, has: {matches: sole-parameter, has: {matches: sole-leaf, has: {stopBy: end, matches: leaf, has: {kind: call_suffix, has: {stopBy: end, matches: case-wrap}}}}}}
       transform:
         LABELED: {replace: {source: $LABEL, replace: '^(.+)$', by: '($1:)'}}
       fix: '$RECEIVER.map($SUCCESS_TYPE.$CASE$LABELED)'
@@ -109,7 +127,7 @@ rewriters:
         all:
             - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^flatMapError$'}}}
             - matches: typed-result
-            - has: {kind: call_suffix, has: {matches: sole-parameter, has: {kind: statements, has: {stopBy: end, matches: unlifted, has: {kind: call_suffix, has: {stopBy: end, matches: case-wrap}}}}}}
+            - has: {kind: call_suffix, has: {matches: sole-parameter, has: {matches: sole-leaf, has: {stopBy: end, matches: leaf, has: {kind: call_suffix, has: {stopBy: end, matches: case-wrap}}}}}}
       transform:
         LABELED: {replace: {source: $LABEL, replace: '^(.+)$', by: '($1:)'}}
       fix: '$RECEIVER.mapError($FAILURE_TYPE.$CASE$LABELED)'
@@ -124,13 +142,13 @@ rewriters:
     - id: unreturned-value
       rule:
         kind: control_transfer_statement
-        has: {field: result, matches: unlifted}
+        has: {field: result, matches: leaf}
       fix: $VALUE
     - id: unlifted-value
-      rule: {matches: unlifted}
+      rule: {matches: leaf}
       fix: $VALUE
 transform:
     MAPPED_CALL: {rewrite: {source: $CALL, rewriters: [named-reference, success-case-reference, failure-case-reference, plain-method, unreturned-value, unlifted-value]}}
 fix: $MAPPED_CALL
-message: '`$METHOD` callback lifts its result back into the Result with `$LIFTED`'
-note: '`map` replaces `flatMap { value in .success(<value>) }` and `mapError` replaces `flatMapError { error in .failure(<error>) }`, a callback that wraps its parameter passes the wrapper as a value (`map(Wrapper.init)`, `mapError(Failure.case)`, `mapError(Failure.case(label:))`)'
+message: '`$METHOD` callback lifts its result back into the Result with `$LIFTED` in place of `map` or `mapError`'
+note: '`map` replaces `flatMap { value in .success(<value>) }` and `mapError` replaces `flatMapError { error in .failure(<error>) }`, each branch of a conditional or `switch` unwrapped alike, and a callback that wraps its parameter passes the wrapper as a value (`map(Wrapper.init)`, `mapError(Failure.case)`, `mapError(Failure.case(label:))`)'

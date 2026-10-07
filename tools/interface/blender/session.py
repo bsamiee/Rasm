@@ -3,19 +3,19 @@
 import re
 
 import anyio
-from anyio.streams.buffered import BufferedByteReceiveStream
 import msgspec
 import psutil
 
 from interface.blender import stores
 from interface.blender.packages import Manifest
-from interface.blender.rows import Launch, Listed, Local, Width
+from interface.blender.rows import Install, Launch, Width
 from interface.host import (
     Applied,
     bootstrap,
     Bundle,
     DEADLINE,
     Error,
+    executed,
     Failed,
     Host,
     LAUNCH_ENVIRONMENT,
@@ -29,6 +29,7 @@ from interface.host import (
     quitted,
     registered,
     reopened,
+    Result,
     running,
     Skip,
     terminated,
@@ -38,105 +39,100 @@ from interface.host import (
 
 
 class Held(msgspec.Struct, frozen=True):
-    """File the windowed Blender holds once released, empty when untitled, and whether it holds unsaved edits."""
+    """File the windowed Blender holds once released, empty when untitled, and whether it holds unsaved edits, the dict the bridge requires as `result`."""
 
     filepath: str
     is_dirty: bool
 
 
 class Done(msgspec.Struct, frozen=True, tag="ok", tag_field="status"):
-    """Bridge answer to a request that ran, with its `result` variable as JSON and the output it printed."""
+    """Bridge answer to a request that ran, with its `result` variable held raw for the requested type."""
 
     result: msgspec.Raw
-    stdout: str = ""
-    stderr: str = ""
 
 
 class Raised(msgspec.Struct, frozen=True, tag="error", tag_field="status"):
-    """Bridge answer to a request that raised, with its traceback and the output it printed."""
+    """Bridge answer to a request that raised, with its traceback."""
 
     message: str
-    stdout: str = ""
-    stderr: str = ""
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 # --- [BRIDGE]
-async def execute(port: int, code: str, *, strict_json: bool) -> Done | Raised:
-    """Answer of the Blender Lab bridge on the port to the code, `strict_json` refusing a `result` JSON cannot hold."""
-    async with await anyio.connect_tcp(LOOPBACK, port) as stream:
-        await stream.send(msgspec.json.encode({"type": "execute", "code": code, "strict_json": strict_json}) + b"\0")
-        return msgspec.json.decode(await BufferedByteReceiveStream(stream).receive_until(b"\0", 1 << 24), type=Done | Raised)
-
-
-# --- [PROCESSES]
 def windowed(bundle: Bundle) -> tuple[psutil.Process, ...]:
     """Every Blender of the bundle a person runs, none in background or command mode."""
     return tuple(process for process in running(bundle) if {"-b", "--background", "-c", "--command"}.isdisjoint(process.info["cmdline"]))
 
 
-async def closed(port: int, processes: tuple[psutil.Process, ...]) -> tuple[str, ...] | Error:
-    """Titled file the one windowed Blender holds for the reopen once its bridge discards an untitled session, or why it stays open."""
-    match processes:
-        case ():
+async def bridged[T](port: int, processes: tuple[psutil.Process, ...], code: str, kind: type[T]) -> Result[T] | None:
+    """`result` of the kind the code sets in the one windowed Blender through its bridge on the port, none when no windowed Blender runs, or the error of several, the transport, the decode, or the code."""
+    if not processes:
+        return None
+    if len(processes) != 1:
+        return Error(f"{len(processes)} windowed Blender instances run and the bridge on port {port} reaches one of them")
+    try:
+        with anyio.fail_after(DEADLINE, reason=f"Blender bridge on port {port} exceeded {DEADLINE:.0f} s"):
+            async with await anyio.connect_tcp(LOOPBACK, port) as stream:
+                await stream.send(msgspec.json.encode({"type": "execute", "code": code, "strict_json": True}) + b"\0")
+                reply = msgspec.json.decode(b"".join([chunk async for chunk in stream]).removesuffix(b"\0"), type=Done | Raised)
+                return Error(f"Blender bridge on port {port} raised {reply.message.rstrip()}") if isinstance(reply, Raised) else msgspec.json.decode(reply.result, type=kind)
+    except (OSError, anyio.BrokenResourceError, msgspec.DecodeError) as error:
+        return Error(f"Blender bridge on port {port} failed: {type(error).__name__}: {error}")
+
+
+async def closed(port: int, processes: tuple[psutil.Process, ...]) -> Result[tuple[str, ...]]:
+    """Titled file the windowed Blender holds for the reopen once its bridge discards an untitled session, none without a windowed Blender, or why it stays open."""
+    release = "import bpy\nif not bpy.data.filepath:\n    bpy.ops.wm.read_homefile()\nresult = {'filepath': bpy.data.filepath, 'is_dirty': bpy.data.is_dirty}"
+    match await bridged(port, processes, release, Held):
+        case None | Held(filepath=""):
             return ()
-        case (process,):
-            release = "import bpy\nif not bpy.data.filepath:\n    bpy.ops.wm.read_homefile()\nresult = {'filepath': bpy.data.filepath, 'is_dirty': bpy.data.is_dirty}"
-            try:
-                reply = await execute(port, release, strict_json=True)
-            except OSError:
-                return Error(f"Blender pid {process.pid} runs with no bridge listening on port {port}, so its file stays unread")
-            match reply:
-                case Raised(message=message):
-                    return Error(f"the release call through the Blender bridge on port {port} raised {message.rstrip()}")
-                case Done(result=result):
-                    match msgspec.json.decode(result, type=Held):
-                        case Held(filepath=""):
-                            return ()
-                        case Held(filepath=path, is_dirty=True):
-                            return Error(f"Blender stays open because {path} holds unsaved edits")
-                        case Held(filepath=path):
-                            return (path,)
-        case _:
-            return Error(f"{len(processes)} windowed Blender instances run and the bridge on port {port} reaches one of them")
+        case Held(filepath=path, is_dirty=True):
+            return Error(f"Blender stays open with unsaved edits in {path}")
+        case Held(filepath=path):
+            return (path,)
+        case Error() as failed:
+            return failed
 
 
+# --- [PROCESSES]
 async def ran(bundle: Bundle, launch: Launch) -> tuple[Line, ...]:
-    """Report rows the scripted Blender wrote, or the error naming its crash log or output files when it wrote no report, or the deadline it ran past; a cancelled or deadlined wait terminates it."""
+    """Report rows the scripted Blender wrote, or the error naming its output files when it wrote none or ran past the deadline, a cancelled or deadlined wait terminating it."""
     report = anyio.Path(launch.report)
     log, err = report.with_suffix(".log"), report.with_suffix(".err")
     await report.parent.mkdir(parents=True, exist_ok=True)
     for path in (report, log, err):
         await path.unlink(missing_ok=True)
-    call = t"start({literal(launch)})"
-    arguments = ("--no-window-focus", "--online-mode", "--python-exit-code", "1", "--python-expr", bootstrap("interface.blender.script", call))
+    script = bootstrap("interface.blender.script", t"start({literal(launch)})")
+    arguments = ("--no-window-focus", "--online-mode", "--python-exit-code", "1", "--python-expr", script)
 
     def scripted() -> list[psutil.Process]:
-        return [process for process in running(bundle) if any(str(report) in argument for argument in process.info["cmdline"])]
+        return [process for process in running(bundle) if script in process.info["cmdline"]]
 
     try:
-        with anyio.move_on_after(DEADLINE) as waited:
-            await anyio.run_process(["/usr/bin/open", "-n", "-g", "-W", "-a", str(bundle.path), "--stdout", str(log), "--stderr", str(err), "--args", *arguments], env=LAUNCH_ENVIRONMENT)
-    except anyio.get_cancelled_exc_class():
+        with anyio.fail_after(DEADLINE):
+            launched = await executed(("/usr/bin/open", "-n", "-g", "-W", "-a", str(bundle.path), "--stdout", str(log), "--stderr", str(err), "--args", *arguments), LAUNCH_ENVIRONMENT)
+    except (TimeoutError, anyio.get_cancelled_exc_class()) as error:
         with anyio.CancelScope(shield=True):
-            await terminated(scripted())
+            errors = await terminated(scripted())
+            if isinstance(error, TimeoutError):
+                return (Error(f"Scripted Blender exceeded {DEADLINE:.0f} s. Output: {log}, {err}"), *errors)
         raise
-    if waited.cancelled_caught:
-        return (Error(f"the scripted Blender ran past the {DEADLINE:.0f} s deadline, its output in {log} and {err}"), *map(Error, await terminated(scripted())))
+    if isinstance(launched, Error):
+        return (launched,)
     try:
         return parse(await report.read_text(encoding="utf-8"))
     except FileNotFoundError:
         match re.search(r"^Writing: (?P<crash>.+\.crash\.txt)$", await log.read_text(encoding="utf-8"), re.MULTILINE):
             case re.Match() as written:
-                return (Error(f"the scripted Blender crashed before writing {report}, its crash log at {written['crash']}"),)
+                return (Error(f"Scripted Blender crashed before writing {report}. Crash log: {written['crash']}"),)
             case None:
-                return (Error(f"the scripted Blender exited without writing {report}, its output in {log} and {err}"),)
+                return (Error(f"Scripted Blender exited without writing {report}. Output: {log}, {err}"),)
 
 
 # --- [SESSION]
-async def session(host: Host, port: int, bundle: Bundle, manifest: Manifest, essentials: frozenset[str], packages: tuple[Local | Listed, ...]) -> tuple[Line, ...]:
+async def session(host: Host, port: int, bundle: Bundle, manifest: Manifest, essentials: frozenset[str], packages: tuple[Install, ...]) -> tuple[Line, ...]:
     """Report rows of the interface run in a scripted Blender and the stored shelves and region widths edited once it quit, the windowed Blender on the bridge port released, quit, and reopened on its titled file, a companion bundle not installed a skip row."""
     companions = ("com.microsoft.VSCode", "org.inkscape.Inkscape")
     code, inkscapes = await anyio.gather(*(located(identifier) for identifier in companions))
@@ -155,9 +151,10 @@ async def session(host: Host, port: int, bundle: Bundle, manifest: Manifest, ess
     if isinstance(files := await closed(port, discovered), Error):
         return (files,)
     instances = await registered(discovered)
-    if errors := await quitted(instances):
-        return tuple(map(Error, errors))
     async with reopened(bundle, instances, *files, arguments=("--no-window-focus",)):
+        with anyio.CancelScope(shield=True):
+            if errors := await quitted(instances):
+                return errors
         reported = await ran(bundle, launch)
         match outcome(host.app, reported):
             case Applied(folder=folder):
@@ -169,4 +166,4 @@ async def session(host: Host, port: int, bundle: Bundle, manifest: Manifest, ess
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Done", "Raised", "execute", "session"]
+__all__ = ["bridged", "session", "windowed"]

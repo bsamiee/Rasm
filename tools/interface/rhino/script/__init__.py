@@ -17,9 +17,9 @@ import Rhino
 from Rhino.PlugIns import PlugIn
 from Rhino.UI import RhinoEtoApp
 
-from interface.report import Action, converged, Kind, line, Row
+from interface.report import converged, Error, Header, Item, Measurement, Row
 from interface.rhino.script import appearance, containers, display, keyboard, options, plugins, template
-from interface.rhino.script.accessors import plain, port as listener
+from interface.rhino.script.accessors import action, port as listener
 from interface.units import Units
 
 if TYPE_CHECKING:
@@ -37,22 +37,21 @@ def definitions() -> tuple[Document, ...]:
     return ()
 
 
-def emit(entries: Iterable[Row | str]) -> None:
+def emit(entries: Iterable[Item]) -> None:
     """Print the header line, then each row's change lines and each report line as it comes, a raise printed as one error line holding its message and its cause's with their .NET frames, the row label it notes, and the cause's raising Python frame."""
 
     def cause(error: BaseException) -> BaseException:
         return error if (inner := error.__cause__ or error.__context__) is None else cause(inner)
 
     folder = Path(Rhino.RhinoApp.GetDataDirectory(localUser=True, forceDirectoryCreation=False)) / "settings"
-    print(line(Kind.HEADER, str(Rhino.RhinoApp.Version), str(folder)))
+    print(Header(str(Rhino.RhinoApp.Version), str(folder)))
     try:
-        for text in chain.from_iterable(converged(entry, plain) if isinstance(entry, Row) else (entry,) for entry in entries):
+        for text in chain.from_iterable(converged(entry) if isinstance(entry, Row) else (entry,) for entry in entries):
             print(text)
     except Exception as error:
         root = cause(error)
         frame = traceback.extract_tb(root.__traceback__)[-1]
-        words = (word for each in dict.fromkeys((root, error)) for text in traceback.format_exception_only(each) for word in text.split())
-        print(line(Kind.ERROR, " ".join((*words, f"at {frame.filename}:{frame.lineno}"))))
+        print(Error(f"{''.join(chain.from_iterable(map(traceback.format_exception_only, dict.fromkeys((root, error)))))} at {frame.filename}:{frame.lineno}"))
 
 
 def ready(address: str, port: int) -> None:
@@ -65,13 +64,13 @@ def main(doc: Rhino.RhinoDoc) -> None:
     """Converge and report the Settings window closed and every store's rows in store order over each unit system's template facts, Grasshopper 2 last once it loaded, then flush the settings on every path."""
     preferences = RhinoEtoApp.ApplicationPreferencesWindowForPage(None)
 
-    def entries() -> Iterator[Row | str]:
+    def entries() -> Iterator[Item]:
         targets = {units: template.target(units) for units in Units}
         if preferences is not None:
-            yield Action(label="ApplicationPreferencesWindow.Visible", read=lambda: preferences.Visible, act=preferences.Close, target=False)
+            yield action(label="ApplicationPreferencesWindow.Visible", read=lambda: preferences.Visible, act=preferences.Close, target=False)
         yield from chain(options.rows(), appearance.rows(), keyboard.rows(), containers.rows(doc, targets), plugins.rows(), display.rows(), template.rows(targets))
         if not PlugIn.LoadPlugIn(PlugIn.IdFromName("Grasshopper2")):
-            yield line(Kind.ERROR, "Grasshopper 2 did not load, its rows stay unwritten")
+            yield Error("Grasshopper 2 did not load, its rows stay unwritten")
             return
         from interface.rhino.script import grasshopper
 
@@ -87,9 +86,9 @@ def documents() -> None:
     """Report every titled Rhino and Grasshopper 2 document's path and an error for each one holding unsaved edits."""
     held, loaded = tuple(Rhino.RhinoDoc.OpenDocuments()), definitions()
     emit((
-        line(Kind.MEASUREMENT, json.dumps([*(each.Path for each in held if each.Path), *(each.File.Path for each in loaded if each.File.Path)])),
-        *(line(Kind.ERROR, f"Rhino document {each.Path} holds unsaved edits") for each in held if each.Modified and each.Path),
-        *(line(Kind.ERROR, f"Grasshopper 2 document {each.File.Path} holds unsaved edits") for each in loaded if each.Modified and each.File.Path),
+        Measurement(json.dumps([*(each.Path for each in held if each.Path), *(each.File.Path for each in loaded if each.File.Path)])),
+        *(Error(f"Rhino document {each.Path} holds unsaved edits") for each in held if each.Modified and each.Path),
+        *(Error(f"Grasshopper 2 document {each.File.Path} holds unsaved edits") for each in loaded if each.Modified and each.File.Path),
     ))
 
 

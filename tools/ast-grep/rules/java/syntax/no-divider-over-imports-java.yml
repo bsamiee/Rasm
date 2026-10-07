@@ -3,22 +3,12 @@ id: no-divider-over-imports-java
 language: java
 severity: error
 rule:
-    kind: line_comment
+    matches: java-divider-comment
     pattern: $DIVIDER
     inside: {kind: program}
-    all:
-        - any:
-            - regex: '^// --- \[IMPORTS\]'
-            - regex: '^// --- \[[A-Z0-9_]+\]'
-              precedes: {kind: 'package_declaration, import_declaration'}
-              not: {precedes: {stopBy: {matches: java-section-divider}, not: {kind: 'package_declaration, import_declaration, line_comment, block_comment'}}}
-        - any:
-            - precedes: {pattern: $NEXT}
-            - pattern: $_
+    precedes: {stopBy: {not: {kind: 'line_comment, block_comment'}}, kind: 'package_declaration, import_declaration'}
+    not: {any: [{matches: java-empty-divider}, {matches: java-parse-error-file}]}
 transform:
-    LABEL: {replace: {source: $DIVIDER, replace: '^// --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
-message: Divider `$LABEL` names no section
-note: Delete the divider, package and import declarations precede every section divider
-fix:
-    template: $NEXT
-    expandEnd: {pattern: $NEXT}
+    LABEL: {replace: {source: $DIVIDER, replace: '^//\s*-*\s*(\[[^\]]*\])[\s\S]*$', by: '$1'}}
+message: Divider `$LABEL` sits above the package and import declarations
+note: Move the divider below the package and import declarations

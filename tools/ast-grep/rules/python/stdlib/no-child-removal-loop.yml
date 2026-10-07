@@ -3,23 +3,14 @@ id: no-child-removal-loop
 language: python
 severity: error
 utils:
-    element-module:
-        inside:
-            kind: module
-            stopBy: end
-            has:
-                any:
-                    - kind: import_statement
-                      has: {kind: 'dotted_name, aliased_import', regex: '^(xml\.etree|lxml)\b'}
-                    - kind: import_from_statement
-                      has: {field: module_name, regex: '^(xml\.etree|lxml)\b'}
     children:
         any:
-            - pattern: list($O)
-            - pattern: tuple($O)
+            - matches: whole
             - pattern: $O.findall($$$_)
             - pattern: $O.iterfind($$$_)
             - pattern: $O
+    whole:
+        any: [{pattern: list($O)}, {pattern: tuple($O)}, {pattern: '$O[:]'}, {pattern: $O.copy()}]
     selection:
         kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
         has: {kind: for_in_clause, has: {field: right, matches: children}}
@@ -29,6 +20,31 @@ utils:
             kind: 'function_definition, module'
             stopBy: end
             has: {stopBy: end, kind: assignment, all: [{has: {field: left, pattern: $L}}, {has: {field: right, matches: selection}}]}
+    removal:
+        kind: call
+        any: [{pattern: $O.remove($E)}, {pattern: '$O.remove($E, $$$)'}]
+    unlinking:
+        not: {has: {field: arguments, has: {pattern: $_, not: {any: [{nthChild: 1}, {kind: keyword_argument, has: {field: value, kind: 'true'}}]}}}}
+    element-file:
+        inside: {kind: module, stopBy: end, has: {stopBy: end, matches: python-imported-module, regex: '^(xml\.etree|lxml)\b'}}
+    element:
+        all:
+            - any:
+                - matches: {python-typed-parameter: {type: {regex: '(^|\.)_?Element$'}}}
+                - matches: {python-assigned-name: {value: {kind: call, has: {field: function, regex: '(^|\.)(Element|SubElement|fromstring|XML|getroot)$'}}}}
+            - matches: element-file
+    data-collection:
+        kind: attribute
+        has: {field: object, pattern: $DATA, matches: {python-member-use: {module: {regex: '^bpy$'}, name: {regex: '^data$'}}}}
+    bulk:
+        any: [{matches: element-file}, {matches: collection}, {matches: data-collection}]
+    collection:
+        any:
+            - matches: {python-typed-parameter: {type: {regex: '^((collections\.)?deque|list|set)\b'}}}
+            - matches: {python-assigned-name: {value: {any: [{kind: 'list, set, list_comprehension, set_comprehension'}, {kind: call, has: {field: function, regex: '^((collections\.)?deque|list|set)$'}}]}}}
+            - kind: attribute
+              has: {field: attribute, regex: '^(background_images|bake_items|bundle_items|capture_items|colors|combine_list_items|compositor_effects|enum_items|fcurves|file_output_items|format_items|generation_items|gizmos|grid_items|index_switch_items|input_items|inputs|keyframe_points|keymaps|links|list_items|main_items|nodes|output_items|outputs|owner_ids|paths|rasterize_items|repeat_items|sample_attribute_items|shader_effects|state_items|targets|timeline_markers|vertex_groups|viewer_items)$'}
+              inside: {kind: module, stopBy: end, has: {stopBy: end, matches: python-imported-module, regex: '^bpy\b'}}
     target-read:
         kind: identifier
         pattern: $E
@@ -41,31 +57,58 @@ utils:
         kind: for_statement
         any:
             - precedes: {stopBy: end, any: [{matches: target-read}, {has: {stopBy: end, matches: target-read}}]}
-            - inside: {stopBy: {kind: function_definition}, precedes: {stopBy: end, any: [{matches: target-read}, {has: {stopBy: end, matches: target-read}}]}}
+            - inside: {stopBy: {kind: block, inside: {kind: function_definition, field: body}}, precedes: {stopBy: end, any: [{matches: target-read}, {has: {stopBy: end, matches: target-read}}]}}
+    loop:
+        kind: for_statement
+        all:
+            - has:
+                field: body
+                kind: block
+                all:
+                    - has: {nthChild: 1, kind: expression_statement, has: {matches: removal, has: {field: function, has: {field: object, matches: bulk}}}}
+                    - not: {has: {nthChild: 2, pattern: $_}}
+            - has: {field: left, kind: identifier, pattern: $E}
+            - has: {field: right, any: [{matches: children}, {matches: selection}, {matches: relayed}], pattern: $RIGHT}
+            - not: {has: {field: alternative, kind: else_clause}}
 rule:
-    kind: for_statement
-    all:
-        - has:
-            field: body
-            kind: block
-            all:
-                - has: {nthChild: 1, kind: expression_statement, has: {pattern: $O.remove($E)}}
-                - not: {has: {nthChild: 2, pattern: $_}}
-        - has: {field: left, kind: identifier, pattern: $E}
-        - has: {field: right, any: [{matches: children}, {matches: selection}, {matches: relayed}]}
-        - not: {has: {field: alternative, kind: else_clause}}
-        - matches: element-module
     any:
-        - pattern: $WHOLE
-          has: {field: right, any: [{pattern: list($O)}, {pattern: tuple($O)}]}
-          not: {matches: later-read}
-        - pattern: $KEPT
+        - all:
+            - matches: loop
+            - any:
+                - all:
+                    - has: {field: body, has: {kind: expression_statement, has: {matches: unlinking, has: {field: function, has: {field: object, matches: data-collection}}}}}
+                    - not: {matches: later-read}
+                    - pattern: $BATCH
+                - all:
+                    - has: {field: right, matches: whole}
+                    - has: {field: body, has: {kind: expression_statement, has: {has: {field: function, has: {field: object, matches: element}}}}}
+                    - not: {matches: later-read}
+                    - pattern: $WHOLE
+                - all:
+                    - has: {field: right, matches: whole}
+                    - has: {field: body, has: {kind: expression_statement, has: {has: {field: function, has: {field: object, matches: collection}}}}}
+                    - not: {matches: later-read}
+                    - pattern: $EMPTY
+                - pattern: $KEPT
+        - kind: call
+          pattern: $KEPT
+          all:
+            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $O.remove, has: {field: object, matches: bulk}}}, {has: {nthChild: 2, any: [{matches: children}, {matches: selection}]}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^map$'}}}}
 rewriters:
-    - id: clear
+    - id: delete-slice
       rule: {kind: for_statement}
       fix: del $O[:]
+    - id: batch-remove
+      rule: {kind: for_statement}
+      fix: $DATA.batch_remove($RIGHT)
+    - id: clear
+      rule: {kind: for_statement}
+      fix: $O.clear()
 transform:
-    CLEARED: {rewrite: {source: $WHOLE, rewriters: [clear]}}
-fix: $CLEARED$KEPT
-message: '`$O.remove($E)` in a loop removes children of `$O` one at a time'
-note: 'Use `del <element>[:]` to delete every child, or `<element>[:] = [<child> for <child> in <element> if <kept>]` to keep some, each `remove` call scans the children for its element'
+    DELETED: {rewrite: {source: $WHOLE, rewriters: [delete-slice]}}
+    BATCHED: {rewrite: {source: $BATCH, rewriters: [batch-remove]}}
+    CLEARED: {rewrite: {source: $EMPTY, rewriters: [clear]}}
+fix: $DELETED$BATCHED$CLEARED$KEPT
+message: '`$O.remove` removes members of `$O` one at a time, one bulk operation (`del <element>[:]`, `<collection>[:] = [<kept>]`, `bpy.data.batch_remove`, `clear()`) removes them'
+note: 'Each `remove` call searches the collection for its member, a filtered selection or a collection of unknown type keeps its form for the kept-member rebuild'

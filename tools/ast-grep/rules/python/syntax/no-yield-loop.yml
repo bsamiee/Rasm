@@ -9,31 +9,45 @@ utils:
             any:
                 - regex: '^async\b'
                 - has: {kind: else_clause}
+    sole:
+        all:
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+            - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+    emitting:
+        kind: expression_statement
+        matches: sole
+        has: {kind: yield, not: {pattern: yield from $_}}
     yield-body:
         kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
         has:
-            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+            matches: sole
             any:
-                - kind: expression_statement
-                  has: {kind: yield}
+                - matches: emitting
                 - kind: if_statement
-                  not: {has: {kind: 'elif_clause, else_clause'}}
-                  has: {field: consequence, matches: yield-body}
+                  not: {has: {kind: elif_clause}}
+                  any:
+                    - not: {has: {kind: else_clause}}
+                      has: {field: consequence, matches: yield-body}
+                    - all:
+                        - has: {field: consequence, has: {matches: emitting}}
+                        - has: {field: alternative, has: {field: body, has: {matches: emitting}}}
                 - matches: plain-loop
                   has: {field: body, matches: yield-body}
     yield-loop:
         matches: plain-loop
         has: {field: body, matches: yield-body}
+    items:
+        any:
+            - pattern: {context: 'for $FIRST, $$$REST in x: pass', selector: pattern_list}
+            - pattern: {context: 'for ($FIRST, $$$REST) in x: pass', selector: tuple_pattern}
+            - pattern: {context: 'x = $FIRST, $$$REST', selector: expression_list}
+            - pattern: {context: 'x = ($FIRST, $$$REST)', selector: tuple}
     identity:
         any:
             - has: {field: body, has: {kind: expression_statement, has: {kind: yield, pattern: yield $TARGET}}}
             - all:
-                - has: {field: left, pattern: {context: 'for $A, $B in x: pass', selector: pattern_list}}
-                - has: {field: body, has: {kind: expression_statement, has: {kind: yield, pattern: 'yield $A, $B'}}}
-            - all:
-                - has: {field: left, pattern: {context: 'for $A, $B, $C in x: pass', selector: pattern_list}}
-                - has: {field: body, has: {kind: expression_statement, has: {kind: yield, pattern: 'yield $A, $B, $C'}}}
+                - has: {field: left, matches: items}
+                - has: {field: body, has: {kind: expression_statement, has: {kind: yield, has: {nthChild: 1, matches: items}}}}
     binds-name:
         has: {field: left, any: [{pattern: $W}, {has: {stopBy: end, kind: identifier, pattern: $W}}]}
     rebound-target:
@@ -58,37 +72,61 @@ utils:
                 any:
                     - matches: read-later
                     - inside: {stopBy: {kind: function_definition}, not: {kind: function_definition}, matches: read-later}
+    statement-loop:
+        kind: for_statement
+        matches: yield-loop
+        all:
+            - has: {field: left, pattern: $TARGET}
+            - not: {inside: {stopBy: {kind: 'function_definition, lambda'}, kind: for_statement, matches: yield-loop}}
+            - not: {inside: {stopBy: {kind: function_definition}, kind: function_definition, regex: '^async\b'}}
+            - not: {matches: identity}
 rule:
-    kind: for_statement
-    matches: yield-loop
-    all:
-        - has: {field: left, pattern: $TARGET}
-        - not: {inside: {stopBy: {kind: 'function_definition, lambda'}, kind: for_statement, matches: yield-loop}}
-        - not: {inside: {stopBy: {kind: function_definition}, kind: function_definition, regex: '^async\b'}}
-        - not: {matches: identity}
-        - any:
+    any:
+        - matches: statement-loop
+          not: {matches: python-multiline-string}
+          any:
             - pattern: $FIXABLE
-              all:
-                - has: {stopBy: end, kind: yield, not: {regex: '^yield\s+from\b'}, has: {nthChild: 1, pattern: $VALUE}}
-                - not: {has: {stopBy: end, kind: comment}}
-                - not: {has: {stopBy: end, kind: named_expression, inside: {stopBy: end, kind: for_statement, field: right}}}
-                - not: {has: {stopBy: end, matches: rebound-target}}
-                - not: {has: {stopBy: end, matches: leaked-target}}
+              not:
+                any:
+                    - has: {stopBy: end, kind: yield, not: {has: {nthChild: 1, pattern: $_}}}
+                    - has: {stopBy: end, kind: comment}
+                    - has: {stopBy: end, kind: named_expression, inside: {stopBy: end, kind: for_statement, field: right}}
+                    - has: {stopBy: end, matches: rebound-target}
+                    - has: {stopBy: end, matches: leaked-target}
             - pattern: $KEPT
+        - kind: string_start
+          pattern: $KEPT
+          inside: {kind: string, regex: '\n', inside: {stopBy: end, matches: statement-loop}}
 rewriters:
-    - id: shown-value
+    - id: shown
       rule: {kind: expression_list, pattern: $SHOWN, inside: {kind: yield}}
       fix: ($SHOWN)
-    - id: grouped-loop
+    - id: grouped
       rule:
-        kind: for_statement
+        pattern: $GROUPED
+        any:
+            - kind: 'conditional_expression, lambda, expression_list'
+              any: [{inside: {kind: yield}}, {inside: {kind: for_statement, field: right}}]
+            - kind: 'conditional_expression, lambda, named_expression'
+              inside: {kind: if_statement, field: condition}
+      fix: ($GROUPED)
+    - id: choice
+      rule:
+        kind: if_statement
         all:
-            - has: {field: left, pattern: $LOOP_TARGET}
-            - has: {field: right, kind: 'conditional_expression, lambda, expression_list', pattern: $LOOP_SOURCE}
-            - has: {field: body, pattern: $LOOP_BODY}
+            - has: {field: condition, pattern: $CHOICE}
+            - has: {field: consequence, has: {kind: expression_statement, has: {kind: yield, has: {nthChild: 1, pattern: $CHOSEN}}}}
+            - has: {field: alternative, has: {field: body, has: {kind: expression_statement, has: {kind: yield, has: {nthChild: 1, pattern: $OTHER}}}}}
       transform:
-        CLAUSES: rewrite($LOOP_BODY, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
-      fix: ' for $LOOP_TARGET in ($LOOP_SOURCE)$CLAUSES'
+        CHOSEN_SHOWN: rewrite($CHOSEN, rewriters=[grouped])
+        CHOICE_SHOWN: rewrite($CHOICE, rewriters=[grouped])
+        OTHER_SHOWN: rewrite($OTHER, rewriters=[shown])
+      fix: $CHOSEN_SHOWN if $CHOICE_SHOWN else $OTHER_SHOWN
+    - id: element
+      rule: {kind: yield, has: {nthChild: 1, pattern: $ELEMENT}}
+      transform:
+        ELEMENT_SHOWN: rewrite($ELEMENT, rewriters=[shown])
+      fix: $ELEMENT_SHOWN
     - id: loop
       rule:
         kind: for_statement
@@ -97,34 +135,28 @@ rewriters:
             - has: {field: right, pattern: $LOOP_SOURCE}
             - has: {field: body, pattern: $LOOP_BODY}
       transform:
-        CLAUSES: rewrite($LOOP_BODY, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
-      fix: ' for $LOOP_TARGET in $LOOP_SOURCE$CLAUSES'
-    - id: grouped-test
-      rule:
-        kind: if_statement
-        all:
-            - has: {field: condition, kind: 'conditional_expression, lambda, named_expression', pattern: $TEST}
-            - has: {field: consequence, pattern: $TEST_BODY}
-      transform:
-        CLAUSES: rewrite($TEST_BODY, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
-      fix: ' if ($TEST)$CLAUSES'
+        SOURCE: rewrite($LOOP_SOURCE, rewriters=[grouped])
+        CLAUSES: rewrite($LOOP_BODY, rewriters=[loop, test, emitted])
+      fix: ' for $LOOP_TARGET in $SOURCE$CLAUSES'
     - id: test
       rule:
         kind: if_statement
+        not: {has: {kind: else_clause}}
         all:
             - has: {field: condition, pattern: $TEST}
             - has: {field: consequence, pattern: $TEST_BODY}
       transform:
-        CLAUSES: rewrite($TEST_BODY, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
-      fix: ' if $TEST$CLAUSES'
+        CONDITION: rewrite($TEST, rewriters=[grouped])
+        CLAUSES: rewrite($TEST_BODY, rewriters=[loop, test, emitted])
+      fix: ' if $CONDITION$CLAUSES'
     - id: emitted
-      rule: {kind: expression_statement}
+      rule: {kind: 'expression_statement, if_statement'}
       fix: ''
 transform:
-    SHOWN_VALUE: rewrite($VALUE, rewriters=[shown-value])
-    HEAD: {replace: {source: $SHOWN_VALUE, replace: '(?s)^(.+)$', by: 'yield from ($1'}}
-    GENERATED: rewrite($FIXABLE, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
+    ELEMENT: {rewrite: {source: $FIXABLE, rewriters: [choice, element], joinBy: ''}}
+    HEAD: {replace: {source: $ELEMENT, replace: '(?s)^(.+)$', by: 'yield from ($1'}}
+    GENERATED: rewrite($FIXABLE, rewriters=[loop, test, emitted])
     TAIL: {replace: {source: $GENERATED, replace: '(?s)^(.+)$', by: '$1)'}}
 fix: $HEAD$TAIL$KEPT
 message: '`for $TARGET` yields by statement in place of one `yield from`'
-note: 'Use `yield from (<value> for <target> in <iterable> if <test>)` for `yield <value>` with one `for` clause per nested loop, `yield from (*<values> for <target> in <iterable>)` for `yield from <values>` on Python 3.15, and `yield from chain.from_iterable(<values> for <target> in <iterable>)` in a file ruff targets at Python 3.13, one delegation states the generator the loop spells'
+note: 'Use `yield from (<value> for <target> in <iterable> if <test>)` with one clause per nested loop or filter, and `<a> if <test> else <b>` as the value of a branch. Comments, multiline strings, valueless yields, assignment expressions in an iterable or binding a target, and targets read after the loop require a manual rewrite'

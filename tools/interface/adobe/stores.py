@@ -16,6 +16,7 @@ from interface.report import ABSENT, digest, subscript
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Reported = Change | Skip | Error
+type Step = str | tuple[int, ...]
 
 
 class Folder(Enum):
@@ -56,7 +57,7 @@ class Default(msgspec.Struct, frozen=True):
     """Preference domain node by domain and path, each step past the top-level key a dictionary key or the leading items of an array whose next item holds the rest."""
 
     domain: str
-    path: tuple[str, *tuple[str | tuple[int, ...], ...]]
+    path: tuple[str, *tuple[Step, ...]]
     node: Mapping[str, object] | list[object] | tuple[object, ...] | str | float | bytes
 
 
@@ -102,7 +103,7 @@ async def file_written(path: anyio.Path, row: File, enabled: frozenset[Plugin]) 
 
 
 # --- [DOMAINS]
-def child(value: object, step: str | tuple[int, ...]) -> object:
+def child(value: object, step: Step) -> object:
     """Node the value holds under a dictionary key or after an array's leading items, None where it holds none."""
     match step, value:
         case str(), dict():
@@ -113,7 +114,7 @@ def child(value: object, step: str | tuple[int, ...]) -> object:
             return None
 
 
-def placed(value: object, path: Sequence[str | tuple[int, ...]], node: object) -> object:
+def placed(value: object, path: Sequence[Step], node: object) -> object:
     """Value with the node at the path, each dictionary or array the value lacks made new."""
     match path:
         case [str() as key, *rest]:
@@ -136,15 +137,14 @@ async def domain_written(domain: str, rows: Sequence[Default]) -> tuple[Change, 
     merged = plistlib.dumps(reduce(folded, rows, exported), fmt=plistlib.FMT_BINARY)
     imported = plistlib.loads(merged)
 
-    def spelled(tree: object, path: Sequence[str | tuple[int, ...]]) -> str:
+    def spelled(tree: object, path: Sequence[Step]) -> str:
         return ABSENT if (node := reduce(child, path, tree)) is None else repr(node)
 
-    changes = tuple(
+    if changes := tuple(
         Change(subscript(domain, *(step if isinstance(step, str) else len(step) for step in row.path)), before, after)
         for row in rows
         if (before := spelled(exported, row.path)) != (after := spelled(imported, row.path))
-    )
-    if changes:
+    ):
         await anyio.run_process(["/usr/bin/defaults", "import", domain, "-"], input=merged)
     return changes
 

@@ -14,7 +14,7 @@ transform:
     OPENING: {replace: {source: $SUMMARY, replace: '^(///\s*|/\*\*\s*(?:\*[ \t]*)?)(?i:The|A|An)\s+[\s\S]*$', by: '$1'}}
     REST: {replace: {source: $SUMMARY, replace: '^(?:///\s*|/\*\*\s*(?:\*[ \t]*)?)(?i:The|A|An)\s+', by: ''}}
     NOUN: {convert: {source: $REST, toCase: capitalize}}
-    LINE: {replace: {source: $SUMMARY, replace: '^(?:///|/\*\*)[\s*]*([^\n]*?)\s*(?:\n[\s\S]*)?$', by: '$1'}}
+    LINE: {replace: {source: $SUMMARY, replace: '^(?:///|/\*\*)[\s*]*([^\n]*?)\s*(?:\*/)?(?:\n[\s\S]*)?$', by: '$1'}}
 message: Doc comment summary `$LINE` opens with an article
 note: Open the summary with the noun it names or the verb it performs
 fix: $OPENING$NOUN

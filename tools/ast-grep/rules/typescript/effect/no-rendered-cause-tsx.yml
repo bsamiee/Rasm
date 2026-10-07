@@ -45,7 +45,7 @@ utils:
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^toStringUnknown$'}
-                            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Inspectable)?$'}, exported: {regex: '^Inspectable$'}}}}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\bInspectable$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $CAUSE}}
             - kind: member_expression
               all:
@@ -65,7 +65,7 @@ utils:
                     kind: member_expression
                     all:
                         - has: {field: property, regex: '^(Error|TaggedError)$'}
-                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Data|Schema))?$'}, exported: {regex: '^(Data|Schema)$'}}}}
+                        - has: {field: object, matches: {effect-module: {name: {regex: '\b(Data|Schema)$'}}}}
     protocol-message:
         kind: member_expression
         has: {field: property, regex: '^message$'}
@@ -84,7 +84,7 @@ utils:
                             - kind: call_expression
                               has: {field: function, matches: syntax-package-reference}
     cause-module:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Cause)?$'}, exported: {regex: '^Cause$'}}}
+        matches: {effect-module: {name: {regex: '\bCause$'}}}
     built-cause:
         kind: call_expression
         all:

@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-string-literal-subscript
+language: javascript
+severity: error
+rule:
+    kind: subscript_expression
+    pattern: $ACCESS
+    all:
+        - has:
+            field: index
+            matches: javascript-member-name
+            pattern: $INDEX
+            not:
+                regex: |-
+                    (?x)^.(abstract|boolean|break|byte|case|catch|char|class|const|continue|debugger|default|delete|do|double|else|enum
+                    |export|extends|false|final|finally|float|for|function|goto|if|implements|import|in|instanceof|int|interface|long
+                    |native|new|null|package|private|protected|public|return|short|static|super|switch|synchronized|this|throw|throws
+                    |transient|true|try|typeof|var|void|volatile|while|with).$
+        - not: {has: {kind: comment}}
+        - any:
+            - all: [{has: {kind: optional_chain}}, {has: {field: object, pattern: $CHAINED}}]
+            - has: {field: object, pattern: $OWNER, not: {kind: number}}
+transform:
+    NAME: {substring: {source: $INDEX, startChar: 1, endChar: -1}}
+    PLAIN: {replace: {source: $OWNER, replace: '^([\s\S]+)$', by: '$1.'}}
+    OPTIONAL: {replace: {source: $CHAINED, replace: '^([\s\S]+)$', by: '$1?.'}}
+message: '`$ACCESS` reaches member `$NAME` by a literal string'
+note: 'Read, call, or assign the member through `.$NAME`'
+fix: $PLAIN$OPTIONAL$NAME

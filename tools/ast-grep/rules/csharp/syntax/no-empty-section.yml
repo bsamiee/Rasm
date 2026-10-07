@@ -6,7 +6,13 @@ rule:
     pattern: $DIVIDER
     matches: csharp-section-divider
     not: {precedes: {stopBy: {matches: csharp-section-divider}, not: {kind: comment}}}
+    any:
+        - precedes: {pattern: $NEXT}
+        - pattern: $_
 transform:
     LABEL: {replace: {source: $DIVIDER, replace: '^// --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
+fix:
+    template: $NEXT
+    expandEnd: {pattern: $NEXT}
 message: Section `$LABEL` holds no declaration before the next section or file end
 note: Delete the divider, every section holds at least one declaration

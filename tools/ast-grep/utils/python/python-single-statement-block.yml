@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-single-statement-block
+language: python
+rule:
+    kind: block
+    not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-docstring-or-comment}}}}}

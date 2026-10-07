@@ -55,6 +55,7 @@ Claude stores are config directories with an account file and a login Keychain i
 - Item service is `Claude Code-credentials`, suffixed `-<first 8 hex of SHA-256>` of the NFC config directory path when one is set
 - `Keychain` reads, writes, and deletes every item through `/usr/bin/security`, the one application each item's ACL lists
 - `security` exiting with `errSecItemNotFound` is a missing item, with `errSecInteractionNotAllowed` a locked keychain
+- `waitid` reports the low 24 bits of an `OSStatus` a child exits with, `Keychain` masks each `errSec` code to 24 bits
 - Item writes send hex on `security -i` stdin, never argv, a command over the 4095 bytes one line holds writes nothing and fails as too large
 - Item writes replace `claudeAiOauth` alone and keep `mcpOAuth`, the user's MCP server logins
 - Item with a blank `accessToken` or `refreshToken` reads as signed out, Claude Code's sign-out write blanks both with `expiresAt` 0

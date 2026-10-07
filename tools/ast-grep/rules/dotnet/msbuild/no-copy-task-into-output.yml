@@ -5,7 +5,6 @@ severity: error
 rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^(Copy|Move)$'}}}
-        - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir|PublishDir)\)'}}}}}
-        - not: {has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^SourceFiles$'}, value: {regex: '^["'']\s*@\('}}}}}}
+        - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir|BaseOutputPath|PublishDir)\)'}}}}}
 message: Task writes a file into the project's build or publish output, where no referencing project receives it
 note: Declare a `None` or `Content` item with `CopyToOutputDirectory` or `CopyToPublishDirectory`

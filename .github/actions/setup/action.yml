@@ -10,7 +10,6 @@ runs:
             auto_update: true
             minimum_release_age: 0s
         - uses: actions/cache@v6
-          if: runner.os == 'Linux'
           with:
             path: .cache/nuget/packages
             key: nuget-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', 'Directory.Build.targets', 'NuGet.config', '**/*.csproj', '**/*.proj') }}

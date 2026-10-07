@@ -9,6 +9,7 @@ from Rhino.ApplicationSettings import CommandAlias, CommandAliasList, ShortcutKe
 from System.Collections.Generic import List
 
 from interface.report import Row
+from interface.rhino.script.accessors import preference
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -25,13 +26,16 @@ def rows() -> tuple[Row, ...]:
         (ShortcutKey.CtrlF4, "'_SetMaximizedViewport Perspective"),
     )
     return (
-        Row(
+        preference(
             label="CommandAliasList",
             read=lambda: {held.Alias: (held.Macro, held.Instant) for held in map(CommandAliasList.GetAlias, range(CommandAliasList.Count))},
             write=lambda aliases: CommandAliasList.Update(List[CommandAlias]([CommandAlias(name, macro, flag) for name, (macro, flag) in aliases.items()]), replaceAll=True),
             target={name: (macro, name in instant) for name, _, macro in entries if macro},
         ),
-        *(Row(label=f'ShortcutKeySettings["{each}"]', read=partial(ShortcutKeySettings.GetMacro, each), write=partial(ShortcutKeySettings.SetMacro, each), target=macro) for each, macro in shortcuts),
+        *(
+            preference(label=f'ShortcutKeySettings["{each}"]', read=partial(ShortcutKeySettings.GetMacro, each), write=partial(ShortcutKeySettings.SetMacro, each), target=macro)
+            for each, macro in shortcuts
+        ),
     )
 
 

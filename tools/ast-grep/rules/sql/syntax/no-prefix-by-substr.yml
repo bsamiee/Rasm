@@ -5,16 +5,26 @@ severity: error
 utils:
     leading-slice:
         kind: function_call
-        all:
-            - has: {field: name, regex: '(?i)^substr(ing)?$'}
-            - has:
-                field: arguments
-                kind: normal_function_arguments
-                all:
-                    - has: {nthChild: 1, pattern: _SUBJECT}
-                    - has: {nthChild: 2, kind: numeric_literal, regex: '^1$'}
-                    - has: {nthChild: 3, pattern: _LENGTH}
-                    - not: {has: {nthChild: 4}}
+        any:
+            - all:
+                - has: {field: name, regex: '(?i)^substr(ing)?$'}
+                - has:
+                    field: arguments
+                    kind: normal_function_arguments
+                    all:
+                        - has: {nthChild: 1, pattern: _SUBJECT}
+                        - has: {nthChild: 2, kind: numeric_literal, regex: '^1$'}
+                        - has: {nthChild: 3, pattern: _LENGTH}
+                        - not: {has: {nthChild: 4}}
+            - all:
+                - has: {field: name, regex: '(?i)^left$'}
+                - has:
+                    field: arguments
+                    kind: normal_function_arguments
+                    all:
+                        - has: {nthChild: 1, pattern: _SUBJECT}
+                        - has: {nthChild: 2, pattern: _LENGTH}
+                        - not: {has: {nthChild: 3}}
     prefix-test:
         kind: binary_expression
         all:
@@ -51,9 +61,9 @@ rule:
     any:
         - pattern: _FIXABLE
           any:
-            - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: 3, matches: prefix-length}}}
+            - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: prefix-length}}}
             - all:
-                - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: 3, matches: separated-length}}}
+                - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: separated-length}}}
                 - has: {matches: separated-prefix}
         - pattern: _KEPT
 rewriters:

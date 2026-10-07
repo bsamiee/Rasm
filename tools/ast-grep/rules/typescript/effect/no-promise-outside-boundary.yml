@@ -68,7 +68,7 @@ utils:
                                     - matches: {syntax-import-reference: {source: {regex: '^effect/Stream$'}, exported: {regex: '^fromAsyncIterable$'}}}
                                     - kind: member_expression
                                       all:
-                                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Stream)?$'}, exported: {regex: '^Stream$'}}}}
+                                        - has: {field: object, matches: {effect-module: {name: {regex: '\bStream$'}}}}
                                         - has: {field: property, regex: '^fromAsyncIterable$'}
     global-receiver: {matches: syntax-global-reference, regex: '^(globalThis|window|self)(\.(globalThis|window|self))*$'}
     promise-constructor:
@@ -118,6 +118,8 @@ rule:
                 any:
                     - has: {matches: host-import}
                     - all: [{matches: main-entry}, {has: {matches: run-promise}}]
+                    - has: {kind: call_expression, has: {field: function, any: [{matches: fetch-callee}, {matches: promise-combinator}]}}
+                    - has: {kind: new_expression, has: {field: constructor, matches: promise-constructor}}
             - kind: for_in_statement
               all:
                 - has: {regex: '^await$'}

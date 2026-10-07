@@ -12,7 +12,6 @@ from interface.adobe.stores import Default, File, Folder, UXP, written
 from interface.host import (
     Applied,
     Bundle,
-    Change,
     DEADLINE,
     Error,
     Failed,
@@ -20,9 +19,11 @@ from interface.host import (
     Host,
     launch,
     LAUNCH_ENVIRONMENT,
+    Line,
     literal,
     located,
     Measurement,
+    Outcome,
     outcome,
     parse,
     quitted,
@@ -30,7 +31,6 @@ from interface.host import (
     rendered,
     reopened,
     running,
-    Skip,
 )
 from interface.units import Units
 
@@ -61,7 +61,7 @@ class Unscripted(msgspec.Struct, frozen=True):
 
 
 # --- [TRANSPORT]
-async def executed(bundle: Bundle, product: Scripted, argument: Release | Converge) -> tuple[Header | Change | Skip | Measurement | Error, ...]:
+async def executed(bundle: Bundle, product: Scripted, argument: Release | Converge) -> tuple[Line, ...]:
     """Report rows of the product's script run on the argument by the scripting command sent to the bundle's one finished-launching instance, or one error row of the AppleScript error number osascript printed: the cause of an undelivered or unanswered event, else the script's message."""
     code = rendered(t"$.evalFile(new File({str(SCRIPT / f'{product.name}.jsx')}))")
     source = rendered(t"with timeout of {DEADLINE!s:.0f} seconds\ntell application {str(bundle.path)}\n{product.command!s} {code} {product.arguments!s} {{{literal(argument)}}}\nend tell\nend timeout")
@@ -85,12 +85,12 @@ async def executed(bundle: Bundle, product: Scripted, argument: Release | Conver
 
 
 # --- [LIFECYCLE]
-async def launched(host: Host, home: Path, product: Scripted, bundle: Bundle) -> Applied | Failed:
+async def launched(host: Host, home: Path, product: Scripted, bundle: Bundle) -> Outcome:
     """Outcome of the rows converged in one launch, and the files and the workspace written once that launch quit."""
     declared = product.rows(host.units, bundle)
     instance = await launch(bundle)
     replied = await executed(bundle, product, Converge(tuple(row for row in declared if isinstance(row, Row))))
-    reported = (*replied, *map(Error, await quitted((instance,))))
+    reported = (*replied, *await quitted((instance,)))
     match outcome(product.name, reported):
         case Failed() as failed:
             return failed
@@ -102,30 +102,30 @@ async def launched(host: Host, home: Path, product: Scripted, bundle: Bundle) ->
             return outcome(product.name, (*reported, *await written(folders, stored)))
 
 
-async def scripted(host: Host, home: Path, product: Scripted, bundle: Bundle) -> Applied | Failed:
+async def scripted(host: Host, home: Path, product: Scripted, bundle: Bundle) -> Outcome:
     """Outcome of the write launch once the running instance finished launching, released its documents, and quit, reopened on its titled documents, or the failure of a titled document holding unsaved edits or of more than one running instance."""
     discovered = await registered(running(bundle))
     if len(discovered) > 1:
-        return Failed(product.name, (f"{len(discovered)} instances of {bundle.path} run and the release script reaches one, quit all but one",))
+        return outcome(product.name, (Error(f"{len(discovered)} instances of {bundle.path} run and the release script reaches one, quit all but one"),))
     rows = await executed(bundle, product, Release()) if discovered else ()
     titled = tuple(path for row in rows if isinstance(row, Measurement) for path in msgspec.json.decode(row.record, type=tuple[str, ...]))
-    if errors := tuple(row.text for row in rows if isinstance(row, Error)) or await quitted(discovered):
-        return Failed(product.name, errors)
+    if errors := tuple(row for row in rows if isinstance(row, Error)) or await quitted(discovered):
+        return outcome(product.name, errors)
     async with reopened(bundle, discovered, *titled):
         return await launched(host, home, product, bundle)
 
 
-async def unscripted(host: Host, home: Path, product: Unscripted, bundle: Bundle) -> Applied | Failed:
+async def unscripted(host: Host, home: Path, product: Unscripted, bundle: Bundle) -> Outcome:
     """Outcome of the preference domains written while every instance is quit, the instance reopened when one ran."""
     discovered = await registered(running(bundle))
     if errors := await quitted(discovered):
-        return Failed(product.name, errors)
+        return outcome(product.name, errors)
     async with reopened(bundle, discovered):
         rows = await written(frozendict(), product.rows(host.units))
     return outcome(product.name, (Header(bundle.version, str(home / "Library" / "Preferences")), *rows))
 
 
-async def converged(host: Host, home: Path, product: Scripted | Unscripted) -> Applied | Failed | None:
+async def converged(host: Host, home: Path, product: Scripted | Unscripted) -> Outcome | None:
     """Outcome of the product on the newest bundle of its first installed bundle id under the home folder, none when no bundle of it is installed."""
     installed = next(filter(None, await anyio.gather(*(located(identifier) for identifier in product.identifiers))), ())
     match product, max(installed, key=lambda each: tuple(map(int, each.version.split("."))), default=None):

@@ -10,7 +10,7 @@ utils:
             - has: {kind: user_type, has: {stopBy: end, kind: optional_type}}
 rule:
     kind: simple_identifier
-    regex: '^(file(Read)?NoSuchFile|noSuchFileOrDirectory|ENOENT|NSFile(Read)?NoSuchFileError)$'
+    regex: '^(file(Read)?NoSuchFile|noSuchFileOrDirectory|ENOENT|NSFile(Read)?NoSuchFileError|fileDoesNotExist|(kCF|NS)URLErrorFileDoesNotExist)$'
     pattern: $SITE
     not:
         any:

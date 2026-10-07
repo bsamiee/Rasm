@@ -111,7 +111,7 @@ def listed(items: Iterable[BaseElement]) -> List:
 
 
 # --- [FILES]
-def machine_prefs(held: bytes | None) -> bytes | host.Error:
+def machine_prefs(held: bytes | None) -> host.Result[bytes]:
     """Machine preferences with the AI Assisted button hidden, or the error of the absent file."""
     if held is None:
         return host.Error(f"{MACHINE_PREFS} is absent")
@@ -136,7 +136,7 @@ def customization() -> bytes:
     return HEADER_8BPF + record.tobytes(padding=1)
 
 
-def swatch_list(held: bytes | None) -> bytes | host.Error:
+def swatch_list(held: bytes | None) -> host.Result[bytes]:
     """Swatch list with the tag group of the role swatches in place of the held group of that name, else after the held groups, each channel its byte scaled to 16 bits."""
     if held is None:
         return host.Error(f"{SWATCH_LIST} is absent")

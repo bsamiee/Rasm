@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-blocking-call-in-coroutine
+language: python
+severity: error
+utils:
+    evaluation-boundary:
+        kind: 'function_definition, lambda, class_definition, parameters, type, generator_expression'
+    blocking-callee:
+        any:
+            - matches: {python-imported-name: {module: {regex: '^_?socket$'}, name: {pattern: $NAME, regex: '^getnameinfo$'}}}
+            - matches: {python-imported-name: {module: {regex: '^tempfile$'}, name: {pattern: $NAME, regex: '^(gettempdirb?|mkdtemp|mkstemp)$'}}}
+            - matches: {python-member-use: {module: {regex: '^_?socket$'}, name: {pattern: $NAME, regex: '^getnameinfo$'}}}
+            - matches: {python-member-use: {module: {regex: '^tempfile$'}, name: {pattern: $NAME, regex: '^(gettempdirb?|mkdtemp|mkstemp)$'}}}
+            - kind: parenthesized_expression
+              has: {matches: blocking-callee}
+    generator-input:
+        inside:
+            kind: for_in_clause
+            field: right
+            stopBy: {matches: evaluation-boundary}
+            not: {follows: {kind: for_in_clause, stopBy: end}}
+            inside: {kind: generator_expression}
+    coroutine:
+        any:
+            - inside: {kind: function_definition, regex: '^async\s', stopBy: {matches: evaluation-boundary}}
+            - matches: generator-input
+              inside: {kind: generator_expression, matches: coroutine, stopBy: {matches: evaluation-boundary}}
+            - not: {matches: generator-input}
+              inside:
+                kind: generator_expression
+                stopBy: {matches: evaluation-boundary}
+                any:
+                    - has: {kind: for_in_clause, regex: '^async\s'}
+                    - has:
+                        kind: await
+                        stopBy: {kind: 'function_definition, lambda, class_definition, generator_expression'}
+                        not: {matches: generator-input}
+            - inside:
+                kind: default_parameter, typed_default_parameter
+                field: value
+                stopBy: {matches: evaluation-boundary}
+                inside: {kind: 'parameters, lambda_parameters', inside: {kind: 'function_definition, lambda', matches: coroutine}}
+            - inside:
+                kind: argument_list
+                stopBy: {matches: evaluation-boundary}
+                inside: {kind: class_definition, field: superclasses, matches: coroutine}
+    awaited:
+        inside: {kind: await, stopBy: {not: {kind: parenthesized_expression}}}
+    anyio-scope:
+        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: {python-module-import: {module: {regex: '^anyio$'}, binding: {pattern: $ANYIO}}}}
+    shadowing-scope:
+        has:
+            stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+            any:
+                - matches: {python-binding: {name: {pattern: $ANYIO}}}
+                - kind: dotted_name
+                  pattern: $ANYIO
+                  not: {regex: '^anyio$'}
+                  inside: {kind: import_statement}
+                - kind: aliased_import
+                  all:
+                    - has: {field: alias, pattern: $ANYIO}
+                    - has: {field: name, not: {regex: '^anyio$'}}
+                  inside: {kind: import_statement}
+                - kind: import_from_statement
+                  has:
+                    any:
+                        - kind: wildcard_import
+                        - kind: dotted_name
+                          pattern: $ANYIO
+                          not: {nthChild: 1}
+                        - kind: aliased_import
+                          has: {field: alias, pattern: $ANYIO}
+    shadowed:
+        any:
+            - inside: {kind: 'function_definition, lambda', field: body, stopBy: end, matches: shadowing-scope}
+            - inside:
+                kind: module, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                stopBy: end
+                matches: shadowing-scope
+rule:
+    kind: call
+    all:
+        - has: {field: function, pattern: $CALLEE, matches: blocking-callee}
+        - matches: coroutine
+        - has: {field: arguments, pattern: $ARGS}
+        - not: {has: {field: function, has: {kind: comment, stopBy: end}}}
+        - any:
+            - inside: {kind: function_definition, field: body, stopBy: end, matches: anyio-scope}
+            - inside: {kind: module, stopBy: end, matches: anyio-scope}
+        - not: {matches: shadowed}
+        - any:
+            - all: [{pattern: $AWAITED}, {matches: awaited}]
+            - all: [{pattern: $NESTED}, {any: [{inside: {kind: attribute, field: object}}, {inside: {kind: subscript, field: value}}, {inside: {kind: call, field: function}}]}]
+            - pattern: $CALL
+rewriters:
+    - id: awaited-call
+      rule: {kind: call}
+      fix: $ANYIO.$NAME$ARGS
+    - id: nested-call
+      rule: {kind: call}
+      fix: (await $ANYIO.$NAME$ARGS)
+    - id: blocking-call
+      rule: {kind: call}
+      fix: await $ANYIO.$NAME$ARGS
+transform:
+    AWAITED_FIX: rewrite($AWAITED, rewriters=[awaited-call])
+    NESTED_FIX: rewrite($NESTED, rewriters=[nested-call])
+    CALL_FIX: rewrite($CALL, rewriters=[blocking-call])
+fix: $AWAITED_FIX$NESTED_FIX$CALL_FIX
+message: 'Blocking `$CALLEE` stalls a coroutine, use the corresponding AnyIO awaitable'
+note: 'Use `await anyio.<name>(<arguments>)`, which takes the same arguments and returns the same result, in a scope with an unshadowed `anyio` import and a callee holding no comment'

@@ -2,56 +2,132 @@
 id: no-bind-by-conditional
 language: tsx
 severity: error
+files: ['plugins/*/hooks/**']
 utils:
     fault-test:
         kind: binary_expression
-        any:
-            - pattern: "$R.kind === 'fault'"
-            - pattern: "$R.kind !== 'ok'"
+        any: [{pattern: "$R.kind === 'fault'"}, {pattern: "$R.kind !== 'ok'"}]
     ok-test:
         kind: binary_expression
-        any:
-            - pattern: "$R.kind === 'ok'"
-            - pattern: "$R.kind !== 'fault'"
-    own-parameter:
-        any: [{pattern: $G($R.value)}, {pattern: ok($G($R.value))}]
+        any: [{pattern: "$R.kind === 'ok'"}, {pattern: "$R.kind !== 'fault'"}]
+    propagated:
+        any: [{pattern: $R}, {pattern: fault($R.fault)}, {pattern: fault<$_T>($R.fault)}]
+    propagating-return:
+        kind: return_statement
+        has: {nthChild: 1, matches: propagated}
+    propagating-block:
+        kind: statement_block
+        all:
+            - has: {nthChild: 1, matches: propagating-return}
+            - not: {has: {nthChild: 2}}
+    tail-statement:
+        all:
+            - inside: {kind: statement_block, inside: {field: body, kind: 'arrow_function, function_expression, function_declaration, method_definition'}}
+            - pattern: $STATEMENT
+    foreign-use:
+        pattern: $R
+        not: {inside: {field: object, pattern: $R.value}}
+    combinator:
+        pattern: $G($R.value)
         inside:
             matches: syntax-function-boundary
             stopBy: {matches: syntax-function-boundary}
             has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $G}}}
-    continuation:
-        pattern: $F
-        not: {matches: own-parameter}
-    unchanged-return:
-        kind: return_statement
+    ternary-continuation:
         all:
-            - has: {nthChild: 1, pattern: $R}
-            - not: {has: {nthChild: 2}}
+            - any: [{pattern: ok($X), not: {has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression}}}, {pattern: $Y}]
+            - not: {any: [{matches: combinator}, {has: {stopBy: end, matches: combinator}}, {matches: foreign-use}, {has: {stopBy: end, matches: foreign-use}}]}
+            - any: [{all: [{pattern: $R.value}, {pattern: $USE}]}, {has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}, {not: {has: {stopBy: end, pattern: $R.value}}}]
+            - any: [{kind: await_expression, pattern: $AWAITED}, {has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression, pattern: $AWAITED}}, {not: {has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression}}}]
+    statement-continuation:
+        all:
+            - not: {has: {stopBy: end, matches: foreign-use}}
+            - any: [{has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}, {not: {has: {stopBy: end, pattern: $R.value}}}]
+            - any: [{has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression, pattern: $AWAITS}}, {not: {has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression}}}]
+rewriters:
+    - id: unwrapped
+      rule: {kind: member_expression, pattern: $R.value}
+      transform:
+        NAME: {replace: {source: $R, replace: '^(?:[\s\S]*\.)?(\w+)$', by: '${1}Value'}}
+      fix: $NAME
+    - id: rest
+      rule: {pattern: $S, follows: {stopBy: end, pattern: $STATEMENT}}
+      transform:
+        REWRITTEN: {rewrite: {source: $S, rewriters: [unwrapped]}}
+      fix: $REWRITTEN
+    - id: case-block
+      rule: {kind: statement_block, pattern: '{ $$$INNER }', inside: {field: body, pattern: $CASE}}
+      transform:
+        REWRITTEN: {rewrite: {source: $$$INNER, rewriters: [unwrapped]}}
+      fix: $REWRITTEN
+    - id: case-statement
+      rule: {pattern: $S, inside: {field: body, pattern: $CASE}}
+      transform:
+        REWRITTEN: {rewrite: {source: $S, rewriters: [unwrapped]}}
+      fix: $REWRITTEN
 rule:
     any:
         - kind: ternary_expression
           all:
             - has: {field: condition, matches: fault-test}
-            - has: {field: consequence, pattern: $R}
-            - has: {field: alternative, matches: continuation}
+            - has: {field: consequence, matches: propagated}
+            - has: {field: alternative, matches: ternary-continuation}
         - kind: ternary_expression
           all:
             - has: {field: condition, matches: ok-test}
-            - has: {field: alternative, pattern: $R}
-            - has: {field: consequence, matches: continuation}
+            - has: {field: alternative, matches: propagated}
+            - has: {field: consequence, matches: ternary-continuation}
         - kind: if_statement
           all:
+            - matches: tail-statement
             - has: {field: condition, has: {matches: fault-test}}
+            - has: {field: consequence, matches: propagating-block}
+            - not: {has: {field: alternative, kind: else_clause}}
+            - inside: {kind: statement_block, pattern: $BLOCK}
+            - precedes: {pattern: $_}
+            - not: {precedes: {stopBy: end, has: {stopBy: end, matches: foreign-use}}}
+            - any: [{precedes: {stopBy: end, has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}}, {not: {precedes: {stopBy: end, has: {stopBy: end, pattern: $R.value}}}}]
+            - any: [{precedes: {stopBy: end, has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression, pattern: $AWAITS}}}, {not: {precedes: {stopBy: end, has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression}}}}]
+        - kind: if_statement
+          all:
+            - matches: tail-statement
+            - has: {field: condition, has: {matches: ok-test}}
+            - has: {field: consequence, kind: statement_block, pattern: $CONSEQUENCE, has: {kind: return_statement, nthChild: {position: 1, reverse: true}}}
+            - not: {has: {field: alternative, kind: else_clause}}
+            - precedes: {matches: propagating-return, not: {precedes: {pattern: $_}}}
+            - has: {field: consequence, matches: statement-continuation}
+        - kind: switch_statement
+          all:
+            - matches: tail-statement
+            - not: {precedes: {pattern: $_}}
+            - has: {field: value, has: {pattern: $R.kind}}
             - has:
-                field: consequence
-                any:
-                    - matches: unchanged-return
-                    - kind: statement_block
-                      all:
-                        - has: {matches: unchanged-return}
-                        - not: {has: {nthChild: 2}}
-            - any:
-                - has: {field: alternative, kind: else_clause}
-                - precedes: {pattern: $_}
-message: '`$R` returns its fault and binds its value through a `kind` test written by hand'
-note: '`bind(<result>, (<value>) => <continuation>)` skips the continuation on a fault, and `map` applies where the continuation returns a plain value'
+                field: body
+                all:
+                    - has: {kind: switch_case, all: [{has: {field: value, regex: "^'fault'$"}}, {has: {field: body, matches: propagating-return}}, {not: {has: {nthChild: 3}}}]}
+                    - has: {any: [{kind: switch_case, has: {field: value, regex: "^'ok'$"}}, {kind: switch_default}], pattern: $CASE, matches: statement-continuation}
+                    - not: {has: {nthChild: 3}}
+constraints:
+    R: {any: [{kind: identifier}, {kind: member_expression, not: {has: {stopBy: end, kind: call_expression}}}]}
+transform:
+    RETURN: {replace: {source: $STATEMENT, replace: '(?s).+', by: 'return '}}
+    END: {replace: {source: $STATEMENT, replace: '(?s).+', by: ';'}}
+    AWAIT: {replace: {source: $AWAITED, replace: '(?s).+', by: 'await '}}
+    ASYNC_EXPRESSION: {replace: {source: $AWAITED, replace: '(?s).+', by: 'async '}}
+    ASYNC_STATEMENT: {replace: {source: $AWAITS, replace: '(?s).+', by: 'async '}}
+    MAP: {replace: {source: $X, replace: '(?s).+', by: map}}
+    BIND_EXPRESSION: {replace: {source: $Y, replace: '(?s).+', by: bind}}
+    BIND_STATEMENT: {replace: {source: $STATEMENT, replace: '(?s).+', by: bind}}
+    PARAMETER: {replace: {source: $USE, replace: '^(?:[\s\S]*\.)?(\w+)\.value$', by: '${1}Value'}}
+    MAPPED: {rewrite: {source: $X, rewriters: [unwrapped]}}
+    BOUND: {rewrite: {source: $Y, rewriters: [unwrapped]}}
+    BODY: {rewrite: {source: $CONSEQUENCE, rewriters: [unwrapped]}}
+    REST: {rewrite: {source: $BLOCK, rewriters: [rest], joinBy: "\n"}}
+    CASE_BODY: {rewrite: {source: $CASE, rewriters: [case-block, case-statement], joinBy: "\n"}}
+    TAIL: {replace: {source: $REST, replace: '(?s)^(.+)$', by: "{\n$1\n}"}}
+    CASE_TAIL: {replace: {source: $CASE_BODY, replace: '(?s)^(.+)$', by: "{\n$1\n}"}}
+fix:
+    template: '$RETURN$AWAIT$MAP$BIND_EXPRESSION$BIND_STATEMENT($R, $ASYNC_EXPRESSION$ASYNC_STATEMENT($PARAMETER) => $MAPPED$BOUND$BODY$TAIL$CASE_TAIL)$END'
+    expandEnd: {stopBy: end, pattern: $_LAST, inside: {kind: statement_block}, nthChild: {position: 1, reverse: true}}
+message: '`$R` returns its fault and continues with its value through a `kind` test written by hand, `bind` or `map` states both'
+note: '`bind(<result>, (<value>) => <continuation>)` skips the continuation on a fault, and `map(<result>, (<value>) => <ok value>)` replaces a continuation returning `ok(<ok value>)`'

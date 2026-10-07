@@ -6,18 +6,13 @@ rule:
     any:
         - kind: identifier
           matches: name
-        - kind: typed_parameter
+        - kind: typed_parameter, list_splat_pattern, dictionary_splat_pattern
           has:
+            nthChild: 1
             any:
                 - kind: identifier
                   matches: name
                 - kind: list_splat_pattern, dictionary_splat_pattern
                   has: {kind: identifier, matches: name}
-        - kind: default_parameter
+        - kind: default_parameter, typed_default_parameter
           has: {field: name, matches: name}
-        - kind: typed_default_parameter
-          has: {field: name, matches: name}
-        - kind: list_splat_pattern
-          has: {kind: identifier, matches: name}
-        - kind: dictionary_splat_pattern
-          has: {kind: identifier, matches: name}

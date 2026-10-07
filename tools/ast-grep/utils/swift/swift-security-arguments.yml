@@ -1,6 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: swift-security-arguments
 language: swift
 arguments: [subcommand]
 rule:
-    kind: array_literal
-    has: {kind: line_string_literal, matches: subcommand}
+    any:
+        - kind: array_literal
+          not: {inside: {kind: additive_expression}}
+          has: {kind: line_string_literal, matches: subcommand}
+        - kind: additive_expression
+          not: {inside: {kind: additive_expression}}
+          has: {stopBy: end, kind: array_literal, has: {kind: line_string_literal, matches: subcommand}}

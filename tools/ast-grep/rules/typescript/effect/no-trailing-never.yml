@@ -4,8 +4,22 @@ language: tsx
 severity: error
 utils:
     never:
-        matches: effect-effect-member
-        has: {field: property, regex: '^never$'}
+        any:
+            - matches: effect-effect-member
+              has: {field: property, regex: '^never$'}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^sleep$'}}
+                - has:
+                    field: arguments
+                    has:
+                        nthChild: 1
+                        any:
+                            - regex: '^(Infinity|[''"`]Infinity[''"`])$'
+                            - kind: member_expression
+                              all:
+                                - has: {field: property, regex: '^infinity$'}
+                                - has: {field: object, matches: {effect-module: {name: {regex: '\bDuration$'}}}}
     last-statement:
         nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
         inside: {kind: statement_block, inside: {kind: generator_function, field: body}}

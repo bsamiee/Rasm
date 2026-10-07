@@ -3,6 +3,14 @@ id: no-die-before-runner
 language: tsx
 severity: error
 utils:
+    die-handler:
+        any:
+            - matches: effect-effect-member
+              has: {field: property, regex: '^die$'}
+            - kind: arrow_function
+              all:
+                - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $E}}}
+                - has: {field: body, pattern: $_.die($E)}
     die-step:
         any:
             - matches: effect-effect-member
@@ -10,19 +18,16 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^catch$'}}
-                - has:
-                    field: arguments
-                    all:
-                        - not: {has: {nthChild: 2}}
-                        - has:
-                            nthChild: 1
-                            any:
-                                - matches: effect-effect-member
-                                  has: {field: property, regex: '^die$'}
-                                - kind: arrow_function
-                                  all:
-                                    - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $E}}}
-                                    - has: {field: body, pattern: $_.die($E)}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: die-handler}}, {not: {has: {nthChild: 2}}}]}
+    die-call:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^orDie$'}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $PROGRAM}}, {not: {has: {nthChild: 2}}}]}
+            - all:
+                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^catch$'}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $PROGRAM}}, {has: {nthChild: 2, matches: die-handler}}, {not: {has: {nthChild: 3}}}]}
     context-step:
         kind: call_expression
         has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(provide|provideService|provideServiceEffect|provideContext)$'}}
@@ -33,15 +38,19 @@ utils:
             - kind: call_expression
               has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(runPromiseWith|runSyncWith)$'}}
 rule:
-    matches: die-step
     pattern: $DIE
-    inside: {kind: arguments}
-    precedes:
-        stopBy: {not: {any: [{matches: context-step}, {regex: '^,$'}]}}
-        matches: runner-step
-        pattern: $RUN
+    any:
+        - matches: die-step
+          inside: {kind: arguments}
+          precedes:
+            stopBy: {not: {any: [{matches: context-step}, {regex: '^,$'}]}}
+            matches: runner-step
+            pattern: $RUN
+        - matches: die-call
+          nthChild: 1
+          inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: runner-step, pattern: $RUN}}}
 fix:
-    template: ''
-    expandEnd: {regex: '^,$'}
+    template: $PROGRAM
+    expandEnd: {regex: '^,$', not: {inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: runner-step}}}}}
 message: '`$DIE` turns the failure into a defect that `$RUN` squashes to the same thrown value'
-note: 'Delete the step, `Effect.runPromise` and `Effect.runSync` accept any error type and throw a cause''s first failure or first defect alike'
+note: 'Run the program itself, `Effect.runPromise` and `Effect.runSync` accept any error type and throw a cause''s first failure or first defect alike'

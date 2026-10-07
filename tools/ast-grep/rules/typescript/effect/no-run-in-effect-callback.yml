@@ -30,19 +30,18 @@ utils:
                 kind: member_expression
                 all:
                     - has:
-                        field: property
-                        regex: |-
-                            (?x)^(map|flatMap|andThen|tap|tapError|tapBoth|tapCause|tapDefect|sync|suspend|promise|try|tryPromise|callback|gen
-                            |fn|fnUntraced|mapError|mapBoth|catch|catchCause|catchTag|catchTags|catchIf|catchFilter|catchReason|catchDefect|match
-                            |matchEffect|matchCause|matchCauseEffect|filterOrFail|filterOrElse|forEach|reduce|zipWith|ensuring|onExit|onError
-                            |acquireRelease|acquireUseRelease|retry|repeat|mapAccum|mapEffect)$
-                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream|Layer|Channel|Sink))?$'}, exported: {regex: '^(Effect|Stream|Layer|Channel|Sink)$'}}}}
-            - has:
-                field: function
-                kind: member_expression
-                all:
-                    - has: {field: property, regex: "^(update|modify|updateAndGet|getAndUpdate|updateSome|modifySome|updateSomeAndGet|getAndUpdateSome|updateEffect|modifyEffect)$"}
-                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Ref|SynchronizedRef|SubscriptionRef))?$'}, exported: {regex: '^(Ref|SynchronizedRef|SubscriptionRef)$'}}}}
+                        field: object
+                        matches:
+                            effect-module:
+                                name:
+                                    regex: |-
+                                        (?x)\b(Effect|Stream|Layer|Channel|Sink|Schedule|Ref|SynchronizedRef|SubscriptionRef|TxRef|Cache|ScopedCache
+                                        |Pool|RcMap|RcRef|Resource|ScopedRef|PubSub|Queue|Deferred|Fiber|FiberMap|FiberSet|FiberHandle|Request
+                                        |RequestResolver|Logger|Metric)$
+                    - not:
+                        all:
+                            - has: {field: object, matches: effect-effect-module}
+                            - has: {field: property, regex: '^run'}
             - has: {field: function, kind: call_expression, matches: effect-combinator}
     callback:
         matches: syntax-function-boundary

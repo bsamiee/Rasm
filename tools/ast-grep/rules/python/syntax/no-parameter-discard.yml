@@ -3,22 +3,60 @@ id: no-parameter-discard
 language: python
 severity: error
 utils:
-    parameter-of-scope:
+    target:
         inside:
-            kind: function_definition
-            stopBy: {kind: 'function_definition, lambda'}
-            has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $Q}}}}}
-    parameter-name:
+            kind: assignment
+            field: left
+            stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern'}}
+    throwaway:
+        any:
+            - kind: identifier
+              regex: '^_\w*$'
+              pattern: $T
+              not:
+                inside:
+                    kind: function_definition
+                    stopBy: {kind: 'function_definition, lambda'}
+                    has: {field: body, has: {stopBy: end, kind: identifier, pattern: $T, not: {matches: target}}}
+            - kind: pattern_list, tuple_pattern, list_pattern
+              not: {has: {pattern: $_, not: {matches: throwaway}}}
+    read:
+        kind: identifier
+        pattern: $Q
+        not:
+            any:
+                - inside: {kind: attribute, field: attribute}
+                - inside: {kind: keyword_argument, field: name}
+                - inside:
+                    stopBy: {not: {kind: 'expression_list, tuple, list, parenthesized_expression'}}
+                    any:
+                        - kind: delete_statement
+                        - kind: assignment
+                          has: {field: left, matches: throwaway}
+    unread-parameter:
         kind: identifier
         all:
             - not: {regex: '^_$'}
             - pattern: $Q
-            - matches: parameter-of-scope
+            - inside:
+                kind: function_definition
+                stopBy: {kind: 'function_definition, lambda'}
+                all:
+                    - has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $Q}}}}}
+                    - not: {has: {field: body, has: {stopBy: end, matches: read}}}
     discarded:
         any:
-            - matches: parameter-name
-            - kind: expression_list
-              not: {has: {pattern: $_, not: {matches: parameter-name}}}
+            - matches: unread-parameter
+            - kind: expression_list, tuple, list, parenthesized_expression
+              has: {pattern: $_}
+              not: {has: {pattern: $_, not: {matches: discarded}}}
+    removable-successor:
+        pattern: $NEXT
+        not: {matches: python-multiline-string}
+    removable-predecessor:
+        pattern: $PREV
+        not: {matches: python-multiline-string}
+        precedes: {not: {precedes: {pattern: $_}}}
 rule:
     all:
         - any:
@@ -26,9 +64,17 @@ rule:
               has:
                 kind: assignment
                 all:
-                    - has: {field: left, kind: identifier, regex: '^_\w*$'}
+                    - has: {field: left, matches: throwaway}
                     - has: {field: right, matches: discarded, pattern: $P}
             - kind: delete_statement
               has: {matches: discarded, pattern: $P}
+        - any:
+            - precedes: {matches: removable-successor}
+            - follows: {matches: removable-predecessor}
+            - pattern: $UNFIXED
+fix:
+    template: $NEXT$PREV$UNFIXED
+    expandStart: {matches: removable-predecessor}
+    expandEnd: {matches: removable-successor}
 message: 'Body discards parameter `$P`'
-note: 'Delete the parameter from the signature and every caller, or decorate an overriding method with `@typing.override`, a discard keeps an unused parameter and silences ruff `ARG` rules'
+note: 'Delete the parameter from the signature and every caller, decorate an overriding method with `@typing.override`, or name a parameter a host callback signature fixes `_<name>`, a discard keeps an unused parameter and silences ruff `ARG` rules. A discard alone in its block, beside a multiline string, or sharing a line with its neighbor takes a manual deletion'

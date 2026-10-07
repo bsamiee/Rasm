@@ -3,6 +3,14 @@ id: no-call-target
 language: xml
 severity: error
 rule:
-    matches: {msbuild-element: {name: {regex: '^CallTarget$'}}}
-message: '`CallTarget` hides the called target''s properties and items until the calling target finishes'
+    any:
+        - matches: {msbuild-element: {name: {regex: '^CallTarget$'}}}
+        - all:
+            - matches: {msbuild-element: {name: {regex: '^MSBuild$'}}}
+            - has:
+                matches: msbuild-tag
+                all:
+                    - has: {matches: {msbuild-attribute: {name: {regex: '^Projects$'}, value: {regex: '^["'']\s*\$\((MSBuildProjectFullPath|MSBuildProjectFile|MSBuildThisFileFullPath)\)\s*["'']$'}}}}
+                    - not: {has: {matches: {msbuild-attribute: {name: {regex: '^(Properties|RemoveProperties)$'}, value: {regex: '[^"''\s]'}}}}}
+message: Task runs a project's own target and hides its properties and items until the calling target finishes
 note: Name the target in `DependsOnTargets`

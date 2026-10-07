@@ -1,6 +1,6 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": { "outDir": ".cache/typescript/out/root", "types": ["node"] },
-    "include": ["*.config.ts", "tools/nx/*.ts", "infra/*.ts", "apps/**/vitest.config.ts", "libs/typescript/**/vitest.config.ts", "tests/typescript/**/vitest.config.ts"],
+    "include": ["*.config.ts", ".codex/hooks/*.ts", "tools/nx/*.ts", "tools/bridge/*.ts", "infra/*.ts", "apps/**/vitest.config.ts", "libs/typescript/**/vitest.config.ts", "tests/typescript/**/vitest.config.ts"],
     "exclude": []
 }

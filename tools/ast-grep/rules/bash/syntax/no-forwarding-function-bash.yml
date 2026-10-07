@@ -3,7 +3,7 @@ id: no-forwarding-function-bash
 language: bash
 severity: error
 utils:
-    arguments: {kind: string, regex: '^"\$(\{@\}|@)"$'}
+    arguments: {kind: string, regex: '^"\$(@|[1-9]|\{(@|[1-9])\})"$'}
     literal:
         any:
             - kind: command_name, word, raw_string

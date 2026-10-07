@@ -20,8 +20,8 @@ from Rhino.ApplicationSettings import (
 )
 from System.Drawing import Color
 
-from interface.report import Action, Row
-from interface.rhino.script.accessors import color, found, hex_color, key, labeled, located, member, opened
+from interface.report import Row
+from interface.rhino.script.accessors import action, color, found, hex_color, key, labeled, located, member, opened, preference
 from interface.roles import Accent, Alpha, Axis, blend, Guide, Ink, Line, Selection, Status, Surface, SWATCHES, Text
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -146,10 +146,12 @@ def rows() -> tuple[Row, ...]:
 
     return (
         *(key(owner, name, target=target) for owner, targets in keys.items() for name, target in targets.items()),
-        Action(label=labeled(path, "Keys"), read=strays, act=clear, target=()),
+        action(label=labeled(path, "Keys"), read=strays, act=clear, target=()),
         *(member(owner, name, target=target) for owner, targets in members.items() for name, target in targets.items()),
         *(
-            Row(label=f'AppearanceSettings.WidgetColor["{widget}"]', read=partial(AppearanceSettings.GetWidgetColor, widget), write=partial(AppearanceSettings.SetWidgetColor, widget), target=axis)
+            preference(
+                label=f'AppearanceSettings.WidgetColor["{widget}"]', read=partial(AppearanceSettings.GetWidgetColor, widget), write=partial(AppearanceSettings.SetWidgetColor, widget), target=axis
+            )
             for widget, axis in zip((WidgetColor.UAxisColor, WidgetColor.VAxisColor, WidgetColor.WAxisColor), axes, strict=True)
         ),
     )

@@ -4,8 +4,8 @@
     "description": "MCP tools for .lsp.json language servers, with diagnostics after patch and shell edits",
     "mcpServers": {
         "argus": {
-            "command": "mise",
-            "args": ["exec", "--", "node", "plugins/argus/main.ts"]
+            "type": "http",
+            "url": "http://127.0.0.1:7410/"
         }
     },
     "hooks": {

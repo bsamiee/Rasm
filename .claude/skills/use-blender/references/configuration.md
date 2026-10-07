@@ -199,6 +199,7 @@ finally:
 - Theme writes reach a capture in the same call under the viewport's `THEME` background
 - Theme writes read back as `round(value * 255) / 255` at float32 (alpha 0.5 reads 0.502)
 - `View3DShading.single_color` and `object_outline_color` are `COLOR` members in scene linear, theme members `COLOR_GAMMA` bytes
+- `Color` conversions of an RNA color member convert zeros unless `.copy()` precedes them (`<member>.copy().from_srgb_to_scene_linear()`)
 
 Preset clicks and `preferences.reset_default_theme()` reset every member and override, and the apply's preset restores theme and text styles whole:
 

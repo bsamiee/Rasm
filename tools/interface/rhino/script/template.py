@@ -69,8 +69,8 @@ from interface.render import (
     TRANSPARENT_BOUNCES,
     VOLUME_BOUNCES,
 )
-from interface.report import Row, single
-from interface.rhino.script.accessors import color, disposed, found, Internal, member, plain
+from interface.report import Refused, Row, single
+from interface.rhino.script.accessors import color, disposed, found, Internal, member, plain, preference
 from interface.roles import Annotation, Ink, Surface, Typography
 from interface.units import ANGLE_PRECISION, GRID_THICK_EVERY, Length, Pen, Units
 
@@ -584,9 +584,8 @@ def page_facts(doc: Rhino.RhinoDoc, page: RhinoPageView) -> dict[str, object]:
     """Size of a layout page, and the layer and corners of each object drawn on it."""
     settings = ObjectEnumeratorSettings()
     settings.HiddenObjects = True
-    boxes = (
-        (doc.Layers[each.Attributes.LayerIndex].Name, each.Geometry.GetBoundingBox(accurate=True)) for each in doc.Objects.GetObjectList(settings) if each.Attributes.ViewportId == page.MainViewport.Id
-    )
+    settings.ViewportFilter = page.MainViewport
+    boxes = ((doc.Layers[each.Attributes.LayerIndex].Name, each.Geometry.GetBoundingBox(accurate=True)) for each in doc.Objects.GetObjectList(settings))
     return {**properties(page, dict.fromkeys(("PageWidth", "PageHeight"))), "Objects": tuple((name, (box.Min.X, box.Min.Y), (box.Max.X, box.Max.Y)) for name, box in boxes)}
 
 
@@ -699,8 +698,8 @@ def write_render(doc: Rhino.RhinoDoc, template: Template) -> None:
         settings.SetRenderEnvironmentId(usage, environment.Id)
     for usage, on in environment_facts["Overrides"].items():
         settings.SetRenderEnvironmentOverride(usage, on)
+    settings.PostEffects.SetSelectedPostEffect(TONE_MAPPING_NODE, template["tone_mapper"])
     doc.RenderSettings = settings
-    doc.RenderSettings.PostEffects.SetSelectedPostEffect(TONE_MAPPING_NODE, template["tone_mapper"])
     anchor = doc.EarthAnchorPoint
     assign(anchor, template["earth_anchor"])
     doc.EarthAnchorPoint = anchor
@@ -764,7 +763,7 @@ def write_layout(doc: Rhino.RhinoDoc, pages: tuple[Page, ...]) -> None:
             doc.Objects.AddRectangle(Rectangle3d(Plane.WorldXY, Point3d(left, bottom, 0), Point3d(right, top, 0)), attributes)
 
 
-def write(path: str, source: str, template: Template) -> str | None:
+def write(path: str, source: str, template: Template) -> Refused | None:
     """Write the template through a headless document on the bundled source template, Perspective alone maximized in the file, else the write Rhino refused."""
     with disposed(Rhino.RhinoDoc.CreateHeadless(source)) as doc:
         write_units(doc, template)
@@ -773,11 +772,11 @@ def write(path: str, source: str, template: Template) -> str | None:
         write_layout(doc, template["layout"])
         written = doc.WriteFile(path, FileWriteOptions())
     if not written:
-        return f"headless document was not written to {path}"
+        return Refused(f"headless document was not written to {path}")
     with disposed(File3dm.Read(path)) as file:
         for view in model_views(file, path):
             view.Maximized = view.Viewport.IsPerspectiveProjection
-        return None if file.Write(path, File3dmWriteOptions()) else f"template file was not rewritten to {path}"
+        return None if file.Write(path, File3dmWriteOptions()) else Refused(f"template file was not rewritten to {path}")
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -789,7 +788,7 @@ def rows(targets: Mapping[Units, Template]) -> tuple[Row, ...]:
     paths = {Units.IMPERIAL: folder / "Default.3dm", Units.METRIC: folder / "Metric.3dm"}
     return (
         *(
-            Row(label=f'templates["{paths[units].name}"]', read=partial(read, (path := str(paths[units])), facts), write=partial(write, path, bundled(units)), target=facts)
+            preference(label=f'templates["{paths[units].name}"]', read=partial(read, (path := str(paths[units])), facts), write=partial(write, path, bundled(units)), target=facts)
             for units, facts in targets.items()
         ),
         member(FileSettings, "TemplateFile", target=str(paths[Units.IMPERIAL])),

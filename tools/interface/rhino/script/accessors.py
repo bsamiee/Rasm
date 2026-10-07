@@ -1,8 +1,8 @@
 # ty: ignore[invalid-argument-type, invalid-return-type, no-matching-overload, unresolved-import]
 # mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, return-value, no-any-return, call-overload, arg-type, unreachable"
-"""Rhino settings rows by settings path, member, and internal type, the scope disposing a .NET resource, and the plain form a row compares."""
+"""Rhino settings rows by settings path, member, and internal type, the scope disposing a .NET resource, and the plain form every Rhino row and action compares in."""
 
-from collections.abc import Generator, Mapping
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from enum import StrEnum
 from functools import partial, reduce
@@ -19,7 +19,7 @@ import System
 from System import Array, Guid, IDisposable, UInt32
 from System.Drawing import Color, Size
 
-from interface.report import Row
+from interface.report import Action, Row
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -70,7 +70,7 @@ class Internal(StrEnum):
     def setting(self, name: str, *, target: object) -> Row:
         """Row of the type's static property, written through its setter as a typed delegate."""
         held = self.type.GetProperty(name)
-        return Row(
+        return preference(
             label=f"{self.type.Name}.{name}",
             read=partial(held.GetValue, None),
             write=System.Delegate.CreateDelegate(Internal.ACTION.type.MakeGenericType(held.PropertyType), held.SetMethod),
@@ -139,7 +139,7 @@ def key(path: SettingsPath, name: str, *, target: bool | int | str | Guid | tupl
         Color: (PersistentSettings.TryGetColor, PersistentSettings.SetColor),
     }
     get, put = accessors[type(target) if stored is None else stored]
-    return Row(
+    return preference(
         label=labeled(path, name),
         read=lambda: default if (child := located(path)) is None or (held := found(get(child, name))) is None else held,
         write=lambda value: put(opened(path), name, value),
@@ -150,7 +150,7 @@ def key(path: SettingsPath, name: str, *, target: bool | int | str | Guid | tupl
 def member(owner: object, name: str, *, target: object) -> Row:
     """Row of a named property of a class or an instance."""
     kind = owner if isinstance(owner, type) else type(owner)
-    return Row(label=f"{kind.__name__}.{name}", read=partial(getattr, owner, name), write=partial(setattr, owner, name), target=target)
+    return preference(label=f"{kind.__name__}.{name}", read=partial(getattr, owner, name), write=partial(setattr, owner, name), target=target)
 
 
 # --- [VALUES]
@@ -196,6 +196,16 @@ def plain(value: object) -> object:
             return value
 
 
+def preference[T](*, label: str, read: Callable[[], object], write: Callable[[T], object], target: T) -> Row:
+    """Row of the setting compared in its plain form."""
+    return Row(label=label, read=read, write=write, target=target, plain=plain)
+
+
+def action(*, label: str, read: Callable[[], object], act: Callable[[], object], target: object) -> Action:
+    """Action of the setting compared in its plain form."""
+    return Action(label=label, read=read, act=act, target=target, plain=plain)
+
+
 def color(rgb: tuple[int, int, int], alpha: float = 1.0) -> Color:
     """System color of a role at the alpha fraction."""
     return Color.FromArgb(round(alpha * 255), *rgb)
@@ -208,4 +218,4 @@ def hex_color(rgb: tuple[int, int, int]) -> str:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Internal", "color", "disposed", "found", "guid", "hex_color", "key", "labeled", "located", "member", "opened", "plain", "port"]
+__all__ = ["Internal", "action", "color", "disposed", "found", "guid", "hex_color", "key", "labeled", "located", "member", "opened", "plain", "port", "preference"]

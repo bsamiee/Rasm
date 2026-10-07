@@ -60,6 +60,7 @@ type Value = str | float | bool | tuple[float, ...] | dict[str, object]
 type Item = float | bool | str | GeometryBase
 type Modifier = str | tuple[str, int]
 type Port = str | int
+type Member = Part | Slider
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -77,11 +78,11 @@ class Data(Record, frozen=True):
 
 
 class Node(Record, frozen=True):
-    """Document object as the last solve left it, each input's sources as `(input, owner id, port)`, `seconds` None with no measured solve."""
+    """Document object as the last solve left it, each input's sources as `(input, owner id, port)`, `user_name` None with no user name, `seconds` None with no measured solve."""
 
     id: str
     name: str
-    user_name: str
+    user_name: str | None
     bounds: tuple[float, float, float, float]
     messages: tuple[str, ...] = ()
     inputs: tuple[str, ...] = ()
@@ -141,7 +142,7 @@ class Group(Record, frozen=True):
 
     name: str
     color: str
-    parts: tuple[Part | Slider, ...]
+    parts: tuple[Member, ...]
 
 
 class Wire(Record, frozen=True):
@@ -350,7 +351,7 @@ def _node(document_object: IDocumentObject, sample: int) -> Node:
     return Node(
         str(document_object.InstanceId),
         document_object.Nomen.Name,
-        document_object.UserName or "",
+        document_object.UserName,
         (bounds.Left, bounds.Top, bounds.Right, bounds.Bottom),
         (f"Fault: {state.FaultException.Message}",)
         if state.FaultException is not None
@@ -480,7 +481,7 @@ def build(document: Document, doc: RhinoDoc, groups: Sequence[Group], wires: Seq
         setter.Invoke(emitted, Array[Object]([items, False]))
         return emitted
 
-    def created(part: Part | Slider) -> Resolved[IDocumentObject]:
+    def created(part: Member) -> Resolved[IDocumentObject]:
         match part, None if isinstance(part, Slider) else ObjectProxies.FindById(Guid.Parse(part.selector)):
             case Slider(), _:
                 slider = NumberSliderObject(part.name or part.key, UiNumber(part.decimals, *map(Convert.ToDecimal, (part.value, part.lower, part.upper))))
@@ -604,8 +605,11 @@ def cluster(document: Document, ids: Sequence[str]) -> Resolved[Node]:
         return faults
     members, connectivity = Array[IDocumentObject](found), document.Objects.Connectivity
     founding = {member.FoundingObject.InstanceId for member in members}
-    between = {node.Id for member in founding for node in connectivity.FindAllOutputs(member)} & {node.Id for member in founding for node in connectivity.FindAllInputs(member)}
-    if (topology := GraphTopology.Concave if between - founding else connectivity.SubsetTopology(Array[Guid]([*founding]))) in {GraphTopology.Empty, GraphTopology.Concave}:
+    if (
+        topology := GraphTopology.Concave
+        if ({node.Id for member in founding for node in connectivity.FindAllOutputs(member)} & {node.Id for member in founding for node in connectivity.FindAllInputs(member)}) - founding
+        else connectivity.SubsetTopology(Array[Guid]([*founding]))
+    ) in {GraphTopology.Empty, GraphTopology.Concave}:
         return Faults.of(Fault(Document, tuple(ids), (topology,)))
     created, placed = document.Methods.ClusterObjects(members, None), {member.InstanceId for member in members}
     shared = {owner: common for owner in document.Objects.Groups if (common := placed.intersection(owner.ContentIds))}

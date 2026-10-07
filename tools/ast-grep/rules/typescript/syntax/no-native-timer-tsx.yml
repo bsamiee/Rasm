@@ -21,7 +21,7 @@ rule:
         pattern: $NAME
         any:
             - matches: syntax-global-reference
-              regex: '^(globalThis\.)?(setTimeout|setInterval|setImmediate|queueMicrotask|clearTimeout|clearInterval|clearImmediate|AbortSignal\.timeout|process\.nextTick)$'
+              regex: '^((globalThis|window|self)\.)?(setTimeout|setInterval|setImmediate|queueMicrotask|clearTimeout|clearInterval|clearImmediate|AbortSignal\.timeout|process\.nextTick)$'
             - matches:
                 syntax-import-reference:
                     source: {regex: '^(node:)?timers(/promises)?$'}

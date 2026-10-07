@@ -4,8 +4,12 @@ language: bash
 severity: error
 utils:
     counter:
-        kind: variable_name, word, subscript
-        pattern: $V
+        any:
+            - kind: variable_name, word, subscript
+              pattern: $V
+            - kind: simple_expansion, expansion
+              has: {kind: 'variable_name, subscript', pattern: $V}
+              not: {has: {field: operator, pattern: $$_OP}}
     operation:
         kind: binary_expression
         any:
@@ -14,7 +18,7 @@ utils:
                 - has: {field: operator, pattern: $$OP, regex: '^(\+|-|\*|/|%|<<|>>|&|\||\^)$'}
                 - has: {field: right, pattern: $VALUE}
             - all:
-                - has: {field: left, kind: number, pattern: $VALUE}
+                - has: {field: left, pattern: $VALUE}
                 - has: {field: operator, pattern: $$OP, regex: '^(\+|\*|&|\||\^)$'}
                 - has: {field: right, matches: counter}
 rule:

@@ -1,0 +1,153 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-conditional-fault-wrapping
+language: python
+severity: error
+utils:
+    fault:
+        kind: call
+        pattern: $FAULT
+        has: {field: function, matches: {faults-member: {name: {regex: '^Fault$'}}}}
+    one-fault:
+        kind: 'tuple, list, set'
+        has: {matches: fault}
+        not: {has: {nthChild: 2}}
+    empty:
+        any:
+            - kind: 'tuple, list'
+              not: {has: {pattern: $_}}
+            - kind: call
+              all:
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(tuple|list|set)$'}}}}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+    joiner:
+        kind: call
+        has:
+            field: function
+            any:
+                - matches: {faults-member: {name: {regex: '^collect_faults$'}}}
+                - kind: attribute
+                  all:
+                    - has: {field: object, matches: {faults-member: {name: {regex: '^Faults$'}}}}
+                    - has: {field: attribute, regex: '^of$'}
+    lifted-fault:
+        kind: call
+        any:
+            - all:
+                - matches: joiner
+                - has: {field: arguments, has: {nthChild: 1, matches: fault}, not: {has: {nthChild: 2}}}
+            - all:
+                - has: {field: function, matches: {faults-member: {name: {regex: '^Faults$'}}}}
+                - has:
+                    field: arguments
+                    not: {has: {nthChild: 2}}
+                    has:
+                        nthChild: 1
+                        any:
+                            - matches: one-fault
+                            - kind: keyword_argument
+                              all: [{has: {field: name, regex: '^items$'}}, {has: {field: value, matches: one-fault}}]
+    joiner-argument:
+        any:
+            - inside: {stopBy: {not: {kind: parenthesized_expression}}, kind: argument_list, inside: {matches: joiner}}
+            - inside:
+                stopBy: {not: {kind: parenthesized_expression}}
+                kind: 'generator_expression, list_comprehension, tuple, list, set'
+                inside: {kind: list_splat, inside: {kind: argument_list, inside: {matches: joiner}}}
+    catch-all:
+        kind: case_clause
+        all:
+            - has: {kind: case_pattern, has: {kind: dotted_name, not: {has: {nthChild: 2}}, has: {kind: identifier, pattern: $FAILED}}}
+            - not: {has: {kind: case_pattern, nthChild: 2}}
+            - not: {has: {kind: if_clause}}
+            - has:
+                field: consequence
+                has:
+                    kind: return_statement
+                    has:
+                        matches: joiner
+                        has: {field: arguments, has: {kind: list_splat, has: {kind: identifier, pattern: $FAILED}}, not: {has: {nthChild: 2}}}
+    joined-match:
+        kind: match_statement
+        all:
+            - has: {field: body, has: {matches: catch-all}}
+            - not:
+                has:
+                    field: body
+                    has:
+                        kind: case_clause
+                        has:
+                            kind: case_pattern
+                            has:
+                                stopBy: end
+                                kind: class_pattern
+                                has: {kind: dotted_name, has: {matches: {faults-member: {name: {regex: '^Faults?$'}}}}}
+    joined-subject:
+        inside:
+            stopBy: {not: {kind: parenthesized_expression}}
+            any:
+                - matches: joined-match
+                - {kind: tuple, inside: {matches: joined-match}}
+    lifting-consumer:
+        any:
+            - matches: joiner-argument
+            - matches: joined-subject
+    relayed:
+        inside:
+            stopBy: {not: {kind: parenthesized_expression}}
+            kind: assignment
+            field: right
+            all:
+                - has: {field: left, kind: identifier, pattern: $NAME}
+                - inside:
+                    kind: expression_statement
+                    inside:
+                        kind: block
+                        all:
+                            - has: {stopBy: end, kind: identifier, pattern: $NAME, matches: lifting-consumer}
+                            - not:
+                                has:
+                                    stopBy: end
+                                    kind: identifier
+                                    pattern: $NAME
+                                    not:
+                                        any:
+                                            - matches: lifting-consumer
+                                            - inside: {kind: assignment, field: left}
+    wrapped-conditional:
+        kind: conditional_expression
+        any:
+            - all: [{has: {nthChild: 1, matches: one-fault}}, {has: {nthChild: 3, matches: empty}}]
+            - all: [{has: {nthChild: 1, matches: empty}}, {has: {nthChild: 3, matches: one-fault}}]
+    lifted-conditional:
+        kind: conditional_expression
+        any:
+            - all: [{has: {nthChild: 1, matches: lifted-fault}}, {has: {nthChild: 3, kind: none}}]
+            - all: [{has: {nthChild: 1, kind: none}}, {has: {nthChild: 3, matches: lifted-fault}}]
+rule:
+    pattern: $SITE
+    any:
+        - kind: list_splat
+          all:
+            - has: {stopBy: {not: {kind: parenthesized_expression}}, matches: wrapped-conditional, pattern: $WRAPPED}
+            - matches: joiner-argument
+        - kind: conditional_expression
+          pattern: $LIFTED
+          all:
+            - matches: lifted-conditional
+            - any: [{matches: lifting-consumer}, {matches: relayed}]
+rewriters:
+    - id: fault-first
+      rule: {kind: conditional_expression, all: [{has: {nthChild: 1, matches: one-fault}}, {has: {nthChild: 2, pattern: $TEST}}]}
+      fix: '$FAULT if $TEST else None'
+    - id: fault-last
+      rule: {kind: conditional_expression, all: [{has: {nthChild: 2, pattern: $TEST}}, {has: {nthChild: 3, matches: one-fault}}]}
+      fix: 'None if $TEST else $FAULT'
+    - id: bare-fault
+      rule: {matches: lifted-fault}
+      fix: $FAULT
+transform:
+    SPLAT: rewrite($WRAPPED, rewriters=[fault-first, fault-last])
+    BARE: rewrite($LIFTED, rewriters=[bare-fault])
+fix: $SPLAT$BARE
+message: '`$SITE` wraps `$FAULT` in a collection or `Faults` under a condition, a bare fault or `None` removes the wrapper'
+note: 'Use `<fault> if <test> else None`, `collect_faults` and `Faults.of` lift a bare `Fault` and drop `None`'

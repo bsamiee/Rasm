@@ -9,43 +9,117 @@ utils:
             field: object
             any:
                 - kind: identifier
+                - pattern: super()
                 - matches: member-chain
+    single-parameter:
+        not: {has: {nthChild: 2}}
+        has:
+            nthChild: 1
+            any:
+                - {kind: identifier, pattern: $SELF}
+                - {kind: typed_parameter, has: {nthChild: 1, kind: identifier, pattern: $SELF}}
     forwarded-read:
         matches: member-chain
         pattern: $READ
-        not: {regex: '^(self|cls)\.\w+$'}
+        not: {has: {field: object, kind: identifier, pattern: $SELF}}
+    own-call:
+        pattern: $SELF.$_()
+        all:
+            - pattern: $READ
+            - not: {inside: {kind: decorated_definition, stopBy: end, has: {kind: decorator, has: {matches: caching-callee}}}}
+            - not: {inside: {kind: call, stopBy: end, has: {field: function, matches: caching-callee}}}
+    forwarded-value:
+        any: [{matches: forwarded-read}, {matches: own-call}]
+    caching-callee:
+        matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^cached_property$'}}}
     property-callee:
         any:
             - matches: {python-builtin-name: {name: {regex: '^property$'}}}
-            - matches: {python-member-use: {module: {regex: '^builtins$'}, name: {regex: '^property$'}}}
+            - matches: {python-member-use: {module: {regex: '^(enum|types)$'}, name: {regex: '^(property|DynamicClassAttribute)$'}}}
+            - matches: caching-callee
+    override-callee:
+        matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^override$'}}}
     property-decorator:
         kind: decorator
         has: {matches: property-callee}
-    single-parameter:
-        has: {nthChild: 1, kind: identifier}
-        not: {has: {nthChild: 2}}
-rule:
-    any:
-        - kind: function_definition
-          all:
-            - inside: {kind: decorated_definition, has: {matches: property-decorator}}
-            - has: {field: name, pattern: $NAME}
-            - has: {field: parameters, matches: single-parameter}
+    getter:
+        any:
+            - kind: lambda
+              all:
+                - has: {field: parameters, matches: single-parameter}
+                - has: {field: body, matches: forwarded-value}
+            - kind: call
+              all:
+                - has: {field: function, matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^attrgetter$'}}}}
+                - has:
+                    field: arguments
+                    not: {has: {nthChild: 2}}
+                    has:
+                        nthChild: 1
+                        kind: string
+                        pattern: $READ
+                        has: {kind: string_content, regex: '\.'}
+                        not: {has: {kind: 'escape_sequence, interpolation', stopBy: end}}
+    getter-argument:
+        any:
+            - nthChild: 1
+              matches: getter
+            - kind: keyword_argument
+              all:
+                - has: {field: name, regex: '^fget$'}
+                - has: {field: value, matches: getter}
+    forwarding-accessor:
+        kind: function_definition
+        all:
+            - has: {field: parameters, has: {nthChild: 2, matches: {python-parameter: {name: {pattern: $VALUE}}}}}
             - has:
                 field: body
+                matches: python-single-statement-block
+                has:
+                    any:
+                        - kind: expression_statement
+                          has: {kind: assignment, all: [{has: {field: left, pattern: $READ}}, {has: {field: right, pattern: $VALUE}}]}
+                        - kind: delete_statement
+                          has: {pattern: $READ}
+rule:
+    all:
+        - any:
+            - kind: function_definition
+              all:
+                - inside:
+                    kind: decorated_definition
+                    has: {matches: property-decorator}
+                    not: {has: {kind: decorator, not: {any: [{matches: property-decorator}, {has: {matches: override-callee}}]}}}
+                - has: {field: name, pattern: $NAME}
+                - has: {field: parameters, matches: single-parameter}
+                - has:
+                    field: body
+                    matches: python-single-statement-block
+                    has: {kind: return_statement, has: {matches: forwarded-value}}
+                - any:
+                    - not: {inside: {kind: decorated_definition, has: {kind: decorator, has: {matches: override-callee}}}}
+                    - has: {field: body, has: {kind: return_statement, has: {pattern: super().$NAME}}}
+            - kind: assignment
+              all:
+                - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition, field: body}}}
+                - has: {field: left, kind: identifier, pattern: $NAME}
+                - has:
+                    field: right
+                    kind: call
+                    all:
+                        - has: {field: function, matches: property-callee}
+                        - has:
+                            field: arguments
+                            has: {matches: getter-argument}
+                            not: {has: {pattern: $_, not: {any: [{matches: getter-argument}, {kind: keyword_argument, has: {field: name, regex: '^doc$'}}]}}}
+        - not:
+            inside:
                 kind: block
-                all:
-                    - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-docstring-or-comment}}}}}
-                    - has: {kind: return_statement, has: {matches: forwarded-read}}
-        - kind: assignment
-          all:
-            - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition, field: body}}}
-            - has: {field: left, kind: identifier, pattern: $NAME}
-            - has:
-                field: right
-                kind: call
-                all:
-                    - has: {field: function, matches: property-callee}
-                    - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, kind: lambda, all: [{has: {field: parameters, matches: single-parameter}}, {has: {field: body, matches: forwarded-read}}]}}
+                stopBy: {kind: block}
+                has:
+                    kind: decorated_definition
+                    all:
+                        - has: {kind: decorator, has: {kind: attribute, all: [{has: {field: object, pattern: $NAME}}, {has: {field: attribute, regex: '^(setter|deleter)$'}}]}}
+                        - not: {has: {field: definition, matches: forwarding-accessor}}
 message: 'Property `$NAME` forwards `$READ` unchanged'
-note: 'Use `<owner>.<member>` at each read, the property adds a name and no fact'
+note: 'Read `<owner>.<member>` or call `<owner>.<method>()` at each use and delete an override its parent member answers, the property adds a name and no fact'

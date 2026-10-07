@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typing-type-checking-block
+language: python
+utils:
+    flag:
+        any:
+            - matches: {python-member-use: {module: {regex: '^typing$'}, name: {regex: '^TYPE_CHECKING$'}}}
+            - kind: parenthesized_expression
+              has: {matches: flag}
+rule:
+    inside:
+        kind: block
+        stopBy: end
+        inside: {kind: 'if_statement, elif_clause', field: consequence, has: {field: condition, matches: flag}}

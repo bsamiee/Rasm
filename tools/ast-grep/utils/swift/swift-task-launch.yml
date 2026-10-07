@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-task-launch
+language: swift
+rule:
+    any:
+        - kind: call_expression
+          has:
+            nthChild: 1
+            kind: 'simple_identifier, navigation_expression'
+            regex: '^(_Concurrency\.)?Task(<[^{]*>)?(\.(init|detached|immediate|immediateDetached))?$'
+        - kind: constructor_expression
+          has: {field: constructed_type, regex: '^(_Concurrency\.)?Task<'}

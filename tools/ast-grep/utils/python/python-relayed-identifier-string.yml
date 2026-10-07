@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-relayed-identifier-string
+language: python
+utils:
+    names:
+        kind: 'tuple, list, set'
+        has: {matches: python-identifier-string}
+        not: {has: {pattern: $_, not: {any: [{matches: python-identifier-string}, {kind: comment}]}}}
+    table:
+        any:
+            - matches: names
+            - matches: {python-assigned-name: {value: {matches: names}}}
+            - matches: {python-class-attribute: {value: {matches: names}}}
+rule:
+    any:
+        - matches: {python-assigned-name: {value: {matches: python-identifier-string}}}
+        - matches: {python-class-attribute: {value: {matches: python-identifier-string}}}
+        - matches: {python-bound-parameter: {value: {matches: python-identifier-string}}}
+        - kind: identifier
+          pattern: $KEY
+          any:
+            - inside:
+                kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+                stopBy: end
+                has: {kind: for_in_clause, all: [{has: {field: left, kind: identifier, pattern: $KEY}}, {has: {field: right, matches: table}}]}
+            - inside:
+                kind: for_statement
+                stopBy: end
+                all: [{has: {field: left, kind: identifier, pattern: $KEY}}, {has: {field: right, matches: table}}]

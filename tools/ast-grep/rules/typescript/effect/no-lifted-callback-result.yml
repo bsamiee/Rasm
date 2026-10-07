@@ -4,11 +4,11 @@ language: tsx
 severity: error
 utils:
     succeed-module:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream|Channel|Sink|Result))?$'}, exported: {regex: '^(Effect|Stream|Channel|Sink|Result)$'}}}
+        matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Sink|Result)$'}}}
     option-module:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Option)?$'}, exported: {regex: '^Option$'}}}
+        matches: {effect-module: {name: {regex: '\bOption$'}}}
     constant-module:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Option))?$'}, exported: {regex: '^(Effect|Option)$'}}}
+        matches: {effect-module: {name: {regex: '\b(Effect|Option)$'}}}
     lifted-body:
         kind: call_expression, member_expression
         any:
@@ -111,7 +111,7 @@ rule:
                 kind: member_expression
                 pattern: $M.$F
                 all:
-                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream))?$'}, exported: {regex: '^(Effect|Stream)$'}}}}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream)$'}}}}
                     - has: {field: property, regex: '^catch$'}
             - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: recovering-handler, pattern: $HANDLER}}
             - not: {has: {field: type_arguments, kind: type_arguments}}

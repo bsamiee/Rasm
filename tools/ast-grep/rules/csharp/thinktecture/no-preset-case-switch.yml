@@ -4,13 +4,7 @@ language: csharp
 severity: error
 utils:
     union-type:
-        any:
-            - kind: identifier
-              pattern: $UNION
-            - kind: generic_name
-              has: {kind: identifier, nthChild: 1, pattern: $UNION}
-            - kind: qualified_name
-              has: {field: name, matches: union-type}
+        matches: {csharp-type-name: {name: {pattern: $UNION}}}
     host-type:
         kind: identifier, generic_name, qualified_name, member_access_expression
         regex: '^[A-Z]'
@@ -121,21 +115,7 @@ utils:
             has: {stopBy: end, matches: stateless-union}
     typed-receiver:
         any:
-            - kind: identifier
-              pattern: $RECEIVER
-              inside:
-                stopBy: end
-                kind: method_declaration, local_function_statement, constructor_declaration, lambda_expression
-                any:
-                    - has:
-                        field: parameters
-                        has: {kind: parameter, all: [{has: {field: name, pattern: $RECEIVER}}, {has: {field: type, matches: union-type}}]}
-                    - has:
-                        stopBy: end
-                        kind: variable_declaration
-                        all:
-                            - has: {kind: variable_declarator, has: {field: name, pattern: $RECEIVER}}
-                            - has: {field: type, matches: union-type}
+            - matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {pattern: $UNION}}}}}}
             - kind: member_access_expression
               all:
                 - has: {field: name, pattern: $PROPERTY}

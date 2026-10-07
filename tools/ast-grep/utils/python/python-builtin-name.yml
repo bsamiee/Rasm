@@ -3,12 +3,17 @@ id: python-builtin-name
 language: python
 arguments: [name]
 utils:
-    imported:
-        matches: {python-conflicting-import: {module: {regex: '^builtins$'}, name: {matches: name}}}
-rule:
-    kind: identifier
-    matches: name
-    not:
+    implicit-module:
+        matches: {python-builtin-identifier: {name: {regex: '^__builtins__$'}}}
+    implicit-reference:
         any:
-            - matches: python-shadowed-name
-            - matches: imported
+            - matches: implicit-module
+            - matches: {python-assigned-name: {value: {matches: implicit-module}}}
+rule:
+    any:
+        - matches: {python-builtin-identifier: {name: {matches: name}}}
+        - matches: {python-member-use: {module: {regex: '^builtins$'}, name: {matches: name}}}
+        - kind: attribute
+          all:
+            - has: {field: attribute, matches: name}
+            - has: {field: object, matches: implicit-reference}

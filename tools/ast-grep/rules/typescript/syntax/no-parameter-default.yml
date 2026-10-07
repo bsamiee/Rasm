@@ -3,6 +3,12 @@ id: no-parameter-default
 language: tsx
 severity: error
 utils:
+    defaulting:
+        any:
+            - has: {field: operator, regex: '^\?\?$'}
+            - all:
+                - has: {field: operator, regex: '^\|\|$'}
+                - has: {field: right, kind: 'string, number, template_string, array, object'}
     parameter-named:
         matches: syntax-function-boundary
         any:
@@ -65,13 +71,13 @@ rule:
           all:
             - has: {field: left, kind: identifier, pattern: $P}
             - has: {field: left, pattern: $READ}
-            - has: {field: operator, regex: '^\?\?$'}
+            - matches: defaulting
             - has: {field: right, pattern: $D}
             - inside: {stopBy: end, matches: parameter-named}
         - kind: binary_expression
           all:
             - has: {field: left, kind: member_expression, pattern: $READ, has: {field: object, kind: identifier, pattern: $P}}
-            - has: {field: operator, regex: '^\?\?$'}
+            - matches: defaulting
             - has: {field: right, pattern: $D}
             - inside: {stopBy: end, matches: source-typed-parameter}
 message: '`$READ` accepts absence and resolves it to `$D`'

@@ -3,15 +3,6 @@ id: no-heterogeneous-enum-value
 language: python
 severity: error
 utils:
-    enum-base:
-        any:
-            - matches: {python-member-use: {module: {regex: '^enum$'}, name: {regex: '^(Enum|IntEnum|StrEnum|Flag|IntFlag|ReprEnum)$'}}}
-            - kind: identifier
-              pattern: $BASE
-              inside: {kind: module, stopBy: end, has: {kind: class_definition, all: [{has: {field: name, pattern: $BASE}}, {has: {field: superclasses, has: {matches: enum-base}}}]}}
-    enum-class:
-        kind: class_definition
-        has: {field: superclasses, has: {matches: enum-base}}
     unpacking-init:
         kind: function_definition
         has: {field: name, regex: '^(__init__|__new__)$'}
@@ -37,13 +28,13 @@ rule:
     kind: assignment
     pattern: $MEMBER
     all:
-        - has: {field: left, kind: identifier, regex: '^[A-Z][A-Z0-9_]*$'}
+        - has: {field: left, kind: identifier, not: {regex: '^_'}}
         - has: {field: right, kind: 'tuple, list, expression_list', has: {nthChild: 2}, not: {matches: homogeneous}}
         - inside:
             kind: expression_statement
             inside:
                 kind: block
-                inside: {matches: enum-class}
+                inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
                 not: {has: {any: [{matches: unpacking-init}, {kind: decorated_definition, has: {matches: unpacking-init}}]}}
-message: 'Member `$MEMBER` holds values of mixed kinds in one tuple read by position'
-note: 'Use `__init__(self, <a>, <b>)` to unpack the tuple into one attribute per element, `Enum` passes a tuple value to `__init__` as separate arguments'
+message: 'Member `$MEMBER` holds values of mixed kinds in one tuple read by position, `__init__(self, <a>, <b>)` unpacks it into one attribute per element'
+note: '`Enum` passes a tuple value to `__init__` as separate arguments, and the tuple holds no attribute name a template could emit'

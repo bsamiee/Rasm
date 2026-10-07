@@ -207,21 +207,22 @@ actor ClaudeClient: ProviderClient {
         guard let credential, credential.identity.isSameAccount(as: account.identity) else {
             return .failure(.signInRequired)
         }
-        if let current, current.identity.isSameAccount(as: account.identity) {
-            return await incoming.deleteItem().map { _ in current }
+        return if let current, current.identity.isSameAccount(as: account.identity) {
+            await incoming.deleteItem().map { _ in current }
+        } else {
+            await writePendingSwitch(ClaudePendingSwitch(incoming: account.id, outgoing: outgoing?.id))
+                .bind { _ in
+                    if let outgoing { await self.write(outgoing.credential, into: privateStore(outgoing.id)) } else { .success(()) }
+                }
+                .bind { _ in await self.write(credential, into: shared) }
+                .bind { _ in await incoming.deleteItem() }
+                .flatMap { _ in self.writePendingSwitch(nil) }
+                .map { _ in
+                    lastCredential = credential
+                    lastSelection = credential.identity
+                    return credential
+                }
         }
-        return await writePendingSwitch(ClaudePendingSwitch(incoming: account.id, outgoing: outgoing?.id))
-            .bind { _ in
-                if let outgoing { await self.write(outgoing.credential, into: privateStore(outgoing.id)) } else { .success(()) }
-            }
-            .bind { _ in await self.write(credential, into: shared) }
-            .bind { _ in await incoming.deleteItem() }
-            .flatMap { _ in self.writePendingSwitch(nil) }
-            .map { _ in
-                lastCredential = credential
-                lastSelection = credential.identity
-                return credential
-            }
     }
 
     private func write(
@@ -560,16 +561,17 @@ actor ClaudeClient: ProviderClient {
 
     private func verify(_ credential: ClaudeCredential) async -> Result<ClaudeCredential, ClaudeFailure> {
         let fingerprint: SHA256Digest = credential.token.fingerprint
-        if let identity: AccountIdentity = verifiedIdentities[fingerprint] {
-            return identity.isSameAccount(as: credential.identity)
-                ? .success(credential) : .failure(.accountChanged)
-        }
-        return await profile(of: credential.token).flatMap { identity -> Result<ClaudeCredential, ClaudeFailure> in
-            guard identity.isSameAccount(as: credential.identity) else {
-                return .failure(.accountChanged)
-            }
-            verifiedIdentities[fingerprint] = identity
-            return .success(credential)
+        return switch verifiedIdentities[fingerprint] {
+            case .some(let identity) where identity.isSameAccount(as: credential.identity): .success(credential)
+            case .some: .failure(.accountChanged)
+            case .none:
+                await profile(of: credential.token).flatMap { identity -> Result<ClaudeCredential, ClaudeFailure> in
+                    guard identity.isSameAccount(as: credential.identity) else {
+                        return .failure(.accountChanged)
+                    }
+                    verifiedIdentities[fingerprint] = identity
+                    return .success(credential)
+                }
         }
     }
 

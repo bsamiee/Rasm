@@ -10,12 +10,12 @@ private nonisolated struct ClaudeLockfileStat: Equatable, Sendable {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 private nonisolated struct ClaudeLockfile: Sendable {
+    static let staleAfter: TimeInterval = 60
     let url: URL
     let stat: ClaudeLockfileStat
 
     static func acquire(at url: URL) -> Result<Self, ClaudeFailure> {
-        let staleAfter: TimeInterval = 60
-        return create(at: url)
+        create(at: url)
             .flatMapError { error -> Result<Void, ClaudeFailure> in
                 guard case .lockHeld = error else { return .failure(error) }
                 return fileStat(at: url)
@@ -125,7 +125,7 @@ actor ClaudeLock {
             }
         }
         .mapError(ClaudeFailure.filesystem)
-        .bind { _ in await acquire(urls, attempt: 0) }
+        .bind { _ in await acquire(urls) }
         .bind { lock in
             let outcome: Result<Value, ClaudeFailure> = await withTaskGroup { group in
                 group.addTask(name: "locked-work") { await body() }
@@ -138,9 +138,7 @@ actor ClaudeLock {
         }
     }
 
-    private static func acquire(_ urls: [URL], attempt: Int) async -> Result<ClaudeLock, ClaudeFailure> {
-        let attempts: Int = 10
-        let backoff: [Duration] = [.milliseconds(100), .milliseconds(200), .milliseconds(400), .milliseconds(800), .milliseconds(1000)]
+    private static func acquire(_ urls: [URL]) async -> Result<ClaudeLock, ClaudeFailure> {
         let held: Result<[ClaudeLockfile], ClaudeFailure> = urls.reduce(.success([])) { held, url in
             held.flatMap { lockfiles in
                 ClaudeLockfile.acquire(at: url)
@@ -150,11 +148,14 @@ actor ClaudeLock {
         }
         switch held {
             case .success(let lockfiles): return .success(ClaudeLock(lockfiles: lockfiles))
-            case .failure(.lockHeld) where attempt < attempts:
-                let delay: Duration = backoff[min(attempt, backoff.count - 1)]
-                return await Result { try await Task.sleep(for: delay) }
-                    .mapError { _ in ClaudeFailure.cancelled }
-                    .bind { _ in await acquire(urls, attempt: attempt + 1) }
+            case .failure(.lockHeld(let url)):
+                return await ProcessRun.withDeadline(.seconds(ClaudeLockfile.staleAfter)) {
+                    await Result { try await FileWatch.values(of: url, read: FileWatch.exists, debounce: nil).first { present in !present } }
+                        .mapError(ClaudeFailure.filesystem)
+                        .flatMap { removed in removed.map { _ in .success(()) } ?? .failure(.cancelled) }
+                }
+                .flatMapError { error in if case .timedOut = error { .success(()) } else { .failure(error) } }
+                .bind { _ in await acquire(urls) }
             case .failure(let error): return .failure(error)
         }
     }

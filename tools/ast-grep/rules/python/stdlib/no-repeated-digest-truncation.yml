@@ -3,13 +3,32 @@ id: no-repeated-digest-truncation
 language: python
 severity: error
 utils:
+    hasher:
+        any:
+            - pattern: hashlib.new($ALG)
+            - pattern: hashlib.new($ALG, $$$_)
+            - pattern: hashlib.file_digest($_, $ALG)
+            - pattern: hashlib.$ALG($$$_)
+            - pattern: $ALG($$$_)
     truncated:
         kind: subscript
-        has: {field: subscript, kind: slice}
-        any:
-            - pattern: hashlib.new($ALG, $$$_).$DIGEST()[$SLICE]
-            - pattern: hashlib.$ALG($$$_).$DIGEST()[$SLICE]
-            - pattern: $ALG($$$_).$DIGEST()[$SLICE]
+        all:
+            - has: {field: subscript, kind: slice}
+            - pattern: $_H.$DIGEST()[$SLICE]
+            - has:
+                field: value
+                has:
+                    field: function
+                    has:
+                        field: object
+                        any:
+                            - matches: hasher
+                            - kind: identifier
+                              pattern: $HASHER
+                              inside:
+                                kind: function_definition, module
+                                stopBy: end
+                                has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: assignment, all: [{has: {field: left, pattern: $HASHER}}, {has: {field: right, matches: hasher}}]}
     earlier:
         inside:
             stopBy: end
@@ -27,5 +46,5 @@ rule:
 constraints:
     ALG: {regex: '^([''"]?)(md5|sha1|sha224|sha256|sha384|sha512|sha3_224|sha3_256|sha3_384|sha3_512|blake2b|blake2s)([''"]?)$'}
     DIGEST: {regex: '^(hex)?digest$'}
-message: '`$TRUNCATION` truncates a `$ALG` digest to `[$SLICE]` a second time in the file'
-note: 'Use one function from hashed bytes to truncated digest at every site, its body states algorithm and length once'
+message: '`$TRUNCATION` truncates a `$ALG` digest to `[$SLICE]` a second time in the file, one function from hashed bytes to truncated digest serves every site'
+note: 'Algorithm and length are one fact the function body states once, and no site states the name and module a template would give that function'

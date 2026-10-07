@@ -9,7 +9,7 @@ utils:
             - pattern: $STATE
             - not: {follows: {regex: '^\.$'}}
             - inside:
-                kind: for_statement
+                kind: 'for_statement, while_statement'
                 stopBy: end
                 has:
                     kind: statements
@@ -17,11 +17,19 @@ utils:
                         kind: assignment
                         stopBy: end
                         has: {field: target, has: {kind: simple_identifier, pattern: $STATE, stopBy: end}}
+    await-loop:
+        any:
+            - kind: for_statement
+              regex: '^for\s+(try\s+)?await\b'
+              has: {field: item, has: {field: bound_identifier, pattern: $L}}
+            - kind: while_statement
+              all:
+                - has: {field: bound_identifier, pattern: $L}
+                - has: {kind: await_expression, has: {field: expr, pattern: $_.next()}}
 rule:
-    kind: for_statement
-    regex: '^for\s+(try\s+)?await\b'
+    kind: 'for_statement, while_statement'
     all:
-        - has: {field: item, has: {field: bound_identifier, pattern: $L}}
+        - matches: await-loop
         - any:
             - has:
                 kind: where_clause
@@ -32,12 +40,12 @@ rule:
             - has:
                 kind: statements
                 has:
-                    kind: guard_statement
+                    kind: 'guard_statement, if_statement'
                     nthChild: 1
                     pattern: $GUARD
                     all:
                         - has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return)\b'}}
-                        - has: {matches: loop-state, stopBy: end, inside: {kind: guard_statement, stopBy: {kind: statements}}}
+                        - has: {matches: loop-state, stopBy: end, inside: {kind: 'guard_statement, if_statement', stopBy: {kind: statements}}}
                         - not: {has: {pattern: $L, stopBy: end}}
         - not:
             has:

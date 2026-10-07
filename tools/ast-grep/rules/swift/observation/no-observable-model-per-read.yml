@@ -3,34 +3,54 @@ id: no-observable-model-per-read
 language: swift
 severity: error
 utils:
-    observable: {kind: modifiers, has: {kind: attribute, regex: '^@Observable$'}}
-rule:
-    kind: property_declaration
-    all:
-        - has: {kind: type_annotation, has: {kind: array_type, has: {kind: user_type, pattern: $T}}}
-        - has:
-            kind: computed_property
-            has:
-                kind: statements
-                has:
-                    nthChild: 1
-                    any:
-                        - pattern: '$S.$MAP { $E in $T($$$A) }'
-                        - pattern: '$S.$MAP { $T($$$A) }'
-                        - pattern: '$S.$MAP($T.init)'
-                        - pattern: '$S.$MAP($T.init($$$L))'
-        - inside:
-            kind: class_body
-            inside: {kind: class_declaration, has: {matches: observable}}
-        - inside:
+    observable:
+        inside:
             kind: source_file
             stopBy: end
             has:
                 kind: class_declaration
+                stopBy: end
                 all:
-                    - has: {matches: observable}
+                    - has: {kind: modifiers, has: {kind: attribute, regex: '^@Observable$'}}
                     - has: {field: name, pattern: $T}
-constraints:
-    MAP: {regex: '^(map|compactMap)$'}
-message: '`$T` hands observers a new untracked object per element of `$S` on every read'
-note: 'Store an array of per-item `@Observable` models'
+    built:
+        all:
+            - any:
+                - {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, pattern: $T}}
+                - {kind: call_expression, has: {nthChild: 1, pattern: $T.init}}
+                - {kind: navigation_expression, pattern: $T.init, not: {inside: {kind: call_expression}}}
+            - inside:
+                kind: computed_property
+                stopBy: end
+                inside:
+                    any:
+                        - {kind: property_declaration, has: {kind: type_annotation, has: {kind: user_type, stopBy: end, pattern: $T}}}
+                        - {kind: subscript_declaration, has: {kind: user_type, stopBy: end, pattern: $T, not: {inside: {kind: parameter, stopBy: end}}}}
+            - matches: observable
+    inferred:
+        all:
+            - {kind: call_expression, has: {nthChild: 1, kind: prefix_expression, regex: '^\.init$'}}
+            - any:
+                - inside: {kind: statements, inside: {any: [{kind: computed_property}, {kind: computed_getter}]}}
+                - inside: {kind: control_transfer_statement, inside: {kind: statements, inside: {any: [{kind: computed_property}, {kind: computed_getter}]}}}
+            - inside:
+                kind: computed_property
+                stopBy: end
+                inside:
+                    any:
+                        - {kind: property_declaration, has: {kind: type_annotation, has: {field: name, any: [{pattern: $T}, {kind: optional_type, has: {pattern: $T}}]}}}
+                        - {kind: subscript_declaration, has: {field: name, any: [{pattern: $T}, {kind: optional_type, has: {pattern: $T}}]}}
+            - matches: observable
+rule:
+    any:
+        - kind: property_declaration
+        - kind: subscript_declaration
+    has:
+        kind: computed_property
+        has:
+            stopBy: end
+            any:
+                - matches: built
+                - matches: inferred
+message: 'Computed member builds a new untracked `@Observable` `$T` on every read'
+note: 'Store each `<model>` once and update it in place when its source changes'

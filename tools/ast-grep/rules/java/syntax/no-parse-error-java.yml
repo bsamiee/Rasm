@@ -3,16 +3,10 @@ id: no-parse-error-java
 language: java
 severity: error
 utils:
-    multi-pattern-case-label:
-        kind: ERROR
-        regex: ',$'
-        inside: {kind: switch_label}
-        precedes: {kind: pattern}
-        not: {has: {not: {any: [{kind: pattern, precedes: {regex: '^,$'}}, {regex: '^,$', follows: {kind: pattern}}]}}}
     unreported:
         any:
             - inside: {kind: ERROR, stopBy: end}
-            - matches: multi-pattern-case-label
+            - matches: java-multi-pattern-case-label
 rule:
     any:
         - kind: ERROR

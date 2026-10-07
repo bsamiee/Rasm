@@ -3,35 +3,63 @@ id: no-inline-codec
 language: python
 severity: error
 utils:
-    codec-module:
-        matches: {python-submodule: {parent: {regex: '^msgspec$'}, child: {regex: '^(json|msgpack)$'}}}
-    imported-class:
-        matches: {python-imported-name: {module: {regex: '^msgspec\.(json|msgpack)$'}, name: {regex: '^(Encoder|Decoder)$'}}}
-    constructor:
-        kind: call
-        any:
-            - has: {field: function, kind: attribute, all: [{has: {field: object, matches: codec-module}}, {has: {field: attribute, regex: '^(Encoder|Decoder)$'}}]}
-            - has: {field: function, kind: identifier, matches: imported-class}
-    converter:
+    msgspec-codec:
         kind: call
         has:
             field: function
             any:
-                - matches: {python-member-use: {module: {regex: '^cattrs\.preconf\.\w+$'}, name: {regex: '^make_converter$'}}}
-                - matches: {python-member-use: {module: {regex: '^cattrs$'}, name: {regex: '^(Converter|GenConverter)$'}}}
-    paired:
-        any:
-            - all:
-                - has: {field: function, has: {field: object, has: {field: function, regex: '(^|\.)Encoder$'}}}
-                - has: {field: function, has: {field: attribute, regex: '^encode$'}}
-            - all:
-                - has: {field: function, has: {field: object, has: {field: function, regex: '(^|\.)Decoder$'}}}
-                - has: {field: function, has: {field: attribute, regex: '^decode$'}}
+                - kind: attribute
+                  all:
+                    - has: {field: object, matches: {python-submodule: {parent: {regex: '^msgspec$'}, child: {regex: '^(json|msgpack)$'}}}}
+                    - has: {field: attribute, regex: '^(Encoder|Decoder)$'}
+                - kind: identifier
+                  pattern: $CLASS
+                  matches: {python-imported-name: {module: {regex: '^msgspec\.(json|msgpack)$'}, name: {regex: '^(Encoder|Decoder)$'}}}
+    cattrs-converter:
+        kind: call
+        has:
+            field: function
+            any:
+                - matches: {python-member-use: {module: {regex: '^cattrs(\.converters|\.preconf\.\w+)?$'}, name: {regex: '^(make_converter|\w*Converter)$'}}}
+                - kind: attribute
+                  all:
+                    - has: {field: object, matches: {python-submodule: {parent: {regex: '^cattrs(\.preconf)?$'}, child: {regex: '^\w+$'}}}}
+                    - has: {field: attribute, regex: '^(make_converter|\w*Converter)$'}
+    pydantic-adapter:
+        kind: call
+        has: {field: function, matches: {python-member-use: {module: {regex: '^pydantic(\.type_adapter)?$'}, name: {regex: '^TypeAdapter$'}}}}
+    codec-call:
+        kind: call
+        pattern: $CALL
+        has:
+            field: function
+            kind: attribute
+            all:
+                - has: {field: attribute, pattern: $METHOD}
+                - any:
+                    - has: {field: object, matches: msgspec-codec}
+                    - all:
+                        - has: {field: attribute, regex: '^(dumps|loads|structure|unstructure|structure_attrs_from(dict|tuple)|unstructure_attrs_as(dict|tuple))$'}
+                        - has: {field: object, matches: cattrs-converter}
+                    - all:
+                        - has: {field: attribute, regex: '^(validate_(python|json|strings)|dump_(python|json)|json_schema|get_default_value)$'}
+                        - has: {field: object, matches: pydantic-adapter}
     mappable:
+        kind: call
         not:
             any:
                 - has: {field: arguments, has: {kind: 'list_splat, dictionary_splat'}}
                 - has: {field: arguments, has: {kind: keyword_argument, has: {field: name, regex: '^(decimal_format|uuid_format|float_hook)$'}}}
+    class-import:
+        kind: import_from_statement
+        all:
+            - has: {field: module_name, pattern: $SOURCE, regex: '^msgspec\.(json|msgpack)$'}
+            - has:
+                any:
+                    - kind: dotted_name
+                      pattern: $CLASS
+                    - kind: aliased_import
+                      has: {field: alias, pattern: $CLASS}
     function-import:
         kind: import_from_statement
         all:
@@ -40,14 +68,11 @@ utils:
                 any:
                     - kind: dotted_name
                       not: {has: {nthChild: 2}}
-                      has: {kind: identifier, all: [{pattern: $OPERATION}, {pattern: $FUNCTION}]}
+                      has: {kind: identifier, all: [{pattern: $METHOD}, {pattern: $FUNCTION}]}
                     - kind: aliased_import
                       all:
-                        - has: {field: name, not: {has: {nthChild: 2}}, has: {kind: identifier, pattern: $OPERATION}}
+                        - has: {field: name, not: {has: {nthChild: 2}}, has: {kind: identifier, pattern: $METHOD}}
                         - has: {field: alias, pattern: $FUNCTION}
-    class-import:
-        kind: import_from_statement
-        has: {field: module_name, pattern: $SOURCE, regex: '^msgspec\.(json|msgpack)$'}
     function-shadowed:
         inside:
             kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
@@ -55,33 +80,37 @@ utils:
             has:
                 stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
                 matches: {python-binding: {name: {pattern: $FUNCTION}}}
-rule:
-    kind: call
-    pattern: $CALL
-    any:
-        - all:
-            - has: {field: function, kind: attribute, all: [{has: {field: object, matches: constructor}}, {has: {field: attribute, pattern: $METHOD}}]}
-            - matches: paired
+    fixed:
+        all:
+            - matches: codec-call
+            - has: {field: function, has: {field: attribute, regex: '^(encode|decode)$'}}
+            - has: {field: function, has: {field: object, matches: msgspec-codec}}
             - has: {field: arguments, has: {nthChild: 1, pattern: $VALUE, not: {kind: 'keyword_argument, list_splat, dictionary_splat'}}, not: {has: {nthChild: 2}}}
             - not: {has: {kind: comment, stopBy: end}}
+            - not: {matches: python-multiline-string}
             - any:
                 - all:
                     - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: attribute, has: {field: object, pattern: $MODULE}}}}
                     - pattern: $MODULE_FORM
                 - all:
-                    - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: identifier}}}
-                    - has: {field: function, has: {field: attribute, pattern: $OPERATION}}
+                    - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: identifier, pattern: $CLASS}}}
                     - inside:
                         kind: module, function_definition
                         stopBy: end
                         all:
-                            - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: class-import}
-                            - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: function-import}
+                            - has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: class-import}
+                            - has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: function-import}
                     - not: {matches: function-shadowed}
                     - pattern: $IMPORTED_FORM
-                - pattern: $UNFIXED
-        - pattern: $UNFIXED
-          has: {field: function, kind: attribute, all: [{has: {field: object, matches: converter}}, {has: {field: attribute, regex: '^(dumps|loads|structure|unstructure)$'}}]}
+rule:
+    any:
+        - matches: fixed
+        - kind: identifier
+          pattern: $UNFIXED
+          inside:
+            kind: attribute
+            field: attribute
+            inside: {kind: call, field: function, all: [{matches: codec-call}, {not: {matches: fixed}}]}
 rewriters:
     - id: carried-keyword
       rule: {kind: keyword_argument, pattern: $KEYWORD}
@@ -106,4 +135,4 @@ transform:
     IMPORTED_OUT: rewrite($IMPORTED_FORM, rewriters=[imported-call])
 fix: $MODULE_OUT$IMPORTED_OUT$UNFIXED
 message: '`$CALL` builds a codec for one call'
-note: 'Use `msgspec.<format>.encode(<value>)` or `decode(<value>, type=<type>)`, and one module-level codec or cattrs converter for an option those functions lack, a codec built per call repeats its setup'
+note: 'Use `msgspec.<format>.encode(<value>)` or `decode(<value>, type=<type>)`, and one module-level codec, cattrs converter, or pydantic `TypeAdapter` for an option or method those functions lack, a codec built per call repeats its setup. Comments, multiline strings, and unpacked arguments require a manual rewrite'

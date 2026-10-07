@@ -1,11 +1,10 @@
 # [TOOLING]
 
-mise owns tool binaries and the process environment.
+mise owns tool binaries, the process environment, and local services.
 
 ## [01]-[TOOLS]
 
 - Processes inherit mise's activated environment from their launch shell and call tools by name
-- MCP stdio rows start project tools through `mise exec --`, a client's launch environment can lack `[env]` and `_.path`
 - `[tools]` rows name a registry short name or a backend (`github:<owner>/<repo>`, `pypi:<package>`, `npm:<package>`)
 - `http:<tool>` rows install a release source archive for a tool with no registry entry and no release asset
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
@@ -26,3 +25,14 @@ mise owns tool binaries and the process environment.
 - `tools = true` on a row renders `tools.<name>.version` and `tools.<name>.path` after tool resolution
 - Rows render in file order, later rows read a shared value from one earlier `[env]` row as `{{ env.<NAME> }}`
 - Homebrew paths render `exec(command='brew --prefix <formula>')` under `os() == 'macos'`, a host without `brew` on PATH fails the whole template
+
+## [03]-[SERVICES]
+
+Launchd agents run each local MCP server once as a Streamable HTTP service on a loopback port, harness rows hold the service URL:
+- `[bootstrap.macos.launchd.agents]` rows run `{{ mise_bin }}` with `args` opening `exec --` and `working_directory` at `{{config_root}}`
+- `keep_alive` restarts an exited process, and launchd starts a `KeepAlive` agent at login with no `RunAtLoad`
+- Agents inherit the GUI domain environment, machine setup places Homebrew on its PATH for `[env]` templates
+- `mise bootstrap macos launchd-agents apply` writes and loads `~/Library/LaunchAgents/dev.mise.<name>.plist`, launchd discards an agent's output
+- `mise bootstrap macos launchd-agents status` lists each agent's state, `launchctl print gui/$UID/dev.mise.<name>` its pid and last exit code
+- Servers speaking stdio alone run behind `tools/bridge/bridge.ts`
+- Servers starting one process per connection, or approving the connecting process by its code signature, keep a stdio row

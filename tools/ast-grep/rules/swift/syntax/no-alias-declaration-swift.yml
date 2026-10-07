@@ -17,5 +17,6 @@ rule:
         - any:
             - inside: {kind: 'source_file, statements'}
             - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, not: {has: {kind: inheritance_specifier}}}}
+            - inside: {kind: protocol_body, inside: {kind: protocol_declaration, not: {has: {kind: inheritance_specifier}}}}
 message: '`$ALIAS` is another name for `$TARGET`'
 note: 'Spell `<target>` at each use of `<alias>`, every reader resolves the alias back to its target'

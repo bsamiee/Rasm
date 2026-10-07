@@ -3,64 +3,72 @@ id: no-owner-per-member-row
 language: python
 severity: error
 utils:
-    plain-string:
-        kind: string
-        not: {has: {stopBy: end, kind: interpolation}}
+    sibling: {regex: '^[^,#]'}
     name-table:
         kind: 'tuple, list'
         has: {kind: string}
-        not: {has: {pattern: $_, not: {matches: plain-string}}}
-    member-call:
-        kind: call
+        not: {has: {pattern: $_, not: {matches: python-plain-string}}}
+    owned:
+        any:
+            - kind: call
+              has: {field: function, pattern: $O}
+            - kind: tuple
+              has: {nthChild: 1, pattern: $O}
+    member-items:
+        kind: 'argument_list, tuple'
         all:
-            - has: {field: function, pattern: $F}
-            - has: {field: arguments, has: {kind: identifier, pattern: $N}}
-            - has: {field: arguments, has: {kind: keyword_argument, has: {field: value, not: {has: {stopBy: end, kind: identifier, pattern: $N}}}}}
-            - not: {has: {field: arguments, has: {pattern: $_, not: {pattern: $N}, has: {stopBy: end, kind: identifier, pattern: $N}}}}
+            - has: {kind: identifier, pattern: $N}
+            - has: {pattern: $_, not: {any: [{pattern: $N}, {kind: comment}]}}
+            - not: {has: {pattern: $_, not: {pattern: $N}, has: {stopBy: end, kind: identifier, pattern: $N}}}
+    member-row:
+        all:
+            - matches: owned
+            - any:
+                - kind: call
+                  has: {field: arguments, matches: member-items}
+                - kind: tuple
+                  matches: member-items
+                  not: {has: {nthChild: 1, pattern: $N}}
     member-comprehension:
         kind: 'generator_expression, list_comprehension, set_comprehension'
         all:
             - has: {kind: for_in_clause, all: [{has: {field: left, kind: identifier, pattern: $N}}, {has: {field: right, matches: name-table}}]}
             - not: {has: {kind: 'if_clause, for_in_clause', nthChild: 3}}
-            - has: {field: body, matches: member-call}
-    same-callee:
+            - has: {field: body, matches: member-row}
+    same-owner:
+        any:
+            - matches: owned
+            - kind: list_splat
+              has: {has: {field: body, matches: owned}}
+    row:
         any:
             - kind: call
-              has: {field: function, pattern: $F}
-            - kind: list_splat
-              has: {has: {field: body, kind: call, has: {field: function, pattern: $F}}}
-    sibling: {regex: '^[^,#]'}
-    named-argument:
-        has:
-            field: arguments
-            has: {matches: plain-string, precedes: {stopBy: {matches: sibling}, kind: keyword_argument}}
-    run-call:
-        kind: call
-        matches: named-argument
-        any:
-            - pattern: $F($S, $KW=$V)
-            - pattern: $F($O, $S, $KW=$V)
-    next-run-call:
-        kind: call
-        matches: named-argument
-        any:
-            - pattern: $F($_S, $KW=$_V)
-            - pattern: $F($O, $_S, $KW=$_V)
+              has: {field: arguments, has: {matches: python-plain-string, precedes: {stopBy: {matches: sibling}, kind: keyword_argument}}}
+              any: [{pattern: '$F($_S, $KW=$_V)'}, {pattern: '$F($O, $_S, $KW=$_V)'}]
+            - kind: call
+              pattern: $F($O, $_S, $_V)
+              has: {field: arguments, has: {nthChild: 2, matches: python-plain-string}}
+              not: {has: {field: arguments, has: {kind: keyword_argument}}}
+            - kind: tuple
+              pattern: ($O, $_S, $_V)
+              has: {nthChild: 2, matches: python-plain-string}
+            - kind: expression_statement
+              has: {kind: call, matches: row}
 rule:
     any:
         - kind: list_splat
           all:
             - has: {matches: member-comprehension}
             - any:
-                - precedes: {stopBy: end, matches: same-callee}
-                - follows: {stopBy: end, matches: same-callee}
-        - matches: run-call
+                - precedes: {stopBy: end, matches: same-owner}
+                - follows: {stopBy: end, matches: same-owner}
+        - matches: row
           all:
-            - inside: {kind: 'tuple, list, set, argument_list, expression_list'}
+            - inside: {kind: 'tuple, list, set, argument_list, expression_list, block, module'}
             - precedes:
                 stopBy: {matches: sibling}
-                matches: next-run-call
-                precedes: {stopBy: {matches: sibling}, matches: next-run-call}
-            - not: {follows: {stopBy: {matches: sibling}, matches: next-run-call}}
-message: 'Calls to `$F` repeat their other arguments once per member name'
-note: 'Use one owner mapping `{<owner>: {**dict.fromkeys((<names>), <value>), <name>: <value>}}` read by one comprehension, each owner is stated once'
+                matches: row
+                precedes: {stopBy: {matches: sibling}, matches: row}
+            - not: {follows: {stopBy: {matches: sibling}, matches: row}}
+message: 'Rows restate their owner once per member name, where one owner mapping states it once'
+note: 'Use one owner mapping `{<owner>: {**dict.fromkeys((<names>), <value>), <name>: <value>}}` read by one comprehension'

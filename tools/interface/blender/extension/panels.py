@@ -219,11 +219,11 @@ def packed(layout: bpy.types.UILayout, column_count: int, scale_y: float) -> Gen
 
 
 def placed(stock: Callable[[type, bpy.types.Context, str | None], Iterator[object]]) -> Callable[[type, bpy.types.Context, str | None], Iterator[object]]:
-    """Toolbar tool read that drops each tool of an add-on the workspace's owner filter excludes, reading the preferences from the draw's context."""
+    """Toolbar tool read that drops each tool of an add-on the workspace's owner filter excludes, reading the preferences from the process, since callers pass any context carrying a workspace and a mode."""
 
     def tools_from_context(cls: type, context: bpy.types.Context, mode: str | None = None) -> Iterator[object]:
         workspace = context.workspace
-        owner, passed = owning(frozenset(context.preferences.addons.keys())), {None, *(entry.name for entry in workspace.owner_ids)}
+        owner, passed = owning(frozenset(bpy.context.preferences.addons.keys())), {None, *(entry.name for entry in workspace.owner_ids)}
         owners = {id(tool._bl_tool): owner(tool.__module__) for tool in lineage(bpy.types.WorkSpaceTool) if workspace.use_filter_by_owner and "_bl_tool" in vars(tool)}
         items = (tuple(tool for tool in item if owners.get(id(tool)) in passed) if type(item) is tuple else item for item in stock(cls, context, mode))
         return (item for item in items if item != () and owners.get(id(item)) in passed)

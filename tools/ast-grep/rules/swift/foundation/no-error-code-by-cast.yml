@@ -3,31 +3,41 @@ id: no-error-code-by-cast
 language: swift
 severity: error
 utils:
+    error-type:
+        regex: '^(Foundation\.)?\w*Error$'
     error-cast:
         kind: as_expression
-        has: {field: name, regex: '^(Foundation\.)?\w*Error$'}
+        has: {field: name, matches: error-type}
+    cast-binding:
+        any:
+            - kind: property_declaration
+              all:
+                - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
+                - has: {field: value, matches: error-cast}
+            - kind: 'if_statement, guard_statement, while_statement'
+              all:
+                - has: {kind: simple_identifier, pattern: $NAME}
+                - has: {matches: error-cast}
+            - kind: catch_block
+              has:
+                field: error
+                all:
+                    - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
+                    - has: {field: name, matches: error-type}
     member:
         has: {field: suffix, has: {field: suffix, regex: '^(code|errorCode|domain)$'}}
-    cast-code:
-        kind: navigation_expression
-        all:
-            - matches: member
-            - has: {field: target, kind: tuple_expression, has: {matches: error-cast}}
-    bound-code:
-        kind: navigation_expression
-        all:
-            - matches: member
-            - has: {field: target, kind: simple_identifier, pattern: $NAME}
-            - inside:
-                stopBy: end
-                kind: 'if_statement, guard_statement, while_statement'
-                all:
-                    - has: {kind: simple_identifier, pattern: $NAME}
-                    - has: {matches: error-cast}
     code-read:
-        any:
-            - matches: cast-code
-            - matches: bound-code
+        kind: navigation_expression
+        all:
+            - matches: member
+            - any:
+                - has: {field: target, kind: tuple_expression, has: {matches: error-cast}}
+                - all:
+                    - has: {field: target, kind: simple_identifier, pattern: $NAME}
+                    - inside: {stopBy: end, matches: cast-binding}
+                - all:
+                    - has: {field: target, kind: simple_identifier, pattern: $NAME}
+                    - inside: {stopBy: end, kind: statements, has: {matches: cast-binding}}
 rule:
     pattern: $MATCH
     any:
@@ -39,5 +49,8 @@ rule:
           all:
             - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^contains$'}}}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: code-read}}}}
+        - matches: code-read
+          inside: {kind: 'if_statement, guard_statement, while_statement'}
+          follows: {regex: '^=$'}
 message: '`$MATCH` classifies an error by casting it and comparing its code'
-note: 'Match each code as a pattern on the error (`case CocoaError.fileNoSuchFile` in a `switch`, `if case URLError.timedOut = error`), one `switch` covers codes of different error types (`case .noSuchFileOrDirectory as Errno`)'
+note: 'Match each code as a pattern on the error (`case CocoaError.fileNoSuchFile` in a `switch` or `catch`, `if case URLError.timedOut = error`), one `switch` covers codes of different error types (`case .noSuchFileOrDirectory as Errno`)'

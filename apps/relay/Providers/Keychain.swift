@@ -73,7 +73,7 @@ nonisolated enum Keychain {
     }
 
     private static func exitStatus(of status: OSStatus) -> Int32 {
-        Int32(UInt32(bitPattern: status) & 0xFF)
+        Int32(UInt32(bitPattern: status) & 0x00FF_FFFF)
     }
 
     private static func decode(_ printed: String) -> Data {

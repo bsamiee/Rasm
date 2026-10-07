@@ -22,7 +22,7 @@ utils:
         kind: invocation_expression
         all:
             - pattern: $CHECK($PATH)
-            - has: {field: function, regex: '^((global::)?System\.IO\.)?Path\s*\.\s*IsPathFullyQualified$'}
+            - has: {field: function, regex: '^((global::)?System\.IO\.)?Path\s*\.\s*(IsPathFullyQualified|IsPathRooted)$'}
     affirmed:
         any:
             - matches: check

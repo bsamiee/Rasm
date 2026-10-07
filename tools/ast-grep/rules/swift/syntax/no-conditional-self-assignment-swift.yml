@@ -8,9 +8,30 @@ utils:
             - pattern: $T
             - {kind: tuple_expression, not: {has: {nthChild: 2}}, has: {matches: self-value}}
     kept: {kind: statements, all: [{has: {matches: self-value}}, {not: {has: {nthChild: 2}}}]}
+    single-block:
+        kind: statements
+        not: {has: {nthChild: 2}}
+    kept-block:
+        matches: single-block
+        has: {nthChild: 1, matches: self-value}
+    kept-on-false:
+        pattern: '$L = if $C { $V } else { $_KEPT }'
+        has:
+            field: result
+            all:
+                - has: {nthChild: {position: 1, ofRule: {kind: statements}}, matches: single-block}
+                - has: {nthChild: {position: 2, ofRule: {kind: statements}}, matches: kept-block}
+    kept-on-true:
+        pattern: '$L = if $C { $_KEPT } else { $V }'
+        has:
+            field: result
+            all:
+                - has: {nthChild: {position: 1, ofRule: {kind: statements}}, matches: kept-block}
+                - has: {nthChild: {position: 2, ofRule: {kind: statements}}, matches: single-block}
 rule:
     pattern: $_TARGET = $_VALUE
     all:
+        - pattern: $ASSIGNMENT
         - has: {field: target, has: {pattern: $T}}
         - has:
             field: result
@@ -20,5 +41,21 @@ rule:
                 - {kind: nil_coalescing_expression, any: [{has: {field: value, matches: self-value}}, {has: {field: if_nil, matches: self-value}}]}
                 - {kind: if_statement, has: {matches: kept, stopBy: {not: {kind: if_statement}}}}
                 - {kind: switch_statement, has: {kind: switch_entry, has: {matches: kept}}}
+rewriters:
+    - id: changed-on-true
+      rule: {any: [{pattern: '$L = $C ? $V : $L'}, {pattern: '$L = ($C ? $V : $L)'}, {matches: kept-on-false}]}
+      fix: 'if $C { $L = $V }'
+    - id: changed-on-false
+      rule: {any: [{pattern: '$L = $C ? $L : $V'}, {pattern: '$L = ($C ? $L : $V)'}, {matches: kept-on-true}]}
+      fix: 'if !($C) { $L = $V }'
+    - id: changed-on-nil
+      rule: {pattern: '$L = $L ?? $V'}
+      fix: 'if $L == nil { $L = $V }'
+    - id: changed-on-value
+      rule: {pattern: '$L = $V ?? $L', has: {field: result, has: {field: value, kind: simple_identifier}}}
+      fix: 'if let $V { $L = $V }'
+transform:
+    WRITE: {rewrite: {source: $ASSIGNMENT, rewriters: [changed-on-true, changed-on-false, changed-on-nil, changed-on-value]}}
+fix: $WRITE
 message: 'Assignment writes `$T` with its own value in one conditional arm'
 note: 'Write `<target>` under an `if`, `if case`, or `if let` on the arm that changes it'

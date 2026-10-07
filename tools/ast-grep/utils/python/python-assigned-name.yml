@@ -2,24 +2,90 @@
 id: python-assigned-name
 language: python
 arguments: [value]
+utils:
+    assignment:
+        any:
+            - kind: assignment
+              all: [{has: {field: left, kind: identifier, pattern: $NAME}}, {has: {field: right, matches: value}}]
+            - kind: named_expression
+              all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: value}}]
+            - kind: assignment
+              all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 1, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 1, matches: value}}}]
+            - kind: assignment
+              all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 2, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 2, matches: value}}}]
+            - kind: assignment
+              all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 3, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 3, matches: value}}}]
+            - kind: assignment
+              all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 4, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 4, matches: value}}}]
+    binding:
+        any:
+            - matches: {python-binding: {name: {pattern: $NAME}}}
+            - kind: aliased_import
+              has: {field: alias, pattern: $NAME}
+            - kind: dotted_name
+              pattern: $NAME
+              any:
+                - inside: {kind: import_statement}
+                - inside: {kind: import_from_statement}
+                  not: {inside: {kind: import_from_statement, field: module_name}}
+    conflicting-binding:
+        all:
+            - matches: binding
+            - not:
+                any:
+                    - matches: assignment
+                    - inside: {kind: assignment, stopBy: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}, matches: assignment}
+    lexical-scope:
+        kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+    nested-scope:
+        any: [{matches: lexical-scope}, {kind: class_definition}]
+    scope-binding:
+        has: {stopBy: {matches: nested-scope}, matches: binding}
+    assigned-scope:
+        all:
+            - has: {stopBy: {matches: nested-scope}, matches: assignment}
+            - not: {has: {stopBy: {matches: nested-scope}, matches: conflicting-binding}}
+    bound-scope:
+        any:
+            - matches: assigned-scope
+            - all: [{not: {matches: scope-binding}}, {matches: enclosing-lookup}]
+    first-iterable:
+        kind: for_in_clause
+        not: {follows: {kind: for_in_clause, stopBy: end}}
+    enclosing-lookup:
+        any:
+            - inside:
+                matches: first-iterable
+                field: right
+                stopBy: {matches: nested-scope}
+                inside: {all: [{matches: lexical-scope}, {matches: enclosing-lookup}]}
+            - not: {inside: {matches: first-iterable, field: right, stopBy: {matches: nested-scope}}}
+              inside:
+                matches: lexical-scope
+                stopBy: {matches: lexical-scope}
+                all: [{matches: bound-scope}]
+    lookup:
+        any:
+            - inside:
+                matches: first-iterable
+                field: right
+                stopBy: {matches: nested-scope}
+                inside: {all: [{matches: lexical-scope}, {matches: lookup}]}
+            - not: {inside: {matches: first-iterable, field: right, stopBy: {matches: nested-scope}}}
+              any:
+                - inside:
+                    matches: lexical-scope
+                    stopBy: {matches: nested-scope}
+                    all: [{matches: bound-scope}]
+                - inside:
+                    kind: class_definition
+                    stopBy: {matches: nested-scope}
+                    any:
+                        - matches: assigned-scope
+                        - not: {matches: scope-binding}
+                          matches: enclosing-lookup
+    candidate:
+        inside: {matches: nested-scope, stopBy: end, has: {stopBy: {matches: nested-scope}, matches: assignment}}
 rule:
     kind: identifier
-    pattern: $NAME
-    inside:
-        kind: module, function_definition
-        stopBy: end
-        has:
-            stopBy: {kind: "function_definition, class_definition, lambda"}
-            any:
-                - kind: assignment
-                  all: [{has: {field: left, kind: identifier, pattern: $NAME}}, {has: {field: right, matches: value}}]
-                - kind: named_expression
-                  all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: value}}]
-                - kind: assignment
-                  all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 1, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 1, matches: value}}}]
-                - kind: assignment
-                  all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 2, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 2, matches: value}}}]
-                - kind: assignment
-                  all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 3, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 3, matches: value}}}]
-                - kind: assignment
-                  all: [{has: {field: left, kind: 'pattern_list, tuple_pattern', has: {nthChild: 4, kind: identifier, pattern: $NAME}}}, {has: {field: right, kind: expression_list, has: {nthChild: 4, matches: value}}}]
+    all: [{pattern: $NAME}, {matches: candidate}, {matches: lookup}]

@@ -10,18 +10,131 @@ ignores:
     - tools/interface/blender/rows.py
     - tools/interface/*/script/**
     - tools/interface/blender/extension/**
+    - libs/python/rasm/**
+    - apps/*/blender/**
 utils:
-    event-method: {regex: "^(log|debug|info|warning|warn|error|critical|fatal|exception)$"}
+    event-method: {regex: '^(log|debug|info|warning|warn|error|critical|fatal|exception)$'}
+    logger-type:
+        any:
+            - matches: {python-member-use: {module: {regex: '^logging$'}, name: {regex: '^(Logger|RootLogger|LoggerAdapter)$'}}}
+            - kind: call
+              has: {field: function, matches: {python-member-use: {module: {regex: '^logging$'}, name: {regex: '^getLoggerClass$'}}}}
+            - kind: identifier
+              pattern: $CLASS
+              inside:
+                kind: module
+                stopBy: end
+                has: {stopBy: end, kind: class_definition, all: [{has: {field: name, pattern: $CLASS}}, {has: {field: superclasses, has: {matches: annotation}}}]}
+    annotation:
+        any:
+            - matches: logger-type
+            - kind: type, parenthesized_expression
+              has: {matches: annotation}
+            - kind: generic_type
+              has: {nthChild: 1, matches: logger-type}
+            - kind: subscript
+              has: {field: value, matches: logger-type}
+            - kind: binary_operator, union_type
+              all:
+                - has: {matches: annotation}
+                - not: {has: {kind: 'identifier, attribute, generic_type, subscript, binary_operator, union_type, type, parenthesized_expression', not: {matches: annotation}}}
+    produced:
+        any:
+            - kind: call
+              has:
+                field: function
+                any:
+                    - matches: {python-member-use: {module: {regex: '^logging$'}, name: {regex: '^getLogger$'}}}
+                    - matches: logger-type
+                    - kind: attribute
+                      all: [{has: {field: attribute, regex: '^getChild$'}}, {has: {field: object, matches: logger}}]
+                    - all:
+                        - any: [{kind: identifier, pattern: $FACTORY}, {kind: attribute, has: {field: attribute, pattern: $FACTORY}}]
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: function_definition, all: [{has: {field: name, pattern: $FACTORY}}, {has: {field: return_type, matches: annotation}}]}}
+            - matches: {python-member-use: {module: {regex: '^logging$'}, name: {regex: '^root$'}}}
+            - kind: parenthesized_expression
+              has: {matches: logger}
+    named:
+        kind: identifier
+        any:
+            - matches: {python-assigned-name: {value: {any: [{matches: produced}, {inside: {kind: assignment, has: {field: type, matches: annotation}}}]}}}
+            - matches: {python-typed-parameter: {type: {matches: annotation}}}
+    assigned:
+        kind: assignment
+        any:
+            - has: {field: right, any: [{matches: produced}, {matches: named}]}
+            - has: {field: type, matches: annotation}
+    receiver:
+        kind: identifier
+        pattern: $RECEIVER
+        inside:
+            kind: function_definition
+            stopBy: {kind: 'function_definition, class_definition, lambda'}
+            all:
+                - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $RECEIVER}}
+                - inside: {kind: class_definition, stopBy: {kind: 'function_definition, class_definition'}}
+                - not: {has: {field: body, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: {python-binding: {name: {pattern: $RECEIVER}}}}}}
+                - not: {inside: {kind: decorated_definition, has: {kind: decorator, has: {matches: {python-builtin-name: {name: {regex: '^staticmethod$'}}}}}}}
+    member:
+        kind: attribute
+        any:
+            - matches: {python-class-attribute: {value: {matches: produced}}}
+            - all:
+                - has: {field: object, matches: receiver}
+                - has: {field: attribute, pattern: $MEMBER}
+                - inside:
+                    kind: class_definition
+                    stopBy: {kind: class_definition}
+                    all:
+                        - not:
+                            has:
+                                field: body
+                                has:
+                                    stopBy: {kind: 'function_definition, class_definition, lambda'}
+                                    all:
+                                        - matches: {python-binding: {name: {pattern: $MEMBER}}}
+                                        - not: {matches: assigned}
+                                        - not: {kind: function_definition, has: {field: return_type, matches: annotation}}
+                        - not:
+                            has:
+                                stopBy: {kind: class_definition}
+                                kind: assignment, augmented_assignment
+                                all:
+                                    - has: {field: left, kind: attribute, has: {field: attribute, pattern: $MEMBER}}
+                                    - not: {matches: assigned}
+                    any:
+                        - has:
+                            field: body
+                            has:
+                                stopBy: {kind: 'function_definition, class_definition'}
+                                any:
+                                    - kind: assignment
+                                      all: [{has: {field: left, kind: identifier, pattern: $MEMBER}}, {matches: assigned}]
+                                    - kind: function_definition
+                                      all: [{has: {field: name, pattern: $MEMBER}}, {has: {field: return_type, matches: annotation}}]
+                        - has:
+                            stopBy: {kind: class_definition}
+                            kind: assignment
+                            all:
+                                - has: {field: left, kind: attribute, all: [{has: {field: object, matches: receiver}}, {has: {field: attribute, pattern: $MEMBER}}]}
+                                - matches: assigned
+    logger:
+        any: [{matches: produced}, {matches: named}, {matches: member}, {matches: logger-type}]
 rule:
     pattern: $USE
     any:
-        - kind: identifier, attribute
-          matches: {python-member-use: {module: {regex: "^logging$"}, name: {matches: event-method}}}
+        - all:
+            - any:
+                - kind: attribute
+                  has: {field: attribute, matches: event-method}
+                - kind: identifier
+                  inside: {kind: module, stopBy: end, regex: '\bfrom\s+logging\s+import\b'}
+            - matches: {python-member-use: {module: {regex: '^logging$'}, name: {matches: event-method}}}
           not: {inside: {kind: 'import_statement, import_from_statement', stopBy: end}}
         - kind: attribute
           all:
             - has: {field: attribute, matches: event-method}
-            - has: {field: object, matches: python-stdlib-logger}
-message: '`$USE` logs through the standard library logging API'
-note: 'Use `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)`, structlog renders every event with its bound context'
+            - has: {field: object, matches: logger}
+message: '`$USE` emits through standard library logging in place of a configured structlog logger'
+note: 'Emit structured events through `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)`, structlog renders every event with its bound context'
 labels: {USE: {style: primary, message: Event method}}

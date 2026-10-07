@@ -3,23 +3,45 @@ id: no-fourth-nesting-level-sql
 language: sql
 severity: error
 utils:
-    nested:
+    query:
         any:
             - kind: cte_definition
             - kind: select_clause
               inside: {kind: 'table_or_subquery, subquery_expression, exists_expression, in_subquery_expression'}
-    fourth-level:
-        matches: nested
+    fourth-query:
+        matches: query
         inside:
-            matches: nested
+            matches: query
             stopBy: end
             inside:
-                matches: nested
+                matches: query
                 stopBy: end
-                inside: {matches: nested, stopBy: end}
+                inside: {matches: query, stopBy: end}
+    choice:
+        any:
+            - kind: case_expression
+              not: {inside: {kind: case_expression, field: else, stopBy: {not: {kind: parenthesized_expression}}}}
+            - matches: sql-choice-call
+              not: {all: [{nthChild: 3}, {inside: {kind: normal_function_arguments, inside: {matches: sql-choice-call}}}]}
+    scope: {kind: 'select_statement, select_clause, cte_definition'}
+    boundary: {any: [{matches: choice}, {matches: scope}]}
 rule:
-    pattern: _QUERY
-    matches: fourth-level
-    not: {inside: {matches: fourth-level, stopBy: end}}
-message: '`$QUERY` sits at the fourth nesting level of its statement'
-note: Name each inner query as a common table expression of a top-level `with` clause, or replace a correlated subquery with a window function over the same rows
+    pattern: _SCOPE
+    any:
+        - matches: fourth-query
+          not: {inside: {matches: fourth-query, stopBy: end}}
+        - matches: choice
+          inside:
+            matches: choice
+            stopBy: {matches: boundary}
+            inside:
+                matches: choice
+                stopBy: {matches: boundary}
+                inside:
+                    matches: choice
+                    stopBy: {matches: boundary}
+                    not: {inside: {matches: choice, stopBy: {matches: scope}}}
+transform:
+    HEAD: {replace: {source: $SCOPE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` opens a fourth nesting level of its statement'
+note: Name each inner query as a common table expression of a top-level `with` clause, replace a correlated subquery with a window function over the same rows, and fold nested `case` levels into one `case` over combined conditions

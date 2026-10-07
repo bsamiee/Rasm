@@ -2,36 +2,51 @@
 id: no-expression-in-run-step
 language: yaml
 severity: error
-files: ['.github/**']
+files: ['.github/workflows/**', '**/action.{yml,yaml}']
 utils:
     key:
         kind: plain_scalar, single_quote_scalar, double_quote_scalar
         pattern: $KEY
-    script-step:
-        kind: block_mapping, flow_mapping
-        has:
-            kind: block_mapping_pair, flow_pair
-            all:
-                - has: {field: key, regex: '^(uses|"uses"|''uses'')$'}
-                - has: {field: value, regex: '^["'']?actions/github-script@'}
+    expression-source:
+        regex: '\$\{\{'
+        any:
+            - kind: flow_node
+            - kind: block_node
+              has: {kind: block_scalar}
+    input:
+        kind: block_mapping_pair, flow_pair
+        has: {field: key, regex: '^(with|"with"|''with'')$'}
 rule:
     kind: block_mapping_pair, flow_pair
     all:
         - has:
             field: value
-            regex: '\$\{\{'
             any:
+                - matches: expression-source
                 - kind: flow_node
-                - kind: block_node
-                  has: {kind: block_scalar}
+                  has: {kind: alias, has: {kind: alias_name, pattern: $ANCHOR}}
+                  inside:
+                    kind: document
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        matches: expression-source
+                        has: {kind: anchor, has: {kind: anchor_name, pattern: $ANCHOR}}
         - any:
-            - has: {field: key, regex: '^(run|"run"|''run'')$', has: {matches: key, stopBy: end}}
+            - all:
+                - has: {field: key, regex: '^(run|"run"|''run'')$', has: {matches: key, stopBy: end}}
+                - not: {inside: {matches: input, stopBy: end}}
             - all:
                 - has: {field: key, regex: '^(script|"script"|''script'')$', has: {matches: key, stopBy: end}}
                 - inside:
-                    kind: block_mapping_pair, flow_pair
+                    matches: input
                     stopBy: end
-                    has: {field: key, regex: '^(with|"with"|''with'')$'}
-                    inside: {matches: script-step}
-message: '`$KEY` holds a `${{ }}` expression GitHub substitutes as text before the interpreter parses it'
-note: 'Set `env: {<NAME>: ''${{ <context> }}''}` on the step and read `"$<NAME>"` in `run` or `process.env.<NAME>` in `script`, an environment variable never parses as source'
+                    inside:
+                        kind: block_mapping, flow_mapping
+                        has:
+                            kind: block_mapping_pair, flow_pair
+                            all:
+                                - has: {field: key, regex: '^(uses|"uses"|''uses'')$'}
+                                - has: {field: value, regex: '^["'']?actions/github-script@'}
+message: '`$KEY` source holds a `${{ }}` expression GitHub substitutes as text before parsing, a step `env` entry read as a variable removes it'
+note: 'Set `env: {<NAME>: ''${{ <expression> }}''}` on the step and read `"$<NAME>"` in a bash `run`, `$env:<NAME>` in a pwsh `run`, or `process.env.<NAME>` in `script`'

@@ -4,39 +4,59 @@ language: python
 severity: error
 utils:
     container-type:
-        regex: '^((typing|collections|collections\.abc)\.)?(list|set|dict|bytearray|deque|defaultdict|OrderedDict|Counter|MutableSequence|MutableSet|MutableMapping)\b'
-    parameter-slot:
+        regex: '^["'']?([\w.]+(\[.*?\])?\s*\|\s*)*((typing|collections(\.abc)?|array|numpy(\.typing)?|np|npt)\.)?(list|set|dict|bytearray|memoryview|array|deque|defaultdict|OrderedDict|Counter|ChainMap|UserDict|UserList|MutableSequence|MutableSet|MutableMapping|ndarray|NDArray)\b'
+    function-scope:
+        kind: function_definition
+        all:
+            - has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $P}}}, has: {field: type, matches: container-type}}}
+            - not: {has: {field: body, has: {stopBy: {kind: 'function_definition, lambda, class_definition'}, matches: {python-binding: {name: {pattern: $P}}}, not: {kind: augmented_assignment}}}}
+    container-parameter:
+        kind: identifier
+        pattern: $P
+        any:
+            - matches: {python-typed-parameter: {type: {matches: container-type}}}
+            - inside: {stopBy: {kind: 'function_definition, lambda'}, matches: function-scope}
+    slot:
         kind: subscript
-        has: {field: value, kind: identifier, pattern: $P}
+        has: {field: value, matches: written}
+    written:
+        any: [{matches: container-parameter}, {matches: slot}]
+    assigned:
+        any:
+            - matches: slot
+            - kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern, parenthesized_expression, expression_list'
+              has: {matches: assigned}
+    mutator:
+        any:
+            - matches: {python-member-use: {module: {regex: '^heapq$'}, name: {regex: '^(heappush|heappop|heapify|heapreplace|heappushpop)$'}}}
+            - matches: {python-member-use: {module: {regex: '^bisect$'}, name: {regex: '^insort(_left|_right)?$'}}}
+            - matches: {python-member-use: {module: {regex: '^random$'}, name: {regex: '^shuffle$'}}}
+            - matches: {python-member-use: {module: {regex: '^numpy$'}, name: {regex: '^(copyto|put|place|putmask|put_along_axis|fill_diagonal)$'}}}
 rule:
-    pattern: $CALL
+    pattern: $WRITE
     any:
         - kind: call
           has:
             field: function
             kind: attribute
             all:
-                - has: {field: object, kind: identifier, pattern: $P}
-                - has: {field: attribute, regex: '^(append|appendleft|extend|extendleft|insert|add|update|setdefault)$'}
+                - has: {field: object, matches: written}
+                - has: {field: attribute, regex: '^(append|appendleft|extend|extendleft|insert|add|update|setdefault|subtract|remove|discard|pop|popleft|popitem|clear|sort|reverse|rotate|move_to_end|difference_update|intersection_update|symmetric_difference_update|frombytes|fromlist|fromfile|fromunicode|fill|put|partition|resize)$'}
+        - kind: call
+          all:
+            - has: {field: function, matches: mutator}
+            - has: {field: arguments, has: {nthChild: 1, matches: written}}
+        - kind: call
+          all:
+            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(foreach_get|readinto1?|recv_into|recvfrom_into)$'}}
+            - has: {field: arguments, has: {matches: written}}
+        - kind: call
+          has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^out$'}}, {has: {field: value, matches: written}}]}}
         - kind: augmented_assignment
-          any:
-            - all:
-                - has: {field: left, kind: identifier, pattern: $P}
-                - has: {field: operator, regex: '^(\+|\|)=$'}
-            - has: {field: left, matches: parameter-slot}
+          has: {field: left, matches: written}
         - kind: assignment
-          has: {field: left, matches: parameter-slot}
-    inside:
-        kind: function_definition
-        stopBy: {kind: 'function_definition, lambda'}
-        all:
-            - has:
-                field: parameters
-                has:
-                    kind: 'typed_parameter, typed_default_parameter'
-                    all:
-                        - any: [{has: {kind: identifier, pattern: $P, nthChild: 1}}, {has: {field: name, pattern: $P}}]
-                        - has: {field: type, matches: container-type}
-            - not: {has: {field: body, has: {stopBy: {kind: 'function_definition, lambda, class_definition'}, kind: assignment, has: {field: left, kind: identifier, pattern: $P}}}}
-message: '`$CALL` hands values back through the container parameter `$P`'
-note: 'Use `return` or `yield` for the values and collect them in the caller, a domain function writes only its return value'
+          has: {field: left, matches: assigned}
+        - kind: delete_statement
+          has: {matches: assigned}
+message: '`$WRITE` writes into the container parameter `$P`'
+note: 'Use `return` for a new container or `yield` for its items, a domain function writes only its return value'

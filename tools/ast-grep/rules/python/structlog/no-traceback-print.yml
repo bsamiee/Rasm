@@ -11,44 +11,120 @@ ignores:
     - tools/interface/*/script/**
     - tools/interface/blender/extension/**
 utils:
-    exception-class: {matches: {python-member-use: {module: {regex: "^traceback$"}, name: {regex: "^TracebackException$"}}}}
-    formatted-traceback:
+    log-method: {regex: '^a?(log|debug|info|warning|warn|error|critical|fatal|exception|msg)$'}
+    printer:
+        any:
+            - matches: {python-member-use: {module: {regex: '^traceback$'}, name: {regex: '^print_'}}}
+            - matches: {python-member-use: {module: {regex: '^(sys|threading)$'}, name: {regex: '^__excepthook__$'}}}
+    exception-class: {matches: {python-member-use: {module: {regex: '^traceback$'}, name: {regex: '^TracebackException$'}}}}
+    stack-class: {matches: {python-member-use: {module: {regex: '^traceback$'}, name: {regex: '^StackSummary$'}}}}
+    exception-source:
         kind: call
-        has: {field: function, matches: {python-member-use: {module: {regex: "^traceback$"}, name: {regex: "^format_(exc|exception|stack|tb|list|exception_only)$"}}}}
-    output-sink:
+        has:
+            field: function
+            any:
+                - matches: exception-class
+                - kind: attribute
+                  all: [{has: {field: attribute, regex: '^from_exception$'}}, {has: {field: object, matches: exception-class}}]
+    exception:
+        any:
+            - matches: exception-source
+            - matches: {python-assigned-name: {value: {matches: exception-source}}}
+            - kind: attribute
+              all: [{has: {field: attribute, regex: '^__(cause|context)__$'}}, {has: {field: object, matches: exception}}]
+            - kind: subscript
+              has: {field: value, kind: attribute, all: [{has: {field: attribute, regex: '^exceptions$'}}, {has: {field: object, matches: exception}}]}
+            - kind: parenthesized_expression
+              has: {matches: exception}
+    stack-source:
+        any:
+            - kind: call
+              has:
+                field: function
+                any:
+                    - matches: {python-member-use: {module: {regex: '^traceback$'}, name: {regex: '^(StackSummary|extract_tb|extract_stack)$'}}}
+                    - kind: attribute
+                      all: [{has: {field: attribute, regex: '^(extract|from_list)$'}}, {has: {field: object, matches: stack-class}}]
+            - kind: attribute
+              all: [{has: {field: attribute, regex: '^stack$'}}, {has: {field: object, matches: exception}}]
+    stack:
+        any:
+            - matches: stack-source
+            - matches: {python-assigned-name: {value: {matches: stack-source}}}
+            - kind: parenthesized_expression
+              has: {matches: stack}
+    rendered:
+        kind: call
+        has:
+            field: function
+            any:
+                - matches: {python-member-use: {module: {regex: '^traceback$'}, name: {regex: '^format_'}}}
+                - kind: attribute
+                  any:
+                    - all: [{has: {field: attribute, regex: '^(format|format_exception_only)$'}}, {has: {field: object, matches: exception}}]
+                    - all: [{has: {field: attribute, regex: '^(format|format_frame_summary)$'}}, {has: {field: object, matches: stack}}]
+                    - has: {field: attribute, regex: '^format(Exception|Stack)$'}
+    converter:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^(str|repr|ascii|list|tuple)$'}}}
+            - kind: attribute
+              all: [{has: {field: attribute, regex: '^join$'}}, {has: {field: object, kind: string}}]
+    content:
+        any:
+            - kind: parenthesized_expression, keyword_argument, list_splat, dictionary_splat, list, tuple, set, dictionary, pair, string, concatenated_string, interpolation, attribute, subscript, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, for_in_clause
+            - kind: argument_list
+              not: {inside: {kind: call, field: arguments, has: {field: function, kind: attribute, not: {matches: converter}}}}
+            - kind: binary_operator
+              has: {field: operator, regex: '^(\+|\*|%)$'}
+            - kind: call
+              has: {field: function, any: [{kind: attribute}, {matches: converter}]}
+    rendered-content:
+        any:
+            - matches: rendered
+            - matches: content
+              has: {stopBy: {not: {matches: content}}, matches: rendered}
+    text:
+        any:
+            - matches: rendered
+            - kind: identifier
+              not: {any: [{inside: {kind: attribute, field: attribute}}, {inside: {kind: keyword_argument, field: name}}]}
+              any:
+                - matches: {python-assigned-name: {value: {matches: rendered-content}}}
+                - pattern: $NAME
+                  inside:
+                    stopBy: end
+                    any:
+                        - kind: for_statement
+                          all: [{has: {field: left, pattern: $NAME}}, {has: {field: right, matches: rendered-content}}]
+                        - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                          has: {kind: for_in_clause, all: [{has: {field: left, pattern: $NAME}}, {has: {field: right, matches: rendered-content}}]}
+    sink:
         kind: call
         has:
             field: function
             any:
                 - matches: {python-builtin-name: {name: {regex: '^print$'}}}
+                - matches: {python-member-use: {module: {regex: '^logging$'}, name: {matches: log-method}}}
                 - kind: attribute
-                  has: {field: attribute, regex: '^(write|writelines)$'}
-                - kind: attribute
-                  all:
-                    - has: {field: attribute, regex: "^(log|debug|info|warning|warn|error|critical|fatal|exception|msg)$"}
-                    - not: {has: {field: object, matches: python-stdlib-logger}}
+                  has: {field: attribute, any: [{regex: '^(print|write|writelines)$'}, {matches: log-method}]}
 rule:
     pattern: $USE
     any:
-        - matches: {python-member-use: {module: {regex: "^traceback$"}, name: {regex: "^print_(exc|exception|stack|last|tb|list)$"}}}
-        - kind: call
-          has:
-            field: function
-            kind: attribute
-            all:
-                - has: {field: attribute, regex: "^print$"}
-                - has:
-                    field: object
-                    kind: call
-                    has:
-                        field: function
-                        any:
-                            - matches: exception-class
-                            - kind: attribute
-                              all:
-                                - has: {field: attribute, regex: "^from_exception$"}
-                                - has: {field: object, matches: exception-class}
-        - matches: formatted-traceback
-          inside: {stopBy: end, kind: argument_list, inside: {matches: output-sink}}
-message: '`$USE` prints a traceback outside structlog'
-note: 'Use structlog''s `logger.exception(<event>)` inside the handler, `exc_info=<exception>` outside it, and `stack_info=True` for the current stack, structlog renders each traceback inside its event'
+        - kind: attribute
+          all:
+            - matches: printer
+            - not: {inside: {kind: 'import_statement, import_from_statement', stopBy: end}}
+        - kind: identifier
+          all:
+            - inside: {kind: module, stopBy: end, regex: '\bfrom\s+(traceback|sys|threading)\s+import\b'}
+            - matches: printer
+            - not: {inside: {kind: 'import_statement, import_from_statement', stopBy: end}}
+        - kind: attribute
+          all: [{has: {field: attribute, regex: '^print$'}}, {has: {field: object, matches: exception}}]
+        - kind: identifier, call
+          all:
+            - inside: {kind: module, stopBy: end, regex: '\b(format_|TracebackException|StackSummary|extract_(tb|stack)|format(Exception|Stack))'}
+            - inside: {stopBy: {not: {matches: content}}, kind: argument_list, inside: {matches: sink}}
+            - matches: text
+message: '`$USE` writes rendered exception or stack text, a logger event with `exc_info` or `stack_info` renders it'
+note: 'Use a configured logger with `exception(<event>)` in handlers, `exc_info=<exception>` for captured exceptions, or `stack_info=True` for current stacks. A captured `TracebackException` or `StackSummary` holds no exception, the logger takes the exception it came from'

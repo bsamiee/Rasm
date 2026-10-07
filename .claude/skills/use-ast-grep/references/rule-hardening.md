@@ -30,7 +30,7 @@ Rules widen to siblings that take the same correction for the same reason:
 1. State the correction as a category in one line, shape before, shape after, and reason, with no instance name
 2. Enumerate package siblings with the same contract
 3. Apply the correction to each sibling and compare its action and reason, keeping equivalent replacement spellings together
-4. Widen the registered rule and count with `--filter` under the root configuration that loads its utilities
+4. Widen the registered rule and read its `ruleId` count from the `rule-building` scans under the root configuration that loads its utilities
 5. Read the package source and the grammar for unresolved mechanisms
 6. Keep the widened rule when the count rose by the siblings alone, a match the correction breaks returns to the sameness judgment
 
@@ -42,7 +42,7 @@ Combine rules with the same correction and reason. Split rules when scope, sever
 1. Name the survivor `no-<pattern>` for the pattern the `message` states, an existing id stating it stays
 2. Move the shape distinct callers share into a global util, a fixed one-caller shape stays local
 3. Delete the superseded rule files and each old id in suppression comments and filters
-4. Compare the survivor's findings with the union of the originals by file and range, intended coverage stays
+4. Compare the survivor's after-scan rows with the originals' before-scan rows by file and range, intended coverage stays
 
 - Replacement spellings share one rule when they implement the same correction and reason, the selecting condition stays in that rule
 

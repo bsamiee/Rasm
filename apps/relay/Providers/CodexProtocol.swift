@@ -40,10 +40,18 @@ nonisolated enum CodexProtocol {
         let error: ErrorObject
     }
 
+    struct ResultField<Value: Decodable & Sendable>: Decodable, Sendable {
+        let result: Value
+    }
+
+    struct ParamsField<Value: Decodable & Sendable>: Decodable, Sendable {
+        let params: Value
+    }
+
     enum ServerMessage: Decodable, Sendable {
         case request(id: JSONValue)
-        case response(id: String, error: ErrorObject?, result: JSONValue?)
-        case notification(method: Method, params: JSONValue)
+        case response(id: String, error: ErrorObject?, holdsResult: Bool)
+        case notification(method: Method)
         case ignored
 
         enum CodingKeys: CodingKey {
@@ -65,10 +73,10 @@ nonisolated enum CodexProtocol {
                     try .response(
                         id: responseID,
                         error: container.contains(.error) ? container.decode(ErrorObject.self, forKey: .error) : nil,
-                        result: container.contains(.result) ? container.decode(JSONValue.self, forKey: .result) : nil,
+                        holdsResult: container.contains(.result),
                     )
                 } else if let method, container.contains(.params) {
-                    try .notification(method: method, params: container.decode(JSONValue.self, forKey: .params))
+                    .notification(method: method)
                 } else {
                     .ignored
                 }
@@ -195,8 +203,11 @@ nonisolated enum CodexProtocol {
         let rateLimitsByLimitId: [String: RateLimitSnapshot]?
 
         var codexLimits: RateLimitSnapshot? {
-            if let byID: [String: RateLimitSnapshot] = rateLimitsByLimitId { return byID[RateLimitSnapshot.codexLimitID] }
-            return rateLimits.isCodex ? rateLimits : nil
+            switch (rateLimitsByLimitId, rateLimits.isCodex) {
+                case (.some(let byID), _): byID[RateLimitSnapshot.codexLimitID]
+                case (.none, true): rateLimits
+                case (.none, false): nil
+            }
         }
     }
 
@@ -226,9 +237,13 @@ nonisolated enum CodexProtocol {
         let thread: ThreadReference
     }
 
+    enum TurnErrorInfo: String, Decodable, Sendable {
+        case unauthorized
+    }
+
     struct TurnError: Decodable, Sendable {
         let message: String
-        let codexErrorInfo: JSONValue?
+        let codexErrorInfo: Lenient<TurnErrorInfo>
     }
 
     enum TurnStatus: String, Decodable, Sendable {
@@ -417,18 +432,18 @@ nonisolated enum CodexProtocol {
                 switch (completed.turn.status.value, completed.turn.error) {
                     case (.completed, _): .success(())
                     case (.interrupted, _): .failure(.cancelled)
-                    case (.failed, .some(let error)) where error.codexErrorInfo == .string("unauthorized"):
+                    case (.failed, .some(let error)) where error.codexErrorInfo.value == .unauthorized:
                         .failure(.turnUnauthorized(message: error.message))
                     case (.failed, .some(let error)): .failure(.turnFailed(message: error.message))
                     case (.failed, .none): .failure(.invalidResponse(field: "turn error"))
                     case (.none, _): .failure(.invalidResponse(field: "turn completion"))
                 }
             }
-            let detached: Result<JSONValue, CodexFailure> = await connection.request(
+            let detached: Result<Void, CodexFailure> = await connection.request(
                 .threadUnsubscribe,
                 params: ThreadParams(threadId: started.thread.id),
             )
-            return outcome.flatMap { _ in detached.map { _ in () } }
+            return outcome.flatMap { _ in detached }
         }
     }
 

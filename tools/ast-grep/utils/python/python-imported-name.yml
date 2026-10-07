@@ -8,15 +8,14 @@ utils:
         all:
             - has: {field: module_name, matches: module}
             - any:
-                - has: {kind: dotted_name, not: {nthChild: 1}, all: [{matches: name}, {pattern: $BOUND}]}
-                - has: {kind: aliased_import, all: [{has: {field: name, matches: name}}, {has: {field: alias, pattern: $BOUND}}]}
+                - has: {kind: dotted_name, not: {nthChild: 1}, all: [{pattern: $BOUND}, {matches: name}]}
+                - has: {kind: aliased_import, all: [{has: {field: alias, pattern: $BOUND}}, {has: {field: name, matches: name}}]}
     wildcard-import:
         kind: import_from_statement
         all:
             - has: {field: module_name, matches: module}
             - has: {kind: wildcard_import}
 rule:
-    not: {matches: python-shadowed-name}
     kind: identifier
     pattern: $BOUND
     all:
@@ -25,18 +24,19 @@ rule:
                 - inside: {kind: 'import_statement, import_from_statement', stopBy: end}
                 - inside: {kind: attribute, field: attribute}
                 - inside: {kind: keyword_argument, field: name}
-        - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {matches: name}}}}
         - any:
             - inside:
                 kind: module, function_definition
                 stopBy: end
-                has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: binding-import}
+                has: {stopBy: {not: {kind: "module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition"}}, matches: binding-import}
             - inside:
                 kind: class_definition
                 stopBy: {kind: "function_definition, lambda"}
-                has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: binding-import}
+                has: {stopBy: {not: {kind: "module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition"}}, matches: binding-import}
             - matches: name
               inside:
                 kind: module
                 stopBy: end
-                has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: wildcard-import}
+                has: {stopBy: {not: {kind: "module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition"}}, matches: wildcard-import}
+        - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {matches: name}}}}
+        - not: {matches: python-shadowed-name}

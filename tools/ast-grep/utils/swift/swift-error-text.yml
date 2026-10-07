@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-error-text
+language: swift
+rule:
+    any:
+        - kind: navigation_expression
+          has: {field: suffix, has: {field: suffix, regex: '^(localizedDescription|localizedFailureReason|localizedRecoverySuggestion|errorDescription|failureReason|recoverySuggestion|helpAnchor)$'}}
+        - kind: call_expression
+          all:
+            - has: {nthChild: 1, regex: '^String$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^(describing|reflecting)$'}}, {has: {field: value, kind: simple_identifier, regex: '^(error|failure)$|Error$'}}]}}}
+        - kind: call_expression
+          has:
+            kind: call_suffix
+            has:
+                kind: value_arguments
+                regex: '^\['
+                has: {kind: value_argument, has: {field: value, regex: '^NS(Localized(Description|FailureReason(Error)?|RecoverySuggestion(Error)?)|DebugDescriptionError)Key$'}}

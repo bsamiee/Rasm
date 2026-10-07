@@ -6,15 +6,11 @@ utils:
     option-module:
         kind: identifier
         pattern: $M
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Option)?$'}, exported: {regex: '^Option$'}}}
+        matches: {effect-module: {name: {regex: '\bOption$'}}}
     result-module:
         kind: identifier
         pattern: $M
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Result)?$'}, exported: {regex: '^Result$'}}}
-    effect-module:
-        kind: identifier
-        pattern: $M
-        matches: effect-effect-module
+        matches: {effect-module: {name: {regex: '\bResult$'}}}
     one-argument:
         has: {field: arguments, all: [{has: {nthChild: 1, pattern: $V}}, {not: {has: {nthChild: 2}}}]}
     option-lifted:
@@ -48,7 +44,7 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^(fail|failSync)$'}
-                - has: {field: object, matches: effect-module}
+                - has: {field: object, kind: identifier, pattern: $M, matches: effect-effect-module}
     terminal-member:
         kind: member_expression
         all:
@@ -129,7 +125,7 @@ rule:
                     - has: {field: consequence, matches: failing-arm}
                     - not: {has: {field: alternative, matches: terminal-arm}}
 constraints:
-    PIPE: {matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}}
+    PIPE: {matches: effect-pipe-function}
 rewriters:
     - id: direct
       rule: {pattern: '$M.$FILTER($M.$LIFT($VALUE), $$$ARGS)'}
@@ -150,8 +146,25 @@ rewriters:
       rule:
         pattern: '$M.$LIFT($VALUE).pipe($M.$FILTER($$$ARGS), $$$REST)'
       fix: $M.liftPredicate($VALUE, $$$ARGS).pipe($$$REST)
+    - id: option-test
+      rule:
+        kind: ternary_expression
+        has: {field: condition, has: {stopBy: end, kind: arguments, has: {nthChild: 1, kind: 'identifier, member_expression, this'}}}
+        any:
+            - all: [{has: {field: condition, pattern: $P($V)}}, {has: {field: consequence, matches: option-lifted}}, {has: {field: alternative, matches: option-empty}}]
+            - all: [{has: {field: condition, pattern: '!$P($V)'}}, {has: {field: alternative, matches: option-lifted}}, {has: {field: consequence, matches: option-empty}}]
+      fix: $M.liftPredicate($V, $P)
+    - id: result-test
+      rule:
+        kind: ternary_expression
+        has: {field: condition, has: {stopBy: end, kind: arguments, has: {nthChild: 1, kind: 'identifier, member_expression, this'}}}
+        any:
+            - all: [{has: {field: condition, pattern: $P($V)}}, {has: {field: consequence, matches: result-lifted}}, {has: {field: alternative, pattern: $_.fail($E)}}]
+            - all: [{has: {field: condition, pattern: '!$P($V)'}}, {has: {field: alternative, matches: result-lifted}}, {has: {field: consequence, pattern: $_.fail($E)}}]
+      fix: $M.liftPredicate($V, $P, () => $E)
 transform:
     LIFTED: rewrite($CALL, rewriters=[direct, pipe, pipe-function-steps, pipe-method-steps])
-fix: $LIFTED$KEPT$TERNARY
+    TESTED: rewrite($KEPT, rewriters=[option-test, result-test])
+fix: $LIFTED$TESTED$TERNARY
 message: '`$V` enters `$M` through a predicate branch written by hand'
 note: '`Option.liftPredicate(value, predicate)` or `Result.liftPredicate(value, predicate, orFailWith)` lifts a plain value, and `Effect.filterOrFail(effect, predicate, orFailWith)` filters the value an effect yields'

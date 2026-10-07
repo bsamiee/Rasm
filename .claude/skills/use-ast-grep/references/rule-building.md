@@ -25,9 +25,27 @@ Categories a package member decides need package source beside code, searches fi
 ## [03]-[FIX]
 
 Rewrites edit only selections where the fix keeps behavior, other forms violating the rule stay findings, an invalid rule is deleted unweakened:
-- Count matches before and after under the same rule and paths over the whole affected scope
+- `ast-grep scan --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > <state>.jsonl` records the before or after state
+- `<ids>` joins with `|` the id of each rule the round edits, places, or collapses and of each caller of a util it edits
+- `jq -r '[.ruleId, .file, (.range.start.line + 1 | tostring)] | join(":")' <state>.jsonl | sort > <state>.keys` writes each state's keys
+- Rows grouped by `ruleId` count each rule, `comm -3` over both `<state>.keys` files lists gained and lost rows
 - Counts locate unnecessary structure and justify no deletion of a domain invariant or hiding of complexity in another file
 - Resolve warnings from scoped checkers before deriving a rule
+
+`<globs>` is the row of the round's language, injection hosts included:
+
+| [INDEX] | [LANGUAGE]   | [GLOBS]                                                  |
+| :-----: | :----------- | :------------------------------------------------------- |
+|  [01]   | `bash`       | `{*.sh,*.yml,*.yaml}`                                    |
+|  [02]   | `csharp`     | `*.cs`                                                   |
+|  [03]   | `java`       | `*.java`                                                 |
+|  [04]   | `javascript` | `*.{js,jsx,mjs,cjs}`                                     |
+|  [05]   | `python`     | `*.py`                                                   |
+|  [06]   | `sql`        | `{*.sql,*.ts,*.tsx}`                                     |
+|  [07]   | `swift`      | `*.swift`                                                |
+|  [08]   | `tsx`        | `*.{ts,tsx}`                                             |
+|  [09]   | `xml`        | `{*.xml,*.csproj,*.props,*.targets,*.slnx,NuGet.config}` |
+|  [10]   | `yaml`       | `*.{yml,yaml}`                                           |
 
 ## [04]-[BAR]
 
@@ -42,6 +60,7 @@ Corrections earn a rule by one criterion and are refused by one, each a verdict 
 |  [05]   | `repository-fact` |    0    | Repository fact, the project file or owner file states it once            |
 |  [06]   | `misparse`        |    0    | Form tree-sitter parses wrong, matched by the enclosing statement pattern |
 |  [07]   | `option-grammar`  |    0    | One tool's option grammar                                                 |
+|  [08]   | `accepted-form`   |    0    | Accepted form, rewrite adds members, lines, or changes behavior           |
 
 - Patterns with one instance and no sibling are findings, width alone earns no rule
 - Rules duplicating a configured checker are refused, a project condition or a mechanical correction the checker lacks earns one

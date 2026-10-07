@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-detached-work
+language: swift
+severity: error
+utils:
+    continuation-body:
+        kind: lambda_literal
+        all:
+            - inside:
+                kind: call_suffix
+                inside: {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, regex: '^with(Checked|Unsafe)(Throwing)?Continuation$'}}
+            - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, has: {field: name, pattern: $K}}}}
+rule:
+    kind: call_expression
+    all:
+        - has: {nthChild: 1, pattern: $WORK}
+        - any:
+            - all:
+                - matches: swift-task-launch
+                - has: {nthChild: 1, regex: '\.(detached|immediateDetached)$'}
+            - has:
+                nthChild: 1
+                kind: prefix_expression
+                regex: '^\.(detached|immediateDetached)$'
+                inside:
+                    kind: call_expression
+                    inside:
+                        kind: 'property_declaration, function_declaration'
+                        stopBy: {kind: 'property_declaration, function_declaration, lambda_literal'}
+                        any:
+                            - has: {kind: type_annotation, regex: '^:\s*Task\b'}
+                            - has: {kind: user_type, regex: '^Task\b'}
+            - has:
+                nthChild: 1
+                kind: navigation_expression
+                regex: '^((Dispatch\.)?DispatchQueue\.global\([^)]*\)\.async|(Foundation\.)?Thread\.detachNewThread|(Foundation\.)?OperationQueue\(\)\.addOperation)$'
+            - all:
+                - has: {nthChild: 1, kind: simple_identifier, regex: '^(Thread|performSelector)$'}
+                - has:
+                    kind: call_suffix
+                    any:
+                        - has: {kind: lambda_literal}
+                        - has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^(block|inBackground)$'}}}
+            - all:
+                - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(async|sync|asyncAndWait|notify|addOperation|addBarrierBlock|perform|schedule)$'}}
+                - inside: {stopBy: end, matches: continuation-body}
+                - has: {stopBy: end, pattern: $K.resume($$$)}
+message: '`$WORK` runs work outside the calling task, where no parent''s cancellation, priority, or isolation reaches'
+note: 'Run work as a child task through `async let` or `group.addTask`, or as an `@concurrent` function or actor method its caller awaits'

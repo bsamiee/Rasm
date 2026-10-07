@@ -2,23 +2,28 @@
 id: no-malformed-divider-java
 language: java
 severity: error
-utils:
-    owner-level:
-        inside: {matches: java-member-list}
-    misparsed:
-        any:
-            - inside: {kind: program, stopBy: end, has: {kind: ERROR, stopBy: end}}
-            - inside: {kind: ERROR, stopBy: end}
 rule:
     matches: java-divider-comment
     pattern: $DIVIDER
-    any:
-        - not: {matches: java-labeled-divider}
-        - matches: java-labeled-divider
-          not: {any: [{matches: text-section-divider}, {matches: owner-level}, {matches: misparsed}]}
-        - matches: text-section-divider
-          not: {any: [{inside: {kind: program}}, {matches: owner-level}, {matches: misparsed}]}
-        - matches: java-section-divider
-          not: {regex: '^.{90}$'}
-message: Divider `$DIVIDER` departs from both divider forms
-note: Use `// --- [<SECTION>] ` with dashes to column 90 at file level, or `// --- [<FAMILY>]` inside an owner
+    all:
+        - not: {any: [{matches: java-empty-divider}, {matches: java-parse-error-file}]}
+        - any:
+            - inside: {kind: program}
+              pattern: $SECTION
+              not: {all: [{matches: java-section-divider}, {regex: '^.{90}$'}]}
+            - inside: {matches: java-member-list}
+              pattern: $FAMILY
+              not: {regex: '^// --- \[[A-Z0-9_]+\]$'}
+transform:
+    SECTION_LABEL: {replace: {source: $SECTION, replace: '^//\s*-*\s*\[\s*([^\]]*?)\s*\][\s\S]*$', by: '$1'}}
+    SECTION_SNAKE: {convert: {source: $SECTION_LABEL, toCase: snakeCase}}
+    SECTION_UPPER: {convert: {source: $SECTION_SNAKE, toCase: upperCase}}
+    SECTION_PADDED: {replace: {source: $SECTION_UPPER, replace: '^(.+)$', by: '// --- [$1] ----------------------------------------------------------------------------------'}}
+    SECTION_FORM: {substring: {source: $SECTION_PADDED, endChar: 90}}
+    FAMILY_LABEL: {replace: {source: $FAMILY, replace: '^//\s*-*\s*\[\s*([^\]]*?)\s*\][\s\S]*$', by: '$1'}}
+    FAMILY_SNAKE: {convert: {source: $FAMILY_LABEL, toCase: snakeCase}}
+    FAMILY_UPPER: {convert: {source: $FAMILY_SNAKE, toCase: upperCase}}
+    FAMILY_FORM: {replace: {source: $FAMILY_UPPER, replace: '^(.+)$', by: '// --- [$1]'}}
+message: Divider `$DIVIDER` departs from the form of its level
+note: Use `// --- [<SECTION>] ` dashed to column 90 at file level and `// --- [<FAMILY>]` inside an owner
+fix: $SECTION_FORM$FAMILY_FORM

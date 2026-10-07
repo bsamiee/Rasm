@@ -8,7 +8,7 @@ uv owns resolution, lock, and environment of the root project file.
 - `default-groups` names groups `uv sync` installs, `"all"` every group, `--only-group <group>` one group without the project
 - `prerelease = "allow"` accepts prereleases for every package
 - Packages with a Rust extension and no wheel for the interpreter build from their sdist with `rustc` from the `mise.toml` `rust` row
-- `dev` lists every package a file CI checks imports, CI syncs `dev` alone
+- `dev` lists every package a file CI checks imports outside `[project] dependencies`, CI syncs the root project and `dev`
 
 ## [02]-[LOCK]
 
@@ -23,18 +23,20 @@ uv owns resolution, lock, and environment of the root project file.
 ## [03]-[ENVIRONMENT]
 
 - `mise.toml` `[env]` `UV_PYTHON` names the interpreter by path, a path request selects it at any `python-preference`
-- Members without `[build-system]` lock as `virtual` and never install
+- Members without `[build-system]` lock as virtual packages uv never installs, `[tool.uv] package = true` installs one through setuptools
 - Targets run a member as `python -m <member>.<module>` from its parent folder or with the parent on `mise.toml` `[env]` `PYTHONPATH`
 - Shared test support holds no `pyproject.toml` and reaches tests through `[tool.pytest] pythonpath` and `conftest.py` alone
+- `uv sync` installs the root project editable, a `.pth` file puts its module root on each `.venv` process's `sys.path` in place of a `PYTHONPATH` row
 - Target commands find the synced `.venv` on `PATH` through mise `python.uv_venv_auto`, `uv run` syncs before every run
-- Modules named in `sys.stdlib_module_names` shadow the standard library for every process with their directory on `sys.path` or `mypy_path`
+- Modules named in `sys.stdlib_module_names` can shadow the standard library when their directory comes first on `sys.path` or `mypy_path`
 
 ## [04]-[CHECKERS]
 
 - `ruff check` and `ty check` take `--config '<key> = <value>'` to override one row, `mypy` an option flag or a temporary `--config-file`
 - `# ty: ignore[<code>]` above the first statement covers its whole file, as `# mypy: disable-error-code=<code>` and `# ruff: file-ignore[<code>]` do
 - `respect-type-ignore-comments = false` makes ty read `ty: ignore` comments alone, a line ignoring both checkers holds both comments
-- Packages with no stubs or `py.typed` take a mypy `ignore_missing_imports` override by module, ty reads their source
+- Packages with no stubs or `py.typed` take a mypy `ignore_missing_imports` override, and a ty `replace-imports-with-any` row for unresolved members
+- `disallow_any_unimported` and `disallow_subclassing_any` fail a module naming or subclassing an ignored module's type, its override sets both false
 - Header `disable-error-code` codes that suppress nothing stay silent in mypy
 - `mypy` skips dot-prefixed children in a directory walk, each hidden tree takes its own `files` row
 - Ruff `target-version` and ty `python-version` hold the raised group `requires-python`, each reads `[project] requires-python` when unset

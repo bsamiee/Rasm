@@ -29,6 +29,10 @@ utils:
 rule:
     pattern: $JOINED
     any:
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: array, has: {matches: path-source}}}, {has: {field: property, regex: '^join$'}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: string, regex: '^[''"]/[''"]$'}}, {not: {has: {nthChild: 2}}}]}
         - kind: template_string
           all:
             - not: {inside: {kind: call_expression, field: arguments}}

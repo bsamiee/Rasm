@@ -23,7 +23,7 @@ Claude Code and Codex load one plugin folder, each through its own manifest, mar
 - Repository skills both harnesses run link from `.codex/skills/<skill>` to `../../.claude/skills/<skill>`
 - `.claude/settings.json` enables a plugin as `"<name>@<marketplace>": true` under `enabledPlugins`
 - `.codex/config.toml` enables a plugin as `[plugins."<name>@<marketplace>"]`, a copy `codex plugin add` writes to `~/.codex/config.toml` goes
-- `.mcp.json` servers take `command` and no `type`, both harnesses start them as stdio in the session directory
+- `.mcp.json` and manifest `mcpServers` rows take `command` and no `type` for stdio in the session directory, `"type": "http"` and `url` for HTTP
 - Manifest, marketplace, and enable rows of both harnesses change with the plugin folder in one commit
 
 ## [03]-[CONVERTING]

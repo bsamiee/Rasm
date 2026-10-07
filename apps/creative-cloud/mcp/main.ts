@@ -1,6 +1,9 @@
-import { NodeRuntime, NodeServices } from '@effect/platform-node';
+import { createServer } from 'node:http';
+import { NodeHttpServer, NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Context, Crypto, Deferred, Effect, Layer, Logger, Option, type PlatformError, Schema, type Scope, Stream, Struct } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
+import { Command, Flag } from 'effect/cli';
+import { HttpRouter } from 'effect/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import packageJson from './package.json' with { type: 'json' };
 
@@ -14,7 +17,6 @@ const Application = Schema.Struct({
     url: Schema.String,
     version: Schema.optionalKey(Schema.String),
 });
-
 const Request = Schema.Struct({
     application: Schema.URL.annotateKey({ description: 'File URL of a running application from the applications tool' }),
     arguments: Schema.JsonObject.annotate({
@@ -28,6 +30,7 @@ const Request = Schema.Struct({
 });
 
 const Execution = Schema.fromJsonString(Schema.toCodecJson(Schema.Union([Schema.Struct({ state: Schema.Literal('pending') }), Schema.Struct({ result: McpSchema.CallToolResult, state: Schema.Literal('finished') })])));
+const Port = Schema.Number.check(Schema.isBetween({ minimum: 1, maximum: 65_535 }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -44,7 +47,6 @@ const invoke = Effect.fn('invoke')(
     Effect.scoped,
     Effect.catchTag(['PlatformError', 'SchemaError'], (cause) => Effect.fail<typeof Failures.Type>([{ processError: Schema.encodeSync(Schema.toCodecJson(Schema.Defect()))(cause) }])),
 );
-
 const perform = Effect.fn('perform')(
     function* (request: typeof Request.Type, execution: McpSchema.ResourceLink) {
         const reply = yield* invoke({ execute: { application: request.application.href, arguments: request.arguments, command: request.command } }, Schema.Json);
@@ -73,7 +75,7 @@ const perform = Effect.fn('perform')(
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-Layer.effectDiscard(
+const endpoint = Layer.effectDiscard(
     Effect.gen(function* () {
         const scope = yield* Effect.scope;
         const server = yield* McpServer.McpServer;
@@ -139,4 +141,8 @@ Layer.effectDiscard(
             }, Effect.provideContext(services)),
         });
     }),
-).pipe(Layer.provide(McpServer.layerStdio({ name: packageJson.name, protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25], version: packageJson.version })), Layer.provide(NodeServices.layer), Layer.launch, Effect.provideService(Logger.LogToStderr, true), NodeRuntime.runMain);
+).pipe(Layer.provide(McpServer.layerHttp({ name: packageJson.name, path: '/', protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_06_18], version: packageJson.version })));
+
+Command.make(packageJson.name, { port: Flag.Int('port').pipe(Flag.withSchema(Port), Flag.withDescription('Loopback port the Streamable HTTP endpoint listens on')) }, ({ port }) =>
+    HttpRouter.serve(endpoint, { disableLogger: true }).pipe(Layer.provide(NodeHttpServer.layerServer(createServer, { host: '127.0.0.1', port })), Layer.launch),
+).pipe(Command.run({ version: packageJson.version }), Effect.provide(NodeServices.layer), Effect.provideService(Logger.LogToStderr, true), NodeRuntime.runMain);

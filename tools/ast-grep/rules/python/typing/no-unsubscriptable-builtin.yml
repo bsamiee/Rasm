@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-unsubscriptable-builtin
-language: python
-severity: error
-rule:
-    pattern: $G
-    matches: {python-subscripted-builtin: {name: {regex: '^(map|filter|zip|reversed)$'}}}
-message: '`$G` defines no `__class_getitem__` and its subscript raises `TypeError` at evaluation'
-note: 'Use the `collections.abc` protocol the value satisfies (`Iterator`, `Iterable`), each protocol subscripts at run time'

@@ -4,45 +4,49 @@ language: swift
 severity: error
 utils:
     timeline:
-        any:
-            - pattern: 'TimelineView($$$_) { $$$_ }'
-            - pattern: TimelineView($$$_)
+        kind: call_expression
+        has: {nthChild: 1, kind: simple_identifier, regex: '^TimelineView$'}
     clock:
         any:
             - matches: timeline
-            - pattern: Timer.publish($$$_)
-            - pattern: 'Text($_, style: $_)'
-              regex: 'style:\s*\.(relative|offset|timer)\s*\)$'
-            - kind: call_expression
-              has: {nthChild: 1, kind: simple_identifier, regex: '^(Text|ProgressView)$'}
-              regex: '^(Text|ProgressView)\(timerInterval:'
-            - kind: call_expression
-              has: {nthChild: 1, kind: simple_identifier, regex: '^Text$'}
-              regex: '^Text\(\.(currentDate|durationOffset|dateRange)\b'
+            - kind: 'value_argument, interpolated_expression'
+              all:
+                - any:
+                    - kind: interpolated_expression
+                    - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI\.)?(Text|ProgressView)$'}}}}
+                - any:
+                    - has: {field: name, regex: '^timerInterval$'}
+                    - all:
+                        - has: {field: name, regex: '^style$'}
+                        - has: {field: value, regex: '^((SwiftUI\.)?Text\.DateStyle)?\.(relative|offset|timer)$'}
+                    - all:
+                        - has: {field: name, regex: '^format$'}
+                        - has: {field: value, regex: '^((SwiftUI\.)?SystemFormatStyle(\.\w+)?)?\.(offset|reference|timer|stopwatch)\('}
+            - kind: 'prefix_expression, navigation_expression'
+              regex: '^((SwiftUI\.)?TimeDataSource(<[^>]*>)?)?\.(currentDate|durationOffset|dateRange)$'
 rule:
-    matches: swift-view-builder
     all:
-        - has:
-            stopBy: {kind: 'function_declaration, property_declaration'}
-            matches: timeline
-            pattern: $FIRST
-        - has:
-            stopBy: {kind: 'function_declaration, property_declaration'}
-            matches: clock
-            pattern: $SECOND
-            not:
-                any:
-                    - pattern: $FIRST
-                    - inside:
-                        stopBy: end
-                        kind: switch_entry
-                        not: {has: {stopBy: end, pattern: $FIRST}}
-                        inside: {kind: switch_statement, has: {kind: switch_entry, has: {stopBy: end, pattern: $FIRST}}}
-                    - inside:
-                        stopBy: end
-                        kind: statements
-                        not: {has: {stopBy: end, pattern: $FIRST}}
-                        inside: {kind: if_statement, stopBy: {not: {kind: if_statement}}, has: {stopBy: end, pattern: $FIRST}}
+        - matches: clock
+          pattern: $SECOND
+        - inside:
+            stopBy: {kind: class_declaration}
+            kind: class_declaration
+            all:
+                - has: {kind: class_body, has: {matches: swift-view-builder}}
+                - has: {stopBy: {kind: class_declaration}, matches: timeline, pattern: $FIRST}
+        - not:
+            any:
+                - pattern: $FIRST
+                - inside:
+                    stopBy: end
+                    kind: switch_entry
+                    not: {has: {stopBy: end, pattern: $FIRST}}
+                    inside: {kind: switch_statement, has: {kind: switch_entry, has: {stopBy: end, pattern: $FIRST}}}
+                - inside:
+                    stopBy: end
+                    kind: statements
+                    not: {has: {stopBy: end, pattern: $FIRST}}
+                    inside: {kind: if_statement, stopBy: {not: {kind: if_statement}}, has: {stopBy: end, pattern: $FIRST}}
 message: '`$SECOND` runs a second clock beside `TimelineView` in one view'
 note: 'Pass `context.date` of the one `TimelineView` down to every text and subview it renders, clocks in `if` or `switch` arms that never render together stay apart'
 labels:

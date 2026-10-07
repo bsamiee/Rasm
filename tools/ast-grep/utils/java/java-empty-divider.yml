@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: java-empty-divider
+language: java
+rule:
+    matches: java-divider-comment
+    not: {matches: java-parse-error-file}
+    any:
+        - regex: '^//\s*-*\s*\[IMPORTS\]'
+        - inside: {kind: program}
+          not: {precedes: {stopBy: {matches: java-divider-comment}, pattern: $_, not: {kind: 'package_declaration, import_declaration, line_comment, block_comment'}}}
+        - inside: {matches: java-member-list}
+          not: {precedes: {stopBy: {matches: java-divider-comment}, pattern: $_, not: {kind: 'line_comment, block_comment'}}}
+        - not: {inside: {any: [{kind: program}, {matches: java-member-list}]}}

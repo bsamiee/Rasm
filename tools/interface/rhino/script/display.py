@@ -14,8 +14,8 @@ from System import Array
 from System.Drawing import Color
 from System.Reflection import BindingFlags
 
-from interface.report import Action, Row
-from interface.rhino.script.accessors import color, Internal, opened
+from interface.report import Row
+from interface.rhino.script.accessors import action, color, Internal, opened, preference
 from interface.roles import Axis, Guide, Ink, Line, POINT_WIDTH, Selection, Status, Surface
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -243,9 +243,9 @@ def rows() -> Iterator[Row]:
             written.add(mode)
             return write(value)
 
-        return Row(label=label, read=read, write=marked, target=target)
+        return preference(label=label, read=read, write=marked, target=target)
 
-    yield Action(label="DisplayModeDescription.GetDisplayModes", read=partial(modes, user=True), act=remove, target=())
+    yield action(label="DisplayModeDescription.GetDisplayModes", read=partial(modes, user=True), act=remove, target=())
     for mode in built_in:
         description = DisplayModeDescription.GetDisplayMode(mode)
         label = f'DisplayModeDescription["{description.EnglishName}"]'

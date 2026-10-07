@@ -76,8 +76,22 @@ rule:
             - has: {field: name, kind: identifier, pattern: $TARGET}
             - inside: {kind: export_clause, inside: {kind: export_statement, not: {has: {field: source, kind: string}}}}
             - inside: {kind: program, stopBy: end, has: {matches: exported-target}}
+        - kind: import_specifier
+          all:
+            - has: {field: name, kind: identifier, pattern: $TARGET}
+            - has: {field: alias, kind: identifier, pattern: $ALIAS}
+            - inside:
+                kind: program
+                stopBy: end
+                not:
+                    has:
+                        stopBy: end
+                        kind: identifier, type_identifier, shorthand_property_identifier, shorthand_property_identifier_pattern
+                        pattern: $TARGET
+                        not: {inside: {kind: import_specifier, has: {field: alias, pattern: $ALIAS}}}
 constraints:
     ALIAS: {not: {regex: '^default$'}}
+    TARGET: {not: {regex: '^default$'}}
 message: '`$ALIAS` is another name for `$TARGET`'
 note: 'Spell `<target>` at each use of `<alias>`, a second name for one declaration resolves no name collision'
 labels:

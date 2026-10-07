@@ -3,18 +3,15 @@ id: no-rendered-cause-swift
 language: swift
 severity: error
 utils:
-    text:
-        kind: navigation_expression
-        has: {field: suffix, has: {field: suffix, regex: '^(localizedDescription|errorDescription)$'}}
     rendering:
         any:
-            - matches: text
+            - matches: swift-error-text
             - kind: call_expression
               all:
                 - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^(map|flatMap|compactMap)$'}}}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: text}}}}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: swift-error-text}}}}
     enclosing-expression:
-        kind: 'ternary_expression, nil_coalescing_expression, tuple_expression, await_expression, try_expression'
+        kind: 'ternary_expression, nil_coalescing_expression, tuple_expression, await_expression, try_expression, as_expression'
     constructed:
         kind: call_expression
         has:

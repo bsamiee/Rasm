@@ -10,29 +10,75 @@ utils:
     data:
         any:
             - kind: string
-              pattern: $QUOTED
               has: {matches: expansion}
               not: {has: {any: [{kind: string_content}, {matches: every-element}]}}
             - matches: expansion
-              pattern: $UNQUOTED
+    echo-word: {kind: word, regex: '^echo$', nthChild: 2}
+    option:
+        kind: word
+        regex: '^-[neE]+$'
+        not: {follows: {stopBy: end, not: {any: [{kind: command_name}, {matches: echo-word}, {kind: word, regex: '^-[neE]+$'}]}}}
+    lead: {any: [{kind: command_name}, {matches: echo-word}, {matches: option}]}
 rule:
     kind: command
     all:
-        - has: {field: name, regex: '^echo$'}
-        - has: {pattern: $TEXT, matches: data, nthChild: {position: 1, reverse: true}}
-        - not: {has: {not: {any: [{kind: command_name}, {kind: word, regex: '^-[neE]+$'}, {pattern: $TEXT}]}}}
-        - not: {has: {kind: word, nthChild: {position: 2, ofRule: {kind: word}}}}
         - any:
-            - has: {kind: word, pattern: $ESCAPING, regex: '^-[neE]*en*$'}
-            - has: {field: name, pattern: $LITERAL}
+            - has: {field: name, regex: '^echo$'}
+            - all: [{has: {field: name, regex: '^(builtin|command)$'}}, {has: {matches: echo-word}}]
+        - has: {matches: data, pattern: $TEXT, not: {follows: {stopBy: end, not: {matches: lead}}}}
+        - not:
+            has:
+                not:
+                    any:
+                        - matches: lead
+                        - kind: raw_string, ansi_c_string, simple_expansion, expansion, command_substitution, arithmetic_expansion
+                        - kind: string
+                          not: {has: {matches: every-element}}
+                        - kind: word
+                          not: {regex: '[*?\[{~]'}
+                    not: {matches: every-element}
         - any:
-            - has: {kind: word, regex: 'n'}
-            - has: {field: name, pattern: $LINE}
+            - pattern: echo $$$ARGS
+            - pattern: builtin echo $$$ARGS
+            - pattern: command echo $$$ARGS
+rewriters:
+    - id: drop-option
+      rule: {matches: option}
+      fix: ''
+    - id: keep-option
+      rule: {matches: option, pattern: $WORD}
+      fix: $WORD
+    - id: drop-argument
+      rule: {pattern: $WORD}
+      fix: ''
+    - id: escape-directive
+      rule:
+        pattern: $WORD
+        inside:
+            kind: command
+            has:
+                matches: option
+                regex: 'e[n]*$'
+                not: {precedes: {stopBy: end, matches: option, regex: 'E[n]*$'}}
+      fix: '%b'
+    - id: text-directive
+      rule: {pattern: $WORD}
+      fix: '%s'
+    - id: quote-expansion
+      rule: {matches: expansion, pattern: $WORD}
+      fix: '"$WORD"'
+    - id: keep-argument
+      rule: {pattern: $WORD}
+      fix: $WORD
 transform:
-    ESCAPES: {replace: {source: $ESCAPING, replace: '^.+$', by: '%b'}}
-    TEXT_ONLY: {replace: {source: $LITERAL, replace: '^.+$', by: '%s'}}
-    NEWLINE: {replace: {source: $LINE, replace: '^.+$', by: '\n'}}
-    WRAPPED: {replace: {source: $UNQUOTED, replace: '^.+$', by: '"$0"'}}
-fix: printf '$ESCAPES$TEXT_ONLY$NEWLINE' $QUOTED$WRAPPED
+    DIRECTIVES: rewrite($$$ARGS, rewriters=[drop-option, escape-directive, text-directive], joinBy=' ')
+    FORMAT: {replace: {source: $DIRECTIVES, replace: '^ +', by: ''}}
+    WORDS: rewrite($$$ARGS, rewriters=[drop-option, quote-expansion, keep-argument], joinBy=' ')
+    ARGUMENTS: {replace: {source: $WORDS, replace: '^ +', by: ''}}
+    OPTIONS: rewrite($$$ARGS, rewriters=[keep-option, drop-argument], joinBy='')
+    NO_NEWLINE: {replace: {source: $OPTIONS, replace: '(?s)^.*n.*$', by: 'N'}}
+    LINE: {replace: {source: $NO_NEWLINE, replace: '^[-eE]*$', by: '\n'}}
+    NEWLINE: {replace: {source: $LINE, replace: '^N$', by: ''}}
+fix: printf '$FORMAT$NEWLINE' $ARGUMENTS
 message: '`echo` parses `$TEXT` as options when its value matches `-[neE]+`'
 note: Print with a literal format, `printf '%s\n' "$<value>"`

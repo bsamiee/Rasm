@@ -4,7 +4,6 @@
 """Blender's interface theme preset, the theme file's role placeholders rendered as bytes beside the members Blender's draw rules solve."""
 
 from collections.abc import Iterator
-from functools import partial
 from io import StringIO
 from itertools import chain
 from math import ceil, floor, sqrt, sumprod
@@ -19,7 +18,8 @@ import bpy
 from mathutils import Color
 
 from interface.blender.script.screens import device_pixels
-from interface.report import changes, converged, Row, subscript
+from interface.blender.script.settings import preset
+from interface.report import changes, Item
 from interface.roles import Accent, Alpha, Axis, blend, Line, POINT_WIDTH, substituted, Surface, Text, TEXT_POINTS
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -65,11 +65,10 @@ def solved(preferences: bpy.types.Preferences) -> SimpleNamespace:
     )
 
 
-def imported_theme(context: bpy.types.Context) -> Iterator[str]:
-    """Change line per attribute of Blender's theme and text style export whose held value differs from the factory value or the rendered preset's value over it, the preset imported over the factory theme when any line exists and the held state restored otherwise."""
-    menu = USERPREF_MT_interface_theme_presets
+def imported_theme(context: bpy.types.Context) -> Iterator[Item]:
+    """Row writing the rendered preset, then a change line per attribute of Blender's theme and text style export whose held value differs from the factory value or the preset's value over it, the preset imported over the factory theme when any line exists and the held state restored otherwise."""
+    menu, name = USERPREF_MT_interface_theme_presets, "Interface"
     owners = {tag: path for path, tag in menu.preset_xml_map}
-    preset = Path(bpy.utils.user_resource("SCRIPTS", path=f"presets/{menu.preset_subdir}", create=True), "Interface.xml")
 
     def spelled(value: object) -> str:
         """Placeholder value in the file's spelling, a role as `#rrggbb`, an alpha as its byte in two hex digits, and a solved size or factor as its text."""
@@ -100,25 +99,18 @@ def imported_theme(context: bpy.types.Context) -> Iterator[str]:
             rna2xml(fw=export.write, root_rna=context.path_resolve(path), method="ATTR")
         return f"<bpy>{export.getvalue()}</bpy>"
 
-    def stored_preset() -> str | None:
-        """Text of the preset file, None while none is written."""
-        try:
-            return preset.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            return None
-
     theme, text, held = context.preferences.themes[0], substituted(Path(__file__).with_name("theme.xml").read_text(encoding="utf-8"), spelled, solved=solved(context.preferences)), exported()
     source = theme.filepath
     bpy.ops.preferences.reset_default_theme()
     before, wanted = read(held), {**read(exported()), **read(text)}
-    lines = tuple(change for label, value in wanted.items() for change in changes(label, before[label], value))
-    yield from converged(Row(label=subscript("presets", f"{menu.preset_subdir}/{preset.name}"), read=stored_preset, write=partial(preset.write_text, encoding="utf-8"), target=text))
-    if lines:
-        bpy.ops.script.execute_preset(filepath=str(preset), menu_idname=menu.__name__)
+    entries = tuple(chain.from_iterable(changes(label, before[label], value) for label, value in wanted.items()))
+    yield preset(menu.preset_subdir, f"{name}.xml", text)
+    if entries:
+        bpy.ops.script.execute_preset(filepath=bpy.utils.preset_find(name, menu.preset_subdir, ext=".xml"), menu_idname=menu.__name__)
     else:
         xml_file_run(context, StringIO(held), menu.preset_xml_map, menu.preset_xml_secure_types)
         theme.filepath = source
-    yield from lines
+    yield from entries
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

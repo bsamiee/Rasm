@@ -4,13 +4,7 @@ language: csharp
 severity: error
 utils:
     type-name:
-        any:
-            - kind: identifier
-              pattern: $TYPE
-            - kind: generic_name
-              has: {kind: identifier, nthChild: 1, pattern: $TYPE}
-            - kind: qualified_name
-              has: {field: name, matches: type-name}
+        matches: {csharp-type-name: {name: {pattern: $TYPE}}}
     id-time-type:
         regex: '^((global::)?System\.)?(Guid|DateTime|DateTimeOffset)\??$'
     hard-literal:

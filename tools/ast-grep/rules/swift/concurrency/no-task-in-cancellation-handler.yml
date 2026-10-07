@@ -3,41 +3,28 @@ id: no-task-in-cancellation-handler
 language: swift
 severity: error
 utils:
-    unstructured-task:
-        pattern: $TASK
-        any:
-            - kind: call_expression
-              has:
-                nthChild: 1
-                any:
-                    - kind: simple_identifier
-                      regex: '^Task$'
-                    - kind: navigation_expression
-                      regex: '^(_Concurrency\.)?Task(<[^{]*>)?(\.(detached|immediate|immediateDetached))?$'
-            - kind: constructor_expression
-              has: {field: constructed_type, regex: '^(_Concurrency\.)?Task<'}
     handler-body:
-        has: {matches: unstructured-task, stopBy: end}
+        kind: lambda_literal
+        has: {stopBy: end, matches: swift-task-launch, pattern: $TASK}
 rule:
     any:
         - kind: call_expression
+          has:
+            kind: call_suffix
+            any:
+                - has: {kind: lambda_literal, matches: handler-body, follows: {regex: '^onCancel$', stopBy: end}}
+                - has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^onCancel$'}}, {has: {field: value, matches: handler-body}}]}}
+        - kind: call_expression
           all:
             - has: {nthChild: 1, kind: simple_identifier, regex: '^withTaskCancellationHandler$'}
-            - has:
-                kind: call_suffix
-                has:
-                    kind: lambda_literal
-                    stopBy: end
-                    all:
-                        - follows: {regex: '^(onCancel|handler)$', stopBy: end}
-                        - matches: handler-body
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^handler$'}}, {has: {field: value, matches: handler-body}}]}}}
         - kind: assignment
           all:
             - has: {field: target, regex: '\.onTermination$'}
-            - has: {field: result, kind: lambda_literal, matches: handler-body}
+            - has: {field: result, matches: handler-body}
         - kind: call_expression
           all:
             - has: {nthChild: 1, kind: navigation_expression, regex: '\.setCancelHandler$'}
-            - has: {kind: call_suffix, has: {kind: lambda_literal, stopBy: end, matches: handler-body}}
+            - has: {kind: call_suffix, has: {stopBy: end, matches: handler-body}}
 message: '`$TASK` from a synchronous cancellation handler runs with no happens-before relation to the awaiting frame'
 note: 'Cancel synchronously inside the handler, resume or finish a continuation, or await cleanup as a child task of an enclosing group'

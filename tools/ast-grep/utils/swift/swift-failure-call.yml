@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-failure-call
+language: swift
+rule:
+    kind: call_expression
+    has:
+        nthChild: 1
+        any:
+            - {kind: prefix_expression, regex: '^\.failure$'}
+            - {kind: navigation_expression, regex: '^(Swift\.)?Result(<[\s\S]*>)?\.failure$'}

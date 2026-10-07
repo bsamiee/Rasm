@@ -5,9 +5,9 @@ severity: error
 rule:
     kind: comment
     pattern: $DOC
-    regex: '^/\*\*\s*(\*\s*)?(The|A|An)\s+\S'
+    regex: '^/\*\*\s*(\*\s*)*([Tt]he|[Aa]n?)\s+\S'
     not: {inside: {kind: ambient_declaration, stopBy: end}}
 transform:
-    ARTICLE: {replace: {source: $DOC, replace: '^/\*\*\s*(?:\*\s*)?(The|A|An)\s[\s\S]*$', by: '$1'}}
+    ARTICLE: {replace: {source: $DOC, replace: '^/\*\*\s*(?:\*\s*)*([Tt]he|[Aa]n?)\s[\s\S]*$', by: '$1'}}
 message: 'Doc comment summary opens with the article `$ARTICLE`'
 note: 'Open the summary with the member''s verb or returned noun, an article states no fact'

@@ -163,6 +163,12 @@ rule:
             - has: {field: left, pattern: $ITEM}
             - has: {field: right, pattern: $SEQ, not: {matches: option-value}}
             - has: {field: body, matches: dispose-body}
+        - kind: for_statement
+          has:
+            field: body
+            all:
+                - matches: dispose-body
+                - has: {stopBy: end, kind: element_access_expression, pattern: $ITEM, has: {field: expression, pattern: $SEQ}}
         - kind: invocation_expression
           all:
             - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}

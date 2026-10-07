@@ -24,19 +24,30 @@ utils:
         all:
             - has: {field: name, pattern: $HELPER}
             - inside:
-                kind: declaration_list
-                inside:
-                    matches: mapper-class
-                    has:
-                        stopBy: end
-                        kind: attribute_argument
-                        all:
-                            - has: {field: name, regex: '^Use$'}
-                            - has:
-                                any:
-                                    - pattern: nameof($HELPER)
-                                    - kind: string_literal
-                                      has: {kind: string_literal_content, pattern: $HELPER}
+                kind: compilation_unit
+                stopBy: end
+                has:
+                    stopBy: {kind: 'block, arrow_expression_clause'}
+                    kind: attribute_argument
+                    all:
+                        - has: {field: name, regex: '^Use$'}
+                        - has:
+                            any:
+                                - kind: invocation_expression
+                                  all:
+                                    - has: {field: function, regex: '^nameof$'}
+                                    - has:
+                                        field: arguments
+                                        has:
+                                            kind: argument
+                                            has:
+                                                any:
+                                                    - kind: identifier
+                                                      pattern: $HELPER
+                                                    - kind: member_access_expression
+                                                      has: {field: name, pattern: $HELPER}
+                                - kind: string_literal
+                                  has: {kind: string_literal_content, pattern: $HELPER}
 rule:
     kind: method_declaration
     any:

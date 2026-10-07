@@ -3,15 +3,17 @@ id: no-sequenced-independent-check
 language: csharp
 severity: error
 utils:
-    value-arguments:
+    nameof-call:
+        kind: invocation_expression
+        has: {field: function, kind: identifier, regex: '^nameof$'}
+    mutation:
+        kind: invocation_expression
+        has:
+            field: function
+            regex: '(^|\.)(Set|Add|Remove|Delete|Insert|Replace|Modify|Transform|Append|Execute|Invoke|Run|Write|Save|Commit|Purge|Undelete|Clear|Swap|Update|Move|Rotate|Scale|Translate|Reverse|Flip|Close|Open|Register|Unregister|Attach|Detach|Rebuild|Redraw|Load|Import|Export|Dispose)([A-Z0-9_]\w*)?(\s*<.+>)?$'
+    plain-arguments:
         kind: argument_list
-        not:
-            has:
-                kind: argument
-                has:
-                    stopBy: end
-                    kind: invocation_expression
-                    not: {has: {field: function, kind: identifier, regex: '^nameof$'}}
+        not: {has: {stopBy: end, matches: mutation}}
     lone-argument:
         kind: argument_list
         not: {has: {kind: argument, nthChild: 2}}
@@ -24,14 +26,11 @@ utils:
         kind: invocation_expression
         any:
             - all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|Check)(\s*<.+>)?$'}}
-                - has: {field: arguments, matches: value-arguments}
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|Check|NonEmpty|InRange|Unique)(\s*<.+>)?$'}}
+                - has: {field: arguments, matches: plain-arguments}
             - all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, regex: '^(Answers|GeometryResults)$'}}, {has: {field: name, regex: '^(NonEmpty|InRange|Unique|FromResult)(\s*<.+>)?$'}}]}
-                - has: {field: arguments, matches: value-arguments}
-            - all:
-                - has: {field: function, kind: 'identifier, generic_name', regex: '^guard(\s*<.+>)?$'}
-                - has: {field: arguments, matches: value-arguments}
+                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?guard(\s*<.+>)?$'}
+                - has: {field: arguments, matches: plain-arguments}
             - all:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|Traverse|TraverseM)(\s*<.+>)?$'}}
                 - has: {field: arguments, matches: check-callback}
@@ -44,7 +43,7 @@ utils:
     outcome:
         kind: invocation_expression
         any:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, regex: '^Answers$'}}, {has: {field: name, regex: '^FromResult$'}}]}
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^FromResult$'}}
             - all:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Unless(\s*<.+>)?$'}}
                 - has:
@@ -62,25 +61,76 @@ utils:
                                       has: {field: parameters, has: {kind: parameter, all: [{has: {field: type, regex: '^bool$'}}, {has: {field: name, pattern: $FLAG}}]}}
                                     - kind: block
                                       has: {kind: local_declaration_statement, has: {kind: variable_declaration, all: [{has: {field: type, regex: '^bool$'}}, {has: {kind: variable_declarator, has: {field: name, pattern: $FLAG}}}]}}
+    host-call:
+        kind: invocation_expression
+        not:
+            any:
+                - matches: nameof-call
+                - matches: check
+                - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<.+>)?$'}
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Zip|ForAll|Exists|Map|Filter|Fold|FoldBack|Choose|Count|Head|Last|Tail|Skip|Take|Distinct|Find|Contains|Any|All|Select|Where|Sum|Min|Max|Order|OrderBy|Rev|Append|Concat)(\s*<.+>)?$'}}
+    computed:
+        has: {stopBy: end, matches: host-call, not: {inside: {kind: member_access_expression, field: expression}}}
+    read:
+        kind: identifier
+        not:
+            any:
+                - inside: {kind: 'member_access_expression, member_binding_expression', field: name}
+                - inside: {kind: 'declaration_expression, from_clause', field: name}
+                - inside: {stopBy: end, matches: nameof-call}
+                - inside: {stopBy: end, kind: type_argument_list}
+                - inside: {kind: 'declaration_expression, cast_expression, object_creation_expression', field: type}
+                - all: [{nthChild: 1}, {inside: {kind: let_clause}}]
+                - all: [{regex: '^[A-Z]'}, {inside: {kind: member_access_expression, field: expression}}]
+    call-subject:
+        matches: read
+        any:
+            - inside: {stopBy: {kind: 'from_clause, let_clause'}, kind: argument_list, inside: {matches: host-call}}
+            - inside: {kind: member_access_expression, field: expression, inside: {kind: invocation_expression, field: function, matches: host-call}}
+    earlier-reads:
+        inside:
+            stopBy: end
+            kind: query_expression
+            has: {kind: from_clause, all: [{has: {field: name, pattern: $EARLIER}}, {has: {stopBy: end, matches: read, pattern: $SUBJECT}}]}
+    guarded:
+        all:
+            - follows: {stopBy: {not: {kind: 'let_clause, comment'}}, kind: from_clause, has: {field: name, pattern: $EARLIER}, not: {has: {matches: computed}}}
+            - any:
+                - has: {stopBy: end, matches: call-subject, pattern: $SUBJECT, all: [{matches: earlier-reads}]}
+                - has:
+                    stopBy: end
+                    matches: read
+                    pattern: $DERIVED
+                    inside:
+                        stopBy: end
+                        kind: query_expression
+                        has:
+                            kind: let_clause
+                            all:
+                                - has: {kind: identifier, nthChild: 1, pattern: $DERIVED}
+                                - has: {stopBy: end, matches: call-subject, pattern: $SUBJECT, all: [{matches: earlier-reads}]}
 rule:
     kind: from_clause
     all:
         - has: {field: name, pattern: $LATER}
         - has: {matches: check}
         - follows:
+            stopBy: {not: {kind: 'let_clause, comment'}}
             kind: from_clause
             all:
                 - has: {field: name, pattern: $EARLIER}
                 - has: {matches: check}
                 - not: {has: {stopBy: end, matches: outcome}}
-                - not:
-                    follows:
-                        kind: from_clause
-                        all:
-                            - has: {field: name, pattern: $PRIOR}
-                            - has: {matches: check}
-                            - not: {has: {stopBy: end, matches: outcome}}
-                            - precedes: {kind: from_clause, not: {has: {stopBy: end, kind: identifier, pattern: $PRIOR}}}
         - not: {has: {stopBy: end, kind: identifier, pattern: $EARLIER}}
+        - not:
+            has:
+                stopBy: end
+                kind: identifier
+                pattern: $DERIVED
+                inside:
+                    stopBy: end
+                    kind: query_expression
+                    has: {kind: let_clause, all: [{has: {kind: identifier, nthChild: 1, pattern: $DERIVED}}, {has: {stopBy: end, kind: identifier, pattern: $EARLIER}}]}
+        - not: {matches: guarded}
 message: '`$LATER` check reads nothing `$EARLIER` bound and runs only after `$EARLIER` succeeds, a failed `$EARLIER` hides the `$LATER` error'
 note: Use `(<check>, <check>).Apply(<combine>).As()` or `Seq(<checks>).Traverse(identity).As()` over independent checks and one bind for dependent steps, `Fin` apply joins the error of every failed check

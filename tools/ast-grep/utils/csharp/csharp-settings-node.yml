@@ -4,7 +4,7 @@ language: csharp
 utils:
     settings-type:
         any:
-            - regex: '^((global::)?Rhino\.)?PersistentSettings$'
+            - regex: '^((global::)?Rhino\.)?PersistentSettings\??$'
             - kind: identifier
               pattern: $ALIAS
               inside:
@@ -54,6 +54,10 @@ utils:
                         - has: {field: type, regex: '^((global::)?LanguageExt\.)?(Option|Seq|Lst|Arr|IO|Fin|Eff)\s*<\s*((global::)?Rhino\.)?PersistentSettings\s*>$'}
 rule:
     any:
+        - kind: cast_expression
+          has: {field: type, matches: settings-type}
+        - kind: parenthesized_expression, postfix_unary_expression
+          has: {matches: csharp-settings-node}
         - kind: member_access_expression
           all:
             - has: {field: name, regex: '^RhinoAppSettings$'}
@@ -109,10 +113,12 @@ rule:
                           all:
                             - has: {field: name, pattern: $ELEMENT}
                             - has: {nthChild: 2, matches: csharp-settings-node}
-                        - kind: property_declaration, parameter
+                        - kind: property_declaration, parameter, tuple_element
                           all:
                             - has: {field: type, matches: settings-type}
                             - has: {field: name, pattern: $ELEMENT}
+                        - kind: field_declaration
+                          has: {kind: variable_declaration, all: [{has: {field: type, matches: settings-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $ELEMENT}}}]}
         - kind: identifier
           pattern: $NODE
           inside:

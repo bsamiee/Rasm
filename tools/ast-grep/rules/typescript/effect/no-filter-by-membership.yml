@@ -4,15 +4,15 @@ language: tsx
 severity: error
 ignores: ['plugins/*/hooks/**']
 utils:
-    effect-array:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Array)?$'}, exported: {regex: '^Array$'}}}
+    collection:
+        matches: {effect-module: {name: {regex: '\b(Array|Chunk|HashSet)$'}}}
     membership:
         kind: call_expression
         any:
             - pattern: $SET.has($SEEN, $X)
-              has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/HashSet)?$'}, exported: {regex: '^HashSet$'}}}}}
-            - pattern: $ARRAY.contains($SEEN, $X)
-              has: {field: function, has: {field: object, matches: effect-array}}
+              has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bHashSet$'}}}}}
+            - pattern: $LIST.contains($SEEN, $X)
+              has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}}}
             - pattern: $SEEN.has($X)
             - pattern: $SEEN.includes($X)
     predicate:
@@ -26,11 +26,11 @@ rule:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^filter$'}}
         - any:
             - all:
-                - has: {field: function, has: {field: object, matches: effect-array, pattern: $MODULE}}
+                - has: {field: function, has: {field: object, matches: collection, pattern: $MODULE}}
                 - has: {field: arguments, pattern: $ARGS, has: {matches: predicate, pattern: $FN, nthChild: {position: 1, reverse: true}}}
             - all:
                 - pattern: $KEPT
-                - has: {field: function, has: {field: object, not: {matches: effect-array}}}
+                - has: {field: function, has: {field: object, not: {matches: collection}}}
                 - has: {field: arguments, has: {matches: predicate, nthChild: 1}, not: {has: {nthChild: 2}}}
 constraints:
     SEEN: {not: {any: [{kind: identifier, pattern: $X}, {has: {stopBy: end, kind: identifier, pattern: $X}}]}}
@@ -45,8 +45,9 @@ rewriters:
       rule: {kind: arrow_function}
       fix: intersection
 transform:
+    QUALIFIER: replace($MODULE, replace='^(.+)$', by='$1.')
     OPERATION: rewrite($FN, rewriters=[absent, present])
     OPERANDS: rewrite($ARGS, rewriters=[other])
-fix: $MODULE.$OPERATION$OPERANDS$KEPT
+fix: $QUALIFIER$OPERATION$OPERANDS$KEPT
 message: '`filter` tests each element for membership in `$SEEN` by hand'
-note: '`Array.difference` keeps the elements absent from `<seen>` and `Array.intersection` those present, each comparing by `Equal` in one call'
+note: '`difference` of `Array`, `Chunk`, or `HashSet` keeps the elements absent from `<seen>` and `intersection` those present, each comparing by `Equal` in one call'

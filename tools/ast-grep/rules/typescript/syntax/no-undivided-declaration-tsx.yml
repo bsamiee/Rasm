@@ -5,10 +5,12 @@ severity: error
 utils:
     named:
         any:
-            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, type_alias_declaration, interface_declaration, enum_declaration
+            - kind: function_declaration, generator_function_declaration, function_signature, class_declaration, abstract_class_declaration, type_alias_declaration, interface_declaration, enum_declaration, module
               has: {field: name, pattern: $NAME}
             - kind: lexical_declaration, variable_declaration
               has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+            - kind: ambient_declaration
+              has: {matches: named}
 rule:
     inside: {kind: program}
     any:

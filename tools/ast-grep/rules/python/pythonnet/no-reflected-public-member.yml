@@ -3,98 +3,207 @@ id: no-reflected-public-member
 language: python
 severity: error
 utils:
-    runtime-type:
+    clr-type:
         any:
-            - pattern: $O.GetType()
+            - kind: attribute
+              all: [{has: {field: object, regex: '^clr$'}}, {has: {field: attribute, regex: '^GetClrType$'}}]
             - kind: identifier
-              pattern: $K
-              inside: {kind: 'function_definition, module', stopBy: end, has: {kind: assignment, stopBy: end, pattern: $K = $O.GetType()}}
-    public-lookup:
+              regex: '^GetClrType$'
+    type-value:
+        kind: call
+        any:
+            - pattern: $SUBJECT.GetType()
+            - all:
+                - has: {field: function, matches: clr-type}
+                - has: {field: arguments, has: {nthChild: 1, any: [{pattern: type($SUBJECT)}, {pattern: $TYPE}]}}
+    owner:
+        any:
+            - matches: type-value
+            - kind: identifier
+              pattern: $OWNER
+              inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: assignment, all: [{has: {field: left, pattern: $OWNER}}, {has: {field: right, matches: type-value}}]}}
+    member-name:
+        kind: string
+        regex: '^["''][A-Za-z_]\w*["'']$'
+    public-flags:
+        regex: '\bBindingFlags\.'
+        not: {regex: '\b(NonPublic|IgnoreCase)\b'}
+    sequence:
+        any:
+            - kind: list
+            - kind: call
+              has: {field: function, regex: '^(System\.)?Array\['}
+    array:
+        matches: sequence
+        any: [{pattern: '[$$$ITEMS]'}, {has: {field: arguments, has: {pattern: '[$$$ITEMS]'}}}]
+    no-arguments:
+        any:
+            - kind: none
+            - matches: sequence
+              any: [{pattern: '[]'}, {has: {field: arguments, has: {pattern: '[]'}}}]
+    types:
+        any: [{matches: array}, {regex: '^(System\.)?Type\.EmptyTypes$'}]
+    lookup:
         kind: call
         all:
             - has: {field: arguments, has: {nthChild: 1, pattern: $N, not: {kind: keyword_argument}}}
-            - not: {has: {field: arguments, has: {nthChild: 3, pattern: $_}}}
-            - not: {has: {field: arguments, has: {nthChild: 2, not: {regex: '\bBindingFlags\.', not: {regex: '\b(NonPublic|Static)\b'}}}}}
-    member-lookup:
-        matches: public-lookup
-        has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^Get(Property|Field)$'}}, {has: {field: object, matches: runtime-type}}]}
-    method-lookup:
-        matches: public-lookup
-        has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^GetMethod$'}}, {has: {field: object, matches: runtime-type}}]}
-    read:
+            - not: {has: {field: arguments, has: {nthChild: 4}}}
+            - any:
+                - has: {field: function, kind: attribute, has: {field: attribute, regex: '^Get(Property|Field)$'}}
+                  not: {has: {field: arguments, any: [{has: {nthChild: 2, not: {matches: public-flags}}}, {has: {nthChild: 3}}]}}
+                - has: {field: function, kind: attribute, has: {field: attribute, regex: '^GetEvent$'}}
+                  all:
+                    - has: {field: arguments, has: {nthChild: 1, matches: member-name}}
+                    - not: {has: {field: arguments, any: [{has: {nthChild: 2, not: {matches: public-flags}}}, {has: {nthChild: 3}}]}}
+                - has: {field: function, kind: attribute, has: {field: attribute, regex: '^GetMethod$'}}
+                  not: {has: {field: arguments, any: [{has: {nthChild: 2, not: {any: [{matches: public-flags}, {matches: types}]}}}, {has: {nthChild: 3, not: {matches: types}}}]}}
+            - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, pattern: $SELECTOR}}
+            - has: {field: function, has: {field: object, matches: owner}}
+    info:
+        any:
+            - matches: lookup
+            - kind: identifier
+              pattern: $INFO
+              inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: assignment, all: [{has: {field: left, pattern: $INFO}}, {has: {field: right, matches: lookup}}]}}
+    accessor:
         kind: call
         all:
-            - any: [{pattern: '$_.GetValue($O)'}, {pattern: '$_.GetValue($O, None)'}]
-            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^GetValue$'}}, {has: {field: object, matches: member-lookup}}]}
+            - has: {field: function, kind: attribute, has: {field: object, matches: info}}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {regex: '^False$'}}}}
+    getter-call:
+        matches: accessor
+        has: {field: function, has: {field: attribute, regex: '^GetGetMethod$'}}
+    mutator-call:
+        matches: accessor
+        has: {field: function, has: {field: attribute, regex: '^Get(Set|Add|Remove)Method$', pattern: $ROLE}}
+    getter:
+        any:
+            - matches: getter-call
+            - kind: identifier
+              pattern: $GETTER
+              inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: assignment, all: [{has: {field: left, pattern: $GETTER}}, {has: {field: right, matches: getter-call}}]}}
+    mutator:
+        any:
+            - matches: mutator-call
+            - kind: identifier
+              pattern: $MUTATOR
+              inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: assignment, all: [{has: {field: left, pattern: $MUTATOR}}, {has: {field: right, matches: mutator-call}}]}}
+    invoke-member:
+        kind: call
+        all:
+            - has: {field: arguments, has: {nthChild: 2, matches: public-flags}}
+            - has: {field: arguments, has: {nthChild: 3, kind: none}}
+            - has: {field: function, has: {field: object, matches: owner}}
+    reused-array:
+        kind: identifier
+        pattern: $ARGS
+        inside:
+            kind: 'module, function_definition'
+            stopBy: {kind: 'module, function_definition'}
+            has:
+                stopBy: end
+                kind: identifier
+                pattern: $ARGS
+                not: {any: [{inside: {kind: assignment, field: left}}, {inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '\.Invoke(Member)?$'}}}}]}
+    read:
+        kind: call
+        any:
+            - all:
+                - any: [{pattern: $_.GetValue($TARGET)}, {pattern: '$_.GetValue($TARGET, None)'}]
+                - has: {field: function, has: {field: object, matches: info}}
+            - all:
+                - pattern: '$_.Invoke($TARGET, $_)'
+                - has: {field: arguments, has: {nthChild: 2, matches: no-arguments}}
+                - has: {field: function, has: {field: object, matches: getter}}
+            - all:
+                - pattern: '$_.InvokeMember($N, $_, $_, $TARGET, $_)'
+                - has: {field: arguments, all: [{has: {nthChild: 2, regex: '\bBindingFlags\.Get(Property|Field)\b'}}, {has: {nthChild: 5, matches: no-arguments}}]}
+                - matches: invoke-member
     invoke:
         kind: call
         all:
-            - pattern: $_.Invoke($O, $ARGS)
-            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^Invoke$'}}, {has: {field: object, matches: method-lookup}}]}
-    write:
+            - any:
+                - all:
+                    - pattern: '$_.Invoke($TARGET, $ARGS)'
+                    - has: {field: function, has: {field: object, matches: info}}
+                - all:
+                    - pattern: '$_.InvokeMember($N, $_, $_, $TARGET, $ARGS)'
+                    - has: {field: arguments, has: {nthChild: 2, regex: '\bBindingFlags\.InvokeMethod\b'}}
+                    - matches: invoke-member
+            - not: {has: {field: arguments, has: {matches: reused-array}}}
+    mutation:
         kind: call
         inside: {kind: expression_statement}
-        all:
-            - pattern: $_.SetValue($O, $V)
-            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^SetValue$'}}, {has: {field: object, matches: member-lookup}}]}
-    named:
-        has: {stopBy: end, pattern: $N, regex: '^["'']\w+["'']$'}
-    listed:
-        has:
-            field: arguments
-            has:
-                nthChild: 2
-                any:
-                    - kind: call
-                      all: [{has: {field: function, regex: '^(System\.)?Array\['}}, {has: {field: arguments, has: {kind: list, pattern: '[$$$A]'}}}]
-                    - {kind: list, pattern: '[$$$A]'}
-    unlisted:
-        has: {field: arguments, has: {nthChild: 2, kind: none}}
+        any:
+            - all:
+                - pattern: '$_.$_($TARGET, $V)'
+                - has: {field: function, all: [{has: {field: attribute, regex: '^(SetValue|AddEventHandler|RemoveEventHandler)$', pattern: $ROLE}}, {has: {field: object, matches: info}}]}
+            - all:
+                - any: [{pattern: '$_.Invoke($TARGET, [$V])'}, {pattern: '$_.Invoke($TARGET, $_([$V]))'}]
+                - has: {field: arguments, has: {nthChild: 2, matches: sequence}}
+                - has: {field: function, has: {field: object, matches: mutator}}
+            - all:
+                - any: [{pattern: '$_.InvokeMember($N, $_, $_, $TARGET, [$V])'}, {pattern: '$_.InvokeMember($N, $_, $_, $TARGET, $_([$V]))'}]
+                - has: {field: arguments, all: [{has: {nthChild: 2, regex: '\bBindingFlags\.Set(Property|Field)\b', pattern: $ROLE}}, {has: {nthChild: 5, matches: sequence}}]}
+                - matches: invoke-member
+    access:
+        any: [{matches: read}, {matches: invoke}, {matches: mutation}]
 rewriters:
-    - id: read-attribute
-      rule: {all: [{matches: read}, {matches: named}]}
-      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
-      fix: $O.$NAME
-    - id: read-computed
-      rule: {matches: read}
-      fix: getattr($O, $N)
-    - id: invoke-attribute
-      rule: {all: [{matches: invoke}, {matches: named}, {matches: unlisted}]}
-      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
-      fix: $O.$NAME()
-    - id: invoke-attribute-listed
-      rule: {all: [{matches: invoke}, {matches: named}, {matches: listed}]}
-      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
-      fix: $O.$NAME($$$A)
-    - id: invoke-attribute-spread
-      rule: {all: [{matches: invoke}, {matches: named}]}
-      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
-      fix: $O.$NAME(*$ARGS)
-    - id: invoke-computed
-      rule: {all: [{matches: invoke}, {matches: unlisted}]}
-      fix: getattr($O, $N)()
-    - id: invoke-computed-listed
-      rule: {all: [{matches: invoke}, {matches: listed}]}
-      fix: getattr($O, $N)($$$A)
-    - id: invoke-computed-spread
-      rule: {matches: invoke}
-      fix: getattr($O, $N)(*$ARGS)
-    - id: write-attribute
-      rule: {all: [{matches: write}, {matches: named}]}
-      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
-      fix: $O.$NAME = $V
-    - id: write-computed
-      rule: {matches: write}
-      fix: setattr($O, $N, $V)
+    - id: runtime-type
+      rule: {pattern: $INSTANCE}
+      fix: type($INSTANCE)
+    - id: static-receiver
+      rule: {kind: none}
+      transform:
+        RUNTIME: {rewrite: {source: $SUBJECT, rewriters: [runtime-type]}}
+      fix: $TYPE$RUNTIME
+    - id: overload
+      rule: {matches: array, not: {matches: no-arguments}}
+      fix: .Overloads[$$$ITEMS]
+    - id: any-overload
+      rule: {pattern: $_}
+      fix: ''
+    - id: empty-arguments
+      rule: {kind: none}
+      fix: ()
+    - id: listed-arguments
+      rule: {matches: array}
+      fix: ($$$ITEMS)
+    - id: spread-arguments
+      rule: {pattern: $SPREAD}
+      fix: (*$SPREAD)
+    - id: attribute
+      rule: {matches: access}
+      constraints: {N: {matches: member-name}}
+      transform:
+        RECEIVER: {rewrite: {source: $TARGET, rewriters: [static-receiver]}}
+        NAME: {substring: {source: $N, startChar: 1, endChar: -1}}
+        OVERLOAD: {rewrite: {source: $SELECTOR, rewriters: [overload, any-overload]}}
+        ARGUMENTS: {rewrite: {source: $ARGS, rewriters: [empty-arguments, listed-arguments, spread-arguments]}}
+        ADDITION: {replace: {source: $ROLE, replace: '(?s)^.*Add.*$', by: ' += '}}
+        REMOVAL: {replace: {source: $ADDITION, replace: '(?s)^.*Remove.*$', by: ' -= '}}
+        OPERATOR: {replace: {source: $REMOVAL, replace: '(?s)^.*Set.*$', by: ' = '}}
+      fix: $RECEIVER.$NAME$OVERLOAD$ARGUMENTS$OPERATOR$V
+    - id: computed-write
+      rule: {matches: mutation}
+      transform:
+        RECEIVER: {rewrite: {source: $TARGET, rewriters: [static-receiver]}}
+      fix: setattr($RECEIVER, $N, $V)
+    - id: computed
+      rule: {any: [{matches: read}, {matches: invoke}]}
+      transform:
+        RECEIVER: {rewrite: {source: $TARGET, rewriters: [static-receiver]}}
+        OVERLOAD: {rewrite: {source: $SELECTOR, rewriters: [overload, any-overload]}}
+        ARGUMENTS: {rewrite: {source: $ARGS, rewriters: [empty-arguments, listed-arguments, spread-arguments]}}
+      fix: getattr($RECEIVER, $N)$OVERLOAD$ARGUMENTS
 rule:
     kind: call
     pattern: $CALL
-    any: [{matches: read}, {matches: invoke}, {matches: write}]
+    matches: access
+constraints:
+    TARGET: {any: [{kind: none}, {pattern: $SUBJECT}]}
 transform:
-    DIRECT:
-        rewrite:
-            source: $CALL
-            rewriters: [read-attribute, read-computed, invoke-attribute, invoke-attribute-listed, invoke-attribute-spread, invoke-computed, invoke-computed-listed, invoke-computed-spread, write-attribute, write-computed]
+    DIRECT: {rewrite: {source: $CALL, rewriters: [attribute, computed-write, computed]}}
 fix: $DIRECT
-message: '`$CALL` reaches a public member of `$O` through reflection'
-note: 'Use the member on the instance, or on its `__implementation__` where pythonnet returns an interface, pythonnet binds every other returned object to its runtime type'
+message: '`$CALL` reaches a public member through reflection'
+note: 'Use the member on its instance or type, or on the instance''s `__implementation__` where pythonnet returns an interface, pythonnet binds every public member of a returned object''s runtime type and of each imported type and returns out and ref parameters in a tuple after the result'

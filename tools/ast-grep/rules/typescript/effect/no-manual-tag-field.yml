@@ -35,7 +35,7 @@ rule:
         - pattern: $KEPT
 constraints:
     BASE: {regex: '^(Error|Class)$'}
-    DATA: {matches: {syntax-import-reference: {source: {regex: '^effect(/Data)?$'}, exported: {regex: '^Data$'}}}}
+    DATA: {matches: {effect-module: {name: {regex: '\bData$'}}}}
 rewriters:
     - id: drop-tag
       rule: {matches: tag-field}

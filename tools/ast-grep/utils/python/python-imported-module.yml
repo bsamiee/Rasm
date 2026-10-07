@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-imported-module
+language: python
+utils:
+    import-module:
+        matches: {python-member-use: {module: {regex: '^importlib$'}, name: {regex: '^import_module$'}}}
+    import-builtin:
+        matches: {python-builtin-name: {name: {regex: '^__import__$'}}}
+    import-call:
+        kind: call
+        any:
+            - has: {field: function, matches: import-module}
+            - all:
+                - has: {field: function, matches: import-builtin}
+                - has:
+                    field: arguments
+                    not:
+                        has:
+                            any:
+                                - kind: list_splat, dictionary_splat
+                                - kind: keyword_argument
+                                  has: {field: name, regex: '^level$'}
+                                - nthChild: {position: 5, ofRule: {not: {kind: 'comment, keyword_argument'}}}
+rule:
+    any:
+        - matches: python-static-imported-module
+        - kind: string_content
+          not: {regex: '^\.'}
+          inside:
+            kind: string
+            not: {has: {kind: 'interpolation, escape_sequence', stopBy: end}}
+            any:
+                - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                  inside: {kind: argument_list, inside: {matches: import-call}}
+                - inside:
+                    kind: keyword_argument
+                    field: value
+                    has: {field: name, regex: '^name$'}
+                    inside: {kind: argument_list, inside: {matches: import-call}}

@@ -4,7 +4,7 @@ language: tsx
 severity: error
 utils:
     queue-module:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/Queue)?$'}, exported: {regex: '^Queue$'}}}
+        matches: {effect-module: {name: {regex: '\bQueue$'}}}
     constructor-call:
         kind: call_expression
         has:

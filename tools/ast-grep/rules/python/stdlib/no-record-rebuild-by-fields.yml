@@ -85,6 +85,42 @@ utils:
                             - precedes: {stopBy: {pattern: $_}, pattern: $X.$NEXT}
                             - not: {inside: {kind: module, stopBy: end, has: {stopBy: {not: {kind: decorated_definition}}, matches: struct-class, has: {field: body, has: {matches: next-field}}}}}
             - not: {inside: {kind: module, stopBy: end, has: {stopBy: {not: {kind: decorated_definition}}, matches: struct-class, has: {field: body, has: {matches: uncovered-field}}}}}
+    fields:
+        any:
+            - kind: call
+              all:
+                - has: {field: function, regex: '^((dataclasses|attrs?|msgspec\.structs)\.)?asdict$|^vars$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: record}}, {not: {has: {nthChild: 2}}}]}
+            - kind: attribute
+              all: [{has: {field: object, matches: record}}, {has: {field: attribute, regex: '^__dict__$'}}]
+    merged:
+        kind: argument_list
+        all:
+            - has:
+                nthChild: 1
+                kind: dictionary_splat
+                has:
+                    any:
+                        - kind: dictionary
+                          has: {nthChild: 1, kind: dictionary_splat, has: {matches: fields}}
+                        - kind: binary_operator
+                          all: [{has: {field: left, matches: fields}}, {has: {field: operator, regex: '^\|$'}}]
+                        - kind: parenthesized_expression
+                          has: {kind: binary_operator, all: [{has: {field: left, matches: fields}}, {has: {field: operator, regex: '^\|$'}}]}
+            - not: {has: {nthChild: 2}}
+    spread:
+        kind: argument_list
+        all:
+            - has: {nthChild: 1, kind: dictionary_splat, has: {matches: fields}}
+            - not: {has: {nthChild: 2, kind: 'list_splat, dictionary_splat'}}
+            - not: {has: {pattern: $_, not: {any: [{kind: 'keyword_argument, comment'}, {kind: dictionary_splat, nthChild: 1}]}}}
+    rebuilt:
+        any:
+            - all:
+                - has: {field: arguments, kind: argument_list, has: {any: [{matches: field-read}, {kind: keyword_argument, has: {field: value, matches: field-read}}]}}
+                - not: {has: {field: arguments, has: {kind: 'list_splat, dictionary_splat'}}}
+                - matches: complete
+            - has: {field: arguments, matches: spread}
     unchanged:
         not: {has: {field: arguments, has: {kind: keyword_argument, not: {all: [{has: {field: name, pattern: $K}}, {has: {field: value, pattern: $X.$K}}]}}}}
     replace-function:
@@ -116,25 +152,23 @@ rule:
     all:
         - has: {field: function, kind: identifier, pattern: $C}
         - inside: {kind: module, stopBy: end, has: {stopBy: {not: {kind: decorated_definition}}, matches: struct-class}}
-        - has: {field: arguments, kind: argument_list, has: {any: [{matches: field-read}, {kind: keyword_argument, has: {field: value, matches: field-read}}]}}
-        - not: {has: {field: arguments, has: {kind: 'list_splat, dictionary_splat'}}}
         - any:
             - all:
-                - matches: complete
+                - matches: rebuilt
                 - matches: unchanged
                 - inside: {kind: module, stopBy: end, has: {stopBy: {not: {kind: decorated_definition}}, matches: frozen-struct}}
                 - has: {field: arguments, has: {stopBy: end, kind: identifier, all: [{pattern: $X}, {pattern: $SAME}]}}
             - all:
-                - matches: complete
+                - matches: rebuilt
                 - inside: {kind: module, stopBy: end, has: {stopBy: {not: {kind: decorated_definition}}, matches: replace-function}}
                 - not: {matches: replace-shadowed}
                 - has: {field: arguments, pattern: $CHANGED, has: {stopBy: end, kind: identifier, all: [{pattern: $X}, {pattern: $RECORD}]}}
             - all:
-                - matches: complete
+                - matches: rebuilt
                 - inside: {kind: module, stopBy: end, has: {stopBy: {not: {kind: decorated_definition}}, matches: copy-module}}
                 - not: {matches: copy-shadowed}
                 - has: {field: arguments, pattern: $CHANGED, has: {stopBy: end, kind: identifier, all: [{pattern: $X}, {pattern: $RECORD}]}}
-            - {matches: complete, pattern: $UNFIXED}
+            - {any: [{matches: rebuilt}, {has: {field: arguments, matches: merged}}], pattern: $UNFIXED}
 rewriters:
     - id: changed-keyword
       rule:
@@ -149,5 +183,5 @@ transform:
     OPEN: {replace: {source: $RECORD, replace: '^(.+)$', by: '($1'}}
     CLOSE: {replace: {source: $RECORD, replace: '^.+$', by: ')'}}
 fix: $SAME$REPLACE$MODULE_CALLEE$OPEN$CHANGES$CLOSE$UNFIXED
-message: '`$C(...)` rebuilds `$X` by spelling its fields'
-note: 'Use `copy.replace(<record>, <field>=<value>)`, or the record itself when no field changes, `copy.replace` copies each field it is not given'
+message: '`$C(...)` rebuilds `$X` by spelling or spreading its fields, `copy.replace(<record>, <field>=<value>)` or the record itself states the change alone'
+note: '`copy.replace` copies each field it is not given'

@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-identifier-string
+language: python
+rule:
+    kind: string
+    regex: '^[rRuU]?("|'')[\p{XID_Start}_]\p{XID_Continue}*("|'')$'

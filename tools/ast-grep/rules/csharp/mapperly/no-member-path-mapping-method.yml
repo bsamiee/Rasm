@@ -58,7 +58,14 @@ rule:
     all:
         - matches: csharp-mapping-method
         - not: {has: {kind: modifier, regex: '^partial$'}}
-        - not: {has: {kind: attribute_list, has: {kind: attribute, not: {has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?NamedMapping(Attribute)?$'}}}}}
+        - not:
+            has:
+                kind: attribute_list
+                has:
+                    kind: attribute
+                    all:
+                        - has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?UserMapping(Attribute)?$'}
+                        - not: {has: {kind: attribute_argument_list, has: {kind: attribute_argument, regex: '^Default\s*=\s*false$'}}}
         - has:
             field: parameters
             all:

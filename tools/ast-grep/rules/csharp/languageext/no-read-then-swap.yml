@@ -33,7 +33,7 @@ utils:
     swap:
         kind: invocation_expression
         all:
-            - matches: csharp-atom-transition
+            - matches: csharp-atom-mutation
             - any:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: receiver}}, {has: {field: name, pattern: $SWAP}}]}
                 - all:
@@ -45,7 +45,7 @@ utils:
 rule:
     kind: member_access_expression
     all:
-        - has: {field: name, pattern: $READER, regex: '^Value(IO)?$'}
+        - has: {field: name, pattern: $READER, regex: '^(Value|ValueIO|Find|ContainsKey|Contains|Count|IsEmpty)$'}
         - has: {field: expression, pattern: $CELL, matches: receiver}
         - not: {inside: {stopBy: end, kind: 'lambda_expression, anonymous_method_expression', has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CELL}, {has: {kind: parameter, has: {field: name, pattern: $CELL}}}]}}}
         - not: {inside: {stopBy: end, matches: transaction}}
@@ -65,4 +65,4 @@ rule:
                 inside: {kind: 'tuple_expression, argument_list'}
                 precedes: {stopBy: end, has: {stopBy: {matches: callback}, matches: swap}}
 message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
-note: Use one transition from the prior value that returns state before and after in an `Atom` value or `Swap` result, a separate read races each write
+note: Use one transition from the prior value, `Swap` returning the state before and after or a keyed `FindOrAdd`, `TryAdd`, or `SwapKey`, a separate read races each write

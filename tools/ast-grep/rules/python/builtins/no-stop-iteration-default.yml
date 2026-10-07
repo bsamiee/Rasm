@@ -6,45 +6,110 @@ utils:
     lone:
         kind: block
         not: {has: {nthChild: 2}}
-    handler:
-        kind: except_clause
-        has: {field: value, regex: '^StopIteration$'}
-    advance: {kind: call, pattern: next($IT)}
+    next-function:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^next$'}}}
+              not: {has: {stopBy: end, kind: call}}
+            - kind: parenthesized_expression
+              has: {matches: next-function}
+    anext-function:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^anext$'}}}
+              not: {has: {stopBy: end, kind: call}}
+            - kind: parenthesized_expression
+              has: {matches: anext-function}
+    exception-name:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^Stop(Async)?Iteration$'}}}
+              not: {has: {stopBy: end, kind: call}}
+            - kind: parenthesized_expression
+              has: {matches: exception-name}
+    exception:
+        any:
+            - matches: exception-name
+            - kind: tuple
+              has: {matches: exception-name}
+              not: {has: {pattern: $_, not: {matches: exception-name}}}
+    reference:
+        any:
+            - kind: identifier
+            - kind: parenthesized_expression
+              has: {matches: reference}
+    literal:
+        any:
+            - kind: none, true, false, integer, float, ellipsis
+            - kind: string, concatenated_string
+              not: {has: {stopBy: end, kind: interpolation}}
+            - kind: unary_operator
+              all:
+                - has: {field: operator, regex: '^[+-]$'}
+                - has: {field: argument, kind: 'integer, float'}
+            - kind: parenthesized_expression
+              has: {matches: literal}
+            - kind: tuple
+              not: {has: {pattern: $_, not: {matches: literal}}}
+    advance:
+        any:
+            - kind: call
+              pattern: $NEXT($IT)
+              all:
+                - has: {field: function, matches: next-function}
+                - has: {field: arguments, has: {matches: reference}}
+            - kind: await
+              pattern: $AWAITED
+              has:
+                kind: call
+                pattern: $NEXT($IT)
+                all:
+                    - has: {field: function, matches: anext-function}
+                    - has: {field: arguments, has: {matches: reference}}
+            - kind: parenthesized_expression
+              has: {matches: advance}
 rule:
-    kind: try_statement
     all:
-        - not: {has: {kind: 'else_clause, finally_clause'}}
-        - not: {has: {matches: handler, has: {stopBy: end, kind: 'call, await, yield, named_expression, lambda'}}}
+        - pattern: |
+            try:
+                $STMT
+            except $ERROR:
+                $FALLBACK
+        - not: {has: {stopBy: end, kind: comment}}
+        - not:
+            has:
+                any:
+                    - kind: else_clause, finally_clause
+                    - kind: except_clause
+                      nthChild: {position: 2, ofRule: {kind: except_clause}}
+        - not:
+            any:
+                - all: [{has: {field: body, has: {stopBy: end, kind: await}}}, {has: {kind: except_clause, has: {stopBy: end, regex: '^StopIteration$'}}}]
+                - all: [{not: {has: {field: body, has: {stopBy: end, kind: await}}}}, {has: {kind: except_clause, has: {stopBy: end, regex: '^StopAsyncIteration$'}}}]
         - any:
             - all:
-                - has: {field: body, matches: lone, has: {kind: return_statement, pattern: $STMT, has: {matches: advance}}}
-                - has: {matches: handler, has: {kind: block, matches: lone, has: {kind: return_statement, pattern: return $D}}}
+                - has: {field: body, matches: lone, has: {kind: return_statement, has: {matches: advance}}}
+                - has: {kind: except_clause, has: {matches: lone, has: {kind: return_statement, any: [{has: {matches: literal}}, {not: {has: {pattern: $_}}}]}}}
             - all:
-                - has:
-                    field: body
-                    matches: lone
-                    has: {kind: expression_statement, pattern: $STMT, has: {kind: assignment, all: [{has: {field: left, pattern: $T}}, {has: {field: right, matches: advance}}]}}
-                - has:
-                    matches: handler
-                    has:
-                        kind: block
-                        matches: lone
-                        has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $T}}, {not: {has: {field: type, kind: type}}}, {has: {field: right, pattern: $D}}]}}
-        - any:
-            - pattern: $FIXABLE
-              not: {has: {kind: except_clause, not: {matches: handler}}}
-            - pattern: $KEPT
+                - has: {field: body, matches: lone, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, kind: 'identifier, attribute', pattern: $TARGET}}, {has: {field: right, matches: advance}}, {not: {has: {field: type, kind: type}}}]}}}
+                - has: {kind: except_clause, has: {matches: lone, has: {kind: expression_statement, has: {pattern: $TARGET = $DEFAULT}}}}
+constraints:
+    ERROR: {matches: exception}
+    DEFAULT: {matches: literal}
 rewriters:
-    - id: defaulted
-      rule: {matches: advance}
-      fix: next($IT, $D)
-    - id: unwrapped
-      rule: {kind: try_statement, has: {field: body, has: {pattern: $STMT}}}
-      transform:
-        DEFAULTED: rewrite($STMT, rewriters=[defaulted])
-      fix: $DEFAULTED
+    - id: value
+      rule: {any: [{pattern: return $VALUE}, {pattern: $TARGET = $VALUE}]}
+      fix: $VALUE
+    - id: implicit-none
+      rule: {kind: return_statement}
+      fix: None
+    - id: return-prefix
+      rule: {kind: return_statement}
+      fix: return
+    - id: assignment-prefix
+      rule: {pattern: $TARGET = $VALUE}
+      fix: $TARGET =
 transform:
-    OUT: rewrite($FIXABLE, rewriters=[unwrapped])
-fix: $OUT$KEPT
-message: '`StopIteration` handler around `next($IT)` supplies `$D`'
-note: 'Use `next(<iterator>, <default>)`, `next` returns the default from an exhausted iterator'
+    PREFIX: rewrite($STMT, rewriters=[return-prefix, assignment-prefix])
+    DEFAULT_VALUE: rewrite($FALLBACK, rewriters=[value, implicit-none])
+    ASYNC: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: 'await '}}
+fix: $PREFIX $ASYNC$NEXT($IT, $DEFAULT_VALUE)
+message: '`StopIteration` or `StopAsyncIteration` handling supplies a literal default that belongs in `next` or `anext`'
+note: 'Use `next(<iterator>, <default>)` or `await anext(<iterator>, <default>)`, each returns the default from an exhausted iterator'

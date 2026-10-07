@@ -6,36 +6,66 @@ utils:
     existence:
         any:
             - kind: call
-              has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $PATH}}, {has: {field: attribute, regex: '^(exists|is_file)$'}}]}
+              all:
+                - has:
+                    field: function
+                    any:
+                        - matches: {python-member-use: {module: {regex: '^(os\.path|posixpath|ntpath)$'}, name: {regex: '^(exists|lexists|isfile)$'}}}
+                        - matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^access$'}}}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}
             - kind: call
-              all: [{has: {field: function, regex: '(^|\.)path\.(exists|isfile)$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}}]
+              has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $PATH}}, {has: {field: attribute, regex: '^(exists|is_file)$'}}]}
             - kind: 'await, parenthesized_expression'
               has: {matches: existence}
     read:
         kind: call
         any:
-            - has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $PATH}}, {has: {field: attribute, regex: '^(read_bytes|read_text|open|readlink|iterdir)$'}}]}
-            - has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}
-    guard:
+            - has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $PATH}}, {has: {field: attribute, regex: '^(read_bytes|read_text|open|readlink|iterdir|stat|lstat|owner|group|unlink|rmdir|rename|replace|chmod|copy|copy_into|move|move_into)$'}}]}
+            - all:
+                - has: {field: function, regex: '(^|\.)(open|load|loadtxt|read\w*|ZipFile|copy(file|tree|2|mode|stat)?|move|remove|removedirs|unlink|rmtree|rmdir|rename|renames|replace|stat|lstat|listdir|scandir|readlink|getsize|get[amc]time|chmod|chown|utime|truncate)$'}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}
+    present:
         any:
             - matches: existence
             - kind: boolean_operator
               has: {field: operator, regex: '^and$'}
-              any: [{has: {field: left, matches: guard}}, {has: {field: right, matches: guard}}]
+              any: [{has: {field: left, matches: present}}, {has: {field: right, matches: present}}]
+            - kind: not_operator
+              has: {field: argument, matches: absent}
             - kind: parenthesized_expression
-              has: {matches: guard}
+              has: {matches: present}
+    absent:
+        any:
+            - kind: not_operator
+              has: {field: argument, matches: present}
+            - kind: boolean_operator
+              has: {field: operator, regex: '^or$'}
+              any: [{has: {field: left, matches: absent}}, {has: {field: right, matches: absent}}]
+            - kind: parenthesized_expression
+              has: {matches: absent}
     reads:
         any: [{matches: read}, {has: {stopBy: end, matches: read}}]
+    exits:
+        kind: block
+        has:
+            nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+            kind: return_statement, raise_statement, continue_statement, break_statement
 rule:
     pattern: $SITE
     any:
         - kind: conditional_expression
-          all:
-            - has: {nthChild: 2, matches: guard}
-            - has: {nthChild: 1, matches: reads}
+          any:
+            - all: [{has: {nthChild: 2, matches: present}}, {has: {nthChild: 1, matches: reads}}]
+            - all: [{has: {nthChild: 2, matches: absent}}, {has: {nthChild: 3, matches: reads}}]
         - kind: if_statement, elif_clause
+          any:
+            - all: [{has: {field: condition, matches: present}}, {has: {field: consequence, matches: reads}}]
+            - all: [{has: {field: condition, matches: absent}}, {has: {field: alternative, kind: else_clause, matches: reads}}]
+        - kind: if_statement
           all:
-            - has: {field: condition, matches: guard}
-            - has: {field: consequence, matches: reads}
-message: '`$SITE` tests `$PATH` for existence before a read that raises on its absence'
-note: 'Use one `try` that reads the file and maps `FileNotFoundError` to the absent value at the boundary, an existence test races the read and repeats its check'
+            - has: {field: condition, matches: absent}
+            - has: {field: consequence, matches: exits}
+            - not: {has: {field: alternative, pattern: $_}}
+            - precedes: {stopBy: end, matches: reads}
+message: '`$SITE` tests `$PATH` before an operation that raises on its absence, one `try` around the operation maps its `OSError` to the absent value'
+note: 'An existence test races the operation and repeats its check, a `try` statement replaces an expression or a branch with its absent value, which no template states'

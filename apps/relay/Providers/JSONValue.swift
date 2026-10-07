@@ -34,10 +34,6 @@ nonisolated enum JSONValue: Codable, Equatable, Sendable {
             case .object(let value): try container.encode(value)
         }
     }
-
-    func decode<Value: Decodable>(as type: Value.Type, by decoder: JSONDecoder = JSONDecoder()) throws -> Value {
-        try decoder.decode(type, from: JSONEncoder().encode(self))
-    }
 }
 
 nonisolated struct JSONDocument<Known: Sendable>: Sendable {

@@ -95,9 +95,14 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
             mod_name = ".".join((package_name, *stem))
             try:
                 module = importlib.import_module(mod_name)
-                exports.append((module, module.__all__))
-            except Exception as exc:  # ruff:ignore[blind-except]
+            except (ImportError, SyntaxError) as exc:
                 failures.append((mod_name, repr(exc)))
+            else:
+                match vars(module).get("__all__"):
+                    case None:
+                        failures.append((mod_name, "the module defines no __all__"))
+                    case names:
+                        exports.append((module, names))
 
     public_api: dict[str, object] = {}
     for mod, names in exports:

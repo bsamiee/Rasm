@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-module
+language: tsx
+arguments: [name]
+rule:
+    matches:
+        syntax-import-reference:
+            source:
+                regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?(/[A-Z]\w*)?$'
+                any: [{not: {regex: '/[A-Z]\w*$'}}, {matches: name}]
+            exported: {matches: name}

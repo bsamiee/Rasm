@@ -5,6 +5,7 @@
     "type": "module",
     "dependencies": {
         "@effect/platform-node": "catalog:",
+        "@types/node": "catalog:",
         "effect": "catalog:"
     },
     "nx": {

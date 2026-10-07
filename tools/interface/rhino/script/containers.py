@@ -33,11 +33,11 @@ from System.Reflection import BindingFlags
 
 from interface.frame import Task
 from interface.render import MATERIALS
-from interface.report import changes, Kind, line, Row
+from interface.report import changes, Error, Item, Line, Measurement, Refused, Skip
 from interface.rhino.markup import canonical, element
-from interface.rhino.script.accessors import color, disposed, guid, Internal, key
+from interface.rhino.script.accessors import color, disposed, guid, Internal, key, preference
 from interface.rhino.script.template import Labels, labels, Template
-from interface.rhino.window import Band, Bar, Extent, Grid, layout, Measured, PanelId, RETURNS, RibbonTab, Site, TOGGLES
+from interface.rhino.window import Band, Bar, DockBar, Extent, Grid, layout, Measured, PanelId, RETURNS, RibbonTab, Site, TOGGLES
 from interface.roles import Surface
 from interface.units import Units
 
@@ -210,15 +210,15 @@ def bundled_layout() -> ET.Element:
         return ET.fromstring(bytes(held.ToArray()))
 
 
-def resolved(root: ET.Element, bands: Mapping[Site, Band]) -> dict[Bar | tuple[PanelId, ...], ET.Element]:
+def resolved(root: ET.Element, bands: Mapping[Site, Band]) -> dict[DockBar, ET.Element]:
     """Dock bar of each bar the bands name, a panel container no bar holds created on its band's first held bar's placement."""
-    bars, held = list(root.iterfind("dock_bars/dock_bar")), dict[Bar | tuple[PanelId, ...], ET.Element]()
+    bars, held = list(root.iterfind("dock_bars/dock_bar")), dict[DockBar, ET.Element]()
 
     def created(head: PanelId) -> str:
         """Id of the container the layout creates for the panel it holds first."""
         return str(uuid.uuid5(uuid.UUID(head), Task.MODELING))
 
-    def holds(bar: ET.Element, name: Bar | tuple[PanelId, ...]) -> bool:
+    def holds(bar: ET.Element, name: DockBar) -> bool:
         """Whether the dock bar is the named bar, or a free bar holding the container's first panel or carrying its created id."""
         identity = bar.get("guid")
         match name:
@@ -238,7 +238,7 @@ def resolved(root: ET.Element, bands: Mapping[Site, Band]) -> dict[Bar | tuple[P
     return held
 
 
-def lacking(held: Mapping[Bar | tuple[PanelId, ...], ET.Element], bands: Mapping[Site, Band], bundled_tabs: Mapping[str, ET.Element]) -> tuple[str, ...]:
+def lacking(held: Mapping[DockBar, ET.Element], bands: Mapping[Site, Band], bundled_tabs: Mapping[str, ET.Element]) -> tuple[str, ...]:
     """Name of each bar the bands name that no dock bar holds, and of each ribbon tab neither the ribbon nor the bundled layout holds."""
     live = {row.attrib["guid"] for name, bar in held.items() if name == Bar.RIBBON for row in bar.iterfind("tabs/tool_bar")}
     return (
@@ -247,7 +247,7 @@ def lacking(held: Mapping[Bar | tuple[PanelId, ...], ET.Element], bands: Mapping
     )
 
 
-def band_element(sites: ET.Element, band: Band, held: Mapping[Bar | tuple[PanelId, ...], ET.Element]) -> ET.Element:
+def band_element(sites: ET.Element, band: Band, held: Mapping[DockBar, ET.Element]) -> ET.Element:
     """Band holding the layout band's bars in order at their shares, keeping the attributes Rhino wrote on the first bar's band and on each row."""
     banded = {row.attrib["guid"]: (owner, row) for owner in sites.iterfind("dock_site/band") for row in owner}
     guids = [held[name].attrib["guid"] for name, _ in band["bars"]]
@@ -259,7 +259,7 @@ def band_element(sites: ET.Element, band: Band, held: Mapping[Bar | tuple[PanelI
     return made
 
 
-def arranged(root: ET.Element, held: Mapping[Bar | tuple[PanelId, ...], ET.Element], bands: Mapping[Site, Band], bundled_tabs: Mapping[str, ET.Element]) -> None:
+def arranged(root: ET.Element, held: Mapping[DockBar, ET.Element], bands: Mapping[Site, Band], bundled_tabs: Mapping[str, ET.Element]) -> None:
     """Edit the exported layout into the bands and the containers panels return to, the command prompt in the sidebar, every other dock bar hidden and holding no panel, and a Right dock location left unwritten as Rhino's writer leaves its default."""
     panels, ribbon = {row.attrib["guid"]: row for row in root.iterfind("dock_bars/dock_bar/tabs/panel")}, held[Bar.RIBBON]
     live = {row.attrib["guid"]: row for row in ribbon.iterfind("tabs/tool_bar")}
@@ -277,7 +277,7 @@ def arranged(root: ET.Element, held: Mapping[Bar | tuple[PanelId, ...], ET.Eleme
     for site, made in {site: band_element(sites, band, held) for site, band in bands.items()}.items():
         owner = element(sites, "dock_site", location=site)
         owner[:] = [*(each for each in owner if each.tag != "band"), made]
-        owner.set("auto_hide", str(False))
+        owner.set("auto_hide", "False")
     for bar, placement in ((each, placement) for each in root.iterfind("dock_bars/dock_bar") for placement in each.iterfind("placement")):
         match placed.get(bar):
             case None:
@@ -286,7 +286,7 @@ def arranged(root: ET.Element, held: Mapping[Bar | tuple[PanelId, ...], ET.Eleme
                 width, height = placement.attrib["dock_band_size"].split(",")
                 placement.attrib = {name: value for name, value in placement.attrib.items() if name not in {"dock_location", "recent_dock_location"}} | {
                     "docked_placement": f"0,{slot}",
-                    "visible": str(True),
+                    "visible": "True",
                     "dock_band_size": f"{size},{height}" if site in {Site.LEFT, Site.RIGHT} else f"{width},{size}",
                     **({} if site is Site.RIGHT else {"dock_location": site, "recent_dock_location": site}),
                 }
@@ -295,8 +295,8 @@ def arranged(root: ET.Element, held: Mapping[Bar | tuple[PanelId, ...], ET.Eleme
         element(returns, "item", guid=panel).attrib.update({"dock_bar": held[name].attrib["guid"]})
 
 
-def restore(doc: Rhino.RhinoDoc, target: ET.Element) -> str | None:
-    """Failure of restoring the live layout from the target, the Modeling layout deleted and imported from it first and the window laid out after, None once the restore ran."""
+def restore(doc: Rhino.RhinoDoc, target: ET.Element) -> Refused | None:
+    """Refusal of restoring the live layout from the target, the Modeling layout deleted and imported from it first and the window laid out after, None once the restore ran."""
     serial = "rhino_doc_sn"
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder, f"{Task.MODELING}.rhw")
@@ -304,30 +304,30 @@ def restore(doc: Rhino.RhinoDoc, target: ET.Element) -> str | None:
         called(doc, "Rhino.UI.Internal.TabPanels.NamedCallbacks.DeleteWindowLayout", serial, name=Task.MODELING.value)
         imported = called(doc, "Rhino.UI.Internal.TabPanels.NamedCallbacks.ImportWindowLayout", serial, filename=str(path))
     if not imported:
-        return "import read no window layout from the rendered file"
+        return Refused("import read no window layout from the rendered file")
     if not called(doc, "Rhino.UI.Internal.TabPanels.NamedCallbacks.RestoreWindowLayout", serial, name=Task.MODELING.value):
-        return f"restore found no window layout named {Task.MODELING}"
+        return Refused(f"restore found no window layout named {Task.MODELING}")
     RhinoEtoApp.MainWindowForDocument(doc).ControlObject.ContentView.LayoutSubtreeIfNeeded()
     return None
 
 
-def window_layout(doc: Rhino.RhinoDoc, bundled: ET.Element, shown: Sequence[Labels], *, restored: bool) -> Iterator[str]:
+def window_layout(doc: Rhino.RhinoDoc, bundled: ET.Element, shown: Sequence[Labels], *, restored: bool) -> Iterator[Line]:
     """Measured record and report lines of the live window layout, exported after the measures, restored from their render, measured and rendered again once a restore gave the containers their rendered forms, an error line naming what the render lacks or the restore refused."""
     record, label = measured(doc, exported(doc), shown), f'WindowLayouts["{Task.MODELING}"]'
-    root, measurement = exported(doc), line(Kind.MEASUREMENT, json.dumps(record))
+    root, measurement = exported(doc), Measurement(json.dumps(record))
     bands, ribbon = layout(record), {row.attrib["guid"]: row for row in bundled.iterfind(f"dock_bars/dock_bar[@guid='{Bar.RIBBON}']/tabs/tool_bar")}
     target = deepcopy(root)
     held = resolved(target, bands)
     if missing := lacking(held, bands, ribbon):
-        yield from (measurement, line(Kind.ERROR, f"{label} export holds no {', '.join(missing)}"))
+        yield Error(f"{label} export holds no {', '.join(missing)}")
         return
     arranged(target, held, bands, ribbon)
     if (before := canonical(ET.tostring(root, encoding="unicode"))) == (after := canonical(ET.tostring(target, encoding="unicode"))):
         yield measurement
         return
     match restore(doc, target):
-        case str() as failure:
-            yield from (measurement, line(Kind.ERROR, f"{label} {failure}"))
+        case Refused(reason=reason):
+            yield Error(f"{label} {reason}")
         case None if restored:
             yield from (*changes(label, before, after), measurement)
         case None:
@@ -338,7 +338,7 @@ def window_layout(doc: Rhino.RhinoDoc, bundled: ET.Element, shown: Sequence[Labe
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def rows(doc: Rhino.RhinoDoc, targets: Mapping[Units, Template]) -> Iterator[Row | str]:
+def rows(doc: Rhino.RhinoDoc, targets: Mapping[Units, Template]) -> Iterator[Item]:
     """Rows of the content panels, each Rendering panel section expanded under its type's id and owner, layer states, and the block preview's display mode at its owner's default with the material library's skip line, then the window layout's record and lines over every template's grid texts."""
     rdk, eto, commands = (PlugIn.IdFromName(name) for name in ("Renderer Development Kit", "RDK_EtoUI", "Commands"))
     library, folder = any(path.is_file() and not path.name.startswith(".") for path in MATERIALS.rglob("*")), str(MATERIALS)
@@ -362,17 +362,17 @@ def rows(doc: Rhino.RhinoDoc, targets: Mapping[Units, Template]) -> Iterator[Row
     yield from (
         key((commands if (owner := PlugIn.Find(kind.Assembly)) is None else owner.Id, "section-expanded", str(kind.GUID)), "expanded", target=True, default=held) for kind, held in sections.items()
     )
-    yield Row(label="SupportOptions.Libraries_ShowDocuments", read=SupportOptions.Libraries_ShowDocuments, write=SupportOptions.Libraries_SetShowDocuments, target=False)
+    yield preference(label="SupportOptions.Libraries_ShowDocuments", read=SupportOptions.Libraries_ShowDocuments, write=SupportOptions.Libraries_SetShowDocuments, target=False)
     yield from (
         (
-            Row(label="SupportOptions.Libraries_CustomPathList", read=SupportOptions.Libraries_CustomPathList, write=SupportOptions.Libraries_SetCustomPathList, target=folder),
-            Row(
+            preference(label="SupportOptions.Libraries_CustomPathList", read=SupportOptions.Libraries_CustomPathList, write=SupportOptions.Libraries_SetCustomPathList, target=folder),
+            preference(
                 label="SupportOptions.Libraries_InitialLocation",
                 read=SupportOptions.Libraries_InitialLocation,
                 write=SupportOptions.Libraries_SetInitialLocation,
                 target=SupportOptions.RdkInitialLocation.CustomFolder,
             ),
-            Row(
+            preference(
                 label="SupportOptions.Libraries_InitialLocationCustomFolder",
                 read=SupportOptions.Libraries_InitialLocationCustomFolder,
                 write=SupportOptions.Libraries_SetInitialLocationCustomFolder,
@@ -382,10 +382,10 @@ def rows(doc: Rhino.RhinoDoc, targets: Mapping[Units, Template]) -> Iterator[Row
         if library
         else ()
     )
-    yield Row(label="SupportOptions.BlockContent_ShowDocuments", read=SupportOptions.BlockContent_ShowDocuments, write=SupportOptions.BlockContent_SetShowDocuments, target=False)
+    yield preference(label="SupportOptions.BlockContent_ShowDocuments", read=SupportOptions.BlockContent_ShowDocuments, write=SupportOptions.BlockContent_SetShowDocuments, target=False)
     yield from (key((commands, "LayerStates"), name, target=True) for name in ("ModelPropertiesChecked", "ViewportPropertiesChecked"))
     yield key(("ObjectManager", "Preview"), "DisplayModeId", target=DisplayModeDescription.WireframeId, default=DisplayModeDescription.WireframeId)
-    yield from (() if library else (line(Kind.SKIP, folder),))
+    yield from (() if library else (Skip(folder),))
     yield from window_layout(doc, bundled_layout(), tuple(starmap(labels, targets.items())), restored=False)
 
 

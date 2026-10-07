@@ -24,9 +24,11 @@ utils:
                 - has: {kind: call_suffix, pattern: $ARGS, not: {has: {kind: lambda_literal}}}
             - kind: control_transfer_statement
               has: {field: result, matches: forwarding-body}
+            - kind: 'try_expression, await_expression'
+              has: {field: expr, matches: forwarding-body}
     single-forwarding-statement:
         all:
-            - matches: {swift-single-statement: {first: {kind: 'navigation_expression, call_expression, control_transfer_statement'}}}
+            - matches: {swift-single-statement: {first: {kind: 'navigation_expression, call_expression, control_transfer_statement, try_expression, await_expression'}}}
             - has: {nthChild: 1, matches: forwarding-body}
     forwarding-entry:
         kind: switch_entry

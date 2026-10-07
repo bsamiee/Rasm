@@ -16,47 +16,45 @@ utils:
 rule:
     pattern: $SITE
     any:
-        - pattern: $CALL
+        - kind: call_expression
           any:
-            - pattern: '$INIT(fileURLWithPath: $P, $$$REST)'
             - pattern: '$INIT(fileURLWithPath: $P)'
-            - any:
-                - pattern: '$BASE.appendingPathComponent($P, $$$REST)'
-                - pattern: '$BASE.appendingPathComponent($P)'
-              not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: string-binding}}}
-            - pattern: '$TARGET.appendPathComponent($P, $$$REST)'
+            - pattern: '$INIT(fileURLWithPath: $P, relativeTo: $B)'
+            - pattern: '$INIT(fileURLWithPath: $Q, isDirectory: $D)'
+            - pattern: '$INIT(fileURLWithPath: $Q, isDirectory: $D, relativeTo: $B)'
+        - kind: call_expression
+          any:
+            - pattern: '$BASE.appendingPathComponent($P)'
+            - pattern: '$BASE.appendingPathComponent($Q, isDirectory: $D)'
+          not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: string-binding}}}
+        - kind: call_expression
+          any:
             - pattern: '$TARGET.appendPathComponent($P)'
-          not:
-            has:
-                kind: call_suffix
-                has:
-                    kind: value_arguments
-                    has:
-                        kind: value_argument
-                        all:
-                            - has: {field: name, regex: '^isDirectory$'}
-                            - has: {field: value, not: {any: [{kind: boolean_literal}, {kind: simple_identifier}, {kind: navigation_expression}, {kind: prefix_expression}]}}
+            - pattern: '$TARGET.appendPathComponent($Q, isDirectory: $D)'
         - kind: navigation_expression
           pattern: $READ
           all:
             - has: {field: suffix, has: {field: suffix, regex: '^(host|user|password|query|fragment)$'}}
-            - has: {field: target, pattern: $RECEIVER, not: {any: [{kind: key_path_expression}, {regex: '(?i)components$'}]}}
+            - has: {field: target, pattern: $RECEIVER, not: {any: [{kind: key_path_expression}, {kind: simple_identifier, regex: '^[A-Z]'}, {regex: '(?i)components$'}]}}
             - not: {inside: {kind: call_expression}}
             - not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: components-binding}}}
 constraints:
-    INIT: {regex: '^(Foundation\.)?URL(\.init)?$'}
+    INIT: {regex: '^((Foundation\.)?URL(\.init)?|\.init)$'}
     BASE: {not: {regex: '\bNSString\b'}}
 transform:
     OPEN_INIT: {replace: {source: $INIT, replace: '^(.+)$', by: '$1(filePath: '}}
     OPEN_APPENDING: {replace: {source: $BASE, replace: '(?s)^(.*)$', by: '$1.appending(path: '}}
     OPEN_APPEND: {replace: {source: $TARGET, replace: '(?s)^(.*)$', by: '$1.append(path: '}}
-    DIRECTORY: {replace: {source: $$$REST, replace: 'isDirectory: true', by: 'directoryHint: .isDirectory'}}
-    FILE: {replace: {source: $DIRECTORY, replace: 'isDirectory: false', by: 'directoryHint: .notDirectory'}}
-    HINT: {replace: {source: $FILE, replace: 'isDirectory: ([^,]+)', by: 'directoryHint: $1 ? .isDirectory : .notDirectory'}}
-    TAIL: {replace: {source: $HINT, replace: '^(.+)$', by: ', $1'}}
-    CLOSE: {replace: {source: $P, replace: '(?s)^.+$', by: ')'}}
+    INFERRED: {replace: {source: $P, replace: '(?s)^(.+)$', by: '$1, directoryHint: .checkFileSystem'}}
+    GROUPED: {replace: {source: $D, replace: '(?s)^(.* \? .* : .*)$', by: '($1)'}}
+    TERNARY: {replace: {source: $GROUPED, replace: '(?s)^(.+)$', by: ', directoryHint: $1 ? .isDirectory : .notDirectory'}}
+    DIRECTORY: {replace: {source: $TERNARY, replace: '^, directoryHint: true \? \.isDirectory : \.notDirectory$', by: ', directoryHint: .isDirectory'}}
+    HINT: {replace: {source: $DIRECTORY, replace: '^, directoryHint: false \? \.isDirectory : \.notDirectory$', by: ', directoryHint: .notDirectory'}}
+    RELATIVE: {replace: {source: $B, replace: '(?s)^(.+)$', by: ', relativeTo: $1'}}
+    CLOSE_INFERRED: {replace: {source: $P, replace: '(?s)^.+$', by: ')'}}
+    CLOSE_HINTED: {replace: {source: $Q, replace: '(?s)^.+$', by: ')'}}
     DECODED: {replace: {source: $READ, replace: '(?s)^(.*)\.(host|user)$', by: '$1.$2(percentEncoded: false)'}}
     READ_FIX: {replace: {source: $DECODED, replace: '(?s)^(.*)\.(password|query|fragment)$', by: '$1.$2()'}}
-fix: '$OPEN_INIT$OPEN_APPENDING$OPEN_APPEND$P$TAIL$CLOSE$READ_FIX'
+fix: '$OPEN_INIT$OPEN_APPENDING$OPEN_APPEND$INFERRED$Q$HINT$RELATIVE$CLOSE_INFERRED$CLOSE_HINTED$READ_FIX'
 message: '`$SITE` reads or builds a URL through a member the SDK deprecates for its `filePath:`, `path:`, or `percentEncoded:` form'
-note: 'Call `URL(filePath:)`, `appending(path:)`, or `append(path:)` with `directoryHint:` (`.isDirectory` for `isDirectory: true`, `.notDirectory` for `false`, a ternary for a `Bool` name), and read `host(percentEncoded: false)`, `user(percentEncoded: false)`, `password()`, `query()`, or `fragment()`, each equal to its property'
+note: 'Call `URL(filePath:)`, `appending(path:)`, or `append(path:)` with `directoryHint:` (`.checkFileSystem` without `isDirectory:`, `.isDirectory` for `true`, `.notDirectory` for `false`, a ternary for a `Bool` expression), and read `host(percentEncoded: false)`, `user(percentEncoded: false)`, `password()`, `query()`, or `fragment()`, each equal to its property'

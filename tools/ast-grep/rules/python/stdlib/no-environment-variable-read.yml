@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-environment-variable-read
+language: python
+severity: error
+utils:
+    mapping:
+        any:
+            - matches: {python-member-use: {module: {regex: '^(os|posix|nt)$'}, name: {regex: '^environb?$'}}}
+            - kind: parenthesized_expression
+              has: {matches: mapping}
+    written:
+        any:
+            - inside: {kind: parenthesized_expression, matches: written}
+            - inside: {kind: attribute, field: object, has: {field: attribute, regex: '^(update|clear|__setitem__|__delitem__|__ior__)$'}}
+            - inside: {kind: subscript, field: value, matches: target}
+            - inside: {kind: augmented_assignment, field: left}
+    target:
+        any:
+            - inside: {kind: 'assignment, augmented_assignment', field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern'}}}
+            - inside: {kind: delete_statement}
+    forwarded:
+        any:
+            - inside: {kind: parenthesized_expression, matches: forwarded}
+            - inside: {kind: assignment, field: right, has: {field: left, kind: identifier}}
+            - inside: {kind: named_expression, field: value}
+            - inside: {kind: 'argument_list, keyword_argument, dictionary_splat'}
+            - inside: {kind: binary_operator, has: {field: operator, regex: '^\|$'}}
+            - inside: {kind: attribute, field: object, has: {field: attribute, regex: '^copy$'}}
+            - inside:
+                kind: attribute
+                field: object
+                has: {field: attribute, regex: '^items$'}
+                inside: {kind: call, field: function, inside: {kind: for_in_clause, field: right, inside: {kind: dictionary_comprehension}}}
+    copy-source:
+        any: [{matches: mapping}, {matches: copied}]
+    copied:
+        any:
+            - kind: parenthesized_expression
+              has: {matches: copied}
+            - kind: call
+              all:
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^dict$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, any: [{matches: copy-source}, {kind: dictionary_splat, has: {matches: copy-source}}]}}
+            - kind: call
+              has: {field: function, kind: attribute, all: [{has: {field: object, matches: copy-source}}, {has: {field: attribute, regex: '^copy$'}}]}
+            - kind: dictionary
+              has: {kind: dictionary_splat, has: {matches: copy-source}}
+            - kind: dictionary_comprehension
+              has: {kind: for_in_clause, has: {field: right, kind: call, has: {field: function, kind: attribute, all: [{has: {field: object, matches: copy-source}}, {has: {field: attribute, regex: '^items$'}}]}}}
+            - kind: binary_operator
+              all: [{has: {field: operator, regex: '^\|$'}}, {has: {matches: copy-source}}]
+    relayed:
+        any:
+            - matches: copied
+            - kind: parenthesized_expression
+              has: {matches: relayed}
+            - matches: {python-assigned-name: {value: {matches: copy-source}}}
+rule:
+    pattern: $READ
+    all:
+        - inside: {kind: module, stopBy: end, regex: '\b(environb?|getenvb?|expandvars)\b'}
+        - any:
+            - kind: call
+              has:
+                field: function
+                any:
+                    - matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^getenvb?$'}}}
+                    - matches: {python-member-use: {module: {regex: '^(os\.path|posixpath|ntpath)$'}, name: {regex: '^expandvars$'}}}
+            - kind: identifier, attribute
+              matches: mapping
+              not: {any: [{matches: written}, {matches: forwarded}]}
+            - kind: subscript
+              has: {field: value, matches: relayed}
+              not: {matches: target}
+            - kind: call
+              has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^(get|setdefault|pop|popitem|items|keys|values|__getitem__|__contains__|__iter__)$'}}, {has: {field: object, matches: relayed}}]}
+            - all:
+                - inside: {kind: 'for_statement, for_in_clause', field: right}
+                - matches: relayed
+            - kind: call
+              all:
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(iter|aiter|list|tuple|set|frozenset|sorted|reversed|enumerate|len|any|all|min|max|sum|map|filter|zip)$'}}}}
+                - has: {field: arguments, has: {any: [{matches: copy-source}, {matches: relayed}]}}
+            - kind: comparison_operator
+              all: [{has: {field: operators, regex: '^(not\s+)?in$'}}, {has: {nthChild: 2, matches: relayed}}]
+message: 'Replace environment read `$READ` with a typed settings field passed from the boundary'
+note: 'Validate the passed mapping once with a frozen settings model, `msgspec.convert` in `rasm` and extension modules and pydantic `model_validate` or `BaseSettings` elsewhere, the read holds no field name, type, or default a template could emit'

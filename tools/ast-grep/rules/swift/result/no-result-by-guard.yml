@@ -11,10 +11,12 @@ utils:
             matches: swift-nesting-level
             stopBy: {matches: swift-nesting-boundary}
             inside: {matches: swift-nesting-level, stopBy: {matches: swift-nesting-boundary}}
+    deepened-tail:
+        precedes: {kind: control_transfer_statement, has: {stopBy: end, matches: third-level}}
     deepened:
         any:
             - has: {kind: statements, has: {stopBy: end, matches: third-level}}
-            - precedes: {kind: control_transfer_statement, has: {stopBy: end, matches: third-level}}
+            - matches: deepened-tail
     leading:
         any:
             - inside: {kind: control_transfer_statement}
@@ -29,32 +31,47 @@ utils:
     plain:
         matches: plain-value
         not: {matches: effect}
-    bool-guard:
-        kind: guard_statement
+    plain-condition:
         all:
             - not: {has: {regex: '^,$'}}
             - not: {has: {field: condition, kind: 'value_binding_pattern, availability_condition'}}
             - not: {has: {field: condition, regex: '^case$'}}
             - has: {field: condition, pattern: $BOOL_COND, matches: plain}
-            - has:
-                matches:
-                    swift-single-statement:
-                        first:
-                            kind: control_transfer_statement
-                            regex: '^return\b'
-                            has: {field: result, pattern: $BOOL_ELSE, matches: plain-value}
-            - precedes:
-                kind: control_transfer_statement
-                regex: '^return\b'
-                has:
-                    field: result
-                    pattern: $BOOL_TAIL
-                    not: {kind: ternary_expression}
-                    any:
-                        - not: {has: {matches: effect, stopBy: {kind: lambda_literal}}}
-                        - all:
-                            - regex: '^(try\??|await)\s'
-                            - not: {has: {matches: effect, stopBy: {kind: lambda_literal}, not: {matches: leading}}}
+    bool-else:
+        kind: control_transfer_statement
+        regex: '^return\b'
+        has: {field: result, pattern: $BOOL_ELSE, matches: plain-value}
+    bool-tail:
+        kind: control_transfer_statement
+        regex: '^return\b'
+        has:
+            field: result
+            pattern: $BOOL_TAIL
+            not: {kind: ternary_expression}
+            any:
+                - not: {has: {matches: effect, stopBy: {kind: lambda_literal}}}
+                - all:
+                    - regex: '^(try\??|await)\s'
+                    - not: {has: {matches: effect, stopBy: {kind: lambda_literal}, not: {matches: leading}}}
+    bool-guard:
+        kind: guard_statement
+        all:
+            - matches: plain-condition
+            - has: {kind: statements, has: {nthChild: 1, matches: bool-else}, not: {has: {nthChild: 2}}}
+            - precedes: {matches: bool-tail}
+    bool-if:
+        kind: if_statement
+        matches: plain-condition
+        any:
+            - all:
+                - not: {has: {regex: '^else$'}}
+                - not: {matches: deepened-tail}
+                - has: {kind: statements, has: {nthChild: 1, matches: bool-tail}, not: {has: {nthChild: 2}}}
+                - precedes: {matches: bool-else}
+            - all:
+                - not: {has: {kind: if_statement}}
+                - has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, has: {nthChild: 1, matches: bool-tail}, not: {has: {nthChild: 2}}}
+                - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, has: {nthChild: 1, matches: bool-else}, not: {has: {nthChild: 2}}}
     optional-binding:
         all:
             - not: {has: {regex: '^,$'}}
@@ -81,14 +98,19 @@ utils:
     else-body:
         matches: {swift-single-statement: {first: {kind: control_transfer_statement}}}
         has: {nthChild: 1, matches: else-return}
+    failure-return:
+        kind: control_transfer_statement
+        has: {field: result, matches: swift-failure-call}
     failure-else:
         any:
-            - follows: {kind: guard_statement, has: {kind: statements, has: {kind: control_transfer_statement, has: {field: result, regex: '^\.failure\('}}}}
+            - follows: {kind: guard_statement, has: {kind: statements, has: {matches: failure-return}}}
             - inside:
                 kind: statements
                 inside:
                     kind: if_statement
-                    precedes: {kind: control_transfer_statement, has: {field: result, regex: '^\.failure\('}}
+                    any:
+                        - precedes: {matches: failure-return}
+                        - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, has: {matches: failure-return}}
     map-parameter:
         any:
             - follows: {kind: guard_statement, has: {field: bound_identifier, pattern: $X}}
@@ -133,6 +155,16 @@ utils:
     returned-value:
         kind: control_transfer_statement
         regex: '^return\s'
+    returning-branch:
+        kind: statements
+        matches: {swift-single-statement: {first: {matches: returned-value, not: {regex: '\belse\b'}}}}
+    returning-chain:
+        kind: if_statement
+        all:
+            - has: {regex: '^else$'}
+            - not: {has: {kind: availability_condition}}
+            - not: {has: {kind: statements, not: {matches: returning-branch}}}
+            - not: {has: {kind: if_statement, not: {matches: returning-chain}}}
     condition-guard:
         kind: guard_statement
         pattern: $GUARD
@@ -144,6 +176,15 @@ utils:
                     swift-single-statement:
                         first: {matches: returned-value, not: {regex: '\belse\b'}, has: {field: result, pattern: $$GUARD_ELSE}}
             - precedes: {matches: returned-value, has: {field: result, pattern: $$GUARD_TAIL}}
+    condition-if:
+        kind: if_statement
+        pattern: $IF_HEAD
+        all:
+            - not: {has: {regex: '^else$'}}
+            - not: {has: {kind: 'wildcard_pattern, availability_condition'}}
+            - not: {matches: deepened-tail}
+            - has: {kind: statements, matches: returning-branch}
+            - precedes: {matches: returned-value, has: {field: result, pattern: $$IF_TAIL}}
 rule:
     all:
         - any:
@@ -151,8 +192,16 @@ rule:
               inside: {kind: statements, inside: {kind: 'function_body, lambda_literal, computed_property, computed_getter'}}
             - pattern: $KEPT
         - not: {kind: guard_statement, matches: deepened}
+        - not: {kind: if_statement, inside: {kind: if_statement}}
+        - not:
+            any:
+                - regex: '^(if|guard)\s+case\s+(let\s+)?\.success\b'
+                - kind: if_statement
+                  regex: '^if\s+case\s+(let\s+)?\.failure\b'
+                  has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, has: {nthChild: 1, matches: failure-return}}
     any:
         - matches: bool-guard
+        - matches: bool-if
         - kind: guard_statement
           matches: optional-binding
           all:
@@ -164,7 +213,18 @@ rule:
             - not: {has: {regex: '^else$'}}
             - has: {kind: statements, matches: value-body}
             - precedes: {matches: else-return}
+        - kind: if_statement
+          matches: optional-binding
+          all:
+            - not: {has: {kind: if_statement}}
+            - has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, matches: value-body}
+            - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, matches: else-body}
         - matches: condition-guard
+        - kind: if_statement
+          pattern: $CHAIN
+          matches: returning-chain
+          not: {inside: {kind: if_statement}}
+        - matches: condition-if
 transform:
     RETURN: {replace: {source: $KEPT, replace: '(?s)^.*$', by: 'return '}}
     BOOL_PREFIX: {replace: {source: $BOOL_TAIL, replace: '(?s)^((?:(?:try\??|await)\s+)*).*$', by: '$1'}}
@@ -184,6 +244,8 @@ transform:
     BIND_IN: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: ' in '}}
     BIND_CLOSE: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: ' }'}}
     IF_EXPRESSION: {rewrite: {source: $GUARD, rewriters: [guard-to-if]}}
+    CHAIN_EXPRESSION: {rewrite: {source: $CHAIN, rewriters: [unreturned]}}
+    IF_HEAD_EXPRESSION: {rewrite: {source: $IF_HEAD, rewriters: [if-to-expression]}}
 rewriters:
     - id: guard-to-if
       rule: {kind: guard_statement, pattern: $CONDITION_GUARD}
@@ -195,8 +257,19 @@ rewriters:
         } else {
             $GUARD_ELSE
         }
+    - id: unreturned
+      rule: {kind: control_transfer_statement, regex: '^return\s', has: {field: result, pattern: $RETURNED}}
+      fix: $RETURNED
+    - id: if-to-expression
+      rule: {kind: if_statement, pattern: $CONDITION_IF}
+      transform:
+        THEN: {rewrite: {source: $CONDITION_IF, rewriters: [unreturned]}}
+      fix: |-
+        $THEN else {
+            $IF_TAIL
+        }
 fix:
-    template: '$RETURN$BOOL_PREFIX$BOOL_COND$BOOL_THEN$BOOL_VALUE$BOOL_OTHERWISE$BOOL_ELSE$TRY$AWAIT_OPEN$OPEN$OPT$CLOSE$MAP_OPEN$X$MAP_IN$VALUE$THROWING$MAP_CLOSE$SUCCESS$COALESCE$ELSE$BIND_OPEN$LIFTED$BIND_IN$AWAITED$BIND_CLOSE$IF_EXPRESSION'
+    template: '$RETURN$BOOL_PREFIX$BOOL_COND$BOOL_THEN$BOOL_VALUE$BOOL_OTHERWISE$BOOL_ELSE$TRY$AWAIT_OPEN$OPEN$OPT$CLOSE$MAP_OPEN$X$MAP_IN$VALUE$THROWING$MAP_CLOSE$SUCCESS$COALESCE$ELSE$BIND_OPEN$LIFTED$BIND_IN$AWAITED$BIND_CLOSE$IF_EXPRESSION$CHAIN_EXPRESSION$IF_HEAD_EXPRESSION'
     expandEnd: {kind: control_transfer_statement}
 message: '`guard` or `if` returns each case by statements where one expression selects the result'
-note: '`<condition> ? <value> : <else value>` over one plain condition, `<optional>.map { <value> in <expression> } ?? <else value>` over one optional binding, `(<optional>.map(Result.success) ?? .failure(<failure>)).bind { <value> in <awaiting expression> }` where that expression awaits, `if <conditions> { <value> } else { <else value> }` over every other condition list, and the `guard` stays where the moved expression reaches a fourth nesting level'
+note: '`<condition> ? <value> : <else value>` over one plain condition, `<optional>.map { <value> in <expression> } ?? <else value>` over one optional binding, `(<optional>.map(Result.success) ?? .failure(<failure>)).bind { <value> in <awaiting expression> }` where that expression awaits, `if <conditions> { <value> } else { <else value> }` over every other condition list or `else if` chain, and the statement stays where the moved expression reaches a fourth nesting level'

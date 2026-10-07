@@ -5,13 +5,14 @@ severity: error
 utils:
     failure-statement:
         any:
-            - pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}
-            - pattern: '$_.resume(returning: .failure($$$_))'
-            - pattern: '$_ = .failure($$$_)'
+            - {kind: 'control_transfer_statement, assignment', has: {field: result, matches: swift-failure-call}}
+            - kind: call_expression
+              has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, has: {field: value, matches: swift-failure-call}}}}
     recovered-statement:
         any:
-            - pattern: {context: 'func f() { return .success($$$_) }', selector: control_transfer_statement}
-            - pattern: '$_.resume(returning: .success($$$_))'
+            - {kind: control_transfer_statement, has: {field: result, matches: swift-success-call}}
+            - kind: call_expression
+              has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, has: {field: value, matches: swift-success-call}}}}
             - kind: assignment
     failure-catch:
         kind: catch_block
@@ -28,7 +29,7 @@ utils:
         kind: statements
         pattern: $BODY
         all:
-            - has: {nthChild: {position: 1, reverse: true}, pattern: {context: 'func f() { return .success($_) }', selector: control_transfer_statement}}
+            - has: {nthChild: {position: 1, reverse: true}, kind: control_transfer_statement, has: {field: result, matches: swift-success-call}}
             - not:
                 has:
                     stopBy: {kind: 'lambda_literal, function_declaration'}
@@ -63,7 +64,11 @@ utils:
             - has:
                 kind: catch_block
                 matches: caught-name
-                has: {kind: statements, has: {pattern: {context: 'func f() { return .failure($FAILURE) }', selector: control_transfer_statement}}}
+                has:
+                    kind: statements
+                    has:
+                        kind: control_transfer_statement
+                        has: {field: result, matches: swift-failure-call, has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, pattern: $FAILURE}}}}}
             - not: {has: {kind: comment, precedes: {kind: comment}}}
             - any:
                 - has: {kind: comment, pattern: $LEAD, precedes: {kind: statements}}
@@ -173,9 +178,9 @@ rewriters:
         OPEN_ASYNC: {replace: {source: $AWAITED, replace: '^[\s\S]*$', by: 'await Result'}}
         OPEN_SYNC: {replace: {source: $SYNC, replace: '^[\s\S]*$', by: 'Result'}}
         RETURN: {replace: {source: $KEPT, replace: '(?s)^.*$', by: 'return '}}
-        VOID: {replace: {source: $BODY, replace: '\s*return \.success\(\(\)\)\s*$', by: ''}}
-        SOLE: {replace: {source: $VOID, replace: '^return \.success\(([\s\S]*)\)\s*$', by: '$1'}}
-        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn \.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
+        VOID: {replace: {source: $BODY, replace: '\s*return (?:Result(?:<[^{}]*>)?)?\.success\(\(\)\)\s*$', by: ''}}
+        SOLE: {replace: {source: $VOID, replace: '^return (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '$1'}}
+        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
         LEAD_LINE: {replace: {source: $LEAD, replace: '$', by: "\n"}}
         INIT: {replace: {source: $CALLEE, replace: '^((?:\w+\.)*[A-Z]\w*)$', by: '$1.init'}}
         LABELED: {replace: {source: $LABEL, replace: '^(.+)$', by: '($1:)'}}
@@ -189,9 +194,9 @@ rewriters:
         OPEN_ASYNC: {replace: {source: $AWAITED, replace: '^[\s\S]*$', by: 'await Result'}}
         OPEN_SYNC: {replace: {source: $SYNC, replace: '^[\s\S]*$', by: 'Result'}}
         RETURN: {replace: {source: $KEPT, replace: '(?s)^.*$', by: 'return '}}
-        VOID: {replace: {source: $BODY, replace: '\s*return \.success\(\(\)\)\s*$', by: ''}}
-        SOLE: {replace: {source: $VOID, replace: '^return \.success\(([\s\S]*)\)\s*$', by: '$1'}}
-        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn \.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
+        VOID: {replace: {source: $BODY, replace: '\s*return (?:Result(?:<[^{}]*>)?)?\.success\(\(\)\)\s*$', by: ''}}
+        SOLE: {replace: {source: $VOID, replace: '^return (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '$1'}}
+        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
         LEAD_LINE: {replace: {source: $LEAD, replace: '$', by: "\n"}}
         LABELED: {replace: {source: $LABEL, replace: '^(.+)$', by: '($1:)'}}
       fix: |-
@@ -207,9 +212,9 @@ rewriters:
         OPEN_SYNC: {replace: {source: $SYNC, replace: '^[\s\S]*$', by: 'Result'}}
         ASYNC: {replace: {source: $AWAITED, replace: '^[\s\S]*$', by: ' async'}}
         RETURN: {replace: {source: $KEPT, replace: '(?s)^.*$', by: 'return '}}
-        VOID: {replace: {source: $BODY, replace: '\s*return \.success\(\(\)\)\s*$', by: ''}}
-        SOLE: {replace: {source: $VOID, replace: '^return \.success\(([\s\S]*)\)\s*$', by: '$1'}}
-        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn \.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
+        VOID: {replace: {source: $BODY, replace: '\s*return (?:Result(?:<[^{}]*>)?)?\.success\(\(\)\)\s*$', by: ''}}
+        SOLE: {replace: {source: $VOID, replace: '^return (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '$1'}}
+        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
         LEAD_LINE: {replace: {source: $LEAD, replace: '$', by: "\n"}}
       fix: |-
         $RETURN$OPEN_ASYNC$OPEN_SYNC { ()$ASYNC throws($FAILURE_TYPE) in
@@ -221,9 +226,9 @@ rewriters:
         OPEN_ASYNC: {replace: {source: $AWAITED, replace: '^[\s\S]*$', by: 'await Result'}}
         OPEN_SYNC: {replace: {source: $SYNC, replace: '^[\s\S]*$', by: 'Result'}}
         RETURN: {replace: {source: $KEPT, replace: '(?s)^.*$', by: 'return '}}
-        VOID: {replace: {source: $BODY, replace: '\s*return \.success\(\(\)\)\s*$', by: ''}}
-        SOLE: {replace: {source: $VOID, replace: '^return \.success\(([\s\S]*)\)\s*$', by: '$1'}}
-        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn \.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
+        VOID: {replace: {source: $BODY, replace: '\s*return (?:Result(?:<[^{}]*>)?)?\.success\(\(\)\)\s*$', by: ''}}
+        SOLE: {replace: {source: $VOID, replace: '^return (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '$1'}}
+        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
         LEAD_LINE: {replace: {source: $LEAD, replace: '$', by: "\n"}}
       fix: |-
         $RETURN$OPEN_ASYNC$OPEN_SYNC {
@@ -235,9 +240,9 @@ rewriters:
         OPEN_ASYNC: {replace: {source: $AWAITED, replace: '^[\s\S]*$', by: 'await Result'}}
         OPEN_SYNC: {replace: {source: $SYNC, replace: '^[\s\S]*$', by: 'Result'}}
         RETURN: {replace: {source: $KEPT, replace: '(?s)^.*$', by: 'return '}}
-        VOID: {replace: {source: $BODY, replace: '\s*return \.success\(\(\)\)\s*$', by: ''}}
-        SOLE: {replace: {source: $VOID, replace: '^return \.success\(([\s\S]*)\)\s*$', by: '$1'}}
-        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn \.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
+        VOID: {replace: {source: $BODY, replace: '\s*return (?:Result(?:<[^{}]*>)?)?\.success\(\(\)\)\s*$', by: ''}}
+        SOLE: {replace: {source: $VOID, replace: '^return (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '$1'}}
+        INNER: {replace: {source: $SOLE, replace: '^([\s\S]*)\breturn (?:Result(?:<[^{}]*>)?)?\.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
         UNUSED: {replace: {source: $KEYWORD, replace: '(?s)^.*$', by: '_'}}
         LEAD_LINE: {replace: {source: $LEAD, replace: '$', by: "\n"}}
       fix: |-
@@ -247,5 +252,5 @@ rewriters:
 transform:
     FIXED: {rewrite: {source: $DO, rewriters: [result-point-free, result-case, result-typed-throws, result-identity, result-map-error-closure]}}
 fix: $FIXED
-message: '`do` builds a Result by statements with `.failure` returned from `catch`'
+message: '`do` builds a Result by statements with `.failure` returned, assigned, or passed on from `catch` in place of one `Result` initializer'
 note: 'Use `Result { <throwing statements> }` (`await Result` when the body awaits) with `.mapError(<case or classifier>)` for a classifying `catch`, `throws(<Failure>)` for one returning the error unchanged, `.flatMap` for statements past the `catch`, and `.flatMapError` for a recovering `catch`, the `Result` initializer states the same cases in one expression'

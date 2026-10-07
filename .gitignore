@@ -18,6 +18,7 @@ buildServer.json
 *.3dmbak
 /Grasshopper.*
 xcuserdata/
+__pycache__/
 
 # --- [SECRETS] ----------------------------------------------------------------
 

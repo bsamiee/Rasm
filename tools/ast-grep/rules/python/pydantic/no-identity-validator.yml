@@ -1,0 +1,239 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-identity-validator
+language: python
+severity: error
+utils:
+    model-base:
+        any:
+            - matches: {python-member-use: {module: {regex: '^pydantic(\.v1)?$'}, name: {regex: '^(BaseModel|RootModel)$'}}}
+            - matches: {python-member-use: {module: {regex: '^(pydantic_settings|pydantic\.v1)$'}, name: {regex: '^BaseSettings$'}}}
+            - kind: subscript
+              has: {field: value, matches: {python-member-use: {module: {regex: '^pydantic$'}, name: {regex: '^RootModel$'}}}}
+    generic-base:
+        kind: subscript
+        has: {field: value, matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^Generic$'}}}}
+    pydantic-dataclass: {matches: {python-member-use: {module: {regex: '^pydantic\.dataclasses$'}, name: {regex: '^dataclass$'}}}}
+    model-class:
+        any:
+            - kind: class_definition
+              has:
+                field: superclasses
+                kind: argument_list
+                all:
+                    - has: {matches: model-base}
+                    - not: {has: {pattern: $_, not: {any: [{matches: model-base}, {matches: generic-base}, {kind: keyword_argument}, {kind: comment}]}}}
+                    - not: {has: {matches: model-base, precedes: {stopBy: end, matches: model-base}}}
+            - kind: class_definition
+              not: {has: {field: superclasses, kind: argument_list}}
+              inside:
+                kind: decorated_definition
+                has: {kind: decorator, has: {any: [{matches: pydantic-dataclass}, {kind: call, has: {field: function, matches: pydantic-dataclass}}]}}
+    field-validator: {matches: {python-member-use: {module: {regex: '^pydantic(\.functional_validators)?$'}, name: {regex: '^field_validator$'}}}}
+    model-validator: {matches: {python-member-use: {module: {regex: '^pydantic(\.functional_validators)?$'}, name: {regex: '^model_validator$'}}}}
+    v1-validator: {matches: {python-member-use: {module: {regex: '^pydantic(\.v1|\.deprecated\.class_validators)?$'}, name: {regex: '^validator$'}}}}
+    root-validator: {matches: {python-member-use: {module: {regex: '^pydantic(\.v1|\.deprecated\.class_validators)?$'}, name: {regex: '^root_validator$'}}}}
+    boolean-option: {kind: keyword_argument, has: {field: value, kind: 'true, false, none'}}
+    field-arguments:
+        kind: argument_list
+        all:
+            - has: {matches: python-plain-string}
+            - not: {has: {pattern: $_, not: {any: [{matches: python-plain-string}, {matches: mode}, {matches: boolean-option, has: {field: name, regex: '^check_fields$'}}, {kind: comment}]}}}
+    v1-arguments:
+        kind: argument_list
+        all:
+            - has: {matches: python-plain-string}
+            - not: {has: {pattern: $_, not: {any: [{matches: python-plain-string}, {matches: boolean-option, has: {field: name, regex: '^(pre|each_item|check_fields|allow_reuse)$'}}, {kind: keyword_argument, all: [{has: {field: name, regex: '^always$'}}, {has: {field: value, kind: 'false'}}]}, {kind: comment}]}}}
+    root-arguments:
+        kind: argument_list
+        all:
+            - has: {kind: keyword_argument, all: [{has: {field: name, regex: '^(pre|skip_on_failure)$'}}, {has: {field: value, kind: 'true'}}]}
+            - not: {has: {pattern: $_, not: {any: [{matches: boolean-option, has: {field: name, regex: '^(pre|skip_on_failure|allow_reuse)$'}}, {kind: comment}]}}}
+    mode: {kind: keyword_argument, has: {field: name, regex: '^mode$'}}
+    model-arguments:
+        kind: argument_list
+        all:
+            - has: {matches: mode}
+            - not: {has: {pattern: $_, not: {any: [{matches: mode}, {kind: comment}]}}}
+    passing:
+        kind: decorator
+        has:
+            any:
+                - kind: call
+                  all:
+                    - has: {field: function, matches: field-validator}
+                    - has: {field: arguments, matches: field-arguments, not: {has: {matches: mode, has: {field: value, not: {regex: '^["''](before|after)["'']$'}}}}}
+                - kind: call
+                  all: [{has: {field: function, matches: v1-validator}}, {has: {field: arguments, matches: v1-arguments}}]
+                - kind: call
+                  all: [{has: {field: function, matches: model-validator}}, {has: {field: arguments, matches: model-arguments, has: {matches: mode, has: {field: value, regex: '^["'']before["'']$'}}}}]
+                - kind: call
+                  all: [{has: {field: function, matches: root-validator}}, {has: {field: arguments, matches: root-arguments}}]
+                - matches: {python-member-use: {module: {regex: '^pydantic\.v1$'}, name: {regex: '^root_validator$'}}}
+    wrapping:
+        kind: decorator
+        has:
+            kind: call
+            has: {field: arguments, has: {matches: mode, has: {field: value, regex: '^["'']wrap["'']$'}}}
+            any:
+                - all: [{has: {field: function, matches: field-validator}}, {has: {field: arguments, matches: field-arguments}}]
+                - all: [{has: {field: function, matches: model-validator}}, {has: {field: arguments, matches: model-arguments}}]
+    instance:
+        kind: decorator
+        has:
+            kind: call
+            all:
+                - has: {field: function, matches: model-validator}
+                - has: {field: arguments, matches: model-arguments, has: {matches: mode, has: {field: value, regex: '^["'']after["'']$'}}}
+    classmethod: {kind: decorator, has: {matches: {python-builtin-name: {name: {regex: '^classmethod$'}}}}}
+    staticmethod: {kind: decorator, has: {matches: {python-builtin-name: {name: {regex: '^staticmethod$'}}}}}
+    parameter: {not: {kind: 'positional_separator, comment'}}
+    evaluated-default:
+        kind: default_parameter, typed_default_parameter
+        has: {field: value, not: {any: [{kind: 'integer, float, true, false, none'}, {matches: python-plain-string}]}}
+    class-bound:
+        kind: decorated_definition
+        any:
+            - has: {matches: classmethod}
+            - has: {kind: function_definition, has: {field: parameters, has: {nthChild: {position: 1, ofRule: {matches: parameter}}, matches: {python-parameter: {name: {regex: '^cls$'}}}}}}
+    plain-parameter: {kind: 'identifier, typed_parameter, default_parameter, typed_default_parameter'}
+    value-parameter:
+        kind: identifier, typed_parameter, default_parameter, typed_default_parameter
+        matches: {python-parameter: {name: {pattern: $VALUE}}}
+    handler-parameter:
+        kind: identifier, typed_parameter, default_parameter, typed_default_parameter
+        matches: {python-parameter: {name: {pattern: $HANDLER}}}
+    receiver-first: {kind: parameters, has: {nthChild: {position: 1, ofRule: {matches: parameter}}, kind: 'identifier, typed_parameter'}}
+    value-first: {kind: parameters, has: {nthChild: {position: 1, ofRule: {matches: parameter}}, matches: value-parameter}}
+    value-second: {kind: parameters, has: {nthChild: {position: 2, ofRule: {matches: parameter}}, matches: value-parameter}}
+    handler-second: {kind: parameters, has: {nthChild: {position: 2, ofRule: {matches: parameter}}, matches: handler-parameter}}
+    handler-third: {kind: parameters, has: {nthChild: {position: 3, ofRule: {matches: parameter}}, matches: handler-parameter}}
+    info-from-second:
+        kind: parameters
+        all:
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: parameter}}, not: {matches: plain-parameter}}}
+            - not: {has: {nthChild: {position: 3, ofRule: {matches: parameter}}}}
+    info-from-third:
+        kind: parameters
+        all:
+            - not: {has: {nthChild: {position: 3, ofRule: {matches: parameter}}, not: {matches: plain-parameter}}}
+            - not: {has: {nthChild: {position: 4, ofRule: {matches: parameter}}}}
+    info-from-fourth:
+        kind: parameters
+        all:
+            - not: {has: {nthChild: {position: 4, ofRule: {matches: parameter}}, not: {matches: plain-parameter}}}
+            - not: {has: {nthChild: {position: 5, ofRule: {matches: parameter}}}}
+    signature:
+        not: {has: {field: parameters, has: {matches: evaluated-default}}}
+        any:
+            - kind: function_definition
+              all:
+                - has: {field: parameters, kind: parameters, all: [{matches: value-first}, {matches: info-from-second}]}
+                - has: {field: body, matches: python-single-statement-block, has: {kind: return_statement, pattern: 'return $VALUE'}}
+              inside: {kind: decorated_definition, any: [{has: {matches: instance}}, {all: [{has: {matches: passing}}, {not: {matches: class-bound}}]}]}
+            - kind: function_definition
+              all:
+                - has: {field: parameters, kind: parameters, all: [{matches: receiver-first}, {matches: value-second}, {matches: info-from-third}]}
+                - has: {field: body, matches: python-single-statement-block, has: {kind: return_statement, pattern: 'return $VALUE'}}
+              inside: {kind: decorated_definition, has: {matches: passing}, matches: class-bound}
+            - kind: function_definition
+              all:
+                - has: {field: parameters, kind: parameters, all: [{matches: value-first}, {matches: handler-second}, {matches: info-from-third}]}
+                - has: {field: body, matches: python-single-statement-block, has: {kind: return_statement, pattern: 'return $HANDLER($VALUE)'}}
+              inside: {kind: decorated_definition, all: [{has: {matches: wrapping}}, {not: {matches: class-bound}}]}
+            - kind: function_definition
+              all:
+                - has: {field: parameters, kind: parameters, all: [{matches: receiver-first}, {matches: value-second}, {matches: handler-third}, {matches: info-from-fourth}]}
+                - has: {field: body, matches: python-single-statement-block, has: {kind: return_statement, pattern: 'return $HANDLER($VALUE)'}}
+              inside: {kind: decorated_definition, has: {matches: wrapping}, matches: class-bound}
+    identity-lambda:
+        not: {has: {field: parameters, has: {matches: evaluated-default}}}
+        any:
+            - kind: lambda
+              all:
+                - has: {field: parameters, all: [{has: {kind: identifier, nthChild: {position: 1, ofRule: {matches: parameter}}, pattern: $ARGUMENT}}, {not: {has: {nthChild: {position: 3, ofRule: {matches: parameter}}}}}]}
+                - has: {field: body, kind: identifier, pattern: $ARGUMENT}
+              inside: {kind: argument_list, stopBy: {kind: call}, inside: {kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^pydantic(\.functional_validators)?$'}, name: {regex: '^(AfterValidator|BeforeValidator)$'}}}}}}
+            - kind: lambda
+              all:
+                - has: {field: parameters, all: [{has: {kind: identifier, nthChild: {position: 1, ofRule: {matches: parameter}}, pattern: $ARGUMENT}}, {has: {kind: identifier, nthChild: {position: 2, ofRule: {matches: parameter}}, pattern: $CALLED}}, {not: {has: {nthChild: {position: 4, ofRule: {matches: parameter}}}}}]}
+                - has: {field: body, kind: call, pattern: '$CALLED($ARGUMENT)'}
+              inside: {kind: argument_list, stopBy: {kind: call}, inside: {kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^pydantic(\.functional_validators)?$'}, name: {regex: '^WrapValidator$'}}}}}}
+    identity-metadata:
+        kind: call
+        has: {field: arguments, has: {any: [{matches: identity-lambda}, {kind: keyword_argument, all: [{has: {field: name, regex: '^func$'}}, {has: {field: value, matches: identity-lambda}}]}]}, not: {has: {nthChild: 2}}}
+    shared-block: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    annotated: {matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^Annotated$'}}}}
+rule:
+    any:
+        - kind: decorated_definition
+          all:
+            - has: {kind: decorator, any: [{matches: passing}, {matches: wrapping}, {matches: instance}]}
+            - not: {has: {kind: decorator, not: {any: [{matches: passing}, {matches: wrapping}, {matches: instance}, {matches: classmethod}, {matches: staticmethod}]}}}
+            - not: {all: [{has: {matches: instance}}, {has: {kind: decorator, not: {matches: instance}}}]}
+            - has:
+                kind: function_definition
+                all:
+                    - has: {field: name, pattern: $METHOD}
+                    - not: {has: {regex: '^async$'}}
+                    - matches: signature
+            - inside: {kind: block, inside: {matches: model-class}}
+            - inside:
+                kind: block
+                not:
+                    has:
+                        nthChild:
+                            position: 2
+                            ofRule:
+                                any:
+                                    - kind: function_definition
+                                      has: {field: name, pattern: $METHOD}
+                                    - kind: decorated_definition
+                                      has: {kind: function_definition, has: {field: name, pattern: $METHOD}}
+            - any:
+                - precedes: {pattern: $NEXT}
+                  inside: {matches: shared-block}
+                - pattern: $_
+                  inside: {matches: shared-block}
+                - has: {kind: function_definition, has: {field: name, pattern: $SOLE}}
+        - kind: type_parameter
+          pattern: $PARAMETERS
+          all:
+            - inside: {kind: generic_type, has: {kind: identifier, matches: annotated}}
+            - has: {kind: type, not: {any: [{nthChild: 1}, {has: {matches: identity-metadata}}]}}
+            - has: {kind: type, not: {nthChild: 1}, has: {matches: identity-metadata}}
+        - kind: type
+          has:
+            kind: generic_type
+            all:
+                - has: {kind: identifier, matches: annotated}
+                - has: {kind: type_parameter, all: [{has: {kind: type, nthChild: 1, pattern: $BASE}}, {has: {kind: type, nthChild: 2, has: {matches: identity-metadata}}}], not: {has: {kind: type, not: {any: [{nthChild: 1}, {has: {matches: identity-metadata}}]}}}}
+        - kind: subscript
+          pattern: $OWNER[$$$ITEMS]
+          all:
+            - has: {field: value, matches: annotated}
+            - has: {pattern: $_, not: {any: [{nthChild: 1}, {nthChild: 2}, {matches: identity-metadata}, {kind: comment}]}}
+            - has: {matches: identity-metadata, not: {nthChild: 2}}
+        - kind: subscript
+          all:
+            - has: {field: value, matches: annotated}
+            - has: {nthChild: 2, pattern: $BASE}
+            - has: {nthChild: 3, matches: identity-metadata}
+            - not: {has: {pattern: $_, not: {any: [{nthChild: 1}, {nthChild: 2}, {matches: identity-metadata}, {kind: comment}]}}}
+rewriters:
+    - id: kept-metadata
+      rule: {kind: type, pattern: $KEPT, not: {has: {matches: identity-metadata}}}
+      fix: $KEPT
+    - id: kept-item
+      rule: {pattern: $KEPT, inside: {kind: subscript, has: {field: value, matches: annotated}}, not: {matches: identity-metadata}}
+      fix: $KEPT
+transform:
+    KEPT_TYPES: rewrite($PARAMETERS, rewriters=[kept-metadata], joinBy=', ')
+    REBUILT_TYPES: {replace: {source: $KEPT_TYPES, replace: '(?s)^(.+)$', by: '[$1]'}}
+    KEPT_ITEMS: rewrite($$$ITEMS, rewriters=[kept-item], joinBy=', ')
+    REBUILT_ITEMS: {replace: {source: $KEPT_ITEMS, replace: '(?s)^(.+)$', by: '[$1]'}}
+    EMPTIED: {replace: {source: $SOLE, replace: '(?s)^.+$', by: 'pass'}}
+fix:
+    template: $NEXT$BASE$REBUILT_TYPES$OWNER$REBUILT_ITEMS$EMPTIED
+    expandEnd: {pattern: $NEXT}
+message: 'Remove validators that only return their input or delegate unchanged to the handler'
+note: 'Delete the validator, with `pass` where it is the one statement of its class body, and its `Annotated` metadata item, with the base type alone where no other metadata remains'

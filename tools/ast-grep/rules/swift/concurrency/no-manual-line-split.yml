@@ -3,27 +3,47 @@ id: no-manual-line-split
 language: swift
 severity: error
 utils:
-    newline:
+    newline-text:
         any:
-            - kind: hex_literal
-              regex: '^0x0[aA]$'
-            - kind: integer_literal
-              regex: '^10$'
             - pattern: 'UInt8(ascii: "\n")'
             - pattern: 'Character("\n")'
             - kind: line_string_literal
-              regex: '^"(\\r)?\\n"$'
+              regex: '^"((\\r)?\\n|\\u\{0*[aA]\})"$'
             - kind: 'prefix_expression, navigation_expression'
               regex: '^(CharacterSet)?\.newlines$'
+    newline-byte:
+        any:
+            - kind: hex_literal
+              regex: '^0x0*[aA]$'
+            - kind: integer_literal
+              regex: '^10$'
+    newline:
+        any:
+            - matches: newline-text
+            - all:
+                - matches: newline-byte
+                - inside: {kind: for_statement, stopBy: end, has: {kind: type_annotation, regex: '^:\s*(UInt8|Int8|CChar)$'}}
     newline-search:
         kind: call_expression
         all:
             - has: {kind: navigation_expression, has: {field: suffix, regex: '^\.(split|firstIndex|lastIndex|components|firstRange|ranges)$'}}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: newline}}}}
+            - has:
+                kind: call_suffix
+                has:
+                    kind: value_arguments
+                    has:
+                        kind: value_argument
+                        has:
+                            field: value
+                            any:
+                                - matches: newline-text
+                                - all:
+                                    - matches: newline-byte
+                                    - inside: {kind: for_statement, stopBy: end, regex: '^for\s+(try\s+)?await\b'}
 rule:
     kind: for_statement
     all:
-        - has: {field: collection, regex: '(^|\.)(bytes|characters|unicodeScalars|standardOutput|standardError)$', pattern: $BYTES}
+        - has: {field: collection, pattern: $BYTES}
         - has: {field: item, has: {field: bound_identifier, pattern: $B}}
         - has:
             kind: statements
@@ -38,6 +58,8 @@ rule:
                       all:
                         - has: {pattern: $B}
                         - has: {kind: switch_entry, has: {kind: switch_pattern, has: {matches: newline, stopBy: end}}}
+                    - pattern: $B.isNewline
+                    - pattern: $_.newlines.contains($B)
                     - matches: newline-search
 message: '`for` over `$BYTES` splits lines by hand, testing each `$B` for a newline'
-note: 'Iterate the async line sequence of the byte source, `lines` of `FileHandle.AsyncBytes`, `URL.AsyncBytes`, or `URLSession.AsyncBytes`, or `strings()` of swift-subprocess `SubprocessOutputSequence`'
+note: 'Iterate `lines` of an async byte sequence, `strings()` of swift-subprocess `SubprocessOutputSequence`, or `split(whereSeparator: \.isNewline)` of a string in memory'

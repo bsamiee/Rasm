@@ -10,12 +10,12 @@ utils:
             field: function
             all:
                 - has: {field: property, regex: '^(decode|encode)(Unknown)?Result$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
     success-getter:
         kind: member_expression
         all:
             - has: {field: property, regex: '^getSuccess$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Result)?$'}, exported: {regex: '^Result$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\b(Result|Option)$'}}}}
     applied-decoder:
         kind: call_expression
         all:
@@ -33,7 +33,7 @@ rule:
         - kind: call_expression
           any:
             - all: [{pattern: '$F($D, $G)'}, {has: {field: function, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^flow$'}}}}}]
-            - all: [{pattern: '$F($INNER, $G)'}, {has: {field: function, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}}}]
+            - all: [{pattern: '$F($INNER, $G)'}, {has: {field: function, matches: effect-pipe-function}}]
             - pattern: $INNER.pipe($G)
             - pattern: $G($INNER)
         - kind: member_expression

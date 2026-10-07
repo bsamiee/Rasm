@@ -11,23 +11,26 @@ ignores:
     - tools/interface/*/script/**
     - tools/interface/blender/extension/**
 utils:
-    annotations-feature: {kind: dotted_name, regex: '^annotations$', inside: {kind: future_import_statement}}
+    feature: {any: [{kind: aliased_import}, {kind: dotted_name}]}
+    annotations-feature: {matches: feature, regex: '^annotations\b'}
+    kept-feature: {matches: feature, not: {matches: annotations-feature}}
+    annotations-alone: {kind: future_import_statement, not: {has: {matches: kept-feature}}}
 rule:
     kind: future_import_statement
     pattern: $IMPORT
     has: {matches: annotations-feature}
     any:
-        - precedes: {pattern: $NEXT}
+        - {matches: annotations-alone, precedes: {pattern: $NEXT}}
         - pattern: $_
 rewriters:
     - id: kept
-      rule: {kind: dotted_name, pattern: $FEATURE, not: {matches: annotations-feature}}
+      rule: {matches: kept-feature, pattern: $FEATURE}
       fix: $FEATURE
 transform:
     KEPT: rewrite($IMPORT, rewriters=[kept], joinBy=', ')
-    OUT: {replace: {source: $KEPT, replace: '^.+$', by: "from __future__ import ${0}\n"}}
+    OUT: replace($KEPT, replace='^.+$', by='from __future__ import ${0}')
 fix:
     template: $OUT$NEXT
-    expandEnd: {pattern: $NEXT}
+    expandEnd: {pattern: $NEXT, follows: {matches: annotations-alone}}
 message: '`$IMPORT` stores annotations as strings'
 note: 'Use annotations without the `annotations` future import, Python 3.14 and later defer annotation evaluation by default'

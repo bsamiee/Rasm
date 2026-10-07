@@ -1,7 +1,7 @@
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Option<A> = { readonly kind: 'some'; readonly value: A } | { readonly kind: 'none' };
-type Fault = { readonly kind: 'exited'; readonly subject: string; readonly code: number; readonly stderr: string } | { readonly kind: 'unstarted' | 'unread' | 'unwritten' | 'undecoded' | 'invalid'; readonly subject: string; readonly cause: unknown };
+type Fault = { readonly kind: 'exited'; readonly subject: string; readonly code: number | string; readonly stderr: string } | { readonly kind: 'unstarted' | 'unread' | 'unwritten' | 'undecoded' | 'invalid'; readonly subject: string; readonly cause: unknown };
 type Result<T> = { readonly kind: 'ok'; readonly value: T } | { readonly kind: 'fault'; readonly fault: Fault };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

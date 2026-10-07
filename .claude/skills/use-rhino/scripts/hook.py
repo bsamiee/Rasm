@@ -89,7 +89,7 @@ def decision(event: Event) -> dict[str, object] | None:
     match event.tool_name.removeprefix("mcp__rhino-mcp-platform__"):
         case "run_python":
             tool_input = msgspec.json.decode(event.tool_input, type=Input)
-            return {"updatedInput": msgspec.structs.replace(tool_input, script=wrap(tool_input.script))}
+            return {"permissionDecision": "allow", "updatedInput": msgspec.structs.replace(tool_input, script=wrap(tool_input.script))}
         case tool if (instead := replacement(tool)) is not None:
             return {"permissionDecision": "deny", "permissionDecisionReason": f"{tool} refused, {instead}"}
         case _:

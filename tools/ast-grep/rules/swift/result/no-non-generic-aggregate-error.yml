@@ -2,27 +2,29 @@
 id: no-non-generic-aggregate-error
 language: swift
 severity: error
+utils:
+    element-array:
+        any:
+            - {kind: array_type, has: {field: name, pattern: $ELEMENT}}
+            - kind: user_type
+              all:
+                - has: {kind: type_identifier, regex: '^Array$'}
+                - has: {kind: type_arguments, all: [{has: {field: name, pattern: $ELEMENT}}, {not: {has: {nthChild: 2}}}]}
+    stored:
+        kind: property_declaration
+        not: {has: {kind: computed_property}}
 rule:
     kind: class_declaration
     all:
         - has: {field: declaration_kind, regex: ^struct$}
         - not: {has: {kind: type_parameters}}
         - has: {kind: inheritance_specifier, regex: (Error|Failure)$}
-        - has:
-            field: body
-            has:
-                kind: property_declaration
-                not: {has: {kind: computed_property}}
-                has: {kind: type_annotation, has: {field: name, kind: array_type, has: {field: name, pattern: $ELEMENT}}}
+        - has: {field: body, has: {matches: stored, has: {kind: type_annotation, has: {field: name, matches: element-array}}}}
         - not:
             has:
                 field: body
                 has:
-                    kind: property_declaration
-                    not:
-                        any:
-                            - has: {kind: computed_property}
-                            - has: {kind: type_annotation, has: {field: name, pattern: $ELEMENT}}
-                            - has: {kind: type_annotation, has: {field: name, kind: array_type, has: {field: name, pattern: $ELEMENT}}}
-message: Error struct stores `$ELEMENT` values alone, an aggregate error specialized by hand to one element type
+                    matches: stored
+                    not: {has: {kind: type_annotation, has: {field: name, any: [{pattern: $ELEMENT}, {matches: element-array}]}}}
+message: 'Error struct stores `$ELEMENT` values alone, an aggregate error specialized by hand in place of one generic over its element'
 note: 'Declare one generic `struct <Aggregate><Element: Sendable>: Error` holding a first element and an array of the rest, each use passing its element type'

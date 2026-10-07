@@ -30,7 +30,7 @@ jobs:
                 persist-credentials: false
             - uses: ./.github/actions/setup
             - run: nx run rasm:check
-            - run: nx affected -t check --exclude='tag:host:macos,function-hooks'
+            - run: nx affected -t check --exclude='tag:host:macos,tag:host:rhino,function-hooks'
 
     macos:
         runs-on: xcode-27
@@ -43,7 +43,7 @@ jobs:
                 persist-credentials: false
             - uses: maxim-lobanov/setup-xcode@v1.7.0
             - uses: ./.github/actions/setup
-            - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= COMPILER_INDEX_STORE_ENABLE=NO
+            - run: nx affected -t check --exclude='!tag:host:macos,!tag:host:rhino' -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= COMPILER_INDEX_STORE_ENABLE=NO
 
     required:
         needs: [check, macos]

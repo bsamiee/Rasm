@@ -1,0 +1,413 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-combinator-by-hand
+language: python
+severity: error
+utils:
+    one-argument:
+        has:
+            field: arguments
+            not: {has: {nthChild: 2}}
+            has: {nthChild: 1, not: {kind: 'keyword_argument, list_splat, dictionary_splat, parenthesized_list_splat'}}
+    expression-member:
+        any:
+            - matches: {python-member-use: {module: {regex: '^expression(\.core(\.\w+)?)?$'}, name: {regex: '^(Ok|Error|Some|Nothing|Result|Option)$'}}}
+            - kind: attribute
+              has: {field: object, any: [{matches: expression-member}, {kind: subscript, has: {field: value, matches: expression-member}}]}
+    ok-call: {kind: call, matches: one-argument, has: {field: function, regex: '(^|\.)Ok$', matches: expression-member}}
+    error-call: {kind: call, matches: one-argument, has: {field: function, regex: '(^|\.)Error$', matches: expression-member}}
+    some-call: {kind: call, matches: one-argument, has: {field: function, regex: '(^|\.)Some$', matches: expression-member}}
+    nothing:
+        any:
+            - {kind: 'identifier, attribute', regex: '(^|\.)Nothing$', matches: expression-member}
+            - {kind: call, regex: '\(\)$', has: {field: function, kind: attribute, regex: '\.Nothing$', matches: expression-member}}
+    passthrough: {pattern: $SUBJECT, kind: 'identifier, attribute'}
+    literal:
+        any:
+            - kind: 'integer, float, true, false, none, identifier'
+            - matches: python-plain-string
+    liftable:
+        not:
+            any:
+                - kind: 'expression_list, await, yield, named_expression'
+                - has: {stopBy: end, kind: 'await, yield, named_expression'}
+    name-position:
+        any:
+            - inside: {kind: attribute, field: attribute}
+            - inside: {kind: keyword_argument, field: name}
+    value-use: {pattern: $V, not: {matches: name-position}}
+    error-use: {pattern: $E, not: {matches: name-position}}
+    free-value: {kind: identifier, regex: '^value$', not: {matches: name-position}}
+    free-error: {kind: identifier, regex: '^error$', not: {matches: name-position}}
+    closure-sensitive-name:
+        kind: identifier
+        any:
+            - {regex: '^(_|super)$', not: {matches: name-position}}
+            - {pattern: $ROOT, inside: {kind: 'lambda, generator_expression, case_pattern', stopBy: end}}
+            - {pattern: $ROOT, inside: {kind: for_in_clause, field: left, stopBy: end}}
+    plain-clause:
+        kind: case_clause
+        not:
+            any:
+                - has: {field: guard, kind: if_clause}
+                - has: {stopBy: end, kind: case_pattern, regex: '(^|=\s*)(None|True|False)$'}
+    ok-head:
+        matches: plain-clause
+        has: {kind: case_pattern, regex: '^((\w+\.)*Result\(\s*((tag\s*=\s*)?["'']ok["''](\s*,\s*(ok\s*=\s*)?[A-Za-z_]\w*)?|ok\s*=\s*[A-Za-z_]\w*(\s*,\s*tag\s*=\s*["'']ok["''])?)\s*,?\s*\)|["'']ok["''])$'}
+    error-head:
+        matches: plain-clause
+        has: {kind: case_pattern, regex: '^((\w+\.)*Result\(\s*((tag\s*=\s*)?["'']error["''](\s*,\s*error\s*=\s*[A-Za-z_]\w*)?|error\s*=\s*[A-Za-z_]\w*(\s*,\s*tag\s*=\s*["'']error["''])?)\s*,?\s*\)|["'']error["''])$'}
+    some-head:
+        matches: plain-clause
+        has: {kind: case_pattern, regex: '^((\w+\.)*Option\(\s*((tag\s*=\s*)?["'']some["''](\s*,\s*some\s*=\s*[A-Za-z_]\w*)?|some\s*=\s*[A-Za-z_]\w*(\s*,\s*tag\s*=\s*["'']some["''])?)\s*,?\s*\)|["'']some["''])$'}
+    none-head:
+        matches: plain-clause
+        has: {kind: case_pattern, regex: '^((\w+\.)*Option\(\s*((tag\s*=\s*)?["'']none["''](\s*,\s*none\s*=\s*_)?|none\s*=\s*_(\s*,\s*tag\s*=\s*["'']none["''])?)\s*,?\s*\)|["'']none["''])$'}
+    wildcard:
+        matches: plain-clause
+        has: {kind: case_pattern, regex: '^_$'}
+        nthChild: {position: 1, reverse: true, ofRule: {kind: case_clause}}
+    success-clause:
+        kind: case_clause
+        any:
+            - matches: ok-head
+            - matches: some-head
+            - all: [{matches: wildcard}, {follows: {any: [{matches: error-head}, {matches: none-head}]}}]
+    failure-clause:
+        kind: case_clause
+        any:
+            - matches: error-head
+            - matches: none-head
+            - all: [{matches: wildcard}, {follows: {any: [{matches: ok-head}, {matches: some-head}]}}]
+    success-statement: {kind: return_statement, has: {pattern: $OK_X, matches: liftable}}
+    failure-statement: {kind: return_statement, has: {pattern: $ERR_X, matches: liftable}}
+    success-return: {kind: block, not: {has: {nthChild: 2}}, has: {matches: success-statement}}
+    failure-return: {kind: block, not: {has: {nthChild: 2}}, has: {matches: failure-statement}}
+    passing:
+        kind: block
+        not: {has: {nthChild: 2}}
+        has: {any: [{kind: pass_statement}, {kind: expression_statement, has: {kind: ellipsis}}]}
+    tag-comparison: {kind: comparison_operator, has: {nthChild: 1, pattern: $SUBJECT.tag}, not: {has: {nthChild: 3}}}
+    result-ok-test:
+        any:
+            - pattern: $SUBJECT.is_ok()
+            - pattern: not $SUBJECT.is_error()
+            - {matches: tag-comparison, regex: '(==\s*["'']ok["'']|!=\s*["'']error["''])$'}
+    result-error-test:
+        any:
+            - pattern: $SUBJECT.is_error()
+            - pattern: not $SUBJECT.is_ok()
+            - {matches: tag-comparison, regex: '(==\s*["'']error["'']|!=\s*["'']ok["''])$'}
+    option-some-test:
+        any:
+            - pattern: $SUBJECT.is_some()
+            - pattern: not $SUBJECT.is_none()
+            - {matches: tag-comparison, regex: '(==\s*["'']some["'']|!=\s*["'']none["''])$'}
+    option-none-test:
+        any:
+            - pattern: $SUBJECT.is_none()
+            - pattern: not $SUBJECT.is_some()
+            - {matches: tag-comparison, regex: '(==\s*["'']none["'']|!=\s*["'']some["''])$'}
+    success-test: {any: [{matches: result-ok-test}, {matches: option-some-test}]}
+    failure-test: {any: [{matches: result-error-test}, {matches: option-none-test}]}
+    case-match:
+        kind: match_statement
+        all:
+            - any:
+                - all:
+                    - has: {field: subject, kind: attribute, pattern: $SUBJECT.tag, has: {field: object, kind: 'identifier, attribute'}}
+                    - has: {field: body, has: {kind: case_clause, has: {kind: case_pattern, has: {kind: string}}}}
+                - all:
+                    - has: {field: subject, pattern: $SUBJECT, kind: 'identifier, attribute, call, subscript, parenthesized_expression, await'}
+                    - not: {has: {field: body, has: {kind: case_clause, has: {kind: case_pattern, has: {kind: string}}}}}
+            - has: {field: body, not: {has: {kind: case_clause, nthChild: {position: 3, ofRule: {kind: case_clause}}}}}
+            - not: {all: [{has: {field: body, has: {any: [{matches: ok-head}, {matches: error-head}]}}}, {has: {field: body, has: {any: [{matches: some-head}, {matches: none-head}]}}}]}
+            - has: {field: body, has: {kind: case_clause, not: {has: {field: consequence, matches: passing}}}}
+            - any:
+                - has: {field: body, has: {matches: success-clause, has: {field: consequence, matches: success-return}}}
+                - all: [{has: {field: body, has: {matches: success-clause, has: {field: consequence, matches: passing}}}}, {precedes: {matches: success-statement}}]
+            - any:
+                - has: {field: body, has: {matches: failure-clause, has: {field: consequence, matches: failure-return}}}
+                - all: [{has: {field: body, has: {matches: failure-clause, has: {field: consequence, matches: passing}}}}, {precedes: {matches: failure-statement}}]
+    branch-if:
+        kind: if_statement
+        all:
+            - not: {has: {field: alternative, kind: elif_clause}}
+            - any:
+                - all:
+                    - has: {field: condition, matches: success-test}
+                    - has: {field: consequence, matches: success-return}
+                    - any:
+                        - has: {field: alternative, kind: else_clause, has: {field: body, matches: failure-return}}
+                        - all: [{not: {has: {field: alternative, kind: else_clause}}}, {precedes: {matches: failure-statement}}]
+                - all:
+                    - has: {field: condition, matches: failure-test}
+                    - has: {field: consequence, matches: failure-return}
+                    - any:
+                        - has: {field: alternative, kind: else_clause, has: {field: body, matches: success-return}}
+                        - all: [{not: {has: {field: alternative, kind: else_clause}}}, {precedes: {matches: success-statement}}]
+            - has: {stopBy: end, pattern: $SUBJECT, kind: 'identifier, attribute'}
+    branch-conditional:
+        kind: conditional_expression
+        all:
+            - any:
+                - all: [{has: {nthChild: 2, matches: success-test}}, {has: {nthChild: 1, pattern: $OK_X, matches: liftable}}, {has: {nthChild: 3, pattern: $ERR_X, matches: liftable}}]
+                - all: [{has: {nthChild: 2, matches: failure-test}}, {has: {nthChild: 1, pattern: $ERR_X, matches: liftable}}, {has: {nthChild: 3, pattern: $OK_X, matches: liftable}}]
+            - has: {stopBy: end, pattern: $SUBJECT, kind: 'identifier, attribute'}
+            - not: {has: {kind: comment, stopBy: end}}
+    statement:
+        pattern: $STATEMENT
+        all:
+            - inside: {kind: function_definition, stopBy: end}
+            - not: {inside: {kind: try_statement, has: {kind: finally_clause}, stopBy: {kind: function_definition}}}
+            - not: {has: {kind: comment, stopBy: end}}
+    value-attribute: {kind: attribute, pattern: $V, all: [{has: {field: object, pattern: $SUBJECT}}, {has: {field: attribute, regex: '^(ok|some|value)$'}}]}
+    error-attribute: {kind: attribute, pattern: $E, all: [{has: {field: object, pattern: $SUBJECT}}, {has: {field: attribute, regex: '^error$'}}]}
+    result-branch:
+        any:
+            - has: {field: body, has: {any: [{matches: ok-head}, {matches: error-head}]}}
+            - has: {field: condition, any: [{matches: result-ok-test}, {matches: result-error-test}]}
+            - has: {nthChild: 2, any: [{matches: result-ok-test}, {matches: result-error-test}]}
+    option-branch:
+        any:
+            - has: {field: body, has: {any: [{matches: some-head}, {matches: none-head}]}}
+            - has: {field: condition, any: [{matches: option-some-test}, {matches: option-none-test}]}
+            - has: {nthChild: 2, any: [{matches: option-some-test}, {matches: option-none-test}]}
+rule:
+    all:
+        - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: python-imported-module, regex: '^expression(\.|$)'}}
+        - any:
+            - all: [{matches: case-match}, {matches: statement}]
+            - all: [{matches: branch-if}, {matches: statement}]
+            - matches: branch-conditional
+        - any:
+            - has: {stopBy: end, kind: keyword_pattern, regex: '^(ok|some)\s*=', has: {kind: dotted_name, pattern: $V}}
+            - has: {stopBy: end, kind: class_pattern, has: {kind: case_pattern, nthChild: 3, has: {kind: dotted_name, pattern: $V}}}
+            - has: {stopBy: end, matches: value-attribute}
+            - precedes: {has: {stopBy: end, matches: value-attribute}}
+            - pattern: $V
+        - any:
+            - has: {stopBy: end, kind: keyword_pattern, regex: '^error\s*=', has: {kind: dotted_name, pattern: $E}}
+            - has: {stopBy: end, matches: error-attribute}
+            - precedes: {has: {stopBy: end, matches: error-attribute}}
+            - pattern: $E
+        - not:
+            all:
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: attribute, pattern: $V}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, pattern: $OK_X, any: [{matches: free-value}, {has: {stopBy: end, matches: free-value}}]}}
+        - has: {stopBy: end, pattern: $SUBJECT, any: [{kind: identifier, pattern: $ROOT}, {has: {stopBy: end, kind: identifier, nthChild: 1, pattern: $ROOT}}]}
+        - not: {any: [{has: {stopBy: end, matches: closure-sensitive-name}}, {precedes: {has: {stopBy: end, matches: closure-sensitive-name}}}]}
+        - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: function_definition, has: {field: name, regex: '^(is_ok|is_error|is_some|is_none|tag)$'}}}}
+        - not:
+            all:
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: attribute, pattern: $E}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, pattern: $ERR_X, any: [{matches: free-error}, {has: {stopBy: end, matches: free-error}}]}}
+        - any:
+            - all:
+                - matches: result-branch
+                - any:
+                    - all:
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {kind: 'true'}]}}
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {kind: 'false'}]}}
+                    - all:
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {kind: 'false'}]}}
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {kind: 'true'}]}}
+                    - all:
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {matches: error-call, has: {field: arguments, has: {pattern: $V}}}]}}
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {matches: ok-call, has: {field: arguments, has: {pattern: $E}}}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {pattern: $RESULT_MEMBER}]}}
+            - all:
+                - matches: result-branch
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {matches: some-call}, {pattern: $OK_CHAIN}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {matches: nothing}, {pattern: $TO_OPTION}]}}
+            - all:
+                - matches: result-branch
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {any: [{matches: passthrough}, {matches: error-call}]}, {pattern: $ERR_CHAIN}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {not: {any: [{pattern: $V}, {matches: some-call}]}}, {pattern: $OK_CHAIN}]}}
+            - all:
+                - matches: result-branch
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {any: [{matches: passthrough}, {matches: ok-call}]}, {pattern: $OK_CHAIN}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {not: {pattern: $E}}, {pattern: $ERR_RECOVERY}]}}
+            - all:
+                - matches: result-branch
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {pattern: $OK_FOLD}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {pattern: $ERR_DEFAULT}]}}
+            - all:
+                - matches: option-branch
+                - any:
+                    - all:
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {kind: 'true'}]}}
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {kind: 'false'}]}}
+                    - all:
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {kind: 'false'}]}}
+                        - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {kind: 'true'}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {pattern: $OPTION_MEMBER}]}}
+            - all:
+                - matches: option-branch
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {matches: ok-call}, {pattern: $OK_CHAIN}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {matches: error-call}, {pattern: $TO_RESULT}]}}
+            - all:
+                - matches: option-branch
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {any: [{matches: passthrough}, {matches: nothing}]}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {not: {any: [{pattern: $V}, {matches: ok-call}]}}, {pattern: $OK_CHAIN}]}}
+            - all:
+                - matches: option-branch
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {any: [{matches: passthrough}, {matches: some-call}]}, {pattern: $OK_CHAIN}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {pattern: $OPTION_RECOVERY}]}}
+            - all:
+                - matches: option-branch
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {pattern: $OK_FOLD}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {pattern: $OPTION_DEFAULT}]}}
+rewriters:
+    - id: awaited
+      rule: {kind: await, pattern: $AWAITED}
+      fix: ($AWAITED)
+    - id: value-reference
+      rule: {kind: attribute, pattern: $V}
+      fix: value
+    - id: point-free
+      rule:
+        kind: call
+        pattern: $F($V)
+        has: {field: function, kind: 'identifier, attribute', not: {any: [{matches: value-use}, {has: {stopBy: end, matches: value-use}}]}}
+      fix: $F
+    - id: constant
+      rule: {pattern: $BODY, not: {any: [{matches: value-use}, {has: {stopBy: end, matches: value-use}}]}}
+      fix: 'lambda _: $BODY'
+    - id: mapper
+      rule: {pattern: $BODY, has: {stopBy: end, kind: 'identifier, attribute', all: [{matches: value-use}, {pattern: $REF}]}}
+      transform:
+        PARAMETER: {replace: {source: $REF, replace: '^.+\.\w+$', by: value}}
+        LAMBDA_BODY: rewrite($BODY, rewriters=[value-reference])
+      fix: 'lambda $PARAMETER: $LAMBDA_BODY'
+    - id: error-reference
+      rule: {kind: attribute, pattern: $E}
+      fix: error
+    - id: error-point-free
+      rule:
+        kind: call
+        pattern: $F($E)
+        has: {field: function, kind: 'identifier, attribute', not: {any: [{matches: error-use}, {has: {stopBy: end, matches: error-use}}]}}
+      fix: $F
+    - id: error-constant
+      rule: {pattern: $BODY, not: {any: [{matches: error-use}, {has: {stopBy: end, matches: error-use}}]}}
+      fix: 'lambda _: $BODY'
+    - id: error-mapper
+      rule: {pattern: $BODY, has: {stopBy: end, kind: 'identifier, attribute', all: [{matches: error-use}, {pattern: $REF}]}}
+      transform:
+        PARAMETER: {replace: {source: $REF, replace: '^.+\.\w+$', by: error}}
+        LAMBDA_BODY: rewrite($BODY, rewriters=[error-reference])
+      fix: 'lambda $PARAMETER: $LAMBDA_BODY'
+    - id: thunk-point-free
+      rule: {kind: call, pattern: $F(), has: {field: function, kind: 'identifier, attribute'}}
+      fix: $F
+    - id: thunk
+      rule: {pattern: $BODY}
+      fix: 'lambda: $BODY'
+    - id: success-identity
+      rule:
+        any:
+            - matches: passthrough
+            - {any: [{matches: ok-call}, {matches: some-call}], has: {field: arguments, has: {pattern: $V}}}
+      fix: ''
+    - id: success-map
+      rule: {any: [{matches: ok-call}, {matches: some-call}], has: {field: arguments, has: {pattern: $INNER}}}
+      transform:
+        MAPPER: rewrite($INNER, rewriters=[point-free, constant, mapper])
+      fix: .map($MAPPER)
+    - id: step
+      rule: {pattern: $BODY}
+      transform:
+        BINDER: rewrite($BODY, rewriters=[point-free, constant, mapper])
+      fix: .bind($BINDER)
+    - id: value-identity
+      rule: {pattern: $V}
+      fix: ''
+    - id: fold-map
+      rule: {pattern: $BODY}
+      transform:
+        MAPPER: rewrite($BODY, rewriters=[point-free, constant, mapper])
+      fix: .map($MAPPER)
+    - id: error-identity
+      rule:
+        any:
+            - matches: passthrough
+            - {matches: error-call, has: {field: arguments, has: {pattern: $E}}}
+      fix: ''
+    - id: error-map
+      rule: {matches: error-call, has: {field: arguments, has: {pattern: $INNER}}}
+      transform:
+        FUNCTION: rewrite($INNER, rewriters=[error-point-free, error-constant, error-mapper])
+      fix: .map_error($FUNCTION)
+    - id: recovery
+      rule: {pattern: $BODY}
+      transform:
+        FUNCTION: rewrite($BODY, rewriters=[error-point-free, error-constant, error-mapper])
+      fix: .or_else_with($FUNCTION)
+    - id: merge
+      rule: {pattern: $E}
+      fix: .merge()
+    - id: default-value
+      rule: {matches: literal, pattern: $BODY}
+      fix: .default_value($BODY)
+    - id: default-with
+      rule: {pattern: $BODY}
+      transform:
+        FUNCTION: rewrite($BODY, rewriters=[error-point-free, error-constant, error-mapper])
+      fix: .default_with($FUNCTION)
+    - id: option-recovery
+      rule: {pattern: $BODY}
+      transform:
+        FUNCTION: rewrite($BODY, rewriters=[thunk-point-free, thunk])
+      fix: .or_else_with($FUNCTION)
+    - id: optional
+      rule: {kind: none}
+      fix: .to_optional()
+    - id: option-default-with
+      rule: {pattern: $BODY}
+      transform:
+        FUNCTION: rewrite($BODY, rewriters=[thunk-point-free, thunk])
+      fix: .default_with($FUNCTION)
+    - id: to-result
+      rule: {matches: error-call, has: {field: arguments, has: {matches: literal, pattern: $INNER}}}
+      fix: .to_result($INNER)
+    - id: to-result-with
+      rule: {matches: error-call, has: {field: arguments, has: {pattern: $INNER}}}
+      transform:
+        FUNCTION: rewrite($INNER, rewriters=[thunk-point-free, thunk])
+      fix: .to_result_with($FUNCTION)
+    - id: is-ok
+      rule: {kind: 'true'}
+      fix: .is_ok()
+    - id: is-error
+      rule: {kind: 'false'}
+      fix: .is_error()
+    - id: swap
+      rule: {matches: error-call}
+      fix: .swap()
+    - id: is-some
+      rule: {kind: 'true'}
+      fix: .is_some()
+    - id: is-none
+      rule: {kind: 'false'}
+      fix: .is_none()
+transform:
+    HEAD: rewrite($SUBJECT, rewriters=[awaited])
+    LEAD: {replace: {source: $STATEMENT, replace: '(?s)^.*$', by: 'return '}}
+    ERROR_TAIL: rewrite($ERR_CHAIN, rewriters=[error-identity, error-map])
+    CHAIN_TAIL: rewrite($OK_CHAIN, rewriters=[success-identity, success-map, step])
+    FOLD_TAIL: rewrite($OK_FOLD, rewriters=[value-identity, fold-map])
+    RECOVERY_TAIL: rewrite($ERR_RECOVERY, rewriters=[recovery])
+    DEFAULT_TAIL: rewrite($ERR_DEFAULT, rewriters=[merge, default-value, default-with])
+    OPTION_RECOVERY_TAIL: rewrite($OPTION_RECOVERY, rewriters=[option-recovery])
+    OPTION_DEFAULT_TAIL: rewrite($OPTION_DEFAULT, rewriters=[optional, default-value, option-default-with])
+    RESULT_MEMBER_TAIL: rewrite($RESULT_MEMBER, rewriters=[is-ok, is-error, swap])
+    OPTION_MEMBER_TAIL: rewrite($OPTION_MEMBER, rewriters=[is-some, is-none])
+    TO_RESULT_TAIL: rewrite($TO_RESULT, rewriters=[to-result, to-result-with])
+    TO_OPTION_TAIL: {replace: {source: $TO_OPTION, replace: '(?s)^.*$', by: .to_option()}}
+fix:
+    template: $LEAD$HEAD$ERROR_TAIL$CHAIN_TAIL$FOLD_TAIL$RECOVERY_TAIL$DEFAULT_TAIL$OPTION_RECOVERY_TAIL$OPTION_DEFAULT_TAIL$RESULT_MEMBER_TAIL$OPTION_MEMBER_TAIL$TO_RESULT_TAIL$TO_OPTION_TAIL
+    expandEnd: {kind: return_statement}
+message: 'Branch on the case of `$SUBJECT` rebuilds a `Result` or `Option` member by hand'
+note: 'Use `map` for a wrapped value, `bind` for a returned result, `map_error` for a wrapped error, `or_else_with`, `default_with`, `default_value`, or `to_optional` for an answer to a failed or absent case, and `is_ok`, `is_error`, `is_some`, `is_none`, `swap`, `merge`, `to_option`, `to_result`, or `to_result_with` where both arms restate one, each passing its unread case through unchanged'
+labels:
+    SUBJECT: {style: primary, message: Result or option the branch tests}

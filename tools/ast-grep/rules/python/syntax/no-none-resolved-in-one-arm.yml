@@ -3,25 +3,27 @@ id: no-none-resolved-in-one-arm
 language: python
 severity: error
 utils:
-    resolving-expression:
-        kind: conditional_expression
-        any:
-            - pattern: $X if $X is not None else $D
-            - pattern: $D if $X is None else $X
-    resolving-statement:
-        kind: if_statement
-        all:
-            - has: {field: condition, pattern: $X is None}
-            - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $X = $D}}, not: {has: {nthChild: 2}}}
-            - not: {has: {kind: "else_clause, elif_clause"}}
     resolving:
-        any: [{matches: resolving-expression}, {matches: resolving-statement}]
+        any:
+            - kind: conditional_expression
+              any:
+                - pattern: $X if $X is not None else $D
+                - pattern: $X if None is not $X else $D
+                - pattern: $D if $X is None else $X
+                - pattern: $D if None is $X else $X
+            - kind: if_statement
+              all:
+                - has: {field: condition, any: [{pattern: $X is None}, {pattern: None is $X}]}
+                - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $X = $D}}, not: {has: {nthChild: 2}}}
+                - not: {has: {kind: "else_clause, elif_clause"}}
     raw-use:
-        kind: identifier
+        kind: identifier, attribute, subscript
         pattern: $X
-        all:
-            - not: {inside: {kind: comparison_operator, has: {kind: none}}}
-            - not: {inside: {matches: resolving, stopBy: {kind: 'conditional_expression, if_statement'}}}
+        not:
+            any:
+                - inside: {kind: comparison_operator, has: {kind: none}}
+                - inside: {kind: 'assignment, for_statement, for_in_clause', field: left}
+                - inside: {matches: resolving, stopBy: {kind: 'conditional_expression, if_statement'}}
     holds-raw:
         any:
             - matches: raw-use
@@ -42,6 +44,7 @@ utils:
             - matches: branch
             - has: {matches: raw-use, stopBy: end}
             - not: {has: {matches: resolving, stopBy: end}}
+            - not: {has: {stopBy: end, matches: {python-binding: {name: {pattern: $X}}}}}
     statement-arm:
         matches: branch
         any:
@@ -66,4 +69,4 @@ rule:
                     - matches: conditional-arm
                     - matches: statement-arm
 message: '`$X` resolves None to `$D` in one arm and reaches the other arm as None'
-note: 'Use `<name> = <default> if <name> is None else <name>` before the branch, every arm reads the resolved value'
+note: 'Use `<name> = <default> if <value> is None else <value>` before the branch, every arm reads `<name>`'

@@ -45,19 +45,19 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^fail$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream|Channel|Sink|Exit|Cause|Deferred|Request|Result))?$'}, exported: {regex: '^(Effect|Stream|Channel|Sink|Exit|Cause|Deferred|Request|Result)$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Sink|Exit|Cause|Deferred|Request|Result)$'}}}}
     lazy-constructor:
         kind: member_expression
         any:
             - all:
                 - has: {field: property, regex: '^failSync$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream|Channel|Sink|Deferred))?$'}, exported: {regex: '^(Effect|Stream|Channel|Sink|Deferred)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Sink|Deferred)$'}}}}
             - all:
                 - has: {field: property, regex: '^mapError$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream|Channel|Sink|Exit|Result))?$'}, exported: {regex: '^(Effect|Stream|Channel|Sink|Exit|Result)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Sink|Exit|Result)$'}}}}
             - all:
                 - has: {field: property, regex: '^fromOption$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Result))?$'}, exported: {regex: '^(Effect|Result)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Result)$'}}}}
     filter-constructor:
         kind: member_expression
         any:
@@ -66,7 +66,7 @@ utils:
                 - has: {field: object, matches: effect-effect-module}
             - all:
                 - has: {field: property, regex: '^(filterOrFail|liftPredicate)$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Result)?$'}, exported: {regex: '^Result$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bResult$'}}}}
     options-callee:
         kind: member_expression
         any:
@@ -75,10 +75,10 @@ utils:
                 - has: {field: object, matches: effect-effect-module}
             - all:
                 - has: {field: property, regex: '^try$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Result)?$'}, exported: {regex: '^Result$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bResult$'}}}}
             - all:
                 - has: {field: property, regex: '^mapBoth$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Exit|Stream|Result))?$'}, exported: {regex: '^(Effect|Exit|Stream|Result)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Exit|Stream|Result)$'}}}}
     failure-member:
         any:
             - kind: pair

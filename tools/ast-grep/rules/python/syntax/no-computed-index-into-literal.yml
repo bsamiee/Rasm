@@ -3,16 +3,49 @@ id: no-computed-index-into-literal
 language: python
 severity: error
 utils:
+    integer:
+        any:
+            - kind: integer
+            - kind: unary_operator
+              has: {field: argument, kind: integer}
     literal-table:
         any:
             - kind: tuple, list
               has: {pattern: $_}
               not: {has: {kind: list_splat}}
+            - matches: python-plain-string
             - kind: dictionary
               has: {kind: pair}
-              not: {has: {pattern: $_, not: {kind: pair, has: {field: key, kind: 'integer, unary_operator'}}}}
+              not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: pair, has: {field: key, matches: integer}}]}}}
+            - kind: parenthesized_expression
+              has: {matches: literal-table}
+    class-table:
+        kind: class_definition
+        has: {field: body, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $MEMBER}}, {has: {field: right, matches: literal-table}}]}}}
+    member-table:
+        kind: attribute
+        all:
+            - has: {field: object, kind: identifier, pattern: $OWNER}
+            - has: {field: attribute, pattern: $MEMBER}
+            - any:
+                - inside:
+                    kind: function_definition
+                    stopBy: {kind: function_definition}
+                    has: {field: parameters, has: {nthChild: 1, any: [{pattern: $OWNER}, {kind: typed_parameter, has: {nthChild: 1, pattern: $OWNER}}]}}
+                    not: {inside: {kind: decorated_definition, has: {kind: decorator, has: {matches: {python-builtin-name: {name: {regex: '^staticmethod$'}}}}}}}
+                    inside: {stopBy: {kind: 'function_definition, class_definition'}, matches: class-table}
+                - inside: {kind: module, stopBy: end, has: {matches: class-table, has: {field: name, pattern: $OWNER}}}
+                  matches: {python-class-attribute: {value: {matches: literal-table}}}
     named-table:
+        kind: identifier
         matches: {python-assigned-name: {value: {matches: literal-table}}}
+    table:
+        any:
+            - matches: literal-table
+            - matches: named-table
+            - kind: identifier
+              matches: {python-assigned-name: {value: {matches: named-table}}}
+            - matches: member-table
     counter-target:
         any:
             - pattern: $I
@@ -30,29 +63,30 @@ utils:
             has:
                 stopBy: {kind: 'block, function_definition, lambda'}
                 kind: call
-                has: {field: function, kind: identifier, regex: '^(range|enumerate)$'}
+                has: {field: function, matches: {python-builtin-name: {name: {regex: '^(range|enumerate)$'}}}}
     positional-index:
         any:
-            - kind: 'integer, slice, string, unary_operator'
+            - kind: slice, string
+            - matches: integer
             - matches: python-truth-value
             - kind: call
-              pattern: int($B)
-              has: {field: arguments, has: {matches: python-truth-value}}
+              all:
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^int$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, matches: python-truth-value}}
             - kind: binary_operator
               has: {field: operator, regex: '^%$'}
             - matches: counter
 rule:
-    kind: subscript
-    all:
-        - not: {inside: {kind: 'assignment, augmented_assignment', field: left}}
-        - not: {inside: {kind: delete_statement}}
-        - has: {field: subscript, pattern: $CODE, not: {matches: positional-index}}
-        - has:
-            field: value
-            pattern: $TABLE
-            any:
-                - matches: literal-table
-                - kind: identifier
-                  matches: named-table
-message: 'Computed index `$CODE` reads literal `$TABLE`'
-note: 'Use a `match` over the case or an enum member holding the value, a computed index breaks when table order changes'
+    any:
+        - kind: subscript
+          all:
+            - not: {inside: {kind: 'assignment, augmented_assignment', field: left}}
+            - not: {inside: {kind: delete_statement}}
+            - has: {field: subscript, pattern: $CODE, not: {matches: positional-index}}
+            - has: {field: value, pattern: $TABLE, matches: table}
+        - kind: call
+          all:
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^get$'}}, {has: {field: object, pattern: $TABLE, matches: table}}]}
+            - has: {field: arguments, has: {nthChild: 1, pattern: $CODE, not: {matches: positional-index}}}
+message: 'Computed index `$CODE` reads literal table `$TABLE`, use a `match` over each case or an enum member holding its value'
+note: 'A computed index breaks when table order changes, and no rewrite names cases a table leaves unnamed'

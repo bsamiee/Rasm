@@ -5,8 +5,7 @@ severity: error
 utils:
     message:
         any:
-            - kind: navigation_expression
-              has: {field: suffix, has: {field: suffix, regex: '^(localizedDescription|localizedFailureReason|localizedRecoverySuggestion|errorDescription|failureReason|recoverySuggestion)$'}}
+            - matches: swift-error-text
             - kind: call_expression
               has:
                 nthChild: 1
@@ -18,7 +17,9 @@ utils:
               all:
                 - has: {field: suffix, has: {field: suffix, regex: '^(localizedLowercase|localizedUppercase)$'}}
                 - has: {field: target, matches: message}
-            - kind: tuple_expression
+            - kind: as_expression
+              has: {field: expr, matches: message}
+            - kind: 'tuple_expression, nil_coalescing_expression, infix_expression'
               has: {matches: message}
             - kind: simple_identifier
               pattern: $TEXT
@@ -30,6 +31,8 @@ utils:
                     all:
                         - has: {field: name, has: {field: bound_identifier, pattern: $TEXT}}
                         - has: {field: value, matches: message}
+    matcher:
+        regex: '^(contains|hasPrefix|hasSuffix|starts|range|ranges|firstRange|firstMatch|wholeMatch|prefixMatch|matches|numberOfMatches|rangeOfFirstMatch|localizedCaseInsensitiveContains|localizedStandardContains|caseInsensitiveCompare|compare)$'
 rule:
     pattern: $MATCH
     any:
@@ -42,8 +45,12 @@ rule:
             nthChild: 1
             kind: navigation_expression
             all:
-                - has: {field: suffix, has: {field: suffix, regex: '^(contains|hasPrefix|hasSuffix|starts|range|ranges|firstRange|firstMatch|wholeMatch|prefixMatch|matches|localizedCaseInsensitiveContains|localizedStandardContains|caseInsensitiveCompare|compare)$'}}
+                - has: {field: suffix, has: {field: suffix, matches: matcher}}
                 - has: {field: target, matches: message}
+        - kind: call_expression
+          all:
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, matches: matcher}}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: message}}}}
         - kind: switch_statement
           all:
             - has: {field: expr, matches: message}

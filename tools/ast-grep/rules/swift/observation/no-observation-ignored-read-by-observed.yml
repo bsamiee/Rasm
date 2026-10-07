@@ -3,31 +3,59 @@ id: no-observation-ignored-read-by-observed
 language: swift
 severity: error
 utils:
-    ignored: {kind: modifiers, has: {kind: attribute, regex: '^@ObservationIgnored$'}}
+    ignored: {kind: attribute, regex: '^@ObservationIgnored$'}
+    named:
+        has:
+            field: name
+            any:
+                - pattern: $TYPE
+                - has: {kind: type_identifier, pattern: $TYPE}
+    reader:
+        any:
+            - kind: property_declaration
+            - kind: subscript_declaration
+        all:
+            - has:
+                kind: computed_property
+                has:
+                    kind: simple_identifier
+                    stopBy: end
+                    pattern: $NAME
+                    not:
+                        inside:
+                            kind: navigation_suffix
+                            inside: {kind: navigation_expression, not: {has: {field: target, kind: self_expression}}}
+            - not: {has: {stopBy: end, pattern: 'access(keyPath: \.$NAME)'}}
 rule:
-    kind: simple_identifier
-    pattern: $NAME
+    kind: property_declaration
     all:
+        - pattern: $DECL
+        - has: {kind: modifiers, has: {matches: ignored}}
+        - has: {kind: value_binding_pattern, regex: '^var$'}
+        - has: {field: name, pattern: $NAME}
         - not:
-            inside:
-                kind: navigation_suffix
-                inside: {kind: navigation_expression, not: {has: {field: target, kind: self_expression}}}
+            has:
+                kind: modifiers
+                has:
+                    any:
+                        - kind: property_behavior_modifier
+                        - {kind: attribute, has: {kind: user_type, regex: '^[A-Z]', not: {regex: '^(ObservationIgnored|\w*Actor)$'}}}
         - inside:
-            kind: computed_property
-            stopBy: end
+            kind: class_body
             inside:
-                kind: property_declaration
-                all:
-                    - has: {field: name, pattern: $OWNER}
-                    - not: {has: {matches: ignored}}
-                    - not: {has: {stopBy: end, pattern: 'access(keyPath: $_)'}}
+                kind: class_declaration
+                matches: named
                 inside:
-                    kind: class_body
+                    kind: source_file
+                    stopBy: end
                     has:
-                        kind: property_declaration
+                        kind: class_declaration
+                        stopBy: end
                         all:
-                            - has: {matches: ignored}
-                            - has: {kind: value_binding_pattern, regex: '^var$'}
-                            - has: {field: name, pattern: $NAME}
-message: '`$OWNER` reads `$NAME`, an `@ObservationIgnored` property no observer sees change'
+                            - matches: named
+                            - has: {field: body, has: {matches: reader}}
+transform:
+    TRACKED: {replace: {source: $DECL, replace: '@ObservationIgnored\s+', by: ''}}
+fix: $TRACKED
+message: 'Computed member reads `$NAME`, an `@ObservationIgnored` property no observer sees change'
 note: 'Drop `@ObservationIgnored` from `<property>`'

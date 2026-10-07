@@ -87,6 +87,12 @@ utils:
               all:
                 - has: {field: name, regex: '^(Tail|Init)$'}
                 - has: {field: expression, matches: sequence-receiver}
+    map-type:
+        kind: 'generic_name, qualified_name'
+        regex: |-
+            (?x)^(global::)?((System\.Collections\.(Generic|Immutable|Frozen|Concurrent)|LanguageExt)\.)?
+            (Dictionary|IDictionary|IReadOnlyDictionary|SortedDictionary|SortedList|ConcurrentDictionary|ImmutableDictionary|ImmutableSortedDictionary
+            |FrozenDictionary|Map|HashMap|TrackingHashMap)\s*<
     arity-read:
         kind: member_access_expression
         all: [{has: {field: expression, pattern: $INDEXED}}, {has: {field: name, regex: '^(Count|Length)$'}}]
@@ -140,6 +146,12 @@ rule:
         - kind: element_access_expression
           pattern: $NAME
           all:
+            - has: {field: expression, kind: identifier, matches: {csharp-declared-type: {type: {matches: map-type}}}}
+            - has: {field: subscript, all: [{has: {kind: argument}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+            - not: {inside: {kind: assignment_expression, field: left}}
+        - kind: element_access_expression
+          pattern: $NAME
+          all:
             - has: {field: expression, pattern: $INDEXED, matches: sequence-receiver}
             - has: {field: subscript, matches: literal-index}
             - not:
@@ -154,5 +166,5 @@ rule:
                             all:
                                 - has: {field: expression, pattern: $INDEXED}
                                 - has: {field: subscript, not: {matches: literal-index}}
-message: '`$NAME` throws or returns a default sentinel on a sequence lacking the element'
-note: Use `Head`, `Last`, `Find(<predicate>)`, or `At(<index>)`, each returning an `Option`, and a list pattern (`[var first, .. var rest]`, `[var only]`) for a known arity
+message: '`$NAME` throws or returns a default sentinel on a sequence or map lacking the element'
+note: Use `Head`, `Last`, `Find(<predicate>)`, `At(<index>)`, or a map's `Find(<key>)`, each returning an `Option`, and a list pattern (`[var first, .. var rest]`, `[var only]`) for a known arity

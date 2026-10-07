@@ -102,6 +102,10 @@ type Point = tuple[float, float, float]
 type Zoom = BoundingBox | Sequence[str]
 type Placement = ViewportInfo | int | None
 type Mode = str | DisplayModeDescription | None
+type Output = Prompt | str
+type PropertyTarget = Layer | ObjectAttributes
+type ObjectId = str | Guid
+type Reader = bool | Callable[[RhinoDoc], bool]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -141,7 +145,7 @@ class Objects(Record, frozen=True):
     rows: tuple[ObjectRecord, ...]
     deleted: tuple[str, ...] = ()
     results: tuple[tuple[str, Result], ...] = ()
-    output: tuple[Prompt | str, ...] = ()
+    output: tuple[Output, ...] = ()
 
 
 class ViewRecord(Record, frozen=True):
@@ -308,7 +312,7 @@ def layer_index(doc: RhinoDoc, path: str) -> Resolved[int]:
     return index
 
 
-def _setter(doc: RhinoDoc, properties: Properties) -> Resolved[Callable[[Layer | ObjectAttributes], None]]:
+def _setter(doc: RhinoDoc, properties: Properties) -> Resolved[Callable[[PropertyTarget], None]]:
     """Resolve `properties` into a setter for a layer or object attributes, a default linetype the document lacks copied in alone."""
     match properties.linetype:
         case None:
@@ -369,7 +373,7 @@ def _setter(doc: RhinoDoc, properties: Properties) -> Resolved[Callable[[Layer |
         case failed:
             return Faults.of(*failed)
 
-    def apply(target: Layer | ObjectAttributes) -> None:
+    def apply(target: PropertyTarget) -> None:
         for setter, value in ((setter, value) for setter, value in members[type(target)] if value is not None):
             setter(target, value)
         if render is not None:
@@ -380,7 +384,7 @@ def _setter(doc: RhinoDoc, properties: Properties) -> Resolved[Callable[[Layer |
     return apply
 
 
-def _objects(doc: RhinoDoc, ids: Iterable[str | Guid]) -> Resolved[tuple[RhinoObject, ...]]:
+def _objects(doc: RhinoDoc, ids: Iterable[ObjectId]) -> Resolved[tuple[RhinoObject, ...]]:
     """Return objects `ids` name, or a fault per id naming no object."""
     found = [(key, doc.Objects.FindId(Guid.TryParse(key)[1])) for key in map(str, ids)]
     return collect_faults(*(Fault(RhinoObject, key) for key, rhino_object in found if rhino_object is None)) or tuple(rhino_object for _, rhino_object in found)
@@ -426,7 +430,7 @@ def _record(doc: RhinoDoc, rhino_object: RhinoObject) -> ObjectRecord:
     )
 
 
-def read_objects(doc: RhinoDoc, ids: Iterable[str | Guid], deleted: tuple[str, ...] = ()) -> Resolved[Objects]:
+def read_objects(doc: RhinoDoc, ids: Iterable[ObjectId], deleted: tuple[str, ...] = ()) -> Resolved[Objects]:
     """Read objects `ids` name, with ids an operation deleted."""
     found = _objects(doc, ids)
     return found if isinstance(found, Faults) else Objects(tuple(_record(doc, rhino_object) for rhino_object in found), deleted)
@@ -521,12 +525,12 @@ def _formats(member: str, kind: PlugInType) -> dict[str, MethodInfo]:
     return derived | typed
 
 
-def _reader(path: str) -> Resolved[bool | Callable[[RhinoDoc], bool]]:
+def _reader(path: str) -> Resolved[Reader]:
     """Return `True` for a `.3dm` file openNURBS reads, a function reading another suffix into a document through its typed reader or else its import plugin, or faults refusing the file."""
     file, readers, imported = Path(path), _formats(FileIO.FileStl.Read.__name__, PlugInType.FileImport), frozenset().union(*_suffixes(PlugInType.FileImport))
     match file.suffix.lower():
         case _ if HostUtils.IsRhinoFileExtension(path):
-            reader: Resolved[bool | Callable[[RhinoDoc], bool]] = True
+            reader: Resolved[Reader] = True
         case suffix if suffix in readers:
             reader = partial(_invoke, readers[suffix], path)
         case suffix if suffix in imported:
@@ -977,7 +981,7 @@ def change(doc: RhinoDoc, ids: Sequence[str], properties: Properties | None = No
 def command(doc: RhinoDoc, macro: str, layer_path: str, ids: Sequence[str] = ()) -> Resolved[Objects]:
     """Run `macro` with `ids` preselected and `layer_path` current in the active document, with its prompts and printed lines and none of the closing cancel's, refused for another document and while a command waits."""
     results: list[tuple[str, Result]] = []
-    output: list[Prompt | str] = []
+    output: list[Output] = []
 
     def printed() -> list[str]:
         return "".join(RhinoApp.CapturedCommandWindowStrings(clearBuffer=True)).splitlines()
@@ -1074,9 +1078,7 @@ def export(doc: RhinoDoc, path: str, ids: Sequence[str] = ()) -> Resolved[File[t
                 clr.GetClrType(FileIO.FileX_T): ObjectType.Mesh | ObjectType.Curve | ObjectType.Point,
             }.get(None if write is True else write.DeclaringType, ObjectType(0))
             excluded = tuple(
-                str(item.Id)
-                for item in chosen
-                if dropped and any(piece.ObjectType & dropped for piece in (item.Explode(explodeNestedInstances=True)[0] if isinstance(item, InstanceObject) else (item,)))
+                item.Id for item in chosen if dropped and any(piece.ObjectType & dropped for piece in (item.Explode(explodeNestedInstances=True)[0] if isinstance(item, InstanceObject) else (item,)))
             )
             file.parent.mkdir(parents=True, exist_ok=True)
             options = FileIO.FileWriteOptions()
@@ -1093,11 +1095,11 @@ def export(doc: RhinoDoc, path: str, ids: Sequence[str] = ()) -> Resolved[File[t
                     try:
                         for page in headless.Views.GetPageViews():
                             page.Close()
-                        for item in [item for item in _object_list(headless) if item.Id not in kept]:
+                        for item in (item for item in _object_list(headless) if item.Id not in kept):
                             headless.Objects.Delete(item, quiet=True, ignoreModes=True)
-                        for item in [item for item in _object_list(headless) if isinstance(item, InstanceObject) and str(item.Id) in excluded]:
+                        for item in (item for item in _object_list(headless, object_type=ObjectType.InstanceReference) if item.Id in excluded):
                             headless.Objects.AddExplodedInstancePieces(item, explodeNestedInstances=True, deleteInstance=True)
-                        for item in [item for item in _object_list(headless) if item.ObjectType & dropped]:
+                        for item in (item for item in _object_list(headless) if item.ObjectType & dropped):
                             headless.Objects.Delete(item, quiet=True, ignoreModes=True)
                         yield headless
                     finally:
@@ -1105,7 +1107,7 @@ def export(doc: RhinoDoc, path: str, ids: Sequence[str] = ()) -> Resolved[File[t
 
             with nullcontext(doc) if whole else pruned() as target:
                 written = target is not None and (target.WriteFile(path, options) if write is True else _invoke(write, path, target))
-            return File(path, file.stat().st_size, excluded) if written else Faults.of(Fault(PlugIn, path))
+            return File(path, file.stat().st_size, tuple(map(str, excluded))) if written else Faults.of(Fault(PlugIn, path))
         case failed:
             return Faults.of(*failed)
 

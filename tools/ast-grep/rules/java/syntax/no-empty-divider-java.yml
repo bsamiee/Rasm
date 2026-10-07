@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-empty-divider-java
+language: java
+severity: error
+rule:
+    matches: java-empty-divider
+    pattern: $DIVIDER
+    any:
+        - precedes: {pattern: $NEXT}
+        - pattern: $_
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^//\s*-*\s*(\[[^\]]*\])[\s\S]*$', by: '$1'}}
+message: Divider `$LABEL` opens no section or family
+note: Delete the divider, a divider opens a file-level section or an owner's family holding a declaration
+fix:
+    template: $NEXT
+    expandEnd: {pattern: $NEXT}

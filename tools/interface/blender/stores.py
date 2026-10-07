@@ -15,7 +15,7 @@ import msgspec
 
 from interface.blender.packages import Manifest
 from interface.blender.rows import Width
-from interface.host import Change, Error
+from interface.host import Change, Error, Result
 from interface.report import ABSENT, subscript
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -184,7 +184,7 @@ def scanned(data: bytes, offset: int) -> Iterator[Block]:
         offset = start + length
 
 
-def decoded(path: Path) -> Blend | Error:
+def decoded(path: Path) -> Result[Blend]:
     """File the path holds, or the reason it holds no readable file: a header outside the 17-byte format, or a count of SDNA blocks other than one."""
     data = path.read_bytes()
     match re.match(rb"BLENDER17-01v\d{4}", data):
@@ -269,7 +269,7 @@ def placed(blend: Blend) -> Iterator[tuple[str, int, int, Block]]:
 
 
 # --- [STORE]
-def shelved(path: Path, manifest: Manifest, essentials: frozenset[str]) -> tuple[Change | Error, ...]:
+def shelved(path: Path, manifest: Manifest, essentials: frozenset[str]) -> tuple[Result[Change], ...]:
     """Change row per shelf whose stored paths differ from the wanted ones, the file rewritten to them: each manifest shelf's catalog paths and the stored compositor list held to the Essentials catalogs, or the error of a file the reader cannot decode or that holds no preferences block."""
     match decoded(path):
         case Error() as error:
@@ -280,17 +280,16 @@ def shelved(path: Path, manifest: Manifest, essentials: frozenset[str]) -> tuple
             before, compositor = shelves(blend), "NODE_AST_compositor"
             pruned = {} if (stored := before.get(compositor)) is None else {compositor: tuple(each for each in stored if each in essentials)}
             wanted = {**manifest.shelves, **pruned}
-            changes = tuple(
+            if changes := tuple(
                 Change(f"preferences.{subscript(SETTINGS, name)}.{ENABLED}", ABSENT if held is None else repr(held), repr(paths))
                 for name, paths in wanted.items()
                 if (held := before.get(name)) != paths
-            )
-            if changes:
+            ):
                 path.write_bytes(encoded(edited(blend, wanted)))
             return changes
 
 
-def regions(path: Path, widths: tuple[Width, ...]) -> tuple[Change | Error, ...]:
+def regions(path: Path, widths: tuple[Width, ...]) -> tuple[Result[Change], ...]:
     """Change row per stored region of a declared editor and region type whose logical width or zoom differs, the startup file rewritten to them: `sizex`, and the view `cur` whose extent over the last drawn size is the zoom `V2D_KEEPZOOM` keeps at the next layout."""
     if isinstance(blend := decoded(path), Error):
         return (blend,)
@@ -310,7 +309,7 @@ def regions(path: Path, widths: tuple[Width, ...]) -> tuple[Change | Error, ...]
     return tuple(rows)
 
 
-def edit(folder: Path, manifest: Manifest, essentials: frozenset[str], widths: tuple[Width, ...]) -> tuple[Change | Error, ...]:
+def edit(folder: Path, manifest: Manifest, essentials: frozenset[str], widths: tuple[Width, ...]) -> tuple[Result[Change], ...]:
     """Change rows of the stored shelves in the preferences file and the stored region widths in the startup file, each file rewritten on difference."""
     return (*shelved(folder / "userpref.blend", manifest, essentials), *regions(folder / "startup.blend", widths))
 

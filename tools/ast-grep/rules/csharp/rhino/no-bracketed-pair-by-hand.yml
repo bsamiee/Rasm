@@ -59,5 +59,10 @@ rule:
             - has: {kind: select_clause, nthChild: 3, has: {pattern: $VALUE}}
             - not: {has: {nthChild: 4}}
             - not: {has: {kind: from_clause, nthChild: 2, has: {stopBy: end, kind: identifier, pattern: $USED}}}
+        - kind: try_statement
+          all:
+            - has: {field: body, pattern: $BODY}
+            - has: {kind: finally_clause, has: {kind: block, pattern: $END}}
+            - follows: {kind: expression_statement, has: {pattern: $BEGIN}}
 message: '`$BEGIN` and `$END` bracket `$BODY` by hand'
 note: 'Use `<acquire>.Bracket(Use: <body>, Fin: <release>)`, `Bracket` runs `<release>` after `<body>` on both paths'

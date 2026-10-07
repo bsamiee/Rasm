@@ -221,7 +221,7 @@ def ordered(tree: tuple[tuple[str, Stored], ...], held: bytes | None) -> bytes:
     return held if held is not None and unordered(entries(held)) == unordered(tree) else serialized(tree)
 
 
-def edited(path: Sequence[str], value: Stored, held: bytes | None) -> bytes | host.Error:
+def edited(path: Sequence[str], value: Stored, held: bytes | None) -> host.Result[bytes]:
     """Preferences with the entry at the directory path holding the value, each missing directory made, or the error naming the absent file."""
     match held:
         case None:
@@ -253,7 +253,7 @@ def catalog(toolbar: Toolbar) -> tuple[tuple[str, Stored], ...]:
     )
 
 
-def profiles(presets: tuple[Paper, ...], held: bytes | None) -> bytes | host.Error:
+def profiles(presets: tuple[Paper, ...], held: bytes | None) -> host.Result[bytes]:
     """Preset list with every row outside the papers kept and one row per paper after them copied from the Letter preset: size in 32-bit points, the paper's unit, and the render resolution."""
     units, source = frozendict({Length.INCHES: "inchesUnit", Length.MILLIMETERS: "millimetersUnit"}), "print_0"
     listed = () if held is None else tuple(zip(msgspec.json.decode(held, type=tuple[msgspec.Raw, ...]), msgspec.json.decode(held, type=tuple[Preset, ...]), strict=True))

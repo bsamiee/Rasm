@@ -124,7 +124,7 @@ def opened(document: bytes) -> etree._Element:
 
 def bookmark(document: etree._Element) -> etree._Element:
     """Root of the `<workspace>` block in a workspace file's bookmark, each newline in an attribute value kept as a character reference the XML parser would fold to a space."""
-    return window.parsed(re.sub(r'="[^"]*"', lambda found: found[0].replace("\n", "&#10;"), document.findtext(BOOKMARK, "")).encode())
+    return window.parsed(re.sub(r'="[^"]*"', lambda found: found[0].replace("\n", "&#10;"), "".join(next(document.iterfind(BOOKMARK)).itertext())).encode())
 
 
 def workspace_file(file: str, factory: Sequence[etree._Element], held: bytes | None) -> bytes | tuple[host.Skip, ...] | host.Error:
@@ -137,8 +137,7 @@ def workspace_file(file: str, factory: Sequence[etree._Element], held: bytes | N
             return skipped
         case arranged:
             layers = next(element for element in arranged.iter(window.Markup.PALETTE) if identity(element) == Panel.LAYERS)
-            data = decoded(layers)
-            if (options := data.find("LayerPaneOptions")) is None:
+            if (options := (data := decoded(layers)).find("LayerPaneOptions")) is None:
                 return host.Error(f"panel {Panel.LAYERS} data holds no LayerPaneOptions")
             options.set("SmallRows", "true")
             escapes = str.maketrans({plain: f"#{name};" for name, plain in ENTITIES.items()})

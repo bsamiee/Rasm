@@ -20,10 +20,10 @@ rule:
             - has: {field: operator, regex: '(?i)^glob$'}
             - has: {field: pattern, kind: string_literal, regex: '^''[A-Za-z][\w-]*:\*''$', pattern: _LITERAL}
         - all:
-            - has: {field: operator, regex: '^(==?|<>|!=)$'}
+            - has: {field: operator, regex: '^(==?|<>|!=|<=?|>=?)$'}
             - has: {matches: tag, pattern: _LITERAL}
         - all:
-            - has: {field: name, regex: '(?i)^(instr|starts_with|prefix|replace|concat)$'}
+            - has: {field: name, regex: '(?i)^(instr|starts_with|prefix|replace|concat|ltrim)$'}
             - has: {field: arguments, has: {matches: tag, pattern: _LITERAL}}
         - all:
             - has: {field: name, regex: '(?i)^(printf|format)$'}

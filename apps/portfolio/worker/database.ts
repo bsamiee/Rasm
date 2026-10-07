@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { BrowserCrypto } from '@effect/platform-browser';
 import { D1Client } from '@effect/sql-d1';
-import { Array, type Cause, Crypto, Effect, Layer, Match, Option, Record, Schema, String as Strings, Struct } from 'effect';
+import { Array, type Cause, Crypto, Effect, Layer, Match, Option, Record, Schema, String, Struct } from 'effect';
 import { Hex } from 'effect/encoding';
 import { HttpApiError } from 'effect/http-api';
 import { isPreconditionFailure } from 'partial-content';
@@ -179,7 +179,7 @@ const database = Layer.provideMerge(
             ]),
         ),
     ),
-    D1Client.layer({ db: env.DB, transformResultNames: Strings.snakeToCamel }),
+    D1Client.layer({ db: env.DB, transformResultNames: String.snakeToCamel }),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

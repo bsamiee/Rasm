@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: builtins-predicate-call
+language: python
+utils:
+    predicate:
+        matches: {python-builtin-name: {name: {regex: '^(bool|isinstance|issubclass|callable|hasattr|any|all)$'}}}
+rule:
+    kind: call
+    has: {field: function, matches: predicate}

@@ -85,11 +85,11 @@ check_is_finished = functools.partial(next, steps(), None)
 Scripts return their record or a `Faults` record that `as_result` writes as `{"kind": "Faults", "items": [<Fault>, ...]}`:
 - Each `Fault` holds `source`, the type or operator that refused, `value`, the refused input, and `accepted`, the alternatives the scene or enum holds
 - Independent inputs of one call fault together in argument order, and a step that reads an earlier one runs once that one succeeds
-- Calls fault before they act, writing no file and changing no data, apart from `Sheet` faults
+- Input faults precede operations. Conversion and `Sheet` faults can follow scene changes or file writes
 - `Object` faults name an object the scene lacks, the next call taking a name from `accepted`
 - `SpaceView3D` faults name an object the largest 3D Viewport hides, local view left or the object unhidden before the next call
 - `View` faults name a view outside `accepted`, or `user` with no 3D Viewport, the next call taking an axis or iso view
-- `Capture` faults name objects drawing nothing, the next call taking objects `accepted` lists or reading their bounds from `snapshot`
+- For `Capture` faults (no drawable or projected extent), choose `accepted` objects or read `snapshot` bounds
 - `Camera` faults name a scene camera a sheet refuses, `accepted` listing orthographic cameras
 - `Path` faults name a missing `since` baseline with `accepted` listing held ones, a source sharing its stem with `accepted`, or `typst` off `PATH`
 - `NodeTree` faults name a tree owner outside `accepted`, and `Window` with `None` a background `arrange`, which runs live instead

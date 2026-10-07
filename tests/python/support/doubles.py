@@ -1,8 +1,9 @@
 """Recording call stubs, an autojumping virtual clock, fixture file writers, and NDJSON line-count assertions."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
+import anyio.lowlevel
 import msgspec
 import msgspec.json
 import pytest
@@ -38,37 +39,43 @@ type Stub[R] = Sync[R] | Async[R] | Factory[R]
 # --- [CALL_RECORDING] -------------------------------------------------------------------
 
 
-def install[R](monkeypatch: pytest.MonkeyPatch, target: object, member: str, stub: Stub[R], calls: list[CallRecord]) -> None:
-    """Replace ``target.member`` with a stub that appends ``(member, args, kwargs)`` to ``calls`` at every call."""
-    runner: Callable[..., object]
-    match stub:
-        case Sync(value):
+def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[str, Stub[object]]) -> Sequence[CallRecord]:
+    """Replace each ``target.member`` with its stub and return the one log of ``(member, args, kwargs)`` every call appends in call order."""
+    calls: list[CallRecord] = []
 
-            def sync(*args: object, **kwargs: object) -> R:
-                calls.append((member, args, kwargs))
-                return value
+    def runner(member: str, stub: Stub[object]) -> Callable[..., object]:
+        match stub:
+            case Sync(value):
 
-            runner = sync
-        case Async(value):
-
-            async def coroutine(*args: object, **kwargs: object) -> R:  # ruff:ignore[unused-async]
-                calls.append((member, args, kwargs))
-                return value
-
-            runner = coroutine
-        case Factory(value):
-
-            def factory(*args: object, **kwargs: object) -> Callable[..., R]:
-                calls.append((member, args, kwargs))
-
-                def call(*call_args: object, **call_kwargs: object) -> R:
-                    calls.append((f"{member}()", call_args, call_kwargs))
+                def sync(*args: object, **kwargs: object) -> object:
+                    calls.append((member, args, kwargs))
                     return value
 
-                return call
+                return sync
+            case Async(value):
 
-            runner = factory
-    monkeypatch.setattr(target, member, runner)
+                async def coroutine(*args: object, **kwargs: object) -> object:
+                    calls.append((member, args, kwargs))
+                    await anyio.lowlevel.checkpoint()
+                    return value
+
+                return coroutine
+            case Factory(value):
+
+                def factory(*args: object, **kwargs: object) -> Callable[..., object]:
+                    calls.append((member, args, kwargs))
+
+                    def call(*call_args: object, **call_kwargs: object) -> object:
+                        calls.append((f"{member}()", call_args, call_kwargs))
+                        return value
+
+                    return call
+
+                return factory
+
+    for member, stub in stubs.items():
+        monkeypatch.setattr(target, member, runner(member, stub))
+    return calls
 
 
 # --- [VIRTUAL_TIME] ---------------------------------------------------------------------

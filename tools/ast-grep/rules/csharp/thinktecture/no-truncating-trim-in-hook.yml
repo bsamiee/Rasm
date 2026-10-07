@@ -62,25 +62,11 @@ utils:
             - matches: take-cut
             - matches: range-cut
     relay:
-        kind: invocation_expression
-        all:
-            - has:
-                field: function
-                any:
-                    - kind: identifier
-                      pattern: $HELPER
-                    - kind: member_access_expression
-                      has: {field: name, kind: identifier, pattern: $HELPER}
-            - inside:
-                kind: compilation_unit
-                stopBy: end
-                has:
-                    stopBy: end
-                    kind: method_declaration, local_function_statement
-                    all:
-                        - has: {field: name, pattern: $HELPER}
-                        - not: {has: {field: name, regex: '^ValidateFactoryArguments$'}}
-                        - has: {stopBy: end, matches: cut}
+        matches:
+            csharp-file-method-call:
+                declaration:
+                    not: {matches: csharp-validation-hook}
+                    has: {stopBy: end, matches: cut}
 rule:
     kind: invocation_expression, element_access_expression
     pattern: $CUT

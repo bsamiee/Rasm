@@ -7,9 +7,9 @@ rule:
         - all:
             - has:
                 field: expression
-                regex: '^((global::)?[A-Z]|(bool|byte|sbyte|char|short|ushort|int|uint|long|ulong|float|double|decimal)$)'
-                not: {regex: '^(global::)?(System\.)?(Collections\.(Immutable|Frozen)\.)?(KeyValuePair|Tuple|ValueTuple|String|Immutable[A-Z]\w*|Frozen[A-Z]\w*)$'}
+                regex: '^@?((global::)?[A-Z]|(bool|byte|sbyte|char|short|ushort|int|uint|long|ulong|float|double|decimal)$)'
+                not: {regex: '^@?(global::)?(System\.)?(Collections\.(Immutable|Frozen)\.)?(KeyValuePair|Tuple|ValueTuple|String|Immutable[A-Z]\w*|Frozen[A-Z]\w*)$'}
             - has: {field: name, regex: '^(Create|Parse|ParseExact|Get)(<.+>)?$'}
         - all:
-            - has: {field: expression, regex: '^(global::)?(System\.)?Convert$'}
+            - has: {field: expression, regex: '^@?(global::)?((System\.)?(Convert|BitConverter)|(System\.Xml\.)?XmlConvert)$'}
             - has: {field: name, regex: '^To[A-Z]\w*$'}

@@ -3,13 +3,33 @@ id: no-divider-over-imports-python
 language: python
 severity: error
 rule:
-    kind: comment
-    regex: '^# --- \[IMPORTS\]'
+    inside: {kind: module}
     any:
-        - precedes: {pattern: $NEXT}
-        - pattern: $_
-message: Divider `[IMPORTS]` names no section
-note: Delete the divider, imports precede every section divider
+        - kind: comment
+          matches: text-labeled-divider
+          pattern: $DIVIDER
+          all:
+            - any:
+                - regex: '^# --- \[IMPORTS\]'
+                - precedes: {stopBy: {not: {kind: comment}}, matches: python-preamble-statement}
+            - any:
+                - follows: {pattern: $PREV}
+                - pattern: $_
+        - matches: python-preamble-statement
+          pattern: $STATEMENT
+          all:
+            - follows:
+                stopBy: {not: {any: [{matches: python-preamble-statement}, {kind: comment}]}}
+                matches: text-labeled-divider
+                not: {regex: '^# --- \[IMPORTS\]'}
+                all: [{pattern: $DIVIDER}, {pattern: $MOVED}]
+            - precedes: {stopBy: {not: {kind: comment}}, not: {any: [{kind: comment}, {matches: python-preamble-statement}]}}
+            - not: {precedes: {stopBy: {not: {kind: comment}}, matches: text-labeled-divider}}
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^# --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
+    GAP: {replace: {source: $STATEMENT, replace: '^[\s\S]*$', by: "\n\n"}}
+message: Divider `$LABEL` sits over the preamble
+note: Delete an `[IMPORTS]` divider and place any other below the last import, imports, `TYPE_CHECKING` blocks, and conditional imports precede every section divider
 fix:
-    template: $NEXT
-    expandEnd: {pattern: $NEXT}
+    template: $PREV$STATEMENT$GAP$MOVED
+    expandStart: {pattern: $PREV, precedes: {kind: comment}}

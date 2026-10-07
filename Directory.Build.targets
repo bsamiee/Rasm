@@ -16,6 +16,7 @@
         <Using Include="LanguageExt.Parsec" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Parsec'))' != ''" />
         <Using Include="NodaTime;NodaTime.Extensions" Condition="'@(PackageReference->WithMetadataValue('Identity', 'NodaTime'))' != ''" />
         <Using Include="NodaTime.Duration" Alias="Duration" Condition="'@(PackageReference->WithMetadataValue('Identity', 'NodaTime'))' != ''" />
+        <Using Include="UnitsNet.Length" Alias="Length" Condition="'@(PackageReference->WithMetadataValue('Identity', 'UnitsNet'))' != ''" />
         <Using Include="Xunit" Condition="'@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.mtp-v2'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.assert'))' != ''" />
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />
     </ItemGroup>
@@ -24,48 +25,107 @@
         <PackageReference Include="RhinoCommon" ExcludeAssets="runtime" />
         <PackageReference Include="Grasshopper2" Condition="'$(RhinoHost)' == 'grasshopper'" />
         <PackageReference Update="System.Drawing.Common" ExcludeAssets="runtime" />
+        <Reference Include="Eto.macOS;Microsoft.macOS" HintPath="$(RhinoResourcesDir)%(Identity).dll" Private="false" Condition="'$(RhinoResourcesDir)' != '' and Exists('$(MSBuildProjectDirectory)/UI/macOS/')" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'$(RhinoHost)' == 'grasshopper'" />
+    </ItemGroup>
+
+    <PropertyGroup Label="Rhino Plug-In Assets" Condition="'$(TargetExt)' == '.rhp'">
+        <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
+        <_PlugInIcon Condition="'$(RhinoHost)' == 'common' and '$(PlugInPackageIcon)' != ''">PlugIn.ico</_PlugInIcon>
+        <_PlugInInkDark>#E1E1E1</_PlugInInkDark>
+        <_GrasshopperInk><![CDATA[<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+            <xsl:template match="@*|node()"><xsl:copy><xsl:apply-templates select="@*|node()" /></xsl:copy></xsl:template>
+            <xsl:template match="@fill[. = 'currentColor']|@stroke[. = 'currentColor']">
+                <xsl:attribute name="{name()}">
+                    <xsl:choose>
+                        <xsl:when test="../@*[name() = concat(name(current()), '-opacity')] = '0.6'">gh:Foreground</xsl:when>
+                        <xsl:otherwise>gh:ForegroundFirm</xsl:otherwise>
+                    </xsl:choose>
+                </xsl:attribute>
+            </xsl:template>
+            <xsl:template match="@fill-opacity[. = '0.6']|@stroke-opacity[. = '0.6']" />
+        </xsl:stylesheet>]]></_GrasshopperInk>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Plug-In Files" Condition="'$(TargetExt)' == '.rhp'">
+        <None Update="$(AssemblyName).rui;Presets/**/*.json" CopyToPublishDirectory="PreserveNewest" />
+        <_PlugInDescription Include="Organization" Value="$(Authors)" />
+        <PlugInGlyph Include="$(PlugInIcons)**/*.svg" Points="$([MSBuild]::ValueOrDefault($([System.IO.Path]::TrimEndingDirectorySeparator('%(RecursiveDir)')), '16'))" />
+        <_RhinoGlyph Include="@(PlugInGlyph)" LogicalName="%(Filename)-%(Points).svg" Ink="#3C3C3C" />
+        <_RhinoGlyph Include="@(PlugInGlyph)" LogicalName="%(Filename)-%(Points)_darkmode.svg" Ink="$(_PlugInInkDark)" />
+        <_RhinoGlyph Include="@(PlugInGlyph->WithMetadataValue('Points', '24'))" LogicalName="%(Filename)-%(Points)_mac.svg" Ink="#000000" />
+        <_GrasshopperGlyph Include="@(PlugInGlyph)" LogicalName="%(Filename)-%(Points).gh.svg" Condition="'$(RhinoHost)' == 'grasshopper'" />
+        <_PlugInGlyphFile Include="@(_RhinoGlyph->'$(_PlugInAssetDir)%(LogicalName)');@(_GrasshopperGlyph->'$(_PlugInAssetDir)%(LogicalName)')" />
+    </ItemGroup>
+
+    <ItemGroup Label="Rhino Plug-In Icon" Condition="'$(_PlugInIcon)' != ''">
+        <_PlugInIconFrame Include="16;24;32;48" />
+        <_PlugInIconFile Include="$(_PlugInAssetDir)$(_PlugInIcon)" LogicalName="$(_PlugInIcon)" />
+        <_PlugInDescription Include="Icon" Value="$(_PlugInIcon)" />
+    </ItemGroup>
+
+    <ItemGroup Label="Rhino Plug-In Package Image" Condition="'$(PlugInPackageIcon)' != ''">
+        <_PlugInIconFrame Include="256" />
+        <_PlugInIconFile Include="$(_PlugInAssetDir)Tile.svg;@(_PlugInIconFrame->'$(_PlugInAssetDir)%(Identity).png')" />
+        <None Include="$(_PlugInAssetDir)256.png" TargetPath="$(PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup Label="Rhino Plug-In Assets" Condition="'$(TargetExt)' == '.rhp'">
+        <EmbeddedResource Include="@(_PlugInGlyphFile);@(_PlugInIconFile->HasMetadata('LogicalName'))" WithCulture="false" />
+        <FileWrites Include="@(_PlugInGlyphFile);@(_PlugInIconFile)" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Policy">
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(ProjectRole)' == 'tests'" />
     </ItemGroup>
 
-    <Target Name="AddPlugInWebSite" AfterTargets="GetAssemblyAttributes" Condition="'$(TargetExt)' == '.rhp'">
+    <Target Name="BuildPlugInGlyphs" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true'" Inputs="$(MSBuildAllProjects);@(PlugInGlyph)" Outputs="@(_PlugInGlyphFile)">
+        <WriteLinesToFile File="$(_PlugInAssetDir)%(_RhinoGlyph.LogicalName)" Overwrite="true" WriteOnlyWhenDifferent="true"
+                          Lines="$([MSBuild]::Escape($([System.IO.File]::ReadAllText('%(_RhinoGlyph.FullPath)').Replace('currentColor', '%(_RhinoGlyph.Ink)'))))" />
+        <XslTransformation XmlInputPaths="@(_GrasshopperGlyph)" OutputPaths="@(_GrasshopperGlyph->'$(_PlugInAssetDir)%(LogicalName)')" XslContent="$(_GrasshopperInk)" Condition="'@(_GrasshopperGlyph)' != ''" />
+    </Target>
+
+    <Target Name="BuildPlugInIcon" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true'" Inputs="$(MSBuildAllProjects);$(PlugInMark)" Outputs="@(_PlugInIconFile)">
+        <WriteLinesToFile File="$(_PlugInAssetDir)Tile.svg" Overwrite="true" WriteOnlyWhenDifferent="true"
+                          Lines="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 32 32&quot; color=&quot;$(_PlugInInkDark)&quot;&gt;&lt;path fill=&quot;#323232&quot; d=&quot;M1.5 0H30.5C31.33 0 32 0.67 32 1.5V30.5C32 31.33 31.33 32 30.5 32H1.5C0.67 32 0 31.33 0 30.5V1.5C0 0.67 0.67 0 1.5 0Z&quot;/&gt;$([MSBuild]::Escape($([System.IO.File]::ReadAllText('$(PlugInMark)'))))&lt;/svg&gt;" />
+        <Exec Command="resvg -w %(_PlugInIconFrame.Identity) Tile.svg %(_PlugInIconFrame.Identity).png" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" />
+        <Exec Command="magick @(_PlugInIconFrame->'%(Identity).png', ' ') -define icon:png-compression-size=256 $(_PlugInIcon)" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" Condition="'$(_PlugInIcon)' != ''" />
+    </Target>
+
+    <Target Name="AddPlugInDescriptions" AfterTargets="GetAssemblyAttributes" Condition="'$(TargetExt)' == '.rhp'">
         <ItemGroup>
-            <AssemblyAttribute Include="Rhino.PlugIns.PlugInDescriptionAttribute">
-                <_Parameter1>Rhino.PlugIns.DescriptionType.WebSite</_Parameter1>
+            <_PlugInDescription Include="WebSite" Value="$(PrivateRepositoryUrl)" />
+            <AssemblyAttribute Include="@(_PlugInDescription->'Rhino.PlugIns.PlugInDescriptionAttribute')" RemoveMetadata="Value">
+                <_Parameter1>Rhino.PlugIns.DescriptionType.%(_PlugInDescription.Identity)</_Parameter1>
                 <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
-                <_Parameter2>$(PrivateRepositoryUrl)</_Parameter2>
+                <_Parameter2>%(_PlugInDescription.Value)</_Parameter2>
             </AssemblyAttribute>
         </ItemGroup>
     </Target>
 
+    <Target Name="AssignPlugInLibraryCopies" BeforeTargets="AssignProjectConfiguration" DependsOnTargets="IncludeTransitiveProjectReferences" Condition="'$(TargetExt)' == '.rhp'">
+        <ItemGroup>
+            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(Configuration.ToLowerInvariant())_$(MSBuildProjectName.ToLowerInvariant())" />
+        </ItemGroup>
+    </Target>
+
     <Target Name="BuildYakPackage" AfterTargets="Publish" Condition="'$(TargetExt)' == '.rhp'">
+        <PropertyGroup>
+            <_YakPlatform Condition="$(RuntimeIdentifier.StartsWith('osx-'))">mac</_YakPlatform>
+            <_YakPlatform Condition="$(RuntimeIdentifier.StartsWith('win-'))">win</_YakPlatform>
+        </PropertyGroup>
         <ItemGroup>
             <_StalePublishFile Include="$(PublishDir)**" Exclude="@(ResolvedFileToPublish->'$(PublishDir)%(RelativePath)')" />
         </ItemGroup>
         <Delete Files="@(_StalePublishFile)" />
+        <Touch Files="$(PublishDir)$(TargetFileName).grasshopper-only" AlwaysCreate="true" Condition="'$(RhinoHost)' == 'grasshopper'" />
         <Exec Command="yak spec" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
-        <Exec Command="yak build" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
+        <WriteLinesToFile File="$(PublishDir)manifest.yml" Lines="icon: $(PlugInPackageIcon)" Condition="'$(PlugInPackageIcon)' != ''" />
+        <Exec Command="yak build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
     </Target>
 
     <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments" Condition="'$(IsTestingPlatformApplication)' == 'true'">
         <RemoveDir Directories="$(_TestResultsDirectory)" />
-    </Target>
-
-    <Target Name="ValidateProjectPolicy" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
-        <PropertyGroup>
-            <_ProjectDir>$([MSBuild]::EnsureTrailingSlash('$(MSBuildProjectDirectory)'))</_ProjectDir>
-        </PropertyGroup>
-        <ItemGroup>
-            <_ProjectReference Include="@(ProjectReference->'%(FullPath)')" Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false'" />
-            <_InvalidProjectReference Include="@(_ProjectReference)" Condition="'$(ProjectRole)' == 'libs' and !$([System.String]::Copy('%(Identity)').StartsWith('$(LibsRoot)'))" />
-            <_InvalidProjectReference Include="@(_ProjectReference)" Condition="'$(ProjectRole)' == 'tests' and $([System.String]::Copy('%(Identity)').StartsWith('$(AppsRoot)'))" />
-            <_InvalidProjectReference Include="@(_ProjectReference)" Condition="'$(ProjectRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(LibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_ProjectDir)'))" />
-        </ItemGroup>
-        <Error Code="RASM0001" Condition="'@(_InvalidProjectReference)' != ''"
-               Text="Role '$(ProjectRole)' project '$(MSBuildProjectName)' references outside its allowed set: @(_InvalidProjectReference->'%(Identity)', '; ')" />
     </Target>
 </Project>

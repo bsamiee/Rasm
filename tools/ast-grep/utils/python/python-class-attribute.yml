@@ -2,6 +2,11 @@
 id: python-class-attribute
 language: python
 arguments: [value]
+utils:
+    owner-binding:
+        matches: {python-binding: {name: {pattern: $OWNER}}}
+    member-binding:
+        matches: {python-binding: {name: {pattern: $MEMBER}}}
 rule:
     kind: attribute
     all:
@@ -15,3 +20,30 @@ rule:
                 all:
                     - has: {field: name, pattern: $OWNER}
                     - has: {field: body, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $MEMBER}}, {has: {field: right, matches: value}}]}}}
+                    - not:
+                        has:
+                            field: body
+                            has:
+                                stopBy: {kind: 'function_definition, class_definition, lambda'}
+                                all:
+                                    - matches: member-binding
+                                    - not: {kind: assignment, has: {field: right, matches: value}}
+        - not:
+            inside:
+                kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                stopBy: end
+                has:
+                    stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+                    all:
+                        - matches: owner-binding
+                        - not: {kind: class_definition, has: {field: name, pattern: $OWNER}}
+        - not:
+            inside:
+                kind: module
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: assignment, augmented_assignment
+                    all:
+                        - has: {field: left, pattern: $OWNER.$MEMBER}
+                        - not: {has: {field: right, matches: value}}

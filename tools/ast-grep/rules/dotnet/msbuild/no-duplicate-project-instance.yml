@@ -2,13 +2,24 @@
 id: no-duplicate-project-instance
 language: xml
 severity: error
+utils:
+    shared-output-properties:
+        regex: '[^"''\s]'
+        not:
+            any:
+                - regex: '(?i)(^["'']?|;)\s*(OutputPath|OutDir|BaseOutputPath|IntermediateOutputPath|BaseIntermediateOutputPath|ArtifactsPath|ArtifactsPivots|ArtifactsProjectName)\s*='
+                - regex: '(?i)^["'']?\s*(?:(?:Configuration|TargetFramework|RuntimeIdentifier)\s*=[^;"'']*;?\s*)+["'']?$'
 rule:
-    all:
-        - matches: {msbuild-element: {name: {regex: '^MSBuild$'}}}
-        - has:
-            matches: msbuild-tag
-            all:
-                - has: {matches: {msbuild-attribute: {name: {regex: '^Projects$'}, value: {regex: '\$\((MSBuildProjectFullPath|MSBuildProjectFile)\)'}}}}
-                - has: {matches: {msbuild-attribute: {name: {regex: '^Properties$'}, value: {regex: '[^"''\s]'}}}}
-message: '`MSBuild` task builds a second instance of its own project into the same output directories'
-note: Run the target in the same instance through `DependsOnTargets`
+    any:
+        - all:
+            - matches: {msbuild-element: {name: {regex: '^MSBuild$'}}}
+            - has:
+                matches: msbuild-tag
+                all:
+                    - has: {matches: {msbuild-attribute: {name: {regex: '^Properties$'}, value: {matches: shared-output-properties}}}}
+                    - not: {has: {matches: {msbuild-attribute: {name: {regex: '^Targets$'}, value: {regex: '^["'']\s*(?:Get[A-Za-z]+\s*;?\s*)+["'']$'}}}}}
+        - all:
+            - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^(ItemGroup|ItemDefinitionGroup)$'}}}}}
+            - matches: {msbuild-metadata: {name: {regex: '^AdditionalProperties$'}, value: {matches: shared-output-properties}}}
+message: Global property missing from the output path builds a second project instance into shared output directories
+note: Pivot output paths on the property through `ArtifactsPivots`, or run the target in one instance through `DependsOnTargets`

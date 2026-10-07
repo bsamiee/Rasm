@@ -4,13 +4,7 @@ language: csharp
 severity: error
 utils:
     union-name:
-        any:
-            - kind: identifier
-              pattern: $UNION
-            - kind: generic_name
-              has: {kind: identifier, nthChild: 1, pattern: $UNION}
-            - kind: qualified_name, alias_qualified_name, member_access_expression
-              has: {field: name, matches: union-name}
+        matches: {csharp-type-name: {name: {pattern: $UNION}}}
     declared-type:
         any:
             - matches: union-name
@@ -84,13 +78,13 @@ utils:
             - has: {kind: variable_declarator, has: {field: name, pattern: $VAR}}
             - has: {field: type, matches: declared-type}
     typed-local:
-        pattern: $VAR
-        inside:
-            stopBy: end
-            kind: method_declaration, local_function_statement, constructor_declaration, lambda_expression, anonymous_method_expression, accessor_declaration
-            any:
-                - has: {field: parameters, has: {matches: typed-parameter}}
-                - has: {stopBy: end, matches: typed-variable, inside: {kind: local_declaration_statement}}
+        matches:
+            csharp-declared-type:
+                type:
+                    any:
+                        - matches: {csharp-type-name: {name: {pattern: $UNION}}}
+                        - kind: nullable_type
+                          has: {matches: {csharp-type-name: {name: {pattern: $UNION}}}}
     typed-member:
         pattern: $VAR
         inside:

@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: sql-choice-call
+language: sql
+rule:
+    kind: function_call
+    has: {field: name, regex: '(?i)^i?if$'}

@@ -8,13 +8,13 @@ utils:
         has:
             field: function
             kind: member_expression
-            has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/\w+)?$'}, exported: {kind: identifier}}}}
+            has: {field: object, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}
     one-argument:
         has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
     step:
         all:
             - matches: module-call
-            - not: {has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}}}
+            - not: {has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}}}
             - any:
                 - matches: one-argument
                 - has: {field: function, has: {field: property, matches: effect-dual-operation}}

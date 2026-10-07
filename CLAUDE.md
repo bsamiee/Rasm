@@ -3,6 +3,7 @@
 @README.md
 
 - Work runs to completion, guidance files and existing standards decide every open question in place of user input, never hedge or defer, remove/replace tools/code/etc
+- One call per unit of work covers its full scope once and reads the result whole
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one
@@ -14,6 +15,7 @@
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections
 - Audits, security scans, supply-chain pins, and approval gates are added on user request alone
+- Commits and pushes happen on user request alone
 
 - Non-trivial work starts with a task file under tmp outside the project, holding every task with its facts and nothing else
 - Proactively delegate work to sub-agents for search, research, ideation, and writing, never tackle large solo when total workload is non-trivial

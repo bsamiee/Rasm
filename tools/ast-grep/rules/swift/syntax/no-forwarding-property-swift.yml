@@ -8,16 +8,24 @@ utils:
         any:
             - {kind: simple_identifier, not: {regex: '^[A-Z]'}}
             - {kind: navigation_expression, has: {field: target, kind: self_expression}}
+    member-callee:
+        nthChild: 1
+        kind: navigation_expression
+        has: {field: target, matches: swift-member-reference, not: {regex: '^[A-Z]'}}
     own-call:
         kind: call_expression
-        all:
-            - has: {matches: own-callee}
-            - has:
-                kind: call_suffix
-                not: {has: {kind: lambda_literal}}
-                has:
-                    kind: value_arguments
-                    not: {has: {kind: value_argument, not: {any: [{has: {field: value, matches: swift-fixed-value}}, {matches: swift-fixed-value}]}}}
+        any:
+            - all:
+                - has: {matches: own-callee}
+                - has:
+                    kind: call_suffix
+                    not: {has: {kind: lambda_literal}}
+                    has:
+                        kind: value_arguments
+                        not: {has: {kind: value_argument, not: {any: [{has: {field: value, matches: swift-fixed-value}}, {matches: swift-fixed-value}]}}}
+            - all:
+                - has: {matches: member-callee}
+                - has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {kind: value_argument}}}}
     own-call-statement:
         any:
             - matches: own-call

@@ -8,7 +8,7 @@ rule:
     any:
         - has: {kind: line_string_literal, regex: '^"-([a-zA-Z]*i[a-zA-Z]*c|[a-zA-Z]*c[a-zA-Z]*i)[a-zA-Z]*"$', pattern: $FLAG}
         - all:
-            - has: {kind: line_string_literal, regex: '^"-[a-zA-Z]*i[a-zA-Z]*"$', pattern: $FLAG}
+            - has: {kind: line_string_literal, regex: '^"(-[a-zA-Z]*i[a-zA-Z]*|--interactive)"$', pattern: $FLAG}
             - has: {kind: line_string_literal, regex: '^"-[a-zA-Z]*c[a-zA-Z]*"$'}
     inside:
         kind: 'function_declaration, lambda_literal, computed_property'
@@ -21,7 +21,7 @@ rule:
                 - kind: simple_identifier
                   regex: '(?i)shell'
 transform:
-    DROPPED: {replace: {source: $ARGS, replace: '"-i", ?|, ?"-i"', by: ''}}
+    DROPPED: {replace: {source: $ARGS, replace: '"(-i|--interactive)", ?|, ?"(-i|--interactive)"', by: ''}}
     WITHOUT: {replace: {source: $DROPPED, replace: '"-([a-zA-Z]*)i([a-zA-Z]*)"', by: '"-$1$2"'}}
 fix: $WITHOUT
 message: '`$FLAG` runs interactive startup files in a child with no terminal under the parent application''s attribution'

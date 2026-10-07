@@ -9,14 +9,14 @@ utils:
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^constTrue$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^Function$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bFunction$'}}}}
     false-arm:
         any:
             - matches: {effect-constant-handler: {result: {kind: 'false'}}}
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^constFalse$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^Function$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bFunction$'}}}}
     boolean-cases:
         kind: object
         all:
@@ -49,9 +49,9 @@ constraints:
     M:
         any:
             - pattern: Boolean
-              matches: {syntax-import-reference: {source: {regex: '^effect(/Boolean)?$'}, exported: {regex: '^Boolean$'}}}
+              matches: {effect-module: {name: {regex: '\bBoolean$'}}}
             - not: {pattern: Boolean}
-              matches: {syntax-import-reference: {source: {regex: '^effect(/(Option|Result|Exit|Effect))?$'}, exported: {regex: '^(Option|Result|Exit|Effect)$'}}}
+              matches: {effect-module: {name: {regex: '\b(Option|Result|Exit|Effect)$'}}}
 rewriters:
     - id: true-key
       rule: {matches: true-pair}

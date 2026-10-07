@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-file-method-call
+language: csharp
+arguments: [declaration]
+rule:
+    kind: invocation_expression
+    all:
+        - has:
+            field: function
+            any:
+                - kind: identifier
+                  pattern: $METHOD
+                - kind: member_access_expression
+                  has: {field: name, kind: identifier, pattern: $METHOD}
+        - inside:
+            kind: compilation_unit
+            stopBy: end
+            has:
+                stopBy: end
+                kind: method_declaration, local_function_statement
+                all:
+                    - has: {field: name, pattern: $METHOD}
+                    - matches: declaration

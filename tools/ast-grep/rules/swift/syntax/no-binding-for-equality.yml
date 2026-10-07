@@ -44,32 +44,61 @@ utils:
                             - has: {field: op, regex: '^==$'}
                             - has: {field: lhs, pattern: $NAME}
                             - has: {field: rhs, pattern: $SECOND, matches: operand}
+    declared-binding:
+        matches: binding
+        any:
+            - has: {kind: value_binding_pattern}
+            - follows: {stopBy: end, kind: value_binding_pattern}
+    sole-binding:
+        has: {kind: pattern, matches: declared-binding}
+        not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
+    name-read:
+        has: {stopBy: end, kind: simple_identifier, pattern: $NAME}
 rule:
-    kind: switch_pattern
-    all:
-        - has:
-            kind: pattern
-            all:
-                - has:
-                    kind: pattern
-                    any:
-                        - matches: binding
-                        - all:
-                            - has: {kind: value_binding_pattern}
-                            - has: {kind: pattern, matches: binding}
-                            - has: {field: name, kind: user_type}
-                - not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
-        - precedes: {kind: where_keyword}
-        - any:
-            - {pattern: $ALONE, precedes: {stopBy: end, matches: compared}}
-            - {pattern: $PAIRED, precedes: {stopBy: end, matches: compared-pair}}
-        - not: {precedes: {stopBy: end, kind: switch_pattern}}
-        - not: {follows: {stopBy: end, kind: switch_pattern}}
-        - not: {precedes: {stopBy: end, kind: statements, has: {stopBy: end, kind: simple_identifier, pattern: $NAME}}}
+    any:
+        - kind: switch_pattern
+          all:
+            - has:
+                kind: pattern
+                all:
+                    - has:
+                        kind: pattern
+                        any:
+                            - matches: binding
+                            - all:
+                                - has: {kind: value_binding_pattern}
+                                - has: {kind: pattern, matches: binding}
+                                - has: {field: name, kind: user_type}
+                    - not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
+            - precedes: {kind: where_keyword}
+            - any:
+                - {pattern: $ALONE, precedes: {stopBy: end, matches: compared}}
+                - {pattern: $PAIRED, precedes: {stopBy: end, matches: compared-pair}}
+            - not: {precedes: {stopBy: end, kind: switch_pattern}}
+            - not: {follows: {stopBy: end, kind: switch_pattern}}
+            - not: {precedes: {stopBy: end, kind: statements, matches: name-read}}
+        - kind: 'if_statement, guard_statement'
+          regex: '^(if|guard)\s+case\b'
+          pattern: $STATEMENT
+          all:
+            - matches: sole-binding
+            - has: {kind: equality_expression, matches: compared}
+            - not: {has: {pattern: $$_FIRST, regex: '^,$', precedes: {stopBy: end, pattern: $$_SECOND, regex: '^,$'}}}
+            - not: {has: {stopBy: end, kind: statements, matches: name-read}}
+            - not: {all: [{kind: guard_statement}, {precedes: {stopBy: end, any: [{kind: simple_identifier, pattern: $NAME}, {matches: name-read}]}}]}
+        - kind: for_statement
+          pattern: $STATEMENT
+          all:
+            - has: {field: item, regex: '^case\b', matches: sole-binding}
+            - has: {kind: where_clause, has: {kind: equality_expression, matches: compared}}
+            - not: {has: {kind: statements, matches: name-read}}
 rewriters:
     - id: binding-to-value
       rule: {matches: binding}
       fix: $VALUE
+    - id: dropped-condition
+      rule: {any: [{kind: equality_expression, matches: compared}, {kind: where_clause, has: {kind: equality_expression, matches: compared}}]}
+      fix: ''
     - id: binding-to-first
       rule: {matches: binding}
       fix: $FIRST
@@ -84,8 +113,11 @@ transform:
     FIRST_PATTERN: {replace: {source: $FIRST_CASE, replace: '\blet\s+', by: ''}}
     SECOND_PATTERN: {replace: {source: $SECOND_CASE, replace: '\blet\s+', by: ''}}
     SECOND_JOINED: {replace: {source: $SECOND_PATTERN, replace: '(?s)^(.+)$', by: ', $1'}}
+    MATCHED: {rewrite: {source: $STATEMENT, rewriters: [binding-to-value, dropped-condition]}}
+    UNBOUND: {replace: {source: $MATCHED, replace: '^((?:if|guard|for)\s+case)\s+let\s+', by: '$1 '}}
+    CONDITION: {replace: {source: $UNBOUND, replace: '(?s)^(.*?)\s*,?\s*(\{|\belse\b)', by: '$1 $2'}}
 fix:
-    template: $SINGLE_PATTERN$FIRST_PATTERN$SECOND_JOINED
-    expandEnd: {stopBy: end, any: [{matches: compared}, {matches: compared-pair}]}
-message: 'Case pattern binds `$NAME` only to compare it in its `where` clause'
-note: 'Match each value inside its pattern as `case .<case>(<value>):` or `case .<case>(.<code> as <ErrorType>):`, and `where <name> == <a> || <name> == <b>` as `case .<case>(<a>), .<case>(<b>):`'
+    template: $SINGLE_PATTERN$FIRST_PATTERN$SECOND_JOINED$CONDITION
+    expandEnd: {stopBy: end, follows: {stopBy: end, kind: where_keyword}, any: [{matches: compared}, {matches: compared-pair}]}
+message: 'Case pattern binds `$NAME` only to compare it in a `where` clause or condition'
+note: 'Match each value inside its pattern as `case .<case>(<value>):`, `if case .<case>(<value>) = <subject>`, or `case .<case>(.<code> as <ErrorType>):`, and `where <name> == <a> || <name> == <b>` as `case .<case>(<a>), .<case>(<b>):`'

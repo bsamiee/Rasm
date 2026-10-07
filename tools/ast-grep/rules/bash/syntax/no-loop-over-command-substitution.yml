@@ -3,14 +3,13 @@ id: no-loop-over-command-substitution
 language: bash
 severity: error
 rule:
-    kind: for_statement
-    has:
-        field: value
-        pattern: $SUB
-        any:
-            - kind: command_substitution
-            - kind: simple_expansion, expansion
-              has: {kind: variable_name}
+    kind: command_substitution, simple_expansion, expansion
+    pattern: $SUB
+    any:
+        - kind: command_substitution
+        - has: {kind: variable_name}
+    inside: {kind: for_statement}
+    follows: {stopBy: end, regex: '^in$'}
     not: {inside: {matches: bash-sh-program, stopBy: end}}
 message: '`for` word-splits and glob-expands `$SUB` into its items'
 note: 'Read items into an array with `mapfile -t <items> < <(<command>)` and loop over `"${<items>[@]}"`'

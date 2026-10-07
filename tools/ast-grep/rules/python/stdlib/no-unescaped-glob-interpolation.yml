@@ -6,35 +6,78 @@ utils:
     escaped:
         kind: call
         has: {field: function, matches: {python-member-use: {module: {regex: '^glob$'}, name: {regex: '^escape$'}}}}
+    literal:
+        any: [{kind: 'string, concatenated_string, binary_operator, parenthesized_expression, tuple, keyword_argument, integer, float'}, {matches: escaped}]
     value:
         pattern: $VALUE
-        not: {any: [{kind: 'string, concatenated_string, binary_operator, parenthesized_expression, tuple, keyword_argument'}, {matches: escaped}]}
+        not: {matches: literal}
     operand:
         has: {stopBy: {not: {kind: 'binary_operator, parenthesized_expression'}}, matches: value}
     interpolated:
         any:
             - kind: string
-              has: {kind: interpolation, has: {field: expression, matches: value}}
+              has:
+                kind: interpolation
+                all:
+                    - has: {field: expression, matches: value}
+                    - not: {has: {field: format_specifier, regex: '[bcdoxXneEfFgG%]$'}}
             - pattern: $_L + $_R
               all:
                 - has: {stopBy: {not: {kind: 'binary_operator, parenthesized_expression'}}, kind: 'string, concatenated_string'}
                 - matches: operand
             - pattern: $_L % $_R
               all:
-                - has: {field: left, kind: 'string, concatenated_string'}
+                - has: {field: left, kind: 'string, concatenated_string', regex: '%[-#0 +]*\d*(\.\d+)?[sra]'}
                 - has: {field: right, any: [{matches: value}, {kind: tuple, has: {matches: value}}]}
             - kind: call
               all:
                 - has: {field: function, kind: attribute, all: [{has: {field: object, kind: 'string, concatenated_string'}}, {has: {field: attribute, regex: '^format$'}}]}
                 - has: {field: arguments, has: {any: [{matches: value}, {kind: keyword_argument, has: {field: value, matches: value}}]}}
+    glob-callee:
+        any:
+            - kind: attribute
+              has: {field: attribute, regex: '^(glob|iglob|rglob|full_match)$'}
+            - matches: {python-member-use: {module: {regex: '^(glob|fnmatch)$'}, name: {regex: '^(glob|iglob|translate)$'}}}
+    fnmatch-callee:
+        matches: {python-member-use: {module: {regex: '^fnmatch$'}, name: {regex: '^(fnmatch|fnmatchcase|filter)$'}}}
+    pattern-position:
+        any:
+            - nthChild: 1
+              inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: glob-callee}}}
+            - nthChild: 2
+              inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: fnmatch-callee}}}
+            - inside: {kind: keyword_argument, field: value, has: {field: name, regex: '^(pathname|pattern|pat)$'}}
+    plain-interpolation:
+        kind: interpolation
+        not: {has: {kind: 'type_conversion, format_specifier'}}
 rule:
     kind: call
+    pattern: $CALL
     all:
-        - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(glob|iglob|rglob)$'}}
-        - has:
-            field: arguments
-            any:
-                - has: {nthChild: 1, matches: interpolated}
-                - has: {kind: keyword_argument, all: [{has: {field: name, regex: '^(pathname|pattern)$'}}, {has: {field: value, matches: interpolated}}]}
-message: 'Glob pattern interpolates `$VALUE` unescaped'
-note: 'Use `glob.escape(<value>)` in the pattern, glob reads `*`, `?`, and `[` in a name as pattern syntax'
+        - has: {field: function, regex: '(^|\.)(glob|iglob|rglob|full_match|translate|fnmatch|fnmatchcase|filter)$|^\w+$'}
+        - has: {field: function, any: [{matches: glob-callee}, {matches: fnmatch-callee}]}
+        - has: {field: arguments, has: {stopBy: {not: {kind: keyword_argument}}, matches: interpolated, all: [{matches: pattern-position}]}}
+        - any:
+            - all:
+                - has:
+                    field: arguments
+                    has:
+                        stopBy: {not: {kind: keyword_argument}}
+                        kind: string
+                        matches: pattern-position
+                        not: {has: {stopBy: end, any: [{kind: 'binary_operator, call'}, {kind: interpolation, not: {matches: plain-interpolation}}]}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: {python-module-import: {module: {regex: '^glob$'}, binding: {pattern: $GLOB}}}}}
+                - pattern: $FIXABLE
+            - pattern: $KEPT
+rewriters:
+    - id: escape
+      rule:
+        matches: plain-interpolation
+        has: {field: expression, pattern: $EXPRESSION, not: {matches: literal}}
+        inside: {kind: string, matches: pattern-position}
+      fix: '{$GLOB.escape($EXPRESSION)}'
+transform:
+    ESCAPED: {rewrite: {source: $FIXABLE, rewriters: [escape]}}
+fix: $ESCAPED$KEPT
+message: 'Glob pattern interpolates `$VALUE` unescaped, `glob.escape(<value>)` keeps its characters literal'
+note: 'Glob and `fnmatch` read `*`, `?`, and `[` in an interpolated name as pattern syntax, the fix covers f-strings with plain interpolations in a module importing `glob`'

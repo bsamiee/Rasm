@@ -97,7 +97,7 @@
             "includes": ["plugins/**"],
             "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } }
         },
-        { "includes": ["infra/cli.ts"], "linter": { "rules": { "correctness": { "noNodejsModules": "off" } } } },
+        { "includes": [".codex/hooks/rewrite.ts", "apps/creative-cloud/mcp/main.ts", "infra/cli.ts", "tools/bridge/bridge.ts"], "linter": { "rules": { "correctness": { "noNodejsModules": "off" } } } },
         { "includes": ["plugins/argus/main.ts"], "linter": { "rules": { "correctness": { "noNodejsModules": "off" }, "style": { "noProcessEnv": "off" } } } }
     ]
 }

@@ -3,17 +3,16 @@ id: no-single-reader-constant-python
 language: python
 severity: error
 utils:
-    module-level:
+    module-statement:
         kind: expression_statement
         inside: {kind: module}
     literal:
         any:
-            - kind: string, concatenated_string, integer, float, true, false, none
-              not: {has: {stopBy: end, kind: interpolation}}
-            - kind: identifier, lambda
+            - matches: python-plain-string
+            - kind: integer, float, true, false, none, ellipsis, identifier, lambda
             - kind: attribute
               not: {has: {stopBy: end, kind: call}}
-            - kind: unary_operator, binary_operator, tuple, parenthesized_expression, list, set, dictionary, pair, argument_list, keyword_argument
+            - kind: 'unary_operator, binary_operator, boolean_operator, not_operator, comparison_operator, conditional_expression, parenthesized_expression, tuple, expression_list, list, set, dictionary, pair, subscript, slice, list_splat, dictionary_splat, argument_list, keyword_argument'
               not: {has: {pattern: $_, not: {any: [{matches: literal}, {kind: comment}]}}}
             - kind: call
               all:
@@ -26,6 +25,50 @@ utils:
             any:
                 - inside: {kind: attribute, field: attribute}
                 - inside: {kind: keyword_argument, field: name}
+                - inside: {kind: assignment, field: left, inside: {matches: module-statement}}
+    rebinding:
+        kind: identifier
+        pattern: $NAME
+        any:
+            - inside: {kind: 'parameters, lambda_parameters, list_splat_pattern, dictionary_splat_pattern, as_pattern_target, pattern_list, tuple_pattern, list_pattern, global_statement, nonlocal_statement, dotted_name'}
+            - inside: {kind: 'default_parameter, typed_default_parameter, named_expression, function_definition, class_definition', field: name}
+            - inside: {kind: aliased_import, field: alias}
+            - inside: {kind: typed_parameter}
+              nthChild: 1
+            - inside: {kind: as_pattern}
+              nthChild: {position: 1, reverse: true}
+            - inside: {kind: augmented_assignment, field: left}
+            - inside: {kind: 'assignment, for_statement, for_in_clause', field: left, not: {inside: {matches: module-statement}}}
+    assigned:
+        kind: expression_statement
+        has: {kind: assignment, has: {field: left, pattern: $NAME}}
+    owner:
+        not: {inside: {stopBy: end, kind: function_definition}}
+        any:
+            - kind: function_definition
+              not: {inside: {kind: decorated_definition}}
+            - kind: decorated_definition
+              has: {field: definition, kind: function_definition}
+            - kind: 'expression_statement, if_statement, for_statement, while_statement, try_statement, with_statement, match_statement, assert_statement, delete_statement, raise_statement'
+              not: {has: {stopBy: end, kind: function_definition}}
+              any:
+                - inside: {kind: module}
+                - inside: {kind: block, inside: {kind: class_definition, field: body}}
+    reader:
+        matches: owner
+        pattern: $READER
+        has: {stopBy: end, matches: reference}
+    scoped:
+        inside: {stopBy: end, kind: block, inside: {kind: function_definition, field: body}}
+    holds-reference:
+        any:
+            - matches: reference
+            - has: {stopBy: end, matches: reference}
+    later-reference:
+        matches: reference
+        any:
+            - follows: {stopBy: end, matches: holds-reference}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reference}}
     exported:
         kind: expression_statement
         has:
@@ -33,77 +76,31 @@ utils:
             all:
                 - has: {field: left, regex: '^__all__$'}
                 - has: {field: right, has: {kind: string, has: {kind: string_content, pattern: $NAME}}}
-    reader:
-        kind: function_definition
-        all:
-            - has: {field: name, pattern: $FN}
-            - has: {stopBy: end, matches: reference}
-    holds-reader:
-        any:
-            - matches: reader
-            - has: {stopBy: end, matches: reader}
-    constant-reader:
-        kind: assignment
-        all:
-            - inside: {matches: module-level}
-            - has: {field: left, kind: identifier, pattern: $FN}
-            - has: {field: right, has: {stopBy: end, matches: reference}}
-    own-binding:
-        inside: {kind: assignment, field: left, inside: {matches: module-level}}
-    read:
-        matches: reference
-        not: {matches: own-binding}
-    holds-read:
-        any:
-            - matches: read
-            - has: {stopBy: end, matches: read}
-    later-read:
-        matches: read
-        any:
-            - follows: {stopBy: end, matches: holds-read}
-            - inside: {stopBy: end, follows: {stopBy: end, matches: holds-read}}
 rule:
     kind: assignment
     all:
-        - has: {field: left, kind: identifier, pattern: $NAME}
+        - has: {field: left, kind: identifier, pattern: $NAME, not: {regex: '^__\w+__$'}}
         - has: {field: right, matches: literal}
-        - inside: {matches: module-level}
-        - any:
-            - has: {field: type, regex: '^(typing\.)?Final(\[|$)'}
-            - has: {field: left, regex: '^_?[A-Z][A-Z0-9_]*$'}
+        - inside:
+            matches: module-statement
+            not:
+                any:
+                    - follows: {stopBy: end, matches: assigned}
+                    - precedes: {stopBy: end, matches: assigned}
         - inside:
             kind: module
             stopBy: end
             all:
                 - not: {has: {matches: exported}}
-                - any:
-                    - all:
-                        - has: {stopBy: end, matches: reader}
-                        - not:
-                            has:
-                                stopBy: end
-                                matches: reader
-                                any:
-                                    - follows: {stopBy: end, matches: holds-reader}
-                                    - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reader}}
-                        - not:
-                            has:
-                                stopBy: end
-                                matches: reference
-                                not:
-                                    any:
-                                        - inside: {stopBy: end, kind: function_definition, has: {field: name, pattern: $FN}}
-                                        - matches: own-binding
-                    - all:
-                        - has: {stopBy: end, matches: constant-reader}
-                        - not:
-                            has:
-                                stopBy: end
-                                matches: reference
-                                not:
-                                    any:
-                                        - inside: {stopBy: end, matches: constant-reader}
-                                        - matches: own-binding
-                        - not: {has: {stopBy: end, matches: later-read}}
-message: 'Module-level constant `$NAME` has one reader, `$FN`'
-note: 'Use the value inside its one reader, as a local where its name states a fact and inline otherwise, module level holds entry points and the types they return'
+                - has: {stopBy: end, matches: reader}
+                - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: owner}}}}
+                - not: {has: {stopBy: end, matches: rebinding}}
+                - not: {has: {stopBy: end, matches: reference, inside: {stopBy: end, kind: type}}}
+                - not:
+                    all:
+                        - has: {stopBy: end, matches: reference, not: {matches: scoped}}
+                        - has: {stopBy: end, matches: later-reference}
+message: 'Module-level constant `$NAME` has one reader, and the value belongs inside it'
+note: 'Use the value inside its one reader, as a local where its name states a fact and inline otherwise, module level holds entry points and their return types. Each site takes a manual rewrite, a fix replaces the matched assignment alone and reaches no reader'
+labels:
+    READER: {style: secondary, message: Only reader}

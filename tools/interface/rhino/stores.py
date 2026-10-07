@@ -7,6 +7,7 @@ from enum import StrEnum
 from functools import reduce
 import math
 from pathlib import Path, PurePosixPath
+import shutil
 from typing import Final
 import uuid
 import zipfile
@@ -17,7 +18,7 @@ import msgspec
 
 from interface import report
 from interface.frame import RIGHT_COLUMN
-from interface.host import Bundle, Change
+from interface.host import Bundle
 from interface.rhino.markup import canonical, element
 from interface.rhino.packages import Package
 from interface.rhino.window import Extent, layers_height, Measured, PanelId, RibbonTab, Site, upper_length
@@ -42,12 +43,12 @@ LABEL: Final = "text/locale_1033"
 
 
 class Child(msgspec.Struct, frozen=True, kw_only=True):
-    """Settings child by key path under the file's settings or a command block, with its entries and the keys left to Rhino's factory value."""
+    """Settings child by key path under the base element its tag and attributes name, with its entries and the keys left to Rhino's factory value."""
 
     path: tuple[str, ...]
     entries: Mapping[str, bool | int | float | str | tuple[str, ...]] = frozendict()
     factory: frozenset[str] = frozenset()
-    command: str | None = None
+    base: frozendict[str, str] = frozendict(tag="settings")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -59,14 +60,14 @@ def label(path: Path) -> str:
     return report.subscript("file", PurePosixPath(*path.parts[-3:]).as_posix())
 
 
-def written(path: Path, held: bytes, root: etree._Element, projection: Callable[[etree._Element], str]) -> Change | None:
+def written(path: Path, held: bytes, root: etree._Element, projection: Callable[[etree._Element], str]) -> report.Change | None:
     """Change of the file once the indented tree is written with the byte-order mark it held, None while the projection reads the held bytes alike."""
     etree.indent(root)
     before, after = projection(etree.fromstring(held)), projection(root)
     if after == before:
         return None
     path.write_bytes((codecs.BOM_UTF8 if held.startswith(codecs.BOM_UTF8) else b"") + etree.tostring(root.getroottree(), encoding="utf-8", xml_declaration=True))
-    return Change(label(path), before, after)
+    return report.Change(label(path), before, after)
 
 
 # --- [SETTINGS]
@@ -113,7 +114,7 @@ def settings(measured: Measured, registry: Mapping[str, str]) -> tuple[tuple[Chi
             ),
             Child(path=("LayoutsPanel",), entries={"Width": tuple(map(str, stretched(layouts, tuple(layouts), "Description", extents[Extent.LAYOUTS_INSET]).values())), "Expanded": True}),
             Child(path=("Options", "EdgeContinuity"), entries={name: ",".join(map(str, (255, *rgb))) for name, rgb in continuity.items()}),
-            Child(path=(), entries={"Thumbnails": False}, command="NamedView"),
+            Child(path=(), base=frozendict(tag="command", name="NamedView"), entries={"Thumbnails": False}),
             *(Child(path=("Options", group), factory=frozenset({key})) for group, key in (("General", "StartupCommands"), ("Display", "MSAASampleCount"))),
         ),
         {
@@ -132,7 +133,7 @@ def settings(measured: Measured, registry: Mapping[str, str]) -> tuple[tuple[Chi
 
 def state(root: etree._Element, child: Child) -> None:
     """Write the child's entries into the file, creating its levels, and remove its factory keys where it exists."""
-    base = element(root, "settings") if child.command is None else element(root, "command", name=child.command)
+    base = element(root, **child.base)
     levels = reduce(
         lambda found, key: [element(owner, "child", key=key) for owner in found] if child.entries else [each for owner in found for each in owner.xpath("child[@key = $key]", key=key)],
         child.path,
@@ -149,14 +150,25 @@ def state(root: etree._Element, child: Child) -> None:
         held[:] = [each for each in held if each.tag != "entry" or each.get("key") not in child.factory]
 
 
-def stated(path: Path, held: bytes | None, children: Sequence[Child]) -> Change | None:
-    """Change of a settings file once every child is stated in it, None for a file whose folder Rhino has not created."""
-    if held is None:
-        return None
-    root = etree.fromstring(held)
+def stated(path: Path, held: bytes, root: etree._Element, children: Sequence[Child]) -> report.Change | None:
+    """Change of a settings file once every child is stated in the root parsed from its held bytes."""
     for child in children:
         state(root, child)
     return written(path, held, root, lambda tree: canonical(etree.tostring(tree, encoding="unicode")))
+
+
+def pruned(root: etree._Element, directory: Path, kept: frozenset[str]) -> tuple[str, ...]:
+    """Plug-in settings folder names of the registry records removed from the root, each record of a plug-in file under the package directory in a package folder outside the kept ids."""
+    files = (
+        (version, record, Path(name))
+        for version in root.iterfind("settings/child[@key='PlugInRegistry']/child")
+        for record in version.iterfind("child")
+        if (name := record.findtext("entry[@key='FileName']")) is not None
+    )
+    dropped = [(version, record) for version, record, file in files if file.is_relative_to(directory) and file.relative_to(directory).parts[0] not in kept]
+    for version, record in dropped:
+        version.remove(record)
+    return tuple(f"{record.findtext("entry[@key='Name']")} ({record.attrib['key']})" for _, record in dropped)
 
 
 def read(path: Path) -> bytes | None:
@@ -198,7 +210,7 @@ def adopted(rui: etree._Element, source: etree._Element, macro: str) -> str:
             copy = deepcopy(held)
             copy.set("guid", guid)
             element(rui, "macros").append(copy)
-            icons.extend(deepcopy(icon) for icon in source.xpath("icons/icon[@guid = $icon]", icon=copy.get("bitmap_id", "")) if not icons.xpath("icon[@guid = $icon]", icon=icon.get("guid")))
+            icons.extend(deepcopy(icon) for icon in source.xpath("icons/icon[@guid = $macro/@bitmap_id]", macro=held) if not icons.xpath("icon[@guid = $icon/@guid]", icon=icon))
     return guid
 
 
@@ -235,7 +247,7 @@ def toolbars(bundled: bytes, packages: Sequence[Package], cache: Path) -> etree.
     (group,) = (group for group in rui.iterfind("tool_bar_groups/tool_bar_group") if group.xpath("tool_bar_group_item/tool_bar_id = $tab", tab=RibbonTab.STANDARD))
     items = {item.findtext("tool_bar_id"): item for item in group.iterfind("tool_bar_group_item")}
     group[:] = [*(each for each in group if each not in items.values()), *(items[tab] for tab in RibbonTab)]
-    sources = {package.id: toolbar_roots(package.archive(cache)) for package in packages if package.commands}
+    sources = {package.id: () if (archive := package.archive(cache)) is None else toolbar_roots(archive) for package in packages if package.commands}
     placed = [(tab, package.id, commands) for package in packages for tab, commands in package.commands.items()]
     for tab in dict.fromkeys(tab for tab, *_ in placed):
         tabs[tab].append(E.tool_bar_item(guid=str(uuid.uuid5(namespace, tab)), button_style="spacer"))
@@ -257,15 +269,23 @@ def toolbars(bundled: bytes, packages: Sequence[Package], cache: Path) -> etree.
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def edit(folder: Path, bundle: Bundle, measured: Measured, packages: Sequence[Package], cache: Path) -> tuple[Change, ...]:
-    """Changes of the files edited once Rhino quit under the settings folder the report names, with the package toolbars from the cached archives."""
+def edit(folder: Path, bundle: Bundle, measured: Measured, packages: Sequence[Package], cache: Path, directory: Path) -> tuple[report.Change, ...]:
+    """Changes of the files edited once Rhino quit under the settings folder the report names, with the package toolbars from the cached archives, and the registry records and settings folders of plug-ins the package directory held outside the staged packages removed."""
     rui = toolbars(bundle.path.joinpath("Contents", "Frameworks", "RhMaterialEditor.framework", "Versions", "A", "Resources", "assets", "default.rui").read_bytes(), packages, cache)
-    main, toolbar_file = folder / "settings-Scheme__Default.xml", folder.parent / "UI" / "default.rui"
+    main, toolbar_file, owners = folder / "settings-Scheme__Default.xml", folder.parent / "UI" / "default.rui", folder.parent / "Plug-ins"
     held = main.read_bytes()
-    own, plugins = settings(measured, registered(etree.fromstring(held)))
-    files = {folder.parent / "Plug-ins" / name / "settings" / main.name: children for name, children in plugins.items()}
-    changes = (written(toolbar_file, toolbar_file.read_bytes(), rui, shown), stated(main, held, own), *(stated(path, read(path), children) for path, children in files.items()))
-    return tuple(change for change in changes if change is not None)
+    root = etree.fromstring(held)
+    dropped = tuple(owners / name for name in pruned(root, directory, frozenset(package.id for package in packages if package.archive(cache) is not None)) if (owners / name).is_dir())
+    for path in dropped:
+        shutil.rmtree(path)
+    own, plugins = settings(measured, registered(root))
+    files = {owners / name / "settings" / main.name: children for name, children in plugins.items()}
+    changes = (
+        written(toolbar_file, toolbar_file.read_bytes(), rui, shown),
+        stated(main, held, root, own),
+        *(stated(path, content, etree.fromstring(content), children) for path, children in files.items() if (content := read(path)) is not None),
+    )
+    return (*(report.Change(label(path), path.name, report.ABSENT) for path in dropped), *(change for change in changes if change is not None))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

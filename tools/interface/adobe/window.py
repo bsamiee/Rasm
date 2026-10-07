@@ -15,6 +15,8 @@ from interface.frame import RIGHT_COLUMN
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+type Panel = str | int
+
 
 class Role(Enum):
     """Right dock tab group roles each product maps to its own panels, COLOR holding swatch editors, DOCUMENT sheet and link lists, and STRUCTURE the document tree."""
@@ -109,13 +111,13 @@ class Column(msgspec.Struct, frozen=True):
 class Frame(msgspec.Struct, frozen=True, kw_only=True):
     """Product's Essentials workspace: toolbar, control bar, role groups shown panel first, fixed-width, closed, and stateful panels, and the product's panel id reader, width writer, and closed group form."""
 
-    toolbar: str | int
+    toolbar: Panel
     bar: bool
-    groups: Mapping[Role, tuple[str | int, ...]]
-    fixed: frozenset[str | int] = frozenset()
-    hidden: frozenset[str | int] = frozenset()
-    states: Mapping[str | int, int] = frozendict()
-    identity: Callable[[etree._Element], str | int]
+    groups: Mapping[Role, tuple[Panel, ...]]
+    fixed: frozenset[Panel] = frozenset()
+    hidden: frozenset[Panel] = frozenset()
+    states: Mapping[Panel, int] = frozendict()
+    identity: Callable[[etree._Element], Panel]
     sized: Callable[[etree._Element, int], None]
     closed: Callable[[etree._Element, Sequence[etree._Element]], None]
 

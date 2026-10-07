@@ -13,10 +13,10 @@ rule:
     kind: call_expression
     any:
         - all:
-            - has: {nthChild: 1, pattern: $CALLEE, regex: '^(Foundation\.)?NSError(\.init)?$'}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^domain$'}}}}
+            - has: {nthChild: 1, pattern: $CALLEE, regex: '^((Foundation\.)?NSError(\.init)?|\.init)$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, all: [{has: {kind: value_argument, has: {field: name, regex: '^domain$'}}}, {has: {kind: value_argument, has: {field: name, regex: '^code$'}}}]}}
         - all:
-            - has: {nthChild: 1, pattern: $CALLEE, regex: '^(Foundation\.)?(CocoaError|URLError|POSIXError|MachError)(\.init)?$'}
+            - has: {nthChild: 1, pattern: $CALLEE, regex: '^(Foundation\.)?((CocoaError|URLError|POSIXError|MachError)(\.init)?|CocoaError\.error)$'}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^userInfo$'}}, {has: {field: value, matches: text-entry}}]}}}
 message: '`$CALLEE` builds an error from a domain, code, or text no Swift case names and no consumer can match'
 note: 'Construct `CocoaError(.<code>)`, `POSIXError(.<code>)`, `URLError(.<code>)`, or `MachError(.<code>)` for a system domain and otherwise a case of an `enum` conforming to `CustomNSError` for its domain and code or `LocalizedError` for its text'

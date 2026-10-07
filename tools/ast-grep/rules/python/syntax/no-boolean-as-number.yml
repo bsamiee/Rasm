@@ -3,61 +3,228 @@ id: no-boolean-as-number
 language: python
 severity: error
 utils:
-    bool-value:
+    truth:
         any:
-            - matches: python-truth-value
+            - kind: true, false, not_operator
+            - kind: comparison_operator
+              not: {has: {pattern: $$_OPERATOR, regex: '^(==|!=|<=?|>=?)$'}}
+            - matches: builtins-predicate-call
+            - kind: parenthesized_expression
+              has: {matches: truth}
+            - kind: boolean_operator
+              all: [{has: {field: left, matches: truth}}, {has: {field: right, matches: truth}}]
+    scalar:
+        any:
+            - matches: truth
+            - matches: {python-typed-parameter: {type: {regex: '^bool$'}}}
+            - matches: {python-assigned-name: {value: {matches: truth}}}
+            - kind: parenthesized_expression
+              has: {matches: scalar}
+            - kind: boolean_operator
+              all: [{has: {field: left, matches: scalar}}, {has: {field: right, matches: scalar}}]
+    boolean-number:
+        any:
+            - matches: scalar
             - kind: call
               all:
-                - has: {field: function, kind: identifier, regex: '^int$', not: {matches: python-shadowed-name}}
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^int$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, matches: python-truth-value}, not: {has: {nthChild: 2}}}
+            - kind: parenthesized_expression
+              has: {matches: boolean-number}
+    string-literal:
+        any:
+            - kind: string
+              not: {has: {kind: string_start, regex: '^[rR]?[tT]|^[tT][rR]?'}}
+            - kind: concatenated_string, parenthesized_expression
+              has: {matches: string-literal}
     sequence-literal:
-        kind: list, tuple, string, concatenated_string
-    comparison:
         any:
-            - kind: comparison_operator
-            - kind: boolean_operator
-              has: {stopBy: {kind: 'boolean_operator, parenthesized_expression'}, kind: comparison_operator}
-    mask-name:
-        matches: {python-assigned-name: {value: {matches: comparison}}}
-    mask:
+            - kind: list, tuple, list_comprehension
+            - matches: string-literal
+            - kind: parenthesized_expression
+              has: {matches: sequence-literal}
+    text:
         any:
-            - matches: comparison
+            - matches: string-literal
+            - matches: {python-assigned-name: {value: {matches: string-literal}}}
+            - matches: {python-typed-parameter: {type: {regex: '^(str|bytes)$'}}}
+    sequence:
+        any:
+            - matches: sequence-literal
+            - matches: {python-assigned-name: {value: {matches: sequence-literal}}}
+            - matches: {python-typed-parameter: {type: {regex: '^(str|bytes|bytearray|list|tuple|Sequence|MutableSequence)\b'}}}
+            - kind: parenthesized_expression
+              has: {matches: sequence}
+    boolean-key-type:
+        kind: type
+        regex: '\b(Mapping|MutableMapping|dict|Dict)\[\s*bool\s*,'
+    boolean-keyed-dictionary:
+        kind: dictionary
+        has: {kind: pair, has: {field: key, kind: 'true, false'}}
+    boolean-keyed-mapping:
+        any:
+            - matches: boolean-keyed-dictionary
+            - matches: {python-assigned-name: {value: {matches: boolean-keyed-dictionary}}}
+            - matches: {python-typed-parameter: {type: {matches: boolean-key-type}}}
             - kind: identifier
-              matches: mask-name
-    bool-index:
-        any:
-            - kind: slice
-              has: {matches: bool-value}
-            - matches: bool-value
-              not: {matches: mask}
-            - matches: mask
-              inside: {kind: subscript, has: {field: value, matches: sequence-literal}}
-    bool-keyed-mapping:
-        kind: identifier
-        pattern: $M
-        any:
-            - matches: {python-typed-parameter: {type: {regex: '\b(Mapping|MutableMapping|dict|Dict)\[\s*bool\s*,'}}}
-            - inside:
+              pattern: $MAPPING
+              inside:
                 kind: module, function_definition, class_definition
                 stopBy: end
                 has:
                     stopBy: {kind: 'function_definition, class_definition, lambda'}
                     kind: assignment
-                    all:
-                        - has: {field: left, kind: identifier, pattern: $M}
-                        - has: {field: type, regex: '\b(Mapping|MutableMapping|dict|Dict)\[\s*bool\s*,'}
-rule:
-    any:
-        - kind: subscript
-          pattern: $USE
-          has: {field: subscript, matches: bool-index}
-          not: {has: {field: value, matches: bool-keyed-mapping}}
-        - kind: binary_operator
-          pattern: $USE
-          all:
-            - has: {field: operator, regex: '^\*$'}
+                    all: [{has: {field: left, kind: identifier, pattern: $MAPPING}}, {has: {field: type, matches: boolean-key-type}}]
+    number-index:
+        any:
+            - matches: boolean-number
+            - kind: slice
+              has: {matches: boolean-number}
+    truth-index:
+        any:
+            - matches: python-truth-value
+            - kind: slice
+              has: {matches: python-truth-value}
+    use:
+        any:
+            - kind: subscript
+              any:
+                - all: [{has: {field: subscript, matches: number-index}}, {not: {has: {field: value, matches: boolean-keyed-mapping}}}]
+                - all: [{has: {field: subscript, matches: truth-index}}, {has: {field: value, matches: sequence}}]
+            - kind: binary_operator
+              all:
+                - has: {field: operator, regex: '^(\+|-|\*|/|//|%|\*\*|<<|>>)$'}
+                - has: {matches: boolean-number}
+                - not: {all: [{has: {field: operator, regex: '^%$'}}, {has: {field: left, matches: text}}]}
+            - kind: augmented_assignment
+              all:
+                - has: {field: operator, regex: '^(\+|-|\*|/|//|%|\*\*|<<|>>)=$'}
+                - has: {field: right, matches: boolean-number}
+                - not: {all: [{has: {field: operator, regex: '^%=$'}}, {has: {field: left, matches: text}}]}
+            - kind: unary_operator
+              all: [{has: {field: operator, regex: '^[-+]$'}}, {has: {field: argument, matches: boolean-number}}]
+    literal:
+        any:
+            - kind: integer, float, true, false, none, ellipsis
+            - kind: string
+              not: {has: {any: [{kind: interpolation}, {kind: string_start, regex: '^[rR]?[tT]|^[tT][rR]?'}]}}
+            - kind: concatenated_string, parenthesized_expression, tuple, list
+              not: {has: {pattern: $_, not: {matches: literal}}}
+    pair:
+        any:
+            - kind: tuple, list
+              all: [{matches: literal}, {has: {nthChild: 1, pattern: $FALSE}}, {has: {nthChild: 2, pattern: $TRUE}}]
+            - kind: parenthesized_expression
+              has: {matches: pair}
+    literal-sequence:
+        any:
+            - kind: list, tuple, string, concatenated_string
+              matches: literal
+            - kind: parenthesized_expression
+              has: {matches: literal-sequence}
+    target:
+        any:
+            - inside: {kind: 'assignment, augmented_assignment, for_statement, for_in_clause', field: left}
+            - inside: {kind: named_expression, field: name}
+            - inside: {kind: 'delete_statement, as_pattern_target'}
+            - inside:
+                kind: tuple_pattern, list_pattern, pattern_list, list_splat_pattern, parenthesized_expression, tuple, list, expression_list
+                matches: target
+    numeric:
+        any:
+            - kind: integer, float
+            - matches: boolean-number
+            - kind: parenthesized_expression
+              has: {matches: numeric}
+    fixable:
+        all:
+            - not: {matches: python-multiline-string}
+            - not: {has: {stopBy: end, kind: comment}}
             - any:
-                - all: [{has: {field: left, matches: sequence-literal}}, {has: {field: right, matches: bool-value}}]
-                - all: [{has: {field: right, matches: sequence-literal}}, {has: {field: left, matches: bool-value}}]
-message: '`$USE` reads a boolean as an index or a repeat count'
-note: 'Use `<a> if <test> else <b>`, a boolean read as a number hides its choice'
+                - kind: subscript
+                  all:
+                    - has: {field: value, matches: pair}
+                    - has: {field: subscript, any: [{matches: boolean-number}, {matches: python-truth-value}]}
+                    - not: {matches: target}
+                - kind: binary_operator
+                  any:
+                    - all: [{has: {field: operator, regex: '^\*$'}}, {has: {matches: literal-sequence}}, {has: {matches: boolean-number}}]
+                    - all: [{has: {field: left, matches: numeric}}, {has: {field: right, matches: numeric}}]
+                - kind: unary_operator
+    counted:
+        any:
+            - kind: call
+              pattern: int($T)
+              matches: boolean-number
+            - pattern: $T
+              matches: boolean-number
+    repeated:
+        kind: binary_operator
+        has: {kind: 'list, tuple, string, concatenated_string', stopBy: {not: {kind: parenthesized_expression}}}
+    operand:
+        any:
+            - inside:
+                kind: binary_operator, unary_operator, comparison_operator, not_operator, boolean_operator, conditional_expression, await, named_expression, list_splat, dictionary_splat, for_in_clause, if_clause
+                pattern: $CONTEXT
+            - inside: {kind: attribute, field: object, pattern: $CONTEXT}
+            - inside: {kind: subscript, field: value, pattern: $CONTEXT}
+            - inside: {kind: call, field: function, pattern: $CONTEXT}
+rule:
+    all:
+        - matches: use
+        - pattern: $USE
+        - any:
+            - all:
+                - matches: fixable
+                - pattern: $FIXED
+                - any:
+                    - all: [{any: [{kind: subscript}, {matches: repeated}]}, {matches: operand}]
+                    - pattern: $FIXED
+            - pattern: $KEPT
+rewriters:
+    - id: pick
+      rule:
+        kind: subscript
+        all:
+            - has: {field: value, matches: pair}
+            - has: {field: subscript, any: [{matches: counted}, {pattern: $T, matches: python-truth-value}]}
+      fix: $TRUE if $T else $FALSE
+    - id: kept-bytes
+      rule:
+        kind: binary_operator
+        all:
+            - has:
+                stopBy: {not: {kind: parenthesized_expression}}
+                pattern: $SEQUENCE
+                any: [{matches: python-bytes-literal}, {kind: concatenated_string, has: {nthChild: 1, matches: python-bytes-literal}}]
+            - has: {matches: counted}
+      fix: $SEQUENCE if $T else b""
+    - id: kept-string
+      rule:
+        kind: binary_operator
+        all:
+            - has: {kind: 'string, concatenated_string', stopBy: {not: {kind: parenthesized_expression}}, pattern: $SEQUENCE}
+            - has: {matches: counted}
+      fix: $SEQUENCE if $T else ""
+    - id: kept-list
+      rule:
+        kind: binary_operator
+        all: [{has: {kind: list, stopBy: {not: {kind: parenthesized_expression}}, pattern: $SEQUENCE}}, {has: {matches: counted}}]
+      fix: $SEQUENCE if $T else []
+    - id: kept-tuple
+      rule:
+        kind: binary_operator
+        all: [{has: {kind: tuple, stopBy: {not: {kind: parenthesized_expression}}, pattern: $SEQUENCE}}, {has: {matches: counted}}]
+      fix: $SEQUENCE if $T else ()
+    - id: number
+      rule:
+        matches: counted
+        inside: {kind: 'binary_operator, unary_operator', pattern: $FIXED}
+      fix: (1 if $T else 0)
+transform:
+    RESULT: rewrite($FIXED, rewriters=[pick, kept-bytes, kept-string, kept-list, kept-tuple, number])
+    OPEN: {replace: {source: $CONTEXT, replace: '(?s).+', by: '('}}
+    CLOSE: {replace: {source: $CONTEXT, replace: '(?s).+', by: ')'}}
+fix: $OPEN$RESULT$CLOSE$KEPT
+message: Boolean read as a number hides its choice, use a conditional expression
+note: 'Rewrite stays manual where an operand is not a literal or boolean, the subscript is an assignment or deletion target, or the span holds a comment or multiline string'

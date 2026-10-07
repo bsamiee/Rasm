@@ -11,8 +11,33 @@ utils:
             - matches: empty-string
             - kind: call
               all:
-                - has: {field: function, regex: '^(msgspec\.)?field$'}
+                - has: {field: function, regex: '^((msgspec|attrs|attr)\.)?(field|ib)$'}
                 - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^default$'}}, {has: {field: value, matches: empty-string}}]}}
+    empty-keyword:
+        kind: keyword_argument
+        all:
+            - has: {field: name, regex: '^default$'}
+            - has: {field: value, matches: empty-string}
+    empty-lookup:
+        any:
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(get|getenv|findtext|pop)$'}}
+                - has: {field: arguments, any: [{has: {nthChild: 2, matches: empty-string}}, {has: {matches: empty-keyword}}], not: {has: {nthChild: 3}}}
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(getattr|(os\.)?getenv)$'}
+                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, any: [{matches: empty-string}, {matches: empty-keyword}]}}
+            - kind: boolean_operator
+              all:
+                - has: {field: operator, regex: '^or$'}
+                - has: {field: right, matches: empty-string}
+    passed:
+        any:
+            - inside: {kind: argument_list}
+            - inside: {kind: keyword_argument, field: value}
+            - inside: {kind: 'return_statement, yield'}
+            - inside: {kind: lambda, field: body}
     text-type:
         kind: type
         regex: '^(str|Annotated\[\s*str\s*,.*\])$'
@@ -28,6 +53,10 @@ utils:
         kind: identifier
         pattern: $NAME
         matches: tested
+    passed-name:
+        kind: identifier
+        pattern: $NAME
+        matches: passed
     tested-field:
         kind: attribute
         has: {field: attribute, pattern: $NAME}
@@ -52,5 +81,19 @@ rule:
             - has: {field: right, matches: empty-default}
             - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition}}}
             - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: tested-field}}
+        - kind: assignment
+          all:
+            - has: {field: left, kind: identifier, pattern: $NAME}
+            - has: {field: right, matches: empty-lookup}
+            - inside: {kind: 'function_definition, module', stopBy: end, has: {stopBy: {kind: 'function_definition, lambda, class_definition'}, any: [{matches: tested-name}, {matches: passed-name}]}}
+        - matches: empty-lookup
+          all:
+            - matches: passed
+            - any:
+                - has: {field: left, pattern: $NAME}
+                - all:
+                    - has: {field: function, regex: '^getattr$'}
+                    - has: {field: arguments, has: {nthChild: 2, pattern: $NAME}}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $NAME}}
 message: '`$NAME` defaults to an empty string standing for absence'
-note: 'Use `<name>: str | None = None` with an `is None` test, an empty string is a valid `str` and states no absence'
+note: 'Use `str | None` with `None` for absence and an `is None` test, an empty string is a valid `str` and states no absence'

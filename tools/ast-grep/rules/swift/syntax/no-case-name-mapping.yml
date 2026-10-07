@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-case-name-mapping
+language: swift
+severity: error
+utils:
+    own-name:
+        kind: switch_entry
+        any:
+            - pattern: {context: 'switch x { case .$N: return "$N" }', selector: switch_entry}
+            - pattern: {context: 'switch x { case .$N: "$N" }', selector: switch_entry}
+    case-literal:
+        kind: prefix_expression
+        pattern: .$N
+    name-literal:
+        kind: line_string_literal
+        pattern: {context: 'x = "$N"', selector: line_string_literal}
+    own-name-key:
+        any:
+            - {matches: case-literal, precedes: {stopBy: {not: {regex: '^:$'}}, matches: name-literal}}
+            - {matches: name-literal, precedes: {stopBy: {not: {regex: '^:$'}}, matches: case-literal}}
+    key:
+        pattern: $_
+        precedes: {pattern: $$_COLON, regex: '^:$'}
+rule:
+    any:
+        - kind: switch_statement
+          all:
+            - has: {kind: switch_entry, follows: {kind: switch_entry, stopBy: end}}
+            - not: {has: {kind: switch_entry, not: {matches: own-name}}}
+        - kind: dictionary_literal
+          all:
+            - has: {matches: key, follows: {stopBy: end, matches: key}}
+            - not: {has: {matches: key, not: {matches: own-name-key}}}
+message: 'Switch or table maps each enum case to its own name spelled as a string literal'
+note: 'Give the enum a `String` raw type and read `<value>.rawValue` or call `<Enum>(rawValue: <text>)`, an enum with associated values or raw values other than its case names keeps the mapping'

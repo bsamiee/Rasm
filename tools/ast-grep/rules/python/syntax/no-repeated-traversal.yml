@@ -3,43 +3,93 @@ id: no-repeated-traversal
 language: python
 severity: error
 utils:
-    owner:
-        inside: {stopBy: {kind: function_definition}, kind: function_definition, has: {field: name, pattern: $FN}}
-    outer-level:
-        not: {regex: '^async\b'}
+    scope:
+        kind: 'function_definition, class_definition, lambda, module'
+    source-name:
+        kind: identifier
+        pattern: $NAME
+        inside:
+            stopBy: {kind: 'for_statement, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+            kind: 'for_statement, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+            has: {stopBy: end, pattern: $OUTER_SOURCE, any: [{pattern: $NAME}, {has: {stopBy: end, kind: identifier, pattern: $NAME}}]}
+    source-binding:
+        has:
+            field: left
+            any: [{matches: source-name}, {has: {stopBy: end, matches: source-name}}]
+    region:
+        any:
+            - matches: scope
+            - kind: for_statement
+              matches: source-binding
+            - kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+              has: {kind: for_in_clause, matches: source-binding}
+    level:
+        kind: 'for_in_clause, for_statement'
+        not:
+            any:
+                - regex: '^async\b'
+                - has: {kind: else_clause}
+    inner-level:
+        matches: level
+        not: {has: {field: body, has: {stopBy: {kind: 'for_statement, while_statement, function_definition, class_definition, lambda'}, kind: break_statement}}}
+    later-inner:
         all:
+            - matches: inner-level
+            - has: {field: left, pattern: $INNER_TARGET}
+            - has:
+                field: right
+                pattern: $INNER_SOURCE
+                any:
+                    - all: [{pattern: $OUTER_TARGET}, {pattern: $ELEMENT}]
+                    - pattern: $OUTER_TARGET.$ATTRIBUTE
+                    - pattern: $OUTER_TARGET.$METHOD($$$ARGUMENTS)
+                    - pattern: $OUTER_TARGET[$KEY]
+                    - pattern: $FUNCTION($OUTER_TARGET)
+                    - pattern: $INNER_SOURCE
+    earlier-inner:
+        matches: inner-level
+        has:
+            field: right
+            any:
+                - pattern: $INNER_SOURCE
+                - all: [{not: {pattern: $ELEMENT}}, {pattern: $EARLIER_TARGET}]
+                - all: [{not: {pattern: $ATTRIBUTE}}, {pattern: $EARLIER_TARGET.$ATTRIBUTE}]
+                - all: [{not: {pattern: $METHOD}}, {pattern: $EARLIER_TARGET.$METHOD($$$ARGUMENTS)}]
+                - all: [{not: {pattern: $KEY}}, {pattern: '$EARLIER_TARGET[$KEY]'}]
+                - all: [{not: {pattern: $FUNCTION}}, {pattern: $FUNCTION($EARLIER_TARGET)}]
+    single-statement:
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    later-pair:
+        all:
+            - matches: level
             - has: {field: left, pattern: $OUTER_TARGET}
             - has: {field: right, pattern: $OUTER_SOURCE}
-    inner-level:
-        not: {regex: '^async\b'}
-        all:
-            - has: {field: left, pattern: $INNER_TARGET}
-            - has: {field: right, pattern: $INNER_SOURCE}
-    clause-pair:
-        kind: for_in_clause
-        matches: outer-level
-        precedes: {kind: for_in_clause, matches: inner-level}
-    statement-pair:
-        kind: for_statement
-        matches: outer-level
-        has: {field: body, not: {has: {nthChild: 2}}, has: {kind: for_statement, matches: inner-level}}
-    pair:
-        any: [{matches: clause-pair}, {matches: statement-pair}]
+            - any:
+                - precedes: {kind: for_in_clause, matches: later-inner}
+                - has: {field: body, matches: single-statement, has: {kind: for_statement, matches: later-inner}}
     earlier-pair:
-        all: [{matches: pair}, {matches: owner}]
-    after-pair:
+        all:
+            - matches: level
+            - not: {inside: {stopBy: end, matches: region, inside: {stopBy: end, pattern: $REGION}}}
+            - has: {field: left, pattern: $EARLIER_TARGET}
+            - has: {field: right, pattern: $OUTER_SOURCE}
+            - any:
+                - precedes: {kind: for_in_clause, matches: earlier-inner}
+                - has: {field: body, matches: single-statement, has: {kind: for_statement, matches: earlier-inner}}
+    after-earlier-pair:
         follows:
             stopBy: end
+            not: {matches: scope}
             any:
                 - matches: earlier-pair
-                - has: {stopBy: end, matches: earlier-pair}
+                - has: {stopBy: {matches: scope}, matches: earlier-pair}
 rule:
-    kind: for_in_clause, for_statement
+    kind: 'for_in_clause, for_statement'
     all:
-        - matches: pair
-        - matches: owner
+        - matches: later-pair
+        - inside: {stopBy: end, matches: region, pattern: $REGION}
         - any:
-            - matches: after-pair
-            - inside: {stopBy: end, matches: after-pair}
-message: '`for $OUTER_TARGET in $OUTER_SOURCE` then `for $INNER_TARGET in $INNER_SOURCE` repeats a two-level traversal `$FN` spells earlier'
-note: 'Use one `<items> = [<element> for <a> in <outer> for <b> in <inner>]` in the function and read `<items>` in each comprehension or loop, the traversal has one spelling'
+            - matches: after-earlier-pair
+            - inside: {stopBy: end, matches: after-earlier-pair, inside: {stopBy: end, pattern: $REGION}}
+message: '`for $OUTER_TARGET in $OUTER_SOURCE` then `for $INNER_TARGET in $INNER_SOURCE` repeats a two-level traversal spelled earlier in its scope'
+note: 'Use one `<items> = [<element> for <a> in <outer> for <b> in <inner>]` ahead of the first traversal and read `<items>` at each site, one binding spells the traversal. Each site takes a manual rewrite, the binding sits ahead of an earlier site no match spans'

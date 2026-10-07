@@ -5,7 +5,11 @@ severity: error
 rule:
     kind: string
     pattern: $MACRO
-    has: {kind: string_content, regex: '(?i)runpythonscript'}
-    not: {inside: {kind: comparison_operator}}
-message: '`$MACRO` runs a file on IronPython 2.7 through `_-RunPythonScript`'
-note: 'Use `_-ScriptEditor _Run "<file>"`, Script Editor runs a `.py` file on the shared CPython'
+    has: {kind: string_content, regex: '(?i)(^|[\s!=''"]|\\[nrt])[_-]*runpythonscript($|[\s''"(]|\\[nrt])'}
+    not:
+        any:
+            - inside: {matches: python-docstring-or-comment}
+            - inside: {kind: comparison_operator, stopBy: {not: {kind: 'tuple, list, set'}}}
+            - inside: {kind: case_pattern, stopBy: end}
+message: '`$MACRO` runs Python on IronPython 2 through `_-RunPythonScript`, `_-ScriptEditor _Run` runs it on the shared CPython'
+note: 'Use `_-ScriptEditor _Run "<file>"`, or `_-ScriptEditor _Run (<source>)` with `#! python3` as the first source line, RhinoCode resolves inline source by its `#!` line alone'

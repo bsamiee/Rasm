@@ -10,11 +10,9 @@ const DELTA = `${_FOLDER}/delta.sql`;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _json = (value: unknown): string => `json_each('${JSON.stringify(value).replaceAll("'", "''")}')`;
 const _normalized = (text: string): string => `replace(replace(replace(replace(replace(replace(${text}, char(9), ' '), char(13), ' '), char(10), ' '), ' ', char(64976, 64977)), char(64977, 64976), ''), char(64976, 64977), ' ')`;
 const _lineage = (main: string, worktree: string, branch: string): string => `if(${worktree} = ${main}, '.', substr(${worktree}, length(rtrim(${worktree}, replace(${worktree}, '/', ''))) + 1)) || '/' || ${branch}`;
-
-const bound = (values: object, statement: string): string => `.parameter init\ninsert into temp.sqlite_parameters(key, value) select ':' || key, value from ${_json(values)};\n${statement}`;
+const bound = (values: object, statement: string): string => `.parameter init\ninsert into temp.sqlite_parameters(key, value) select ':' || key, value from json_each('${JSON.stringify(values).replaceAll("'", "''")}');\n${statement}`;
 
 // --- [SCHEMA] --------------------------------------------------------------------------
 
@@ -103,25 +101,28 @@ const _VIEWS: readonly string[] = [
     "create view category_fires as select f.checker, f.category, count(distinct f.finding_id) as sites, count(t.rowid) as sightings, count(distinct f.prompt_id) as prompts_fired, (select count(distinct prompt_id) from judged_edits) as prompts_judged, min(t.at) as first_at, max(t.at) as last_at from finding f left join finding_transition t on t.finding_id = f.finding_id and t.actor = 'check' where f.checker is not null group by f.checker, f.category;",
     "create view missed_sites as select finding_id, category, path, start_line, start_column, evidence, at from finding_state where state = 'checker_silent';",
 ];
-const OPEN = [
-    ..._TABLES.map(([name, body]) => `create temp table ${name}${body};`),
-    ..._INDEXES,
-    'begin immediate;',
-    `.output ${DELTA}`,
-    "select 'drop ' || m.type || ' ' || m.name || ';' from sqlite_master m left join sqlite_temp_master w on w.type = m.type and lower(w.name) = lower(m.name) where m.type = 'view' or (m.type = 'index' and m.sql <> w.sql);",
-    "select 'create table ' || w.name || '__delta' || substr(w.sql, instr(w.sql, '(')) || ';' || char(10) || 'insert into ' || w.name || '__delta(' || coalesce(c.cols, '') || ') select ' || coalesce(c.cols, '') || ' from ' || w.name || ';' || char(10) || 'drop table ' || w.name || ';' || char(10) || 'alter table ' || w.name || '__delta rename to ' || w.name || ';' from sqlite_temp_master w join sqlite_master m on m.type = 'table' and lower(m.name) = lower(w.name) and substr(m.sql, instr(m.sql, '(')) <> substr(w.sql, instr(w.sql, '(')) left join (select t.name as tbl, group_concat(p.name, ', ' order by p.cid) as cols from sqlite_temp_master t, pragma_table_info(t.name, 'temp') p join pragma_table_info(t.name, 'main') q on q.name = p.name group by t.name) c on c.tbl = w.name;",
-    '.output',
-    ..._TABLES.map(([name]) => `drop table temp.${name};`),
-    `.read ${DELTA}`,
-    ..._TABLES.map(([name, body]) => `create table if not exists ${name}${body};`),
-    ..._INDEXES,
-    `.output ${DELTA}`,
-    `select 'delete from ' || l.key || ' where ' || k.name || ' not in (select value ->> ' || quote('$.' || k.name) || ' from json_each(' || quote(l.value) || '))' || coalesce((select group_concat(' and not exists (select 1 from ' || m.name || ' r where r.' || f."from" || ' = ' || l.key || '.' || k.name || ')', '') from sqlite_master m, pragma_foreign_key_list(m.name) f where m.type = 'table' and f."table" = l.key), '') || ';' || char(10) || 'insert into ' || l.key || '(' || (select group_concat(c.name, ', ') from pragma_table_info(l.key) c) || ') select ' || (select group_concat('value ->> ' || quote('$.' || c.name), ', ') from pragma_table_info(l.key) c) || ' from json_each(' || quote(l.value) || ') where true on conflict do ' || coalesce('update set ' || (select group_concat(c.name || ' = excluded.' || c.name, ', ') from pragma_table_info(l.key) c where c.pk = 0), 'nothing') || ';' from ${_json(Object.fromEntries(_TABLES.flatMap(([name, _body, rows]) => (rows === undefined ? [] : [[name, rows]]))))} l, pragma_table_info(l.key) k where k.pk = 1;`,
-    '.output',
-    `.read ${DELTA}`,
-    ..._VIEWS,
-    'commit;',
-].join('\n');
+const OPEN = bound(
+    { rows: Object.fromEntries(_TABLES.flatMap(([name, _body, rows]) => (rows === undefined ? [] : [[name, rows]]))) },
+    [
+        ..._TABLES.map(([name, body]) => `create temp table ${name}${body};`),
+        ..._INDEXES,
+        'begin immediate;',
+        `.output ${DELTA}`,
+        "select 'drop ' || m.type || ' ' || m.name || ';' from sqlite_master m left join sqlite_temp_master w on w.type = m.type and lower(w.name) = lower(m.name) where m.type = 'view' or (m.type = 'index' and m.sql <> w.sql);",
+        "select 'create table ' || w.name || '__delta' || substr(w.sql, instr(w.sql, '(')) || ';' || char(10) || 'insert into ' || w.name || '__delta(' || coalesce(c.cols, '') || ') select ' || coalesce(c.cols, '') || ' from ' || w.name || ';' || char(10) || 'drop table ' || w.name || ';' || char(10) || 'alter table ' || w.name || '__delta rename to ' || w.name || ';' from sqlite_temp_master w join sqlite_master m on m.type = 'table' and lower(m.name) = lower(w.name) and substr(m.sql, instr(m.sql, '(')) <> substr(w.sql, instr(w.sql, '(')) left join (select t.name as tbl, group_concat(p.name, ', ' order by p.cid) as cols from sqlite_temp_master t, pragma_table_info(t.name, 'temp') p join pragma_table_info(t.name, 'main') q on q.name = p.name group by t.name) c on c.tbl = w.name;",
+        '.output',
+        ..._TABLES.map(([name]) => `drop table temp.${name};`),
+        `.read ${DELTA}`,
+        ..._TABLES.map(([name, body]) => `create table if not exists ${name}${body};`),
+        ..._INDEXES,
+        `.output ${DELTA}`,
+        `select 'delete from ' || l.key || ' where ' || k.name || ' not in (select value ->> ' || quote('$.' || k.name) || ' from json_each(' || quote(l.value) || '))' || coalesce((select group_concat(' and not exists (select 1 from ' || m.name || ' r where r.' || f."from" || ' = ' || l.key || '.' || k.name || ')', '') from sqlite_master m, pragma_foreign_key_list(m.name) f where m.type = 'table' and f."table" = l.key), '') || ';' || char(10) || 'insert into ' || l.key || '(' || (select group_concat(c.name, ', ') from pragma_table_info(l.key) c) || ') select ' || (select group_concat('value ->> ' || quote('$.' || c.name), ', ') from pragma_table_info(l.key) c) || ' from json_each(' || quote(l.value) || ') where true on conflict do ' || coalesce('update set ' || (select group_concat(c.name || ' = excluded.' || c.name, ', ') from pragma_table_info(l.key) c where c.pk = 0), 'nothing') || ';' from json_each(:rows) l, pragma_table_info(l.key) k where k.pk = 1;`,
+        '.output',
+        `.read ${DELTA}`,
+        ..._VIEWS,
+        'commit;',
+    ].join('\n'),
+);
 
 // --- [STATEMENTS] ----------------------------------------------------------------------
 

@@ -257,7 +257,8 @@ Use [execution.md](references/execution.md) for script faults and deferred passe
 - Rendered shading under Cycles draws black offscreen, and Cycles looks take `headless.py render`
 - Background calls render Workbench under the stored viewport's Solid shading, surfaces matching a live draw byte for byte
 - Background processes hold the startup file's screens under `filepaths.use_load_ui` off, its shading and user view in place of the live ones
-- Background fill follows the preferences' theme, lighter under `run`'s factory preferences than in a `start` session
+- Background fill takes the preferences' theme as a Custom background color, lighter under `run`'s factory preferences than in a `start` session
+- Workbench renders draw Theme and World backgrounds in the world's viewport color, black in a scene with no world
 - `WIRE` and `BOUNDS` display types, curves with no bevel or extrusion, loose edges, and empties draw nothing
 - `Read` downscales an image past 2000 px and re-encodes one past 500 KB as JPEG, default sizes staying under both up to a 13:1 frame
 - Pixel reads (levels, line widths, band edges, dither) pass `size=(region.width, region.height)` for the viewport's device pixels

@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: java-multi-pattern-case-label
+language: java
+rule:
+    kind: ERROR
+    regex: ',$'
+    inside: {kind: switch_label}
+    precedes: {kind: pattern}
+    not: {has: {not: {any: [{kind: pattern, precedes: {regex: '^,$'}}, {regex: '^,$', follows: {kind: pattern}}]}}}

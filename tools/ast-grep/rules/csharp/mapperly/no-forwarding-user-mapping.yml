@@ -4,12 +4,24 @@ language: csharp
 severity: error
 utils:
     forward:
-        pattern: $OWNER.$MEMBER($SOURCE)
-        not: {has: {field: function, matches: csharp-throwing-factory}}
+        any:
+            - pattern: $OWNER.$MEMBER($SOURCE)
+              has: {field: function, pattern: $CALLEE}
+              not: {has: {field: function, matches: csharp-throwing-factory}}
+            - pattern: $MEMBER($SOURCE)
+              has: {field: function, pattern: $CALLEE}
+              inside:
+                stopBy: end
+                kind: declaration_list
+                has:
+                    kind: method_declaration
+                    all:
+                        - has: {field: name, pattern: $MEMBER}
+                        - not: {has: {field: name, pattern: $NAME}}
 rule:
     kind: method_declaration
     all:
-        - has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?UserMapping(Attribute)?$'}}}
+        - has: {field: name, pattern: $NAME}
         - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $SOURCE}}, not: {has: {kind: parameter, nthChild: 2}}}
         - has:
             field: body
@@ -19,7 +31,9 @@ rule:
                 - kind: block
                   has: {kind: return_statement, nthChild: 1, has: {matches: forward}}
                   not: {has: {nthChild: 2}}
+        - not: {has: {kind: modifier, regex: '^partial$'}}
+        - matches: csharp-mapping-method
 constraints:
-    OWNER: {regex: '^(global::)?([A-Z]\w*\.)*[A-Z]\w*$'}
-message: '`[UserMapping]` method passes `$SOURCE` to `$OWNER.$MEMBER` unchanged'
-note: 'Mark `<owner>.<member>` `[UserMapping]` and add `[assembly: UseStaticMapper(typeof(<owner>))]`, Mapperly then calls the owner member directly'
+    OWNER: {regex: '^(global::)?(@?[A-Z]\w*(<.+>)?\.)*@?[A-Z]\w*(<.+>)?$'}
+message: 'Mapping method `$NAME` passes `$SOURCE` to `$CALLEE` unchanged'
+note: 'Reference the owner member directly through its `[UserMapping]` with `[UseStaticMapper(typeof(<owner>))]` or through `Use = nameof(@<owner>.<member>)`, and delete the forwarding method'

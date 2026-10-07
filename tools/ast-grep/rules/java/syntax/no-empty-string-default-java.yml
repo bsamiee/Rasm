@@ -11,8 +11,12 @@ utils:
             - matches: empty-string
             - kind: method_invocation
               all:
-                - has: {field: name, regex: '^(orElse|getOrDefault|requireNonNullElse)$'}
+                - has: {field: name, regex: '^(orElse|getOrDefault|requireNonNullElse|getProperty|toString|get)$'}
                 - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: empty-string}}
+            - kind: method_invocation
+              all:
+                - has: {field: name, regex: '^(orElseGet|requireNonNullElseGet)$'}
+                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, kind: lambda_expression, has: {field: body, matches: empty-string}}}
             - kind: ternary_expression
               any: [{has: {field: consequence, matches: empty-string}}, {has: {field: alternative, matches: empty-string}}]
     subject:
@@ -20,17 +24,33 @@ utils:
             - {kind: identifier, pattern: $NAME}
             - {kind: field_access, all: [{has: {field: object, kind: this}}, {has: {field: field, pattern: $NAME}}]}
     tested:
-        kind: method_invocation
         any:
-            - all: [{has: {field: name, regex: '^(isEmpty|isBlank)$'}}, {has: {field: object, matches: subject}}]
-            - all: [{has: {field: name, regex: '^equals$'}}, {has: {field: object, matches: subject}}, {has: {field: arguments, has: {matches: empty-string}}}]
-            - all: [{has: {field: name, regex: '^equals$'}}, {has: {field: object, matches: empty-string}}, {has: {field: arguments, has: {matches: subject}}}]
+            - kind: method_invocation
+              all: [{has: {field: name, regex: '^(isEmpty|isBlank)$'}}, {has: {field: object, matches: subject}}]
+            - kind: method_invocation
+              all:
+                - has: {field: name, regex: '^(equals|contentEquals|equalsIgnoreCase)$'}
+                - any:
+                    - all: [{has: {field: object, matches: subject}}, {has: {field: arguments, has: {matches: empty-string}}}]
+                    - all: [{has: {field: object, matches: empty-string}}, {has: {field: arguments, has: {matches: subject}}}]
+                    - all: [{has: {field: object, regex: '^(java\.util\.)?Objects$'}}, {has: {field: arguments, has: {matches: subject}}}, {has: {field: arguments, has: {matches: empty-string}}}]
+            - kind: binary_expression
+              all:
+                - has: {kind: method_invocation, all: [{has: {field: name, regex: '^length$'}}, {has: {field: object, matches: subject}}]}
+                - has: {kind: decimal_integer_literal, regex: '^0$'}
 rule:
-    kind: variable_declarator
+    matches: empty-default
     all:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: value, matches: empty-default}
-        - inside: {kind: 'field_declaration, local_variable_declaration', has: {field: type, regex: '^(String|var)$'}}
-        - inside: {kind: 'method_declaration, constructor_declaration, lambda_expression, class_body', stopBy: end, has: {stopBy: end, matches: tested}}
+        - any:
+            - inside:
+                kind: variable_declarator
+                field: value
+                has: {field: name, pattern: $NAME}
+                inside: {kind: 'field_declaration, local_variable_declaration', has: {field: type, regex: '^(String|var)$'}}
+            - inside: {kind: assignment_expression, field: right, all: [{has: {field: operator, pattern: $$_OPERATOR, regex: '^=$'}}, {has: {field: left, matches: subject}}]}
+        - inside:
+            kind: method_declaration, constructor_declaration, compact_constructor_declaration, lambda_expression, static_initializer, class_body
+            stopBy: {kind: 'method_declaration, constructor_declaration, compact_constructor_declaration, lambda_expression, static_initializer, class_body'}
+            has: {stopBy: end, matches: tested}
 message: '`$NAME` defaults to an empty string standing for absence'
 note: Declare `Optional<String>` and test its presence, an empty string stays a value

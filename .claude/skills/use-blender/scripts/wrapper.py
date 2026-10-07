@@ -142,7 +142,7 @@ def decision(event: Event) -> dict[str, object] | None:
     """Return the wrapped `execute_blender_code` input, a refusal naming the replacing call, or `None` for a call that runs as sent."""
     match event["tool_name"].rpartition("__")[2], event["tool_input"]:
         case "execute_blender_code", {"code": str() as code} as tool_input:
-            return {"updatedInput": tool_input | {"code": wrap(code)}}
+            return {"permissionDecision": "allow", "updatedInput": tool_input | {"code": wrap(code)}}
         case tool, _ if (instead := replacement(tool)) is not None:
             return {"permissionDecision": "deny", "permissionDecisionReason": f"{tool} refused, {instead}"}
         case _:

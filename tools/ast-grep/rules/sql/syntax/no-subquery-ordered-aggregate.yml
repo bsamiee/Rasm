@@ -6,17 +6,23 @@ utils:
     order-sensitive-aggregate:
         kind: function_call
         all:
-            - has: {field: name, regex: '(?i)^(group_concat|string_agg|json_group_array|json_group_object|jsonb_group_array|jsonb_group_object|array_agg|list|first|last)$'}
+            - any: [{matches: sql-string-aggregate}, {has: {field: name, regex: '(?i)^(json_group_array|json_group_object|jsonb_group_array|jsonb_group_object|array_agg|list|first|last)$'}}]
             - has: {field: arguments, kind: normal_function_arguments, not: {has: {kind: order_by_clause}}}
             - not: {has: {field: over, kind: over_clause}}
     ordered-subquery:
         kind: select_clause
-        all:
-            - has: {field: order_by, pattern: _ORDER}
-            - not: {has: {field: limit, kind: limit_clause}}
+        has: {field: order_by, pattern: _ORDER}
+    ordered-cte:
+        kind: with_clause
+        has:
+            kind: cte_definition
+            all:
+                - has: {field: name, pattern: _CTE}
+                - has: {field: body, matches: ordered-subquery, pattern: _SUBQUERY}
     unwrappable:
         matches: ordered-subquery
         all:
+            - not: {has: {field: limit, kind: limit_clause}}
             - not: {has: {field: modifier, regex: '(?i)^distinct$'}}
             - has:
                 field: columns
@@ -36,7 +42,11 @@ rule:
     pattern: _QUERY
     all:
         - has: {field: columns, has: {matches: order-sensitive-aggregate, stopBy: {kind: select_clause}, pattern: _AGGREGATE}}
-        - has: {field: from, has: {kind: table_or_subquery, stopBy: {kind: select_clause}, has: {matches: ordered-subquery, pattern: _SUBQUERY}}}
+        - any:
+            - has: {field: from, has: {kind: table_or_subquery, stopBy: {kind: select_clause}, has: {matches: ordered-subquery, pattern: _SUBQUERY}}}
+            - all:
+                - has: {field: from, has: {kind: table_or_subquery, stopBy: {kind: select_clause}, has: {kind: qualified_table_name, has: {field: name, pattern: _CTE}}}}
+                - any: [{has: {field: with, matches: ordered-cte}}, {inside: {stopBy: end, has: {field: with, matches: ordered-cte}}}]
         - any:
             - pattern: _FIXABLE
               has:
@@ -71,4 +81,4 @@ transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [ordered, unwrapped]}}
 fix: $FIXED$KEPT
 message: '`$AGGREGATE` reads rows in an order `$SUBQUERY` sets and the aggregate does not keep'
-note: 'Move `order by` from subquery into aggregate call as `<aggregate>(<arguments> order by <key>)`, SQLite and DuckDB order aggregate input by an in-call `order by` alone'
+note: 'Move `order by` from the subquery or common table expression into the aggregate call as `<aggregate>(<arguments> order by <key>)`, SQLite and DuckDB order aggregate input by an in-call `order by` alone'

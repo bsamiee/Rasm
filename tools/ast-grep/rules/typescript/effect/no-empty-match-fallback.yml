@@ -5,11 +5,11 @@ severity: error
 utils:
     module-member:
         kind: member_expression
-        has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/\w+)?$'}, exported: {regex: '^[A-Z]\w*$'}}}}
+        has: {field: object, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}
     function-reference:
         any:
             - kind: member_expression
-              has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^Function$'}}}}
+              has: {field: object, matches: {effect-module: {name: {regex: '\bFunction$'}}}}
             - kind: identifier
               matches: {syntax-import-reference: {source: {regex: '^effect/Function$'}, exported: {regex: '^(constant|const(Undefined|Null|Void))$'}}}
     empty-value:
@@ -42,7 +42,7 @@ rule:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^orElse$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Match)?$'}, exported: {regex: '^Match$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bMatch$'}}}}
         - has:
             field: arguments
             has:

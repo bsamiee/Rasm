@@ -2,16 +2,70 @@
 id: python-typed-parameter
 language: python
 arguments: [type]
+utils:
+    parameter:
+        kind: typed_parameter, typed_default_parameter
+        all:
+            - any: [{has: {kind: identifier, nthChild: 1, pattern: $PARAMETER}}, {has: {field: name, pattern: $PARAMETER}}]
+            - has: {field: type, matches: type}
+    binding:
+        any:
+            - matches: {python-binding: {name: {pattern: $PARAMETER}}}
+            - kind: global_statement
+              has: {kind: identifier, pattern: $PARAMETER}
+            - kind: aliased_import
+              has: {field: alias, pattern: $PARAMETER}
+            - kind: dotted_name
+              pattern: $PARAMETER
+              any:
+                - inside: {kind: import_statement}
+                - inside: {kind: import_from_statement}
+                  not: {inside: {kind: import_from_statement, field: module_name}}
+    bound:
+        has:
+            stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+            matches: binding
+    lexical-scope:
+        any:
+            - kind: block
+              inside: {kind: function_definition}
+            - inside: {kind: lambda, field: body}
+            - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+    enclosing-scope:
+        inside:
+            matches: lexical-scope
+            stopBy: {matches: lexical-scope}
+            all: [{matches: parameter-scope}]
+    parameter-scope:
+        any:
+            - kind: block
+              inside:
+                kind: function_definition
+                any:
+                    - all:
+                        - has: {field: parameters, has: {matches: parameter}}
+                        - not:
+                            has:
+                                stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+                                all: [{matches: binding}, {not: {matches: parameter}}]
+                    - all: [{not: {matches: bound}}, {matches: enclosing-scope}]
+            - inside:
+                kind: lambda
+                field: body
+                not: {matches: bound}
+                matches: enclosing-scope
+            - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+              not: {matches: bound}
+              matches: enclosing-scope
 rule:
     kind: identifier
-    pattern: $PARAMETER
-    inside:
-        kind: function_definition
-        stopBy: end
-        has:
-            field: parameters
-            has:
-                kind: typed_parameter, typed_default_parameter
-                all:
-                    - any: [{has: {kind: identifier, nthChild: 1, pattern: $PARAMETER}}, {has: {field: name, pattern: $PARAMETER}}]
-                    - has: {field: type, matches: type}
+    all:
+        - pattern: $PARAMETER
+        - any:
+            - all: [{matches: lexical-scope}, {matches: parameter-scope}]
+            - all: [{not: {matches: lexical-scope}}, {matches: enclosing-scope}]
+        - not:
+            inside:
+                kind: class_definition
+                stopBy: {any: [{matches: lexical-scope}, {kind: class_definition}]}
+                matches: bound

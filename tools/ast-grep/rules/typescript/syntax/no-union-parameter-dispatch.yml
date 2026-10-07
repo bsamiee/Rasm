@@ -12,31 +12,43 @@ utils:
                       regex: '^(string|number|boolean|bigint|symbol)$'
                     - kind: literal_type
                       has: {kind: 'string, number, true, false'}
+                    - kind: array_type
+                    - kind: readonly_type
+                      has: {kind: array_type}
+                    - kind: generic_type
+                      has: {field: name, regex: '^(Readonly)?Array$'}
                     - matches: declared-union
             - kind: parenthesized_type
               has: {matches: declared-union}
+    shape-test:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^[!=]==?$'}
+                - has: {kind: unary_expression, all: [{has: {field: operator, regex: '^typeof$'}}, {has: {field: argument, kind: identifier, pattern: $PARAMETER}}]}
+                - has: {kind: string}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.isArray$', matches: syntax-global-reference}
+                - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}}, {not: {has: {nthChild: 2}}}]}
 rule:
     any:
         - kind: function_signature
           not: {inside: {kind: ambient_declaration, stopBy: end}}
         - kind: method_signature
           inside: {kind: class_body}
-        - kind: binary_expression
-          all:
-            - has: {field: operator, regex: '^[!=]==?$'}
-            - has: {kind: unary_expression, all: [{has: {field: operator, regex: '^typeof$'}}, {has: {field: argument, kind: identifier, pattern: $PARAMETER}}]}
-            - has: {kind: string}
-            - inside:
-                matches: syntax-function-boundary
-                stopBy: {matches: syntax-function-boundary}
-                all:
-                    - has:
-                        field: parameters
-                        has:
-                            kind: required_parameter, optional_parameter
-                            all:
-                                - has: {field: pattern, pattern: $PARAMETER}
-                                - has: {field: type, has: {matches: declared-union}}
-                    - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
-message: 'Argument shape selects the behavior at runtime through an overload or a `typeof` test'
+        - matches: shape-test
+          inside:
+            matches: syntax-function-boundary
+            stopBy: {matches: syntax-function-boundary}
+            all:
+                - has:
+                    field: parameters
+                    has:
+                        kind: required_parameter, optional_parameter
+                        all:
+                            - has: {field: pattern, pattern: $PARAMETER}
+                            - has: {field: type, has: {matches: declared-union}}
+                - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
+message: 'Argument shape selects the behavior at runtime through an overload, a `typeof` test, or an `Array.isArray` test'
 note: 'Declare one function per argument shape, each caller holds one shape and calls its function'

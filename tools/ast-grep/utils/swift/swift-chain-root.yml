@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-chain-root
+language: swift
+arguments: [root]
+rule:
+    kind: 'simple_identifier, call_expression, navigation_expression'
+    any:
+        - matches: root
+        - has: {stopBy: {not: {kind: 'call_expression, navigation_expression'}}, nthChild: 1, matches: root}

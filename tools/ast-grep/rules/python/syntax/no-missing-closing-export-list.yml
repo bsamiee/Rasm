@@ -2,9 +2,11 @@
 id: no-missing-closing-export-list
 language: python
 severity: error
-utils:
-    export-list:
-        kind: expression_statement
+rule:
+    kind: 'expression_statement, function_definition, class_definition, decorated_definition, if_statement, import_statement, import_from_statement, future_import_statement, for_statement, while_statement, try_statement, with_statement, match_statement, assert_statement, pass_statement, delete_statement, raise_statement, global_statement, nonlocal_statement, type_alias_statement'
+    inside: {kind: module}
+    nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+    not:
         has:
             kind: assignment
             all:
@@ -12,12 +14,6 @@ utils:
                 - has:
                     field: right
                     kind: 'list, tuple'
-                    not: {has: {kind: 'list_splat, parenthesized_list_splat, list_comprehension, generator_expression, identifier, call, attribute, binary_operator'}}
-rule:
-    kind: 'expression_statement, function_definition, class_definition, decorated_definition, if_statement, import_statement, import_from_statement, future_import_statement, for_statement, while_statement, try_statement, with_statement, match_statement, assert_statement, pass_statement, delete_statement, raise_statement, global_statement, nonlocal_statement, type_alias_statement'
-    pattern: $LAST
-    inside: {kind: module}
-    nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
-    not: {matches: export-list}
-message: Module closes with a statement in place of its `__all__` export list
-note: 'Use `__all__ = [<names>]` under `[EXPORTS]` as the last statement, `[]` when the module exports nothing, one literal list holds every public name'
+                    not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: string, regex: '^["''][_\p{XID_Start}]\p{XID_Continue}*["'']$'}]}}}
+message: Module closes with a statement in place of its literal `__all__` export list
+note: 'Use `__all__ = ["<name>", ...]` under `[EXPORTS]` as the last statement, `[]` when the module exports nothing, one literal list holds every public name'

@@ -3,22 +3,50 @@ id: no-osstatus-literal
 language: swift
 severity: error
 utils:
+    status-type:
+        regex: '^(OSStatus|OSErr)$'
     status-literal:
         any:
             - kind: integer_literal
             - kind: hex_literal
             - kind: prefix_expression
               has: {field: target, any: [{kind: integer_literal}, {kind: hex_literal}]}
+    status-binding:
+        any:
+            - kind: property_declaration
+              all:
+                - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
+                - has: {kind: type_annotation, has: {field: name, matches: status-type}}
+            - kind: parameter
+              all:
+                - has: {kind: simple_identifier, pattern: $NAME}
+                - has: {kind: user_type, matches: status-type}
+    status-value:
+        kind: simple_identifier
+        pattern: $NAME
+        inside:
+            stopBy: end
+            kind: 'statements, function_declaration, init_declaration, lambda_literal'
+            has: {matches: status-binding}
 rule:
     pattern: $SITE
     any:
         - kind: property_declaration
           all:
-            - has: {kind: type_annotation, has: {field: name, regex: '^(OSStatus|OSErr)$'}}
+            - has: {kind: type_annotation, has: {field: name, matches: status-type}}
             - has: {field: value, matches: status-literal}
         - kind: call_expression
           all:
-            - has: {nthChild: 1, regex: '^(OSStatus|OSErr)$'}
+            - has: {nthChild: 1, matches: status-type}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, not: {has: {field: name, kind: value_argument_label}}, has: {field: value, matches: status-literal}}}}
+        - kind: 'equality_expression, infix_expression'
+          all:
+            - has: {field: op, regex: '^[!=]=$'}
+            - has: {matches: status-value}
+            - has: {matches: status-literal}
+        - kind: switch_statement
+          all:
+            - has: {field: expr, matches: status-value}
+            - has: {kind: switch_entry, has: {kind: switch_pattern, has: {kind: pattern, has: {matches: status-literal}}}}
 message: '`$SITE` restates an SDK status code as a literal'
 note: 'Name the SDK constant (`errSecItemNotFound`, `noErr`), `import Security` declares the `errSec` codes'

@@ -3,27 +3,94 @@ id: no-read-after-write
 language: python
 severity: error
 utils:
-    conditional-write:
+    plain:
+        any:
+            - kind: 'identifier, integer, float, true, false, none'
+            - matches: python-plain-string
+            - kind: attribute
+              has: {field: object, matches: plain}
+    read:
+        kind: 'call, attribute, subscript'
+        pattern: $READ
+    read-operand:
+        any:
+            - matches: read
+            - kind: parenthesized_expression
+              has: {kind: named_expression, has: {field: value, matches: read}}
+    target-operand:
+        any:
+            - kind: parenthesized_expression
+              has: {kind: named_expression, has: {field: name, pattern: $TARGET}}
+            - matches: plain
+              not: {kind: none}
+              pattern: $TARGET
+    difference:
+        kind: comparison_operator
+        all:
+            - has: {field: operators, regex: '^(!=|is\s+not)$'}
+            - not: {has: {nthChild: 3}}
+            - any:
+                - all: [{has: {nthChild: 1, matches: read-operand}}, {has: {nthChild: 2, matches: target-operand}}]
+                - all: [{has: {nthChild: 2, matches: read-operand}}, {has: {nthChild: 1, matches: target-operand}}]
+    receiving-write:
+        kind: expression_statement
+        any:
+            - has: {kind: assignment, has: {field: right, any: [{pattern: $TARGET}, {has: {stopBy: end, pattern: $TARGET}}]}}
+            - has: {stopBy: end, kind: argument_list, has: {stopBy: end, pattern: $TARGET}}
+    write-on-difference:
         kind: if_statement
         all:
-            - has:
-                field: condition
-                kind: comparison_operator
-                all:
-                    - has: {field: operators, regex: '^!=$'}
-                    - has: {nthChild: 1, kind: parenthesized_expression, has: {kind: named_expression, has: {field: value, kind: call, pattern: $READ}}}
-            - has: {field: consequence, has: {kind: expression_statement, has: {kind: call}}}
-            - not: {has: {kind: 'elif_clause, else_clause'}}
+            - has: {field: condition, matches: difference}
+            - has: {field: consequence, has: {matches: receiving-write}}
+    write-or-none:
+        kind: conditional_expression
+        all:
+            - has: {nthChild: 2, matches: difference}
+            - has: {nthChild: 1, kind: call, has: {field: arguments, has: {stopBy: end, pattern: $TARGET}}}
+            - not: {has: {nthChild: 3, kind: call}}
+    written-on-difference:
+        kind: expression_statement
+        any:
+            - has: {matches: write-or-none}
+            - has: {kind: assignment, has: {field: right, matches: write-or-none}}
+    assigned:
+        kind: expression_statement
+        has:
+            kind: assignment
+            all:
+                - has: {field: left, pattern: $READ}
+                - has: {field: right, matches: plain, pattern: $TARGET}
+    scope-body:
+        any:
+            - kind: lambda
+            - kind: block
+              inside: {kind: 'function_definition, class_definition'}
 rule:
-    kind: call
-    pattern: $CALL
+    kind: 'call, attribute, subscript'
     any:
-        - has: {field: function, kind: attribute, has: {field: attribute, regex: '^event_simulate$'}}
+        - pattern: $SIMULATED
+          has: {field: function, kind: attribute, has: {field: attribute, regex: '^(event_simulate|SendKeystrokes)$'}}
         - all:
-            - inside:
-                kind: 'expression_statement, return_statement'
-                stopBy: end
-                follows: {stopBy: end, matches: conditional-write}
             - pattern: $READ
-message: '`$CALL` finds a host value through simulated input or a read after its own write'
-note: 'Use the write''s target as the value and a member or stored file the host reads for each host value, the written target states what simulated input or a second read finds'
+            - inside:
+                stopBy: {matches: scope-body}
+                follows: {stopBy: end, any: [{matches: write-on-difference, not: {has: {kind: 'elif_clause, else_clause'}}}, {matches: written-on-difference}]}
+        - all:
+            - pattern: $READ
+            - inside:
+                stopBy: {matches: scope-body}
+                all:
+                    - inside: {kind: block, inside: {field: consequence, matches: write-on-difference}}
+                    - follows: {stopBy: end, matches: receiving-write}
+        - all:
+            - kind: 'attribute, subscript'
+              pattern: $READ
+            - not: {inside: {kind: 'assignment, augmented_assignment', field: left}}
+            - inside:
+                stopBy: {matches: scope-body}
+                follows:
+                    stopBy: {kind: expression_statement, has: {kind: assignment, has: {field: left, pattern: $READ}}}
+                    matches: assigned
+fix: $TARGET$SIMULATED
+message: '`$READ$SIMULATED` reads state back from its own write or sets host state through simulated input, the written value or a member the host reads states it'
+note: 'Fix replaces a read following a write on difference or an assignment of a plain value with the written value, simulated input keeps its text for a rewrite to a member or stored file the host reads'

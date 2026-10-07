@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-atom-mutation
+language: csharp
+rule:
+    kind: invocation_expression
+    any:
+        - matches: csharp-atom-transition
+        - matches:
+            csharp-atom-call:
+                member:
+                    regex: '^(Add|AddOrUpdateRange|AddRange|Clear|FindOrAdd|FindOrMaybeAdd|Remove|RemoveRange|SetItem|SetItems|TryAdd|TryAddRange|TrySetItem|TrySetItems|Enqueue|Dequeue|DequeueUnsafe|Update)$'

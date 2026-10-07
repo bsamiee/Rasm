@@ -2,11 +2,28 @@
 id: no-article-summary-csharp
 language: csharp
 severity: error
+utils:
+    opening:
+        regex: '(?i)^(///|/\*\*)\s*<(summary|remarks|returns|value|param|typeparam|exception|para|description|term)\b[^>]*>\s*$'
 rule:
     kind: comment
+    pattern: $COMMENT
     any:
-        - regex: '^///\s*<summary>\s*(The|A|An)\s+\S'
-        - regex: '^///\s*(The|A|An)\s+\S'
-          follows: {kind: comment, regex: '^///\s*<summary>\s*$'}
-message: 'Doc comment summary opens with an article'
-note: Use a first word naming what the member is or does, a noun or a verb
+        - regex: '(?i)^(///|/\*\*).*<(summary|remarks|returns|value|param|typeparam|exception|para|description|term)\b[^>]*>\s*(the|an?)\s+\S'
+        - regex: '(?i)^(///|/\*\*)\s*(the|an?)\s+\S'
+          follows: {kind: comment, matches: opening}
+transform:
+    HEAD:
+        replace:
+            source: $COMMENT
+            replace: '(?is)^(.*?(?:<(?:summary|remarks|returns|value|param|typeparam|exception|para|description|term)\b[^>]*>|^///|^/\*\*)\s*)(?:the|an?)\s+(.*)$'
+            by: '$1'
+    TAIL:
+        replace:
+            source: $COMMENT
+            replace: '(?is)^(.*?(?:<(?:summary|remarks|returns|value|param|typeparam|exception|para|description|term)\b[^>]*>|^///|^/\*\*)\s*)(?:the|an?)\s+(.*)$'
+            by: '$2'
+    WORD: {convert: {source: $TAIL, toCase: capitalize}}
+fix: $HEAD$WORD
+message: Doc comment text `$COMMENT` opens with an article
+note: Use a first word naming what the member, parameter, or value is or does, a noun or a verb

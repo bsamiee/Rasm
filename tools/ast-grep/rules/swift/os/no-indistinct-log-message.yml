@@ -5,15 +5,16 @@ severity: error
 utils:
     log-call:
         kind: call_expression
-        regex: '^[\w.]*[lL]ogger\.(trace|debug|info|notice|log|warning|error|critical|fault)\('
+        has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(trace|debug|info|notice|log|warning|error|critical|fault)$'}}
         any:
             - pattern: $_L.$_V($MSG)
             - pattern: '$_L.log(level: $_E, $MSG)'
-    value-only:
-        kind: line_string_literal
-        all:
-            - not: {has: {field: text, regex: '[A-Za-z]'}}
-            - not: {has: {kind: interpolated_expression, not: {has: {field: name, kind: value_argument_label}}, follows: {stopBy: end, kind: interpolated_expression, not: {has: {field: name, kind: value_argument_label}}}}}
+    nameless-literal:
+        any: [{kind: line_string_literal}, {kind: multi_line_string_literal}, {kind: raw_string_literal}]
+        not:
+            has:
+                any: [{kind: line_str_text}, {kind: multi_line_str_text}, {kind: raw_str_part}, {kind: raw_str_end_part}]
+                not: {regex: '(?i)^[^a-z]*((trace|debug|info|notice|warning|error|critical|fault|failed|failure|exception)s?\b[^a-z]*)*$'}
     earlier-site:
         any:
             - matches: log-call
@@ -24,8 +25,8 @@ rule:
         - matches: log-call
         - has: {nthChild: 1, pattern: $LOGGER}
         - any:
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: value-only}}}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: nameless-literal}}}}
             - follows: {stopBy: end, matches: earlier-site}
             - inside: {stopBy: end, follows: {stopBy: end, matches: earlier-site}}
-message: '`$LOGGER` logs a lone interpolated value or an earlier call''s message, and log readers cannot tell the sites apart'
-note: 'Name the operation and its subject in each message''s literal text, and log a failure several paths share once after they join'
+message: '`$LOGGER` logs literal text that names no operation or repeats an earlier call''s message, and log readers cannot tell the sites apart'
+note: 'Name the operation and its subject in each message''s literal text beyond the level words, and log a failure several paths share once after they join'

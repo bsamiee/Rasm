@@ -76,11 +76,13 @@ nonisolated struct AccountUsage: Equatable, Sendable {
     }
 
     func availability(at now: Date) -> Availability {
-        if let weekly, weekly.blocks { return .blocked(until: weekly.resetsAt) }
-        if includedUsageAllowed == false { return .blocked(until: weekly?.resetsAt) }
-        guard let session else { return .noSessionWindow }
-        if let reset: Date = session.resetsAt, reset > now { return .running(until: reset) }
-        return .ready
+        switch (weekly, includedUsageAllowed, session, session?.resetsAt) {
+            case (.some(let weekly), _, _, _) where weekly.blocks: .blocked(until: weekly.resetsAt)
+            case (_, false, _, _): .blocked(until: weekly?.resetsAt)
+            case (_, _, .none, _): .noSessionWindow
+            case (_, _, .some, .some(let reset)) where reset > now: .running(until: reset)
+            case (_, _, .some, _): .ready
+        }
     }
 
     func keepingResets(from previous: Self?, at now: Date) -> Self {

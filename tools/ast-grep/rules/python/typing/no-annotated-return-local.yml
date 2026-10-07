@@ -5,7 +5,41 @@ severity: error
 rule:
     kind: expression_statement
     all:
-        - has: {kind: assignment, all: [{has: {field: left, kind: identifier, pattern: $N}}, {has: {field: type, pattern: $T}}, {has: {field: right, pattern: $V}}]}
-        - precedes: {kind: return_statement, pattern: return $N}
-message: 'Local `$N` is annotated `$T` and returned on the next line'
+        - has:
+            kind: assignment
+            all:
+                - has: {field: left, matches: local-name}
+                - has: {field: type, pattern: $T, not: {has: {kind: comment, stopBy: end}}}
+                - has: {field: right, pattern: $V, any: [{kind: yield, pattern: $YIELD}, {not: {kind: yield}}]}
+        - precedes: {matches: local-return, stopBy: {not: {regex: '^;$'}}}
+        - inside:
+            kind: function_definition
+            stopBy: {kind: 'function_definition, class_definition'}
+            not: {has: {stopBy: end, kind: 'function_definition, lambda, generator_expression', has: {stopBy: end, matches: local-read}}}
+        - not:
+            inside:
+                kind: try_statement
+                stopBy: {kind: function_definition}
+                has: {kind: finally_clause, has: {stopBy: end, matches: local-read}}
+utils:
+    local-name:
+        any:
+            - {kind: identifier, pattern: $N}
+            - kind: 'tuple_pattern, parenthesized_expression'
+              has: {matches: local-name}
+              not: {has: {any: [{regex: '^,$'}, {kind: comment}]}}
+    local-return:
+        kind: return_statement
+        has: {matches: local-name}
+    local-read:
+        kind: identifier
+        pattern: $N
+        not: {any: [{inside: {kind: attribute, field: attribute}}, {inside: {kind: keyword_argument, field: name}}]}
+transform:
+    OPEN: {replace: {source: $YIELD, replace: '(?s)^.+$', by: '('}}
+    CLOSE: {replace: {source: $YIELD, replace: '(?s)^.+$', by: ')'}}
+fix:
+    template: return $OPEN$V$CLOSE
+    expandEnd: {matches: local-return, stopBy: {not: {regex: '^;$'}}}
+message: 'Local `$N` annotated `$T` serves only the `return` after it'
 note: 'Use `return <value>`, converted with `msgspec.convert(<value>, <type>)` where the callee returns an untyped value, the return annotation states the type the local restates'

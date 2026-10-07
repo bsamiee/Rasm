@@ -36,8 +36,8 @@ from System import Array, Single
 from System.IO import FileNotFoundException
 
 from interface.frame import LOWER_EDITOR
-from interface.report import Action, Row
-from interface.rhino.script.accessors import hex_color, key, member
+from interface.report import Refused, Row
+from interface.rhino.script.accessors import action, hex_color, key, member, preference
 from interface.roles import Alpha, Axis, blend, Guide, Line, Modality, Selection, substituted, Surface, SWATCHES, Tag, TAGS, Text, Typography, Wire
 
 if TYPE_CHECKING:
@@ -97,17 +97,17 @@ def stored(file: str, names: Iterable[str]) -> dict[str, object]:
     return {name: None if (item := node.FindItem(Name(name))) is None else item.RawData for name in names}
 
 
-def saved(file: str, values: Mapping[str, object]) -> str | None:
+def saved(file: str, values: Mapping[str, object]) -> Refused | None:
     """Set each value in the settings file as it sits on disk and write the file at once, else the write Grasshopper 2 refused."""
     settings = SettingsFile.InDefaultFolder(file)
     for name, value in values.items():
         settings.Set(name, value)
-    return None if settings.TrySaveSettingsToFile() else f"settings file {file} was not written"
+    return None if settings.TrySaveSettingsToFile() else Refused(f"settings file {file} was not written")
 
 
 def file_row(file: str, values: Mapping[str, object]) -> Row:
     """Row of named keys in a settings file, each read and write through a fresh instance of the file."""
-    return Row(label=f'SettingsFile["{file}"]', read=partial(stored, file, values), write=partial(saved, file), target=values)
+    return preference(label=f'SettingsFile["{file}"]', read=partial(stored, file, values), write=partial(saved, file), target=values)
 
 
 # --- [MEMBERS]
@@ -225,7 +225,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
         def valued(value: object) -> None:
             setting.Value = value
 
-        return Row(label=f"Settings.{setting.Name}", read=lambda: setting.Value, write=valued, target=target)
+        return preference(label=f"Settings.{setting.Name}", read=lambda: setting.Value, write=valued, target=target)
 
     def styled() -> None:
         """Write the user default guises the previews draw with."""
@@ -235,7 +235,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
         """Write the current snapping settings from their constructor members."""
         SnappingSettings.Current = SnappingSettings(**members)
 
-    def sketched(values: Mapping[str, object]) -> str | None:
+    def sketched(values: Mapping[str, object]) -> Refused | None:
         """Write the default sketch style through its owner, then the default shape into the same settings file, else the file write Grasshopper 2 refused."""
         ScratchObject.SetDefaultStyle(OpenColor.Family(values["Colour"]), values["Stroke"], values["Double"], ArrowStyle(values["ArrowHead"]), values["ArrowFactor"])
         return saved("ScratchObject", {"DefaultShape": values["DefaultShape"]})
@@ -253,7 +253,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
             return None
 
     return (
-        Row(label=f'SkinServer["{SKIN}"]', read=loaded, write=lambda written: SkinServer.Save(SKIN, SkinDefinition.Parse(written)[0]), target=skin.ToText()),
+        preference(label=f'SkinServer["{SKIN}"]', read=loaded, write=lambda written: SkinServer.Save(SKIN, SkinDefinition.Parse(written)[0]), target=skin.ToText()),
         *starmap(setting_row, (*decided, *((setting, setting.Default) for setting in factory))),
         key(command, "ShowBanner", target=False, default=True),
         key(command, "ShowEditor", target=True, default=True),
@@ -271,7 +271,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
             for tabs, rules, count in (("ComponentTabs", "components.rules", 2), ("FunctionTabs", "functions.rules", 1))
             for folder in (SettingsFolder(tabs),)
             for row in (
-                Row(
+                preference(
                     label=f'{tabs}["{rules}"]',
                     read=partial(folder.GetText, rules),
                     write=partial(folder.SetText, rules),
@@ -280,14 +280,14 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
                 file_row(f"{tabs}/Control", {"CurrentRuleSet": rules, "RowCount": count, "TabPreview": True}),
             )
         ),
-        Action(label="Defaults.UserDefault", read=lambda: slots(Defaults.UserDefault), act=styled, target=slots(guises)),
-        Row(
+        action(label="Defaults.UserDefault", read=lambda: slots(Defaults.UserDefault), act=styled, target=slots(guises)),
+        preference(
             label="SnappingSettings.Current",
             read=lambda: snapping(SnappingSettings.Current),
             write=snapped,
             target=snapping(SnappingSettings.Default.WithFeedback(drawFeedback=True, colour=Color.FromArgb(*Guide.TRACKING))),
         ),
-        Row(
+        preference(
             label=f'NamedPalette["{TAGS}"]',
             read=swatches,
             write=lambda colors: NamedPalette.WriteToFile(
@@ -310,7 +310,7 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, curve_width: float) -> tuple[R
                 "FeedHeight": 200,
             },
         ),
-        Row(label='SettingsFile["ScratchObject"]', read=partial(stored, "ScratchObject", sketch), write=sketched, target=sketch),
+        preference(label='SettingsFile["ScratchObject"]', read=partial(stored, "ScratchObject", sketch), write=sketched, target=sketch),
         file_row("Editor", {"LeftEdge": round(left), "TopEdge": round(bottom) - title - LOWER_EDITOR, "Width": round(right - left), "Height": LOWER_EDITOR}),
     )
 

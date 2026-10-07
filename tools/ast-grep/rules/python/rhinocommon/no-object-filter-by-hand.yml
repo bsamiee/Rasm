@@ -3,64 +3,179 @@ id: no-object-filter-by-hand
 language: python
 severity: error
 utils:
+    document-class:
+        matches: {python-member-use: {module: {regex: '^Rhino$'}, name: {regex: '^RhinoDoc$'}}}
+    document-source:
+        any:
+            - matches: {python-member-use: {module: {regex: '^scriptcontext$'}, name: {regex: '^doc$'}}}
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: '^ActiveDoc$'}
+                - has: {field: object, matches: document-class}
+            - kind: call
+              has:
+                field: function
+                kind: attribute
+                all:
+                    - has: {field: attribute, regex: '^(Create|CreateHeadless|FromFilePath|FromId|FromRuntimeSerialNumber|OpenHeadless)$'}
+                    - has: {field: object, matches: document-class}
+            - kind: identifier
+              matches: {python-typed-parameter: {type: {regex: '^(Rhino\.)?RhinoDoc$'}}}
+    document:
+        any:
+            - matches: document-source
+            - kind: identifier
+              matches: {python-assigned-name: {value: {matches: document-source}}}
     enumeration:
+        any:
+            - kind: call
+              has:
+                field: function
+                kind: attribute
+                has: {field: attribute, regex: '^(GetObjectList|FindByFilter|FindByObjectType|GetSelectedObjects|FindByUserString)$'}
+            - kind: call
+              has: {field: function, kind: subscript, has: {field: value, kind: attribute, has: {field: attribute, regex: '^GetObjectsByType$'}}}
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: '^Objects$'}
+                - has: {field: object, matches: document}
+    enumerating-scope:
+        regex: '\b(GetObjectList|FindByFilter|FindByObjectType|GetSelectedObjects|FindByUserString|GetObjectsByType|Objects)\b'
+    copy:
         kind: call
-        has:
-            field: function
-            kind: attribute
-            has: {field: attribute, regex: '^GetObjectList$'}
-    object-list:
-        kind: call
+        has: {field: function, matches: {python-builtin-name: {name: {regex: '^(list|tuple|sorted|reversed)$'}}}}
+    enumeration-copy:
         any:
             - matches: enumeration
-            - has: {field: function, kind: identifier, pattern: $HELPER}
+            - matches: copy
+              has: {field: arguments, has: {nthChild: 1, matches: enumeration-copy}}
+    enumeration-call:
+        any:
+            - matches: enumeration
+            - matches: copy
+              has: {field: arguments, has: {nthChild: 1, matches: enumeration-call}}
+            - kind: call
+              has: {field: function, kind: identifier, pattern: $HELPER}
               inside:
                 kind: module
                 stopBy: end
-                has:
-                    kind: function_definition
-                    all:
-                        - has: {field: name, pattern: $HELPER}
-                        - has: {field: body, has: {stopBy: end, kind: return_statement, has: {stopBy: end, matches: enumeration}}}
-    owned-attribute:
+                all:
+                    - matches: enumerating-scope
+                    - has:
+                        kind: function_definition
+                        all:
+                            - has: {field: name, pattern: $HELPER}
+                            - has: {field: body, has: {stopBy: end, kind: return_statement, has: {matches: enumeration-copy}}}
+    object-list:
+        any:
+            - matches: enumeration-call
+            - kind: identifier
+              inside: {kind: module, stopBy: end, matches: enumerating-scope}
+              matches: {python-assigned-name: {value: {matches: enumeration-call}}}
+    member:
         kind: attribute
-        has: {field: attribute, regex: '^(Space|LayerIndex|MaterialIndex|Name)$'}
-    owned-filter:
+        any:
+            - pattern: $I.ObjectType
+            - pattern: $I.Attributes.$_
+              has: {field: attribute, regex: '^(LayerIndex|MaterialIndex|Name|Space)$'}
+    comparison:
         kind: comparison_operator
+        not: {has: {nthChild: 3}}
+        any:
+            - has: {nthChild: 1, matches: member}
+            - has: {nthChild: 2, matches: member}
+            - all: [{has: {nthChild: 1, pattern: $I.Attributes.ViewportId}}, {has: {nthChild: 2, pattern: $_.MainViewport.Id}}]
+            - all: [{has: {nthChild: 1, pattern: $_.MainViewport.Id}}, {has: {nthChild: 2, pattern: $I.Attributes.ViewportId}}]
+    filter-test:
         pattern: $TEST
         any:
-            - {pattern: $I.Attributes.$P == $V, has: {nthChild: 1, matches: owned-attribute}}
-            - {pattern: $V == $I.Attributes.$P, has: {nthChild: 2, matches: owned-attribute}}
-        not:
-            inside:
-                stopBy: {kind: 'if_clause, if_statement'}
-                any:
-                    - kind: boolean_operator
-                      has: {field: operator, regex: '^or$'}
-                    - kind: not_operator, conditional_expression, call, lambda
+            - matches: comparison
+              has: {field: operators, regex: '^==$'}
+            - kind: comparison_operator
+              pattern: $I.ObjectType in $_
+            - kind: call
+              pattern: isinstance($I, $_)
+              not: {has: {field: arguments, has: {nthChild: 2, kind: tuple}}}
+            - kind: call
+              pattern: $I.IsSelected($$$)
+            - kind: attribute
+              pattern: $I.Visible
+    negated-test:
+        any:
+            - kind: not_operator
+              has: {field: argument, matches: holds-filter}
+            - pattern: $TEST
+              any:
+                - matches: comparison
+                  has: {field: operators, regex: '^!=$'}
+                - kind: comparison_operator
+                  pattern: $I.ObjectType not in $_
+    conjunction:
+        any:
+            - kind: boolean_operator
+              has: {field: operator, regex: '^and$'}
+            - kind: parenthesized_expression
+    disjunction:
+        any:
+            - kind: boolean_operator
+              has: {field: operator, regex: '^or$'}
+            - kind: parenthesized_expression
     holds-filter:
         any:
-            - matches: owned-filter
-            - has: {stopBy: end, matches: owned-filter}
+            - matches: filter-test
+            - matches: conjunction
+              has: {stopBy: {not: {matches: conjunction}}, matches: filter-test}
+    holds-negation:
+        any:
+            - matches: negated-test
+            - matches: disjunction
+              has: {stopBy: {not: {matches: disjunction}}, matches: negated-test}
+    first-statement:
+        nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+    second-statement:
+        nthChild: {position: 2, ofRule: {not: {kind: comment}}}
 rule:
     any:
         - kind: for_in_clause
           all:
             - has: {field: left, kind: identifier, pattern: $I}
-            - has: {field: right, matches: object-list}
             - inside:
                 kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
                 has: {kind: if_clause, has: {matches: holds-filter}}
+            - has: {field: right, matches: object-list}
         - kind: for_statement
           all:
             - has: {field: left, kind: identifier, pattern: $I}
-            - has: {field: right, matches: object-list}
             - has:
                 field: body
-                not: {has: {nthChild: 2}}
-                has:
-                    kind: if_statement
-                    not: {has: {kind: 'elif_clause, else_clause'}}
-                    has: {field: condition, matches: holds-filter}
+                any:
+                    - not: {has: {matches: second-statement}}
+                      has:
+                        kind: if_statement
+                        not: {has: {kind: 'elif_clause, else_clause'}}
+                        has: {field: condition, matches: holds-filter}
+                    - has:
+                        kind: if_statement
+                        matches: first-statement
+                        all:
+                            - not: {has: {kind: 'elif_clause, else_clause'}}
+                            - has: {field: consequence, all: [{has: {kind: continue_statement, matches: first-statement}}, {not: {has: {matches: second-statement}}}]}
+                            - has: {field: condition, matches: holds-negation}
+            - has: {field: right, matches: object-list}
+        - kind: call
+          all:
+            - inside: {kind: module, stopBy: end, matches: enumerating-scope}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {nthChild: 3}}
+                    - has:
+                        nthChild: 1
+                        kind: lambda
+                        all:
+                            - has: {field: parameters, all: [{has: {kind: identifier, pattern: $I}}, {not: {has: {nthChild: 2}}}]}
+                            - has: {field: body, matches: holds-filter}
+                    - has: {nthChild: 2, matches: object-list}
+            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^filter$'}}}}
 message: '`$TEST` filters the object enumeration by hand'
-note: 'Use the attribute filter (`SpaceFilter`, `LayerIndexFilter`, `MaterialIndexFilter`, `NameFilter`) on `ObjectEnumeratorSettings` passed to `GetObjectList`, documents filter before enumerating'
+note: 'Use the `ObjectEnumeratorSettings` filter of the tested member (`<Member>Filter`, `SelectedObjectsFilter` and `SubObjectSelected` for `IsSelected`, `ViewportFilter` for a page `ViewportId`) in the enumeration, or `GetObjectsByType[<type>]` for an `isinstance` test, the document filters before enumerating'

@@ -8,12 +8,12 @@ utils:
         has:
             field: function
             kind: member_expression
-            has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
+            has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
     composer:
         kind: call_expression
         any:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^(check|pipe|makeFilterGroup)$'}}
-            - has: {field: function, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}}
+            - has: {field: function, matches: effect-pipe-function}
     link:
         any:
             - matches: composer

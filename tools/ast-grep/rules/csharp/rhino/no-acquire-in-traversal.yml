@@ -18,7 +18,7 @@ utils:
     acquire:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '(^|\.)\s*(Acquire|EditCopy)(\s*<.+>)?$'}
+            - has: {field: function, regex: '(^|\.)\s*(Acquire|EditCopy|Duplicate\w*)(\s*<.+>)?$'}
             - not: {inside: {stopBy: {kind: lambda_expression}, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}}}
     element-scope:
         kind: invocation_expression
@@ -55,7 +55,7 @@ utils:
     per-element:
         kind: argument
         any:
-            - has: {kind: member_access_expression, regex: '\.\s*Acquire$'}
+            - has: {kind: member_access_expression, regex: '\.\s*(Acquire|Duplicated)$'}
             - has:
                 kind: lambda_expression
                 all:
@@ -64,7 +64,7 @@ utils:
                         field: body
                         any:
                             - matches: acquire
-                            - has: {stopBy: {kind: lambda_expression}, matches: acquire}
+                            - has: {stopBy: end, matches: acquire}
                             - matches: element-scope
     traversal:
         any:

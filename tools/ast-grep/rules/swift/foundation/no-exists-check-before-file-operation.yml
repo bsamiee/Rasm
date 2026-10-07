@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-exists-check-before-file-operation
+language: swift
+severity: error
+utils:
+    subject-path:
+        any:
+            - pattern: $SUBJECT.path
+            - pattern: $SUBJECT.path()
+            - pattern: '$SUBJECT.path(percentEncoded: $_)'
+            - pattern: $SUBJECT
+    first-argument:
+        has:
+            kind: call_suffix
+            has:
+                kind: value_arguments
+                has: {kind: value_argument, nthChild: 1, has: {field: value, matches: subject-path}}
+    existence:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^fileExists$'}}}
+            - matches: first-argument
+    exists-check:
+        any:
+            - matches: existence
+              not: {regex: '^!'}
+            - kind: equality_expression
+              all:
+                - has: {kind: tuple_expression, has: {kind: try_expression, has: {pattern: $SUBJECT.checkResourceIsReachable()}}}
+                - has: {regex: '^true$'}
+    absent-check:
+        matches: existence
+        regex: '^!'
+    operation:
+        kind: call_expression
+        all:
+            - has:
+                nthChild: 1
+                any:
+                    - kind: navigation_expression
+                      has: {field: suffix, has: {field: suffix, regex: '^(removeItem|trashItem|moveItem|copyItem|contentsOfDirectory|attributesOfItem|destinationOfSymbolicLink|contents)$'}}
+                    - regex: '^((Foundation\.)?(Data|String|FileHandle)(\.init)?|\.init)$'
+            - has:
+                kind: call_suffix
+                has:
+                    kind: value_arguments
+                    has:
+                        kind: value_argument
+                        nthChild: 1
+                        all:
+                            - has: {field: name, regex: '^(at|atPath|contentsOf|contentsOfFile|forReadingFrom|forReadingAtPath)$'}
+                            - has: {field: value, matches: subject-path}
+    exit-body:
+        matches: {swift-single-statement: {first: {kind: control_transfer_statement}}}
+rule:
+    pattern: $SITE
+    any:
+        - kind: ternary_expression
+          all:
+            - has: {field: condition, matches: exists-check}
+            - has: {field: if_true, has: {matches: operation, stopBy: end}}
+        - kind: guard_statement
+          all:
+            - has: {field: condition, matches: exists-check}
+            - precedes: {has: {matches: operation, stopBy: end}, stopBy: end}
+        - kind: if_statement
+          all:
+            - has: {field: condition, matches: exists-check}
+            - has: {kind: statements, has: {matches: operation, stopBy: end}}
+        - kind: if_statement
+          all:
+            - has: {field: condition, matches: absent-check}
+            - not: {has: {regex: '^else$'}}
+            - has: {kind: statements, matches: exit-body}
+            - precedes: {has: {matches: operation, stopBy: end}, stopBy: end}
+        - kind: for_statement
+          all:
+            - has: {kind: where_clause, has: {matches: exists-check}}
+            - has: {kind: statements, has: {matches: operation, stopBy: end}}
+message: '`$SITE` checks that `$SUBJECT` exists before an operation that reports a missing file itself, and races the filesystem'
+note: 'Run the operation unconditionally inside the function that maps a missing file to `.success(nil)` and every other error to `.failure`'

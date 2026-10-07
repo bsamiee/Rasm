@@ -25,7 +25,6 @@ utils:
         not:
             any:
                 - inside: {kind: variable_declarator, field: name}
-                - inside: {kind: field_access, field: field}
                 - inside: {kind: method_invocation, field: name}
     member:
         kind: >-

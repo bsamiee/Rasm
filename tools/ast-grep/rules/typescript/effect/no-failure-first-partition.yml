@@ -8,7 +8,7 @@ utils:
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^(partition|partitionEffect|partitionMap|partitionQueue|separate)$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Array|Chunk|Effect|Option|Record|Stream))?$'}, exported: {regex: '^(Array|Chunk|Effect|Option|Record|Stream)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Chunk|Effect|Option|Record|Stream)$'}}}}
             - kind: identifier
               matches: {syntax-import-reference: {source: {regex: '^effect/(Array|Chunk|Effect|Option|Record|Stream)$'}, exported: {regex: '^(partition|partitionEffect|partitionMap|partitionQueue|separate)$'}}}
     partition-step:
@@ -24,7 +24,7 @@ utils:
         kind: call_expression
         any:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
-            - has: {field: function, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}}
+            - has: {field: function, matches: effect-pipe-function}
     partition-tuple:
         any:
             - kind: call_expression

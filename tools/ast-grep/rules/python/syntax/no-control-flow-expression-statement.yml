@@ -3,8 +3,49 @@ id: no-control-flow-expression-statement
 language: python
 severity: error
 utils:
+    iteration:
+        any:
+            - kind: generator_expression
+              not: {has: {kind: for_in_clause, regex: '^async\b'}}
+            - kind: call
+              has:
+                field: function
+                any:
+                    - matches: {python-builtin-name: {name: {regex: '^(filter|map)$'}}}
+                    - kind: list_splat
+                      has: {matches: {python-builtin-name: {name: {regex: '^(filter|map)$'}}}}
+    consumed:
+        any:
+            - kind: call
+              all:
+                - has:
+                    field: function
+                    any:
+                        - matches: {python-builtin-name: {name: {regex: '^(frozenset|list|set|tuple)$'}}}
+                        - matches: {python-member-use: {module: {regex: '^collections$'}, name: {regex: '^deque$'}}}
+                - has:
+                    field: arguments
+                    any:
+                        - matches: iteration
+                        - kind: argument_list
+                          all:
+                            - has: {nthChild: 1, matches: iteration, not: {has: {field: function, kind: list_splat}}}
+                            - not: {has: {nthChild: 2, not: {kind: keyword_argument}}}
+                            - not: {has: {nthChild: 3}}
+            - kind: list, set, tuple
+              all:
+                - has:
+                    nthChild: 1
+                    any:
+                        - kind: list_splat
+                          has: {matches: iteration}
+                        - matches: iteration
+                          has: {field: function, kind: list_splat}
+                - not: {has: {nthChild: 2}}
     dropped:
-        kind: conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension
+        any:
+            - kind: conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension
+            - matches: consumed
     block-statement:
         kind: expression_statement
         all:
@@ -14,73 +55,124 @@ utils:
                 - inside: {kind: module}
                 - inside:
                     kind: block
-                    inside: {regex: '^[^\n]*:[ \t]*(#[^\n]*)?\n'}
+                    inside: {regex: '^(?:[^\n]*[(\[{][ \t]*(?:#[^\n]*)?\n(?:[^\n]*\n)*?)?[^\n]*:[ \t]*(?:#[^\n]*)?\n'}
     fixable:
-        not: {regex: '\n'}
-        inside: {matches: block-statement, stopBy: {not: {kind: assignment}}}
+        not: {regex: '\\\r?\n'}
+        any:
+            - inside: {matches: block-statement, stopBy: {not: {kind: assignment}}}
+            - not: {has: {regex: '\n'}}
+              inside:
+                matches: block-statement
+                stopBy: {not: {kind: 'assignment, parenthesized_expression'}}
+                not: {has: {stopBy: end, kind: comment}}
     effect-operand:
         kind: boolean_operator
         has: {field: right, kind: 'call, await'}
         matches: fixable
-    synchronous-loop:
-        kind: list_comprehension, set_comprehension
-        not: {has: {kind: for_in_clause, regex: '^async\b'}}
-        matches: fixable
+    uncommented:
+        not: {has: {stopBy: end, kind: comment}}
+    iterated:
+        any:
+            - kind: list_comprehension, set_comprehension
+              all: [{matches: fixable}, {matches: uncommented}]
+            - matches: iteration
+              inside:
+                stopBy: {not: {kind: 'argument_list, list_splat'}}
+                matches: consumed
+                all: [{matches: fixable}, {matches: uncommented}]
+    loop-target:
+        kind: identifier
+        any:
+            - inside: {stopBy: end, kind: for_in_clause, field: left}
+            - inside: {stopBy: end, kind: lambda, field: parameters}
+    binding-scope:
+        any:
+            - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+              has: {kind: for_in_clause, has: {field: left, any: [{pattern: $Y}, {has: {stopBy: end, pattern: $Y}}]}}
+            - kind: lambda
+              has: {field: parameters, has: {stopBy: end, pattern: $Y}}
     free-variable:
         not:
-            inside:
-                kind: function_definition, module
-                stopBy: {kind: function_definition}
-                has:
-                    stopBy: end
-                    kind: identifier
-                    pattern: $X
-                    not:
-                        inside:
-                            kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
-                            stopBy: end
-                            has: {kind: for_in_clause, has: {field: left, pattern: $X}}
-    filtered-loop-shape:
+            has:
+                stopBy: end
+                matches: loop-target
+                pattern: $Y
+                inside:
+                    kind: function_definition, module
+                    stopBy: {kind: function_definition}
+                    has: {stopBy: end, kind: identifier, pattern: $Y, not: {inside: {stopBy: end, matches: binding-scope}}}
+    comprehension-loop:
+        kind: list_comprehension, set_comprehension, generator_expression
         all:
-            - matches: synchronous-loop
-            - any:
-                - pattern: '[$BODY for $X in $XS if $COND]'
-                - pattern: '{$BODY for $X in $XS if $COND}'
+            - matches: iterated
+            - has: {field: body, pattern: $BODY, not: {kind: list_splat}}
+            - has: {nthChild: 2, kind: for_in_clause, pattern: $CLAUSE}
+            - not: {has: {regex: '\n'}}
             - matches: free-variable
     loop-shape:
+        matches: comprehension-loop
+        not: {has: {nthChild: 3}}
+    filtered-loop-shape:
+        matches: comprehension-loop
         all:
-            - matches: synchronous-loop
-            - any:
-                - pattern: '[$BODY for $X in $XS]'
-                - pattern: '{$BODY for $X in $XS}'
+            - has: {nthChild: 3, kind: if_clause, pattern: $FILTER}
+            - not: {has: {nthChild: 4}}
+    mapped-loop-shape:
+        kind: call
+        all:
+            - matches: iterated
+            - has:
+                field: arguments
+                all:
+                    - has:
+                        nthChild: 1
+                        kind: lambda
+                        all:
+                            - has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $X}}, {not: {has: {nthChild: 2}}}]}
+                            - has: {field: body, pattern: $BODY}
+                    - has: {nthChild: 2, pattern: $XS, not: {kind: named_expression}}
+                    - not: {has: {nthChild: 3}}
+                    - not: {has: {regex: '\n'}}
             - matches: free-variable
+    unwrapping:
+        any:
+            - kind: assignment, parenthesized_expression
+            - matches: consumed
     rewritable:
         any:
             - matches: effect-operand
             - kind: conditional_expression
               matches: fixable
-            - matches: filtered-loop-shape
             - matches: loop-shape
+            - matches: filtered-loop-shape
+            - matches: mapped-loop-shape
+            - matches: consumed
+              has: {stopBy: {not: {kind: 'argument_list, list_splat'}}, matches: rewritable}
+    dropping-statement:
+        kind: expression_statement
+        any:
+            - has: {stopBy: {not: {kind: parenthesized_expression}}, matches: dropped}
+            - has:
+                kind: assignment
+                all:
+                    - has: {field: left, kind: identifier, regex: '^_$'}
+                    - has: {field: right, stopBy: {not: {kind: parenthesized_expression}}, matches: dropped}
 rule:
-    kind: expression_statement
-    pattern: $STMT
     any:
-        - has: {stopBy: {not: {kind: parenthesized_expression}}, matches: dropped}
-        - has:
-            kind: assignment
-            all:
-                - has: {field: left, kind: identifier, regex: '^_$'}
-                - has: {field: right, stopBy: {not: {kind: parenthesized_expression}}, matches: dropped}
+        - matches: dropping-statement
+          pattern: $STMT
+          not: {matches: python-multiline-string}
+        - kind: string_start
+          pattern: $UNFIXED
+          inside: {kind: string, regex: '\n', inside: {stopBy: end, matches: dropping-statement}}
 rewriters:
-    - id: discard-assignment
+    - id: unwrapped
       rule:
-        kind: assignment
-        all:
-            - has: {field: left, kind: identifier, regex: '^_$'}
-            - has: {field: right, pattern: $DROPPED, matches: rewritable}
+        matches: unwrapping
+        has: {stopBy: {not: {kind: 'argument_list, list_splat, parenthesized_expression'}}, pattern: $WRAPPED, matches: rewritable}
       transform:
-        INNER: rewrite($DROPPED, rewriters=[and-statement, or-negated-statement, or-boolean-statement, or-statement, if-statement, else-boolean-statement, else-statement, if-else-statement, filtered-loop, loop])
-      fix: $INNER
+        UNWRAPPED: rewrite($WRAPPED, rewriters=[unwrapped, and-statement, or-negated-statement, or-boolean-statement, or-statement, if-statement, else-boolean-statement, else-statement, if-else-statement, filtered-loop, loop, mapped-loop])
+      fix: $UNWRAPPED
     - id: and-statement
       rule: {pattern: $TEST and $EFFECT, matches: effect-operand}
       fix: |-
@@ -128,16 +220,21 @@ rewriters:
     - id: filtered-loop
       rule: {matches: filtered-loop-shape}
       fix: |-
-        for $X in $XS:
-            if $COND:
+        $CLAUSE:
+            $FILTER:
                 $BODY
     - id: loop
       rule: {matches: loop-shape}
       fix: |-
+        $CLAUSE:
+            $BODY
+    - id: mapped-loop
+      rule: {matches: mapped-loop-shape}
+      fix: |-
         for $X in $XS:
             $BODY
 transform:
-    OUT: rewrite($STMT, rewriters=[discard-assignment, and-statement, or-negated-statement, or-boolean-statement, or-statement, if-statement, else-boolean-statement, else-statement, if-else-statement, filtered-loop, loop])
-fix: $OUT
+    OUT: rewrite($STMT, rewriters=[unwrapped, and-statement, or-negated-statement, or-boolean-statement, or-statement, if-statement, else-boolean-statement, else-statement, if-else-statement, filtered-loop, loop, mapped-loop])
+fix: $OUT$UNFIXED
 message: Expression statement drops the value of a selection or iteration
-note: 'Use an `if` statement for a selection and a `for` loop for an iteration, each statement names the effect it runs'
+note: 'Use an `if` statement for a selection and a `for` loop for an iteration, each statement names the effect it runs. Statements sharing a line, comments, multiline strings, line continuations, comprehension or parenthesized parts spanning lines, dictionary comprehensions, unpacking bodies, comprehensions with a second loop or condition, `map` or `filter` over a named function, and loop targets read elsewhere in the function require a manual rewrite'

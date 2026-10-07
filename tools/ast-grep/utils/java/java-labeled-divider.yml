@@ -1,6 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: java-labeled-divider
-language: java
-rule:
-    kind: line_comment
-    matches: text-labeled-divider

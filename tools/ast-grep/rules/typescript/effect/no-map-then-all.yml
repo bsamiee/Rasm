@@ -10,7 +10,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^map$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Array)?$'}, exported: {regex: '^Array$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
     two-parameter-callback:
         not: {all: [{kind: 'arrow_function, function_expression'}, {has: {field: parameters, has: {nthChild: 3}}}]}
     mapped-list:
@@ -22,7 +22,7 @@ utils:
                     kind: member_expression
                     all:
                         - has: {field: property, regex: '^map$'}
-                        - has: {field: object, pattern: $XS, not: {matches: {syntax-import-reference: {source: {regex: '^effect(/\w+)?$'}, exported: {regex: '.'}}}}}
+                        - has: {field: object, pattern: $XS, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $F}}, {not: {has: {nthChild: 2}}}]}
             - all:
                 - has: {field: function, matches: array-map}

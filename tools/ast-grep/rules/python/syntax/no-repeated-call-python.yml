@@ -3,8 +3,14 @@ id: no-repeated-call-python
 language: python
 severity: error
 utils:
+    stateful-member:
+        regex: '^(deque|defaultdict|OrderedDict|Counter|choice|choices|random|randint|randrange|randbelow|randbits|uniform|triangular|gauss|normalvariate|lognormvariate|expovariate|vonmisesvariate|gammavariate|betavariate|paretovariate|weibullvariate|binomialvariate|shuffle|sample|getrandbits|randbytes|seed|setstate|token_bytes|token_hex|token_urlsafe|now|today|utcnow|time|time_ns|monotonic|monotonic_ns|perf_counter|perf_counter_ns|process_time|process_time_ns|thread_time|thread_time_ns|clock_gettime|clock_gettime_ns|sleep|urandom|uuid1|uuid4|uuid6|uuid7|uuid8|read|readline|readlines|readinto|write|writelines|seek|truncate|flush|close|pop|popleft|popitem|append|appendleft|extend|extendleft|insert|remove|discard|add|clear|sort|reverse|rotate|update|intersection_update|difference_update|symmetric_difference_update|setdefault|put|put_nowait|get_nowait|acquire|release|send|sendall|recv|recv_into|recvfrom|accept|throw|execute|executemany|fetchone|fetchmany|fetchall|copy|deepcopy|Clone|Duplicate\w*)$'
     stateful-callee:
-        regex: '^(next|anext|input|print|iter|aiter|list|dict|set|bytearray|object|open|reversed|enumerate|zip|map|filter|range|memoryview|deque|defaultdict|OrderedDict|Counter|(\w+\.)*(choice|choices|random|randint|randrange|randbelow|uniform|triangular|gauss|normalvariate|lognormvariate|expovariate|vonmisesvariate|gammavariate|betavariate|paretovariate|weibullvariate|binomialvariate|shuffle|sample|getrandbits|randbytes|token_bytes|token_hex|token_urlsafe|now|today|utcnow|time|time_ns|monotonic|monotonic_ns|perf_counter|perf_counter_ns|process_time|process_time_ns|thread_time|thread_time_ns|urandom|uuid1|uuid4|uuid6|uuid7|uuid8|read|readline|readlines|write|pop|popleft|popitem|append|extend|insert|remove|discard|update|setdefault|send|recv|copy))$'
+        any:
+            - kind: identifier
+              any: [{regex: '^(next|anext|input|print|iter|aiter|list|dict|set|bytearray|object|open|reversed|enumerate|zip|map|filter|range|memoryview)$'}, {matches: stateful-member}]
+            - kind: attribute
+              has: {field: attribute, matches: stateful-member}
     scope:
         kind: 'expression_statement, return_statement, if_statement, elif_clause, else_clause, for_statement, while_statement, with_statement, assert_statement, raise_statement, delete_statement, function_definition, class_definition, decorated_definition, block, module, match_statement, case_clause, try_statement, except_clause, finally_clause, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
     nested-scope:
@@ -22,6 +28,21 @@ utils:
               regex: '^[A-Z]\w*\.[A-Z][A-Z0-9_]*$'
             - kind: keyword_argument
               has: {field: value, matches: constant}
+    receiver:
+        any:
+            - kind: attribute
+              has: {field: object, matches: receiver}
+            - kind: identifier
+              pattern: $RECEIVER
+              inside:
+                stopBy: end
+                kind: 'function_definition, lambda, module'
+                has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: {python-binding: {name: {pattern: $RECEIVER}}}}
+            - not: {any: [{kind: 'identifier, attribute'}, {matches: constant}]}
+    input:
+        any:
+            - has: {field: arguments, has: {pattern: $_, not: {matches: constant}}}
+            - has: {field: function, kind: attribute, has: {field: object, matches: receiver}}
     holds-call:
         not: {matches: nested-scope}
         any:
@@ -65,7 +86,7 @@ utils:
             - follows: {stopBy: end, matches: holds-call}
     repeated-operand:
         all:
-            - has: {field: arguments, has: {pattern: $_, not: {matches: constant}}}
+            - matches: input
             - not: {has: {kind: lambda, stopBy: end}}
             - not: {any: [{matches: opposite-arm}, {inside: {stopBy: {matches: scope}, matches: opposite-arm}}]}
             - any: [{matches: repeat-site}, {inside: {stopBy: {matches: scope}, matches: repeat-site}}]
@@ -118,12 +139,12 @@ utils:
                 inside: {kind: conditional_expression, has: {nthChild: 3, matches: holds-call}}
     repeated-arm:
         all:
-            - has: {field: arguments, has: {pattern: $_}}
+            - matches: input
             - not: {inside: {kind: expression_statement}}
-            - not: {matches: locally-bound}
             - any:
-                - all: [{not: {matches: arm-bound}}, {any: [{matches: first-case}, {matches: first-branch}]}]
+                - all: [{any: [{matches: first-case}, {matches: first-branch}]}, {not: {matches: arm-bound}}]
                 - matches: first-arm
+            - not: {matches: locally-bound}
 rule:
     kind: call
     pattern: $CALL

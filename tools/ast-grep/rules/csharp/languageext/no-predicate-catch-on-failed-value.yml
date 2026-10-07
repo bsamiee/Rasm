@@ -115,6 +115,20 @@ rule:
     kind: invocation_expression
     all:
         - has: {field: arguments, all: [{has: {matches: effect-handler}}, {not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}]}
-        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Catch$'}}, {has: {field: expression, pattern: $SOURCE, any: [{matches: failed-value}, {matches: parameter-relay}]}}]}
+        - has: {field: arguments, has: {kind: argument, any: [{has: {field: name, regex: '^Predicate$'}}, {all: [{nthChild: {position: 1, ofRule: {kind: argument}}}, {not: {has: {field: name, pattern: $_}}}]}], has: {nthChild: {position: 1, reverse: true}, pattern: $PREDICATE}}}
+        - has: {field: arguments, has: {kind: argument, any: [{has: {field: name, regex: '^Fail$'}}, {all: [{nthChild: {position: 2, ofRule: {kind: argument}}}, {not: {has: {field: name, pattern: $_}}}]}], has: {nthChild: {position: 1, reverse: true}, pattern: $HANDLER}}}
+        - has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^Catch$'}
+                - has:
+                    field: expression
+                    pattern: $SOURCE
+                    any:
+                        - matches: failed-value
+                        - matches: parameter-relay
+                        - matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?IO\s*<'}}}
+fix: ($SOURCE | @catch($PREDICATE, $HANDLER)).As()
 message: '`Catch` on `$SOURCE`, an `IO` that can fail at construction, runs its handler for every error and ignores its predicate'
 note: Use `<io> | @catch(<predicate>, <handler>)`, parenthesized inside a chain, the `Fallible` catch behind `|` tests its predicate on an `IO` that failed at construction
