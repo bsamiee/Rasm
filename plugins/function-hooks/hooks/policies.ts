@@ -1,5 +1,5 @@
 import { type Command, parse, type Scanner, type Script } from './command.ts';
-import { bind, decoded, fault, map, none, type Option, ok, type Result, some } from './composition.ts';
+import { bind, decoded, fault, map, none, type Option, ok, type Result, rendered, some } from './composition.ts';
 import { basename, type Invocation, known, type Operands, operands, option, PROGRAMS } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -8,7 +8,17 @@ type Refinement = (args: readonly string[], existing: readonly string[], reason:
 type OptionPredicate = (given: (...names: readonly string[]) => boolean, rest: readonly string[]) => boolean;
 type Key = keyof typeof _GIT;
 type GitCall = { readonly kind: 'aliased' } | { readonly kind: 'subcommand'; readonly key: Key; readonly args: readonly string[] };
+type Decision = { readonly kind: 'deny'; readonly reason: string } | ({ readonly kind: 'rewrite' } & Rewrite) | { readonly kind: 'pass' };
 
+interface Host {
+    readonly scan: Scanner;
+    readonly read: (path: string) => Promise<Result<string>>;
+    readonly repo: () => Promise<Option<string>>;
+    readonly make: (folders: readonly string[]) => Promise<Result<unknown>>;
+    readonly exists: (path: string) => Promise<boolean>;
+    readonly real: (path: string) => Promise<Option<string>>;
+    readonly home: () => Promise<Option<string>>;
+}
 interface GitRow {
     readonly reason: string;
     readonly any?: true;
@@ -70,6 +80,15 @@ const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
 const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
 const _DESCRIPTOR = /^\d+$/u;
+const _TRAILING = /\/$/u;
+const _SECOND_FILES: readonly RegExp[] = [
+    /^(?:project\.json|\.nxignore)$/u,
+    /^(?:\.mise(?:\..+)?\.toml|mise\..+\.toml|\.miserc\.toml|\.rtx\.toml|\.tool-versions|\.nvmrc|\.(?:node|python)-version)$/u,
+    /^tsconfig\.(?!base\.json$).+\.json$/u,
+    /^(?:\.?ruff\.toml|\.?mypy\.ini|pytest\.ini|tox\.ini|setup\.cfg)$/u,
+    /^biome\.jsonc$/u,
+    /^\.yamllint(?:\.yml)?$/u,
+];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -153,7 +172,7 @@ const _refusals = (key: Key, args: readonly string[], existing: readonly string[
 
 const _git = (commands: readonly Command[], existing: readonly string[]): readonly string[] => _calls(commands).flatMap((call) => (call.kind === 'aliased' ? ['inline git alias can hide a refused subcommand'] : _refusals(call.key, call.args, existing)));
 
-const gitPaths = (commands: readonly Command[]): readonly string[] => _calls(commands).flatMap((call) => (call.kind === 'subcommand' && (call.key === 'reset' || call.key === 'checkout') ? call.args.filter((word) => !word.startsWith('-')) : []));
+const _gitPaths = (commands: readonly Command[]): readonly string[] => _calls(commands).flatMap((call) => (call.kind === 'subcommand' && (call.key === 'reset' || call.key === 'checkout') ? call.args.filter((word) => !word.startsWith('-')) : []));
 
 // --- [STDIN]
 
@@ -231,11 +250,25 @@ const _starts = (invocation: Invocation): readonly string[] => {
     return walkers[program]?.() ?? [];
 };
 
-const walkStarts = (commands: readonly Command[], home: string): readonly (readonly [string, string])[] =>
-    commands
+const _located = async (real: Host['real'], path: string): Promise<Option<string>> => {
+    const cut = path.lastIndexOf('/');
+    const own = await real(path);
+    const found = own.kind === 'some' ? own : await real(cut < 0 ? '.' : path.slice(0, cut + 1)).then((folder) => (folder.kind === 'some' ? some(`${folder.value.replace(_TRAILING, '')}/${path.slice(cut + 1)}`) : none));
+    return found.kind === 'some' ? some(`${found.value.replace(_TRAILING, '')}/`) : none;
+};
+
+const _places = async ({ real, home }: Host, commands: readonly Command[]): Promise<Option<Walk>> => {
+    const root = await home();
+    if (root.kind === 'none') {
+        return none;
+    }
+    const starts = commands
         .flatMap((command) => command.invocations)
         .flatMap(_starts)
-        .map((word) => [word, word.replace(_HOME, () => home)] as const);
+        .map((word) => [word, word.replace(_HOME, () => root.value)] as const);
+    const [cloud, places] = await Promise.all([_located(real, `${root.value}/${CLOUD}`), Promise.all(starts.map(([word, path]) => _located(real, path).then((place) => (place.kind === 'some' ? [[word, place.value] as const] : []))))]);
+    return cloud.kind === 'some' ? some({ cloud: cloud.value, places: new Map(places.flat()) }) : none;
+};
 
 const _descends = (invocation: Invocation, { cloud, places }: Walk): boolean => {
     const folders = _starts(invocation).flatMap((word) => places.get(word) ?? []);
@@ -355,7 +388,7 @@ const _targetCommands = (specifiers: readonly (readonly string[])[], manifest: M
     return [...reached(specified.flatMap(upstream), new Set(specified))].flatMap(({ configuration: { command, options } }) => [command, options?.command, ...(options?.commands ?? []).map((entry) => entry.command)].filter((text) => text !== undefined));
 };
 
-const locks = async (scan: Scanner, read: (path: string) => Promise<Result<string>>, repo: () => Promise<Option<string>>, make: (folders: readonly string[]) => Promise<Result<unknown>>, commands: readonly Command[]): Promise<Result<readonly string[]>> => {
+const _locks = async ({ scan, read, repo, make }: Host, commands: readonly Command[]): Promise<Result<readonly string[]>> => {
     const named = _nxSpecifiers(commands);
     const root = named.length > 0 || queues(commands).length > 0 ? await repo() : none;
     if (root.kind === 'none') {
@@ -401,7 +434,7 @@ const _spliced = (text: string, insertions: readonly Insertion[]): string => {
     return [...done.pieces, decoder.decode(bytes.subarray(done.at))].join('');
 };
 
-const commandRewrite = (commands: readonly Command[], text: string, held: readonly string[]): Option<Rewrite> => {
+const _rewrite = (commands: readonly Command[], text: string, held: readonly string[]): Option<Rewrite> => {
     const insertions = commands.flatMap(_sd);
     if (insertions.length === 0 && held.length === 0) {
         return none;
@@ -417,14 +450,42 @@ const commandRewrite = (commands: readonly Command[], text: string, held: readon
 
 // --- [DECISION]
 
-const commandRefusal = (tool: 'Bash' | 'Monitor', script: Script, facts: Facts): Option<string> => {
+const _refusal = (tool: 'Bash' | 'Monitor', script: Script, facts: Facts): Option<string> => {
     const { commands } = script;
     const walked = facts.walk.kind === 'some' ? _walk(commands, facts.walk.value) : [];
     const reasons = [_git(commands, facts.existing), _stdin(commands), _wait(commands), ...(tool === 'Bash' ? [_script(script)] : []), walked].find((found) => found.length > 0);
     return reasons === undefined ? none : some([...new Set(reasons)].join(', '));
 };
 
+const _facts = async (host: Host, commands: readonly Command[], walking: boolean): Promise<Facts> => {
+    const [existing, walk] = await Promise.all([Promise.all(_gitPaths(commands).map((path) => host.exists(path).then((found) => (found ? [path] : [])))), walking ? _places(host, commands) : none]);
+    return { existing: existing.flat(), walk };
+};
+
+const commandDecision = async (host: Host, tool: 'Bash' | 'Monitor', command: string, walking: boolean): Promise<Decision> => {
+    const parsed = await parse(host.scan, command);
+    if (parsed.kind === 'fault') {
+        return { kind: 'deny', reason: `command not parsed, ${rendered(parsed.fault)}` };
+    }
+    const { commands } = parsed.value;
+    const refusal = _refusal(tool, parsed.value, await _facts(host, commands, walking && tool === 'Bash'));
+    if (refusal.kind === 'some') {
+        return { kind: 'deny', reason: refusal.value };
+    }
+    const queue = tool === 'Bash' ? await _locks(host, commands) : ok<readonly string[]>([]);
+    if (queue.kind === 'fault') {
+        return { kind: 'deny', reason: `command not queued, ${rendered(queue.fault)}` };
+    }
+    const rewrite = _rewrite(commands, command, queue.value);
+    return rewrite.kind === 'some' ? { kind: 'rewrite', ...rewrite.value } : { kind: 'pass' };
+};
+
+const pathRefusal = (paths: readonly string[]): Option<string> => {
+    const names = paths.map(basename).filter((name) => _SECOND_FILES.some((pattern) => pattern.test(name)));
+    return names.length === 0 ? none : some(names.map((name) => `${name} is a second file beside its owner`).join(', '));
+};
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Facts, Rewrite, Walk };
-export { CLOUD, commandRefusal, commandRewrite, gitPaths, locks, WORKTREE, walkStarts };
+export type { Decision, Host, Rewrite };
+export { commandDecision, pathRefusal, WORKTREE };

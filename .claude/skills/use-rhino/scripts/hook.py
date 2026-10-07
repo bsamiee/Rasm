@@ -86,7 +86,7 @@ def replacement(tool: str) -> str | None:
 
 def decision(event: Event) -> dict[str, object] | None:
     """Return the wrapped `run_python` input, a refusal naming the replacing call, or `None` for a call that runs as sent."""
-    match event.tool_name.removeprefix("mcp__rhino-mcp-platform__"):
+    match event.tool_name.rpartition("__")[2]:
         case "run_python":
             tool_input = msgspec.json.decode(event.tool_input, type=Input)
             return {"permissionDecision": "allow", "updatedInput": msgspec.structs.replace(tool_input, script=wrap(tool_input.script))}

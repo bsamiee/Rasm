@@ -1,19 +1,18 @@
 import type { ClassicHookInputs, EngineInterface, Frozen, On, PluginOptions, ProcessRunInit, Register, ToolCallInput, ToolCallResult, TurnCompleteInput } from 'claude-code';
 import { atom, read, update } from 'claude-code';
-import { type Command, parse, SCAN, type Scanner } from './command.ts';
-import { bind, decoded, fault, map, none, type Option, ok, type Result, rendered, some } from './composition.ts';
-import { basename, type Invocation } from './invocation.ts';
+import { SCAN } from './command.ts';
+import { bind, decoded, fault, fromUndefined, map, none, type Option, ok, type Result, rendered, some } from './composition.ts';
+import type { Invocation } from './invocation.ts';
 import { context, type Delivered, decided, outcome, request, type Settings, type State, settings, status, subject } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, type Payload, row, session, TURN } from './observation/row.ts';
 import { bound, DATABASE, DELIVER, DELTA, INSERT, JUDGE, OPEN, REPORT, STATE } from './observation/sql.ts';
-import type { Facts, Rewrite, Walk } from './policies.ts';
-import { CLOUD, commandRefusal, commandRewrite, gitPaths, locks, WORKTREE, walkStarts } from './policies.ts';
+import { commandDecision, type Decision, type Host, pathRefusal, type Rewrite, WORKTREE } from './policies.ts';
 import type { Building, Judging, Spawned } from './state.d.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Once<T> = (start: () => Promise<T>) => Promise<T>;
-type Decision = { readonly kind: 'deny'; readonly reason: string } | ({ readonly kind: 'rewrite'; readonly input: ToolCallInput } & Omit<Rewrite, 'command'>) | { readonly kind: 'pass' };
+type Routed = Exclude<Decision, { readonly kind: 'rewrite' }> | ({ readonly kind: 'rewrite'; readonly input: ToolCallInput } & Omit<Rewrite, 'command'>);
 
 interface Database {
     readonly argv: Invocation;
@@ -26,14 +25,6 @@ interface Observer {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _SECOND_FILES: readonly RegExp[] = [
-    /^(?:project\.json|\.nxignore)$/u,
-    /^(?:\.mise(?:\..+)?\.toml|mise\..+\.toml|\.miserc\.toml|\.rtx\.toml|\.tool-versions|\.nvmrc|\.(?:node|python)-version)$/u,
-    /^tsconfig\.(?!base\.json$).+\.json$/u,
-    /^(?:\.?ruff\.toml|\.?mypy\.ini|pytest\.ini|tox\.ini|setup\.cfg)$/u,
-    /^biome\.jsonc$/u,
-    /^\.yamllint(?:\.yml)?$/u,
-];
 const _SPAWNED = atom({ plugin: 'function-hooks', key: 'spawned' } as const, {});
 const _RECORDED = ['SessionStart', 'PermissionDenied', 'PostToolUse', 'PostToolUseFailure', 'PostToolBatch', 'SubagentStart', 'SubagentStop', 'UserPromptSubmit', 'StopFailure', 'PreCompact', 'PostCompact', 'SessionEnd', 'WorktreeCreate', 'WorktreeRemove'] as const;
 
@@ -49,48 +40,23 @@ const _run = ($: EngineInterface, argv: Invocation, init: ProcessRunInit): Promi
 
 // --- [TOOL_CALL]
 
-const _located = async ($: EngineInterface, path: string): Promise<Option<string>> => {
-    const real = (spelled: string): Promise<Option<string>> =>
-        $.fs.stat(spelled, { resolve: true }).then(
-            ({ realPath }) => (realPath === undefined ? none : some(realPath.endsWith('/') ? realPath : `${realPath}/`)),
+const _host = ($: EngineInterface): Host => ({
+    scan: (text) => _run($, SCAN, { stdin: text }),
+    read: (path) => $.fs.read(path).then(ok, (cause: unknown) => fault<string>({ kind: 'unread', subject: path, cause })),
+    repo: () => $.session.repo().then((found) => (found === null ? none : some(found.root))),
+    make: (folders) => _run($, ['mkdir', '-p', ...folders], {}),
+    exists: (path) => $.fs.exists(path),
+    real: (path) =>
+        $.fs.stat(path, { resolve: true }).then(
+            ({ realPath }) => fromUndefined(realPath),
             () => none,
-        );
-    const own = await real(path);
-    if (own.kind === 'some') {
-        return own;
-    }
-    const cut = path.lastIndexOf('/');
-    const folder = await real(cut < 0 ? '.' : path.slice(0, cut + 1));
-    return folder.kind === 'some' ? some(`${folder.value}${path.slice(cut + 1)}/`) : none;
-};
-
-const _walk = async ($: EngineInterface, commands: readonly Command[]): Promise<Option<Walk>> => {
-    const home = await $.env.get('HOME');
-    if (home === undefined) {
-        return none;
-    }
-    const [cloud, starts] = await Promise.all([_located($, `${home}/${CLOUD}`), Promise.all(walkStarts(commands, home).map(([word, path]) => _located($, path).then((place) => (place.kind === 'some' ? [[word, place.value] as const] : []))))]);
-    return cloud.kind === 'some' ? some({ cloud: cloud.value, places: new Map(starts.flat()) }) : none;
-};
-
-const _facts = async ($: EngineInterface, commands: readonly Command[], walking: boolean): Promise<Facts> => {
-    const [existing, walk] = await Promise.all([Promise.all(gitPaths(commands).map((path) => $.fs.exists(path).then((found) => (found ? [path] : [])))), walking ? _walk($, commands) : none]);
-    return { existing: existing.flat(), walk };
-};
-
-const _queue = ($: EngineInterface, scan: Scanner, commands: readonly Command[]): Promise<Result<readonly string[]>> =>
-    locks(
-        scan,
-        (path) => $.fs.read(path).then(ok, (cause: unknown) => fault<string>({ kind: 'unread', subject: path, cause })),
-        () => $.session.repo().then((found) => (found === null ? none : some(found.root))),
-        (folders) => _run($, ['mkdir', '-p', ...folders], {}),
-        commands,
-    );
+        ),
+    home: () => $.env.get('HOME').then(fromUndefined),
+});
 
 const _callRefusal = (e: ToolCallInput): Option<string> => {
     if (e.tool === 'Write') {
-        const name = basename(e.file_path);
-        return _SECOND_FILES.some((pattern) => pattern.test(name)) ? some(`${name} is a second file beside its owner`) : none;
+        return pathRefusal([e.file_path]);
     }
     if (e.tool === 'EnterWorktree') {
         return some(`EnterWorktree ${WORKTREE}`);
@@ -98,35 +64,20 @@ const _callRefusal = (e: ToolCallInput): Option<string> => {
     return e.tool === 'Agent' && e.isolation === 'worktree' ? some(`Agent isolation worktree ${WORKTREE}`) : none;
 };
 
-const _decision = async ($: EngineInterface, e: ToolCallInput, walking: boolean): Promise<Decision> => {
-    if (!((e.tool === 'Bash' || e.tool === 'Monitor') && e.command !== undefined)) {
-        const refusal = _callRefusal(e);
-        return refusal.kind === 'some' ? { kind: 'deny', reason: refusal.value } : { kind: 'pass' };
+const _decision = async ($: EngineInterface, e: ToolCallInput, walking: boolean): Promise<Routed> => {
+    if ((e.tool === 'Bash' || e.tool === 'Monitor') && e.command !== undefined) {
+        const decision = await commandDecision(_host($), e.tool, e.command, walking);
+        if (decision.kind !== 'rewrite') {
+            return decision;
+        }
+        const { command, ...change } = decision;
+        return { ...change, input: { ...e, command } };
     }
-    const { command, tool } = e;
-    const scan = (text: string): Promise<Result<string>> => _run($, SCAN, { stdin: text });
-    const parsed = await parse(scan, command);
-    if (parsed.kind === 'fault') {
-        return { kind: 'deny', reason: `command not parsed, ${rendered(parsed.fault)}` };
-    }
-    const { commands } = parsed.value;
-    const refusal = commandRefusal(tool, parsed.value, await _facts($, commands, walking && tool === 'Bash'));
-    if (refusal.kind === 'some') {
-        return { kind: 'deny', reason: refusal.value };
-    }
-    const queue = tool === 'Bash' ? await _queue($, scan, commands) : ok<readonly string[]>([]);
-    if (queue.kind === 'fault') {
-        return { kind: 'deny', reason: `command not queued, ${rendered(queue.fault)}` };
-    }
-    const rewrite = commandRewrite(commands, command, queue.value);
-    if (rewrite.kind === 'none') {
-        return { kind: 'pass' };
-    }
-    const { command: rewritten, ...change } = rewrite.value;
-    return { ...change, kind: 'rewrite', input: { ...e, command: rewritten } };
+    const refusal = _callRefusal(e);
+    return refusal.kind === 'some' ? { kind: 'deny', reason: refusal.value } : { kind: 'pass' };
 };
 
-const _answer = async ($: EngineInterface, decision: Decision, e: ToolCallInput, next: (input: ToolCallInput) => Promise<ToolCallResult>): Promise<ToolCallResult> => {
+const _answer = async ($: EngineInterface, decision: Routed, e: ToolCallInput, next: (input: ToolCallInput) => Promise<ToolCallResult>): Promise<ToolCallResult> => {
     if (decision.kind === 'deny') {
         return { deny: decision.reason };
     }
