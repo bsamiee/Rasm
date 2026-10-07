@@ -240,11 +240,13 @@ result = {"dpi": system.dpi, "pixel_size": pixel, "widget_unit": widget, "area_h
 
 ## [09]-[UNITS]
 
-Unit systems change display and typed input alone, `bpy.ops.interface.units(system="<IMPERIAL|METRIC>")` switching every scene and dependent setting:
+Geometry coordinates use Blender units, with meters equal to coordinates times `unit_settings.scale_length`. Divide meter inputs by `scale_length` before geometry writes. Unit systems change display and typed input alone. `bpy.ops.interface.units(system="<IMPERIAL|METRIC>")` switches every scene and dependent setting:
 - `tools/interface/blender/extension/unit_system.py` declares those settings: unit tokens, merge tolerance, clip ranges, sheet scale, add-on lengths
 - Scenes set outside the operator take `unit_settings.system` first, each system write resetting `length_unit` and `mass_unit`, then each unit token
 - Unit tokens take the system's items alone (`temperature_unit = "CELSIUS"` raises under IMPERIAL), a raising tuple assignment keeping earlier targets
-- `view_distance` stores meters with unit NONE, camera `lens` and `sensor_width` read millimeters, and render pixel sizes have no imperial form
+- `view_distance` stores Blender units
+- Camera `lens` and `sensor_width` read millimeters
+- Render pixel sizes have no imperial form
 - `bpy.data.scenes.new()` starts from factory metric units, `bpy.ops.scene.new(type="EMPTY")` copying the current scene's settings
 
 Typed dimensions convert to meters at 1/64 inch and back to display text:

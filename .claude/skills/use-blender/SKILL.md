@@ -5,7 +5,7 @@ description: "Use when a task drives a live or headless Blender or a .blend file
 
 # [BLENDER]
 
-`.mcp.json` servers `blender` and `mcp-for-blender` drive the one GUI Blender agents and the user share, and `headless.py` runs Blender outside it. The project hook runs each `execute_blender_code` through `wrapper.run`, the scripts folder imported fresh and each live call one undo step. Snippets assign a `result` dict, `as_result` turning a script's case record into one with its class name under `kind` at every level:
+`.mcp.json` servers `blender` and `mcp-for-blender` share one GUI Blender process. `headless.py` runs background processes. Project hook runs `execute_blender_code` through `wrapper.run` with script modules imported fresh. Snippets assign a `result` dict with `as_result` adding each case record's class name under `kind`:
 - `[EXECUTE_BLENDER_CODE]` snippets run through `blender` `execute_blender_code`, `[MCP_FOR_BLENDER]` through `mcp-for-blender`
 - `[HEADLESS_CALL]` snippets run through `headless.py call`, or through `run` when they call no extension operator
 
@@ -27,7 +27,7 @@ description: "Use when a task drives a live or headless Blender or a .blend file
 
 [SCRIPTS]:
 - [01]-[HEADLESS](scripts/headless.py): Background Blender runs, sessions, and frame renders with a JPEG sheet of a named file
-- [02]-[WRAPPER](scripts/wrapper.py): PreToolUse hook running code in one undo step per live call and refusing server tools a script replaces
+- [02]-[WRAPPER](scripts/wrapper.py): PreToolUse hook grouping undo steps and refusing server tools a script replaces
 - [03]-[BRIDGE](scripts/bridge.py): Host client of the MCP extension's execute protocol on a session's loopback port
 - [04]-[RESULTS](scripts/results.py): Faults every script returns, `result` dict conversion of case records, and `.artifacts/blender/` folders
 - [05]-[DISCOVER](scripts/discover.py): Operators, RNA types, and add-on settings matching words across stock Blender and every enabled add-on
@@ -39,7 +39,7 @@ description: "Use when a task drives a live or headless Blender or a .blend file
 - [11]-[DRAWING](scripts/drawing.py): Grease Pencil strokes an orthographic camera sees as SVG, PDF, and PNG sheets at scale
 - [12]-[CONVERT](scripts/convert.py): Headless batch of files through importers and one exporter into `.artifacts/blender/convert/<name>/`
 
-Snippets build through the data API and read back through the scripts, here for a massing of `width`, `depth`, and `height` meters:
+Dimensioned examples use `scale_length = 1`. Massing dimensions `width`, `depth`, and `height` are Blender units:
 
 ```python
 # [EXECUTE_BLENDER_CODE] Massing <Object> in new collection <Collection>, with its evaluated dimensions and an iso capture
@@ -63,7 +63,7 @@ result = {"dimensions": list(evaluated.dimensions), "iso": as_result(capture("<n
 
 ## [01]-[SHARED_PROCESS]
 
-Each call leaves the user's scene, selection, mode, view, workspace, preferences, and file as it found them:
+Preserve scene, selection, mode, view, workspace, preferences, and file outside requested changes:
 - Calls run on the GUI's main thread between event-loop passes while the window and other clients wait
 - Other agents' calls run between a task's calls, each call reading the state it depends on
 - Live calls mark the file modified and delete the user's redo steps
@@ -186,7 +186,7 @@ result = as_result(discover("<word>", "<word>"))
 bpy.ops.wm.revert_mainfile()
 ```
 
-1. Pass words that together name the capability, one add-on prefix alone (`bim`) returning every class of the add-on
+1. Pass words naming a capability, including add-on prefixes (`bim`)
 2. Run it live for what exists, the GUI holding every add-on a session loads
 3. Run the session form for a closed file's setting values, add-on polls and group reads creating group storage the revert drops
 4. Call an operator with `poll` true as is, one with `poll_in_view` true alone under the largest 3D Viewport override
@@ -208,8 +208,8 @@ bpy.ops.wm.revert_mainfile()
 Snippets hold each rule:
 - Globals reset per call, later calls reaching data by name through `bpy.data.<collection>["<name>"]`
 - New data-blocks take a `.001` suffix on a name another holds, later code reading the `name` the new ID took
-- `bpy` lengths are meters under every unit system
-- Data-API writes read no context, and operators serve work the data API holds no member for
+- Use configuration.md for scene units
+- Use data-API writes where available, with target scene overrides for context-reading property callbacks
 - Calls hold the first window with no area or region
 - State an event-loop pass applies (workspace switches, area sizes, view matrices) reads in a deferred step or the next call
 - Values after modifiers read through `obj.evaluated_get(bpy.context.evaluated_depsgraph_get())`
@@ -222,13 +222,13 @@ Snippets hold each rule:
 
 `blender` `execute_blender_code` answers `status` `ok` with `result`, `stdout`, and `stderr`, or `error` with `message` and `stdout`:
 
-| [INDEX] | [PART]                         | [HOLDS]                                                  | [NEXT]                             |
-| :-----: | :----------------------------- | :------------------------------------------------------- | :--------------------------------- |
-|  [01]   | `result`                       | Assigned dict, `repr` text of a value JSON cannot hold   | Convert the value in code          |
-|  [02]   | `stdout`                       | Prints and operator report lines                         | Operator readings                  |
-|  [03]   | `stderr`                       | `<file>:<line>: <Category>: <text>`, handler tracebacks  | Replace the member a line names    |
-|  [04]   | `message`                      | Traceback, `stdout` before the raise beside it           | Read the state, resume at the line |
-|  [05]   | `Blender connection timed out` | Call past the server's 300 s wait, running on in Blender | Read the state in the next call    |
+| [INDEX] | [PART]                         | [HOLDS]                                                 | [NEXT]                             |
+| :-----: | :----------------------------- | :------------------------------------------------------ | :--------------------------------- |
+|  [01]   | `result`                       | Assigned dict, `repr` text of a value JSON cannot hold  | Convert the value in code          |
+|  [02]   | `stdout`                       | Prints and operator report lines                        | Operator readings                  |
+|  [03]   | `stderr`                       | `<file>:<line>: <Category>: <text>`, handler tracebacks | Replace the member a line names    |
+|  [04]   | `message`                      | Traceback, `stdout` before the raise beside it          | Read the state, resume at the line |
+|  [05]   | `Blender connection timed out` | Server's 300 s wait ended                               | Read state                         |
 
 - Warnings print once per line per call, add-on files included
 - Tracebacks and warnings count `<agent>` lines as sent, a traceback's last `File "<agent>", line <n>` frame naming the sent line
@@ -244,14 +244,14 @@ Use execution.md for `Faults` a script returns.
 2. `capture("<name>", view="user")` draws what the user sees
 3. Table arguments narrow the picture
 
-| [INDEX] | [ARGUMENT]                 | [DRAWS]                                                                                      |
-| :-----: | :------------------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `objects=("<Object>",)`    | Objects' evaluated boxes, each side bordered by 2.5% of projected extent's longer side       |
-|  [02]   | `view="iso"`               | Perspective, eye where default lens fits extent, lens widened for border, shift centering it |
-|  [03]   | `view="<axis>"`            | `top`, `bottom`, `front`, `back`, `right`, or `left` orthographic over extent                |
-|  [04]   | `view="user"`              | Largest 3D Viewport's view at its region's aspect                                            |
-|  [05]   | `size=(<width>, <height>)` | Exact size, default 300 thousand pixels at view's aspect                                     |
-|  [06]   | `since="<before>"`         | View, camera, and size `<before>.png` stores, with pixels changed against it                 |
+| [INDEX] | [ARGUMENT]                 | [DRAWS]                                                                                |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `objects=("<Object>",)`    | Objects' evaluated boxes, each side bordered by 2.5% of projected extent's longer side |
+|  [02]   | `view="iso"`               | Perspective at default lens's fit distance, sensor widened for border, centering shift |
+|  [03]   | `view="<axis>"`            | `top`, `bottom`, `front`, `back`, `right`, or `left` orthographic over extent          |
+|  [04]   | `view="user"`              | Largest 3D Viewport's view at its region's aspect                                      |
+|  [05]   | `size=(<width>, <height>)` | Exact size, default 300 thousand pixels at view's aspect                               |
+|  [06]   | `since="<before>"`         | View, camera, and size `<before>.png` stores, with pixels changed against it           |
 
 - Live calls draw offscreen through the viewport's shading, Solid, Material Preview, and EEVEE Rendered alike, with overlays off
 - Rendered shading under Cycles draws black offscreen, and Cycles looks take `headless.py render`
@@ -281,9 +281,10 @@ from snapshot import snapshot
 result = {"changes": as_result(snapshot("<after>", since="<before>")), "front": as_result(capture("<after>-front", objects=("<Object>",), since="<before>-front"))}
 ```
 
-- Snapshots record each object's transform, evaluated bounds, stacks, drivers, actions, and geometry counts hashed with instances
+- Snapshots record transforms, evaluated bounds, stacks, drivers, actions, and geometry counts
+- Geometry hashes cover rounded evaluated positions and instance transforms
 - Snapshots record scene settings, orphans, missing paths, material settings, datablock counts per kind, and node tree digests
-- `<before>.png` stores its camera in a `Capture` text chunk, a `since` frame holding while bounds move and a user view while the viewport moves
+- Capture PNGs store framing in a `Capture` text chunk for `since` comparisons after bounds or views move
 - Live draws and background renders frame alike and differ on antialiased edges, a comparison taking both captures from one kind of process
 
 Readings of each comparison decide the next step:

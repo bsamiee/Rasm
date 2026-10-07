@@ -10,7 +10,7 @@
 # ty: ignore[unresolved-attribute]
 # mypy: disable-error-code=attr-defined
 # ruff: file-ignore[boolean-positional-value-in-call, exec-builtin, mutable-class-default, private-member-access]
-"""PreToolUse hook running code in one undo step per live call and refusing server tools a script replaces."""
+"""PreToolUse hook grouping undo steps and refusing server tools a script replaces."""
 
 from collections.abc import Callable
 from pathlib import Path
