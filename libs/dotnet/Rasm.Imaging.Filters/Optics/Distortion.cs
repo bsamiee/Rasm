@@ -55,7 +55,7 @@ public sealed record LensDistortion(Distortion Distortion, Dispersion Dispersion
         (state.Distortion == Distortion.Neutral, state.Dispersion == Dispersion.Neutral) switch {
             (true, true) => None,
             (_, true) => Some<PixelPass>(new PixelPass.Frame(state.Placed(context.Extent).Apply)),
-            _ => Some<PixelPass>(new PixelPass.Frame(CoordinateMap.Integrated(state.Steps(context.Extent), state.Subframe(context.Extent)))),
+            _ => Some<PixelPass>(new PixelPass.Frame(CoordinateMap.Integrated(state.Subframe(context.Extent)))),
         };
 
     public CoordinateMap.Analytic Placed(PixelExtent extent) => Step(Coefficients.Y, extent);
@@ -70,15 +70,7 @@ public sealed record LensDistortion(Distortion Distortion, Dispersion Dispersion
                 float r2 = reach * reach * offset.LengthSquared();
                 (points[i], coverage[i]) = (center + (2f * scale * Spread(k, r2) * offset), bound * r2 > 1f ? 0f : coverage[i]);
             }
-        }, Sampling.Linear, EdgeMode.Black);
-    }
-
-    private int Steps(PixelExtent extent) {
-        Vector3 k = Coefficients;
-        float corner = Framing.Scale(Distortions.X) * new Vector2(extent.Width, extent.Height).Length() / extent.Width;
-        float r2 = k.X > 0f ? float.Min(corner * corner, 1f / k.X) : corner * corner;
-        (float red, float green, float blue) = (Spread(k.X, r2), Spread(k.Y, r2), Spread(k.Z, r2));
-        return 2 * (int)((extent.Width * float.Sqrt(r2) * float.Max(red - green, green - blue)) + 1f);
+        }, Sampling.Linear, WrapMode.Black);
     }
 
     private Func<float, (CoordinateMap Map, Vector4 Lanes)> Subframe(PixelExtent extent) {

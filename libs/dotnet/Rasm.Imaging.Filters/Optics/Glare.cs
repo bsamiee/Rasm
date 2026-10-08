@@ -237,7 +237,7 @@ public sealed record Bloom(AxisFraction Size, Mix Strength, Option<LensDirt> Dir
             using Mat light = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
             using Mat tent = new(1, 3, DepthType.Cv32F, 1);
             tent.SetTo([0.25f, 0.5f, 0.25f]);
-            int chain = (int)float.Log2(float.Max(1f, int.Min(frame.Size.Width, frame.Size.Height) * state.Size));
+            int chain = (int)float.Log2(float.Max(1f, frame.Size.ShortSide * state.Size));
             return light.Lit(frame, Planes.Light).Bind(_ => {
                 Chained(light, chain - 1, static tap => 1f / (1f + float.Max(tap.X, float.Max(tap.Y, tap.Z))), tent);
                 light.ConvertTo(light, DepthType.Cv32F, 1d / int.Max(1, chain));

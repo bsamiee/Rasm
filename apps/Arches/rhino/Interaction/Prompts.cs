@@ -1,7 +1,4 @@
 using Arches.Profiles;
-using Rasm.Rhino.Commands;
-using Rasm.Rhino.Display;
-using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Display;

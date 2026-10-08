@@ -17,9 +17,16 @@ public abstract partial record Vignette : IStateRecord<Vignette, VignetteParamet
             natural: static (run, _) => run.Camera.Bind(camera => camera.Frustum.Switch(run.Extent,
                 perspective: static (extent, perspective) => Some<PixelPass>(Falloff(perspective.Window, extent)),
                 parallel: static (_, _) => None)),
-            outline: static (run, outline) => Some(outline.Shape.Kind.Accept(outline.Shape, run.Extent,
-                new VignetteFill(outline.Shape.Placement.Frame(run.Extent), int.Min(run.Extent.Width, run.Extent.Height),
-                    ShapeEdge.Band(outline.Feather, run.Extent, outline.Shape.Fit.Scale(run.Extent)), outline.Pull.SceneLight(run.Working)))));
+            outline: static (run, outline) => Some<PixelPass>(Shaped(outline, run)));
+
+    private static PixelPass.Pointwise Shaped(Outline state, PassContext context) {
+        float pixels = context.Extent.ShortSide;
+        Vector2 scale = state.Shape.Fit.Scale(context.Extent);
+        float band = ShapeEdge.Band(state.Feather, context.Extent, float.Min(scale.X, scale.Y));
+        Vector3 pull = state.Pull.SceneLight(context.Working);
+        return new(ShapeEdge.Draw(state.Shape.Field(context.Extent), (color, distance, _) =>
+            new Vector4(Vector3.Lerp(pull, color.AsVector3(), ShapeEdge.Coverage(distance * pixels, band)), color.W)));
+    }
 
     private static PixelPass.Pointwise Falloff(ViewWindow window, PixelExtent extent) =>
         new((row, column, line) => {
@@ -32,14 +39,12 @@ public abstract partial record Vignette : IStateRecord<Vignette, VignetteParamet
 
     public sealed record Natural : Vignette, IStateRecord<Natural> {
         public static new Natural Default { get; } = new();
-        public static IReadOnlyList<IStateParameter<Natural>> Parameters => [];
-        public static Option<IStateParameter<Natural>> FindParameter(string key) => None;
     }
 
     public sealed record Outline(ShapePrimitive Shape, ShortSideLength Feather, Swatch Pull)
         : Vignette, IStateRecord<Outline, VignetteOutlineParameter, InvalidOptics> {
         public static new Outline Default { get; } = new(
-            new(ShapeKind.Ellipse, Placement.Centered, ShortSideExtent.Create(0.8f), ShortSideExtent.Create(0.45f),
+            new(ShapeKind.Ellipse, Placement.Default, ShortSideExtent.Create(0.8f), ShortSideExtent.Create(0.45f),
                 AxisFraction.MinValue, SuperellipseExponent.Ellipse, SideCount.Five, AxisFraction.MinValue) { Fit = ShapeFit.LongSide },
             ShortSideLength.Create(0.2f * MathF.Sqrt(float.Tau) / 3f), Swatch.Black);
     }
@@ -76,24 +81,8 @@ public sealed partial class VignetteParameter : IStateParameter<Vignette> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VignetteOutlineParameter : IStateParameter<Vignette.Outline> {
-    private static readonly (StateParameter<Vignette.Outline> Kind,
-        (StateParameter<Vignette.Outline> CenterX, StateParameter<Vignette.Outline> CenterY, StateParameter<Vignette.Outline> Rotation) Placement,
-        StateParameter<Vignette.Outline> Width, StateParameter<Vignette.Outline> Height, StateParameter<Vignette.Outline> Roundness,
-        StateParameter<Vignette.Outline> Exponent, StateParameter<Vignette.Outline> Sides, StateParameter<Vignette.Outline> Inset,
-        StateParameter<Vignette.Outline> Fit) Shape =
-        ShapePrimitive.Kinds(Lens<Vignette.Outline, ShapePrimitive>.New(static outline => outline.Shape, static shape => outline => outline with { Shape = shape }));
-
-    public static readonly VignetteOutlineParameter ShapeKind = new("kind", Shape.Kind);
-    public static readonly VignetteOutlineParameter CenterX = new("center-x", Shape.Placement.CenterX);
-    public static readonly VignetteOutlineParameter CenterY = new("center-y", Shape.Placement.CenterY);
-    public static readonly VignetteOutlineParameter Rotation = new("rotation", Shape.Placement.Rotation);
-    public static readonly VignetteOutlineParameter Width = new("width", Shape.Width);
-    public static readonly VignetteOutlineParameter Height = new("height", Shape.Height);
-    public static readonly VignetteOutlineParameter Roundness = new("roundness", Shape.Roundness);
-    public static readonly VignetteOutlineParameter Exponent = new("exponent", Shape.Exponent);
-    public static readonly VignetteOutlineParameter Sides = new("sides", Shape.Sides);
-    public static readonly VignetteOutlineParameter Inset = new("inset", Shape.Inset);
-    public static readonly VignetteOutlineParameter Fit = new("fit", Shape.Fit);
+    public static readonly VignetteOutlineParameter Shape = new("shape", new StateParameter<Vignette.Outline>.Record<ShapePrimitive>(
+        Lens<Vignette.Outline, ShapePrimitive>.New(static outline => outline.Shape, static shape => outline => outline with { Shape = shape })));
     public static readonly VignetteOutlineParameter Feather = new("feather", new StateParameter<Vignette.Outline>.Bounded<ShortSideLength, float, InvalidPixelValue>(
         Lens<Vignette.Outline, ShortSideLength>.New(static outline => outline.Feather, static feather => outline => outline with { Feather = feather }),
         new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }));
@@ -101,14 +90,4 @@ public sealed partial class VignetteOutlineParameter : IStateParameter<Vignette.
         Lens<Vignette.Outline, Swatch>.New(static outline => outline.Pull, static pull => outline => outline with { Pull = pull })));
 
     public StateParameter<Vignette.Outline> Kind { get; }
-}
-
-file sealed class VignetteFill(FieldFrame frame, float pixels, float band, Vector3 pull) : IFieldVisitor<PixelPass> {
-    public PixelPass Visit<TField>(TField field) where TField : struct, IDistanceField =>
-        new PixelPass.Pointwise((row, column, line) => {
-            for (int x = 0; x < row.Length; x++) {
-                float weight = ShapeEdge.Coverage(field.Distance(frame.Point(column + x, line)) * pixels, band);
-                row[x] = new Vector4(Vector3.Lerp(pull, row[x].AsVector3(), weight), row[x].W);
-            }
-        });
 }

@@ -321,7 +321,7 @@ public static class Lighting {
 
     public static PixelFrame Sphere(Seq<DistantLight> lights, PixelExtent size) {
         (Vector3 Direction, Vector3 Radiance)[] sources = [.. lights.Map(static light => (light.Direction, float.Exp2(light.Stops) * light.Color))];
-        float radius = int.Min(size.Width, size.Height) / 2f;
+        float radius = size.ShortSide / 2f;
         return new PixelFrame(Point.Empty, size, size, block => {
             Span<Vector4> pixels = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
             for (int index = 0; index < pixels.Length; index++) {

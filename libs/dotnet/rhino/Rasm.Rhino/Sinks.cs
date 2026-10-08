@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using Rhino;
 using Rhino.PlugIns;
 using Rhino.Runtime;
@@ -19,32 +18,29 @@ public interface IPlugInSink {
 public static class RowText {
     public static CultureInfo Culture => CultureInfo.GetCultureInfo(Localization.CurrentLanguageId);
 
-    public static LocalizeStringPair Library(string english, params ReadOnlySpan<object?> arguments) {
-        LocalizeStringPair pair = Localization.LocalizeCommandOptionName(english, typeof(RowText).Assembly, 0);
+    public static LocalizeStringPair Localize(string english, Option<object> table = default, params ReadOnlySpan<object?> arguments) {
+        LocalizeStringPair pair = Localization.LocalizeCommandOptionName(english, table.IfNone(typeof(RowText).Assembly), 0);
         return arguments.IsEmpty ? pair : new(string.Format(Culture, pair.English, arguments), string.Format(Culture, pair.Local, arguments));
     }
 }
 
-public static partial class ErrorOps {
-    public static string Localize(Error error, bool includeInner = true) =>
-        string.Join(Environment.NewLine, Causes(error, includeInner).Map(static leaf =>
-            leaf is Expected expected
-                ? Token.Replace(
-                    Localization.LocalizeString(expected.Message, expected, expected.Code),
-                    match => Optional(expected.GetType().GetProperty(match.Groups["name"].Value, BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
-                        .Map(property => string.Create(RowText.Culture, $"{property.GetValue(expected)}"))
-                        .IfNone(match.Value))
-                : leaf.Message));
+public static class ErrorOps {
+    public static string Line(Error error) =>
+        error.IsExpected
+            ? error.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Aggregate(
+                Localization.LocalizeString(error.Message, error, error.Code),
+                (text, property) => text.Replace($"{{{property.Name}}}", Convert.ToString(property.GetValue(error), RowText.Culture), StringComparison.Ordinal))
+            : error.Message;
+
+    public static string Localize(Error error) => string.Join(Environment.NewLine, Causes(error).Map(Line));
 
     public static IO<Unit> Report(Error error, Type owner, string member) =>
-        from causes in IO.lift(() => Causes(error))
-        from _ in IO.lift(() => causes.Iter(cause => RhinoApp.WriteLine($"{owner.Name}.{member}: {Localize(cause, includeInner: false)}")))
-        from __ in IO.lift(() => causes.Choose(static cause => cause.Exception).Iter(exception => HostUtils.ExceptionReport($"{owner.FullName}.{member}", exception)))
-        select unit;
+        (from causes in IO.lift(() => Causes(error))
+         from _ in IO.lift(() => causes.Iter(cause => RhinoApp.WriteLine($"{owner.Name}.{member}: {Line(cause)}")))
+         from __ in IO.lift(() => causes.Choose(static cause => cause.Exception).Iter(exception => HostUtils.ExceptionReport($"{owner.FullName}.{member}", exception)))
+         select unit)
+        .Catch(fault => IO.lift(() => HostUtils.ExceptionReport($"{owner.FullName}.{member}", fault.ToException()))).As();
 
-    private static Seq<Error> Causes(Error error, bool includeInner = true) =>
-        error.FoldM<Seq, Error>(leaf => leaf.Cons(includeInner ? leaf.Inner.ToSeq().Bind(static inner => Causes(inner)) : [])).As();
-
-    [GeneratedRegex(@"\{(?<name>\w+)\}", RegexOptions.ExplicitCapture, Timeout.Infinite)]
-    private static partial Regex Token { get; }
+    private static Seq<Error> Causes(Error error) =>
+        error.FoldM(static leaf => leaf.Cons(leaf.Inner.ToSeq().Bind(Causes))).As();
 }

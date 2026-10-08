@@ -11,20 +11,11 @@ using UnitsNet.Units;
 
 namespace Rasm.Imaging.Filters.Generators;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal interface IParticleProfile<TSelf> where TSelf : struct, IParticleProfile<TSelf> {
-    public static abstract TSelf Of(ParticleField state);
-    public float Reach(float radius);
-    public float Area(float radius);
-    public float Floor { get; }
-    public Vector4 Coverage(Vector2 offset, float radius);
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidGenerator>]
 public readonly partial struct ParticleSpacing : IMinMaxValue<ParticleSpacing> {
-    public static ParticleSpacing MinValue { get; } = new(0.01f);
+    public static ParticleSpacing MinValue { get; } = new(0.005f);
     public static ParticleSpacing MaxValue { get; } = new(8f);
 
     static partial void ValidateFactoryArguments(ref InvalidGenerator? validationError, ref float value) =>
@@ -52,52 +43,23 @@ public readonly partial struct DepthRatio : IMinMaxValue<DepthRatio> {
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGenerator();
 }
 
-[SmartEnum<string>]
+[ValueObject<float>(SkipIParsable = true, AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidGenerator>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public abstract partial class ParticleShape {
-    public static readonly ParticleShape Disc = new Profiled<DiscProfile>("disc");
-    public static readonly ParticleShape Flake = new Profiled<FlakeProfile>("flake");
+public readonly partial struct ParticleSpread : IMinMaxValue<ParticleSpread> {
+    public static ParticleSpread MinValue => Neutral;
+    public static ParticleSpread MaxValue { get; } = new(float.MaxValue);
 
-    internal abstract PixelPass Pass(ParticleField state, PassContext context);
-
-    private sealed class Profiled<TProfile>(string key) : ParticleShape(key) where TProfile : struct, IParticleProfile<TProfile> {
-        internal override PixelPass Pass(ParticleField state, PassContext context) => ParticleField.Field(state, context, TProfile.Of(state));
-    }
-
-    private readonly record struct DiscProfile(Iris Iris) : IParticleProfile<DiscProfile> {
-        public static DiscProfile Of(ParticleField state) => new(state.Iris);
-
-        public float Reach(float radius) => Iris.Circumradius * radius;
-
-        public float Area(float radius) => float.Pi * radius * radius;
-
-        public float Floor => 0.5f;
-
-        public Vector4 Coverage(Vector2 offset, float radius) => Iris.Outline(offset) switch { var (reach, edge) => Iris.Weights(reach, edge, radius) };
-    }
-
-    private readonly record struct FlakeProfile : IParticleProfile<FlakeProfile> {
-        public static FlakeProfile Of(ParticleField state) => default;
-
-        public float Reach(float radius) => radius;
-
-        public float Area(float radius) => float.Pi * radius * radius / 3f;
-
-        public float Floor => 1f;
-
-        public Vector4 Coverage(Vector2 offset, float radius) =>
-            float.Max(1f - (offset.LengthSquared() / (radius * radius)), 0f) switch { var s => new Vector4(s * s) };
-    }
+    static partial void ValidateFactoryArguments(ref InvalidGenerator? validationError, ref float value) =>
+        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGenerator();
 }
 
 public sealed record ParticleField(
     ParticleSpacing Spacing, AxisFraction Density, ParticleLayers Layers,
     SignedAngle Heading, Drift Speed, NoiseBasis Basis, ShortSideLength Turbulence, ShortSideExtent Eddy, Frequency Evolution,
     DepthRatio Depth, AxisFraction Focus, ShortSideLength Defocus,
-    ParticleShape Shape, ShortSideLength Size, Iris Iris, ShutterTime Shutter, Mix Fade,
-    Ramp Colors, ColorTemperature Cool, ColorTemperature Hot, Mix Incandescence, GeneratedLayer Layer, Seed Seed, Timing Timing)
+    ShortSideLength Size, AxisFraction Variation, AxisFraction Softness, Iris Iris, ShutterTime Shutter, Mix Fade,
+    ParticleSpread Spread, Ramp Colors, ColorTemperature Cool, ColorTemperature Hot, Mix Incandescence, Mix Twinkle, Frequency TwinkleRate,
+    GeneratedLayer Layer, Seed Seed, Timing Timing)
     : IStateRecord<ParticleField, ParticleFieldParameter, InvalidGenerator>, IPixelStage<ParticleField> {
     private const int Tile = 16;
     private const long CellBits = (1L << 24) - 1;
@@ -110,16 +72,20 @@ public sealed record ParticleField(
         Valid.Value(ShortSideExtent.Validate(1f / 1.6f, provider: null, out ShortSideExtent eddy), eddy),
         Valid.Value(Frequency.Validate(24f * 0.05f * 0.5f / 3200f, provider: null, out Frequency evolution), evolution),
         DepthRatio.MaxValue, AxisFraction.MaxValue, Valid.Value(ShortSideLength.Validate(0.01f * ReferenceFrame.GreaterSide, provider: null, out ShortSideLength defocus), defocus),
-        ParticleShape.Disc, Valid.Value(ShortSideLength.Validate(2f * 0.1f / 10f, provider: null, out ShortSideLength size), size), Iris.Hexagon, ShutterTime.Film, Mix.MinValue,
-        Ramp.Grayscale, ColorTemperature.MinValue, ColorTemperature.Flame, Mix.MinValue,
+        Valid.Value(ShortSideLength.Validate(2f * 0.1f / 10f, provider: null, out ShortSideLength size), size),
+        Valid.Value(AxisFraction.Validate(0.5f, provider: null, out AxisFraction variation), variation),
+        Valid.Value(AxisFraction.Validate(1f / 1.8f, provider: null, out AxisFraction softness), softness), Iris.Hexagon, ShutterTime.Film, Mix.MinValue,
+        Valid.Value(ParticleSpread.Validate(1f, provider: null, out ParticleSpread spread), spread),
+        Valid.Value(Ramp.Validate(Seq(RampStop.White.At(RampPosition.MinValue)), RampInterpolation.Linear, out Ramp? colors), colors),
+        ColorTemperature.MinValue, ColorTemperature.Flame, Mix.MinValue, Mix.MinValue, Frequency.Neutral,
         GeneratedLayer.Added with { Exposure = Valid.Value(Exposure.Validate(2f, provider: null, out Exposure exposure), exposure) }, Seed.MinValue, Timing.Standard);
 
     public static ParticleField Rain { get; } = Default with {
         Heading = SignedAngle.Down,
         Speed = Valid.Value(Drift.Validate(2.5f * ReferenceFrame.GreaterSide, provider: null, out Drift speed), speed),
         Iris = Iris.Hexagon with { Roundness = AxisFraction.MaxValue },
-        Colors = Valid.Value(Ramp.Validate(Seq(RampStop.White.At(RampPosition.MinValue)), RampInterpolation.Linear, out Ramp? colors), colors),
-        Layer = GeneratedLayer.Mixed,
+        Softness = Valid.Value(AxisFraction.Validate(0.5f, provider: null, out AxisFraction softness), softness),
+        Layer = GeneratedLayer.Default,
     };
 
     public static ParticleField Snow { get; } = Rain with {
@@ -127,7 +93,9 @@ public sealed record ParticleField(
         Size = Valid.Value(ShortSideLength.Validate(0.3f * 0.03f * ReferenceFrame.GreaterSide, provider: null, out ShortSideLength size), size),
         Speed = Valid.Value(Drift.Validate(0.3f * ReferenceFrame.GreaterSide, provider: null, out Drift speed), speed),
         Turbulence = Valid.Value(ShortSideLength.Validate(0.02f / 2f * ReferenceFrame.GreaterSide, provider: null, out ShortSideLength turbulence), turbulence),
-        Shape = ParticleShape.Flake,
+        Variation = Valid.Value(AxisFraction.Validate(0.6f, provider: null, out AxisFraction variation), variation),
+        Softness = Valid.Value(AxisFraction.Validate(0.6f, provider: null, out AxisFraction softness), softness),
+        Spread = Valid.Value(ParticleSpread.Validate(1.3f, provider: null, out ParticleSpread spread), spread),
         Colors = Valid.Value(Ramp.Validate(
             Seq(Valid.Value(RampStop.Validate(RampPosition.MinValue, new Vector4(0.8f, 0.8f, 0.8f, 1f), out RampStop grey), grey)), RampInterpolation.Linear, out Ramp? colors), colors),
     };
@@ -142,11 +110,17 @@ public sealed record ParticleField(
         Cool = Valid.Value(ColorTemperature.Validate(1000d, provider: null, out ColorTemperature cool), cool),
         Hot = ColorTemperature.Flame,
         Incandescence = Mix.Full,
+        Variation = Valid.Value(AxisFraction.Validate(0.8f, provider: null, out AxisFraction variation), variation),
+        Softness = Valid.Value(AxisFraction.Validate(0.3f, provider: null, out AxisFraction softness), softness),
+        Spread = Valid.Value(ParticleSpread.Validate(2.3f, provider: null, out ParticleSpread spread), spread),
     };
 
     public static ParticleField CellRain { get; } = Default with {
         Heading = SignedAngle.Down,
         Defocus = ShortSideLength.Neutral,
+        Variation = AxisFraction.MinValue,
+        Softness = AxisFraction.MinValue,
+        Spread = ParticleSpread.Neutral,
         Iris = Iris.Hexagon with {
             Blades = Valid.Value(ApertureBlades.Validate(4, provider: null, out ApertureBlades blades), blades),
             Rotation = SignedAngle.Diagonal,
@@ -154,20 +128,36 @@ public sealed record ParticleField(
         },
     };
 
+    public static ParticleField Starfield { get; } = Default with {
+        Spacing = Valid.Value(ParticleSpacing.Validate(0.005f * ReferenceFrame.GreaterSide, provider: null, out ParticleSpacing spacing), spacing),
+        Density = Valid.Value(AxisFraction.Validate(0.12f, provider: null, out AxisFraction density), density),
+        Size = Valid.Value(ShortSideLength.Validate(0.1f * 0.005f * ReferenceFrame.GreaterSide, provider: null, out ShortSideLength size), size),
+        Layers = ParticleLayers.MinValue,
+        Depth = DepthRatio.MinValue,
+        Speed = Drift.Neutral,
+        Turbulence = ShortSideLength.Neutral,
+        Defocus = ShortSideLength.Neutral,
+        Softness = AxisFraction.MaxValue,
+        Iris = Iris.Hexagon with { Roundness = AxisFraction.MaxValue },
+        Spread = Valid.Value(ParticleSpread.Validate(4f, provider: null, out ParticleSpread spread), spread),
+        Cool = Valid.Value(ColorTemperature.Validate(3000d, provider: null, out ColorTemperature cool), cool),
+        Hot = Valid.Value(ColorTemperature.Validate(12000d, provider: null, out ColorTemperature hot), hot),
+        Incandescence = Mix.Full,
+        Layer = GeneratedLayer.Added,
+    };
+
     public static Option<PixelPass> Pass(ParticleField state, PassContext context) =>
-        state.Density == AxisFraction.MinValue ? None : Some(state.Shape.Pass(state, context));
+        state.Density == AxisFraction.MinValue ? None : Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)));
 
-    internal static PixelPass Field<TProfile>(ParticleField state, PassContext context, TProfile profile) where TProfile : struct, IParticleProfile<TProfile> =>
-        new PixelPass.Frame((frame, progress) => Kernel(state, context, profile, frame, progress));
-
-    private static Fin<Unit> Kernel<TProfile>(ParticleField state, PassContext context, TProfile profile, PixelFrame frame, IProgress<int> progress)
-        where TProfile : struct, IParticleProfile<TProfile> {
+    private static Fin<Unit> Kernel(ParticleField state, PassContext context, PixelFrame frame, IProgress<int> progress) {
         (int height, float side, Vector2 middle, Rectangle window) =
-            (context.Extent.Height, int.Min(context.Extent.Width, context.Extent.Height), new Vector2(context.Extent.Width, context.Extent.Height) / 2f, frame.Window);
+            (context.Extent.Height, context.Extent.ShortSide, new Vector2(context.Extent.Width, context.Extent.Height) / 2f, frame.Window);
         uint field = CoordinateHash.Field(NoiseStream.ParticleField, state.Seed, 0u);
         (uint presence, uint tone, uint across, uint down) =
             (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u), CoordinateHash.Branch(field, 3u));
-        (NoiseSampler basis, RampTable table, double t) = (state.Basis.Sampler, state.Colors.Tabulate(context.Working), state.Timing.At(context));
+        (Func<Vector4, uint, float> basis, RampTable table, double t) = (state.Basis.Sampler, state.Colors.Tabulate(context.Working), state.Timing.At(context));
+        Func<Vector4, uint, float> plain = (NoiseBasis.Plain with { Dimensions = NoiseDimensions.Four }).Sampler;
+        uint twinkle = CoordinateHash.Branch(field, 4u);
         (int layers, float depth, float density, float turbulence, float eddy, float evolution) =
             (state.Layers, state.Depth, state.Density, state.Turbulence, state.Eddy, state.Evolution);
         (float size, float defocus, float shutter, float fade, float incandescence, float focus) =
@@ -176,9 +166,10 @@ public sealed record ParticleField(
         Func<float, Vector4> color = state.Incandescence == Mix.MinValue
             ? draw => table.Sample(draw)
             : Emission.Span((context.Working, state.Cool, state.Hot)) switch {
-                var span => draw => table.Sample(draw) switch { var stop => new Vector4(stop.AsVector3() * Vector3.Lerp(Vector3.One, span.Sample(draw), incandescence), stop.W) },
+                var span => draw => table.Sample(draw) switch { var stop => new Vector4(stop.AsVector3() * Vector3.Lerp(Vector3.One, span(draw), incandescence), stop.W) },
             };
-        float footprint = profile.Reach(float.Max(side * ((size / 2f) + defocus), profile.Floor)) + 1f;
+        float radius = float.Max(side * ((size / 2f) + defocus), 0.5f);
+        float footprint = (state.Iris.Circumradius * radius) + (((state.Softness * radius) + 1f) / 2f);
         (int columns, int rows) = ((window.Width + Tile - 1) / Tile, (window.Height + Tile - 1) / Tile);
         int tiles = columns * rows;
         List<Particle> particles = [];
@@ -198,11 +189,14 @@ public sealed record ParticleField(
                     continue;
                 (double x, double y, float k) = ((i + (double)a.Y) * cell, (j + (double)a.Z) * cell, float.Pow(depth, -(layer + a.W) / layers));
                 (Vector2 head, Vector2 tail) = (middle + (side * Moved(x, y, velocity, k, t)), middle + (side * Moved(x, y, velocity, k, t - shutter)));
-                float core = size * k / 2f * side;
-                Particle drawn = new(tail, head, float.Max(core + (defocus * float.Abs(k - focus) * side), profile.Floor), Vector3.Zero, 0f);
-                (Vector2 low, Vector2 high) = drawn.Box(profile);
+                Vector4 b = NoiseFunctions.White(point, tone);
+                float core = size * k * (1f - (state.Variation * b.Y)) / 2f * side;
+                float dim = float.Exp2(-state.Spread * b.Z) * (1f - (state.Twinkle * plain(point with { W = state.TwinkleRate * (float)t }, twinkle)));
+                Vector4 emitted = color(b.X);
+                Particle drawn = new(tail, head, float.Max(core + (defocus * float.Abs(k - focus) * side), 0.5f), Vector3.Zero, 0f);
+                (Vector2 low, Vector2 high) = drawn.Box(state.Iris, state.Softness);
                 if (low.X < window.Right && high.X > window.Left && low.Y < window.Bottom && high.Y > window.Top)
-                    particles.Add(drawn.Lit(profile, fade, profile.Area(core), color(NoiseFunctions.White(point, tone).X)));
+                    particles.Add(drawn.Lit(state.Iris, state.Softness, fade, float.Pi * core * core, emitted with { W = emitted.W * dim }));
             }
         }
         int[] starts = new int[tiles + 1];
@@ -227,7 +221,7 @@ public sealed record ParticleField(
                 int at = band + ((column + i - window.Left) / Tile);
                 (Vector2 pixel, Vector3 light, float clear) = (new Vector2(column + i + 0.5f, y + 0.5f), Vector3.Zero, 1f);
                 foreach (int index in lists.AsSpan(starts[at], starts[at + 1] - starts[at])) {
-                    Vector4 weight = drawn[index].Weight(profile, pixel, fade);
+                    Vector4 weight = drawn[index].Weight(state.Iris, state.Softness, pixel, fade);
                     (light, clear) = (light + (drawn[index].Light * weight.AsVector3()), clear * (1f - (weight.W * drawn[index].Opacity)));
                 }
                 row[i] = clear < 1f ? new Vector4(light / (1f - clear), 1f - clear) : Vector4.Zero;
@@ -237,11 +231,11 @@ public sealed record ParticleField(
         Vector2 Moved(double x, double y, Vector2 velocity, float k, double tau) {
             Vector2 rest = new((float)(x + (velocity.X * tau)), (float)(y + (velocity.Y * tau)));
             Vector4 sample = new(rest / eddy, evolution * (float)tau, 0f);
-            return rest + (turbulence * k * new Vector2((2f * basis.Sample(sample, across)) - 1f, (2f * basis.Sample(sample, down)) - 1f));
+            return rest + (turbulence * k * new Vector2((2f * basis(sample, across)) - 1f, (2f * basis(sample, down)) - 1f));
         }
 
         Rectangle Tiles(Particle drawn) =>
-            drawn.Box(profile) switch {
+            drawn.Box(state.Iris, state.Softness) switch {
                 var (low, high) => Rectangle.FromLTRB(
                     (int)float.Clamp(float.Floor((low.X - window.Left) / Tile), 0f, columns - 1), (int)float.Clamp(float.Floor((low.Y - window.Top) / Tile), 0f, rows - 1),
                     (int)float.Clamp(float.Floor((high.X - window.Left) / Tile), 0f, columns - 1) + 1, (int)float.Clamp(float.Floor((high.Y - window.Top) / Tile), 0f, rows - 1) + 1),
@@ -260,8 +254,6 @@ public sealed partial class ParticleFieldParameter : IStateParameter<ParticleFie
         Lens<ParticleField, Iris>.New(static particles => particles.Iris, static iris => particles => particles with { Iris = iris });
     private static readonly (StateParameter<ParticleField> Blades, StateParameter<ParticleField> Rotation, StateParameter<ParticleField> Roundness, StateParameter<ParticleField> Obstruction, StateParameter<ParticleField> Squeeze)
         Outline = Iris.Kinds(Diaphragm);
-    private static readonly (StateParameter<ParticleField> Mode, StateParameter<ParticleField> Exposure) Layer =
-        GeneratedLayer.Kinds(Lens<ParticleField, GeneratedLayer>.New(static particles => particles.Layer, static layer => particles => particles with { Layer = layer }));
     private static readonly Presentation<AxisFraction, float> Share = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
     private static readonly Presentation<Mix, float> Blend = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
     private static readonly Presentation<ShortSideLength, float> Footprint = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 0.05f) };
@@ -296,10 +288,12 @@ public sealed partial class ParticleFieldParameter : IStateParameter<ParticleFie
         Lens<ParticleField, AxisFraction>.New(static particles => particles.Focus, static focus => particles => particles with { Focus = focus }), Share));
     public static readonly ParticleFieldParameter Defocus = new("defocus", new StateParameter<ParticleField>.Bounded<ShortSideLength, float, InvalidPixelValue>(
         Lens<ParticleField, ShortSideLength>.New(static particles => particles.Defocus, static defocus => particles => particles with { Defocus = defocus }), Footprint));
-    public static readonly ParticleFieldParameter Shape = new("shape", new StateParameter<ParticleField>.Choice<ParticleShape, InvalidGenerator>(
-        Lens<ParticleField, ParticleShape>.New(static particles => particles.Shape, static shape => particles => particles with { Shape = shape })));
     public static readonly ParticleFieldParameter Size = new("size", new StateParameter<ParticleField>.Bounded<ShortSideLength, float, InvalidPixelValue>(
         Lens<ParticleField, ShortSideLength>.New(static particles => particles.Size, static size => particles => particles with { Size = size }), Footprint));
+    public static readonly ParticleFieldParameter Variation = new("variation", new StateParameter<ParticleField>.Bounded<AxisFraction, float, InvalidGrade>(
+        Lens<ParticleField, AxisFraction>.New(static particles => particles.Variation, static variation => particles => particles with { Variation = variation }), Share));
+    public static readonly ParticleFieldParameter Softness = new("softness", new StateParameter<ParticleField>.Bounded<AxisFraction, float, InvalidGrade>(
+        Lens<ParticleField, AxisFraction>.New(static particles => particles.Softness, static softness => particles => particles with { Softness = softness }), Share));
     public static readonly ParticleFieldParameter Blades = new("blades", Outline.Blades);
     public static readonly ParticleFieldParameter Rotation = new("rotation", Outline.Rotation);
     public static readonly ParticleFieldParameter Roundness = new("roundness", Outline.Roundness);
@@ -311,6 +305,9 @@ public sealed partial class ParticleFieldParameter : IStateParameter<ParticleFie
         ShutterTime.Presentation with { Soft = (0f, 1f / 24f) }));
     public static readonly ParticleFieldParameter Fade = new("fade", new StateParameter<ParticleField>.Bounded<Mix, float, InvalidGrade>(
         Lens<ParticleField, Mix>.New(static particles => particles.Fade, static fade => particles => particles with { Fade = fade }), Blend));
+    public static readonly ParticleFieldParameter Spread = new("spread", new StateParameter<ParticleField>.Bounded<ParticleSpread, float, InvalidGenerator>(
+        Lens<ParticleField, ParticleSpread>.New(static particles => particles.Spread, static spread => particles => particles with { Spread = spread }),
+        new() { Soft = (0f, 10f), Step = Exposure.Presentation.Step, Decimals = Exposure.Presentation.Decimals }));
     public static readonly ParticleFieldParameter Colors = new("colors", new StateParameter<ParticleField>.Gradient(
         Lens<ParticleField, Ramp>.New(static particles => particles.Colors, static colors => particles => particles with { Colors = colors })));
     public static readonly ParticleFieldParameter Cool = new("cool", new StateParameter<ParticleField>.Bounded<ColorTemperature, double, InvalidColor>(
@@ -319,8 +316,12 @@ public sealed partial class ParticleFieldParameter : IStateParameter<ParticleFie
         Lens<ParticleField, ColorTemperature>.New(static particles => particles.Hot, static hot => particles => particles with { Hot = hot }), Emission.Presentation));
     public static readonly ParticleFieldParameter Incandescence = new("incandescence", new StateParameter<ParticleField>.Bounded<Mix, float, InvalidGrade>(
         Lens<ParticleField, Mix>.New(static particles => particles.Incandescence, static incandescence => particles => particles with { Incandescence = incandescence }), Blend));
-    public static readonly ParticleFieldParameter Mode = new("mode", Layer.Mode);
-    public static readonly ParticleFieldParameter Exposure = new("exposure", Layer.Exposure);
+    public static readonly ParticleFieldParameter Twinkle = new("twinkle", new StateParameter<ParticleField>.Bounded<Mix, float, InvalidGrade>(
+        Lens<ParticleField, Mix>.New(static particles => particles.Twinkle, static twinkle => particles => particles with { Twinkle = twinkle }), Blend));
+    public static readonly ParticleFieldParameter TwinkleRate = new("twinkle-rate", new StateParameter<ParticleField>.Bounded<Frequency, float, InvalidGenerator>(
+        Lens<ParticleField, Frequency>.New(static particles => particles.TwinkleRate, static rate => particles => particles with { TwinkleRate = rate }), Frequency.Presentation with { Soft = (-4f, 4f) }));
+    public static readonly ParticleFieldParameter Layer = new("layer", new StateParameter<ParticleField>.Record<GeneratedLayer>(
+        Lens<ParticleField, GeneratedLayer>.New(static particles => particles.Layer, static layer => particles => particles with { Layer = layer })));
     public static readonly ParticleFieldParameter Seed = new("seed", new StateParameter<ParticleField>.Bounded<Seed, int, InvalidGenerator>(
         Lens<ParticleField, Seed>.New(static particles => particles.Seed, static seed => particles => particles with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly ParticleFieldParameter Clock = new("clock", Time.Clock);
@@ -330,23 +331,25 @@ public sealed partial class ParticleFieldParameter : IStateParameter<ParticleFie
 }
 
 file readonly record struct Particle(Vector2 Tail, Vector2 Head, float Radius, Vector3 Light, float Opacity) {
-    public (Vector2 Low, Vector2 High) Box<TProfile>(TProfile profile) where TProfile : struct, IParticleProfile<TProfile> =>
-        new Vector2(profile.Reach(Radius) + 1f) switch { var grown => (Vector2.Min(Tail, Head) - grown, Vector2.Max(Tail, Head) + grown) };
+    public (Vector2 Low, Vector2 High) Box(Iris iris, float softness) =>
+        new Vector2((iris.Circumradius * Radius) + (((softness * Radius) + 1f) / 2f)) switch { var grown => (Vector2.Min(Tail, Head) - grown, Vector2.Max(Tail, Head) + grown) };
 
-    public Vector4 Weight<TProfile>(TProfile profile, Vector2 pixel, float fade) where TProfile : struct, IParticleProfile<TProfile> =>
+    public Vector4 Weight(Iris iris, float softness, Vector2 pixel, float fade) =>
         (Head - Tail) switch {
             var sweep => (sweep == Vector2.Zero ? 1f : Easing.Saturate(Vector2.Dot(pixel - Tail, sweep) / sweep.LengthSquared())) switch {
-                var u => profile.Coverage(pixel - Tail - (u * sweep), Radius) * float.Lerp(1f, u, fade),
+                var u => iris.Outline(pixel - Tail - (u * sweep)) switch {
+                    var (reach, edge) => iris.Weights(reach, edge / ((softness * Radius) + 1f), Radius) * float.Lerp(1f, u, fade),
+                },
             },
         };
 
-    public Particle Lit<TProfile>(TProfile profile, float fade, float light, Vector4 color) where TProfile : struct, IParticleProfile<TProfile> {
-        (Vector2 low, Vector2 high) = Box(profile);
+    public Particle Lit(Iris iris, float softness, float fade, float light, Vector4 color) {
+        (Vector2 low, Vector2 high) = Box(iris, softness);
         (int left, int top) = ((int)float.Ceiling(low.X - 0.5f), (int)float.Ceiling(low.Y - 0.5f));
         (int wide, int tall) = ((int)float.Floor(high.X - 0.5f) - left + 1, (int)float.Floor(high.Y - 0.5f) - top + 1);
         Vector3 mass = Vector3.Zero;
         for (int n = 0; n < wide * tall; n++)
-            mass += Weight(profile, new Vector2(left + (n % wide) + 0.5f, top + (n / wide) + 0.5f), fade).AsVector3();
+            mass += Weight(iris, softness, new Vector2(left + (n % wide) + 0.5f, top + (n / wide) + 0.5f), fade).AsVector3();
         return this with {
             Light = Vector3.ConditionalSelect(Vector3.GreaterThan(mass, Vector3.Zero), color.AsVector3() * (color.W * light) / mass, Vector3.Zero),
             Opacity = color.W,

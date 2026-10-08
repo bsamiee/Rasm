@@ -21,6 +21,7 @@ public readonly partial struct PixelExtent {
 
     public int Width { get; }
     public int Height { get; }
+    public int ShortSide => int.Min(Width, Height);
     public PixelExtent Transposed => new(Height, Width);
 
     public PixelExtent Fitted(PixelExtent bound) =>

@@ -26,7 +26,7 @@ public sealed record TransformedObjects(Transform Transform, bool ObjectsWillBeC
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class FileBatch {
-    private readonly System.Threading.Lock gate = new();
+    private readonly Lock gate = new();
     private readonly TimeProvider clock;
     private readonly Duration quiet;
     private Option<(long Timestamp, Seq<Either<ErrorEventArgs, FileSystemEventArgs>> Changes)> pending;
@@ -50,7 +50,7 @@ internal sealed class FileBatch {
         });
 
     private Option<Seq<Either<ErrorEventArgs, FileSystemEventArgs>>> Take() {
-        using System.Threading.Lock.Scope scope = gate.EnterScope();
+        using Lock.Scope scope = gate.EnterScope();
         return pending.Bind(batch => {
             TimeSpan remaining = quiet.ToTimeSpan() - clock.GetElapsedTime(batch.Timestamp);
             if (remaining > TimeSpan.Zero) {

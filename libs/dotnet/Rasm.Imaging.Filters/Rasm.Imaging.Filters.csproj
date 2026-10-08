@@ -14,6 +14,10 @@
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
+    <ItemGroup Label="Mathematics">
+        <PackageReference Include="MathNet.Numerics" />
+    </ItemGroup>
+
     <ItemGroup Label="Imaging">
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="Emgu.CV.runtime.mini.macos" />

@@ -16,11 +16,16 @@ public enum KeyDomain {
     Tile = 6,
 }
 
+// --- [MODELS] --------------------------------------------------------------------------
+[ValueObject<UInt128>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValidationError<InvalidRhinoValue>]
+public readonly partial struct ContentKey {
+    public static ContentKey Of(KeyDomain domain, Func<XxHash128, XxHash128> fields) =>
+        new(fields(new XxHash128().Integer((int)domain)).GetCurrentHashAsUInt128());
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentKeys {
-    public static UInt128 Of(KeyDomain domain, Func<XxHash128, XxHash128> fields) =>
-        fields(new XxHash128().Integer((int)domain)).GetCurrentHashAsUInt128();
-
     extension(XxHash128 accumulator) {
         public XxHash128 Integer<T>(T value) where T : unmanaged, IBinaryInteger<T> {
             Span<byte> field = stackalloc byte[value.GetByteCount()];
@@ -28,8 +33,6 @@ public static class ContentKeys {
             accumulator.Append(field);
             return accumulator;
         }
-
-        public XxHash128 Flag(bool value) => accumulator.Integer(Convert.ToInt32(value));
 
         public XxHash128 Text(string value) {
             byte[] field = Encoding.UTF8.GetBytes(value);

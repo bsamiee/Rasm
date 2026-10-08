@@ -1,6 +1,3 @@
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Modeling.Curves;
-
 namespace Arches.Profiles;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

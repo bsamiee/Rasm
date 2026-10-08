@@ -94,17 +94,17 @@ public sealed record FilmDamage(
         uint field = CoordinateHash.Field(NoiseStream.FilmDamage, state.Seed, 0u);
         Vector4 term = new(clock * state.WeaveRate, 0f, 0f, 0f);
         Vector2 shift = new Vector2(state.WeaveX.Pixels(extent), state.WeaveY.Pixels(extent))
-            * new Vector2(NoiseDimensions.One.Fbm(term, Octaves.Standard, CoordinateHash.Branch(field, axes)), NoiseDimensions.One.Fbm(term, Octaves.Standard, CoordinateHash.Branch(field, axes + 1u)));
+            * new Vector2(NoiseDimensions.One.Fbm(term, Octaves.Default, CoordinateHash.Branch(field, axes)), NoiseDimensions.One.Fbm(term, Octaves.Default, CoordinateHash.Branch(field, axes + 1u)));
         return new CoordinateMap.Analytic((points, _, _) => {
             foreach (ref Vector2 point in points)
                 point -= shift;
-        }, Sampling.Linear, EdgeMode.Clamp);
+        }, Sampling.Linear, WrapMode.Clamp);
     }
 
     private static Func<Vector2, float> Speckle(DamageLayer layer, uint draw, Clock clock) {
         const float floor = 0.6012f;
         const float ceiling = 0.8882f;
-        Octaves color = Octaves.Standard with { Detail = FractalDetail.Create(4.4f) };
+        Octaves color = Octaves.Default with { Detail = FractalDetail.Create(4.4f) };
         GaborFrequency frequency = GaborFrequency.Create(1.1f);
         (uint red, uint green, uint blue, uint gabor) = (CoordinateHash.Branch(draw, 1u), CoordinateHash.Branch(draw, 2u), CoordinateHash.Branch(draw, 3u), CoordinateHash.Branch(draw, 4u));
         return q => {
@@ -125,9 +125,9 @@ public sealed record FilmDamage(
 
     private static Func<Vector2, float> Scratch(DamageLayer layer, uint draw, Clock clock) {
         const float floor = 0.725f;
-        Octaves octaves = Octaves.Standard with { Detail = FractalDetail.Create(4f) };
+        Octaves octaves = Octaves.Default with { Detail = FractalDetail.Create(4f) };
         uint lines = CoordinateHash.Branch(draw, 1u);
-        float drift = layer.Size * NoiseDimensions.One.Fbm(new Vector4(clock / layer.Hold, 0f, 0f, 0f), Octaves.Standard, CoordinateHash.Branch(draw, 2u));
+        float drift = layer.Size * NoiseDimensions.One.Fbm(new Vector4(clock / layer.Hold, 0f, 0f, 0f), Octaves.Default, CoordinateHash.Branch(draw, 2u));
         return q => Easing.Saturate((0.5f + (0.5f * NoiseDimensions.One.Fbm(new Vector4((q.X + drift) / layer.Size, 0f, 0f, 0f), octaves, lines)) + layer.Density - floor) / (1f - floor));
     }
 
@@ -225,7 +225,7 @@ public sealed record FilmFlicker(Exposure Depth, Frequency Rate, Seed Seed, Timi
         state.Depth == Exposure.Neutral
             ? None
             : new Vector4(new Vector3(float.Exp2(state.Depth * NoiseDimensions.One.Fbm(
-                new Vector4(state.Timing.At(context) * state.Rate, 0f, 0f, 0f), Octaves.Standard, CoordinateHash.Field(NoiseStream.FilmFlicker, state.Seed, 0u)))), 1f) switch {
+                new Vector4(state.Timing.At(context) * state.Rate, 0f, 0f, 0f), Octaves.Default, CoordinateHash.Field(NoiseStream.FilmFlicker, state.Seed, 0u)))), 1f) switch {
                     var gain => Some<PixelPass>(new PixelPass.Color(row => {
                         foreach (ref Vector4 pixel in row)
                             pixel *= gain;

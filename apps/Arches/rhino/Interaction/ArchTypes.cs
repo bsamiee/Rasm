@@ -1,5 +1,4 @@
 using Arches.Profiles;
-using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.UI;
 

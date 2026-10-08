@@ -31,7 +31,7 @@ public readonly partial struct Spread : IMinMaxValue<Spread> {
     public static Spread MinValue => Off;
     public static Spread MaxValue { get; } = new(0.05f);
 
-    public float Pixels(PixelExtent extent) => _value * int.Min(extent.Width, extent.Height);
+    public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
@@ -172,7 +172,7 @@ public sealed record CrtDisplay(
         };
 
     private static Fin<Unit> Kernel(CrtDisplay state, PassContext context, PixelFrame frame, IProgress<int> progress) =>
-        (state.Collapse == Mix.MinValue ? unit : new CoordinateMap.Analytic(Deflection(state.Scales, context.Extent), Sampling.Linear, EdgeMode.Black).Apply(frame, progress))
+        (state.Collapse == Mix.MinValue ? unit : new CoordinateMap.Analytic(Deflection(state.Scales, context.Extent), Sampling.Linear, WrapMode.Black).Apply(frame, progress))
             .Bind(_ => {
                 if (state.Glow != Spread.Off)
                     Bloom(frame, state.Glow.Pixels(context.Extent));
@@ -343,12 +343,12 @@ public sealed record AnalogVideo(
                 (points, _, _) => {
                     foreach (ref Vector2 point in points)
                         point.Y += rise;
-                }, Sampling.Linear, EdgeMode.Periodic)
+                }, Sampling.Linear, WrapMode.Periodic)
             .Then(new CoordinateMap.Analytic(
                 (points, _, _) => {
                     foreach (ref Vector2 point in points)
                         point.Y -= jump;
-                }, Sampling.Linear, EdgeMode.Black))
+                }, Sampling.Linear, WrapMode.Black))
             .Then(new CoordinateMap.Analytic(
                 (points, _, _) => {
                     foreach (ref Vector2 point in points) {
@@ -358,7 +358,7 @@ public sealed record AnalogVideo(
                         point.X -= ((line & 1) * interlace) + (jitter * jitters[line + reach]) + (wrinkle * float.Max(0f, 1f - (MathF.Abs(distance) / wrinkleBand)))
                             + (band is >= 0f and < 1f ? switching * (band < SwitchCrest ? band / SwitchCrest : (1f - band) / (1f - SwitchCrest)) : 0f);
                     }
-                }, Sampling.Linear, EdgeMode.Clamp));
+                }, Sampling.Linear, WrapMode.Clamp));
     }
 
     private static void Signal(AnalogVideo state, PixelExtent extent, Clock now, PixelFrame frame) {
@@ -711,13 +711,13 @@ public sealed partial class CodecDamageParameter : IStateParameter<CodecDamage> 
 public sealed record Glitch(
     ShortSideExtent BlockWidth, ShortSideExtent BlockHeight, Likelihood BlockDensity, ShortSideLength BlockShift, ShortSideLength BlockLift,
     ShortSideLength Tear, ShortSideExtent TearPeriod, ShortSideOffset Split, SignedAngle SplitDirection, MappingJitter SplitJitter,
-    WarpShare Slide, ShutterSamples SlideSamples, YuvMatrix Matrix, Mix LumaCorruption, Mix ChromaCorruption, EdgeMode Wrap,
+    WarpShare Slide, YuvMatrix Matrix, Mix LumaCorruption, Mix ChromaCorruption, WrapMode Wrap,
     Seed Seed, Timing Timing, Hold Hold)
     : IStateRecord<Glitch, GlitchParameter, InvalidStylize>, IPixelStage<Glitch> {
     public static Glitch Default { get; } = new(
         ShortSideExtent.Create(1f / (5f * 0.1f)), ShortSideExtent.Create(1f / 5f), Likelihood.Off, ShortSideLength.Neutral, ShortSideLength.Neutral,
         ShortSideLength.Neutral, ShortSideExtent.Create(MathF.Tau / 20f), ShortSideOffset.Neutral, SignedAngle.Neutral, MappingJitter.Neutral,
-        WarpShare.Neutral, ShutterSamples.Create(6), YuvMatrix.Rec601, Mix.MinValue, Mix.MinValue, EdgeMode.Periodic,
+        WarpShare.Neutral, YuvMatrix.Rec601, Mix.MinValue, Mix.MinValue, WrapMode.Periodic,
         Seed.MinValue, Timing.Standard, Hold.MinValue);
 
     public static Glitch Corruption { get; } = Default with {
@@ -761,7 +761,7 @@ public sealed record Glitch(
     }
 
     private static Action<Span<Vector2>, Span<float>, PixelExtent> Displacement(Glitch state, PixelExtent extent, uint field, float phase) {
-        (Vector2 centre, float side) = (new Vector2(extent.Width, extent.Height) / 2f, int.Min(extent.Width, extent.Height));
+        (Vector2 centre, float side) = (new Vector2(extent.Width, extent.Height) / 2f, extent.ShortSide);
         (uint cells, uint draws) = (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u));
         (float tear, float period) = (state.Tear, state.TearPeriod);
         return (points, _, _) => {
@@ -776,13 +776,12 @@ public sealed record Glitch(
     }
 
     private static Func<PixelFrame, IProgress<int>, Fin<Unit>> Splits(Glitch state, PixelExtent extent, float draw, CoordinateMap blocks) {
-        int samples = state.Slide == WarpShare.Neutral ? 1 : state.SlideSamples.Count(extent);
         float reach = state.Split.Pixels(extent) * (1f - state.SplitJitter + (state.SplitJitter * ((2f * draw) - 1f)));
         Vector2 direction = float.SinCos(state.SplitDirection) switch { var (sin, cos) => new Vector2(cos, -sin) };
-        return CoordinateMap.Integrated(3 * samples, tau => {
-            int index = (int)MathF.Round(tau * 3f * samples, MidpointRounding.ToEven);
-            float shift = reach * float.Lerp(1f - state.Slide, 1f, index % samples / (float)samples);
-            (Vector2 offset, Vector4 lanes) = (index / samples) switch {
+        return CoordinateMap.Integrated(tau => {
+            int channel = int.Min((int)(3f * tau), 2);
+            float shift = reach * float.Lerp(1f - state.Slide, 1f, (3f * tau) - channel);
+            (Vector2 offset, Vector4 lanes) = channel switch {
                 0 => (shift * direction, Vector4.UnitX),
                 1 => (-shift * direction, Vector4.UnitZ),
                 _ => (Vector2.Zero, new Vector4(0f, 1f, 0f, 1f)),
@@ -799,7 +798,7 @@ public sealed record Glitch(
     private static Action<Span<Vector4>, int, int> Corrupted(Glitch state, PixelExtent extent, uint field) {
         ChromaAxes axes = new(state.Matrix.Weights());
         (Matrix4x4 forward, Matrix4x4 inverse) = (axes.Forward, axes.Inverse);
-        (Vector2 centre, float side) = (new Vector2(extent.Width, extent.Height) / 2f, int.Min(extent.Width, extent.Height));
+        (Vector2 centre, float side) = (new Vector2(extent.Width, extent.Height) / 2f, extent.ShortSide);
         (uint cells, uint draws, uint powers) = (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u));
         (float luma, float chroma) = (state.LumaCorruption, state.ChromaCorruption);
         return (row, column, line) => {
@@ -821,7 +820,7 @@ public sealed record Glitch(
     }
 
     private static (bool Active, Vector4 Site, Vector4 Draw) Cell(Glitch state, Vector2 q, uint cells, uint draws) {
-        Vector4 site = NoiseDimensions.Two.F1(new Vector4(q.X / state.BlockWidth, q.Y / state.BlockHeight, 0f, 0f), Octaves.Plain, Cellular.Standard, cells).Site;
+        Vector4 site = NoiseDimensions.Two.F1(new Vector4(q.X / state.BlockWidth, q.Y / state.BlockHeight, 0f, 0f), Octaves.Plain, Cellular.Default, cells).Site;
         Vector4 draw = NoiseFunctions.White(site, draws);
         return (draw.X < state.BlockDensity, site, draw);
     }
@@ -874,7 +873,7 @@ public sealed partial class GlitchParameter : IStateParameter<Glitch> {
         "split-direction",
         new StateParameter<Glitch>.Bounded<SignedAngle, float, InvalidPixelValue>(
             Lens<Glitch, SignedAngle>.New(static glitch => glitch.SplitDirection, static direction => glitch => glitch with { SplitDirection = direction }),
-            Presentations.Angle));
+            SignedAngle.Presentation));
     public static readonly GlitchParameter SplitJitter = new(
         "split-jitter",
         new StateParameter<Glitch>.Bounded<MappingJitter, float, InvalidStylize>(
@@ -882,10 +881,6 @@ public sealed partial class GlitchParameter : IStateParameter<Glitch> {
     public static readonly GlitchParameter Slide = new(
         "slide",
         new StateParameter<Glitch>.Bounded<WarpShare, float, InvalidWarp>(Lens<Glitch, WarpShare>.New(static glitch => glitch.Slide, static slide => glitch => glitch with { Slide = slide }), new()));
-    public static readonly GlitchParameter SlideSamples = new(
-        "slide-samples",
-        new StateParameter<Glitch>.Bounded<ShutterSamples, int, InvalidWarp>(
-            Lens<Glitch, ShutterSamples>.New(static glitch => glitch.SlideSamples, static samples => glitch => glitch with { SlideSamples = samples }), Presentations.Samples));
     public static readonly GlitchParameter Matrix = new(
         "matrix", new StateParameter<Glitch>.Choice<YuvMatrix, InvalidStylize>(Lens<Glitch, YuvMatrix>.New(static glitch => glitch.Matrix, static matrix => glitch => glitch with { Matrix = matrix })));
     public static readonly GlitchParameter LumaCorruption = new(
@@ -897,7 +892,7 @@ public sealed partial class GlitchParameter : IStateParameter<Glitch> {
         new StateParameter<Glitch>.Bounded<Mix, float, InvalidGrade>(
             Lens<Glitch, Mix>.New(static glitch => glitch.ChromaCorruption, static corruption => glitch => glitch with { ChromaCorruption = corruption }), new()));
     public static readonly GlitchParameter Wrap = new(
-        "wrap", new StateParameter<Glitch>.Choice<EdgeMode, InvalidWarp>(Lens<Glitch, EdgeMode>.New(static glitch => glitch.Wrap, static wrap => glitch => glitch with { Wrap = wrap })));
+        "wrap", new StateParameter<Glitch>.Choice<WrapMode, InvalidPixelValue>(Lens<Glitch, WrapMode>.New(static glitch => glitch.Wrap, static wrap => glitch => glitch with { Wrap = wrap })));
     public static readonly GlitchParameter Seed = new(
         "seed",
         new StateParameter<Glitch>.Bounded<Seed, int, InvalidGenerator>(

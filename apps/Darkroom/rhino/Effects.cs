@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using Eto.Forms;
-using Rasm.Rhino.Display;
 using Rhino.PlugIns;
 using Rhino.Render.PostEffects;
 

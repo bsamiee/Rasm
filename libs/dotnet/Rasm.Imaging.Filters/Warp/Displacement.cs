@@ -12,6 +12,11 @@ using UnitsNet.Units;
 
 namespace Rasm.Imaging.Filters.Warp;
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+file static class Amounts {
+    public static Presentation<ShortSideOffset, float> Shift { get; } = ShortSideOffset.Presentation with { Soft = (-0.1f, 0.1f) };
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidWarp>]
@@ -152,10 +157,10 @@ public sealed partial class MapReading {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MapFit {
-    public static readonly MapFit Stretch = new("stretch", EdgeMode.Clamp, static (_, image, frame) => new Vector2(image.Width, image.Height) / new Vector2(frame.Width, frame.Height));
-    public static readonly MapFit Tile = new("tile", EdgeMode.Periodic, static (state, image, frame) => new Vector2(image.Height / state.TileSize.Pixels(frame)));
+    public static readonly MapFit Stretch = new("stretch", WrapMode.Clamp, static (_, image, frame) => new Vector2(image.Width, image.Height) / new Vector2(frame.Width, frame.Height));
+    public static readonly MapFit Tile = new("tile", WrapMode.Periodic, static (state, image, frame) => new Vector2(image.Height / state.TileSize.Pixels(frame)));
 
-    public EdgeMode Wrap { get; }
+    public WrapMode Wrap { get; }
 
     [UseDelegateFromConstructor]
     public partial Vector2 Scale(MapDisplacement state, PixelExtent image, PixelExtent frame);
@@ -195,7 +200,7 @@ public sealed partial class RefractionField {
     });
     public static readonly RefractionField Frosted = new("frosted", None, static (state, _) => {
         (float scale, uint field) = (state.Scale, CoordinateHash.Branch(CoordinateHash.Field(NoiseStream.Refraction, state.Seed, 0u), 2u));
-        return q => 0.5f + (0.5f * NoiseDimensions.Two.Fbm(new Vector4(q / scale, 0f, 0f), Octaves.Standard, field));
+        return q => 0.5f + (0.5f * NoiseDimensions.Two.Fbm(new Vector4(q / scale, 0f, 0f), Octaves.Default, field));
     });
     public static readonly RefractionField TinyLens = new("tiny-lens", None, static (state, _) => {
         float scale = state.Scale;
@@ -212,9 +217,9 @@ public sealed partial class RefractionField {
     private static Vector2 Fraction(Vector2 cell) => cell - Vector2.Round(cell, MidpointRounding.ToNegativeInfinity);
 }
 
-public sealed record Twirl(TwirlAngle Angle, ShortSideLength Radius, FalloffPower Falloff, ArmCount Arms, SignedAngle ArmOffset, FramePosition Center, Sampling Sampling, EdgeMode Wrap)
+public sealed record Twirl(TwirlAngle Angle, ShortSideLength Radius, FalloffPower Falloff, ArmCount Arms, SignedAngle ArmOffset, FramePosition Center, Sampling Sampling, WrapMode Wrap)
     : IStateRecord<Twirl, TwirlParameter, InvalidWarp>, IPixelStage<Twirl> {
-    public static Twirl Default { get; } = new(TwirlAngle.Off, ShortSideLength.Create(0.5f), FalloffPower.Linear, ArmCount.Uniform, SignedAngle.Neutral, FramePosition.Center, Sampling.Linear, EdgeMode.Periodic);
+    public static Twirl Default { get; } = new(TwirlAngle.Off, ShortSideLength.Create(0.5f), FalloffPower.Linear, ArmCount.Uniform, SignedAngle.Neutral, FramePosition.Center, Sampling.Linear, WrapMode.Periodic);
 
     public static Option<PixelPass> Pass(Twirl state, PassContext context) =>
         state.Angle == TwirlAngle.Off || state.Radius == ShortSideLength.Neutral
@@ -246,26 +251,26 @@ public sealed partial class TwirlParameter : IStateParameter<Twirl> {
         Lens<Twirl, TwirlAngle>.New(static state => state.Angle, static angle => state => state with { Angle = angle }),
         new() { Unit = UnitsNet.Quantity.GetUnitInfo(AngleUnit.Radian), Soft = (-float.Tau, float.Tau), Origin = (float)TwirlAngle.Off }));
     public static readonly TwirlParameter Radius = new("radius", new StateParameter<Twirl>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-        Lens<Twirl, ShortSideLength>.New(static state => state.Radius, static radius => state => state with { Radius = radius }), Presentations.Radius));
+        Lens<Twirl, ShortSideLength>.New(static state => state.Radius, static radius => state => state with { Radius = radius }), ShortSideLength.Presentation));
     public static readonly TwirlParameter Falloff = new("falloff", new StateParameter<Twirl>.Bounded<FalloffPower, float, InvalidWarp>(
         Lens<Twirl, FalloffPower>.New(static state => state.Falloff, static falloff => state => state with { Falloff = falloff }), new() { Soft = (0.25f, 4f), Scale = TrackScale.Log }));
     public static readonly TwirlParameter Arms = new("arms", new StateParameter<Twirl>.Bounded<ArmCount, int, InvalidWarp>(
         Lens<Twirl, ArmCount>.New(static state => state.Arms, static arms => state => state with { Arms = arms }), new() { Soft = (0, 8) }));
     public static readonly TwirlParameter ArmOffset = new("arm-offset", new StateParameter<Twirl>.Bounded<SignedAngle, float, InvalidPixelValue>(
-        Lens<Twirl, SignedAngle>.New(static state => state.ArmOffset, static offset => state => state with { ArmOffset = offset }), Presentations.Angle));
+        Lens<Twirl, SignedAngle>.New(static state => state.ArmOffset, static offset => state => state with { ArmOffset = offset }), SignedAngle.Presentation));
     public static readonly TwirlParameter CenterX = new("center-x", Centered.X);
     public static readonly TwirlParameter CenterY = new("center-y", Centered.Y);
     public static readonly TwirlParameter Sampling = new("sampling", new StateParameter<Twirl>.Choice<Sampling, InvalidWarp>(
         Lens<Twirl, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })));
-    public static readonly TwirlParameter Wrap = new("wrap", new StateParameter<Twirl>.Choice<EdgeMode, InvalidWarp>(
-        Lens<Twirl, EdgeMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
+    public static readonly TwirlParameter Wrap = new("wrap", new StateParameter<Twirl>.Choice<WrapMode, InvalidPixelValue>(
+        Lens<Twirl, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
 
     public StateParameter<Twirl> Kind { get; }
 }
 
-public sealed record Bulge(WarpAmount Amount, BulgeMode Mode, ShortSideLength Radius, FramePosition Center, Sampling Sampling, EdgeMode Wrap)
+public sealed record Bulge(WarpAmount Amount, BulgeMode Mode, ShortSideLength Radius, FramePosition Center, Sampling Sampling, WrapMode Wrap)
     : IStateRecord<Bulge, BulgeParameter, InvalidWarp>, IPixelStage<Bulge> {
-    public static Bulge Default { get; } = new(WarpAmount.Off, BulgeMode.Round, ShortSideLength.Create(0.5f), FramePosition.Center, Sampling.Linear, EdgeMode.Clamp);
+    public static Bulge Default { get; } = new(WarpAmount.Off, BulgeMode.Round, ShortSideLength.Create(0.5f), FramePosition.Center, Sampling.Linear, WrapMode.Clamp);
 
     public static Option<PixelPass> Pass(Bulge state, PassContext context) =>
         state.Amount == WarpAmount.Off || state.Radius == ShortSideLength.Neutral
@@ -298,13 +303,13 @@ public sealed partial class BulgeParameter : IStateParameter<Bulge> {
     public static readonly BulgeParameter Mode = new("mode", new StateParameter<Bulge>.Choice<BulgeMode, InvalidWarp>(
         Lens<Bulge, BulgeMode>.New(static state => state.Mode, static mode => state => state with { Mode = mode })));
     public static readonly BulgeParameter Radius = new("radius", new StateParameter<Bulge>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-        Lens<Bulge, ShortSideLength>.New(static state => state.Radius, static radius => state => state with { Radius = radius }), Presentations.Radius));
+        Lens<Bulge, ShortSideLength>.New(static state => state.Radius, static radius => state => state with { Radius = radius }), ShortSideLength.Presentation));
     public static readonly BulgeParameter CenterX = new("center-x", Centered.X);
     public static readonly BulgeParameter CenterY = new("center-y", Centered.Y);
     public static readonly BulgeParameter Sampling = new("sampling", new StateParameter<Bulge>.Choice<Sampling, InvalidWarp>(
         Lens<Bulge, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })));
-    public static readonly BulgeParameter Wrap = new("wrap", new StateParameter<Bulge>.Choice<EdgeMode, InvalidWarp>(
-        Lens<Bulge, EdgeMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
+    public static readonly BulgeParameter Wrap = new("wrap", new StateParameter<Bulge>.Choice<WrapMode, InvalidPixelValue>(
+        Lens<Bulge, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
 
     public StateParameter<Bulge> Kind { get; }
 }
@@ -312,12 +317,12 @@ public sealed partial class BulgeParameter : IStateParameter<Bulge> {
 public sealed record Wave(
     WaveFront Front, WaveProfile Profile, WaveCount Count, ShortSideExtent MinWavelength, ShortSideExtent MaxWavelength, WarpShare MinAmplitude, WarpShare MaxAmplitude,
     ShortSideOffset Horizontal, ShortSideOffset Vertical, SignedAngle Direction, SignedAngle Spread, ShortSideLength Radius, FramePosition Center, Frequency Rate,
-    Seed Seed, Timing Timing, Hold Hold, Sampling Sampling, EdgeMode Wrap)
+    Seed Seed, Timing Timing, Hold Hold, Sampling Sampling, WrapMode Wrap)
     : IStateRecord<Wave, WaveParameter, InvalidWarp>, IPixelStage<Wave> {
     public static Wave Default { get; } = new(
         WaveFront.Linear, WaveProfile.Sine, WaveCount.Standard, ShortSideExtent.Create(10f / 1080f), ShortSideExtent.Create(120f / 1080f), WarpShare.Create(5f / 35f), WarpShare.MaxValue,
         ShortSideOffset.Neutral, ShortSideOffset.Neutral, SignedAngle.Neutral, SignedAngle.Neutral, ShortSideLength.Create(0.5f), FramePosition.Center, Frequency.Neutral,
-        Seed.MinValue, Timing.Standard, Hold.MinValue, Sampling.Linear, EdgeMode.Black);
+        Seed.MinValue, Timing.Standard, Hold.MinValue, Sampling.Linear, WrapMode.Black);
 
     public static Option<PixelPass> Pass(Wave state, PassContext context) =>
         (state.Horizontal == ShortSideOffset.Neutral && state.Vertical == ShortSideOffset.Neutral)
@@ -327,7 +332,7 @@ public sealed record Wave(
             : Some<PixelPass>(new PixelPass.Frame(new CoordinateMap.Analytic(state.Kernel(context), state.Sampling, state.Wrap).Apply));
 
     private Action<Span<Vector2>, Span<float>, PixelExtent> Kernel(PassContext context) {
-        (Vector2 center, float side) = (Center.Point(context.Extent), int.Min(context.Extent.Width, context.Extent.Height));
+        (Vector2 center, float side) = (Center.Point(context.Extent), context.Extent.ShortSide);
         (Vector2 amounts, float radius, float phase, int count) = (side * new Vector2(Horizontal, Vertical), Radius, Rate * Hold.Held(Timing.At(context)), Count);
         uint field = CoordinateHash.Field(NoiseStream.Wave, Seed, 0u);
         (Vector2 Along, Vector2 Across, float Wavelength, float Amplitude, float Phase)[] waves = [.. Enumerable.Range(0, count).Select(i =>
@@ -382,19 +387,19 @@ public sealed partial class WaveParameter : IStateParameter<Wave> {
     public static readonly WaveParameter MaxAmplitude = new("max-amplitude", new StateParameter<Wave>.Bounded<WarpShare, float, InvalidWarp>(
         Lens<Wave, WarpShare>.New(static state => state.MaxAmplitude, static amplitude => state => state with { MaxAmplitude = amplitude }), new()));
     public static readonly WaveParameter Horizontal = new("horizontal", new StateParameter<Wave>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-        Lens<Wave, ShortSideOffset>.New(static state => state.Horizontal, static amount => state => state with { Horizontal = amount }), Presentations.Shift));
+        Lens<Wave, ShortSideOffset>.New(static state => state.Horizontal, static amount => state => state with { Horizontal = amount }), Amounts.Shift));
     public static readonly WaveParameter Vertical = new("vertical", new StateParameter<Wave>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-        Lens<Wave, ShortSideOffset>.New(static state => state.Vertical, static amount => state => state with { Vertical = amount }), Presentations.Shift));
+        Lens<Wave, ShortSideOffset>.New(static state => state.Vertical, static amount => state => state with { Vertical = amount }), Amounts.Shift));
     public static readonly WaveParameter Direction = new("direction", new StateParameter<Wave>.Bounded<SignedAngle, float, InvalidPixelValue>(
-        Lens<Wave, SignedAngle>.New(static state => state.Direction, static direction => state => state with { Direction = direction }), Presentations.Angle));
+        Lens<Wave, SignedAngle>.New(static state => state.Direction, static direction => state => state with { Direction = direction }), SignedAngle.Presentation));
     public static readonly WaveParameter Spread = new("spread", new StateParameter<Wave>.Bounded<SignedAngle, float, InvalidPixelValue>(
-        Lens<Wave, SignedAngle>.New(static state => state.Spread, static spread => state => state with { Spread = spread }), Presentations.HalfTurn));
+        Lens<Wave, SignedAngle>.New(static state => state.Spread, static spread => state => state with { Spread = spread }), SignedAngle.Presentation with { Soft = (0f, float.Pi) }));
     public static readonly WaveParameter Radius = new("radius", new StateParameter<Wave>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-        Lens<Wave, ShortSideLength>.New(static state => state.Radius, static radius => state => state with { Radius = radius }), Presentations.Radius));
+        Lens<Wave, ShortSideLength>.New(static state => state.Radius, static radius => state => state with { Radius = radius }), ShortSideLength.Presentation));
     public static readonly WaveParameter CenterX = new("center-x", Centered.X);
     public static readonly WaveParameter CenterY = new("center-y", Centered.Y);
     public static readonly WaveParameter Rate = new("rate", new StateParameter<Wave>.Bounded<Frequency, float, InvalidGenerator>(
-        Lens<Wave, Frequency>.New(static state => state.Rate, static rate => state => state with { Rate = rate }), Presentations.Rate));
+        Lens<Wave, Frequency>.New(static state => state.Rate, static rate => state => state with { Rate = rate }), Frequency.Presentation with { Soft = (-2f, 2f) }));
     public static readonly WaveParameter Seed = new("seed", new StateParameter<Wave>.Bounded<Seed, int, InvalidGenerator>(
         Lens<Wave, Seed>.New(static state => state.Seed, static seed => state => state with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly WaveParameter Clock = new("clock", Time.Clock);
@@ -403,18 +408,18 @@ public sealed partial class WaveParameter : IStateParameter<Wave> {
         Lens<Wave, Hold>.New(static state => state.Hold, static hold => state => state with { Hold = hold }), Generators.Hold.Presentation));
     public static readonly WaveParameter Sampling = new("sampling", new StateParameter<Wave>.Choice<Sampling, InvalidWarp>(
         Lens<Wave, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })));
-    public static readonly WaveParameter Wrap = new("wrap", new StateParameter<Wave>.Choice<EdgeMode, InvalidWarp>(
-        Lens<Wave, EdgeMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
+    public static readonly WaveParameter Wrap = new("wrap", new StateParameter<Wave>.Choice<WrapMode, InvalidPixelValue>(
+        Lens<Wave, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
 
     public StateParameter<Wave> Kind { get; }
 }
 
 public sealed record Turbulence(
-    NoiseBasis Basis, ShortSideExtent Scale, ShortSideOffset Horizontal, ShortSideOffset Vertical, Frequency Rate, Seed Seed, Timing Timing, Hold Hold, Sampling Sampling, EdgeMode Wrap)
+    NoiseBasis Basis, ShortSideExtent Scale, ShortSideOffset Horizontal, ShortSideOffset Vertical, Frequency Rate, Seed Seed, Timing Timing, Hold Hold, Sampling Sampling, WrapMode Wrap)
     : IStateRecord<Turbulence, TurbulenceParameter, InvalidWarp>, IPixelStage<Turbulence> {
     public static Turbulence Default { get; } = new(
         NoiseBasis.Default, ShortSideExtent.Create(1920f / 1080f), ShortSideOffset.Neutral, ShortSideOffset.Neutral, Frequency.Neutral,
-        Seed.MinValue, Timing.Standard, Hold.MinValue, Sampling.Linear, EdgeMode.Clamp);
+        Seed.MinValue, Timing.Standard, Hold.MinValue, Sampling.Linear, WrapMode.Clamp);
 
     public static Option<PixelPass> Pass(Turbulence state, PassContext context) =>
         state.Horizontal == ShortSideOffset.Neutral && state.Vertical == ShortSideOffset.Neutral
@@ -422,15 +427,15 @@ public sealed record Turbulence(
             : Some<PixelPass>(new PixelPass.Frame(new CoordinateMap.Analytic(state.Kernel(context), state.Sampling, state.Wrap).Apply));
 
     private Action<Span<Vector2>, Span<float>, PixelExtent> Kernel(PassContext context) {
-        (Vector2 half, float side) = (new Vector2(context.Extent.Width, context.Extent.Height) / 2f, int.Min(context.Extent.Width, context.Extent.Height));
-        (NoiseSampler sampler, Vector2 amounts, float scale, float depth) = (Basis.Sampler, side * new Vector2(Horizontal, Vertical), Scale, Rate * Hold.Held(Timing.At(context)));
+        (Vector2 half, float side) = (new Vector2(context.Extent.Width, context.Extent.Height) / 2f, context.Extent.ShortSide);
+        (Func<Vector4, uint, float> sampler, Vector2 amounts, float scale, float depth) = (Basis.Sampler, side * new Vector2(Horizontal, Vertical), Scale, Rate * Hold.Held(Timing.At(context)));
         uint field = CoordinateHash.Field(NoiseStream.Turbulence, Seed, 0u);
         (uint right, uint left, uint down, uint up) = (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u), CoordinateHash.Branch(field, 3u));
         return (points, _, _) => {
             foreach (ref Vector2 point in points) {
                 Vector2 q = (point - half) / side;
                 Vector4 at = new(q.X / scale, -q.Y / scale, depth, 0f);
-                point += amounts * new Vector2(sampler.Sample(at, right) - sampler.Sample(at, left), sampler.Sample(at, down) - sampler.Sample(at, up));
+                point += amounts * new Vector2(sampler(at, right) - sampler(at, left), sampler(at, down) - sampler(at, up));
             }
         };
     }
@@ -450,11 +455,11 @@ public sealed partial class TurbulenceParameter : IStateParameter<Turbulence> {
         Lens<Turbulence, ShortSideExtent>.New(static state => state.Scale, static scale => state => state with { Scale = scale }),
         new() { Unit = UnitsNet.Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.01f, 2f), Scale = TrackScale.Log }));
     public static readonly TurbulenceParameter Horizontal = new("horizontal", new StateParameter<Turbulence>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-        Lens<Turbulence, ShortSideOffset>.New(static state => state.Horizontal, static amount => state => state with { Horizontal = amount }), Presentations.Shift));
+        Lens<Turbulence, ShortSideOffset>.New(static state => state.Horizontal, static amount => state => state with { Horizontal = amount }), Amounts.Shift));
     public static readonly TurbulenceParameter Vertical = new("vertical", new StateParameter<Turbulence>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-        Lens<Turbulence, ShortSideOffset>.New(static state => state.Vertical, static amount => state => state with { Vertical = amount }), Presentations.Shift));
+        Lens<Turbulence, ShortSideOffset>.New(static state => state.Vertical, static amount => state => state with { Vertical = amount }), Amounts.Shift));
     public static readonly TurbulenceParameter Rate = new("rate", new StateParameter<Turbulence>.Bounded<Frequency, float, InvalidGenerator>(
-        Lens<Turbulence, Frequency>.New(static state => state.Rate, static rate => state => state with { Rate = rate }), Presentations.Rate));
+        Lens<Turbulence, Frequency>.New(static state => state.Rate, static rate => state => state with { Rate = rate }), Frequency.Presentation with { Soft = (-2f, 2f) }));
     public static readonly TurbulenceParameter Seed = new("seed", new StateParameter<Turbulence>.Bounded<Seed, int, InvalidGenerator>(
         Lens<Turbulence, Seed>.New(static state => state.Seed, static seed => state => state with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly TurbulenceParameter Clock = new("clock", Time.Clock);
@@ -463,19 +468,19 @@ public sealed partial class TurbulenceParameter : IStateParameter<Turbulence> {
         Lens<Turbulence, Hold>.New(static state => state.Hold, static hold => state => state with { Hold = hold }), Generators.Hold.Presentation));
     public static readonly TurbulenceParameter Sampling = new("sampling", new StateParameter<Turbulence>.Choice<Sampling, InvalidWarp>(
         Lens<Turbulence, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })));
-    public static readonly TurbulenceParameter Wrap = new("wrap", new StateParameter<Turbulence>.Choice<EdgeMode, InvalidWarp>(
-        Lens<Turbulence, EdgeMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
+    public static readonly TurbulenceParameter Wrap = new("wrap", new StateParameter<Turbulence>.Choice<WrapMode, InvalidPixelValue>(
+        Lens<Turbulence, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
 
     public StateParameter<Turbulence> Kind { get; }
 }
 
 public sealed record MapDisplacement(
     Option<ImageFile> Source, MapReading Reading, MapFit Fit, ShortSideExtent TileSize, ShortSideExtent Softness, ShortSideOffset Horizontal, ShortSideOffset Vertical,
-    SignedAngle Rotation, Sampling Sampling, EdgeMode Wrap)
+    SignedAngle Rotation, Sampling Sampling, WrapMode Wrap)
     : IStateRecord<MapDisplacement, MapDisplacementParameter, InvalidWarp>, IPixelStage<MapDisplacement> {
     public static MapDisplacement Default { get; } = new(
         None, MapReading.Gradient, MapFit.Stretch, ShortSideExtent.Create(1f), ShortSideExtent.Create(0.015f * 1920f / 1080f), ShortSideOffset.Neutral, ShortSideOffset.Neutral,
-        SignedAngle.Neutral, Sampling.Linear, EdgeMode.Black);
+        SignedAngle.Neutral, Sampling.Linear, WrapMode.Black);
 
     public static Option<PixelPass> Pass(MapDisplacement state, PassContext context) =>
         state.Reading.Plane.Match(
@@ -490,7 +495,7 @@ public sealed record MapDisplacement(
         using Mat offsets = new();
         plane(map, offsets, Softness.Pixels(context.Extent), context);
         GC.KeepAlive(source);
-        (Vector2 amounts, Matrix3x2 turn) = (int.Min(context.Extent.Width, context.Extent.Height) * new Vector2(Horizontal, Vertical), Matrix3x2.CreateRotation(-Rotation));
+        (Vector2 amounts, Matrix3x2 turn) = (context.Extent.ShortSide * new Vector2(Horizontal, Vertical), Matrix3x2.CreateRotation(-Rotation));
         (Vector2 corner, int width) = (new Vector2(frame.Origin.X, frame.Origin.Y), frame.Size.Width);
         return new CoordinateMap.Analytic((points, _, _) => {
             ReadOnlySpan<Vector2> read = offsets.GetSpan<Vector2>();
@@ -527,26 +532,26 @@ public sealed partial class MapDisplacementParameter : IStateParameter<MapDispla
         Lens<MapDisplacement, ShortSideExtent>.New(static state => state.Softness, static softness => state => state with { Softness = softness }),
         new() { Unit = UnitsNet.Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.001f, 0.1f) }));
     public static readonly MapDisplacementParameter Horizontal = new("horizontal", new StateParameter<MapDisplacement>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-        Lens<MapDisplacement, ShortSideOffset>.New(static state => state.Horizontal, static amount => state => state with { Horizontal = amount }), Presentations.Shift));
+        Lens<MapDisplacement, ShortSideOffset>.New(static state => state.Horizontal, static amount => state => state with { Horizontal = amount }), Amounts.Shift));
     public static readonly MapDisplacementParameter Vertical = new("vertical", new StateParameter<MapDisplacement>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-        Lens<MapDisplacement, ShortSideOffset>.New(static state => state.Vertical, static amount => state => state with { Vertical = amount }), Presentations.Shift));
+        Lens<MapDisplacement, ShortSideOffset>.New(static state => state.Vertical, static amount => state => state with { Vertical = amount }), Amounts.Shift));
     public static readonly MapDisplacementParameter Rotation = new("rotation", new StateParameter<MapDisplacement>.Bounded<SignedAngle, float, InvalidPixelValue>(
-        Lens<MapDisplacement, SignedAngle>.New(static state => state.Rotation, static rotation => state => state with { Rotation = rotation }), Presentations.Angle));
+        Lens<MapDisplacement, SignedAngle>.New(static state => state.Rotation, static rotation => state => state with { Rotation = rotation }), SignedAngle.Presentation));
     public static readonly MapDisplacementParameter Sampling = new("sampling", new StateParameter<MapDisplacement>.Choice<Sampling, InvalidWarp>(
         Lens<MapDisplacement, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })));
-    public static readonly MapDisplacementParameter Wrap = new("wrap", new StateParameter<MapDisplacement>.Choice<EdgeMode, InvalidWarp>(
-        Lens<MapDisplacement, EdgeMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
+    public static readonly MapDisplacementParameter Wrap = new("wrap", new StateParameter<MapDisplacement>.Choice<WrapMode, InvalidPixelValue>(
+        Lens<MapDisplacement, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
 
     public StateParameter<MapDisplacement> Kind { get; }
 }
 
 public sealed record Refraction(
     RefractionField Field, ShortSideExtent Scale, ShortSideOffset Strength, ShortSideExtent Smoothness, ShortSideLength Blur, Likelihood Density, WarpShare Trails,
-    SignedAngle Direction, Drift Fall, Seed Seed, Timing Timing, Hold Hold, Sampling Sampling, EdgeMode Wrap)
+    SignedAngle Direction, Drift Fall, Seed Seed, Timing Timing, Hold Hold, Sampling Sampling, WrapMode Wrap)
     : IStateRecord<Refraction, RefractionParameter, InvalidWarp>, IPixelStage<Refraction> {
     public static Refraction Default { get; } = new(
         RefractionField.Raindrops, ShortSideExtent.Create(1920f / 3.8f / 1080f), ShortSideOffset.Neutral, ShortSideExtent.Create(3f / 1080f), ShortSideLength.Create(14.6f / 1080f),
-        Likelihood.Create(0.5f), WarpShare.Create(0.3f), SignedAngle.Down, Drift.Neutral, Seed.MinValue, Timing.Standard, Hold.MinValue, Sampling.Linear, EdgeMode.Black);
+        Likelihood.Create(0.5f), WarpShare.Create(0.3f), SignedAngle.Down, Drift.Neutral, Seed.MinValue, Timing.Standard, Hold.MinValue, Sampling.Linear, WrapMode.Black);
 
     public static Option<PixelPass> Pass(Refraction state, PassContext context) =>
         state.Strength == ShortSideOffset.Neutral && state.Blur == ShortSideLength.Neutral
@@ -555,7 +560,7 @@ public sealed record Refraction(
 
     private Fin<Unit> Kernel(PassContext context, PixelFrame frame, IProgress<int> progress) {
         PixelExtent extent = context.Extent;
-        (Vector2 half, float side) = (new Vector2(extent.Width, extent.Height) / 2f, int.Min(extent.Width, extent.Height));
+        (Vector2 half, float side) = (new Vector2(extent.Width, extent.Height) / 2f, extent.ShortSide);
         Func<Vector2, float> height = Field.Height(this, Timing.At(context));
         PixelFrame heights = new(Point.Empty, extent, extent, static block => System.Array.Clear(block));
         return new PixelPass.Pointwise((row, column, line) => {
@@ -614,7 +619,7 @@ public sealed partial class RefractionParameter : IStateParameter<Refraction> {
         Lens<Refraction, ShortSideExtent>.New(static state => state.Scale, static scale => state => state with { Scale = scale }),
         new() { Unit = UnitsNet.Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.005f, 1f), Scale = TrackScale.Log }));
     public static readonly RefractionParameter Strength = new("strength", new StateParameter<Refraction>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-        Lens<Refraction, ShortSideOffset>.New(static state => state.Strength, static strength => state => state with { Strength = strength }), Presentations.Shift));
+        Lens<Refraction, ShortSideOffset>.New(static state => state.Strength, static strength => state => state with { Strength = strength }), Amounts.Shift));
     public static readonly RefractionParameter Smoothness = new("smoothness", new StateParameter<Refraction>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
         Lens<Refraction, ShortSideExtent>.New(static state => state.Smoothness, static smoothness => state => state with { Smoothness = smoothness }),
         new() { Unit = UnitsNet.Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.001f, 0.05f), Scale = TrackScale.Log }));
@@ -626,7 +631,7 @@ public sealed partial class RefractionParameter : IStateParameter<Refraction> {
     public static readonly RefractionParameter Trails = new("trails", new StateParameter<Refraction>.Bounded<WarpShare, float, InvalidWarp>(
         Lens<Refraction, WarpShare>.New(static state => state.Trails, static trails => state => state with { Trails = trails }), new()));
     public static readonly RefractionParameter Direction = new("direction", new StateParameter<Refraction>.Bounded<SignedAngle, float, InvalidPixelValue>(
-        Lens<Refraction, SignedAngle>.New(static state => state.Direction, static direction => state => state with { Direction = direction }), Presentations.Angle));
+        Lens<Refraction, SignedAngle>.New(static state => state.Direction, static direction => state => state with { Direction = direction }), SignedAngle.Presentation));
     public static readonly RefractionParameter Fall = new("fall", new StateParameter<Refraction>.Bounded<Drift, float, InvalidGenerator>(
         Lens<Refraction, Drift>.New(static state => state.Fall, static fall => state => state with { Fall = fall }),
         Drift.Presentation with { Soft = (-1f, 1f) }));
@@ -638,8 +643,8 @@ public sealed partial class RefractionParameter : IStateParameter<Refraction> {
         Lens<Refraction, Hold>.New(static state => state.Hold, static hold => state => state with { Hold = hold }), Generators.Hold.Presentation));
     public static readonly RefractionParameter Sampling = new("sampling", new StateParameter<Refraction>.Choice<Sampling, InvalidWarp>(
         Lens<Refraction, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })));
-    public static readonly RefractionParameter Wrap = new("wrap", new StateParameter<Refraction>.Choice<EdgeMode, InvalidWarp>(
-        Lens<Refraction, EdgeMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
+    public static readonly RefractionParameter Wrap = new("wrap", new StateParameter<Refraction>.Choice<WrapMode, InvalidPixelValue>(
+        Lens<Refraction, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
 
     public StateParameter<Refraction> Kind { get; }
 }

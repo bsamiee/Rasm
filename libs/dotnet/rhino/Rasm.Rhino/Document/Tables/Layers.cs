@@ -20,10 +20,14 @@ public sealed class LayerNames : IEqualityComparerAccessor<string> {
     private static NameHash Hash(string? name) => new(name, Guid.Empty, ModelComponentType.Layer);
 }
 
-[ValueObject<string>(SkipIParsable = true, SkipIComparable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValueObject<string>(SkipIParsable = true, SkipIComparable = true, EqualityComparisonOperators = OperatorsGeneration.None, ComparisonOperators = OperatorsGeneration.None, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<LayerNames, string>]
 public sealed partial class LeafName {
+    public static bool operator ==(LeafName? left, LeafName? right) => Equals(left, right);
+
+    public static bool operator !=(LeafName? left, LeafName? right) => !Equals(left, right);
+
     internal static Fin<LeafName> Segment(string name, int segment) =>
         Conversions.Validated<LeafName, string, InvalidRhinoValue>(name).MapFail(cause => new InvalidLayerSegment(segment, cause));
 

@@ -9,9 +9,14 @@ utils:
             - matches: {csharp-member-read: {member: {kind: identifier}, source: {kind: identifier, regex: '^[a-z_@]', pattern: $SRC}}}
             - kind: member_access_expression
               has: {field: expression, kind: member_access_expression, matches: source-read}
+    target-receiver:
+        kind: identifier
+        regex: '^[a-z_@]'
+        pattern: $TARGET
+        not: {matches: {csharp-declared-type: {type: {regex: '^((global::)?Rhino\.)?RhinoDoc\??$'}}}}
     target-member:
         kind: member_access_expression
-        has: {field: expression, kind: identifier, regex: '^[a-z_@]', pattern: $TARGET}
+        has: {field: expression, matches: target-receiver}
     copy-write:
         kind: assignment_expression
         all:
@@ -150,4 +155,4 @@ rule:
                     matches: function-owner
                     has: {stopBy: end, any: [{matches: source-addressed}, {matches: same-type-pair}]}
 message: 'Members of `$SRC` are written one by one onto `$TARGET`'
-note: Use a Mapperly `partial <host> To<host>(<record> source)` for a new host object or `partial void Update(<record> source, <host> target)` under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for an existing one, with `[MapProperty]` per renamed member, or the host object itself where the record adds no constraint the host lacks
+note: Use a Mapperly `partial <host> To<host>(<record> source)` for a new host value or `partial void Update(<record> source, <host> target)` under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for a caller-owned mutable value, with `[MapProperty]` per renamed member, or the host value itself where the record adds no constraint. RhinoDoc setters mutate live document state and stay explicit. Mapping declarations and renamed members require a reviewed fix

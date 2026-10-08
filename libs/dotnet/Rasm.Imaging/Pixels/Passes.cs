@@ -42,6 +42,8 @@ public interface IStateParameterVisitor<TRecord, out TResult> {
 
     public TResult Record<TNested>(Lens<TRecord, TNested> lens) where TNested : IStateRecord<TNested>;
 
+    public TResult OptionalRecord<TNested>(Lens<TRecord, Option<TNested>> lens) where TNested : IStateRecord<TNested>;
+
     public TResult Toggle(Lens<TRecord, bool> lens);
 
     public TResult Raw<TRaw>(Lens<TRecord, TRaw> lens) where TRaw : notnull, ISpanParsable<TRaw>;
@@ -91,8 +93,8 @@ public interface IStateParameter<TRecord> {
 
 public interface IStateRecord<TSelf> where TSelf : IStateRecord<TSelf> {
     public static abstract TSelf Default { get; }
-    public static abstract IReadOnlyList<IStateParameter<TSelf>> Parameters { get; }
-    public static abstract Option<IStateParameter<TSelf>> FindParameter(string key);
+    public static virtual IReadOnlyList<IStateParameter<TSelf>> Parameters => [];
+    public static virtual Option<IStateParameter<TSelf>> FindParameter(string key) => None;
 }
 
 public interface IStateRecord<TSelf, TParameter, TError> : IStateRecord<TSelf>
@@ -234,9 +236,14 @@ public readonly partial struct RampStop {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RampInterpolation {
-    public static readonly RampInterpolation Linear = new("linear", static t => t);
-    public static readonly RampInterpolation Ease = new("ease", static t => t * t * (3d - (2d * t)));
-    public static readonly RampInterpolation Constant = new("constant", static _ => 0d);
+    public static readonly RampInterpolation Linear = new("linear", ColourSpace.Oklab, static t => t);
+    public static readonly RampInterpolation Ease = new("ease", ColourSpace.Oklab, static t => t * t * (3d - (2d * t)));
+    public static readonly RampInterpolation Constant = new("constant", ColourSpace.Oklab, static _ => 0d);
+    public static readonly RampInterpolation LinearRgb = new("linear-rgb", ColourSpace.RgbLinear, Linear.Weight);
+    public static readonly RampInterpolation EaseRgb = new("ease-rgb", ColourSpace.RgbLinear, Ease.Weight);
+    public static readonly RampInterpolation SmootherRgb = new("smoother-rgb", ColourSpace.RgbLinear, static t => t * t * t * ((t * ((6d * t) - 15d)) + 10d));
+
+    public ColourSpace Space { get; }
 
     [UseDelegateFromConstructor]
     public partial double Weight(double t);
@@ -246,15 +253,26 @@ public sealed partial class RampInterpolation {
 [ValidationError<InvalidPixelValue>]
 [ObjectFactory<string>]
 public sealed partial class Ramp : IConvertible<string> {
-    private static readonly Func<(Ramp Ramp, Gamut Gamut), RampTable> Tables = memo(static ((Ramp Ramp, Gamut Gamut) key) =>
-        new RampTable(key.Ramp, [.. key.Ramp.Stops.Map(stop =>
-            new Unicolour(key.Gamut.Configuration, ColourSpace.RgbLinear, stop.Color.X, stop.Color.Y, stop.Color.Z, stop.Color.W).ConvertToConfiguration(Configuration.Default)) switch {
-            var entered =>
-                from pair in entered.Zip(entered.Tail)
-                from i in toSeq(Range(0, RampTable.Texels + 1))
-                let mixed = pair.First.Mix(pair.Second, ColourSpace.Oklab, key.Ramp.Interpolation.Weight(i / (double)RampTable.Texels)).ConvertToConfiguration(key.Gamut.Configuration)
-                select new Vector4((float)mixed.RgbLinear.R, (float)mixed.RgbLinear.G, (float)mixed.RgbLinear.B, (float)mixed.Alpha.A),
-        }]));
+    private static readonly Func<(Ramp Ramp, Gamut Gamut), RampTable> Tables = memo(static ((Ramp Ramp, Gamut Gamut) key) => {
+        const int texels = 256;
+        Seq<RampStop> stops = key.Ramp.Stops;
+        RampInterpolation interpolation = key.Ramp.Interpolation;
+        if (interpolation.Space == ColourSpace.RgbLinear)
+            return new RampTable(stops, (stop, t) => Vector4.Lerp(stops[stop].Color, stops[stop + 1].Color, (float)interpolation.Weight(t)));
+        Seq<Unicolour> entered = stops.Map(stop =>
+            new Unicolour(key.Gamut.Configuration, ColourSpace.RgbLinear, stop.Color.X, stop.Color.Y, stop.Color.Z, stop.Color.W).ConvertToConfiguration(Configuration.Default));
+        Vector4[] samples =
+            [.. from pair in entered.Zip(entered.Tail)
+             from i in toSeq(Range(0, texels + 1))
+             let mixed = pair.First.Mix(pair.Second, interpolation.Space, interpolation.Weight(i / (double)texels)).ConvertToConfiguration(key.Gamut.Configuration)
+             select new Vector4((float)mixed.RgbLinear.R, (float)mixed.RgbLinear.G, (float)mixed.RgbLinear.B, (float)mixed.Alpha.A)];
+        return new RampTable(stops, (stop, t) => {
+            double position = t * texels;
+            int at = int.Min((int)position, texels - 1);
+            int offset = (stop * (texels + 1)) + at;
+            return Vector4.Lerp(samples[offset], samples[offset + 1], (float)(position - at));
+        });
+    });
 
     public Seq<RampStop> Stops { get; }
     public RampInterpolation Interpolation { get; }
@@ -284,26 +302,17 @@ public sealed partial class Ramp : IConvertible<string> {
 }
 
 public sealed class RampTable {
-    internal const int Texels = 256;
+    private readonly Seq<RampStop> stops;
+    private readonly Func<int, double, Vector4> segment;
 
-    private readonly Ramp ramp;
-    private readonly Arr<Vector4> samples;
+    internal RampTable(Seq<RampStop> stops, Func<int, double, Vector4> segment) => (this.stops, this.segment) = (stops, segment);
 
-    internal RampTable(Ramp ramp, Arr<Vector4> samples) => (this.ramp, this.samples) = (ramp, samples);
-
-    public Vector4 Sample(double position) {
-        ReadOnlySpan<RampStop> stops = ramp.Stops.AsSpan();
-        return (double.IsNaN(position), ~stops.BinarySearch(new Above(position)) - 1) switch {
+    public Vector4 Sample(double position) =>
+        (double.IsNaN(position), ~stops.AsSpan().BinarySearch(new Above(position)) - 1) switch {
             (true, _) => new Vector4(float.NaN),
             (_, < 0) => stops[0].Color,
-            (_, var stop) when stop == stops.Length - 1 => stops[stop].Color,
-            (_, var stop) => Segment(stop, (position - stops[stop].Position) / (stops[stop + 1].Position - stops[stop].Position) * Texels),
-        };
-    }
-
-    private Vector4 Segment(int stop, double texel) =>
-        int.Min((int)texel, Texels - 1) switch {
-            var at => Vector4.Lerp(samples[(stop * (Texels + 1)) + at], samples[(stop * (Texels + 1)) + at + 1], (float)(texel - at)),
+            (_, var stop) when stop == stops.Count - 1 => stops[stop].Color,
+            (_, var stop) => segment(stop, (position - stops[stop].Position) / (stops[stop + 1].Position - stops[stop].Position)),
         };
 
     private readonly record struct Above(double Position) : IComparable<RampStop> {
@@ -410,6 +419,10 @@ public abstract class StateParameter<TRecord> {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Record(lens);
     }
 
+    public sealed class OptionalRecord<TNested>(Lens<TRecord, Option<TNested>> lens) : StateParameter<TRecord> where TNested : IStateRecord<TNested> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalRecord(lens);
+    }
+
     public sealed class Toggle(Lens<TRecord, bool> lens) : StateParameter<TRecord> {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Toggle(lens);
     }
@@ -471,8 +484,9 @@ public abstract class StateParameter<TRecord> {
 public readonly partial struct ShortSideOffset : IMinMaxValue<ShortSideOffset> {
     public static ShortSideOffset MinValue { get; } = new(-8f);
     public static ShortSideOffset MaxValue { get; } = new(8f);
+    public static Presentation<ShortSideOffset, float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (-1f, 1f), Origin = (float)Neutral };
 
-    public float Pixels(PixelExtent extent) => _value * int.Min(extent.Width, extent.Height);
+    public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
@@ -483,8 +497,9 @@ public readonly partial struct ShortSideOffset : IMinMaxValue<ShortSideOffset> {
 public readonly partial struct ShortSideLength : IMinMaxValue<ShortSideLength> {
     public static ShortSideLength MinValue => Neutral;
     public static ShortSideLength MaxValue { get; } = new(8f);
+    public static Presentation<ShortSideLength, float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 1f) };
 
-    public float Pixels(PixelExtent extent) => _value * int.Min(extent.Width, extent.Height);
+    public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
@@ -496,7 +511,7 @@ public readonly partial struct ShortSideExtent : IMinMaxValue<ShortSideExtent> {
     public static ShortSideExtent MinValue { get; } = new(0.001f);
     public static ShortSideExtent MaxValue { get; } = new(8f);
 
-    public float Pixels(PixelExtent extent) => _value * int.Min(extent.Width, extent.Height);
+    public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();

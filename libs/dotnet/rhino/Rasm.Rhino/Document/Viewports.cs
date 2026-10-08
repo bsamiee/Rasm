@@ -30,11 +30,10 @@ public abstract partial record ViewportSet {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public readonly record struct ViewportRef(RhinoView View, Option<DetailViewObject> Detail) : IDisposable {
-    public RhinoViewport Viewport => Detail.Map(static detail => detail.Viewport).IfNone(View.MainViewport);
+public sealed record ViewportRef(RhinoView View, Option<DetailViewObject> Detail) : IDisposable {
+    public RhinoViewport Viewport => Detail.Case is DetailViewObject detail ? detail.Viewport : View.MainViewport;
 
-    public Fin<Unit> CommitViewportChanges() =>
-        Detail.Map(static detail => Refused.Unless(detail.CommitViewportChanges(), nameof(DetailViewObject.CommitViewportChanges))).IfNone(unit);
+    public Option<bool> CommitViewportChanges() => Detail.Map(static detail => detail.CommitViewportChanges());
 
     public void Dispose() => Viewport.Dispose();
 }
@@ -53,7 +52,10 @@ public static class Viewports {
                     .Map(static view => new ViewportRef(view, None))),
             id: static (document, id) => IO.lift(() =>
                 (Optional(document.Views.Find(id.ViewportId)).Map(static view => new ViewportRef(view, None))
-                 || toSeq(document.Views.GetPageViews()).Bind(Details).Find(row => Addresses(row, id.ViewportId)))
+                 || toSeq(document.Views.GetPageViews()).Bind(Details).Find(row => {
+                     using RhinoViewport viewport = row.Viewport;
+                     return viewport.Id == id.ViewportId;
+                 }))
                     .ToFin(new Missing(nameof(ViewTable.Find)))),
             serial: static (document, serial) => IO.lift(() =>
                 Optional(RhinoView.FromRuntimeSerialNumber(serial.ViewSerial))
@@ -69,13 +71,17 @@ public static class Viewports {
         set.Switch(
             doc,
             one: static (document, one) => ResolveViewport(document, one.Target).Map(static row => Seq(row)),
-            every: static (document, every) => IO.lift(() =>
-                Conversions.NonEmpty(Rows(toSeq(document.Views.GetViewList(every.Filter)), every.Details), nameof(ViewTable.GetViewList))),
+            every: static (document, every) => IO.lift(() => {
+                Seq<RhinoView> views = toSeq(document.Views.GetViewList(every.Filter));
+                return Conversions.NonEmpty(
+                    views.Filter(static view => view is not RhinoPageView).Map(static view => new ViewportRef(view, None))
+                    + Pages(views.Choose(static view => Optional(view as RhinoPageView)), every.Details), nameof(ViewTable.GetViewList));
+            }),
             group: static (document, grouped) =>
                 from found in TableOps.Find(document.PageViewGroups, grouped.Address, includeDeleted: false)
                 from rows in IO.lift(() => Conversions.NonEmpty(
-                    Pages(toSeq(document.Views.GetPageViews()).Filter(page => page.IsInPageViewGroup(found.Index)), details: false),
-                    nameof(RhinoPageView.IsInPageViewGroup)))
+                    Pages(toSeq(found.GetMembers()), details: false),
+                    nameof(PageViewGroup.GetMembers)))
                 select rows);
 
     public static IO<RhinoPageView> ResolvePage(RhinoDoc doc, Guid pageViewId) =>
@@ -86,21 +92,12 @@ public static class Viewports {
         IO.lift(() => Missing.Unless(doc.Objects.FindId(detailId), nameof(ObjectTable.FindId))
             .Bind(static found => WrongType.Unless<DetailViewObject>(found)));
 
-    private static Seq<ViewportRef> Rows(Seq<RhinoView> views, bool details) =>
-        views.Filter(static view => view is not RhinoPageView).Map(static view => new ViewportRef(view, None))
-        + Pages(views.Choose(static view => Optional(view as RhinoPageView)), details);
-
     private static Seq<ViewportRef> Pages(Seq<RhinoPageView> pages, bool details) =>
         toSeq(pages.OrderBy(static page => page.PageNumber))
-            .Bind(page => new ViewportRef(page, None).Cons(details ? Details(page) : Seq<ViewportRef>()));
+            .Bind(page => new ViewportRef(page, None).Cons(details ? Details(page) : Seq<ViewportRef>())).Strict();
 
     private static Seq<ViewportRef> Details(RhinoPageView page) =>
         toSeq(page.GetDetailViews()).Map(detail => new ViewportRef(page, Some(detail)));
-
-    private static bool Addresses(ViewportRef row, Guid id) {
-        using RhinoViewport viewport = row.Viewport;
-        return viewport.Id == id;
-    }
 
     // --- [SCOPES]
     public static IO<TValue> WithMode<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>

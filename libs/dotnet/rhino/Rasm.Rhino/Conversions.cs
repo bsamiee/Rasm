@@ -181,19 +181,16 @@ public static class Conversions {
         result switch {
             Result.Success => unit,
             Result.Cancel or Result.CancelModelessDialog => Errors.Cancelled,
-            Result.Nothing => new NothingEntered(),
-            Result.ExitRhino => new ExitRequested(),
-            Result.UnknownCommand => new UnknownCommand(member),
+            Result.Nothing or Result.ExitRhino or Result.UnknownCommand => new Ended(member, result),
             Result.Failure => new Refused(member),
         };
 
     public static Fin<Result> ToResult(IO<Unit> effect, EnvIO? env = null) =>
         Try.lift(() => env is null ? effect.Run() : effect.Run(env)).Run().Map(static _ => Result.Success).BindFail(static error =>
-            error.IsType<ExitRequested>() ? Result.ExitRhino
-            : error.Is(Errors.Cancelled) ? Result.Cancel
-            : error.IsType<NothingEntered>() ? Result.Nothing
-            : error.IsType<UnknownCommand>() ? Result.UnknownCommand
-            : Fin.Fail<Result>(error));
+            Seq(Result.ExitRhino, Result.Cancel, Result.Nothing, Result.UnknownCommand).Find(
+                error.FoldM(static cause => cause is Ended ended
+                    ? Seq(ended.Result)
+                    : cause.Is(Errors.Cancelled) ? Seq(Result.Cancel) : Seq<Result>()).Contains).ToFin(error));
 
     public static TResult ByKind<TResult>(RenderContent content, Func<RenderMaterial, TResult> material, Func<RenderEnvironment, TResult> environment, Func<RenderTexture, TResult> texture) =>
         content switch {

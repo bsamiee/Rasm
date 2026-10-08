@@ -1,4 +1,4 @@
-using Rasm.Rhino.Document.Notation;
+using Rhino;
 
 namespace Rasm.Rhino.Document.Shapes;
 
@@ -11,16 +11,16 @@ public abstract partial record Decomposition {
 
     public sealed record Affine(Vector3d Translation, Transform Rotation, Transform Orthogonal, Vector3d Diagonal) : Decomposition;
 
-    public sealed record NotAffine() : Decomposition;
+    public sealed record Undecomposed() : Decomposition;
 
-    public static Decomposition Of(Transform xform, Tolerances tolerances) =>
-        xform.DecomposeRigid(out Vector3d rigidTranslation, out Transform rigidRotation, tolerances.Absolute) is not TransformRigidType.NotRigid
+    public static Decomposition Of(Transform xform, double scaleTolerance = RhinoMath.ZeroTolerance) =>
+        xform.DecomposeRigid(out Vector3d rigidTranslation, out Transform rigidRotation, scaleTolerance) is not TransformRigidType.NotRigid
             ? new Rigid(rigidTranslation, rigidRotation)
-            : xform.DecomposeSimilarity(out Vector3d translation, out double dilation, out Transform rotation, tolerances.Absolute) is not TransformSimilarityType.NotSimilarity
+            : xform.DecomposeSimilarity(out Vector3d translation, out double dilation, out Transform rotation, scaleTolerance) is not TransformSimilarityType.NotSimilarity
                 ? new Similarity(translation, dilation, rotation)
                 : xform.DecomposeAffine(out Vector3d shift, out Transform turn, out Transform orthogonal, out Vector3d diagonal)
                     ? new Affine(shift, turn, orthogonal, diagonal)
-                    : new NotAffine();
+                    : new Undecomposed();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

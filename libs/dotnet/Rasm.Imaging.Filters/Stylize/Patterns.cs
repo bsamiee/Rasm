@@ -32,7 +32,7 @@ public readonly partial struct CellSize : IMinMaxValue<CellSize> {
     public static CellSize Pixelate { get; } = new(0.1f * 0.05f * (1920f / 1080f));
     public static CellSize Glyph { get; } = new(1f / 24f);
 
-    public float Pixels(PixelExtent extent) => _value * int.Min(extent.Width, extent.Height);
+    public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
@@ -316,7 +316,7 @@ public sealed partial class MosaicCell {
 
 public sealed record Mosaic(MosaicCell Cell, CellSize Size, Cellular Cells, Seed Seed, Timing Timing, Hold Hold)
     : IStateRecord<Mosaic, MosaicParameter, InvalidStylize>, IPixelStage<Mosaic> {
-    public static Mosaic Default { get; } = new(MosaicCell.Square, CellSize.Pixelate, Cellular.Standard, Seed.MinValue, Timing.Still, Hold.MinValue);
+    public static Mosaic Default { get; } = new(MosaicCell.Square, CellSize.Pixelate, Cellular.Default, Seed.MinValue, Timing.Still, Hold.MinValue);
 
     public static Option<PixelPass> Pass(Mosaic state, PassContext context) =>
         Some<PixelPass>(state.Cell.Switch(
@@ -360,8 +360,6 @@ public sealed record Mosaic(MosaicCell Cell, CellSize Size, Cellular Cells, Seed
 public sealed partial class MosaicParameter : IStateParameter<Mosaic> {
     private static readonly (StateParameter<Mosaic> Clock, StateParameter<Mosaic> Pace) Time =
         Timing.Kinds(Lens<Mosaic, Timing>.New(static state => state.Timing, static timing => state => state with { Timing = timing }));
-    private static readonly (StateParameter<Mosaic> Metric, StateParameter<Mosaic> Exponent, StateParameter<Mosaic> Randomness) Sites =
-        Cellular.Kinds(Lens<Mosaic, Cellular>.New(static mosaic => mosaic.Cells, static cells => mosaic => mosaic with { Cells = cells }));
 
     public static readonly MosaicParameter Cell = new(
         "cell", new StateParameter<Mosaic>.Choice<MosaicCell, InvalidStylize>(
@@ -370,9 +368,8 @@ public sealed partial class MosaicParameter : IStateParameter<Mosaic> {
         "size", new StateParameter<Mosaic>.Bounded<CellSize, float, InvalidStylize>(
             Lens<Mosaic, CellSize>.New(static mosaic => mosaic.Size, static size => mosaic => mosaic with { Size = size }),
             new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Scale = TrackScale.Log, Soft = (CellSize.MinValue, 0.1f * (1920f / 1080f)) }));
-    public static readonly MosaicParameter Metric = new("metric", Sites.Metric);
-    public static readonly MosaicParameter Exponent = new("exponent", Sites.Exponent);
-    public static readonly MosaicParameter Randomness = new("randomness", Sites.Randomness);
+    public static readonly MosaicParameter Cells = new("cells", new StateParameter<Mosaic>.Record<Cellular>(
+        Lens<Mosaic, Cellular>.New(static state => state.Cells, static value => state => state with { Cells = value })));
     public static readonly MosaicParameter Seed = new(
         "seed", new StateParameter<Mosaic>.Bounded<Seed, int, InvalidGenerator>(
             Lens<Mosaic, Seed>.New(static mosaic => mosaic.Seed, static seed => mosaic => mosaic with { Seed = seed }), Generators.Seed.Presentation));

@@ -104,7 +104,7 @@ public sealed record LensFlare(
     public static LensFlare Default { get; } = new(
         FlareAnchor.Frame, new FramePosition(FrameAxis.Create(0.3f), FrameAxis.Create(1f - 0.6f)), None, Occlusion: true,
         Some(Exposure.Neutral), SourceRadius, Some(Exposure.Neutral), ShortSideExtent.Create(0.5f),
-        NoiseBasis.Default with { Octaves = Octaves.Standard with { Roughness = AxisFraction.Create(0.563f) } }, RayDensity.Create(30f), Frequency.Neutral, Some(Exposure.Neutral), ShortSideExtent.Create(0.972f / 2f * GreaterSide),
+        NoiseBasis.Default with { Octaves = Octaves.Default with { Roughness = AxisFraction.Create(0.563f) } }, RayDensity.Create(30f), Frequency.Neutral, Some(Exposure.Neutral), ShortSideExtent.Create(0.972f / 2f * GreaterSide),
         Some(Exposure.Neutral), ShortSideLength.Create(1f / 2.1f), Some(Exposure.Neutral), SourceRadius, GhostIterations.Three,
         Optics.Ghosts.Default.Modulation, Iris.Hexagon, GeneratedLayer.Added, Seed.MinValue, Timing.Standard);
     public static LensFlare NachoLens { get; } = Default with {
@@ -134,11 +134,11 @@ public sealed record LensFlare(
             : None;
 
     private static Action<Span<Vector4>, int, int> Fill(LensFlare state, PassContext context, Vector2 source, float visible) {
-        (Vector2 frame, float side) = (new(context.Extent.Width, context.Extent.Height), int.Min(context.Extent.Width, context.Extent.Height));
+        (Vector2 frame, float side) = (new(context.Extent.Width, context.Extent.Height), context.Extent.ShortSide);
         (Vector2 half, float spread) = (frame / 2f, 2f * (state.HotspotSize / 3f) * (state.HotspotSize / 3f));
         Vector2 c = (source - half) / side;
         (float burstLength, float barLength, float ringRadius, float density) = (state.StarburstLength, state.BarLength, state.RingRadius, state.StarburstDensity / float.Tau);
-        (NoiseSampler basis, uint field, float shimmer) = (state.Basis.Sampler, CoordinateHash.Field(NoiseStream.LensFlare, state.Seed, 0u), state.Shimmer * (float)state.Timing.At(context));
+        (Func<Vector4, uint, float> basis, uint field, float shimmer) = (state.Basis.Sampler, CoordinateHash.Field(NoiseStream.LensFlare, state.Seed, 0u), state.Shimmer * (float)state.Timing.At(context));
         Iris iris = state.Iris;
         (Vector2 Centre, float Flip, float Radius, float Bound, float Scale, Vector3 Gain)[] copies = [..
             from i in Enumerable.Range(1, state.Iterations - 1)
@@ -170,7 +170,7 @@ public sealed record LensFlare(
 
         float Burst(Vector2 d) =>
             float.SinCos(float.Atan2(-d.Y, d.X)) switch {
-                var (sin, cos) => basis.Sample(new Vector4(density * cos, density * sin, shimmer, 0f), field) switch { var n => n * n },
+                var (sin, cos) => basis(new Vector4(density * cos, density * sin, shimmer, 0f), field) switch { var n => n * n },
             };
 
         Vector3 Bar(Vector2 q) =>
@@ -208,8 +208,6 @@ public sealed partial class LensFlareParameter : IStateParameter<LensFlare> {
     private static readonly Lens<LensFlare, Iris> Diaphragm = Lens<LensFlare, Iris>.New(static flare => flare.Iris, static iris => flare => flare with { Iris = iris });
     private static readonly (StateParameter<LensFlare> Blades, StateParameter<LensFlare> Rotation, StateParameter<LensFlare> Roundness, StateParameter<LensFlare> Obstruction, StateParameter<LensFlare> Squeeze)
         Outline = Iris.Kinds(Diaphragm);
-    private static readonly (StateParameter<LensFlare> Mode, StateParameter<LensFlare> Exposure) Layer =
-        GeneratedLayer.Kinds(Lens<LensFlare, GeneratedLayer>.New(static flare => flare.Layer, static layer => flare => flare with { Layer = layer }));
     private static readonly Presentation<ShortSideExtent, float> Spot = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.001f, 0.25f), Scale = TrackScale.Log };
     private static readonly Presentation<ShortSideExtent, float> Reach = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.01f, 2f), Scale = TrackScale.Log };
 
@@ -222,11 +220,11 @@ public sealed partial class LensFlareParameter : IStateParameter<LensFlare> {
     public static readonly LensFlareParameter Occlusion = new("occlusion", new StateParameter<LensFlare>.Toggle(
         Lens<LensFlare, bool>.New(static flare => flare.Occlusion, static occlusion => flare => flare with { Occlusion = occlusion })));
     public static readonly LensFlareParameter Hotspot = new("hotspot", new StateParameter<LensFlare>.OptionalBounded<Exposure, float, InvalidToneValue>(
-        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Hotspot, static gain => flare => flare with { Hotspot = gain }), Tone.Exposure.Presentation));
+        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Hotspot, static gain => flare => flare with { Hotspot = gain }), Exposure.Presentation));
     public static readonly LensFlareParameter HotspotSize = new("hotspot-size", new StateParameter<LensFlare>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
         Lens<LensFlare, ShortSideExtent>.New(static flare => flare.HotspotSize, static size => flare => flare with { HotspotSize = size }), Spot));
     public static readonly LensFlareParameter Starburst = new("starburst", new StateParameter<LensFlare>.OptionalBounded<Exposure, float, InvalidToneValue>(
-        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Starburst, static gain => flare => flare with { Starburst = gain }), Tone.Exposure.Presentation));
+        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Starburst, static gain => flare => flare with { Starburst = gain }), Exposure.Presentation));
     public static readonly LensFlareParameter StarburstLength = new("starburst-length", new StateParameter<LensFlare>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
         Lens<LensFlare, ShortSideExtent>.New(static flare => flare.StarburstLength, static length => flare => flare with { StarburstLength = length }), Reach));
     public static readonly LensFlareParameter Basis = new("basis", new StateParameter<LensFlare>.Record<NoiseBasis>(
@@ -237,16 +235,16 @@ public sealed partial class LensFlareParameter : IStateParameter<LensFlare> {
         Lens<LensFlare, Frequency>.New(static flare => flare.Shimmer, static shimmer => flare => flare with { Shimmer = shimmer }),
         Frequency.Presentation with { Soft = (0f, 10f) }));
     public static readonly LensFlareParameter Bar = new("bar", new StateParameter<LensFlare>.OptionalBounded<Exposure, float, InvalidToneValue>(
-        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Bar, static gain => flare => flare with { Bar = gain }), Tone.Exposure.Presentation));
+        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Bar, static gain => flare => flare with { Bar = gain }), Exposure.Presentation));
     public static readonly LensFlareParameter BarLength = new("bar-length", new StateParameter<LensFlare>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
         Lens<LensFlare, ShortSideExtent>.New(static flare => flare.BarLength, static length => flare => flare with { BarLength = length }), Reach));
     public static readonly LensFlareParameter Ring = new("ring", new StateParameter<LensFlare>.OptionalBounded<Exposure, float, InvalidToneValue>(
-        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Ring, static gain => flare => flare with { Ring = gain }), Tone.Exposure.Presentation));
+        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Ring, static gain => flare => flare with { Ring = gain }), Exposure.Presentation));
     public static readonly LensFlareParameter RingRadius = new("ring-radius", new StateParameter<LensFlare>.Bounded<ShortSideLength, float, InvalidPixelValue>(
         Lens<LensFlare, ShortSideLength>.New(static flare => flare.RingRadius, static radius => flare => flare with { RingRadius = radius }),
         new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 1f) }));
     public static readonly LensFlareParameter Ghosts = new("ghosts", new StateParameter<LensFlare>.OptionalBounded<Exposure, float, InvalidToneValue>(
-        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Ghosts, static gain => flare => flare with { Ghosts = gain }), Tone.Exposure.Presentation));
+        Lens<LensFlare, Option<Exposure>>.New(static flare => flare.Ghosts, static gain => flare => flare with { Ghosts = gain }), Exposure.Presentation));
     public static readonly LensFlareParameter GhostSize = new("ghost-size", new StateParameter<LensFlare>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
         Lens<LensFlare, ShortSideExtent>.New(static flare => flare.GhostSize, static size => flare => flare with { GhostSize = size }), Spot));
     public static readonly LensFlareParameter Iterations = new("iterations", new StateParameter<LensFlare>.Bounded<GhostIterations, int, InvalidOptics>(
@@ -259,8 +257,8 @@ public sealed partial class LensFlareParameter : IStateParameter<LensFlare> {
     public static readonly LensFlareParameter Obstruction = new("obstruction", Outline.Obstruction);
     public static readonly LensFlareParameter Squeeze = new("squeeze", Outline.Squeeze);
     public static readonly LensFlareParameter Fringe = new("fringe", Iris.FringeKind(Diaphragm));
-    public static readonly LensFlareParameter Mode = new("mode", Layer.Mode);
-    public static readonly LensFlareParameter Exposure = new("exposure", Layer.Exposure);
+    public static readonly LensFlareParameter Layer = new("layer", new StateParameter<LensFlare>.Record<GeneratedLayer>(
+        Lens<LensFlare, GeneratedLayer>.New(static flare => flare.Layer, static layer => flare => flare with { Layer = layer })));
     public static readonly LensFlareParameter Seed = new("seed", new StateParameter<LensFlare>.Bounded<Seed, int, InvalidGenerator>(
         Lens<LensFlare, Seed>.New(static flare => flare.Seed, static seed => flare => flare with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly LensFlareParameter Clock = new("clock", Time.Clock);
@@ -340,8 +338,6 @@ public sealed partial class LightRaysParameter : IStateParameter<LightRays> {
         HighlightKey.Kinds(Lens<LightRays, HighlightKey>.New(static rays => rays.Key, static key => rays => rays with { Key = key }));
     private static readonly (StateParameter<LightRays> X, StateParameter<LightRays> Y) Position =
         FramePosition.Kinds(Lens<LightRays, FramePosition>.New(static rays => rays.Source, static source => rays => rays with { Source = source }));
-    private static readonly (StateParameter<LightRays> Mode, StateParameter<LightRays> Exposure) Layer =
-        GeneratedLayer.Kinds(Lens<LightRays, GeneratedLayer>.New(static rays => rays.Layer, static layer => rays => rays with { Layer = layer }));
 
     public static readonly LightRaysParameter Threshold = new("threshold", Highlight.Threshold);
     public static readonly LightRaysParameter Softness = new("softness", Highlight.Softness);
@@ -360,8 +356,8 @@ public sealed partial class LightRaysParameter : IStateParameter<LightRays> {
         Lens<LightRays, RayJitter>.New(static rays => rays.Jitter, static jitter => rays => rays with { Jitter = jitter }), new()));
     public static readonly LightRaysParameter Tint = new("tint", new StateParameter<LightRays>.Color(
         Lens<LightRays, Swatch>.New(static rays => rays.Tint, static tint => rays => rays with { Tint = tint })));
-    public static readonly LightRaysParameter Mode = new("mode", Layer.Mode);
-    public static readonly LightRaysParameter Exposure = new("exposure", Layer.Exposure);
+    public static readonly LightRaysParameter Layer = new("layer", new StateParameter<LightRays>.Record<GeneratedLayer>(
+        Lens<LightRays, GeneratedLayer>.New(static rays => rays.Layer, static layer => rays => rays with { Layer = layer })));
     public static readonly LightRaysParameter Seed = new("seed", new StateParameter<LightRays>.Bounded<Seed, int, InvalidGenerator>(
         Lens<LightRays, Seed>.New(static rays => rays.Seed, static seed => rays => rays with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly LightRaysParameter Clock = new("clock", Time.Clock);

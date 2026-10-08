@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Numerics;
-using System.Threading.Tasks;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using Emgu.CV;
@@ -44,7 +43,6 @@ public readonly partial struct ToneEdge : IMinMaxValue<ToneEdge> {
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidDetail();
 }
 
-
 public sealed record FilmGrain(
     AxisFraction Intensity, GrainSize Size, AxisFraction Chroma, Seed Seed, Timing Timing, Hold Hold,
     Mix Shadows, Mix Midtones, Mix Highlights, ToneEdge ShadowEdge, ToneEdge MidtoneSpan, ToneEdge HighlightSpan, Option<ImageFile> Scan, ShortSideExtent ScanSpan)
@@ -58,8 +56,8 @@ public sealed record FilmGrain(
             ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => {
                 uint field = CoordinateHash.Field(NoiseStream.FilmGrain, state.Seed, state.Hold.Period(state.Timing.At(context)));
-                (float shared, float own, float strength) = (MathF.Sqrt(1f - state.Chroma), MathF.Sqrt(state.Chroma), state.Intensity);
-                (float lower, float toShadows, float toHighlights) = (state.ShadowEdge + (float)state.MidtoneSpan, 1f / state.ShadowEdge, 1f / state.HighlightSpan);
+                (float shared, float own, float strength, float gain) = (MathF.Sqrt(1f - state.Chroma), MathF.Sqrt(state.Chroma), state.Intensity, context.Exposure.Scale);
+                float lower = state.ShadowEdge + (float)state.MidtoneSpan;
                 using Mat grain = new();
                 _ = state.Scan.Match(scan => {
                     using Mat source = scan.Frame.Header();
@@ -95,13 +93,14 @@ public sealed record FilmGrain(
                     using SpanOwner<Vector4> factors = SpanOwner<Vector4>.Allocate(row.Length);
                     using SpanOwner<float> weights = SpanOwner<float>.Allocate(row.Length);
                     ReadOnlySpan2D<Vector4> samples = grain.GetSpan<Vector4>().AsSpan2D(grain.Rows, grain.Cols);
-                    int y = state.Scan.IsSome ? (line + (int)(offset.Y * grain.Rows)) % grain.Rows : frame.Line(line);
                     for (int x = 0; x < row.Length; x++) {
-                        Vector4 sample = samples[y, (column + x + (int)(offset.X * grain.Cols)) % grain.Cols];
+                        Vector4 sample = state.Scan.IsSome
+                            ? samples.Sample(new Vector2(column + x + 0.5f + (offset.X * grain.Cols), grain.Rows - line - 0.5f - (offset.Y * grain.Rows)), (WrapMode.Periodic, WrapMode.Periodic))
+                            : samples[frame.Line(line), column + x - frame.Origin.X];
                         Vector3 factor = Vector3.Exp((strength * ((own * sample.AsVector3()) + new Vector3(shared * sample.W))) - new Vector3(strength * strength / 2f));
-                        float luma = context.Exposure.Scale * Vector3.Dot(context.Working.Luminance, row[x].AsVector3());
-                        float dark = 1f - Easing.SmoothStep(Easing.Saturate(luma * toShadows));
-                        float bright = Easing.SmoothStep(Easing.Saturate((luma - lower) * toHighlights));
+                        float luma = gain * Vector3.Dot(context.Working.Luminance, row[x].AsVector3());
+                        float dark = 1f - Easing.SmoothStep(Easing.Saturate(luma / state.ShadowEdge));
+                        float bright = Easing.SmoothStep(Easing.Saturate((luma - lower) / state.HighlightSpan));
                         weights.Span[x] = (state.Shadows * dark) + (state.Midtones * (1f - dark - bright)) + (state.Highlights * bright);
                         factors.Span[x] = new Vector4(factor, row[x].W);
                     }
@@ -160,13 +159,13 @@ public sealed record SensorNoise(AxisFraction Shot, AxisFraction Read, AxisFract
     public static Option<PixelPass> Pass(SensorNoise state, PassContext context) =>
         state.Shot == AxisFraction.MinValue && state.Read == AxisFraction.MinValue
             ? None
-            : (CoordinateHash.Field(NoiseStream.SensorNoise, state.Seed, state.Hold.Period(state.Timing.At(context))), MathF.Sqrt(1f - state.Chroma), MathF.Sqrt(state.Chroma), state.Shot * (float)state.Shot / Exposure.MiddleGrey, state.Read * (float)state.Read) switch {
-                var (field, shared, own, shot, read) => Some<PixelPass>(new PixelPass.Pointwise((row, column, line) => {
+            : (CoordinateHash.Field(NoiseStream.SensorNoise, state.Seed, state.Hold.Period(state.Timing.At(context))), MathF.Sqrt(1f - state.Chroma), MathF.Sqrt(state.Chroma), state.Shot * (float)state.Shot / Exposure.MiddleGrey, state.Read * (float)state.Read, context.Exposure.Scale) switch {
+                var (field, shared, own, shot, read, gain) => Some<PixelPass>(new PixelPass.Pointwise((row, column, line) => {
                     for (int x = 0; x < row.Length; x++) {
                         (Vector4 z, Vector3 color) = (CoordinateHash.Normals(column + x, line, field), row[x].AsVector3());
-                        float luma = MathF.Sqrt((shot * float.Max(context.Exposure.Scale * Vector3.Dot(context.Working.Luminance, color), 0f)) + read);
-                        Vector3 channels = Vector3.SquareRoot((shot * Vector3.Max(context.Exposure.Scale * color, Vector3.Zero)) + new Vector3(read));
-                        row[x] = new Vector4(color + ((new Vector3(shared * luma * z.W) + (own * channels * z.AsVector3())) / context.Exposure.Scale), row[x].W);
+                        float luma = MathF.Sqrt((shot * float.Max(gain * Vector3.Dot(context.Working.Luminance, color), 0f)) + read);
+                        Vector3 channels = Vector3.SquareRoot((shot * Vector3.Max(gain * color, Vector3.Zero)) + new Vector3(read));
+                        row[x] = new Vector4(color + ((new Vector3(shared * luma * z.W) + (own * channels * z.AsVector3())) / gain), row[x].W);
                     }
                 })),
             };

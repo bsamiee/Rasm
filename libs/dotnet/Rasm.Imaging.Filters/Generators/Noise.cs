@@ -289,14 +289,25 @@ public sealed partial class BasisKind {
     public static readonly BasisKind HeteroTerrain = new("hetero-terrain");
     public static readonly BasisKind HybridMultifractal = new("hybrid-multifractal");
     public static readonly BasisKind RidgedMultifractal = new("ridged-multifractal");
-    public static readonly BasisKind F1 = new("f1");
-    public static readonly BasisKind F2 = new("f2");
-    public static readonly BasisKind SmoothF1 = new("smooth-f1");
+    public static readonly BasisKind Cellular = new("cellular");
     public static readonly BasisKind EdgeDistance = new("edge-distance");
     public static readonly BasisKind Gabor = new("gabor");
     public static readonly BasisKind Magic = new("magic");
     public static readonly BasisKind Wave = new("wave");
     public static readonly BasisKind White = new("white");
+}
+
+[SmartEnum<string>]
+[ValidationError<InvalidGenerator>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CellFeatureKind {
+    public static readonly CellFeatureKind F1 = new("f1", static (noise, point, field) => noise.Dimensions.F1(point, noise.Octaves, noise.Cells, field));
+    public static readonly CellFeatureKind F2 = new("f2", static (noise, point, field) => noise.Dimensions.F2(point, noise.Octaves, noise.Cells, field));
+    public static readonly CellFeatureKind SmoothF1 = new("smooth-f1", static (noise, point, field) => noise.Dimensions.SmoothF1(point, noise.Octaves, noise.Cells, noise.Smoothness, field));
+
+    [UseDelegateFromConstructor]
+    internal partial CellFeature Sample(CellularNoise noise, Vector4 point, uint field);
 }
 
 internal sealed record Neighborhood(int Rank, Vector4 Live, Arr<Vector4> Corners, Arr<Vector4> Near, Arr<Vector4> Wide) {
@@ -364,46 +375,58 @@ public sealed record Timing(Clock Clock, Pace Pace) {
              lens(timing, Lens<Timing, Pace>.New(static at => at.Pace, static pace => at => at with { Pace = pace })), Pace.Presentation));
 }
 
-public sealed record Octaves(FractalDetail Detail, AxisFraction Roughness, FractalLacunarity Lacunarity) {
-    public static Octaves Standard { get; } = new(FractalDetail.Standard, AxisFraction.Half, FractalLacunarity.Standard);
-    public static Octaves Plain { get; } = new(FractalDetail.MinValue, AxisFraction.Half, FractalLacunarity.Standard);
+public sealed record Octaves(FractalDetail Detail, AxisFraction Roughness, FractalLacunarity Lacunarity) : IStateRecord<Octaves, OctavesParameter, InvalidGenerator> {
+    public static Octaves Default { get; } = new(FractalDetail.Standard, AxisFraction.Half, FractalLacunarity.Standard);
+    public static Octaves Plain { get; } = Default with { Detail = FractalDetail.MinValue };
 
     internal int Cells => Roughness == AxisFraction.MinValue ? 1 : (int)MathF.Ceiling(Detail) + 1;
-
-    internal static (StateParameter<TRecord> Detail, StateParameter<TRecord> Roughness, StateParameter<TRecord> Lacunarity) Kinds<TRecord>(
-        Lens<TRecord, Octaves> octaves) =>
-        (new StateParameter<TRecord>.Bounded<FractalDetail, float, InvalidGenerator>(
-             lens(octaves, Lens<Octaves, FractalDetail>.New(static at => at.Detail, static detail => at => at with { Detail = detail })), new()),
-         new StateParameter<TRecord>.Bounded<AxisFraction, float, InvalidGrade>(
-             lens(octaves, Lens<Octaves, AxisFraction>.New(static at => at.Roughness, static roughness => at => at with { Roughness = roughness })), new()),
-         new StateParameter<TRecord>.Bounded<FractalLacunarity, float, InvalidGenerator>(
-             lens(octaves, Lens<Octaves, FractalLacunarity>.New(static at => at.Lacunarity, static lacunarity => at => at with { Lacunarity = lacunarity })), new()));
 }
 
-public sealed record Cellular(CellMetric Metric, MinkowskiExponent Exponent, AxisFraction Randomness) {
-    public static Cellular Standard { get; } = new(CellMetric.Euclidean, MinkowskiExponent.Standard, AxisFraction.MaxValue);
+[SmartEnum<string>]
+[ValidationError<InvalidGenerator>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class OctavesParameter : IStateParameter<Octaves> {
+    public static readonly OctavesParameter Detail = new("detail", new StateParameter<Octaves>.Bounded<FractalDetail, float, InvalidGenerator>(
+        Lens<Octaves, FractalDetail>.New(static state => state.Detail, static value => state => state with { Detail = value }), new()));
+    public static readonly OctavesParameter Roughness = new("roughness", new StateParameter<Octaves>.Bounded<AxisFraction, float, InvalidGrade>(
+        Lens<Octaves, AxisFraction>.New(static state => state.Roughness, static value => state => state with { Roughness = value }), new()));
+    public static readonly OctavesParameter Lacunarity = new("lacunarity", new StateParameter<Octaves>.Bounded<FractalLacunarity, float, InvalidGenerator>(
+        Lens<Octaves, FractalLacunarity>.New(static state => state.Lacunarity, static value => state => state with { Lacunarity = value }), new()));
 
-    internal static (StateParameter<TRecord> Metric, StateParameter<TRecord> Exponent, StateParameter<TRecord> Randomness) Kinds<TRecord>(
-        Lens<TRecord, Cellular> cells) =>
-        (new StateParameter<TRecord>.Choice<CellMetric, InvalidGenerator>(
-             lens(cells, Lens<Cellular, CellMetric>.New(static at => at.Metric, static metric => at => at with { Metric = metric }))),
-         new StateParameter<TRecord>.Bounded<MinkowskiExponent, float, InvalidGenerator>(
-             lens(cells, Lens<Cellular, MinkowskiExponent>.New(static at => at.Exponent, static exponent => at => at with { Exponent = exponent })), MinkowskiExponent.Presentation),
-         new StateParameter<TRecord>.Bounded<AxisFraction, float, InvalidGrade>(
-             lens(cells, Lens<Cellular, AxisFraction>.New(static at => at.Randomness, static randomness => at => at with { Randomness = randomness })), new()));
+    public StateParameter<Octaves> Kind { get; }
+}
+
+public sealed record Cellular(CellMetric Metric, MinkowskiExponent Exponent, AxisFraction Randomness) : IStateRecord<Cellular, CellularParameter, InvalidGenerator> {
+    public static Cellular Default { get; } = new(CellMetric.Euclidean, MinkowskiExponent.Standard, AxisFraction.MaxValue);
+}
+
+[SmartEnum<string>]
+[ValidationError<InvalidGenerator>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CellularParameter : IStateParameter<Cellular> {
+    public static readonly CellularParameter Metric = new("metric", new StateParameter<Cellular>.Choice<CellMetric, InvalidGenerator>(
+        Lens<Cellular, CellMetric>.New(static state => state.Metric, static value => state => state with { Metric = value })));
+    public static readonly CellularParameter Exponent = new("exponent", new StateParameter<Cellular>.Bounded<MinkowskiExponent, float, InvalidGenerator>(
+        Lens<Cellular, MinkowskiExponent>.New(static state => state.Exponent, static value => state => state with { Exponent = value }), MinkowskiExponent.Presentation));
+    public static readonly CellularParameter Randomness = new("randomness", new StateParameter<Cellular>.Bounded<AxisFraction, float, InvalidGrade>(
+        Lens<Cellular, AxisFraction>.New(static state => state.Randomness, static value => state => state with { Randomness = value }), new()));
+
+    public StateParameter<Cellular> Kind { get; }
 }
 
 public sealed record NoiseBasis(
-    BasisKind Kind, NoiseDimensions Dimensions, Octaves Octaves, NoiseDistortion Distortion, Cellular Cellular,
+    BasisKind Kind, NoiseDimensions Dimensions, Octaves Octaves, NoiseDistortion Distortion, Cellular Cellular, CellFeatureKind Feature,
     Option<FractalOffset> FractalOffset, Option<FractalGain> FractalGain, Option<AxisFraction> CellSmoothness,
     Option<GaborFrequency> GaborFrequency, Option<AxisFraction> GaborAnisotropy, Option<GaborOrientation> GaborOrientation,
     Option<MagicDepth> MagicDepth, Option<WaveForm> WaveForm, Option<WaveProfile> WaveProfile, Option<SignedAngle> WavePhase,
     Option<WaveDetailScale> WaveDetailScale) : IStateRecord<NoiseBasis, NoiseBasisParameter, InvalidGenerator> {
     public static NoiseBasis Default { get; } = new(
-        BasisKind.Fbm, NoiseDimensions.Three, Octaves.Standard, NoiseDistortion.Neutral, Cellular.Standard, None, None, None, None, None, None, None, None, None, None, None);
+        BasisKind.Fbm, NoiseDimensions.Three, Octaves.Default, NoiseDistortion.Neutral, Cellular.Default, CellFeatureKind.F1, None, None, None, None, None, None, None, None, None, None, None);
     public static NoiseBasis Plain { get; } = Default with { Octaves = Octaves.Plain };
 
-    internal NoiseSampler Sampler =>
+    internal Func<Vector4, uint, float> Sampler =>
         Kind.Switch(
             this,
             fbm: static b => b.Distorted((point, hash) => 0.5f + (0.5f * b.Dimensions.Fbm(point, b.Octaves, hash))),
@@ -417,29 +440,27 @@ public sealed record NoiseBasis(
             ridgedMultifractal: static b => (b.FractalOffset.IfNone(Generators.FractalOffset.Neutral), b.FractalGain.IfNone(Generators.FractalGain.Standard)) switch {
                 var (offset, gain) => b.Distorted((point, hash) => b.Dimensions.RidgedMultifractal(point, b.Octaves, offset, gain, hash)),
             },
-            f1: static b => NoiseSampler.Of((point, hash) => b.Dimensions.F1(point, b.Octaves, b.Cellular, hash)),
-            f2: static b => NoiseSampler.Of((point, hash) => b.Dimensions.F2(point, b.Octaves, b.Cellular, hash)),
-            smoothF1: static b => b.CellSmoothness.IfNone(AxisFraction.MaxValue) switch {
-                var smoothness => NoiseSampler.Of((point, hash) => b.Dimensions.SmoothF1(point, b.Octaves, b.Cellular, smoothness, hash)),
+            cellular: static b => new CellularNoise(b.Dimensions, b.Octaves, b.Cellular, b.Feature, b.CellSmoothness.IfNone(AxisFraction.MaxValue)) switch {
+                var noise => (point, hash) => noise.Feature.Sample(noise, point, hash).Distance,
             },
-            edgeDistance: static b => NoiseSampler.Of((point, hash) => b.Dimensions.EdgeDistance(point, b.Octaves, b.Cellular.Randomness, hash)),
+            edgeDistance: static b => (point, hash) => b.Dimensions.EdgeDistance(point, b.Octaves, b.Cellular.Randomness, hash),
             gabor: static b => (b.GaborFrequency.IfNone(Generators.GaborFrequency.Standard), b.GaborAnisotropy.IfNone(AxisFraction.MaxValue),
                 b.GaborOrientation.IfNone(Generators.GaborOrientation.Standard)) switch {
                     var (frequency, anisotropy, orientation) =>
-                        NoiseSampler.Of((point, hash) => 0.5f + (0.5f * b.Dimensions.Gabor(point, frequency, anisotropy, orientation, hash).Y)),
+                        (point, hash) => 0.5f + (0.5f * b.Dimensions.Gabor(point, frequency, anisotropy, orientation, hash).Y),
                 },
             magic: static b => b.MagicDepth.IfNone(Generators.MagicDepth.Standard) switch {
-                var depth => NoiseSampler.Of((point, _) => Vector3.Sum(NoiseFunctions.Magic(point, depth, b.Distortion)) / 3f),
+                var depth => (point, _) => Vector3.Sum(NoiseFunctions.Magic(point, depth, b.Distortion)) / 3f,
             },
             wave: static b => (b.WaveForm.IfNone(Generators.WaveForm.Bands), b.WaveProfile.IfNone(Generators.WaveProfile.Sine),
                 (float)b.WavePhase.IfNone(SignedAngle.Neutral), b.WaveDetailScale.IfNone(Generators.WaveDetailScale.Standard)) switch {
-                    var (form, profile, phase, detailScale) => NoiseSampler.Of((point, hash) =>
-                        b.Dimensions.Wave(point, form, profile, phase, b.Distortion, b.Octaves, detailScale, hash)),
+                    var (form, profile, phase, detailScale) => (point, hash) =>
+                        b.Dimensions.Wave(point, form, profile, phase, b.Distortion, b.Octaves, detailScale, hash),
                 },
-            white: static b => NoiseSampler.Of((point, hash) => NoiseFunctions.White(point * b.Dimensions.Cells.Live, hash).X));
+            white: static b => (point, hash) => NoiseFunctions.White(point * b.Dimensions.Cells.Live, hash).X);
 
-    private NoiseSampler Distorted(Func<Vector4, uint, float> sum) =>
-        NoiseSampler.Of((point, field) => sum(Dimensions.Distort(point, Distortion, CoordinateHash.Branch(field, 0u)), CoordinateHash.Branch(field, 1u)));
+    private Func<Vector4, uint, float> Distorted(Func<Vector4, uint, float> sum) =>
+        (point, field) => sum(Dimensions.Distort(point, Distortion, CoordinateHash.Branch(field, 0u)), CoordinateHash.Branch(field, 1u));
 }
 
 [SmartEnum<string>]
@@ -447,39 +468,34 @@ public sealed record NoiseBasis(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NoiseBasisParameter : IStateParameter<NoiseBasis> {
-    private static readonly (StateParameter<NoiseBasis> Detail, StateParameter<NoiseBasis> Roughness, StateParameter<NoiseBasis> Lacunarity) Octave =
-        Octaves.Kinds(Lens<NoiseBasis, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves }));
-    private static readonly (StateParameter<NoiseBasis> Metric, StateParameter<NoiseBasis> Exponent, StateParameter<NoiseBasis> Randomness) Cells =
-        Cellular.Kinds(Lens<NoiseBasis, Cellular>.New(static basis => basis.Cellular, static cells => basis => basis with { Cellular = cells }));
-
     public static readonly NoiseBasisParameter Basis = new("kind", new StateParameter<NoiseBasis>.Choice<BasisKind, InvalidGenerator>(Lens<NoiseBasis, BasisKind>.New(static b => b.Kind, static kind => b => b with { Kind = kind })));
     public static readonly NoiseBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis>.Choice<NoiseDimensions, InvalidGenerator>(
         Lens<NoiseBasis, NoiseDimensions>.New(static b => b.Dimensions, static dimensions => b => b with { Dimensions = dimensions })));
-    public static readonly NoiseBasisParameter Detail = new("detail", Octave.Detail);
-    public static readonly NoiseBasisParameter Roughness = new("roughness", Octave.Roughness);
-    public static readonly NoiseBasisParameter Lacunarity = new("lacunarity", Octave.Lacunarity);
+    public static readonly NoiseBasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis>.Record<Octaves>(
+        Lens<NoiseBasis, Octaves>.New(static state => state.Octaves, static value => state => state with { Octaves = value })));
     public static readonly NoiseBasisParameter Distortion = new("distortion", new StateParameter<NoiseBasis>.Bounded<NoiseDistortion, float, InvalidGenerator>(
         Lens<NoiseBasis, NoiseDistortion>.New(static b => b.Distortion, static distortion => b => b with { Distortion = distortion }), NoiseDistortion.Presentation));
-    public static readonly NoiseBasisParameter Metric = new("metric", Cells.Metric);
-    public static readonly NoiseBasisParameter Exponent = new("exponent", Cells.Exponent);
-    public static readonly NoiseBasisParameter Randomness = new("randomness", Cells.Randomness);
+    public static readonly NoiseBasisParameter Cellular = new("cellular", new StateParameter<NoiseBasis>.Record<Cellular>(
+        Lens<NoiseBasis, Cellular>.New(static state => state.Cellular, static value => state => state with { Cellular = value })));
+    public static readonly NoiseBasisParameter Feature = new("feature", new StateParameter<NoiseBasis>.Choice<CellFeatureKind, InvalidGenerator>(
+        Lens<NoiseBasis, CellFeatureKind>.New(static state => state.Feature, static value => state => state with { Feature = value })));
     public static readonly NoiseBasisParameter Offset = new("offset", new StateParameter<NoiseBasis>.OptionalBounded<FractalOffset, float, InvalidGenerator>(
         Lens<NoiseBasis, Option<FractalOffset>>.New(static b => b.FractalOffset, static offset => b => b with { FractalOffset = offset }),
-        Generators.FractalOffset.Presentation));
+        FractalOffset.Presentation));
     public static readonly NoiseBasisParameter Gain = new("gain", new StateParameter<NoiseBasis>.OptionalBounded<FractalGain, float, InvalidGenerator>(
         Lens<NoiseBasis, Option<FractalGain>>.New(static b => b.FractalGain, static gain => b => b with { FractalGain = gain }), new()));
     public static readonly NoiseBasisParameter Smoothness = new("smoothness", new StateParameter<NoiseBasis>.OptionalBounded<AxisFraction, float, InvalidGrade>(
         Lens<NoiseBasis, Option<AxisFraction>>.New(static b => b.CellSmoothness, static smoothness => b => b with { CellSmoothness = smoothness }), new()));
     public static readonly NoiseBasisParameter Frequency = new("frequency", new StateParameter<NoiseBasis>.OptionalBounded<GaborFrequency, float, InvalidGenerator>(
         Lens<NoiseBasis, Option<GaborFrequency>>.New(static b => b.GaborFrequency, static frequency => b => b with { GaborFrequency = frequency }),
-        Generators.GaborFrequency.Presentation));
+        GaborFrequency.Presentation));
     public static readonly NoiseBasisParameter Anisotropy = new("anisotropy", new StateParameter<NoiseBasis>.OptionalBounded<AxisFraction, float, InvalidGrade>(
         Lens<NoiseBasis, Option<AxisFraction>>.New(static b => b.GaborAnisotropy, static anisotropy => b => b with { GaborAnisotropy = anisotropy }), new()));
     public static readonly NoiseBasisParameter Orientation = new("orientation", new StateParameter<NoiseBasis>.OptionalBounded<GaborOrientation, float, InvalidGenerator>(
         Lens<NoiseBasis, Option<GaborOrientation>>.New(static b => b.GaborOrientation, static orientation => b => b with { GaborOrientation = orientation }),
-        Generators.GaborOrientation.Presentation));
+        GaborOrientation.Presentation));
     public static readonly NoiseBasisParameter Depth = new("depth", new StateParameter<NoiseBasis>.OptionalBounded<MagicDepth, int, InvalidGenerator>(
-        Lens<NoiseBasis, Option<MagicDepth>>.New(static b => b.MagicDepth, static depth => b => b with { MagicDepth = depth }), Generators.MagicDepth.Presentation));
+        Lens<NoiseBasis, Option<MagicDepth>>.New(static b => b.MagicDepth, static depth => b => b with { MagicDepth = depth }), MagicDepth.Presentation));
     public static readonly NoiseBasisParameter Form = new("form", new StateParameter<NoiseBasis>.OptionalChoice<WaveForm, InvalidGenerator>(
         Lens<NoiseBasis, Option<WaveForm>>.New(static b => b.WaveForm, static form => b => b with { WaveForm = form })));
     public static readonly NoiseBasisParameter Profile = new("profile", new StateParameter<NoiseBasis>.OptionalChoice<WaveProfile, InvalidGenerator>(
@@ -493,13 +509,31 @@ public sealed partial class NoiseBasisParameter : IStateParameter<NoiseBasis> {
     public StateParameter<NoiseBasis> Kind { get; }
 }
 
-internal readonly record struct CellFeature(float Distance, Vector4 Site);
-
-internal readonly record struct NoiseSampler(Func<Vector4, uint, float> Sample, Func<Vector4, uint, CellFeature> Cell) {
-    public static NoiseSampler Of(Func<Vector4, uint, float> sample) => new(sample, (point, field) => new CellFeature(sample(point, field), point));
-
-    public static NoiseSampler Of(Func<Vector4, uint, CellFeature> cell) => new((point, field) => cell(point, field).Distance, cell);
+public sealed record CellularNoise(NoiseDimensions Dimensions, Octaves Octaves, Cellular Cells, CellFeatureKind Feature, AxisFraction Smoothness)
+    : IStateRecord<CellularNoise, CellularNoiseParameter, InvalidGenerator> {
+    public static CellularNoise Default { get; } = new(NoiseDimensions.Three, Octaves.Plain, Cellular.Default, CellFeatureKind.F1, AxisFraction.MaxValue);
 }
+
+[SmartEnum<string>]
+[ValidationError<InvalidGenerator>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CellularNoiseParameter : IStateParameter<CellularNoise> {
+    public static readonly CellularNoiseParameter Dimensions = new("dimensions", new StateParameter<CellularNoise>.Choice<NoiseDimensions, InvalidGenerator>(
+        Lens<CellularNoise, NoiseDimensions>.New(static state => state.Dimensions, static value => state => state with { Dimensions = value })));
+    public static readonly CellularNoiseParameter Octaves = new("octaves", new StateParameter<CellularNoise>.Record<Octaves>(
+        Lens<CellularNoise, Octaves>.New(static state => state.Octaves, static value => state => state with { Octaves = value })));
+    public static readonly CellularNoiseParameter Cells = new("cells", new StateParameter<CellularNoise>.Record<Cellular>(
+        Lens<CellularNoise, Cellular>.New(static state => state.Cells, static value => state => state with { Cells = value })));
+    public static readonly CellularNoiseParameter Feature = new("feature", new StateParameter<CellularNoise>.Choice<CellFeatureKind, InvalidGenerator>(
+        Lens<CellularNoise, CellFeatureKind>.New(static state => state.Feature, static value => state => state with { Feature = value })));
+    public static readonly CellularNoiseParameter Smoothness = new("smoothness", new StateParameter<CellularNoise>.Bounded<AxisFraction, float, InvalidGrade>(
+        Lens<CellularNoise, AxisFraction>.New(static state => state.Smoothness, static value => state => state with { Smoothness = value }), new()));
+
+    public StateParameter<CellularNoise> Kind { get; }
+}
+
+internal readonly record struct CellFeature(float Distance, Vector4 Site);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Easing {
