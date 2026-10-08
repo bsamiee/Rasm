@@ -46,126 +46,93 @@ public sealed partial class FocusField {
 
 public sealed record Defocus(FocusField Field, DefocusRadius Radius, FNumber Aperture, FramePosition Center, FocusAngle Angle, ShortSideLength Extent, AxisFraction Aspect, ShortSideExtent Feather, Iris Iris)
     : IStateRecord<Defocus, DefocusParameter, InvalidOptics>, IPixelStage<Defocus> {
-    public static Defocus Default { get; } = new(
-        FocusField.Depth, DefocusRadius.Create(0.02f * ReferenceFrame.GreaterSide), FNumber.Create(2.8f),
-        FramePosition.Center, FocusAngle.Neutral, ShortSideLength.Create(0.3f / 2f), AxisFraction.MaxValue, ShortSideExtent.Create(0.5f / 2f),
-        Iris.Hexagon with { Roundness = AxisFraction.MaxValue });
+    public static Defocus Default { get; } = new(FocusField.Depth, DefocusRadius.Create(0.02f * ReferenceFrame.GreaterSide), FNumber.Create(2.8f), FramePosition.Center,
+        FocusAngle.Neutral, ShortSideLength.Create(0.3f / 2f), AxisFraction.MaxValue, ShortSideExtent.Create(0.5f / 2f), Iris.Hexagon with { Roundness = AxisFraction.MaxValue });
 
-    public static Seq<GuideChannel> Channels(Defocus state) =>
-        state.Field.Map<Seq<GuideChannel>>(uniform: [], depth: [GuideChannel.Depth], curvature: [], tilt: []);
+    public static Seq<GuideChannel> Channels(Defocus state) => state.Field.Map<Seq<GuideChannel>>(uniform: [], depth: [GuideChannel.Depth], curvature: [], tilt: []);
 
     public static Option<PixelPass> Pass(Defocus state, PassContext context) =>
-        state.Radius == DefocusRadius.Off
-            ? None
-            : state.Field.Switch(
-                (State: state, Context: context, Cap: state.Radius * context.Extent.ShortSide),
-                uniform: static s => Some<PixelPass>(Blur(s.State.Iris, s.Cap, None)),
-                depth: static s =>
-                    from depth in s.Context.Guides.Find(GuideChannel.Depth)
-                    from camera in s.Context.Camera
-                    from lens in camera.Lens
-                    from window in camera.Frustum.Switch(perspective: static frustum => Some(frustum.Window), parallel: static _ => Option<ViewWindow>.None)
-                    select (PixelPass)Blur(s.State.Iris, s.Cap, Some(Depth(depth, lens, s.State.Aperture, window, s.Context.Extent, s.Cap))),
-                curvature: static s => Some<PixelPass>(Blur(s.State.Iris, s.Cap, Some(Framed(s.State, s.State.Aspect, 2, s.Context.Extent, s.Cap)))),
-                tilt: static s => Some<PixelPass>(Blur(s.State.Iris, s.Cap, Some(Framed(s.State, AxisFraction.MinValue, 1, s.Context.Extent, s.Cap)))));
+        state.Radius == DefocusRadius.Off ? None : state.Field.Switch(
+            (State: state, Context: context, Cap: state.Radius * context.Extent.ShortSide),
+            uniform: static s => Some<Action<Mat, Span<float>, PixelFrame>>((light, _, _) => Correlate(light, s.State.Iris, new Vector4(s.Cap))),
+            depth: Depth,
+            curvature: static s => Some(Framed(s, s.State.Aspect, 2)),
+            tilt: static s => Some(Framed(s, AxisFraction.MinValue, 1))).Map<PixelPass>(field => Gathered(state.Iris, field));
 
-    internal static void Correlate(Mat plane, Iris iris, float radius, int component) {
-        int reach = (int)float.Ceiling(radius * iris.Circumradius);
-        using Mat kernel = new((2 * reach) + 1, (2 * reach) + 1, DepthType.Cv32F, 1);
-        int count = kernel.Rows * kernel.Cols;
-        kernel.SetTo(Range(0, count).Select(i => i == count / 2 ? 1f : iris.Outline(Mirrored(i, reach)) switch { var (outline, edge) => iris.Weights(outline, edge, radius)[component] }).ToArray());
-        CvInvoke.Normalize(kernel, kernel, 1d, 0d, NormType.L1);
-        CvInvoke.Filter2D(plane, plane, kernel, new Point(-1, -1), 0d, BorderType.Replicate);
+    internal static void Correlate(Mat image, Iris iris, Vector4 radii) {
+        using Mat plane = new();
+        for (int lane = 0; lane < image.NumberOfChannels; lane++) {
+            int side = Window(radii[lane] * iris.Circumradius);
+            (float Reach, float Edge)[] outlines = Outlines(iris, side);
+            using Mat kernel = new(side, side, DepthType.Cv32F, 1);
+            kernel.SetTo(outlines.Select((_, index) => Tap(iris, outlines, index, radii[lane])[lane]).ToArray());
+            CvInvoke.Normalize(kernel, kernel, 1d, 0d, NormType.L1);
+            CvInvoke.ExtractChannel(image, plane, lane);
+            CvInvoke.Filter2D(plane, plane, kernel, new Point(-1, -1), 0d, BorderType.Replicate);
+            CvInvoke.InsertChannel(plane, image, lane);
+        }
     }
 
-    private static PixelPass.Frame Blur(Iris iris, float cap, Option<Action<Mat, Point>> field) =>
+    private static PixelPass.Frame Gathered(Iris iris, Action<Mat, Span<float>, PixelFrame> field) =>
         new((frame, progress) => {
             using Mat source = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
+            using Mat radii = Mat.Zeros(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 1);
             PixelOperations<RgbaVector>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, frame.Block.Cast<float, RgbaVector>(), source.GetSpan<Vector4>(), PixelConversionModifiers.Premultiply);
-            return field.Match(write => Gathered(source, iris, cap, write, frame, progress), () => Uniform(source, iris, cap, frame, progress));
+            field(source, radii.GetSpan<float>(), frame);
+            radii.MinMax(out double[] least, out double[] most, out _, out _);
+            (float circumradius, float near) = (iris.Circumradius, float.Max(0f, -(float)least[0]));
+            int side = Window(float.Max(near, (float)most[0]) * circumradius);
+            (float Reach, float Edge)[] outlines = Outlines(iris, side);
+            return new PixelPass.Pointwise((row, _, line) => {
+                ReadOnlySpan2D<Vector4> light = source.GetSpan<Vector4>().AsSpan2D(source.Rows, source.Cols);
+                ReadOnlySpan2D<float> radius = radii.GetSpan<float>().AsSpan2D(radii.Rows, radii.Cols);
+                int y = frame.Line(line);
+                for (int x = 0; x < row.Length; x++) {
+                    float own = float.Abs(radius[y, x]);
+                    (Vector4 sum, Vector4 total) = (Vector4.Zero, Vector4.Zero);
+                    for (int span = Window(float.Max(own, near) * circumradius), k = 0; k < span * span; k++) {
+                        (int dy, int dx) = ((k / span) - (span / 2), (k % span) - (span / 2));
+                        (int u, int v) = (int.Clamp(x + dx, 0, radius.Width - 1), int.Clamp(y + dy, 0, radius.Height - 1));
+                        (sum, total) = Tap(iris, outlines, ((dy + (side / 2)) * side) + dx + (side / 2), float.Abs(float.Min(radius[v, u], own))) switch { var weight => (sum + (weight * light[v, u]), total + weight) };
+                    }
+                    row[x] = (sum / total) switch { { W: > 0f } mean => new(mean.AsVector3() / mean.W, mean.W), _ => Vector4.Zero };
+                }
+            }).Run(frame, progress);
         });
 
-    private static Fin<Unit> Uniform(Mat source, Iris iris, float cap, PixelFrame frame, IProgress<int> progress) {
-        using Mat plane = new();
-        for (int component = 0; component < source.NumberOfChannels; component++) {
-            CvInvoke.ExtractChannel(source, plane, component);
-            Correlate(plane, iris, cap, component);
-            CvInvoke.InsertChannel(plane, source, component);
-        }
-        return new PixelPass.Pointwise((row, _, line) => {
-            ReadOnlySpan<Vector4> light = source.GetSpan<Vector4>().AsSpan2D(source.Rows, source.Cols).GetRowSpan(frame.Line(line));
-            for (int x = 0; x < row.Length; x++) row[x] = Straight(light[x]);
-        }).Run(frame, progress);
-    }
-
-    private static Fin<Unit> Gathered(Mat source, Iris iris, float cap, Action<Mat, Point> write, PixelFrame frame, IProgress<int> progress) {
-        float circumradius = iris.Circumradius;
-        int reach = (int)float.Ceiling(cap * circumradius);
-        int side = (2 * reach) + 1;
-        using Mat radii = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 1);
-        (float Reach, float Edge)[] outlines = [.. Range(0, side * side).Select(i => iris.Outline(Mirrored(i, reach)))];
-        write(radii, frame.Origin);
-        radii.MinMax(out double[] least, out _, out _, out _);
-        float near = float.Max(0f, -(float)least[0]);
-        return new PixelPass.Pointwise((row, _, line) => {
-            ReadOnlySpan2D<Vector4> light = source.GetSpan<Vector4>().AsSpan2D(source.Rows, source.Cols);
-            ReadOnlySpan2D<float> radius = radii.GetSpan<float>().AsSpan2D(radii.Rows, radii.Cols);
-            ReadOnlySpan2D<(float Reach, float Edge)> window = outlines.AsSpan().AsSpan2D(side, side);
-            int y = frame.Line(line);
-            for (int x = 0; x < row.Length; x++) {
-                float own = float.Abs(radius[y, x]);
-                int span = (2 * (int)float.Ceiling(float.Max(own, near) * circumradius)) + 1;
-                (Vector4 sum, Vector4 total) = (light[y, x], Vector4.One);
-                for (int k = 0; k < span * span; k++) {
-                    (int dx, int dy) = ((k % span) - (span / 2), (k / span) - (span / 2));
-                    (int u, int v) = (int.Clamp(x + dx, 0, radius.Width - 1), int.Clamp(y + dy, 0, radius.Height - 1));
-                    float other = radius[v, u];
-                    (float outline, float edge) = window[dy + reach, dx + reach];
-                    Vector4 weight = (dx | dy) == 0 ? Vector4.Zero : iris.Weights(outline, edge, float.Abs(float.Min(other, own)));
-                    (sum, total) = (sum + (weight * light[v, u]), total + weight);
-                }
-                row[x] = Straight(sum / total);
-            }
-        }).Run(frame, progress);
-    }
-
-    private static Action<Mat, Point> Framed(Defocus state, AxisFraction aspect, int power, PixelExtent size, float cap) {
-        Matrix3x2 field = Matrix3x2.CreateTranslation(-state.Center.Point(size)) * Matrix3x2.CreateRotation(state.Angle)
-            * Matrix3x2.CreateScale(new Vector2(aspect, 1f) / size.ShortSide);
-        return (plane, origin) => {
-            Span<float> radii = plane.GetSpan<float>();
-            for (int i = 0; i < radii.Length; i++) {
-                float distance = Vector2.Transform(new Vector2(origin.X + (i % plane.Cols) + 0.5f, origin.Y + (i / plane.Cols) + 0.5f), field).Length();
-                radii[i] = cap * float.Pow(float.Clamp((distance - state.Extent) / state.Feather, 0f, 1f), power);
-            }
-        };
-    }
-
-    private static Action<Mat, Point> Depth(PixelFrame depth, LensFocus lens, FNumber aperture, ViewWindow window, PixelExtent size, float cap) {
-        (double focal, double focus) = (lens.FocalLength, lens.FocusDistance);
-        double k = focal * size.ShortSide / (2d * aperture * (focus - focal) * double.Min((double)window.Right - window.Left, (double)window.Top - window.Bottom));
-        int taps = (2 * (int)float.Ceiling(cap)) + 1;
-        return (plane, _) => {
-            using Mat header = depth.Header();
-            using Mat magnitude = new();
-            using Mat blur = new();
-            using ScalarArray zero = new(0d);
-            CvInvoke.ExtractChannel(header, plane, 0);
-            Span<float> radius = plane.GetSpan<float>();
-            foreach (ref float value in radius)
-                value = (float)double.Clamp(k * (1d - (focus / value)), -cap, cap);
-            CvInvoke.AbsDiff(plane, zero, magnitude);
-            CvInvoke.GaussianBlur(magnitude, blur, new Size(taps, taps), cap / 3f, cap / 3f, BorderType.Replicate);
-            CvInvoke.Min(blur, magnitude, blur);
-            ReadOnlySpan<float> eroded = blur.GetSpan<float>();
+    private static Action<Mat, Span<float>, PixelFrame> Framed((Defocus State, PassContext Context, float Cap) s, AxisFraction aspect, int power) =>
+        (_, radius, frame) => {
+            Matrix3x2 field = Matrix3x2.CreateTranslation(-s.State.Center.Point(s.Context.Extent)) * Matrix3x2.CreateRotation(s.State.Angle) * Matrix3x2.CreateScale(new Vector2(aspect, 1f) / s.Context.Extent.ShortSide);
             for (int i = 0; i < radius.Length; i++)
-                radius[i] = float.CopySign(eroded[i], radius[i]);
+                radius[i] = s.Cap * float.Pow(float.Clamp((Vector2.Transform(new Vector2(frame.Origin.X + (i % frame.Size.Width) + 0.5f, frame.Origin.Y + (i / frame.Size.Width) + 0.5f), field).Length() - s.State.Extent) / s.State.Feather, 0f, 1f), power);
         };
-    }
 
-    private static Vector2 Mirrored(int index, int reach) => new(reach - (index % ((2 * reach) + 1)), reach - (index / ((2 * reach) + 1)));
+    private static Option<Action<Mat, Span<float>, PixelFrame>> Depth((Defocus State, PassContext Context, float Cap) s) =>
+        from depth in s.Context.Guides.Find(GuideChannel.Depth)
+        from camera in s.Context.Camera
+        from lens in camera.Lens
+        from window in camera.Frustum.Switch(perspective: static frustum => Some(frustum.Window), parallel: static _ => Option<ViewWindow>.None)
+        let focus = (double)lens.FocusDistance
+        let taps = Window(s.Cap)
+        let k = lens.FocalLength * (double)s.Context.Extent.ShortSide / (2d * s.State.Aperture * (focus - lens.FocalLength) * double.Min((double)window.Right - window.Left, (double)window.Top - window.Bottom))
+        select new Action<Mat, Span<float>, PixelFrame>((_, radius, frame) => {
+            using Mat magnitude = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 1);
+            ReadOnlySpan<Vector4> distance = depth.Block.Cast<float, Vector4>();
+            Span<float> blurred = magnitude.GetSpan<float>();
+            for (int i = 0; i < radius.Length; i++)
+                (radius[i], blurred[i]) = (float)double.Clamp(k * (1d - (focus / distance[i].X)), -s.Cap, s.Cap) switch { var r => (r, float.Abs(r)) };
+            CvInvoke.GaussianBlur(magnitude, magnitude, new Size(taps, taps), s.Cap / 3f, s.Cap / 3f, BorderType.Replicate);
+            for (int i = 0; i < radius.Length; i++)
+                radius[i] = float.CopySign(float.Min(blurred[i], float.Abs(radius[i])), radius[i]);
+        });
 
-    private static Vector4 Straight(Vector4 light) => light.W > 0f ? new Vector4(light.AsVector3() / light.W, light.W) : Vector4.Zero;
+    private static (float Reach, float Edge)[] Outlines(Iris iris, int side) =>
+        [.. Range(0, side * side).Select(i => iris.Outline(new Vector2((side / 2) - (i % side), (side / 2) - (i / side))))];
+
+    private static Vector4 Tap(Iris iris, (float Reach, float Edge)[] outlines, int index, float radius) =>
+        index == outlines.Length / 2 ? Vector4.One : iris.Weights(outlines[index].Reach, outlines[index].Edge, radius, 1f);
+
+    private static int Window(float reach) => (2 * (int)float.Ceiling(reach)) + 1;
 }
 
 [SmartEnum<string>]
@@ -173,27 +140,19 @@ public sealed record Defocus(FocusField Field, DefocusRadius Radius, FNumber Ape
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DefocusParameter : IStateParameter<Defocus> {
-    private static readonly (StateParameter<Defocus> X, StateParameter<Defocus> Y) Position =
-        FramePosition.Kinds(Lens<Defocus, FramePosition>.New(static defocus => defocus.Center, static center => defocus => defocus with { Center = center }));
+    private static readonly (StateParameter<Defocus> X, StateParameter<Defocus> Y) Position = FramePosition.Kinds(Lens<Defocus, FramePosition>.New(static defocus => defocus.Center, static center => defocus => defocus with { Center = center }));
     private static readonly Lens<Defocus, Iris> Diaphragm = Lens<Defocus, Iris>.New(static defocus => defocus.Iris, static iris => defocus => defocus with { Iris = iris });
-    private static readonly (StateParameter<Defocus> Blades, StateParameter<Defocus> Rotation, StateParameter<Defocus> Roundness, StateParameter<Defocus> Obstruction, StateParameter<Defocus> Squeeze)
-        Outline = Iris.Kinds(Diaphragm);
+    private static readonly (StateParameter<Defocus> Blades, StateParameter<Defocus> Rotation, StateParameter<Defocus> Roundness, StateParameter<Defocus> Obstruction, StateParameter<Defocus> Squeeze) Outline = Iris.Kinds(Diaphragm);
 
     public static readonly DefocusParameter Field = new("field", new StateParameter<Defocus>.Choice<FocusField, InvalidOptics>(Lens<Defocus, FocusField>.New(static defocus => defocus.Field, static field => defocus => defocus with { Field = field })));
-    public static readonly DefocusParameter Radius = new("radius", new StateParameter<Defocus>.Bounded<DefocusRadius, float, InvalidOptics>(
-        Lens<Defocus, DefocusRadius>.New(static defocus => defocus.Radius, static radius => defocus => defocus with { Radius = radius }), new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }));
-    public static readonly DefocusParameter Aperture = new("f-stop", new StateParameter<Defocus>.Bounded<FNumber, float, InvalidPixelValue>(
-        Lens<Defocus, FNumber>.New(static defocus => defocus.Aperture, static aperture => defocus => defocus with { Aperture = aperture }), new() { Soft = (0.1f, 128f), Decimals = 1 }));
+    public static readonly DefocusParameter Radius = new("radius", new StateParameter<Defocus>.Bounded<DefocusRadius, float, InvalidOptics>(Lens<Defocus, DefocusRadius>.New(static defocus => defocus.Radius, static radius => defocus => defocus with { Radius = radius }), new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }));
+    public static readonly DefocusParameter Aperture = new("f-stop", new StateParameter<Defocus>.Bounded<FNumber, float, InvalidPixelValue>(Lens<Defocus, FNumber>.New(static defocus => defocus.Aperture, static aperture => defocus => defocus with { Aperture = aperture }), new() { Soft = (0.1f, 128f), Decimals = 1 }));
     public static readonly DefocusParameter CenterX = new("center-x", Position.X);
     public static readonly DefocusParameter CenterY = new("center-y", Position.Y);
-    public static readonly DefocusParameter Angle = new("angle", new StateParameter<Defocus>.Bounded<FocusAngle, float, InvalidOptics>(
-        Lens<Defocus, FocusAngle>.New(static defocus => defocus.Angle, static angle => defocus => defocus with { Angle = angle }), new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = (float)FocusAngle.Neutral }));
-    public static readonly DefocusParameter Extent = new("extent", new StateParameter<Defocus>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-        Lens<Defocus, ShortSideLength>.New(static defocus => defocus.Extent, static extent => defocus => defocus with { Extent = extent }), ShortSideLength.Presentation));
-    public static readonly DefocusParameter Aspect = new("aspect", new StateParameter<Defocus>.Bounded<AxisFraction, float, InvalidGrade>(
-        Lens<Defocus, AxisFraction>.New(static defocus => defocus.Aspect, static aspect => defocus => defocus with { Aspect = aspect }), new()));
-    public static readonly DefocusParameter Feather = new("feather", new StateParameter<Defocus>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-        Lens<Defocus, ShortSideExtent>.New(static defocus => defocus.Feather, static feather => defocus => defocus with { Feather = feather }), new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (ShortSideExtent.MinValue, 1f) }));
+    public static readonly DefocusParameter Angle = new("angle", new StateParameter<Defocus>.Bounded<FocusAngle, float, InvalidOptics>(Lens<Defocus, FocusAngle>.New(static defocus => defocus.Angle, static angle => defocus => defocus with { Angle = angle }), new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = (float)FocusAngle.Neutral }));
+    public static readonly DefocusParameter Extent = new("extent", new StateParameter<Defocus>.Bounded<ShortSideLength, float, InvalidPixelValue>(Lens<Defocus, ShortSideLength>.New(static defocus => defocus.Extent, static extent => defocus => defocus with { Extent = extent }), ShortSideLength.Presentation));
+    public static readonly DefocusParameter Aspect = new("aspect", new StateParameter<Defocus>.Bounded<AxisFraction, float, InvalidGrade>(Lens<Defocus, AxisFraction>.New(static defocus => defocus.Aspect, static aspect => defocus => defocus with { Aspect = aspect }), new()));
+    public static readonly DefocusParameter Feather = new("feather", new StateParameter<Defocus>.Bounded<ShortSideExtent, float, InvalidPixelValue>(Lens<Defocus, ShortSideExtent>.New(static defocus => defocus.Feather, static feather => defocus => defocus with { Feather = feather }), new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (ShortSideExtent.MinValue, 1f) }));
     public static readonly DefocusParameter Blades = new("blades", Outline.Blades);
     public static readonly DefocusParameter Rotation = new("rotation", Outline.Rotation);
     public static readonly DefocusParameter Roundness = new("roundness", Outline.Roundness);

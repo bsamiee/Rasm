@@ -62,7 +62,7 @@ def ready(address: str, port: int) -> None:
         connection.sendall(str(listener(Rhino.RhinoDoc.ActiveDoc)).encode())
 
 
-def main(doc: Rhino.RhinoDoc) -> None:
+def main(doc: Rhino.RhinoDoc, packages: tuple[str, ...]) -> None:
     """Converge and report the Settings window closed and every store's rows in store order over each unit system's template facts, Grasshopper 2 last once it loaded, then flush the settings on every path."""
     preferences = RhinoEtoApp.ApplicationPreferencesWindowForPage(None)
 
@@ -70,7 +70,7 @@ def main(doc: Rhino.RhinoDoc) -> None:
         targets = {units: template.target(units) for units in Units}
         if preferences is not None:
             yield action(label="ApplicationPreferencesWindow.Visible", read=lambda: preferences.Visible, act=preferences.Close, target=False)
-        yield from chain(options.rows(), appearance.rows(), keyboard.rows(), containers.rows(doc, targets), plugins.rows(), display.rows(), template.rows(targets))
+        yield from chain(options.rows(), appearance.rows(), keyboard.rows(), containers.rows(doc, targets), plugins.rows(packages), display.rows(), template.rows(targets))
         if not PlugIn.LoadPlugIn(PlugIn.IdFromName("Grasshopper2")):
             yield Error("Grasshopper 2 did not load, its rows stay unwritten")
             return

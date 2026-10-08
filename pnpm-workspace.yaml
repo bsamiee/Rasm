@@ -9,6 +9,7 @@ catalogMode: strict
 saveExact: true
 cacheDir: .cache/pnpm/cache
 storeDir: .cache/pnpm/store
+packageImportMethod: hardlink
 minimumReleaseAge: 0
 
 # --- [CATALOG] --------------------------------------------------------------------------

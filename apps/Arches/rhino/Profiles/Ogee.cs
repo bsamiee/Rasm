@@ -1,3 +1,7 @@
+using Rasm.Rhino;
+using Rasm.Rhino.Modeling;
+using Rhino.Geometry.Intersect;
+
 namespace Arches.Profiles;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -12,12 +16,12 @@ public static class Ogee {
         Line apexParallel = new(apex, span.Frame.XAxis);
         return riseDirection.Length - springingCircle.Radius <= span.Tolerance
             ? ArchProfile.Mirrored(span, Seq(new Arc(springingCircle, Math.PI / 2)))
-            : from points in CurveConstruction.LineCircle(new Line(span.End, apex), springingCircle).Bind(static met => met.Secant)
-              from crossing in CurveConstruction.LineLine(new Line(span.Midpoint, points.Point2), apexParallel)
+            : from points in Intersections.LineCircle(new Line(span.End, apex), springingCircle).Secant.ToFin(new Missing(nameof(Intersection.LineCircle)))
+              from crossing in Intersections.LineLine(new Line(span.Midpoint, points.Second.Point), apexParallel).ToFin(new Missing(nameof(Intersection.LineLine)))
               let crownCenter = apexParallel.PointAt(crossing.B)
-              let crownCircle = new Circle(new Plane(crownCenter, span.Frame.XAxis, -riseDirection), crownCenter.DistanceTo(points.Point2))
-              let endArc = new Arc(crownCircle, new Interval(Vector3d.VectorAngle(span.Frame.XAxis, points.Point2 - crownCenter), Math.PI))
-              let startArc = new Arc(springingCircle, Vector3d.VectorAngle(span.Frame.XAxis, points.Point2 - span.Midpoint))
+              let crownCircle = new Circle(new Plane(crownCenter, span.Frame.XAxis, -riseDirection), crownCenter.DistanceTo(points.Second.Point))
+              let endArc = new Arc(crownCircle, new Interval(Vector3d.VectorAngle(span.Frame.XAxis, points.Second.Point - crownCenter), Math.PI))
+              let startArc = new Arc(springingCircle, Vector3d.VectorAngle(span.Frame.XAxis, points.Second.Point - span.Midpoint))
               from profile in ArchProfile.Mirrored(span, Seq(startArc, endArc))
               select profile;
     }
@@ -28,12 +32,12 @@ public static class Ogee {
         Circle haunchCircle = new(new Plane(haunchCenter, span.Frame.XAxis, riseDirection), haunchCenter.DistanceTo(span.End));
         Line apexParallel = new(apex, span.Frame.XAxis);
         return
-            from points in CurveConstruction.LineCircle(new Line(span.End, apex), haunchCircle).Bind(static met => met.Secant)
-            let startArc = new Arc(haunchCircle, Vector3d.VectorAngle(span.Frame.XAxis, points.Point2 - haunchCenter))
-            from crossing in CurveConstruction.LineLine(apexParallel, new Line(haunchCenter, points.Point2))
+            from points in Intersections.LineCircle(new Line(span.End, apex), haunchCircle).Secant.ToFin(new Missing(nameof(Intersection.LineCircle)))
+            let startArc = new Arc(haunchCircle, Vector3d.VectorAngle(span.Frame.XAxis, points.Second.Point - haunchCenter))
+            from crossing in Intersections.LineLine(apexParallel, new Line(haunchCenter, points.Second.Point)).ToFin(new Missing(nameof(Intersection.LineLine)))
             let crownCenter = apexParallel.PointAt(crossing.A)
             let crownCircle = new Circle(new Plane(crownCenter, span.Frame.XAxis, -riseDirection), crownCenter.DistanceTo(apex))
-            let endArc = new Arc(crownCircle, new Interval(Vector3d.VectorAngle(span.Frame.XAxis, points.Point2 - crownCenter), Math.PI))
+            let endArc = new Arc(crownCircle, new Interval(Vector3d.VectorAngle(span.Frame.XAxis, points.Second.Point - crownCenter), Math.PI))
             from profile in ArchProfile.Mirrored(span, Seq(startArc, endArc))
             select profile;
     }
@@ -49,7 +53,7 @@ public static class Ogee {
         Line firstQuarterPerpendicular = new(endToApex.PointAtLength(endToApexQuarter), endToApexPerpendicular);
         Line thirdQuarterPerpendicular = new(endToApex.PointAtLength(endToApexQuarter * 3), endToApexPerpendicular);
         return
-            from crossings in (CurveConstruction.LineLine(endPerpendicular, firstQuarterPerpendicular), CurveConstruction.LineLine(span.CenterLine, thirdQuarterPerpendicular))
+            from crossings in (Intersections.LineLine(endPerpendicular, firstQuarterPerpendicular).ToFin(new Missing(nameof(Intersection.LineLine))), Intersections.LineLine(span.CenterLine, thirdQuarterPerpendicular).ToFin(new Missing(nameof(Intersection.LineLine))))
                 .Apply(static (haunch, crown) => (Haunch: haunch, Crown: crown))
                 .As()
             let haunchCenter = endPerpendicular.PointAt(crossings.Haunch.A)

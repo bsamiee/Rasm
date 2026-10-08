@@ -101,7 +101,7 @@ public static class Destinations {
     private static Fin<HashMap<Seq<NamePart>, OutputVersion>> Versions(NamePart stem, Seq<Seq<NamePart>> fresh, Seq<string> entries) =>
         fresh.Traverse(scope => entries.Choose(entry => Naming.VersionOf(stem, scope, entry))
                 .Fold(Option<OutputVersion>.None, static (top, version) => top.Filter(held => held > version) | version)
-                .Match(Some: static top => top.Next, None: static () => OutputVersion.MinValue)
+                .Match(Some: static top => top.Next(), None: static () => OutputVersion.MinValue)
                 .ToValidation<Error>(new VersionsExhausted(stem, scope))
                 .Map(version => (scope, version)))
             .As()
@@ -121,8 +121,8 @@ public static class Destinations {
 
     private static Validation<Error, Seq<(OutputName Name, OutputPath Path)>> Plan(Seq<(OutputName Name, OutputPath Path)> named, Func<OutputPath, bool> free, string member) =>
         (
-            Callbacks.Unique(named, static row => (string)row.Path, StringComparer.OrdinalIgnoreCase, member),
-            named.Traverse(row => DestinationOccupied.Unless(free(row.Path), row.Path).ToValidation()).As()
+            Callbacks.Unique(named, static row => (string)row.Path, member, StringComparer.OrdinalIgnoreCase),
+            named.Traverse(row => (free(row.Path) ? Fin.Succ(unit) : new DestinationOccupied(row.Path)).ToValidation()).As()
         )
             .Apply(static (held, _) => held)
             .As();

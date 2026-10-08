@@ -20,7 +20,7 @@ public interface IStateParameterVisitor<TRecord, out TResult> {
         where TKey : struct, INumber<TKey>
         where TError : Error, IValidationError<TError>;
 
-    public TResult OptionalBounded<TValue, TKey, TError>(Lens<TRecord, Option<TValue>> lens, Presentation<TValue, TKey> presentation)
+    public TResult OptionalBounded<TValue, TKey, TError>(Lens<TRecord, Gated<TValue>> lens, Presentation<TValue, TKey> presentation)
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
         where TKey : struct, INumber<TKey>
         where TError : Error, IValidationError<TError>;
@@ -42,7 +42,7 @@ public interface IStateParameterVisitor<TRecord, out TResult> {
 
     public TResult Record<TNested>(Lens<TRecord, TNested> lens) where TNested : IStateRecord<TNested>;
 
-    public TResult OptionalRecord<TNested>(Lens<TRecord, Option<TNested>> lens) where TNested : IStateRecord<TNested>;
+    public TResult OptionalRecord<TNested>(Lens<TRecord, Gated<TNested>> lens) where TNested : IStateRecord<TNested>;
 
     public TResult Toggle(Lens<TRecord, bool> lens);
 
@@ -52,7 +52,7 @@ public interface IStateParameterVisitor<TRecord, out TResult> {
 
     public TResult Color(Lens<TRecord, Swatch> lens);
 
-    public TResult OptionalColor(Lens<TRecord, Option<Swatch>> lens);
+    public TResult OptionalColor(Lens<TRecord, Gated<Swatch>> lens);
 
     public TResult Gradient(Lens<TRecord, Ramp> lens);
 
@@ -133,8 +133,8 @@ public sealed partial class GuideChannel {
     public static readonly GuideChannel MaterialId = new();
 }
 
-public sealed record SceneLights(Option<Vector3> Sun, HashMap<Guid, Vector3> Points) {
-    public static SceneLights Empty { get; } = new(None, HashMap<Guid, Vector3>());
+public sealed record SceneLights(Option<Vector3> Sun, HashMap<Guid, Vector3> Points, HashMap<Guid, Vector3> Directions) {
+    public static SceneLights Empty { get; } = new(None, HashMap<Guid, Vector3>(), HashMap<Guid, Vector3>());
 }
 
 public readonly record struct PassContext(
@@ -278,6 +278,7 @@ public sealed partial class Ramp : IConvertible<string> {
     public RampInterpolation Interpolation { get; }
 
     public static Ramp Grayscale { get; } = new(Seq(RampStop.Black, RampStop.White), RampInterpolation.Linear);
+    public static Ramp White { get; } = new(Seq(RampStop.White), RampInterpolation.Linear);
 
     public (Ramp Ramp, int Index) Moved(int index, RampPosition position) =>
         (Stops.Take(index).Concat(Stops.Skip(index + 1)),
@@ -373,6 +374,15 @@ public sealed record Presentation<TValue, TKey>
         Stops.Map(ramp => ramp.Tabulate(Gamut.StandardRgb).Sample((key - double.CreateChecked(Soft.Low)) / double.CreateChecked(Soft.High - Soft.Low)));
 }
 
+public sealed record Gated<TValue>(bool Enabled, TValue Value) where TValue : notnull {
+    public static readonly (string Key, Lens<Gated<TValue>, bool> Lens) EnabledEntry =
+        ("enabled", Lens<Gated<TValue>, bool>.New(static gate => gate.Enabled, static enabled => gate => gate with { Enabled = enabled }));
+    public static readonly (string Key, Lens<Gated<TValue>, TValue> Lens) ValueEntry =
+        ("value", Lens<Gated<TValue>, TValue>.New(static gate => gate.Value, static value => gate => gate with { Value = value }));
+
+    public Option<TValue> Active => Enabled ? Some(Value) : None;
+}
+
 public abstract class StateParameter<TRecord> {
     private StateParameter() { }
 
@@ -385,7 +395,7 @@ public abstract class StateParameter<TRecord> {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Bounded<TValue, TKey, TError>(lens, presentation);
     }
 
-    public sealed class OptionalBounded<TValue, TKey, TError>(Lens<TRecord, Option<TValue>> lens, Presentation<TValue, TKey> presentation) : StateParameter<TRecord>
+    public sealed class OptionalBounded<TValue, TKey, TError>(Lens<TRecord, Gated<TValue>> lens, Presentation<TValue, TKey> presentation) : StateParameter<TRecord>
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
         where TKey : struct, INumber<TKey>
         where TError : Error, IValidationError<TError> {
@@ -419,7 +429,7 @@ public abstract class StateParameter<TRecord> {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Record(lens);
     }
 
-    public sealed class OptionalRecord<TNested>(Lens<TRecord, Option<TNested>> lens) : StateParameter<TRecord> where TNested : IStateRecord<TNested> {
+    public sealed class OptionalRecord<TNested>(Lens<TRecord, Gated<TNested>> lens) : StateParameter<TRecord> where TNested : IStateRecord<TNested> {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalRecord(lens);
     }
 
@@ -439,7 +449,7 @@ public abstract class StateParameter<TRecord> {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Color(lens);
     }
 
-    public sealed class OptionalColor(Lens<TRecord, Option<Swatch>> lens) : StateParameter<TRecord> {
+    public sealed class OptionalColor(Lens<TRecord, Gated<Swatch>> lens) : StateParameter<TRecord> {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalColor(lens);
     }
 
@@ -510,6 +520,7 @@ public readonly partial struct ShortSideLength : IMinMaxValue<ShortSideLength> {
 public readonly partial struct ShortSideExtent : IMinMaxValue<ShortSideExtent> {
     public static ShortSideExtent MinValue { get; } = new(0.001f);
     public static ShortSideExtent MaxValue { get; } = new(8f);
+    public static Presentation<ShortSideExtent, float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Scale = TrackScale.Log };
 
     public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
 

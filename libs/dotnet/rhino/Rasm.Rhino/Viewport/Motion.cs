@@ -108,11 +108,10 @@ internal sealed record Course(Leg Leg, CameraPose Shown, Duration Excluded, Phas
         - Excluded;
 
     public Option<Reduced<double>> Sample(TimingCurve curve, FrameTick tick, Duration elapsed) =>
-        Phase.Switch(
-            (Curve: curve, Tick: tick, Time: Motion(elapsed) - Leg.Start),
-            running: static (state, _) => Some(state.Tick.Switch(state, next: static at => at.Curve.Sample(at.Time), final: static _ => TimingCurve.End)),
-            paused: static (_, _) => Option<Reduced<double>>.None,
-            stopped: static (_, _) => Option<Reduced<double>>.None);
+        Phase.Map(
+            running: Some(tick.Map(next: curve.Sample(Motion(elapsed) - Leg.Start), final: TimingCurve.End)),
+            paused: Option<Reduced<double>>.None,
+            stopped: Option<Reduced<double>>.None);
 
     public Course Resumed(Phase.Paused paused, Duration elapsed, IDisposable source) =>
         this with { Excluded = Excluded + (elapsed - paused.Since), Phase = new Phase.Running(source) };
@@ -126,20 +125,15 @@ internal sealed record Pacing(
     RhinoDoc Document,
     CameraMove Move,
     Func<Sink<FrameTick>, IO<IDisposable>> Frames,
-    TimeProvider Time,
-    long Start,
+    IO<Duration> Elapsed,
     Conduit<FrameTick, FrameTick> Ticks,
     Atom<Course> Course) {
-    public IO<Duration> Elapsed => IO.lift(() => Time.GetElapsedTime(Start).ToDuration());
-
     public IO<Unit> Halt() =>
-        from held in Course.ValueIO
-        from halted in held.Phase.Switch(
+        Course.ValueIO.Bind(held => held.Phase.Switch(
             this,
             running: static (pacing, running) => IO.lift(running.Source.Dispose).Bind(_ => pacing.Close()),
             paused: static (pacing, _) => pacing.Close(),
-            stopped: static (_, _) => IO.pure(unit))
-        select halted;
+            stopped: static (_, _) => IO.pure(unit)));
 
     private IO<Unit> Close() =>
         Course.SwapIO(static course => course with { Phase = new Phase.Stopped() }).Bind(_ => Ticks.Complete());
@@ -153,8 +147,7 @@ public sealed class MotionHandle {
     public IO<Unit> Completed { get; }
 
     public IO<Unit> Pause() =>
-        from held in pacing.Course.ValueIO
-        from paused in held.Phase.Switch(
+        pacing.Course.ValueIO.Bind(held => held.Phase.Switch(
             pacing,
             running: static (state, running) =>
                 from released in IO.lift(running.Source.Dispose)
@@ -162,12 +155,10 @@ public sealed class MotionHandle {
                 from swapped in state.Course.SwapIO(course => course with { Phase = new Phase.Paused(elapsed) })
                 select unit,
             paused: static (_, _) => IO.pure(unit),
-            stopped: static (_, _) => IO.pure(unit))
-        select paused;
+            stopped: static (_, _) => IO.pure(unit)));
 
     public IO<Unit> Resume() =>
-        from held in pacing.Course.ValueIO
-        from resumed in held.Phase.Switch(
+        pacing.Course.ValueIO.Bind(held => held.Phase.Switch(
             pacing,
             running: static (_, _) => IO.pure(unit),
             paused: static (state, paused) =>
@@ -175,24 +166,16 @@ public sealed class MotionHandle {
                 from elapsed in state.Elapsed
                 from entered in state.Course.SwapIO(course => course.Resumed(paused, elapsed, source))
                 select unit,
-            stopped: static (_, _) => IO.fail<Unit>(new MotionEnded()))
-        select resumed;
+            stopped: static (_, _) => IO.fail<Unit>(new MotionEnded())));
 
     public IO<Unit> Retarget(CameraPose goal) =>
         from held in pacing.Course.ValueIO
-        from moved in held.Phase.Switch(
-            (Pacing: pacing, Goal: goal),
-            running: static (state, _) => Moved(state.Pacing, state.Goal),
-            paused: static (state, _) => Moved(state.Pacing, state.Goal),
-            stopped: static (_, _) => IO.fail<Unit>(new MotionEnded()))
-        select moved;
+        from live in held.Phase.Map(running: IO.pure(unit), paused: IO.pure(unit), stopped: IO.fail<Unit>(new MotionEnded()))
+        from elapsed in pacing.Elapsed
+        from moved in pacing.Course.SwapIO(course => course.Retargeted(goal, elapsed))
+        select unit;
 
     public IO<Unit> Stop() => pacing.Halt();
-
-    private static IO<Unit> Moved(Pacing pacing, CameraPose goal) =>
-        from elapsed in pacing.Elapsed
-        from swapped in pacing.Course.SwapIO(course => course.Retargeted(goal, elapsed))
-        select unit;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -254,11 +237,10 @@ public static class Motions {
         from ticks in IO.lift(static () => Conduit.make(Buffer<FrameTick>.New))
         from start in IO.lift(time.GetTimestamp)
         let pacing = new Pacing(
-            document, move, frames, time, start, ticks,
+            document, move, frames, IO.lift(() => time.GetElapsedTime(start).ToDuration()), ticks,
             Atom(new Course(new Leg(move.From, move.To, Duration.Zero), move.From, Duration.Zero, new Phase.Paused(Duration.Zero))))
         from consumer in ticks.Reduce(unit, (_, tick) => Frame(pacing, tick))
-            .Catch(error => IO.lift(() => sink.Report(error, typeof(Motions), nameof(Drive))).Bind(_ => IO.fail<Unit>(error)))
-            .As()
+            .IfFail(error => IO.lift(() => sink.Report(error, typeof(Motions), nameof(Drive))).Bind(_ => IO.fail<Unit>(error)))
             .Finally(pacing.Halt().Post())
             .Fork()
         let handle = new MotionHandle(pacing, consumer)
@@ -278,6 +260,5 @@ public static class Motions {
         from pose in IO.lift(Interpolated(leg.From, leg.To, sample.Value))
         from written in Navigation.ApplyToViewports(pacing.Document, pacing.Move.Viewports, port => Cameras.WritePose(port, pose), pacing.Move.Redraw)
         from shown in pacing.Course.SwapIO(course => course with { Shown = pose })
-        from halted in unless(sample.Continue, pacing.Halt()).As()
         select sample.Map(static _ => unit);
 }

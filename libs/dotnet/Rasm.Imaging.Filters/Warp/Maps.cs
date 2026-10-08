@@ -1,11 +1,9 @@
 using System.Drawing;
 using System.Numerics;
 using CommunityToolkit.HighPerformance;
-using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
-using Emgu.CV.Structure;
 using Rasm.Imaging.Pixels;
 
 namespace Rasm.Imaging.Filters.Warp;
@@ -16,90 +14,111 @@ namespace Rasm.Imaging.Filters.Warp;
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Sampling {
-    public static readonly Sampling Nearest = new("nearest", Inter.Nearest, 1, static (points, _, _) => {
-        foreach (ref Vector2 point in points) point = Vector2.Round(point, MidpointRounding.ToNegativeInfinity) + new Vector2(0.5f);
-    });
-    public static readonly Sampling Linear = new("linear", Inter.Linear, 1, static (_, _, _) => { });
-    public static readonly Sampling Cubic = new("cubic", Inter.Cubic, 2, static (_, _, _) => { });
+    public static readonly Sampling Nearest = new("nearest", Inter.Nearest, 0, Some<Action<Span<Vector2>>>(static points => { foreach (ref Vector2 point in points) point = Vector2.Round(point, MidpointRounding.ToNegativeInfinity) + new Vector2(0.5f); }));
+    public static readonly Sampling Linear = new("linear", Inter.Linear, 1, None);
+    public static readonly Sampling Cubic = new("cubic", Inter.Cubic, 2, None);
 
     internal Inter Interpolation { get; }
     internal int Reach { get; }
-    internal Action<Span<Vector2>, Span<float>, PixelExtent> Snap { get; }
+    internal Option<Action<Span<Vector2>>> Snap { get; }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CoordinateMap {
     private const int Tile = 1024;
-    internal static readonly int Pad = Sampling.Items.Max(static sampling => sampling.Reach);
+    private static readonly int Pad = Sampling.Items.Max(static sampling => sampling.Reach);
 
     private CoordinateMap(Sampling sampling, WrapMode wrap) => (Sampling, Wrap) = (sampling, wrap);
 
     public Sampling Sampling { get; }
     public WrapMode Wrap { get; }
-    internal BorderType Border => Wrap.Map(black: BorderType.Replicate, clamp: BorderType.Replicate, periodic: BorderType.Wrap, mirror: BorderType.Reflect);
 
-    public CoordinateMap Then(CoordinateMap next) => new Composed(this, next);
+    public Fin<Unit> Apply(PixelFrame frame, IProgress<int> progress) => Run(frame, progress, [(this, Vector4.One)]);
 
-    public Fin<Unit> Apply(PixelFrame frame, IProgress<int> progress) => Run(frame, progress, Border, [(this, Vector4.One)]);
+    public PixelFrame Resample(PixelFrame source, PixelExtent extent) => new(Point.Empty, extent, extent, block =>
+        Sample(source, new Rectangle(0, 0, extent.Width, extent.Height), extent, [(this, Vector4.One)], block.AsSpan().Cast<float, Vector4>().AsSpan2D(extent.Height, extent.Width)));
 
-    public PixelFrame Resample(PixelFrame source, PixelExtent extent) =>
-        new(Point.Empty, extent, extent, block => Sample(source, new Rectangle(0, 0, extent.Width, extent.Height), extent, Border, [(this, Vector4.One)], block.AsMemory().Cast<float, Vector4>().AsMemory2D(extent.Height, extent.Width)));
-
-    public PixelFrame Bake(PixelExtent extent) =>
-        new(Point.Empty, extent, extent, block => ParallelHelper.For(0, extent.Height, new BakeRows(this, block.AsMemory().Cast<float, Vector4>().AsMemory2D(extent.Height, extent.Width), extent)));
+    public PixelFrame Bake(PixelExtent extent) {
+        Rectangle whole = new(0, 0, extent.Width, extent.Height);
+        using Mat points = new(extent.Height, extent.Width, DepthType.Cv32F, 2);
+        using Mat coverage = new(extent.Height, extent.Width, DepthType.Cv32F, 1);
+        ParallelHelper.For(0, extent.Height, new TraceRows(this, points, coverage, whole, extent, extent, whole));
+        return new(Point.Empty, extent, extent, block => {
+            Span<Vector4> pixels = block.AsSpan().Cast<float, Vector4>();
+            ReadOnlySpan<Vector2> at = points.GetSpan<Vector2>();
+            ReadOnlySpan<float> kept = coverage.GetSpan<float>();
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = new Vector4(at[i].X / extent.Width, 1f - (at[i].Y / extent.Height), kept[i], kept[i]);
+        });
+    }
 
     public static Func<PixelFrame, IProgress<int>, Fin<Unit>> Integrated(Func<float, (CoordinateMap Map, Vector4 Lanes)> subframe) =>
         (frame, progress) => {
-            int diagonal = (int)Math.Ceiling(double.Hypot(frame.Extent.Width, frame.Extent.Height));
-            Seq<Vector2[]> corners = toSeq(Enumerable.Range(0, diagonal + 1).Select(step => subframe((float)step / diagonal).Map.Corners(frame.Extent))).Strict();
-            int steps = int.Clamp((int)float.Ceiling(Enumerable.Range(0, 4).Max(corner =>
-                corners.Zip(corners.Tail).Fold(0f, (path, step) => path + Vector2.Distance(step.First[corner], step.Second[corner])))), 1, diagonal);
-            return Run(frame, progress, subframe(0f).Map.Border, toSeq(Enumerable.Range(0, steps + 1).Select(step => subframe((float)step / steps))).Strict());
+            (PixelExtent extent, int diagonal) = (frame.Extent, (int)double.Ceiling(double.Hypot(frame.Extent.Width, frame.Extent.Height)));
+            Vector2[][] corners = [.. Enumerable.Range(0, diagonal + 1).Select(step => {
+                Vector2[] points = [new(0.5f), new(extent.Width - 0.5f, 0.5f), new(extent.Width - 0.5f, extent.Height - 0.5f), new(0.5f, extent.Height - 0.5f)];
+                subframe((float)step / diagonal).Map.Trace(points, stackalloc float[points.Length], extent, extent);
+                return points;
+            })];
+            int steps = int.Clamp((int)float.Ceiling(Enumerable.Range(0, 4).Max(corner => Enumerable.Range(1, diagonal).Sum(step => Vector2.Distance(corners[step - 1][corner], corners[step][corner])))), 1, diagonal);
+            return subframe(0f).Map.Run(frame, progress, toSeq(Enumerable.Range(0, steps + 1).Select(step => subframe((float)step / steps))));
         };
-
-    internal void Traced(Span<Vector2> points, Span<float> coverage, Point corner, PixelExtent output, PixelExtent source) {
-        for (int x = 0; x < points.Length; x++) points[x] = new Vector2(corner.X + x + 0.5f, corner.Y + 0.5f);
-        coverage.Fill(1f);
-        Trace(points, coverage, output, source);
-    }
 
     internal abstract void Trace(Span<Vector2> points, Span<float> coverage, PixelExtent output, PixelExtent source);
 
-    internal void Folded(Span<Vector2> points, Span<float> coverage, PixelExtent source) {
+    internal void Bound(Span<Vector2> points, Span<float> coverage, Rectangle window) {
+        if (Sampling.Snap.Case is Action<Span<Vector2>> snap) snap(points);
         for (int i = 0; i < points.Length; i++) {
-            ((float x, float across), (float y, float down)) = (Wrap.Fold(points[i].X, source.Width), Wrap.Fold(points[i].Y, source.Height));
+            ((float x, float across), (float y, float down)) = (Wrap.Fold(points[i].X - window.X, window.Width), Wrap.Fold(points[i].Y - window.Y, window.Height));
             points[i] = new Vector2(x, y);
-            coverage[i] = coverage[i] * across * down;
+            coverage[i] *= across * down;
         }
     }
 
-    private Vector2[] Corners(PixelExtent extent) {
-        Vector2[] points = [new(0.5f), new(extent.Width - 0.5f, 0.5f), new(extent.Width - 0.5f, extent.Height - 0.5f), new(0.5f, extent.Height - 0.5f)];
-        Trace(points, stackalloc float[points.Length], extent, extent);
-        return points;
-    }
-
-    private static Fin<Unit> Run(PixelFrame frame, IProgress<int> progress, BorderType border, Seq<(CoordinateMap Map, Vector4 Lanes)> subframes) {
-        Sample(frame, frame.Window, frame.Extent, border, subframes, frame.View);
+    private Fin<Unit> Run(PixelFrame frame, IProgress<int> progress, Seq<(CoordinateMap Map, Vector4 Lanes)> subframes) {
+        Sample(frame, frame.Window, frame.Extent, subframes, frame.View.Span);
         progress.Report(frame.Size.Height);
         return unit;
     }
 
-    private static void Sample(PixelFrame source, Rectangle window, PixelExtent output, BorderType border, Seq<(CoordinateMap Map, Vector4 Lanes)> subframes, Memory2D<Vector4> destination) {
+    private void Sample(PixelFrame source, Rectangle window, PixelExtent output, Seq<(CoordinateMap Map, Vector4 Lanes)> subframes, Span2D<Vector4> destination) {
+        BorderType border = Wrap.Map(black: BorderType.Constant, clamp: BorderType.Replicate, periodic: BorderType.Wrap, mirror: BorderType.Reflect);
         using Mat header = source.Header();
         using Mat padded = new();
-        CvInvoke.CopyMakeBorder(header, padded, Pad, Pad, Pad, Pad, border, default);
+        CvInvoke.CopyMakeBorder(header, padded, Pad, Pad, Pad, Pad, border);
         foreach (ref Vector4 pixel in padded.GetSpan<Vector4>()) pixel = new Vector4(pixel.AsVector3() * pixel.W, pixel.W);
-        Size tile = new(int.Min(Tile, window.Width), int.Min(Tile, window.Height));
-        using Mat points = new(tile.Height, tile.Width, DepthType.Cv32F, 2);
-        using Mat coverage = new(tile.Height, tile.Width, DepthType.Cv32F, 1);
-        using Mat samples = new(tile.Height, tile.Width, DepthType.Cv32F, 4);
-        Tiles tiles = new(source, padded, output, subframes, points, coverage, samples);
-        int across = (window.Width + Tile - 1) / Tile;
-        for (int index = 0; index < across * ((window.Height + Tile - 1) / Tile); index++) {
-            Rectangle area = Rectangle.Intersect(new Rectangle(window.X + (index % across * Tile), window.Y + (index / across * Tile), Tile, Tile), window);
-            tiles.Fill(area, destination.Span.Slice(area.Y - window.Y, area.X - window.X, area.Height, area.Width));
+        using Mat points = new(int.Min(Tile, window.Height), int.Min(Tile, window.Width), DepthType.Cv32F, 2);
+        using Mat coverage = new(points.Rows, points.Cols, DepthType.Cv32F, 1);
+        using Mat samples = new(points.Rows, points.Cols, DepthType.Cv32F, 4);
+        using Mat unused = new();
+        Vector4 total = subframes.Fold(Vector4.Zero, static (sum, subframe) => sum + subframe.Lanes);
+        destination.Clear();
+        foreach ((CoordinateMap map, Vector4 lanes) in subframes) foreach (Rectangle area in Cut(window, new Size(Tile, Tile))) Accumulate(map, lanes / total, area, destination);
+        foreach (ref Vector4 pixel in destination) pixel = pixel.W > 0f ? new Vector4(pixel.AsVector3() / pixel.W, pixel.W) : Vector4.Zero;
+
+        void Accumulate(CoordinateMap map, Vector4 lanes, Rectangle area, Span2D<Vector4> destination) {
+            using Mat traced = Shaped(points, area.Size);
+            using Mat share = Shaped(coverage, area.Size);
+            ParallelHelper.For(0, area.Height, new TraceRows(map, traced, share, area, output, source.Extent, source.Window));
+            traced.MinMax(out double[] low, out double[] high, out _, out _);
+            Rectangle box = Rectangle.Intersect(new Rectangle(Point.Empty, padded.Size), Rectangle.Inflate(Rectangle.FromLTRB((int)low[0] + Pad, (int)low[1] + Pad, (int)high[0] + Pad + 1, (int)high[1] + Pad + 1), map.Sampling.Reach, map.Sampling.Reach));
+            if (box.Width >= short.MaxValue || box.Height >= short.MaxValue)
+                foreach (Rectangle quarter in Cut(area, new Size((area.Width + 1) / 2, (area.Height + 1) / 2))) Accumulate(map, lanes, quarter, destination);
+            else if (CvInvoke.CountNonZero(share) > 0) {
+                foreach (ref Vector2 point in traced.GetSpan<Vector2>()) point += new Vector2(Pad - 0.5f) - new Vector2(box.X, box.Y);
+                using Mat region = new(padded, box);
+                using Mat sampled = Shaped(samples, area.Size);
+                CvInvoke.Remap(region, sampled, traced, unused, map.Sampling.Interpolation, border);
+                ReadOnlySpan<Vector4> read = sampled.GetSpan<Vector4>();
+                ReadOnlySpan<float> weights = share.GetSpan<float>();
+                for (int i = 0; i < read.Length; i++) destination[area.Y - window.Y + (i / area.Width), area.X - window.X + (i % area.Width)] += lanes * (weights[i] * read[i]);
+            }
         }
+
+        static Mat Shaped(Mat scratch, Size size) => new(size.Height, size.Width, scratch.Depth, scratch.NumberOfChannels, scratch.DataPointer, size.Width * scratch.ElementSize);
+
+        static IEnumerable<Rectangle> Cut(Rectangle area, Size size) =>
+            from down in Enumerable.Range(0, (area.Height + size.Height - 1) / size.Height) from across in Enumerable.Range(0, (area.Width + size.Width - 1) / size.Width)
+            select Rectangle.Intersect(new Rectangle(area.X + (across * size.Width), area.Y + (down * size.Height), size.Width, size.Height), area);
     }
 
     public sealed record Analytic(Action<Span<Vector2>, Span<float>, PixelExtent> Kernel, Sampling Sampling, WrapMode Wrap) : CoordinateMap(Sampling, Wrap) {
@@ -110,85 +129,27 @@ public abstract partial record CoordinateMap {
         internal override void Trace(Span<Vector2> points, Span<float> coverage, PixelExtent output, PixelExtent source) {
             ReadOnlySpan2D<Vector4> st = St.View.Span;
             Vector2 scale = new Vector2(St.Size.Width, St.Size.Height) / new Vector2(output.Width, output.Height);
-            for (int i = 0; i < points.Length; i++) {
-                Vector4 read = st.Sample(points[i] * scale, (WrapMode.Clamp, WrapMode.Clamp));
-                (points[i], coverage[i]) = (new Vector2(read.X, 1f - read.Y) * new Vector2(source.Width, source.Height), coverage[i] * read.W);
-            }
+            for (int i = 0; i < points.Length; i++)
+                (points[i], coverage[i]) = st.Sample(points[i] * scale, (WrapMode.Clamp, WrapMode.Clamp)) switch { var read => (new Vector2(read.X, 1f - read.Y) * new Vector2(source.Width, source.Height), coverage[i] * read.W) };
         }
     }
 
     public sealed record Composed(CoordinateMap First, CoordinateMap Second) : CoordinateMap(First.Sampling, First.Wrap) {
         internal override void Trace(Span<Vector2> points, Span<float> coverage, PixelExtent output, PixelExtent source) {
             Second.Trace(points, coverage, output, output);
-            Second.Sampling.Snap(points, coverage, output);
-            Second.Folded(points, coverage, output);
+            Second.Bound(points, coverage, new Rectangle(0, 0, output.Width, output.Height));
             First.Trace(points, coverage, output, source);
         }
     }
 }
 
-file readonly struct Tiles(PixelFrame source, Mat padded, PixelExtent output, Seq<(CoordinateMap Map, Vector4 Lanes)> subframes, Mat points, Mat coverage, Mat samples) {
-    private const int Side = short.MaxValue;
-    private readonly Vector4 total = subframes.Fold(Vector4.Zero, static (sum, subframe) => sum + subframe.Lanes);
-
-    public void Fill(Rectangle area, Span2D<Vector4> target) {
-        target.Clear();
-        foreach ((CoordinateMap map, Vector4 lanes) in subframes) Accumulate(map, lanes, area, target);
-        foreach (ref Vector4 pixel in target) pixel = pixel.W > 0f ? new Vector4(pixel.AsVector3() / total.AsVector3() * (total.W / pixel.W), pixel.W / total.W) : Vector4.Zero;
-    }
-
-    private void Accumulate(CoordinateMap map, Vector4 lanes, Rectangle area, Span2D<Vector4> target) {
-        using Mat traced = Shaped(points, area.Size);
-        using Mat share = Shaped(coverage, area.Size);
-        ParallelHelper.For(0, area.Height, new TraceRows(map, traced, share, area, output, source));
-        ReadOnlySpan<Vector2> at = traced.GetSpan<Vector2>();
-        ReadOnlySpan<float> weights = share.GetSpan<float>();
-        (Vector2 low, Vector2 high) = (new(float.MaxValue), new(float.MinValue));
-        for (int i = 0; i < at.Length; i++) (low, high) = weights[i] > 0f ? (Vector2.Min(low, at[i]), Vector2.Max(high, at[i])) : (low, high);
-        if (low.X > high.X)
-            return;
-        Vector2 limit = new(padded.Cols, padded.Rows);
-        Vector2 start = Vector2.Clamp(Vector2.Round(low, MidpointRounding.ToNegativeInfinity) - new Vector2(map.Sampling.Reach), Vector2.Zero, limit - Vector2.One);
-        Vector2 end = Vector2.Clamp(Vector2.Round(high, MidpointRounding.ToNegativeInfinity) + new Vector2(map.Sampling.Reach + 1), start + Vector2.One, limit);
-        Rectangle box = Rectangle.FromLTRB((int)start.X, (int)start.Y, (int)end.X, (int)end.Y);
-        if (box.Width >= Side || box.Height >= Side) {
-            Size half = new((area.Width + 1) / 2, (area.Height + 1) / 2);
-            foreach (Rectangle quarter in Seq(0, 1, 2, 3).Map(k => Rectangle.Intersect(new Rectangle(area.X + (k % 2 * half.Width), area.Y + (k / 2 * half.Height), half.Width, half.Height), area)).Filter(static quarter => quarter.Width > 0 && quarter.Height > 0))
-                Accumulate(map, lanes, quarter, target.Slice(quarter.Y - area.Y, quarter.X - area.X, quarter.Height, quarter.Width));
-            return;
-        }
-        using ScalarArray corner = new(new MCvScalar(box.X, box.Y));
-        CvInvoke.Subtract(traced, corner, traced);
-        using Mat region = new(padded, box);
-        using Mat sampled = Shaped(samples, area.Size);
-        using Mat empty = new();
-        CvInvoke.Remap(region, sampled, traced, empty, map.Sampling.Interpolation, map.Border, default);
-        ReadOnlySpan<Vector4> read = sampled.GetSpan<Vector4>();
-        for (int i = 0; i < read.Length; i++) target[i / area.Width, i % area.Width] += lanes * (weights[i] * read[i]);
-    }
-
-    private static Mat Shaped(Mat scratch, Size size) =>
-        new(size.Height, size.Width, scratch.Depth, scratch.NumberOfChannels, scratch.DataPointer, size.Width * scratch.ElementSize);
-}
-
-file readonly struct TraceRows(CoordinateMap map, Mat points, Mat coverage, Rectangle area, PixelExtent output, PixelFrame source) : IAction {
+file readonly struct TraceRows(CoordinateMap map, Mat points, Mat coverage, Rectangle area, PixelExtent output, PixelExtent source, Rectangle window) : IAction {
     public void Invoke(int i) {
         Span<Vector2> row = points.GetSpan<Vector2>().Slice(i * area.Width, area.Width);
         Span<float> share = coverage.GetSpan<float>().Slice(i * area.Width, area.Width);
-        map.Traced(row, share, new Point(area.X, area.Y + i), output, source.Extent);
-        map.Folded(row, share, source.Extent);
-        foreach (ref Vector2 point in row) point += new Vector2(CoordinateMap.Pad - 0.5f) - new Vector2(source.Origin.X, source.Origin.Y);
-    }
-}
-
-file readonly struct BakeRows(CoordinateMap map, Memory2D<Vector4> rows, PixelExtent extent) : IAction {
-    public void Invoke(int i) {
-        using SpanOwner<Vector2> points = SpanOwner<Vector2>.Allocate(extent.Width);
-        using SpanOwner<float> coverage = SpanOwner<float>.Allocate(extent.Width);
-        map.Traced(points.Span, coverage.Span, new Point(0, i), extent, extent);
-        map.Sampling.Snap(points.Span, coverage.Span, extent);
-        map.Folded(points.Span, coverage.Span, extent);
-        Span<Vector4> row = rows.Span.GetRowSpan(i);
-        for (int x = 0; x < row.Length; x++) row[x] = new Vector4(points.Span[x].X / extent.Width, 1f - (points.Span[x].Y / extent.Height), coverage.Span[x], coverage.Span[x]);
+        for (int x = 0; x < row.Length; x++) row[x] = new Vector2(area.X + x + 0.5f, area.Y + i + 0.5f);
+        share.Fill(1f);
+        map.Trace(row, share, output, source);
+        map.Bound(row, share, window);
     }
 }

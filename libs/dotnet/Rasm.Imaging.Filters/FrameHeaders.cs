@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Rasm.Imaging.Pixels;
@@ -13,22 +14,14 @@ public static class FrameHeaders {
     extension(PixelFrame frame) {
         public Mat Header() => new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4, frame.Address, step: 0);
 
-        public Image<RgbaVector> Image() {
-            Image<RgbaVector> image = SixLabors.ImageSharp.Image.LoadPixelData(MemoryMarshal.Cast<float, RgbaVector>(frame.Block), frame.Size.Width, frame.Size.Height);
-            image.ProcessPixelRows(static rows => {
-                for (int y = 0; y < rows.Height; y++)
-                    foreach (ref RgbaVector pixel in rows.GetRowSpan(y)) pixel.A = 1f;
-            });
-            return image;
+        public void Mutate(Action<Image<RgbaVector>> edit) {
+            using Image<RgbaVector> image = new(frame.Size.Width, frame.Size.Height);
+            Memory2D<Vector4> view = frame.View;
+            Lanes(static (pixels, lanes) => { for (int x = 0; x < pixels.Length; x++) pixels[x] = lanes[x] with { W = 1f }; });
+            edit(image);
+            Lanes(static (pixels, lanes) => { for (int x = 0; x < pixels.Length; x++) lanes[x] = pixels[x] with { W = lanes[x].W }; });
+            void Lanes(Action<Span<Vector4>, Span<Vector4>> copy) =>
+                image.ProcessPixelRows(rows => { for (int y = 0; y < rows.Height; y++) copy(MemoryMarshal.Cast<RgbaVector, Vector4>(rows.GetRowSpan(y)), view.Span.GetRowSpan(y)); });
         }
-
-        public void Write<TPixel>(Image<TPixel> image) where TPixel : unmanaged, IPixel<TPixel> =>
-            image.ProcessPixelRows(rows => {
-                for (int y = 0; y < rows.Height; y++) {
-                    Span<TPixel> row = rows.GetRowSpan(y);
-                    Span<Vector4> pixels = frame.View.Span.GetRowSpan(y);
-                    for (int x = 0; x < row.Length; x++) pixels[x] = row[x].ToScaledVector4() with { W = pixels[x].W };
-                }
-            });
     }
 }

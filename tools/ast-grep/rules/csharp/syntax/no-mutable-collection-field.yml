@@ -121,6 +121,6 @@ rule:
             field: type
             pattern: $TYPE
             matches: mutable-within
-        - not: {any: [{matches: pinned-array}, {matches: confined-array}]}
+        - not: {any: [{matches: pinned-array}, {matches: confined-array}, {inside: {stopBy: end, matches: csharp-wire-record}}]}
 message: 'Field of type `$TYPE` holds a mutable collection'
 note: Use `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, or `LanguageExt.HashSet<A>`, with input copied through `toSeq` at the boundary

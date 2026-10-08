@@ -21,5 +21,12 @@ rule:
                             - has: {field: type, kind: 'pointer_type, function_pointer_type'}
                             - regex: '='
                 - has: {field: parameters, has: {kind: parameter, nthChild: 17}}
+                - has:
+                    field: parameters
+                    has:
+                        kind: parameter
+                        all:
+                            - has: {field: type, pattern: $REPEATED}
+                            - follows: {stopBy: end, kind: parameter, has: {field: type, pattern: $REPEATED}}
 message: Delegate `$NAME` restates the shape of `Func` or `Action`
-note: Type each use as the `Func` or `Action` of the same signature, or the delegate an installed library declares for it
+note: Type each use as the `Func` or `Action` of the same signature, or the delegate an installed library declares for it, a delegate naming parameters that share one type keeping them apart

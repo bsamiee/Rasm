@@ -9,7 +9,7 @@ description: "Use when a program needs a runtime secret or an agent needs a cred
 
 ## [01]-[DOPPLER_SCOPES]
 
-Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, then the directory scope in `$DOPPLER_CONFIG_DIR/.doppler.yaml`:
+Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, then the directory scope in `~/.doppler/.doppler.yaml`:
 - Repository directory scope holds a CLI token alone, every command names `--project` and `--config`
 - Scope JSON names project and config `enclave.project` and `enclave.config`
 

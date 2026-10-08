@@ -92,7 +92,7 @@
         { "includes": ["**/vitest.config.ts", "**/vite.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         { "includes": ["apps/portfolio/**/*.tsx"], "linter": { "rules": { "performance": { "noJsxPropsBind": "off" } } } },
         { "includes": ["plugins/function-hooks/**"], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
-        { "includes": [".codex/hooks/*.ts", "apps/creative-cloud/mcp/main.ts", "infra/cli.ts", "tools/bridge/bridge.ts"], "linter": { "rules": { "correctness": { "noNodejsModules": "off" } } } },
+        { "includes": [".codex/hooks/*.ts", "apps/creative-cloud/mcp/main.ts", "eng/typescript/cleanup/main.ts", "infra/cli.ts", "tools/bridge/bridge.ts"], "linter": { "rules": { "correctness": { "noNodejsModules": "off" } } } },
         { "includes": ["plugins/argus/main.ts", ".codex/hooks/host.ts"], "linter": { "rules": { "correctness": { "noNodejsModules": "off" }, "style": { "noProcessEnv": "off" } } } }
     ]
 }

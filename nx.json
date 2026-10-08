@@ -44,14 +44,14 @@
         "pack": [
             {
                 "filter": { "projects": ["tag:host:rhino"] },
-                "command": "dotnet publish {projectRoot} --no-restore --output .artifacts/rhino/{projectName}",
+                "command": "dotnet publish \"{projectRoot}\" --no-restore --output \".artifacts/rhino/{projectName}\"",
                 "cache": true,
                 "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
                 "inputs": ["production", "^production", "{workspaceRoot}/.editorconfig", "dotnet", "rhino", "icons", { "runtime": "yak version" }],
                 "outputs": ["{workspaceRoot}/.artifacts/rhino/{projectName}"],
                 "parallelism": false
             },
-            { "filter": { "projects": ["tag:host:blender"] }, "command": "python -m fitout pack {projectRoot} .artifacts/blender/{projectName}" }
+            { "filter": { "projects": ["tag:host:blender"] }, "command": "python eng/python/fitout pack \"{projectRoot}\" \".artifacts/blender/{projectName}\"", "inputs": ["production", "python", "{workspaceRoot}/eng/python/fitout/**/*.py"], "outputs": ["{workspaceRoot}/.artifacts/blender/{projectName}"] }
         ],
         "install": [
             {
@@ -67,8 +67,8 @@
                 },
                 "parallelism": false
             },
-            { "filter": { "projects": ["tag:host:rhino"] }, "command": "python -m fitout install rhino .artifacts/rhino/{projectName}", "dependsOn": ["pack"], "parallelism": false },
-            { "filter": { "projects": ["tag:host:blender"] }, "command": "python -m fitout install blender .artifacts/blender/{projectName}", "dependsOn": ["pack"], "parallelism": false }
+            { "filter": { "projects": ["tag:host:rhino"] }, "command": "python eng/python/fitout install \".artifacts/rhino/{projectName}\"", "dependsOn": ["pack"], "parallelism": false },
+            { "filter": { "projects": ["tag:host:blender"] }, "command": "python eng/python/fitout install \".artifacts/blender/{projectName}\"", "dependsOn": ["pack"], "parallelism": false }
         ],
         "upgrade": [
             {

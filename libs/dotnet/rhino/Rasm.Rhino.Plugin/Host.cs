@@ -1,4 +1,3 @@
-using System.Drawing;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence;
 using Rhino;
@@ -11,15 +10,6 @@ using Rhino.UI;
 namespace Rasm.Rhino.Plugin;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LicenseRequest {
-    public sealed record ByCapability(LicenseCapabilities Capabilities, Option<string> TextMask) : LicenseRequest;
-
-    public sealed record ByBuild(LicenseBuildType Build) : LicenseRequest;
-
-    public sealed record AskUser(LicenseBuildType Build, bool StandAlone, Option<string> TextMask, Option<object> Parent) : LicenseRequest;
-}
-
 public sealed record ArchiveCallbacks(
     ChunkFrame Frame,
     Func<int, int, bool> SupportsVersion,
@@ -62,43 +52,6 @@ internal static class PlugInOverrides {
     internal static void CreateCommands(PlugInCallbacks callbacks, Func<Command, bool> register) =>
         _ = callbacks.Commands.Traverse(command => CommandRefused.Unless(register(command), command)).As().IfFail(callbacks.Reject);
 
-    // --- [LICENSING]
-    internal static IO<Unit> RequestLicense(
-        PlugInCallbacks callbacks,
-        LicenseRequest request,
-        Func<string, IO<LicenseData>> validate,
-        Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged,
-        (Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate?, bool> ByCapability,
-            Func<LicenseBuildType, ValidateProductKeyDelegate, OnLeaseChangedDelegate?, bool> ByBuild,
-            Func<LicenseBuildType, bool, string?, object?, ValidateProductKeyDelegate, OnLeaseChangedDelegate?, bool> AskUser) host) =>
-        IO.lift(() => request.Switch(
-            (Host: host, Validator: PlugInRegistry.Validator(validate), Handler: leaseChanged.Map(changed => PlugInRegistry.LeaseChangedHandler(changed, callbacks.Reject)).ValueUnsafe()),
-            byCapability: static (state, capability) => Refused.Unless(
-                state.Host.ByCapability(capability.Capabilities, capability.TextMask.ValueUnsafe(), state.Validator, state.Handler),
-                nameof(LicenseRequest.ByCapability)),
-            byBuild: static (state, build) => Refused.Unless(state.Host.ByBuild(build.Build, state.Validator, state.Handler), nameof(LicenseRequest.ByBuild)),
-            askUser: static (state, askUser) => Refused.Unless(
-                state.Host.AskUser(askUser.Build, askUser.StandAlone, askUser.TextMask.ValueUnsafe(), askUser.Parent.ValueUnsafe(), state.Validator, state.Handler),
-                nameof(LicenseRequest.AskUser))));
-
-    // --- [PAGES]
-    internal static void OptionsDialogPages(PlugInCallbacks callbacks, List<OptionsDialogPage> pages) =>
-        _ = Answered(callbacks.Reject, callbacks.OptionsPages).Iter(pages.Add);
-
-    internal static void DocumentPropertiesDialogPages(PlugInCallbacks callbacks, RhinoDoc doc, List<OptionsDialogPage> pages) =>
-        _ = Answered(callbacks.Reject, callbacks.DocumentPages.Map(page => page(doc))).Iter(pages.Add);
-
-    internal static void ObjectPropertiesPages(PlugInCallbacks callbacks, ObjectPropertiesPageCollection collection) =>
-        _ = Answered(
-                callbacks.Reject,
-                from doc in Optional(collection.Document).ToSeq()
-                from page in callbacks.ObjectPages
-                select page(doc))
-            .Iter(collection.Add);
-
-    private static Seq<TValue> Answered<TValue>(Action<Error> reject, Seq<IO<TValue>> rows) =>
-        rows.Choose(row => Answers.Answer(row.Map(static value => Some(value)), reject, Option<TValue>.None)).Strict();
-
     // --- [ARCHIVE]
     internal static bool ShouldCallWriteDocument(PlugInCallbacks callbacks, FileWriteOptions options) =>
         Answers.Answer(callbacks.Archive.Map(archive => archive.ShouldWrite(options)), callbacks.Reject, static () => false);
@@ -130,10 +83,6 @@ public abstract class CallbackPlugIn(PlugInCallbacks callbacks) : PlugIn {
 
     protected sealed override void OnShutdown() => _ = subscription.Iter(static held => held.Dispose());
 
-    // --- [LICENSING]
-    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
-        PlugInOverrides.RequestLicense(callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
-
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(callbacks, pages);
 
@@ -162,10 +111,6 @@ public abstract class CallbackImportPlugIn(PlugInCallbacks callbacks) : FileImpo
 
     protected sealed override void OnShutdown() => _ = subscription.Iter(static held => held.Dispose());
 
-    // --- [LICENSING]
-    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
-        PlugInOverrides.RequestLicense(callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
-
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(callbacks, pages);
 
@@ -193,10 +138,6 @@ public abstract class CallbackExportPlugIn(PlugInCallbacks callbacks) : FileExpo
     }
 
     protected sealed override void OnShutdown() => _ = subscription.Iter(static held => held.Dispose());
-
-    // --- [LICENSING]
-    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
-        PlugInOverrides.RequestLicense(callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
 
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(callbacks, pages);
@@ -236,10 +177,6 @@ public abstract class CallbackRenderPlugIn(PlugInCallbacks callbacks) : RenderPl
     }
 
     protected sealed override void OnShutdown() => _ = subscription.Iter(static held => held.Dispose());
-
-    // --- [LICENSING]
-    protected IO<Unit> RequestLicense(LicenseRequest request, Func<string, IO<LicenseData>> validate, Option<Func<Option<LeaseState>, IO<Option<Icon>>>> leaseChanged) =>
-        PlugInOverrides.RequestLicense(callbacks, request, validate, leaseChanged, (GetLicense, GetLicense, AskUserForLicense));
 
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => PlugInOverrides.OptionsDialogPages(callbacks, pages);

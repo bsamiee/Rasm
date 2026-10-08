@@ -38,13 +38,15 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Bundle: Compile failures drop the failing file and every file referencing it
 - Parallel: Runs and bridges share the settings, cache, and temp folders `mise.toml` names
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
-- Files: `<out>`, `<stubs>`, `<catalog>`, `<report>`, `<macros>`, `<log>`, and `<scriptlog>` go under `<main>/.artifacts/ghidra/<name>/`
+- Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<main>/docs/research/<area>/<subject>/decompiled/<program>/` alone
+- Files: `<log>`, `<scriptlog>`, and `<macros>` go under `<main>/.artifacts/ghidra/<name>/`
 - Files: `<main>` is the main worktree's absolute path, `<skill>` the absolute directory containing this `SKILL.md`
-- Files: Scripts and `-log` create the folder, `lipo` and redirects need `mkdir -p`
+- Files: Scripts and `-log` create their file's folder, `lipo` and redirects need `mkdir -p`
 - Logs: `<log>` holds one run's messages and its scripts' printed lines, `<scriptlog>` the printed lines alone
 - Logs: Runs without `-log` or `-scriptlog` append to `application.log` or `script.log` under `<main>/.cache/ghidra/settings/ghidra/<release>/`
 - Logs: Log4j size rollover is unreliable with concurrent runs appending to one file
 - Logs: ghidra-cli writes a daily debug log under `~/Library/Application Support/ghidra-cli/`, a folder no setting moves
+- Use `manage-repo` for research folders
 - Use `search-code` for a Ghidra API signature
 
 Numbered steps consume the step before. Bulleted cases are alternatives, one per command line in order.

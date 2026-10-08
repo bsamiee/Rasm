@@ -38,10 +38,6 @@ import PyOpenColorIO
 from interface.blender.rows import Archived, Bundled, Install, Installation, Interpreter, JSON, Listed, Repository, stamp
 from interface.report import converged, Error, Item, Refused, Row, subscript
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Declaration = Install | None
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -84,8 +80,8 @@ def stamped(path: Path, root: Path | None = None) -> str:
     return stamp({file.relative_to(base).as_posix(): (zlib.crc32(data := file.read_bytes()), len(data)) for file in (path.rglob("*") if directory else (path,)) if file.is_file()})
 
 
-def build(row: Declaration, module: ModuleType) -> str | None:
-    """Return a listed package's manifest version, an archived package's installed file stamp, or None for bundled and undeclared add-ons."""
+def build(row: Install, module: ModuleType) -> str | None:
+    """Return a listed extension's manifest version, an archive's installed stamp, or no build for bundled add-ons."""
     match row:
         case Listed() if addon_utils.check_extension(module.__name__):
             return str(tomllib.loads(Path(module.__file_manifest__).read_text(encoding="utf-8"))["version"])
@@ -93,13 +89,13 @@ def build(row: Declaration, module: ModuleType) -> str | None:
             file = Path(inspect.getfile(module))
             owned = file.parent if module.__package__ == module.__name__ else file
             return stamped(owned, None if addon_utils.check_extension(module.__name__) else owned.parent)
-        case Bundled() | Listed() | None:
+        case Bundled() | Listed():
             return None
 
 
-def state(name: str, row: Declaration) -> dict[str, State]:
+def state(row: Install) -> dict[str, State]:
     """Installed builds and enablement states by module name."""
-    return {module.__name__: State(build(row, module), addon_utils.check(module.__name__)) for module in installed(name)}
+    return {module.__name__: State(build(row, module), addon_utils.check(module.__name__)) for module in installed(row.identity)}
 
 
 # --- [REPOSITORIES]
@@ -132,15 +128,13 @@ def remote(preferences: bpy.types.Preferences, declared: Repository) -> Row:
     return Row(label=subscript("extensions.repos", declared.module), read=read, write=write, target=target)
 
 
-def target_modules(repository: str, name: str, row: Declaration) -> dict[str, State] | str:
-    """Declared modules and builds, disabled undeclared core modules, or an ambiguous package error."""
+def target_modules(repository: str, row: Install) -> dict[str, State] | str:
+    """Declared modules and builds, or an ambiguous package error."""
     match row:
-        case None:
-            return {module.__name__: State(None, (False, False)) for module in installed(name) if core_addon(module)}
         case Listed(repository=listed, version=version):
-            return {f"bl_ext.{listed}.{name}": State(version, (True, True))}
+            return {f"bl_ext.{listed}.{row.identity}": State(version, (True, True))}
         case Archived(archive=archive) if not pkg_is_legacy_addon(archive.path):
-            return {f"bl_ext.{repository}.{name}": State(archive.stamp, (True, True))}
+            return {f"bl_ext.{repository}.{row.identity}": State(archive.stamp, (True, True))}
         case Archived(archive=archive):
             with zipfile.ZipFile(archive.path) as packed:
                 tops = sorted({PurePosixPath(each).parts[0] for each in packed.namelist()})
@@ -150,7 +144,7 @@ def target_modules(repository: str, name: str, row: Declaration) -> dict[str, St
                 case _:
                     return f"legacy add-on archive {archive.path} holds {', '.join(tops)} at its root where Blender installs one module"
         case Bundled():
-            match [module.__name__ for module in installed(name) if core_addon(module)]:
+            match [module.__name__ for module in installed(row.identity) if core_addon(module)]:
                 case [module]:
                     return {module: State(None, (True, True))}
                 case found:
@@ -183,7 +177,7 @@ def removed(preferences: bpy.types.Preferences, module: ModuleType) -> Refused |
     return None
 
 
-def install(preferences: bpy.types.Preferences, row: Declaration, module: str) -> Refused | None:
+def install(preferences: bpy.types.Preferences, row: Install, module: str) -> Refused | None:
     """Install through Blender, a legacy add-on disabled and its modules evicted so the enable imports the new files."""
     match row:
         case Listed():
@@ -198,13 +192,13 @@ def install(preferences: bpy.types.Preferences, row: Declaration, module: str) -
                 del sys.modules[key]
             bpy.ops.preferences.addon_install(filepath=archive.path)
             return None
-        case Bundled() | None:
+        case Bundled():
             return None
 
 
-def provisioned(preferences: bpy.types.Preferences, name: str, row: Declaration, target: dict[str, State]) -> Refused | None:
+def provisioned(preferences: bpy.types.Preferences, row: Install, target: dict[str, State]) -> Refused | None:
     """Remove each installed module of the package the target omits, install each target module whose installed build differs, and set its enabled state."""
-    modules = {each.__name__: each for each in installed(name)}
+    modules = {each.__name__: each for each in installed(row.identity)}
     for stale in modules.keys() - target.keys():
         if refused := removed(preferences, modules[stale]):
             return refused
@@ -218,21 +212,20 @@ def provisioned(preferences: bpy.types.Preferences, name: str, row: Declaration,
 
 
 # --- [ROWS]
-def package(preferences: bpy.types.Preferences, repository: str, name: str, row: Declaration) -> Item:
+def package(preferences: bpy.types.Preferences, repository: str, row: Install) -> Item:
     """Row converging the package to its target modules, or the error line naming why no one module follows from its declaration."""
-    label = subscript("packages", name)
-    match target_modules(repository, name, row):
+    label = subscript("packages", row.identity)
+    match target_modules(repository, row):
         case str() as error:
             return Error(f"{label} {error}")
         case wanted:
-            return Row(label=label, read=partial(state, name, row), write=partial(provisioned, preferences, name, row), target=wanted)
+            return Row(label=label, read=partial(state, row), write=partial(provisioned, preferences, row), target=wanted)
 
 
 def packages(preferences: bpy.types.Preferences, declared: tuple[Install, ...]) -> tuple[Item, ...]:
-    """Row per undeclared package, hidden core add-ons aside, then a row or error line per declared package."""
-    repository, declarations = user_repository(preferences).module, {row.identity: row for row in declared}
-    undeclared = sorted({identity(module) for module in addon_utils.modules() if module.__name__ not in addon_utils._addons_hidden_core} - declarations.keys())
-    return tuple(package(preferences, repository, name, row) for name, row in (*((name, None) for name in undeclared), *declarations.items()))
+    """Row or error line for each declared package."""
+    repository = user_repository(preferences).module
+    return tuple(package(preferences, repository, row) for row in declared)
 
 
 # --- [INTERPRETER]

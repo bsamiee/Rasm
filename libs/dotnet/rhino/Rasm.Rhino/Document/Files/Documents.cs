@@ -136,7 +136,9 @@ public static class Documents {
     // --- [SCRIPTS]
     public static Fin<RhinoDoc> Scripted(RhinoDoc doc) =>
         Missing.Unless(RhinoDoc.FromRuntimeSerialNumber(doc.RuntimeSerialNumber), nameof(RhinoDoc.FromRuntimeSerialNumber))
-            .Bind(static open => (OutsideScriptRunner.Unless(!Command.InCommand() || Command.InScriptRunnerCommand()).ToValidation(), HeadlessScript.Unless(!open.IsHeadless, open.RuntimeSerialNumber).ToValidation())
+            .Bind(static open => (
+                    (Command.InCommand() && !Command.InScriptRunnerCommand() ? new OutsideScriptRunner() : Fin.Succ(unit)).ToValidation(),
+                    (open.IsHeadless ? new HeadlessScript(open.RuntimeSerialNumber) : Fin.Succ(unit)).ToValidation())
                 .Apply((_, _) => open)
                 .As()
                 .ToFin());

@@ -5,7 +5,7 @@ using Rhino;
 namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<string>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -14,19 +14,10 @@ public sealed partial class KeyName {
         validationError = value.Length > 0 && !value.Contains(DocumentKey.Separator, StringComparison.Ordinal) ? null : new InvalidRhinoValue();
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DocumentKey {
+public sealed record DocumentKey(KeyName Name, Option<KeyName> Entry = default) {
     internal const char Separator = '\\';
 
-    public abstract string Text { get; }
-
-    public sealed record Flat(KeyName Name) : DocumentKey {
-        public override string Text => Name;
-    }
-
-    public sealed record Section(KeyName Name, KeyName Entry) : DocumentKey {
-        public override string Text => string.Join(Separator, Name, Entry);
-    }
+    public string Text => string.Join(Separator, Name.Cons(Entry.ToSeq()));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -37,38 +28,27 @@ public static class UserStrings {
 
     public static HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> Replacing(
         HashMap<EqStringOrdinalIgnoreCase, string, string> held, HashMap<EqStringOrdinalIgnoreCase, string, string> desired) =>
-        held.Union<string, Option<string>>(
-            desired,
-            MapLeft: static (_, _) => Option<string>.None,
-            MapRight: static (_, value) => Some(value),
-            Merge: static (_, _, value) => Some(value));
+        held.Map(static _ => Option<string>.None).Union(desired.Map(static value => Some(value)), static (_, _, value) => value);
 
     public static IO<Unit> Write(
         HashMap<EqStringOrdinalIgnoreCase, string, string> held, Func<string, string, bool> set, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
-        IO.lift(() => Callbacks.Each(
-            toSeq<(string Key, Option<string> Value)>(edits),
-            edit => held.Find(edit.Key) == edit.Value.Bind(Conversions.Present) || set(edit.Key, Conversions.Unset(edit.Value)),
-            nameof(GeometryBase.SetUserString)));
+        IO.lift(() => Callbacks.Each(toSeq<(string Key, Option<string> Value)>(edits),
+            edit => held.Find(edit.Key) == edit.Value.Bind(Conversions.Present) || set(edit.Key, Conversions.Unset(edit.Value)), nameof(GeometryBase.SetUserString)));
 
     // --- [DOCUMENT]
     public static IO<Option<string>> Value(RhinoDoc doc, DocumentKey key) =>
         IO.lift(() => Conversions.Present(doc.Strings.GetValue(key.Text)));
 
     public static IO<Option<string>> Write(RhinoDoc doc, DocumentKey key, Option<string> value) =>
-        IO.lift(() => Conversions.Present(doc.Strings.SetString(key.Text, Conversions.Unset(value))));
+        Value(doc, key).Bind(prior => IO.lift(() => prior == value.Bind(Conversions.Present) ? prior : Conversions.Present(doc.Strings.SetString(key.Text, Conversions.Unset(value)))));
 
     public static IO<HashMap<EqStringOrdinalIgnoreCase, string, string>> Entries(RhinoDoc doc, KeyName section) =>
-        IO.lift(() => {
-            string prefix = $"{section}{DocumentKey.Separator}";
-            return toHashMap<EqStringOrdinalIgnoreCase, string, string>(toSeq(Range(0, doc.Strings.Count)).Map(doc.Strings.GetKey)
-                .Filter(key => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                .Map(key => (key[prefix.Length..], doc.Strings.GetValue(key))));
-        });
+        IO.lift(() => toHashMap<EqStringOrdinalIgnoreCase, string, string>(
+            from index in toSeq(Range(0, doc.Strings.Count))
+            let path = doc.Strings.GetKey(index).Split(DocumentKey.Separator, 2)
+            where path is [var name, _] && section == name
+            select (path[1], doc.Strings.GetValue(index))));
 
     public static IO<Unit> Clear(RhinoDoc doc, KeyName section) =>
-        Entries(doc, section).Bind(entries => IO.lift(() => {
-            foreach (string entry in entries.Keys)
-                doc.Strings.Delete(section, entry);
-            doc.Strings.Delete(section);
-        }));
+        Entries(doc, section).Bind(entries => IO.lift(() => entries.Keys.Iter(entry => doc.Strings.Delete(section, entry))));
 }

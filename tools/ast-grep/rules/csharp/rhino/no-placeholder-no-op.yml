@@ -13,15 +13,38 @@ utils:
             inside:
                 kind: argument_list
                 inside: {kind: invocation_expression, has: {field: function, regex: '(^|\.)\s*(Switch|Match)(\s*<.+>)?$'}}
+    none-arm:
+        kind: argument
+        has: {field: name, regex: '^None$'}
+        inside:
+            kind: argument_list
+            inside: {kind: invocation_expression, has: {field: function, regex: '(^|\.)\s*Match(\s*<.+>)?$'}}
+    acquisition-type:
+        regex: '^Func\s*<\s*PlugIn\s*,\s*IPlugInSink\s*,\s*IO\s*<\s*IDisposable\s*>\s*>$'
+    acquisition-row:
+        any:
+            - kind: method_declaration
+              has: {field: returns, matches: acquisition-type}
+            - kind: field_declaration
+              has: {kind: variable_declaration, has: {field: type, matches: acquisition-type}}
 rule:
     any:
         - kind: member_access_expression
           pattern: $PLACEHOLDER
           regex: '^((global::)?Thinktecture\s*\.\s*)?Empty\s*\.\s*(Action(\s*<.+>)?|Disposable|AsyncDisposable)$'
-          not:
-            all:
-                - has: {field: name, regex: '^Action\b'}
-                - inside: {kind: invocation_expression, field: function}
+          all:
+            - not:
+                all:
+                    - has: {field: name, regex: '^Action\b'}
+                    - inside: {kind: invocation_expression, field: function}
+            - not:
+                all:
+                    - has: {field: name, regex: '^(Disposable|AsyncDisposable)$'}
+                    - inside: {stopBy: end, matches: none-arm}
+            - not:
+                all:
+                    - has: {field: name, regex: '^Disposable$'}
+                    - inside: {stopBy: end, matches: acquisition-row}
         - kind: lambda_expression, anonymous_method_expression
           pattern: $PLACEHOLDER
           all:
@@ -32,4 +55,4 @@ rule:
             - has: {field: name, regex: '^Dispose$', pattern: $PLACEHOLDER}
             - has: {field: body, matches: empty-block}
 message: '`$PLACEHOLDER` stands in for an absent callback or resource'
-note: Use `Option<IDisposable>` or `Option<Action>` the consumer matches, a `use(<acquire>).Bind(<body>).Bracket()` scope around the inner body in the arm that acquires, or `Conversions.ToResult(<effect>)` where the caller keeps the error, a no-op value hides absence from the type
+note: Use `Option<IDisposable>` or `Option<Action>` the consumer matches, a `use(<acquire>).Bind(<body>).Bracket()` scope around the inner body in the arm that acquires, or `Conversions.ToResult(<effect>)` where the caller keeps the error, a no-op value hides absence from the type; the `None` arm of an `Option` `Match` answering an `IDisposable` releases the acquisition its matched absence skipped, and an acquisition row over a host registration with no unregister answers `Empty.Disposable()`

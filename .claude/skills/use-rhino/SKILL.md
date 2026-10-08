@@ -85,7 +85,8 @@ Calls pass `slot`, a call without one running in the session's last-used slot, e
 - Ports a closed document frees pass to the next document while its row stays, `documents()` naming each port's listening serial
 - Scripts bind `RhinoDoc.FromRuntimeSerialNumber(<serial>)` in any slot, reaching documents with `port` `None` and reading `None` once one closed
 - `spawn_slot` gives an untitled scratch document in place of a template copy, launching Rhino 9 when none runs, and `close_slot` closes it
-- `Template Files/` sits in `~/Library/Application Support/McNeel/Rhinoceros/`, its copies closing through `close(doc)` from another slot
+- `Template Files/` sits in `~/Library/Application Support/McNeel/Rhinoceros/`
+- Template copies close unsaved from another slot through `doc.Modified = False` then `close(doc)` in one call
 
 ## [03]-[ROUTING]
 

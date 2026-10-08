@@ -11,6 +11,7 @@ import hosting from './.openai/hosting.json' with { type: 'json' };
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 export default defineConfig(({ command }) => ({
+    cacheDir: '../../.cache/vite/portfolio',
     plugins: [
         react({ compiler: true }),
         tailwindcss(),

@@ -31,18 +31,6 @@ public sealed record RealtimeCallbacks(
     Option<Func<HudEvent, IO<Unit>>> HudGesture,
     Action<Error> Reject);
 
-public sealed record LightManagerCallbacks(
-    Func<RhinoDoc, Light, IO<Unit>> Modify,
-    Func<RhinoDoc, Light, bool, IO<Unit>> Delete,
-    Func<RhinoDoc, IO<Seq<Light>>> Lights,
-    Func<RhinoDoc, Guid, Light, IO<Unit>> FromId,
-    Func<RhinoDoc, Light, IO<int>> SerialOf,
-    Func<RhinoDoc, Seq<Light>, IO<Unit>> Edit,
-    Func<RhinoDoc, Seq<Light>, IO<Unit>> Group,
-    Func<RhinoDoc, Seq<Light>, IO<Unit>> Ungroup,
-    Func<RhinoDoc, Light, IO<string>> Describe,
-    Action<Error> Reject);
-
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class RealtimeEngine : RealtimeDisplayMode {
     private readonly RealtimeCallbacks callbacks;
@@ -128,46 +116,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
 
     private EventHandler Hud(Func<HudEvent, IO<Unit>> hook, HudControl control, HudGesture gesture) =>
         (_, _) => Deliver(hook(new HudEvent(control, gesture)));
-}
-
-public abstract class LightManager(LightManagerCallbacks callbacks) : LightManagerSupport {
-    public sealed override void ModifyLight(RhinoDoc doc, Light light) =>
-        _ = Answers.Answer(callbacks.Modify(doc, light), callbacks.Reject, unit);
-
-    public sealed override bool DeleteLight(RhinoDoc doc, Light light, bool bUndelete) =>
-        Answers.Succeeded(callbacks.Delete(doc, light, bUndelete), callbacks.Reject);
-
-    public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) {
-        LightArray target = light_array;
-        _ = Answers.Answer(callbacks.Lights(doc), callbacks.Reject, Seq<Light>()).Iter(target.Append);
-    }
-
-    public sealed override bool LightFromId(RhinoDoc doc, Guid uuid, ref Light light) =>
-        Answers.Succeeded(callbacks.FromId(doc, uuid, light), callbacks.Reject);
-
-    public sealed override int ObjectSerialNumberFromLight(RhinoDoc doc, ref Light light) =>
-        Answers.Answer(callbacks.SerialOf(doc, light), callbacks.Reject, 0);
-
-    public sealed override bool OnEditLight(RhinoDoc doc, ref LightArray light_array) =>
-        Answers.Succeeded(callbacks.Edit(doc, Rows(light_array)), callbacks.Reject);
-
-    public sealed override void GroupLights(RhinoDoc doc, ref LightArray light_array) =>
-        _ = Answers.Answer(callbacks.Group(doc, Rows(light_array)), callbacks.Reject, unit);
-
-    public sealed override void UnGroup(RhinoDoc doc, ref LightArray light_array) =>
-        _ = Answers.Answer(callbacks.Ungroup(doc, Rows(light_array)), callbacks.Reject, unit);
-
-    public sealed override string LightDescription(RhinoDoc doc, ref Light light) =>
-        Answers.Answer(callbacks.Describe(doc, light), callbacks.Reject, "");
-
-    protected IO<Unit> Notify(RhinoDoc doc, LightMangerSupportCustomEvent change) =>
-        IO.lift(() => {
-            Light? unread = null;
-            OnCustomLightEvent(doc, change, ref unread);
-        });
-
-    private static Seq<Light> Rows(LightArray lights) =>
-        toSeq(Enumerable.Range(0, lights.Count()).Select(lights.ElementAt));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

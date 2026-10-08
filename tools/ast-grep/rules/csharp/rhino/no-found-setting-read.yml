@@ -28,10 +28,10 @@ rule:
     all:
         - matches: csharp-setting-found-read
         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {has: {field: function, has: {field: name, pattern: $MEMBER}}}}}
-        - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^SettingType$'}}}
+        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration', has: {field: name, regex: '^SettingType$'}}}
 transform:
     ROW:
         rewrite: {source: $SITE, rewriters: [found-read, found-optional-color, found-enum]}
 fix: $ROW
 message: '`Callbacks.Found` over `$MEMBER` reads a `PersistentSettings` value outside its `SettingType` row'
-note: Use `SettingType.<Kind>.Read(<settings>, <key>)`, `SettingType.Enumeration<T>()` for an enum, the row parses stored text once and fails with `TypeMismatch` where a typed `TryGet*` retypes the key and reads an integer as a bool
+note: Use `SettingType.<Kind>.Read(<settings>, <key>)`, `SettingType.Enumeration<T>()` for an enum, `Read` answering `None` for an absent key and `UnreadText` for stored text its kind rejects where `Callbacks.Found` over a typed `TryGet*` reads both as absent

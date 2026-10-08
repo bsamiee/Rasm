@@ -1,4 +1,3 @@
-using Rasm.Rhino.Document.Shapes;
 using Rhino;
 using Rhino.DocObjects;
 
@@ -47,16 +46,36 @@ public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordi
             .ToFin();
 
     public static Fin<EarthAnchor> Of(EarthAnchorPoint point) =>
-        Some(point).Filter(static held => held.EarthLocationIsSet())
+        Callbacks.Found(point.EarthLocationIsSet(), point)
             .Traverse(static held => GeoCoordinate.From(held.EarthBasepointLatitude, held.EarthBasepointLongitude)
                 .Map(place => new EarthLocation(place, Length.FromMeters(held.EarthBasepointElevation))))
             .As()
             .Map(earth => new EarthAnchor(
                 earth,
                 Some(point.EarthBasepointElevationCoordinateSystem).Filter(static system => system is not EarthCoordinateSystem.Unset),
-                Some(point).Filter(static held => held.ModelLocationIsSet()).Map(static held => held.GetModelCompass()),
+                Callbacks.Found(point.ModelLocationIsSet(), point).Map(static held => held.GetModelCompass()),
                 Conversions.Present(point.Name),
                 Conversions.Present(point.Description)));
+
+    public static IO<EarthAnchor> Read(RhinoDoc document) =>
+        use(() => document.EarthAnchorPoint).Bind(static point => IO.lift(() => Of(point))).Bracket();
+
+    public IO<Unit> Apply(EarthAnchorPoint point) =>
+        IO.lift(() => {
+            point.EarthBasepointLatitude = Conversions.Unset(Earth.Map(static earth => (double)earth.Place.Latitude));
+            point.EarthBasepointLongitude = Conversions.Unset(Earth.Map(static earth => (double)earth.Place.Longitude));
+            point.EarthBasepointElevation = Conversions.Unset(Earth.Map(static earth => earth.Elevation.Meters.ToDouble()));
+            point.EarthBasepointElevationCoordinateSystem = Datum.IfNone(EarthCoordinateSystem.Unset);
+            _ = Compass.Iter(compass => (point.ModelBasePoint, point.ModelEast, point.ModelNorth) = (compass.Origin, compass.XAxis, compass.YAxis));
+            point.Name = Conversions.Unset(Name);
+            point.Description = Conversions.Unset(Description);
+        });
+
+    public IO<Unit> Write(RhinoDoc document) =>
+        (from point in use(() => document.EarthAnchorPoint)
+         from _ in Apply(point)
+         from written in IO.lift(() => { document.EarthAnchorPoint = point; })
+         select written).Bracket();
 }
 
 public sealed record Georeference {
@@ -66,13 +85,15 @@ public sealed record Georeference {
 
     public Transform EarthToModel { get; }
 
+    public static IO<Georeference> Read(RhinoDoc document) => EarthAnchor.Read(document).Bind(anchor => Of(anchor, document.ModelUnits));
+
     public static IO<Georeference> Of(EarthAnchor anchor, LengthUnit modelUnits) =>
         (from located in IO.lift(anchor.Located)
          from scratch in use(static () => new EarthAnchorPoint())
-         from _ in EarthAnchors.Apply(scratch, anchor with { Earth = new EarthLocation(located.Earth.Place, Length.Zero) })
-         from __ in IO.lift(() => Missing.Unless(scratch.ModelLocationIsSet(), nameof(EarthAnchorPoint.ModelLocationIsSet)))
-         let modelToEarth = Transform.Translation(0d, 0d, located.Earth.Elevation.Meters.ToDouble()) * scratch.GetModelToEarthTransform(modelUnits)
-         from earthToModel in IO.lift(Transformations.Inverse(modelToEarth))
+         from _ in (anchor with { Earth = new EarthLocation(located.Earth.Place, Length.Zero) }).Apply(scratch)
+         from modelToEarth in IO.lift(() => Missing.Unless(scratch.ModelLocationIsSet(), nameof(EarthAnchorPoint.ModelLocationIsSet))
+             .Map(_ => Transform.Translation(0d, 0d, located.Earth.Elevation.Meters.ToDouble()) * scratch.GetModelToEarthTransform(modelUnits)))
+         from earthToModel in IO.lift(() => Refused.Unless(modelToEarth.TryGetInverse(out Transform inverse), inverse, nameof(Transform.TryGetInverse)))
          select new Georeference(modelToEarth, earthToModel)).Bracket();
 
     public Fin<EarthLocation> ToEarth(Point3d point) =>
@@ -82,34 +103,4 @@ public sealed record Georeference {
 
     public Point3d ToModel(EarthLocation location) =>
         EarthToModel * new Point3d(location.Place.Longitude, location.Place.Latitude, location.Elevation.Meters.ToDouble());
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class EarthAnchors {
-    // --- [READS]
-    public static IO<EarthAnchor> Read(RhinoDoc document) =>
-        use(() => document.EarthAnchorPoint).Bind(static point => IO.lift(() => EarthAnchor.Of(point))).Bracket();
-
-    public static IO<Georeference> ReadGeoreference(RhinoDoc document) =>
-        Read(document).Bind(anchor => Georeference.Of(anchor, document.ModelUnits));
-
-    // --- [WRITES]
-    public static IO<Unit> Apply(EarthAnchorPoint point, EarthAnchor anchor) =>
-        IO.lift(() => {
-            point.EarthBasepointLatitude = Conversions.Unset(anchor.Earth.Map(static earth => (double)earth.Place.Latitude));
-            point.EarthBasepointLongitude = Conversions.Unset(anchor.Earth.Map(static earth => (double)earth.Place.Longitude));
-            point.EarthBasepointElevation = Conversions.Unset(anchor.Earth.Map(static earth => earth.Elevation.Meters.ToDouble()));
-            point.EarthBasepointElevationCoordinateSystem = anchor.Datum.IfNone(EarthCoordinateSystem.Unset);
-            _ = anchor.Compass.Iter(compass => (point.ModelBasePoint, point.ModelEast, point.ModelNorth) = (compass.Origin, compass.XAxis, compass.YAxis));
-            point.Name = Conversions.Unset(anchor.Name);
-            point.Description = Conversions.Unset(anchor.Description);
-        });
-
-    public static IO<Unit> Write(RhinoDoc document, EarthAnchor anchor) =>
-        use(() => document.EarthAnchorPoint).Bind(point =>
-            unless(
-                EarthAnchor.Of(point).Exists(held => held == anchor),
-                from applied in Apply(point, anchor)
-                from committed in IO.lift(() => { document.EarthAnchorPoint = point; })
-                select unit).As()).Bracket();
 }

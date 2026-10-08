@@ -45,22 +45,25 @@ Rhino holds one assembly per name until it quits:
 
 `command(doc, "<Command> <answers>", "<A::B>")` runs plugin commands. Read plugin source for prompts and options.
 
-Functions take explicit inputs, here scale factor `factor`. `<TargetPath>` names project `Rasm.Rhino.Blocks` output:
+Functions take explicit inputs, here scale factor `factor`:
 
 ```python
+# Call library functions
 import document
-
-print(document.assembly("<TargetPath>"))
 from LanguageExt import IOExtensions
+from Rhino.DocObjects import InstanceDefinition
 from Rhino.Geometry import Point3d, Transform
-from Rasm.Rhino.Blocks import BlockState, Definitions, InstanceMotion
-from Rasm.Rhino.Document import ComponentRef
 
-print(InstanceMotion.Of(Transform.Scale(Point3d.Origin, factor), __rhino_doc__.ModelAbsoluteTolerance))
-print(IOExtensions.RunSafe[BlockState](Definitions.Snapshot(__rhino_doc__, ComponentRef.ByName("<block>"))))
+print(document.assembly("<repository>/.artifacts/dotnet/bin/Rasm.Rhino/debug/Rasm.Rhino.dll"))
+from Rasm.Rhino.Blocks import DefinitionState, Definitions
+from Rasm.Rhino.Document.Shapes import Decomposition
+from Rasm.Rhino.Document.Tables import ComponentRef
+
+print(Decomposition.Of(Transform.Scale(Point3d.Origin, factor)))
+print(IOExtensions.RunSafe[DefinitionState](Definitions.State(__rhino_doc__, ComponentRef[InstanceDefinition].ByName("<block>"))))
 ```
 
-- Records print their members, `Fin` results print `Succ(...)` or `Fail(<error record>)`
+- Records print their members, `Option` results print `Some(...)` or `None`, `Fin` results print `Succ(...)` or `Fail(<error record>)`
 - `IO` results run into a `Fin` through `IOExtensions.RunSafe[T](io)`, and `io.Run()` raises a failure as `WrappedErrorExpectedException`
 
 Library calls taking a delegate, and builds `current` reads `False` for, run as a C# script with no Python on Rhino's stack:

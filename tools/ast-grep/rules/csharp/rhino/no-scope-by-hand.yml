@@ -167,4 +167,4 @@ transform:
             by: '$1).Bracket()'
 fix: $USE_CALL$BRACKET_CALL$SECOND_FIXED$TAIL_FIXED
 message: "`$ACQUIRE_TEXT$SACQ_TEXT` scope closes through `Bracket` by hand"
-note: Use `use(<acquire>).Bind(<resource> => <body>).Bracket()`, one `use` per `Bracket()` holding the scope to its resource
+note: Use `use(<acquire>).Bind(<resource> => <body>).Bracket()`, the `Bracket()` opening at the scope's first `use` and releasing every `use` inside it

@@ -30,7 +30,6 @@ class Internal(StrEnum):
     """Type Rhino reaches by assembly-qualified name alone."""
 
     ACTION = "System.Action`1"
-    AGX_TONE_MAPPING = "Darkroom.AgXToneMapping, Darkroom"
     AI_HOST = "Rhino.AI.RhinoAIHost, RhinoAI"
     AI_SETTINGS = "Rhino.AI.AISettings, RhinoAI"
     BASE_TAB_CONTROL = "Rhino.UI.Internal.TabPanels.Controls.BaseTabControl, Rhino.UI"

@@ -6,6 +6,6 @@ internal enum Codes {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record InvalidStylize() : Expected("stylize value rejected", (int)Codes.InvalidStylize), IValidationError<InvalidStylize> {
+public sealed record InvalidStylize() : Expected("stylize value outside its limits", (int)Codes.InvalidStylize), IValidationError<InvalidStylize> {
     public static InvalidStylize Create(string message) => new();
 }

@@ -22,10 +22,9 @@ from interface.rhino.window import RibbonTab
 
 
 class Origin(StrEnum):
-    """Owner of a package's archive: Rhino's bundle, which leaves none to stage, a workspace project's `pack` output, or the Yak server."""
+    """Package source in Rhino's bundle or the Yak server."""
 
     BUNDLED = "bundled"
-    PROJECT = "project"
     PUBLISHED = "published"
 
 
@@ -106,15 +105,6 @@ async def declared() -> tuple[Package, ...]:
     return msgspec.toml.decode(await anyio.Path(__file__).with_name("packages.toml").read_bytes(), type=Packages).packages
 
 
-async def packaged(folder: Path) -> Result[Path]:
-    """Sole Yak archive in a folder, or an error naming the archive count."""
-    match [Path(path) async for path in anyio.Path(folder).glob("*.yak")]:
-        case [archive]:
-            return archive
-        case found:
-            return Error(f"{folder} holds {len(found)} yak packages in place of one")
-
-
 async def published(client: httpx2.AsyncClient, rhino: Rhino, identity: str, folder: Path) -> Result[Path]:
     """Archive in the folder downloaded from the newest compatible Yak distribution in server order, using Yak's non-strict compatibility rule."""
 
@@ -147,7 +137,7 @@ async def staged(host: Host, rhino: Rhino, package: Package) -> tuple[Result[Cha
     if (target := package.archive(host.cache)) is None:
         return ()
     async with anyio.TemporaryDirectory() as temporary:
-        match await (packaged(host.artifacts / package.id) if package.source is Origin.PROJECT else published(host.client, rhino, package.id, Path(temporary))):
+        match await published(host.client, rhino, package.id, Path(temporary)):
             case Error() as failed:
                 return (failed,)
             case Path() as archive:
@@ -184,11 +174,9 @@ async def converged(environ: Mapping[str, str], rhino: Rhino, archive: Path) -> 
 
 
 async def install(host: Host, rhino: Rhino, packages: Sequence[Package]) -> tuple[Result[Change], ...]:
-    """Changes and errors of each declared package converged on its staged archive in declared order, then of each other installed package uninstalled, a package Rhino bundles among them."""
-    archives = {package.id: archive for package in packages if (archive := package.archive(host.cache)) is not None}
-    rows = [row for archive in archives.values() for row in await converged(host.environ, rhino, archive)]
-    removals = [(name, version, await executed((str(rhino.yak), "uninstall", name), host.environ)) for name, version in rhino.installed.items() if name not in archives]
-    return (*rows, *(removed if isinstance(removed, Error) else Change(subscript(TABLE, name), version, ABSENT) for name, version, removed in removals))
+    """Changes and errors of declared packages installed from their staged archives."""
+    rows = [row for package in packages if (archive := package.archive(host.cache)) is not None for row in await converged(host.environ, rhino, archive)]
+    return tuple(rows)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

@@ -27,6 +27,7 @@
         <PackageReference Update="System.Drawing.Common" ExcludeAssets="runtime" />
         <Reference Include="Eto.macOS;Microsoft.macOS" HintPath="$(RhinoResourcesDir)%(Identity).dll" Private="false" Condition="'$(RhinoResourcesDir)' != '' and Exists('$(MSBuildProjectDirectory)/UI/macOS/')" />
         <Using Include="Rhino.Geometry" />
+        <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
         <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'$(RhinoHost)' == 'grasshopper'" />
     </ItemGroup>
 

@@ -1,3 +1,8 @@
+using Rasm.Rhino;
+using Rasm.Rhino.Document.Notation;
+using Rasm.Rhino.Document.Shapes;
+using Rasm.Rhino.Modeling.Curves;
+
 namespace Arches.Profiles;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -48,12 +53,12 @@ public abstract partial record ArchProfile {
     public sealed record Arcs(Span Span, Seq<Arc> Parts) : ArchProfile;
 
     public sealed record Parabolic(Span Span, Point3d Vertex) : ArchProfile {
-        public IO<Curve> ToCurve() => CurveConstruction.Parabola(new ParabolaSource.FromVertex(Vertex, Span.Start, Span.End)).Map<Curve>(static curve => curve);
+        public IO<NurbsCurve> Curve =>
+            Copies.Acquire(() => NurbsCurve.CreateParabolaFromVertex(Vertex, Span.Start, Span.End), nameof(NurbsCurve.CreateParabolaFromVertex));
     }
 
     public sealed record Elliptical(Span Span, Ellipse Ellipse) : ArchProfile {
-        public IO<Curve> ToCurve() =>
-            CurveConstruction.Analytic(new AnalyticCurve.OfEllipse(Ellipse, Some(new Interval(0.0, Math.PI)))).Map<Curve>(static curve => curve);
+        public IO<NurbsCurve> Curve => CurveConstruction.EllipticalArc(Ellipse, new Interval(0.0, Math.PI));
     }
 
     public static Fin<ArchProfile> Mirrored(Span span, Seq<Arc> towardStart) {
@@ -64,14 +69,14 @@ public abstract partial record ArchProfile {
             .Map<ArchProfile>(pairs => new Arcs(span, pairs.Flatten()));
     }
 
-    public IO<Seq<Curve>> Joined(double tolerance) =>
+    public IO<Seq<Curve>> Joined(Tolerances tolerances) =>
         Switch(
-            tolerance,
-            arcs: static (within, arcs) => DisposalOps.Using(
-                IO.lift(() => arcs.Parts.Map<Curve>(static arc => arc.ToNurbsCurve()).Strict()),
-                inputs => CurveConstruction.Join(inputs, within, preserveDirection: true, simpleJoin: false).Map(static joined => joined.Curves)),
-            parabolic: static (_, parabolic) => parabolic.ToCurve().Map(static curve => Seq(curve)),
-            elliptical: static (_, elliptical) => elliptical.ToCurve().Map(static curve => Seq(curve)));
+            tolerances,
+            arcs: static (within, arcs) => Copies.Acquire<Curve>(() => [.. arcs.Parts.Map(static arc => arc.ToNurbsCurve())], nameof(Arc.ToNurbsCurve)).Bracket(
+                Use: parts => CurveConstruction.JoinCurves(parts, within, preserveDirection: true, simpleJoin: false).Map(static joined => joined.Map(static row => row.Value)),
+                Fin: DisposalOps.Release),
+            parabolic: static (_, parabolic) => parabolic.Curve.Map(static curve => Seq<Curve>(curve)),
+            elliptical: static (_, elliptical) => elliptical.Curve.Map(static curve => Seq<Curve>(curve)));
 
     private static Fin<Arc> Image(Arc arc, Transform mirror) {
         Arc image = arc;

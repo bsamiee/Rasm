@@ -9,7 +9,7 @@ from pathlib import Path
 import Rhino
 from Rhino.PlugIns import PlugIn, PlugInLoadTime
 from Rhino.Runtime import HostUtils
-from System import Guid
+from System import Guid, String, StringComparison
 
 from interface.report import Error, Item, Row, Skip
 from interface.rhino.script.accessors import action, color, found, Internal, key, located, preference
@@ -19,13 +19,13 @@ from interface.roles import Status
 
 
 # --- [PACKAGES]
-def installed() -> dict[str, dict[Path, Guid | None]]:
-    """Plug-in files of each package folder Rhino resolves under the user packages folder by package id, each with the id of the plug-in record Rhino registered for its file, a native plug-in bundle included, or None for a file Rhino registered no plug-in from."""
+def installed(packages: tuple[str, ...]) -> dict[str, dict[Path, Guid | None]]:
+    """Declared packages' plug-in files and registered ids, or None for an unregistered file."""
     root, records = Path(HostUtils.AutoInstallPlugInFolder(currentUser=True)), {Path(PlugIn.GetPlugInInfo(plugin).FileName): plugin for plugin in PlugIn.GetInstalledPlugIns().Keys}
     return {
-        folder.relative_to(root).parts[0]: {path: records.get(path) for path in sorted(folder.glob("*.rhp"))}
+        name: {path: records.get(path) for path in sorted(folder.glob("*.rhp"))}
         for folder in (Path(held.FullName) for held in HostUtils.GetActivePlugInVersionFolders())
-        if folder.is_relative_to(root)
+        if folder.is_relative_to(root) and any(String.Equals(name := folder.relative_to(root).parts[0], package, StringComparison.InvariantCultureIgnoreCase) for package in packages)
     }
 
 
@@ -39,9 +39,9 @@ def registry_child(plugin: Guid) -> tuple[str, ...]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def rows() -> Iterator[Item]:
-    """Rows of every package plug-in's silent load and marker, then the bundled plug-ins' load modes, a skip line for one Rhino registered no record of, and the agent settings, then the settings of plug-ins a row loads."""
-    held, unwelded = installed(), "ShowUnweldedEdges"
+def rows(packages: tuple[str, ...]) -> Iterator[Item]:
+    """Rows for declared package plug-ins, bundled load modes, agent settings, and loaded plug-in settings."""
+    held, unwelded = installed(packages), "ShowUnweldedEdges"
     plugins = tuple(plugin for files in held.values() for plugin in files.values() if plugin is not None)
     edges = tuple(plugin for plugin in plugins if unwelded in PlugIn.GetEnglishCommandNames(plugin))
     bundled = {name: PlugIn.IdFromName(name) for name in (f"3DxRhino.{Rhino.RhinoApp.ExeVersion}", "PanelingTools")}

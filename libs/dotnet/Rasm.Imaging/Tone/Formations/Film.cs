@@ -116,7 +116,7 @@ public sealed record FilmState(
     FilmGain RedMultiplier, FilmGain GreenMultiplier, FilmGain BlueMultiplier,
     Exposure SigmoidMinimum, FilmSpan SigmoidSpan, CurveFraction ToeX, CurveFraction ToeY, CurveFraction ShoulderReachX, CurveFraction ShoulderReachY,
     Exposure NegativeExposure, Density NegativeDensity, FilmGain BacklightRed, FilmGain BacklightGreen, FilmGain BacklightBlue,
-    Exposure PrintExposure, Density PrintDensity, Option<BlackOffset> BlackPoint,
+    Exposure PrintExposure, Density PrintDensity, Gated<BlackOffset> BlackPoint,
     Factor PostFilterRed, Factor PostFilterGreen, Factor PostFilterBlue, MidtoneSaturation MidtoneSaturation);
 
 [SmartEnum]
@@ -129,7 +129,7 @@ public sealed partial class FilmPreset {
         new Exposure(-10f), new FilmSpan(22f - -10f), new CurveFraction(0.44f), new CurveFraction(0.28f),
         new CurveFraction((0.591f - 0.44f) / (1f - 0.44f)), new CurveFraction((0.779f - 0.28f) / (1f - 0.28f)),
         new Exposure(6f), new Density(5f), new FilmGain(1f), new FilmGain(1f), new FilmGain(1f),
-        new Exposure(6f), new Density(27.5f), None,
+        new Exposure(6f), new Density(27.5f), new(Enabled: false, new BlackOffset(0.483f)),
         Factor.MaxValue, Factor.MaxValue, Factor.MaxValue, new MidtoneSaturation(1.02f)));
     public static readonly FilmPreset Nostalgia = new(Default.State with {
         PreExposure = new Exposure(5.563035f),
@@ -141,7 +141,7 @@ public sealed partial class FilmPreset {
         BacklightGreen = new FilmGain(1.1f),
         BacklightBlue = new FilmGain(1.035989f),
         PrintDensity = new Density(40f),
-        BlackPoint = Some(new BlackOffset(-5f)),
+        BlackPoint = new(Enabled: true, new BlackOffset(-5f)),
         MidtoneSaturation = new MidtoneSaturation(1.1f),
     });
     public static readonly FilmPreset Silver = new(Default.State with {
@@ -155,7 +155,7 @@ public sealed partial class FilmPreset {
         BacklightGreen = new FilmGain(0.99f),
         PrintExposure = new Exposure(4.7f),
         PrintDensity = new Density(30f),
-        BlackPoint = Some(new BlackOffset(0.5f)),
+        BlackPoint = new(Enabled: true, new BlackOffset(0.5f)),
         PostFilterBlue = new Factor(0.96f),
         MidtoneSaturation = new MidtoneSaturation(1f),
     });
@@ -209,7 +209,7 @@ public static class Film {
             Vector256.Create(state.PostFilterRed, state.PostFilterGreen, state.PostFilterBlue, 0d));
         Vector256<double> backlight = gamut(Vector256.Create(state.BacklightRed, state.BacklightGreen, state.BacklightBlue, 0d)) * double.Exp2(state.PrintExposure);
         Vector256<double> cap = Transmitted(backlight * double.Exp2(-(float)state.NegativeDensity), state.PrintDensity);
-        double black = state.BlackPoint.Match(
+        double black = state.BlackPoint.Active.Match(
             Some: static offset => offset.Fraction,
             None: () => double.Min(Vector256.Dot(Transmitted(backlight, state.PrintDensity) / cap, Weights), BlackOffset.MaxValue.Fraction));
         return Bakes.Lattice(Valid.Value(LatticeSize.Validate(80, provider: null, out LatticeSize edge), edge), [row => {

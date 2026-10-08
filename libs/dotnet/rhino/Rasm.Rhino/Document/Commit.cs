@@ -21,39 +21,28 @@ public sealed record Committed<T>(T Value, Option<uint> Record);
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Commits {
     public static IO<T> WithinRedraw<T>(RhinoDoc doc, RedrawPolicy redraw, IO<T> body) =>
-        redraw.Switch(
-            (Doc: doc, Body: IO.pure(unit).Bind(_ => body)),
-            silent: static (state, _) => state.Body,
-            view: static (state, view) => state.Body.Finally(IO.lift(view.Target.Redraw)),
-            allViews: static (state, all) => state.Body.Finally(IO.lift(() => state.Doc.Views.Redraw(all.Deferred))),
-            suppressed: static (state, suppressed) =>
-                (from prior in use(
-                    () => state.Doc.Views.RedrawEnabled,
-                    enabled =>
-                        from restored in IO.lift(() => state.Doc.Views.EnableRedraw(enabled, redrawDocument: false, suppressed.RepaintLayers))
-                        from painted in when(enabled, IO.lift(() => state.Doc.Views.Redraw(suppressed.Deferred))).As()
-                        select painted)
-                 from disabled in IO.lift(() => state.Doc.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false))
-                 from value in state.Body
-                 select value).Bracket());
+        use(redraw.Switch(
+                doc,
+                silent: static (_, _) => IO.pure(IO.pure(unit)),
+                view: static (_, view) => IO.pure(IO.lift(view.Target.Redraw)),
+                allViews: static (document, all) => IO.pure(IO.lift(() => document.Views.Redraw(all.Deferred))),
+                suppressed: static (document, suppressed) =>
+                    from prior in IO.lift(() => document.Views.RedrawEnabled)
+                    from disabled in IO.lift(() => document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false))
+                    select IO.lift(() => document.Views.EnableRedraw(prior, redrawDocument: false, suppressed.RepaintLayers))
+                        .Bind(_ => when(prior, IO.lift(() => document.Views.Redraw(suppressed.Deferred))).As())),
+            static repaint => repaint).Bind(_ => body).Bracket();
 
     public static IO<Committed<T>> Commit<T>(RhinoDoc doc, string name, RedrawPolicy redraw, IO<T> body) =>
-        WithinRedraw(doc, redraw, IO.lift(() => (doc.UndoRecordingIsActive, doc.UndoRecordingEnabled, Command.InCommand())).Bind(IO<Committed<T>> ((bool, bool, bool) recording) => recording switch {
-            (true, _, _) or (false, false, _) => body.Map(static value => new Committed<T>(value, None)),
-            (false, true, false) =>
-                from serial in IO.lift(() => Conversions.Required(doc.BeginUndoRecord(name), nameof(RhinoDoc.BeginUndoRecord)))
-                let ended =
-                    from closed in IO.lift(() => Refused.Unless(doc.EndUndoRecord(serial), nameof(RhinoDoc.EndUndoRecord)))
-                    from record in IO.lift(() => doc.GetUndoRecords().AsIterable().Find(entry => entry.SerialNumber == serial).Map(static entry => entry.SerialNumber))
-                    select record
-                from value in DisposalOps.OnFailure(
-                    body,
-                    ended.Bind(record => record.Match(
-                        Some: _ => IO.lift(() => Refused.Unless(doc.Undo(), nameof(RhinoDoc.Undo)))
-                            .Bind(_ => IO.lift(doc.ClearRedoRecords)),
-                        None: static () => IO.pure(unit))))
-                from record in ended
-                select new Committed<T>(value, record),
-            (false, true, true) => IO.fail<Committed<T>>(new UndoRecordUnavailable()),
-        }));
+        WithinRedraw(doc, redraw,
+            from begun in IO.lift(() => Command.InCommand() && doc.UndoRecordingEnabled && !doc.UndoRecordingIsActive
+                ? Fin.Fail<Option<uint>>(new UndoRecordUnavailable()) : Conversions.Present(doc.BeginUndoRecord(name)))
+            let ended = IO.lift(() => begun.Traverse(serial => Refused.Unless(doc.EndUndoRecord(serial), serial, nameof(RhinoDoc.EndUndoRecord))).As()
+                .Map(closed => closed.Filter(serial => doc.GetUndoRecords().Any(entry => entry.SerialNumber == serial))))
+            from value in DisposalOps.OnFailure(body, ended.Bind(kept => when(kept.IsSome, Step(doc, doc.Undo, nameof(RhinoDoc.Undo)).Bind(_ => IO.lift(doc.ClearRedoRecords))).As()))
+            from record in ended
+            select new Committed<T>(value, record));
+
+    internal static IO<Unit> Step(RhinoDoc doc, Func<bool> step, string member) =>
+        IO.lift(() => Refused.Unless(step(), member).Bind(_ => Refused.Unless(doc.EndUndoRecord(doc.CurrentUndoRecordSerialNumber), nameof(RhinoDoc.EndUndoRecord))));
 }

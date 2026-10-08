@@ -7,7 +7,6 @@ internal enum Codes {
     OidnOutOfMemory,
     OidnUnsupportedHardware,
     OidnQualityUnsupported,
-    OidnInvalidArgument,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -21,7 +20,4 @@ public sealed record OidnOutOfMemory() : Expected("Open Image Denoise ran out of
 
 public sealed record OidnUnsupportedHardware() : Expected("Open Image Denoise does not support this hardware", (int)Codes.OidnUnsupportedHardware);
 
-public sealed record OidnQualityUnsupported(DenoiseQuality Quality, int Version)
-    : Expected("denoise quality exceeds the host's Open Image Denoise", (int)Codes.OidnQualityUnsupported);
-
-public sealed record OidnInvalidArgument() : Expected("Open Image Denoise rejected an image argument", (int)Codes.OidnInvalidArgument);
+public sealed record OidnQualityUnsupported(DenoiseQuality Quality, int Version) : Expected("denoise quality exceeds the host's Open Image Denoise", (int)Codes.OidnQualityUnsupported);

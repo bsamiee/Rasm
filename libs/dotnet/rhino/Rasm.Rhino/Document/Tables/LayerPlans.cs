@@ -1,5 +1,6 @@
 using Rhino;
 using Rhino.DocObjects;
+using Rhino.DocObjects.Tables;
 
 namespace Rasm.Rhino.Document.Tables;
 
@@ -26,7 +27,7 @@ public static class LayerPlans {
     public static Fin<Seq<LayerOp>> Plan(LayerTree live, LayerPlan plan, Func<Guid> fresh) =>
         from valid in Checked(plan).ToFin()
         let rows = Placed(live, valid, fresh)
-        let stale = live.Order.Filter(id => !live.Nodes[id].IsReference && !rows.Exists(row => row.Held.Exists(node => node.Id == id)))
+        let stale = live.Order.Filter(id => !live.Nodes[id].IsReference && !rows.Exists(row => row.Id == id))
         from free in (Conflicts(rows), Kept(live, valid, stale)).Apply(static (_, _) => unit).As().ToFin()
         select Ops(live, valid, rows, stale);
 
@@ -41,10 +42,10 @@ public static class LayerPlans {
         .As();
 
     private static Seq<LayerPath> Paths(LayerPlan plan) =>
-        plan.Layers.Bind(static layer => Lineage(layer.Path)).Distinct();
+        plan.Layers.Bind(static layer => Lineage(layer.Path, static path => path.Parent)).Distinct();
 
-    private static Seq<LayerPath> Lineage(LayerPath path) =>
-        path.Parent.Map(Lineage).IfNone(Seq<LayerPath>()).Add(path);
+    private static Seq<T> Lineage<T>(T node, Func<T, Option<T>> parent) =>
+        parent(node).Map(above => Lineage(above, parent)).IfNone(Seq<T>()).Add(node);
 
     private static Seq<LayerPath> Preorder(Seq<LayerPath> paths, Option<LayerPath> parent) =>
         paths.Filter(path => path.Parent == parent).Bind(path => path.Cons(Preorder(paths, Some(path))));
@@ -80,11 +81,15 @@ public static class LayerPlans {
 
     // --- [CHANGES]
     private static Seq<LayerOp> Ops(LayerTree live, LayerPlan plan, Seq<Placement> rows, Seq<Guid> stale) {
-        Seq<LayerOp> created = rows.Filter(static row => row.Held.IsNone)
+        Option<Placement> named = plan.Current.Bind(path => rows.Find(row => row.Path == path));
+        Seq<Guid> shown = Lineage(named.Map(static row => row.Id).IfNone(live.Current), id => rows.Find(row => row.Id == id).Match(Some: static row => row.Parent, None: () => live.Parent(id)));
+        Seq<Placement> answered = rows.Map(row => shown.Exists(id => id == row.Id)
+            ? row with { Edits = row.Edits.Filter(static edit => (edit.Restores & (RestoreLayerProperties.Visible | RestoreLayerProperties.Locked)) == RestoreLayerProperties.None) }
+            : row);
+        Seq<LayerOp> created = answered.Filter(static row => row.Held.IsNone)
             .Map<LayerOp>(static row => new LayerOp.Create(row.Path.Leaf, row.Parent.Map(Address), Some(row.Id), row.Edits));
-        Seq<LayerOp> current = plan.Current.Bind(path => rows.Find(row => row.Path == path)).Filter(row => row.Id != live.Current)
-            .Map<LayerOp>(static row => new LayerOp.SetCurrent(Address(row.Id))).ToSeq();
-        Seq<LayerOp> changed = rows.Choose(row => row.Held.Bind(node => Changed(live, row, node)));
+        Seq<LayerOp> current = named.Filter(row => row.Id != live.Current).Map<LayerOp>(static row => new LayerOp.SetCurrent(Address(row.Id))).ToSeq();
+        Seq<LayerOp> changed = answered.Choose(row => row.Held.Bind(node => Changed(live, row, node)));
         Seq<LayerOp> pruned = stale.Filter(id => !live.Parent(id).Exists(parent => stale.Exists(other => other == parent)))
             .Bind(id => plan.Prune switch {
                 LayerPrune.Keep => Seq<LayerOp>(),
@@ -92,9 +97,7 @@ public static class LayerPlans {
                 LayerPrune.Purge => Seq<LayerOp>(new LayerOp.Purge(Address(id))),
             });
         Seq<Guid> order = rows.Map(static row => row.Id) + (plan.Prune is LayerPrune.Keep ? stale : Seq<Guid>()) + live.Order.Filter(id => live.Nodes[id].IsReference);
-        bool restructured = !created.IsEmpty || rows.Exists(row => row.Held.IsSome && live.Parent(row.Id) != row.Parent);
-        return created + current + changed + pruned
-            + (plan.Ordered && (restructured || order != live.Order) ? Seq<LayerOp>(new LayerOp.Sort(order.Map(Address))) : Seq<LayerOp>());
+        return created + current + changed + pruned + (plan.Ordered && order != live.Order ? Seq<LayerOp>(new LayerOp.Sort(order.Map(Address))) : Seq<LayerOp>());
     }
 
     private static Option<LayerOp> Changed(LayerTree live, Placement row, LayerNode node) {

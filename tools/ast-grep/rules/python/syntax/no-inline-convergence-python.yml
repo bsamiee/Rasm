@@ -4,7 +4,6 @@ language: python
 severity: error
 files:
     - tools/interface/**/*.py
-    - tools/fitout/*.py
 ignores:
     - tools/interface/blender/extension/**
 utils:

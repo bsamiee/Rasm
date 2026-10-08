@@ -5,7 +5,7 @@ severity: error
 files: ['**/rhino/**']
 utils:
     value-record:
-        regex: '^((global::)?Rasm\.Rhino\.(Document|Modeling)\.)?(Invalid|Degenerate|OpenBoundary)$'
+        regex: '^((global::)?Rasm\.Rhino\.Modeling\.)?OpenBoundary$'
     predicate-name:
         kind: identifier
         pattern: $PROP

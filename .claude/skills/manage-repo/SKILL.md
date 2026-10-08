@@ -38,7 +38,7 @@ Entries state the principles by which the repository is maintained and improved.
 - Skills name the tools they drive, their scripts, and output paths under `.artifacts/`, and hold no target or project row
 - Scripts join their subject's skill, a script an app, target, or workflow consumes joins the repository
 - Scripts and `eng/` projects do work no tool command, package feature, or target does, and hold that work alone
-- Root targets unify check, format, build, test, install, release, and cleanup of the repository's own code, a wrapper over one mise tool is no target
+- Root targets unify check, format, build, test, install, and release of the repository's own code, a wrapper over one mise tool is no target
 - Each subcommand of a tool runs over one file set in one target alone, the unit Nx lists, orders through `dependsOn`, and hashes by its own inputs
 - Entry points derive their items from declarations, a configuration, script, or README line per item goes
 - Arguments after `--` select an operation's subject (path, app, filter) alone

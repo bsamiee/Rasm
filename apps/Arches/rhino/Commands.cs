@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Arches.Interaction;
 using Arches.Profiles;
 using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Notation;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -18,10 +19,10 @@ internal sealed class ArchCommand(Guid id, string englishName, string typePrompt
     public override string EnglishName => englishName;
 
     protected override IO<Unit> Run(RhinoDoc doc, RunMode mode) =>
-        from tolerance in IO.lift(() => doc.ModelAbsoluteTolerance)
-        from profile in Prompts.PickType(typePrompt, types, new Context(doc, tolerance, None))
+        from tolerances in Tolerances.Read(doc, modelUnits: true)
+        from profile in Prompts.PickType(typePrompt, types, new Context(doc, tolerances.Absolute, None))
         from added in DisposalOps.Using(
-            profile.Joined(tolerance),
+            profile.Joined(tolerances),
             curves => Commits.WithinRedraw(
                 doc,
                 new RedrawPolicy.AllViews(Deferred: true),

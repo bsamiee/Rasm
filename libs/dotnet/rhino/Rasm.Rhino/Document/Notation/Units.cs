@@ -56,8 +56,7 @@ public sealed partial class DistanceDisplay {
 
     // --- [FACTORY]
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref bool modelUnits, ref DistanceDisplayMode mode, ref int precision) =>
-        validationError = mode is DistanceDisplayMode.Decimal or DistanceDisplayMode.Fractional or DistanceDisplayMode.FeetInches
-            && precision >= 0 && precision <= (modelUnits ? 8 : 20) ? null : new InvalidRhinoValue();
+        validationError = Enum.IsDefined(mode) && precision is >= 0 and <= 8 ? null : new InvalidRhinoValue();
 
     // --- [DOCUMENT]
     public static IO<DistanceDisplay> Read(RhinoDoc doc, bool modelUnits) =>
@@ -92,16 +91,42 @@ public sealed partial class DistanceDisplay {
         Localization.FormatNumber(Quantities.As(length, spaceUnit), spaceUnit, Mode, Precision, appendUnitSystemName);
 }
 
+[ValueObject<LengthUnit>(SkipIComparable = true)]
+[ValidationError<InvalidRhinoValue>]
+public sealed partial class DocumentUnit {
+    // --- [FACTORY]
+    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref LengthUnit value) =>
+        validationError = LengthUnit.IsUnset(value) ? new InvalidRhinoValue() : null;
+
+    // --- [DOCUMENT]
+    public IO<Unit> Adjust(RhinoDoc doc, bool modelUnits, bool scale) =>
+        IO.lift(() => Refused.Unless(doc.AdjustLengthUnits(modelUnits, _value, scale), nameof(RhinoDoc.AdjustLengthUnits)));
+}
+
 public sealed record ScalarDisplay(Option<string> Symbol, double Step, int Decimals, bool Turn, Func<double, double> Shown, Func<double, double> Key);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Quantities {
     // --- [LENGTHS]
     public static Length From(double value, LengthUnit spaceUnit) =>
-        Length.FromMeters(value * LengthUnit.Scale(spaceUnit, LengthUnit.Meters));
+        Measure(spaceUnit) * Exact(value);
 
     public static double As(Length length, LengthUnit spaceUnit) =>
-        length.Meters.ToDouble() * LengthUnit.Scale(LengthUnit.Meters, spaceUnit);
+        QuantityValue.Reduce(length / Measure(spaceUnit)).ToDouble();
+
+    private static Length Measure(LengthUnit spaceUnit) =>
+        LengthUnit.Scale(spaceUnit, LengthUnit.Meters) switch {
+            var metres => toSeq(Length.Units).Find(named => Length.From(1, named).Meters == QuantityValue.FromDoubleRounded(metres))
+                .Match(Some: static named => Length.From(1, named), None: () => Length.FromMeters(Exact(metres))),
+        };
+
+    private static QuantityValue Exact(double value) =>
+        QuantityValue.FromDoubleRounded(value) switch {
+            var rounded when QuantityValue.Reduce(rounded).ToDouble().Equals(value) => rounded,
+            _ => int.Max(0, 52 - Math.ILogB(value)) switch {
+                var shift => QuantityValue.FromTerms(new BigInteger(Math.ScaleB(value, shift)), BigInteger.One << shift),
+            },
+        };
 
     // --- [SCALARS]
     public static ScalarDisplay Scalar<TValue, TKey>(Presentation<TValue, TKey> presentation)

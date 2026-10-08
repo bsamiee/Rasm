@@ -9,8 +9,6 @@ internal enum Codes {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record InvalidGeometry(string Member, ObjectType ObjectType, string Log)
-    : Expected("{Member} answered an invalid {ObjectType}: {Log}", (int)Codes.InvalidGeometry);
+public sealed record InvalidGeometry(string Member, ObjectType ObjectType, string Log) : Expected("{Member} answered an invalid {ObjectType}: {Log}", (int)Codes.InvalidGeometry);
 
-public sealed record InvalidGeometryElement(string Member, int Index, ObjectType ObjectType, string Log)
-    : Expected("{Member} answered an invalid {ObjectType} at index {Index}: {Log}", (int)Codes.InvalidGeometryElement);
+public sealed record InvalidGeometryElement(string Member, int Index, ObjectType ObjectType, string Log) : Expected("{Member} answered an invalid {ObjectType} at index {Index}: {Log}", (int)Codes.InvalidGeometryElement);

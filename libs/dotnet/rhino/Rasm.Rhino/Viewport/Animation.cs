@@ -10,12 +10,9 @@ namespace Rasm.Rhino.Viewport;
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
-public readonly partial struct FrameCount : System.Numerics.IMinMaxValue<FrameCount> {
-    public static FrameCount MinValue { get; } = new(1);
-    public static FrameCount MaxValue { get; } = new(int.MaxValue);
-
+public readonly partial struct FrameCount {
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+        validationError = value > 0 ? null : new InvalidRhinoValue();
 }
 
 [SmartEnum]
@@ -25,11 +22,11 @@ public sealed partial class AnimationQuality {
     public static readonly AnimationQuality RenderedPreview = new("full", renderFull: false, renderPreview: true);
     public static readonly AnimationQuality Rendered = new("full", renderFull: true, renderPreview: false);
 
-    public string CaptureMethod { get; }
+    internal string CaptureMethod { get; }
 
-    public bool RenderFull { get; }
+    internal bool RenderFull { get; }
 
-    public bool RenderPreview { get; }
+    internal bool RenderPreview { get; }
 }
 
 [Union]
@@ -64,53 +61,58 @@ public sealed record AnimationOutput {
 
     internal static Fin<AnimationOutput> From(string folder, string extension, string name) =>
         (Exchange.QualifiedPath(folder).ToValidation(),
-         Conversions.Validated<FileExtension, string, InvalidRhinoValue>($".{extension}").ToValidation(),
+         Conversions.Validated<FileExtension, string, InvalidRhinoValue>($"{FileExtension.Mark}{extension}").ToValidation(),
          Conversions.Validated<NamePart, string, InvalidRhinoValue>(name).ToValidation())
             .Apply(static (qualified, dotted, part) => new AnimationOutput(qualified, dotted, part))
             .As()
             .ToFin();
 }
 
-public sealed record AnimationSequence(
-    AnimationKind Kind,
-    FrameCount Frames,
-    string ViewportName,
-    Option<Guid> DisplayMode,
-    Option<AnimationOutput> Output,
-    Option<AnimationQuality> Quality);
+public sealed record AnimationSequence(AnimationKind Kind, FrameCount Frames, string ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, Option<AnimationQuality> Quality);
 
-public sealed record AnimationSettings(
-    AnimationProperties.CaptureTypes CaptureType,
-    Option<FrameCount> Frames,
-    int CurrentFrame,
-    Option<string> ViewportName,
-    Option<Guid> DisplayMode,
-    Option<AnimationOutput> Output,
-    Seq<string> Images,
-    Seq<string> Dates);
+public sealed record AnimationSettings(AnimationProperties.CaptureTypes CaptureType, FrameCount Frames, int CurrentFrame, Option<string> ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, Seq<string> Images, Seq<string> Dates);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class AnimationMapper {
-    internal static void Update(AnimationSequence sequence, AnimationProperties properties) {
-        Map(sequence, properties);
-        Update(sequence.Kind, properties);
-        _ = sequence.DisplayMode.IfSome(id => properties.DisplayMode = id);
-        _ = sequence.Output.IfSome(output => Update(output, properties));
-        _ = sequence.Quality.IfSome(quality => Update(quality, properties));
-    }
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+public static partial class Animations {
+    public static IO<Option<AnimationSettings>> Read(RhinoDoc doc) =>
+        use(() => doc.AnimationProperties).Bind(static copy => IO.lift(() => Callbacks.Found(copy.CaptureType != AnimationProperties.CaptureTypes.None, copy).Traverse(Settings).As())).Bracket();
 
+    public static IO<Committed<Unit>> Write(RhinoDoc doc, string name, AnimationSequence sequence) =>
+        Commits.Commit(doc, name, new RedrawPolicy.Silent(), use(() => doc.AnimationProperties).Bind(copy => IO.lift(() => {
+            Update(sequence, copy);
+            Update(sequence.Kind, copy);
+            _ = sequence.DisplayMode.IfSome(id => copy.DisplayMode = id);
+            _ = sequence.Output.IfSome(output => Update(output, copy));
+            _ = sequence.Quality.IfSome(quality => Update(quality, copy));
+            doc.AnimationProperties = copy;
+        })).Bracket());
+
+    private static Fin<AnimationSettings> Settings(AnimationProperties copy) =>
+        (Conversions.Validated<FrameCount, int, InvalidRhinoValue>(copy.FrameCount).ToValidation(),
+         Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As().ToValidation())
+            .Apply((frames, output) => ToSettings(copy, frames, output))
+            .As()
+            .ToFin();
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Target)]
     [MapProperty(nameof(AnimationProperties.Images), nameof(AnimationSettings.Images), Use = nameof(@Conversions.Rows))]
     [MapProperty(nameof(AnimationProperties.Dates), nameof(AnimationSettings.Dates), Use = nameof(@Conversions.Rows))]
-    internal static partial AnimationSettings ToSettings(AnimationProperties properties, Option<FrameCount> frames, Option<AnimationOutput> output);
+    private static partial AnimationSettings ToSettings(AnimationProperties properties, FrameCount frames, Option<AnimationOutput> output);
 
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     [MapProperty(nameof(AnimationSequence.Frames), nameof(AnimationProperties.FrameCount))]
-    [MapperIgnoreSource(nameof(AnimationSequence.Kind), Justification = "Update writes the kind through its Switch")]
-    [MapperIgnoreSource(nameof(AnimationSequence.DisplayMode), Justification = "Update writes a present display mode and keeps the stored id otherwise")]
-    [MapperIgnoreSource(nameof(AnimationSequence.Output), Justification = "Update writes a present output and keeps the stored folder otherwise")]
-    [MapperIgnoreSource(nameof(AnimationSequence.Quality), Justification = "Update writes a present quality and keeps the stored capture method otherwise")]
-    private static partial void Map(AnimationSequence sequence, AnimationProperties properties);
+    [MapperIgnoreSource(nameof(AnimationSequence.Kind), Justification = "Written through its Switch")]
+    [MapperIgnoreSource(nameof(AnimationSequence.DisplayMode), Justification = "A present id replaces the stored one")]
+    [MapperIgnoreSource(nameof(AnimationSequence.Output), Justification = "A present output replaces the stored folder, extension, and name")]
+    [MapperIgnoreSource(nameof(AnimationSequence.Quality), Justification = "A present quality replaces the stored capture method and render flags")]
+    private static partial void Update(AnimationSequence sequence, AnimationProperties properties);
+
+    [MapProperty(nameof(AnimationOutput.Folder), nameof(AnimationProperties.FolderName))]
+    [MapProperty(nameof(AnimationOutput.Extension), nameof(AnimationProperties.FileExtension), Use = nameof(Undotted))]
+    [MapProperty(nameof(AnimationOutput.Name), nameof(AnimationProperties.AnimationName))]
+    private static partial void Update(AnimationOutput output, AnimationProperties properties);
+
+    private static partial void Update(AnimationQuality quality, AnimationProperties properties);
 
     private static void Update(AnimationKind kind, AnimationProperties properties) =>
         kind.Switch(
@@ -119,10 +121,7 @@ internal static partial class AnimationMapper {
             cameraAndTarget: static (target, paths) => {
                 target.CaptureType = AnimationProperties.CaptureTypes.Path;
                 Camera(paths.Camera, target);
-                paths.Target.Switch(
-                    target,
-                    fromCurve: static (host, curve) => host.TargetPathId = curve.CurveId,
-                    fromPoints: static (host, points) => host.TargetPoints = [.. points.Points]);
+                paths.Target.Switch(target, fromCurve: static (host, curve) => host.TargetPathId = curve.CurveId, fromPoints: static (host, points) => host.TargetPoints = [.. points.Points]);
             },
             flythrough: static (target, flight) => {
                 target.CaptureType = AnimationProperties.CaptureTypes.Flythrough;
@@ -133,46 +132,15 @@ internal static partial class AnimationMapper {
                 SunSiteMapper.Update(sun.Window, target);
             });
 
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapProperty(nameof(AnimationOutput.Folder), nameof(AnimationProperties.FolderName))]
-    [MapProperty(nameof(AnimationOutput.Extension), nameof(AnimationProperties.FileExtension), Use = nameof(Undotted))]
-    [MapProperty(nameof(AnimationOutput.Name), nameof(AnimationProperties.AnimationName))]
-    private static partial void Update(AnimationOutput output, AnimationProperties properties);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    private static partial void Update(AnimationQuality quality, AnimationProperties properties);
+    private static void Camera(AnimationPath path, AnimationProperties properties) =>
+        path.Switch(properties, fromCurve: static (target, curve) => target.CameraPathId = curve.CurveId, fromPoints: static (target, points) => target.CameraPoints = [.. points.Points]);
 
     [UserMapping(Default = false)]
-    private static string Undotted(FileExtension extension) => ((string)extension)[1..];
+    private static string Undotted(FileExtension extension) => ((string)extension).TrimStart(FileExtension.Mark);
 
     [UserMapping]
     private static int Count(FrameCount frames) => frames;
 
     [UserMapping]
     private static string Text(NamePart name) => name;
-
-    private static void Camera(AnimationPath path, AnimationProperties properties) =>
-        path.Switch(
-            properties,
-            fromCurve: static (target, curve) => target.CameraPathId = curve.CurveId,
-            fromPoints: static (target, points) => target.CameraPoints = [.. points.Points]);
-}
-
-public static class Animations {
-    public static IO<AnimationSettings> Read(RhinoDoc doc) =>
-        use(() => doc.AnimationProperties).Bind(static copy => IO.lift(() => Settings(copy))).Bracket();
-
-    public static IO<Committed<Unit>> Write(RhinoDoc doc, string name, AnimationSequence sequence) =>
-        Commits.Commit(doc, name, new RedrawPolicy.Silent(), use(() => doc.AnimationProperties).Bind(copy => IO.lift(() => {
-            AnimationMapper.Update(sequence, copy);
-            doc.AnimationProperties = copy;
-        })).Bracket());
-
-    private static Fin<AnimationSettings> Settings(AnimationProperties copy) =>
-        (Callbacks.Found(copy.CaptureType != AnimationProperties.CaptureTypes.None, copy.FrameCount)
-            .Traverse(static count => Conversions.Validated<FrameCount, int, InvalidRhinoValue>(count)).As().ToValidation(),
-         Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As().ToValidation())
-            .Apply((frames, output) => AnimationMapper.ToSettings(copy, frames, output))
-            .As()
-            .ToFin();
 }

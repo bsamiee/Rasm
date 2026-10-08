@@ -33,11 +33,11 @@ public static class Exchange {
             .Strict());
 
     // --- [PATHS]
-    public static Fin<string> QualifiedPath(string path) => UnqualifiedPath.Unless(Path.IsPathFullyQualified(path), path);
+    public static Fin<string> QualifiedPath(string path) => Path.IsPathFullyQualified(path) ? path : new UnqualifiedPath(path);
 
-    public static Fin<string> ExistingPath(string path) => QualifiedPath(path).Bind(static qualified => FileMissing.Unless(File.Exists(qualified), qualified));
+    public static Fin<string> ExistingPath(string path) => QualifiedPath(path).Bind(static qualified => File.Exists(qualified) ? Fin.Succ(qualified) : new FileMissing(qualified));
 
-    public static Fin<string> ExistingFolder(string path) => QualifiedPath(path).Bind(static qualified => FolderMissing.Unless(Directory.Exists(qualified), qualified));
+    public static Fin<string> ExistingFolder(string path) => QualifiedPath(path).Bind(static qualified => Directory.Exists(qualified) ? Fin.Succ(qualified) : new FolderMissing(qualified));
 
     // --- [READS]
     public static IO<Committed<Unit>> Import(RhinoDoc doc, string path, RedrawPolicy redraw, Option<ArchivableDictionary> options) =>
@@ -97,7 +97,7 @@ public static class Exchange {
 
     // --- [ANSWERS]
     private static Fin<string> Writable(RhinoDoc doc, string target) =>
-        DocumentReadOnly.Unless(!doc.IsReadOnly || !string.Equals(target, doc.Path, StringComparison.OrdinalIgnoreCase), target);
+        doc.IsReadOnly && string.Equals(target, doc.Path, StringComparison.OrdinalIgnoreCase) ? new DocumentReadOnly(target) : target;
 
     private static Fin<Unit> FromWriteFileResult(WriteFileResult result, string member) =>
         result switch {

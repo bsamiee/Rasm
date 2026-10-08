@@ -1,4 +1,4 @@
-"""Blender's environment and the repository and package rows of `packages.toml`, each package a bundled add-on, a listed extension, or an archive staged from its GitHub source, tool, project build, or corrected listing, with the extension Blender builds and the look-development image."""
+"""Blender environment, declared external packages, interface extension, and look-development image."""
 
 from collections.abc import Awaitable, Callable, Mapping
 from functools import partial
@@ -23,8 +23,8 @@ from interface.report import ABSENT, digest, subscript
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Origin = GitHub | Tool | Project
-type Source = Download | Installed | Packed
+type Origin = GitHub | Tool
+type Source = Download | Installed
 type Provenance = Origin | Listing | Source
 type Stage = Callable[[Package, Provenance], Awaitable[Result[tuple[Archived, tuple[Change, ...]]]]]
 
@@ -55,10 +55,6 @@ class Tool(msgspec.Struct, frozen=True, tag="tool", tag_field="kind"):
 
     name: str
     file: str
-
-
-class Project(msgspec.Struct, frozen=True, tag="project", tag_field="kind"):
-    """Nx extension project whose platform archive under `.artifacts/blender/<id>/` an archive row stages."""
 
 
 class Libraries(msgspec.Struct, frozen=True):
@@ -170,13 +166,6 @@ class Installed(msgspec.Struct, frozen=True, tag=True):
     file: str
 
 
-class Packed(msgspec.Struct, frozen=True, tag=True):
-    """Project archive for this platform at its path with the stamp of its members."""
-
-    archive: str
-    stamp: str
-
-
 class Build(msgspec.Struct, frozen=True):
     """Build a staged archive records as its comment: the source it came from and the digest of the corrections staged into it."""
 
@@ -189,25 +178,6 @@ class Manifest(msgspec.Struct, frozen=True):
 
     id: str
     shelves: dict[str, tuple[str, ...]]
-
-
-class Generated(msgspec.Struct, frozen=True):
-    """`[build.generated]` table a split build writes into each platform archive's manifest."""
-
-    platforms: tuple[str, ...]
-
-
-class Section(msgspec.Struct, frozen=True):
-    """`[build]` table of a built archive's manifest."""
-
-    generated: Generated
-
-
-class Packaged(msgspec.Struct, frozen=True):
-    """Archive manifest id and generated platforms, empty for an unsplit build."""
-
-    id: str
-    build: Section = Section(Generated(()))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -250,20 +220,6 @@ def commented(target: Path, package: Package) -> Result[tuple[Build, Archive]]:
         return Error(f"{package.label} has no staged archive at {target}")
     except msgspec.DecodeError as error:
         return Error(f"{package.label} archive {target} records no build: {error}")
-
-
-def packed(folder: Path, package: Package, blender: Installation) -> Result[Packed]:
-    """Archive in the folder whose manifest names the package id and generates this platform, with its member stamp."""
-
-    def read(path: Path) -> tuple[Packaged, Packed]:
-        with zipfile.ZipFile(path) as archive:
-            return msgspec.toml.decode(archive.read(blender.manifest_filename), type=Packaged), Packed(str(path), stamped(archive))
-
-    match [archive for manifest, archive in map(read, folder.glob("*.zip")) if manifest.id == package.id and blender.platform in manifest.build.generated.platforms]:
-        case [archive]:
-            return archive
-        case found:
-            return Error(f"{folder} holds {len(found)} {package.id} archives for {blender.platform} where a project row stages one")
 
 
 def tagged(asset: str, machines: Mapping[str, str]) -> str:
@@ -322,8 +278,8 @@ def zipped(tree: Path, target: Path, build: Build) -> str:
 
 
 # --- [BUILDS]
-async def upstream(host: Host, blender: Installation, package: Package, origin: Provenance) -> Result[Source]:
-    """Source of the provenance: the newest an origin publishes as a release's zip asset for this platform, a branch head, a tool's add-on file at its current version, or the project's platform archive, a listed archive, or a recorded source as itself."""
+async def upstream(host: Host, blender: Installation, origin: Provenance) -> Result[Source]:
+    """Resolve a release, branch, tool, or listing to its source, retaining a recorded source."""
     match origin:
         case GitHub(repository=repository, branch=str() as branch):
             commit = await fetched(host.client, f"https://api.github.com/repos/{repository}/commits/{branch}", msgspec.json.Decoder(Commit).decode)
@@ -341,11 +297,9 @@ async def upstream(host: Host, blender: Installation, package: Package, origin: 
         case Tool(name=name, file=file):
             current = await executed(("mise", "current", name), host.environ)
             return current if isinstance(current, Error) else Installed(name, current.decode().strip(), file)
-        case Project():
-            return await anyio.to_thread.run_sync(packed, host.artifacts / package.id, package, blender)
         case Listing(archive_url=url):
             return Download(url)
-        case Download() | Installed() | Packed() as source:
+        case Download() | Installed() as source:
             return source
 
 
@@ -366,8 +320,6 @@ async def unpacked(host: Host, blender: Installation, package: Package, source: 
             if isinstance(archive := await downloaded(host.client, url, tree.with_name("source.zip")), Error):
                 return archive
             return await anyio.to_thread.run_sync(extracted, archive, tree, package, blender.manifest_filename)
-        case Packed(archive=archive):
-            return await anyio.to_thread.run_sync(extracted, Path(archive), tree, package, blender.manifest_filename)
 
 
 async def vendored(host: Host, blender: Installation, root: Path, libraries: Libraries | None) -> Error | None:
@@ -415,7 +367,7 @@ async def held(host: Host, blender: Installation, package: Package) -> Result[tu
 
 async def staged(host: Host, blender: Installation, package: Package, origin: Provenance) -> Result[tuple[Archived, tuple[Change, ...]]]:
     """Row installing the provenance's source at the package's corrections, the cached archive rebuilt with a change row while the build it records differs."""
-    if isinstance(source := await upstream(host, blender, package, origin), Error):
+    if isinstance(source := await upstream(host, blender, origin), Error):
         return source
     target = package.archive(host.cache)
     wanted = Build(source, digest(msgspec.json.encode((package.libraries and (package.libraries, blender.interpreter), package.patches, package.rpaths), order="deterministic")))

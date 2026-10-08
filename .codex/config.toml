@@ -95,11 +95,7 @@ args = ["lldb-mcp"]
 startup_timeout_sec = 20
 tool_timeout_sec = 120
 
-[mcp_servers.node_repl]
-env_vars = ["DOPPLER_CONFIG_DIR"]
-
 [mcp_servers.node_repl.env]
-NODE_REPL_UNTRUSTED_ENV_ALLOWLIST = "DOPPLER_CONFIG_DIR"
 NODE_REPL_WORKER_WRAPPER = '["/bin/sh", "-c", "shift; exec mise exec -- \"$@\"", "node_repl"]'
 
 [mcp_servers.rhino-mcp-platform]

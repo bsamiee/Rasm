@@ -10,7 +10,6 @@ files:
     - tools/interface/blender/rows.py
     - tools/interface/*/script/**
     - tools/interface/blender/extension/**
-    - tools/fitout/script.py
 rule:
     pattern: $G
     matches:

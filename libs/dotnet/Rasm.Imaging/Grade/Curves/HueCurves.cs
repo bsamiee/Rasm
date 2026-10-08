@@ -46,7 +46,7 @@ public sealed partial class HueCurve<TKind> : IConvertible<string> where TKind :
 
     public Seq<CurvePoint> Points { get; }
 
-    internal static HueCurve<TKind> Identity { get; } = new(TKind.Kind.Neutral);
+    public static HueCurve<TKind> Identity { get; } = new(TKind.Kind.Neutral);
 
     public Func<double, double> Fit() => Fits(this);
 

@@ -34,7 +34,6 @@ from Rhino.DocObjects.Tables import NamedConstructionPlaneTable, NamedLayerState
 from Rhino.FileIO import File3dm, File3dmRenderContent, File3dmWriteOptions, FileWriteOptions
 from Rhino.Geometry import BoundingBox, MeshingParameterStyle, Plane, Point3d, Rectangle3d, Vector2d, Vector3d
 from Rhino.Render import ContentUuids, ParameterNames, RenderChannels, RenderContent, RenderContentType, RenderSettings, RenderWindow, Sun
-from Rhino.Render.PostEffects import PostEffectType
 import System
 from System import Array, DateTime, DateTimeKind, Guid
 from System.Drawing import Color, Size
@@ -71,7 +70,7 @@ from interface.render import (
     VOLUME_BOUNCES,
 )
 from interface.report import Refused, Row, single
-from interface.rhino.script.accessors import color, disposed, found, Internal, member, plain, preference
+from interface.rhino.script.accessors import color, disposed, found, member, plain, preference
 from interface.roles import Annotation, Ink, Surface, Typography
 from interface.units import ANGLE_PRECISION, GRID_THICK_EVERY, Length, Pen, Units
 
@@ -84,7 +83,6 @@ SUN_LIGHT_FACTOR: Final = 3.2
 
 ANNOTATION_ID: Final = Guid.Parse(str(Annotation.ID))
 SKY_USAGES: Final = tuple(System.Enum.GetValues(clr.GetClrType(RenderSettings.EnvironmentUsage)))
-TONE_MAPPING_NODE: Final = PostEffectType(int(PostEffectType.ToneMapping) + 1)
 PROCESS: Final = ctypes.CDLL(None)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -171,7 +169,6 @@ class Template(TypedDict):
     earth_anchor: Mapping[str, object]
     environment: Environment
     ground_material: Material
-    tone_mapper: Guid
     layers: tuple[AnnotationFacts, LayerFacts]
     dimension_layer: tuple[bool, UUID]
     layout: tuple[Page, ...]
@@ -476,7 +473,6 @@ def target(units: Units) -> Template:
                 ParameterNames.PhysicallyBased.Specular: 0.0,
             },
         },
-        "tone_mapper": Internal.AGX_TONE_MAPPING.type.GUID,
         "layers": (
             {"Id": ANNOTATION_ID, "Name": Annotation.NAME, "Color": color(Annotation.TAG.value), "PlotColor": ink, "PlotWeight": weight, "SectionStyle": None},
             {"Color": ink, "PlotColor": ink, "PlotWeight": weight, "SectionStyle": cut},
@@ -627,7 +623,6 @@ def read(path: str, template: Template) -> dict[str, object] | None:
             "earth_anchor": properties(doc.EarthAnchorPoint, template["earth_anchor"]),
             "environment": file_sky(file, template["environment"]),
             "ground_material": file_ground(file, template["ground_material"]),
-            "tone_mapper": found(settings.PostEffects.GetSelectedPostEffect(TONE_MAPPING_NODE)),
             "layers": tuple(layer_facts(doc, layer) for layer in sorted((layer for layer in doc.Layers if not layer.IsDeleted), key=lambda layer: layer.SortIndex)),
             "dimension_layer": dimension_layer(doc),
             "layout": tuple(page_facts(doc, page) for page in doc.Views.GetPageViews()),
@@ -676,7 +671,7 @@ def write_units(doc: Rhino.RhinoDoc, template: Template) -> None:
 
 
 def write_render(doc: Rhino.RhinoDoc, template: Template) -> None:
-    """Write the render settings, the ground material, sun moment, sky, tone mapper, and earth anchor."""
+    """Write render settings, ground material, sun moment, sky, and earth anchor."""
     environment_facts, ground, settings = template["environment"], template["ground_material"], doc.RenderSettings
 
     def content(facts: Content) -> RenderContent:
@@ -708,7 +703,6 @@ def write_render(doc: Rhino.RhinoDoc, template: Template) -> None:
         settings.SetRenderEnvironmentId(usage, environment.Id)
     for usage, on in environment_facts["Overrides"].items():
         settings.SetRenderEnvironmentOverride(usage, on)
-    settings.PostEffects.SetSelectedPostEffect(TONE_MAPPING_NODE, template["tone_mapper"])
     doc.RenderSettings = settings
     anchor = doc.EarthAnchorPoint
     assign(anchor, template["earth_anchor"])

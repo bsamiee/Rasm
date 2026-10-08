@@ -14,7 +14,11 @@ utils:
         all:
             - matches: held-declaration
             - has: {field: type, any: [{kind: identifier, pattern: $OWNER}, {kind: generic_name, has: {kind: identifier, pattern: $OWNER}}]}
-            - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, has: {field: name, pattern: $OWNER}}}
+            - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: 'class_declaration, record_declaration', has: {field: name, pattern: $OWNER}}}
+    record-declaration:
+        all:
+            - matches: held-declaration
+            - has: {field: type, not: {any: [{kind: predefined_type}, {regex: '^(Func|Action)\b'}]}}
     held-name:
         kind: identifier
         pattern: $HELD
@@ -35,15 +39,64 @@ utils:
                         - has: {kind: parameter_list, has: {kind: parameter, matches: object-declaration}}
                         - has: {field: body, has: {kind: field_declaration, has: {matches: object-declaration}}}
                         - has: {field: body, has: {kind: property_declaration, matches: object-declaration}}
-    held-read:
+            - not:
+                inside:
+                    stopBy: {kind: class_declaration}
+                    kind: class_declaration
+                    has:
+                        field: body
+                        has:
+                            kind: property_declaration
+                            all:
+                                - has: {field: name, pattern: $HELD}
+                                - has: {field: accessors, has: {kind: accessor_declaration, has: {field: name, regex: '^set$'}}}
+            - not:
+                inside:
+                    stopBy: {kind: class_declaration}
+                    kind: class_declaration
+                    has:
+                        field: body
+                        has:
+                            kind: property_declaration
+                            all:
+                                - has: {field: name, pattern: $HELD}
+                                - not: {has: {kind: modifier, regex: '^(virtual|abstract|override)$'}}
+                                - not: {has: {field: type, regex: '^(Func|Action)\b'}}
+                                - any:
+                                    - has: {field: value, kind: arrow_expression_clause}
+                                    - has: {field: accessors, has: {kind: accessor_declaration, has: {field: body, pattern: $_}}}
+    held-object:
         any:
             - matches: held-name
             - kind: member_access_expression
               all:
                 - has: {field: expression, regex: '^this$'}
                 - has: {field: name, matches: held-name}
+    fact-read:
+        kind: member_access_expression
+        all:
+            - has: {field: expression, matches: held-object}
+            - not: {inside: {kind: invocation_expression, field: function}}
+            - inside:
+                stopBy: {kind: class_declaration}
+                kind: class_declaration
+                any:
+                    - has: {kind: parameter_list, has: {kind: parameter, matches: record-declaration}}
+                    - has: {field: body, has: {kind: field_declaration, has: {matches: record-declaration}}}
+                    - has: {field: body, has: {kind: property_declaration, matches: record-declaration}}
+    stored-read:
+        any:
+            - matches: held-object
             - kind: member_access_expression
               all:
+                - has: {field: name, kind: identifier, not: {regex: '^(IsSome|IsNone|IsEmpty|Count|Length)$'}}
+                - has: {field: expression, matches: stored-read}
+    held-read:
+        any:
+            - matches: held-object
+            - kind: member_access_expression
+              all:
+                - not: {matches: fact-read}
                 - has: {field: name, kind: identifier, not: {regex: '^(IsSome|IsNone|IsEmpty|Count|Length)$'}}
                 - has: {field: expression, matches: held-read}
     hook-read:
@@ -101,21 +154,16 @@ utils:
     optional-hook:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Bind)$'}}, {has: {field: expression, matches: held-read}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Bind)$'}}, {has: {field: expression, matches: stored-read}}]}
             - has: {field: arguments, all: [{has: {kind: argument, has: {matches: hook-call}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     absent:
         kind: lambda_expression
         has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
     gated:
-        any:
-            - kind: member_access_expression
-              all:
-                - has: {field: name, regex: '^(IsSome|IsNone)$'}
-                - has: {field: expression, matches: held-read}
-            - kind: invocation_expression
-              all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Exists|ForAll)$'}}, {has: {field: expression, matches: held-read}}]}
-                - has: {field: arguments, all: [{has: {kind: argument, has: {matches: hook-call}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Exists|ForAll)$'}}, {has: {field: expression, matches: stored-read}}]}
+            - has: {field: arguments, all: [{has: {kind: argument, has: {matches: hook-call}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     answered:
         kind: invocation_expression
         any:
@@ -149,6 +197,11 @@ rule:
         - has: {kind: modifier, regex: '^override$'}
         - has: {field: name, pattern: $NAME, not: {regex: '^(ToString|Equals|GetHashCode)$'}}
         - inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: base_list}}}
+        - not:
+            all:
+                - kind: property_declaration
+                - has: {kind: modifier, regex: '^sealed$'}
+                - has: {field: value, kind: arrow_expression_clause, has: {matches: held-read}}
         - any:
             - kind: property_declaration
               all:

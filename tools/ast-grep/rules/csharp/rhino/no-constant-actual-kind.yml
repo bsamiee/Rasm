@@ -6,7 +6,7 @@ utils:
     constant-kind:
         any:
             - kind: member_access_expression
-              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(RenderContentKind|LightStyle|GetResult|Result|RenderReturnCode|LoadPlugInResult)$'}
+              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(GetResult|Result|RenderReturnCode|LoadPlugInResult)$'}
             - kind: typeof_expression
             - kind: cast_expression
               has: {field: value, kind: 'integer_literal, prefix_unary_expression'}
@@ -77,16 +77,16 @@ utils:
             - kind: parenthesized_expression
               has: {matches: narrowing}
     first-creation:
-        matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongLightStyle|UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}}}
+        matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}}}
     second-creation:
         any:
-            - matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|WrongKind|LoadRefused)$', pattern: $RECORD}}}
+            - matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|LoadRefused)$', pattern: $RECORD}}}
             - kind: invocation_expression
               has:
                 field: function
                 kind: member_access_expression
                 all:
-                    - has: {field: expression, kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|WrongKind|LoadRefused|WrongLightStyle|UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}
+                    - has: {field: expression, kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|LoadRefused|UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}
                     - has: {field: name, regex: '^Unless$'}
     positional:
         kind: argument
@@ -96,7 +96,7 @@ utils:
         all:
             - has: {matches: constant-value, pattern: $KIND}
             - any:
-                - has: {field: name, regex: '^([Aa]ctual|[Ss]tyle|[Rr]esult|[Rr]eturnCode)$'}
+                - has: {field: name, regex: '^([Aa]ctual|[Rr]esult|[Rr]eturnCode)$'}
                 - all:
                     - matches: positional
                     - nthChild: {position: 1, ofRule: {kind: argument}}

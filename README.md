@@ -12,13 +12,14 @@ Rasm/
 │   ├── python/
 │   └── typescript/
 ├── tests/                    # Shared test support per language and suites outside libs/
-├── eng/                      # Repository engineering projects, one directory per language
-│   └── dotnet/
+├── eng/
+│   ├── dotnet/
+│   ├── python/
+│   └── typescript/
 ├── infra/                    # Pulumi program declaring repository resources
 ├── tools/
 │   ├── ast-grep/             # Outlines, rules, and utilities per language
 │   ├── bridge/               # Streamable HTTP bridge every stdio MCP server's launchd agent runs through
-│   ├── fitout/               # Program packing Blender extension projects and installing archives into their host
 │   ├── interface/            # Desktop application interfaces, one directory per application
 │   └── nx/                   # Nx plugin inferring a project from each project file
 ├── plugins/                  # Agent harness marketplace, one directory per plugin
@@ -102,10 +103,10 @@ flowchart LR
 - `nx run <project>:<target>` runs one target of one project
 - `nx run <project>:build -- <switch>` forwards MSBuild switches to a .NET build beside the target's `-bl`
 - `--skip-nx-cache` runs a build in place of an Nx cache replay
-- `nx run <project>:install` installs a built product into its host
-- `nx run <project>:pack` builds a Rhino yak package with a `yak spec` manifest or Blender platform archives under `.artifacts/<host>/<project>/`
+- `nx run <project>:install` installs built products, packing Rhino and Blender projects first
+- `nx run <project>:pack` builds a Rhino Yak package or one Blender extension ZIP under `.artifacts/<host>/<project>/`
 - `nx run rasm:upgrade` moves catalogs, Swift package locks, tool binaries, and application packages to their newest builds
-- `nx run rasm:clean` removes .NET build outputs, NuGet and uv caches, and installed Pulumi plugins
+- `mise exec -- node eng/typescript/cleanup/main.ts` removes disposable files and orphaned tool processes outside the task graph
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
 - `nx run rasm:interface` applies each `tools/interface/<app>/apply.py`, `-- <app>` one, and prints every outcome as one JSON document
@@ -158,6 +159,8 @@ flowchart LR
 
 ## [06]-[STRUCTURE]
 
+- `eng/<language>/` owns engineering workflows over repository projects and artifacts
+- `tools/` provides capabilities for development tools and applications
 - Apps group by product under `apps/<product>/`, with a `<host>/` folder per host application
 - Libraries group by language under `libs/<language>/`, with host-bound packages under a `<host>/` folder
 - Build and task graph read a project's host from the `<host>/` folder on its path

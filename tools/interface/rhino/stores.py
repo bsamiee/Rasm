@@ -7,7 +7,6 @@ from enum import StrEnum
 from functools import reduce
 import math
 from pathlib import Path, PurePosixPath
-import shutil
 from typing import Final
 import uuid
 import zipfile
@@ -157,20 +156,6 @@ def stated(path: Path, held: bytes, root: etree._Element, children: Sequence[Chi
     return written(path, held, root, canonical)
 
 
-def pruned(root: etree._Element, directory: Path, kept: frozenset[str]) -> tuple[str, ...]:
-    """Plug-in settings folder names of the registry records removed from the root, each record of a plug-in file under the package directory in a package folder outside the kept ids."""
-    files = (
-        (version, record, Path(name))
-        for version in root.iterfind("settings/child[@key='PlugInRegistry']/child")
-        for record in version.iterfind("child")
-        if (name := record.findtext("entry[@key='FileName']")) is not None
-    )
-    dropped = [(version, record) for version, record, file in files if file.is_relative_to(directory) and file.relative_to(directory).parts[0] not in kept]
-    for version, record in dropped:
-        version.remove(record)
-    return tuple(f"{record.findtext("entry[@key='Name']")} ({record.attrib['key']})" for _, record in dropped)
-
-
 def read(path: Path) -> bytes | None:
     """Plug-in settings file's bytes, empty settings while Rhino holds no value off its default, None while Rhino has not created the plug-in's settings folder."""
     try:
@@ -269,15 +254,12 @@ def toolbars(bundled: bytes, packages: Sequence[Package], cache: Path) -> etree.
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def edit(folder: Path, bundle: Bundle, measured: Measured, packages: Sequence[Package], cache: Path, directory: Path) -> tuple[report.Change, ...]:
-    """Changes of the files edited once Rhino quit under the settings folder the report names, with the package toolbars from the cached archives, and the registry records and settings folders of plug-ins the package directory held outside the staged packages removed."""
+def edit(folder: Path, bundle: Bundle, measured: Measured, packages: Sequence[Package], cache: Path) -> tuple[report.Change, ...]:
+    """Changes to Rhino settings, declared plug-in settings, and toolbars after Rhino quits."""
     rui = toolbars(bundle.path.joinpath("Contents", "Frameworks", "RhMaterialEditor.framework", "Versions", "A", "Resources", "assets", "default.rui").read_bytes(), packages, cache)
     main, toolbar_file, owners = folder / "settings-Scheme__Default.xml", folder.parent / "UI" / "default.rui", folder.parent / "Plug-ins"
     held = main.read_bytes()
     root = etree.fromstring(held)
-    dropped = tuple(owners / name for name in pruned(root, directory, frozenset(package.id for package in packages if package.archive(cache) is not None)) if (owners / name).is_dir())
-    for path in dropped:
-        shutil.rmtree(path)
     own, plugins = settings(measured, registered(root))
     files = {owners / name / "settings" / main.name: children for name, children in plugins.items()}
     changes = (
@@ -285,7 +267,7 @@ def edit(folder: Path, bundle: Bundle, measured: Measured, packages: Sequence[Pa
         stated(main, held, root, own),
         *(stated(path, content, etree.fromstring(content), children) for path, children in files.items() if (content := read(path)) is not None),
     )
-    return (*(report.Change(label(path), path.name, report.ABSENT) for path in dropped), *(change for change in changes if change is not None))
+    return tuple(change for change in changes if change is not None)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -19,7 +19,11 @@ public abstract partial record RestorePacing {
     public sealed record ConstantTime(FrameCount Frames, Duration Delay) : RestorePacing;
 }
 
-public sealed record FocalBlur(ViewInfoFocalBlurModes FocalBlurMode, double FocalBlurDistance, double FocalBlurAperture, double FocalBlurJitter, uint FocalBlurSampleCount);
+public sealed record FocalBlur(ViewInfoFocalBlurModes FocalBlurMode, double FocalBlurDistance, double FocalBlurAperture, double FocalBlurJitter, uint FocalBlurSampleCount) {
+    public static IO<FocalBlur> Read(ViewInfo view) => IO.lift(() => NamedViewMapper.ToFocalBlur(view));
+
+    public IO<Unit> Write(ViewInfo view) => IO.lift(() => NamedViewMapper.Update(this, view));
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
@@ -32,9 +36,6 @@ internal static partial class NamedViewMapper {
 
 public static class NamedViews {
     // --- [TABLE]
-    public static IO<int> Find(RhinoDoc doc, string name) =>
-        IO.lift(() => Conversions.Present(doc.NamedViews.FindByName(name)).ToFin(new Missing(nameof(NamedViewTable.FindByName))));
-
     public static IO<int> Add(RhinoDoc doc, RhinoViewport viewport, Option<string> name) =>
         IO.lift(() => Conversions.Required(doc.NamedViews.Add(Conversions.Unset(name), viewport.Id), nameof(NamedViewTable.Add)));
 
@@ -44,43 +45,27 @@ public static class NamedViews {
     public static IO<Unit> Delete(RhinoDoc doc, string name) =>
         Find(doc, name).Bind(index => IO.lift(() => Refused.Unless(doc.NamedViews.Delete(index), nameof(NamedViewTable.Delete))));
 
+    private static IO<int> Find(RhinoDoc doc, string name) =>
+        IO.lift(() => Conversions.Present(doc.NamedViews.FindByName(name)).ToFin(new Missing(nameof(NamedViewTable.FindByName))));
+
     // --- [RESTORE]
     public static IO<Seq<bool>> Restore(RhinoDoc doc, ViewportSet viewports, string name, RestorePacing pacing, RedrawPolicy redraw) =>
-        Find(doc, name).Bind(index => Navigation.ApplyToViewports(doc, viewports, port => Restored(doc.NamedViews, index, port, pacing), redraw));
-
-    private static Fin<Unit> Restored(NamedViewTable table, int index, RhinoViewport viewport, RestorePacing pacing) =>
-        viewport.Name switch {
-            var held => pacing.Switch(
-                    (Table: table, Index: index, Viewport: viewport),
-                    immediate: static (target, _) => Refused.Unless(target.Table.Restore(target.Index, target.Viewport), nameof(NamedViewTable.Restore)),
-                    matchAspect: static (target, _) => Refused.Unless(target.Table.RestoreWithAspectRatio(target.Index, target.Viewport), nameof(NamedViewTable.RestoreWithAspectRatio)),
-                    constantSpeed: static (target, speed) =>
-                        Conversions.Whole(speed.Delay, Duration.FromMilliseconds(1)).Bind(delay => Refused.Unless(
-                            target.Table.RestoreAnimatedConstantSpeed(target.Index, target.Viewport, speed.UnitsPerFrame, delay),
-                            nameof(NamedViewTable.RestoreAnimatedConstantSpeed))),
-                    constantTime: static (target, time) =>
-                        Conversions.Whole(time.Delay, Duration.FromMilliseconds(1)).Bind(delay => Refused.Unless(
-                            target.Table.RestoreAnimatedConstantTime(target.Index, target.Viewport, time.Frames, delay),
-                            nameof(NamedViewTable.RestoreAnimatedConstantTime))))
-                .Map(fun((Unit _) => { viewport.Name = held; })),
-        };
+        Find(doc, name).Bind(index => Navigation.ApplyToViewports(doc, viewports, viewport => {
+            string held = viewport.Name;
+            Fin<Unit> restored = pacing.Switch(
+                (Table: doc.NamedViews, Index: index, Viewport: viewport),
+                immediate: static (at, _) => Refused.Unless(at.Table.Restore(at.Index, at.Viewport), nameof(NamedViewTable.Restore)),
+                matchAspect: static (at, _) => Refused.Unless(!OperatingSystem.IsMacOS() && at.Table.RestoreWithAspectRatio(at.Index, at.Viewport), nameof(NamedViewTable.RestoreWithAspectRatio)),
+                constantSpeed: static (at, speed) => Conversions.Whole(speed.Delay, Duration.FromMilliseconds(1)).Bind(delay => Refused.Unless(at.Table.RestoreAnimatedConstantSpeed(at.Index, at.Viewport, speed.UnitsPerFrame, delay), nameof(NamedViewTable.RestoreAnimatedConstantSpeed))),
+                constantTime: static (at, time) => Conversions.Whole(time.Delay, Duration.FromMilliseconds(1)).Bind(delay => Refused.Unless(at.Table.RestoreAnimatedConstantTime(at.Index, at.Viewport, time.Frames, delay), nameof(NamedViewTable.RestoreAnimatedConstantTime))));
+            viewport.Name = held;
+            return restored;
+        }, redraw));
 
     // --- [STORED]
     public static IO<TValue> Read<TValue>(RhinoDoc doc, string name, Func<ViewInfo, IO<TValue>> read) =>
-        use(Stored(doc, name)).Bind(read).Bracket();
+        use(Find(doc, name).Bind(index => IO.lift(() => Missing.Unless(doc.NamedViews[index], nameof(NamedViewTable))))).Bind(read).Bracket();
 
     public static IO<int> Update(RhinoDoc doc, string name, Func<ViewInfo, IO<Unit>> edit) =>
-        (from view in use(Stored(doc, name))
-         from edited in edit(view)
-         from index in IO.lift(() => Conversions.Required(doc.NamedViews.Add(view), nameof(NamedViewTable.Add)))
-         select index).Bracket();
-
-    public static IO<FocalBlur> ReadFocalBlur(RhinoDoc doc, string name) =>
-        Read(doc, name, static view => IO.lift(() => NamedViewMapper.ToFocalBlur(view)));
-
-    public static IO<int> WriteFocalBlur(RhinoDoc doc, string name, FocalBlur blur) =>
-        Update(doc, name, view => IO.lift(() => NamedViewMapper.Update(blur, view)));
-
-    private static IO<ViewInfo> Stored(RhinoDoc doc, string name) =>
-        Find(doc, name).Bind(index => IO.lift(() => Missing.Unless(doc.NamedViews[index], nameof(NamedViewTable))));
+        Read(doc, name, view => edit(view).Bind(_ => IO.lift(() => Conversions.Required(doc.NamedViews.Add(view), nameof(NamedViewTable.Add)))));
 }

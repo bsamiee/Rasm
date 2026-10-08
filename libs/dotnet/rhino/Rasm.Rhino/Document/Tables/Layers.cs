@@ -6,7 +6,6 @@ using Rasm.Drafting;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
-using Rhino.FileIO;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
@@ -14,10 +13,7 @@ namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class LayerNames : IEqualityComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer { get; } =
-        EqualityComparer<string>.Create(static (left, right) => Hash(left) == Hash(right), static name => Hash(name).GetHashCode());
-
-    private static NameHash Hash(string? name) => new(name, Guid.Empty, ModelComponentType.Layer);
+    public static IEqualityComparer<string> EqualityComparer { get; } = TableOps.Names<Layer>();
 }
 
 [ValueObject<string>(SkipIParsable = true, SkipIComparable = true, EqualityComparisonOperators = OperatorsGeneration.None, ComparisonOperators = OperatorsGeneration.None, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -149,7 +145,7 @@ internal static partial class LayerMapper {
 
     private static bool PersistentLocking(Layer layer) => layer.GetPersistentLocking();
 
-    private static bool HasCustomSectionStyle(Layer layer) => DisposalOps.Present(layer.GetCustomSectionStyle());
+    private static bool HasCustomSectionStyle(Layer layer) => Optional(layer.GetCustomSectionStyle()).Do(static copy => copy.Dispose()).IsSome;
 }
 
 public static class LayerProperties {
@@ -352,7 +348,7 @@ public static class Layers {
                 from target in Resolve(document, merge.Target)
                 from acyclic in IO.lift(() => LayerCycle.Unless(!Within(target, source), source.Id, target.Id))
                 from moved in TableOps.Apply(document, new TableOp.ModifyAttributes(
-                    new ObjectTarget.Query(new ObjectEnumeratorSettings { HiddenObjects = true, IncludeLights = true, LayerIndexFilter = source.Index }),
+                    new ObjectTarget.Lookup(table => table.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IncludeLights = true, LayerIndexFilter = source.Index })),
                     attributes => IO.lift(() => { attributes.LayerIndex = target.Index; }),
                     Quiet: true))
                 from adopted in Conversions.Rows(source.GetChildren()).TraverseM(child => Landed(document, child, staged => Parented(staged, Some(target)))).As()

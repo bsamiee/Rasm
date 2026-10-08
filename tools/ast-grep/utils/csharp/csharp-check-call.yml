@@ -2,14 +2,9 @@
 id: csharp-check-call
 language: csharp
 utils:
-    mutation:
-        kind: invocation_expression
-        has:
-            field: function
-            regex: '(^|\.)(Set|Add|Remove|Delete|Insert|Replace|Modify|Transform|Append|Execute|Invoke|Run|Write|Save|Commit|Purge|Undelete|Clear|Swap|Update|Move|Rotate|Scale|Translate|Reverse|Flip|Close|Open|Register|Unregister|Attach|Detach|Rebuild|Redraw|Load|Import|Export|Dispose)([A-Z0-9_]\w*)?(\s*<.+>)?$'
     plain-arguments:
         kind: argument_list
-        not: {has: {stopBy: end, matches: mutation}}
+        not: {has: {stopBy: end, matches: csharp-mutation-call}}
     lone-argument:
         kind: argument_list
         not: {has: {kind: argument, nthChild: 2}}

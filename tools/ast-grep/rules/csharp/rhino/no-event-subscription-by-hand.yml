@@ -10,9 +10,14 @@ utils:
               pattern: $EVENT
             - kind: member_access_expression
               has: {field: name, pattern: $EVENT}
+    handler-lambda:
+        kind: lambda_expression
+        has: {field: parameters, any: [{kind: implicit_parameter, pattern: $P}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $P}}}]}
     action:
         all:
-            - inside: {kind: lambda_expression, field: body, has: {field: parameters, any: [{kind: implicit_parameter, pattern: $P}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $P}}}]}}
+            - any:
+                - inside: {field: body, matches: handler-lambda}
+                - inside: {kind: expression_statement, inside: {kind: block, inside: {field: body, matches: handler-lambda}}}
             - has: {field: right, pattern: $P}
 rule:
     kind: assignment_expression
@@ -20,6 +25,22 @@ rule:
         - has: {field: operator, regex: '^\+=$'}
         - has: {field: left, matches: event}
         - not: {matches: action}
+        - not:
+            has:
+                field: right
+                kind: lambda_expression
+                has:
+                    field: body
+                    not:
+                        any:
+                            - kind: block
+                            - kind: invocation_expression
+                            - kind: assignment_expression
+                            - kind: await_expression
+                            - kind: object_creation_expression
+                            - kind: conditional_access_expression
+                            - kind: prefix_unary_expression
+                            - kind: postfix_unary_expression
         - any:
             - inside:
                 stopBy: end

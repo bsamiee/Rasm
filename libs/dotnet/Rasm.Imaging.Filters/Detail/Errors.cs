@@ -7,5 +7,5 @@ internal enum Codes {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 public sealed record InvalidDetail() : Expected("detail value outside its limits", (int)Codes.InvalidDetail), IValidationError<InvalidDetail> {
-    static InvalidDetail IValidationError<InvalidDetail>.Create(string message) => new();
+    public static InvalidDetail Create(string message) => new();
 }

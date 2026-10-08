@@ -1,3 +1,7 @@
+using Rasm.Rhino;
+using Rasm.Rhino.Modeling;
+using Rhino.Geometry.Intersect;
+
 namespace Arches.Profiles;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -10,13 +14,13 @@ public static class FourCentered {
         Line quarterPerpendicular = new(quarterPoint, span.Frame.YAxis);
         Line riseLine = new(span.Midpoint, span.Frame.YAxis, span.Length);
         return
-            from crossing in CurveConstruction.LineLine(new Line(threeQuarterPoint, triangleApex), quarterPerpendicular)
+            from crossing in Intersections.LineLine(new Line(threeQuarterPoint, triangleApex), quarterPerpendicular).ToFin(new Missing(nameof(Intersection.LineLine)))
             let crownCenter = quarterPerpendicular.PointAt(crossing.B)
             let tangentAngle = Vector3d.VectorAngle(span.Frame.XAxis, threeQuarterPoint - crownCenter)
             let crownCircle = span.CircleAt(crownCenter, crownCenter.DistanceTo(threeQuarterPoint) + span.QuarterSpan)
-            from points in CurveConstruction.LineCircle(riseLine, crownCircle).Bind(static met => met.Secant)
+            from points in Intersections.LineCircle(riseLine, crownCircle).Secant.ToFin(new Missing(nameof(Intersection.LineCircle)))
             let startArc = new Arc(haunchCircle, tangentAngle)
-            let endArc = new Arc(crownCircle, new Interval(tangentAngle, Vector3d.VectorAngle(span.Frame.XAxis, points.Point2 - crownCenter)))
+            let endArc = new Arc(crownCircle, new Interval(tangentAngle, Vector3d.VectorAngle(span.Frame.XAxis, points.Second.Point - crownCenter)))
             from profile in ArchProfile.Mirrored(span, Seq(startArc, endArc))
             select profile;
     }
@@ -28,8 +32,8 @@ public static class FourCentered {
         Circle crownCircle = span.CircleAt(crownCenter, crownCenter.DistanceTo(haunchCenter) + span.QuarterSpan);
         Arc startArc = new(span.CircleAt(haunchCenter, span.QuarterSpan), tangentAngle);
         return
-            from points in CurveConstruction.LineCircle(new Line(span.Midpoint, span.Frame.YAxis, span.Length), crownCircle).Bind(static met => met.Secant)
-            let endArc = new Arc(crownCircle, new Interval(tangentAngle, Vector3d.VectorAngle(span.Frame.XAxis, points.Point2 - crownCenter)))
+            from points in Intersections.LineCircle(new Line(span.Midpoint, span.Frame.YAxis, span.Length), crownCircle).Secant.ToFin(new Missing(nameof(Intersection.LineCircle)))
+            let endArc = new Arc(crownCircle, new Interval(tangentAngle, Vector3d.VectorAngle(span.Frame.XAxis, points.Second.Point - crownCenter)))
             from profile in ArchProfile.Mirrored(span, Seq(startArc, endArc))
             select profile;
     }

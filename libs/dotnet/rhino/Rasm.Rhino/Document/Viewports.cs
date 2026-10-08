@@ -16,8 +16,6 @@ public abstract partial record ViewportTarget {
     public sealed record Id(Guid ViewportId) : ViewportTarget;
 
     public sealed record Serial(uint ViewSerial) : ViewportTarget;
-
-    public sealed record Detail(Guid DetailId) : ViewportTarget;
 }
 
 [Union]
@@ -33,7 +31,8 @@ public abstract partial record ViewportSet {
 public sealed record ViewportRef(RhinoView View, Option<DetailViewObject> Detail) : IDisposable {
     public RhinoViewport Viewport => Detail.Case is DetailViewObject detail ? detail.Viewport : View.MainViewport;
 
-    public Option<bool> CommitViewportChanges() => Detail.Map(static detail => detail.CommitViewportChanges());
+    public Fin<Unit> CommitViewportChanges() =>
+        Detail.Case is DetailViewObject detail ? Refused.Unless(detail.CommitViewportChanges(), nameof(DetailViewObject.CommitViewportChanges)) : unit;
 
     public void Dispose() => Viewport.Dispose();
 }
@@ -45,27 +44,22 @@ public static class Viewports {
         target.Switch(
             doc,
             active: static (document, _) => IO.lift(() =>
-                NoActiveView.Unless(document.Views.ActiveView)
+                Missing.Unless(document.Views.ActiveView, nameof(ViewTable.ActiveView))
                     .Map(static view => new ViewportRef(view, Optional((view as RhinoPageView)?.ActiveDetail)))),
             named: static (document, named) => IO.lift(() =>
                 Missing.Unless(document.Views.Find(named.Name, compareCase: false), nameof(ViewTable.Find))
                     .Map(static view => new ViewportRef(view, None))),
-            id: static (document, id) => IO.lift(() =>
-                (Optional(document.Views.Find(id.ViewportId)).Map(static view => new ViewportRef(view, None))
-                 || toSeq(document.Views.GetPageViews()).Bind(Details).Find(row => {
-                     using RhinoViewport viewport = row.Viewport;
-                     return viewport.Id == id.ViewportId;
-                 }))
-                    .ToFin(new Missing(nameof(ViewTable.Find)))),
+            id: static (document, id) => IO.lift(() => Optional(document.Views.Find(id.ViewportId))).Bind(main => main.Match(
+                Some: static view => IO.pure(new ViewportRef(view, None)),
+                None: () =>
+                    from detail in ResolveDetail(document, id.ViewportId)
+                    from page in IO.lift(() => Missing.Unless(detail.ParentPageView, nameof(DetailViewObject.ParentPageView)))
+                    select new ViewportRef(page, Some(detail)))),
             serial: static (document, serial) => IO.lift(() =>
                 Optional(RhinoView.FromRuntimeSerialNumber(serial.ViewSerial))
                     .Filter(view => view.Document?.RuntimeSerialNumber == document.RuntimeSerialNumber)
                     .Map(static view => new ViewportRef(view, None))
-                    .ToFin(new Missing(nameof(RhinoView.FromRuntimeSerialNumber)))),
-            detail: static (document, detail) =>
-                from found in ResolveDetail(document, detail.DetailId)
-                from page in IO.lift(() => Missing.Unless(found.ParentPageView, nameof(DetailViewObject.ParentPageView)))
-                select new ViewportRef(page, Some(found)));
+                    .ToFin(new Missing(nameof(RhinoView.FromRuntimeSerialNumber)))));
 
     public static IO<Seq<ViewportRef>> ResolveViewports(RhinoDoc doc, ViewportSet set) =>
         set.Switch(
@@ -94,17 +88,15 @@ public static class Viewports {
 
     private static Seq<ViewportRef> Pages(Seq<RhinoPageView> pages, bool details) =>
         toSeq(pages.OrderBy(static page => page.PageNumber))
-            .Bind(page => new ViewportRef(page, None).Cons(details ? Details(page) : Seq<ViewportRef>())).Strict();
-
-    private static Seq<ViewportRef> Details(RhinoPageView page) =>
-        toSeq(page.GetDetailViews()).Map(detail => new ViewportRef(page, Some(detail)));
+            .Bind(page => new ViewportRef(page, None).Cons(details ? toSeq(page.GetDetailViews()).Map(detail => new ViewportRef(page, Some(detail))) : Seq<ViewportRef>()))
+            .Strict();
 
     // --- [SCOPES]
     public static IO<TValue> WithMode<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>
         use(IO.lift(() => Missing.Unless(DisplayModeDescription.GetDisplayMode(id), nameof(DisplayModeDescription.GetDisplayMode)))).Bind(body).Bracket();
 
     public static IO<TValue> WithActiveView<TValue>(RhinoDoc doc, RhinoView view, IO<TValue> body) =>
-        (from prior in IO.lift(() => NoActiveView.Unless(doc.Views.ActiveView))
+        (from prior in IO.lift(() => Missing.Unless(doc.Views.ActiveView, nameof(ViewTable.ActiveView)))
          from activated in IO.lift(() => { doc.Views.ActiveView = view; })
          select prior)
         .Bracket(Use: _ => body, Fin: prior => IO.lift(() => { doc.Views.ActiveView = prior; }));

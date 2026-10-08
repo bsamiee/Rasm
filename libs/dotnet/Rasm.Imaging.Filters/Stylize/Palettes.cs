@@ -3,12 +3,9 @@ using System.Numerics;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Dithering;
 using SixLabors.ImageSharp.Processing.Processors.Quantization;
-using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Imaging.Filters.Stylize;
 
@@ -87,15 +84,15 @@ public sealed partial class PaletteDither {
     internal IDither Kernel { get; }
 }
 
-public sealed record Posterize(LevelCount Levels, Mix RetainHue, Mix DitherStrength, Option<CellSize> DitherCell)
+public sealed record Posterize(LevelCount Levels, Mix RetainHue, Mix DitherStrength, Gated<CellSize> DitherCell)
     : IStateRecord<Posterize, PosterizeParameter, InvalidStylize>, IPixelStage<Posterize> {
-    public static Posterize Default { get; } = new(LevelCount.Eighths, Mix.Full, Mix.MinValue, None);
+    public static Posterize Default { get; } = new(LevelCount.Eighths, Mix.Full, Mix.MinValue, new(Enabled: false, CellSize.MinValue));
 
     public static Option<PixelPass> Pass(Posterize state, PassContext context) => Some<PixelPass>(new PixelPass.Pointwise(Rows(state, context.Extent)));
 
     private static Action<Span<Vector4>, int, int> Rows(Posterize state, PixelExtent extent) {
         float steps = state.Levels - 1;
-        float cell = state.DitherCell.Map(size => float.Max(1f, size.Pixels(extent))).IfNone(1f);
+        float cell = state.DitherCell.Active.Map(size => float.Max(1f, size.Pixels(extent))).IfNone(1f);
         (float strength, float retain, int height) = (state.DitherStrength, state.RetainHue, extent.Height);
         return (row, column, line) => {
             int v = (int)float.Floor((height - line - 0.5f) / cell) & 7;
@@ -126,8 +123,8 @@ public sealed partial class PosterizeParameter : IStateParameter<Posterize> {
             Lens<Posterize, Mix>.New(static posterize => posterize.DitherStrength, static strength => posterize => posterize with { DitherStrength = strength }), new()));
     public static readonly PosterizeParameter DitherCell = new(
         "dither-cell", new StateParameter<Posterize>.OptionalBounded<CellSize, float, InvalidStylize>(
-            Lens<Posterize, Option<CellSize>>.New(static posterize => posterize.DitherCell, static cell => posterize => posterize with { DitherCell = cell }),
-            new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }));
+            Lens<Posterize, Gated<CellSize>>.New(static posterize => posterize.DitherCell, static cell => posterize => posterize with { DitherCell = cell }),
+            CellSize.Presentation));
 
     public StateParameter<Posterize> Kind { get; }
 }
@@ -199,9 +196,7 @@ internal static class Reduction {
 
     public static Func<PixelFrame, IProgress<int>, Fin<Unit>> Kernel(IQuantizer quantizer) =>
         (frame, progress) => {
-            using Image<RgbaVector> image = frame.Image();
-            image.Mutate(context => context.Quantize(quantizer));
-            frame.Write(image);
+            frame.Mutate(image => image.Mutate(context => context.Quantize(quantizer)));
             progress.Report(frame.Size.Height);
             return unit;
         };

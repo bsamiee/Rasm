@@ -180,6 +180,8 @@ public sealed record ImageFile {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PixelSampling {
+    public static int GaussianTaps(float sigma) => (2 * (int)float.Ceiling(3f * sigma)) + 1;
+
     extension(ReadOnlySpan2D<Vector4> plane) {
         public Vector4 Sample(Vector2 point, (WrapMode Across, WrapMode Down) wrap) =>
             plane.Sample(point, wrap, Vector4.Zero, static (sum, pixel, weight) => sum + (pixel * (float)weight));

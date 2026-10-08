@@ -11,7 +11,7 @@ namespace Rasm.Rhino;
 public interface IPlugInSink {
     public void Report(Error error, Type owner, string member);
 
-    public static IPlugInSink Of(object constructed) => (IPlugInSink)PlugIn.Find(constructed.GetType().Assembly);
+    public static IPlugInSink Of(object constructed) => constructed as IPlugInSink ?? (IPlugInSink)PlugIn.Find(constructed.GetType().Assembly);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

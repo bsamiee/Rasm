@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-mutation-call
+language: csharp
+rule:
+    kind: invocation_expression
+    has:
+        field: function
+        regex: '(^|\.)(Set|Add|Remove|Delete|Insert|Replace|Modify|Change|Transform|Append|Execute|Invoke|Run|Write|Save|Commit|Purge|Undelete|Clear|Swap|Update|Move|Rotate|Scale|Translate|Reverse|Flip|Close|Open|Register|Unregister|Attach|Detach|Rebuild|Redraw|Load|Import|Export|Dispose)([A-Z0-9_]\w*)?(\s*<.+>)?$'

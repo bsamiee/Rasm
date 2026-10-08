@@ -9,7 +9,8 @@ Covers mapping at the host boundary with `Riok.Mapperly`.
 
 Mapperly generates each mapping at build time as ordinary member assignments, with no reflection, expression compilation, or hidden allocation:
 - Unmapped members report a diagnostic
-- Mapperly cannot consume another source generator's output from the same compilation, a referenced assembly exposes its generated members as metadata
+- Mapperly sees no member another source generator emits into the same compilation, a referenced assembly exposes generated members as metadata
+- `ImplicitCast` and `MapNestedProperties` miss the operators generated for a value object in the mapper's compilation
 - Automatic conversions can change when a generated type moves between projects
 - Explicit mapping declarations keep project layout from choosing conversions
 
@@ -51,6 +52,7 @@ MSBuild properties in `Directory.Build.props` configure every mapper of a projec
 <PropertyGroup Label="Mapperly">
     <MapperlyEnumMappingStrategy>ByName</MapperlyEnumMappingStrategy>
     <MapperlyAutoUserMappings>false</MapperlyAutoUserMappings>
+    <MapperlyRequiredMappingStrategy>Target</MapperlyRequiredMappingStrategy>
     <MapperlyThrowOnPropertyMappingNullMismatch>true</MapperlyThrowOnPropertyMappingNullMismatch>
     <MapperlyEnabledConversions>Queryable, Enumerable, Dictionary, Span, Memory, EnumToEnum</MapperlyEnabledConversions>
 </PropertyGroup>
@@ -67,8 +69,9 @@ MSBuild properties in `Directory.Build.props` configure every mapper of a projec
 MSBuild property, `[assembly: MapperDefaults]`, `[Mapper]`, and the per-method attributes (`MapperRequiredMappingAttribute`, `MapperIgnoreObsoleteMembersAttribute`, `MapEnumAttribute`) configure a mapper, each overriding the one before it:
 - `MapperDefaultsAttribute` derives from `MapperAttribute` with the same options
 - Overrides replace the whole value, a deviating mapper names its full `EnabledConversions` allowlist
+- Mappers and methods state only an option that differs, `RequiredMappingStrategy.Source` where every source member must reach an existing host object
 - Inbound mappers that feed constrained domain types keep `ParseMethod`, `Constructor`, `StaticConvertMethods`, and the casts out of their allowlist
-- Outbound mappers enable `ImplicitCast` for the generated value-object-to-key operator
+- Outbound mappers convert a value object to its key, or null for a nullable target, through a `[UserMapping]` (`int Key(Quantity value) => value`)
 - Inbound operator from the key is explicit and calls the throwing `Create`
 - Named mappings selected with `Use` own every remaining conversion
 - Mappers that add `ToStringMethod` treat it as formatting and pass a fixed provider or an explicit culture input
@@ -77,8 +80,8 @@ MSBuild property, `[assembly: MapperDefaults]`, `[Mapper]`, and the per-method a
 
 External mappings stay local to the mapper that consumes them, and assembly-wide registrations expose only disjoint pairs:
 - Configuration inclusion copies configuration alone and needs identical direction, member meaning, null policy, and omissions
-- Additional parameters hold immutable values the boundary resolved
-- Additional parameters forward to nested user mappings and `Use` methods where remaining parameter names match
+- Additional parameters hold immutable values the boundary resolved and fill the same-named target member ahead of a source member
+- Additional parameters forward by name to the parameters of nested user mappings and `Use` methods
 - Type pairs shared between mappers belong in one `internal static class` reached through `[UseStaticMapper(typeof(T))]`
 - `UseStaticMapperAttribute<T>` over a static class fails with CS0718
 - Private `[UserMapping]` methods stay for a mapper-local pair
@@ -130,7 +133,7 @@ Generated domain types cross the mapper only through their declared conversions:
 - `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception
 - Mapperly enum configuration applies only to CLR enums, independent CLR enum contracts map by case-sensitive name or explicit value pairs
 
-Closed unions dispatch through their generated exhaustive `Switch`, and Mapperly maps one known case inside each arm. `Map` takes one value per case and receives no mapper call:
+Closed unions dispatch through their generated exhaustive `Switch`, and Mapperly maps one known case inside each arm, a host object target through one existing-target `Update` per case. `Map` takes one value per case and receives no mapper call:
 
 ```csharp
 internal static ChangeDto ToDto(Change value) =>
@@ -143,7 +146,8 @@ internal static ChangeDto ToDto(Change value) =>
 LanguageExt owns absence, failure, validation, effects, traversal, and transformer stacks:
 - Mapperly methods supply the function passed to `Map`, `BiMap`, `Apply`, or a traversal, total over a validated source
 - Throw from `ThrowOnPropertyMappingNullMismatch` signals a defect
-- Host members without nullable annotations report `RMG089`, a member the host can return null for maps through an `Option` user mapping
+- Nullable or unannotated sources of non-nullable targets report `RMG089` per member or `RMG090` per type, a user mapping to `Option` crosses them
+- `SuppressNullMismatchDiagnostic = true` on `MapProperty` fits only a source getter that never returns null
 - Automatic wrapper construction through constructor or cast discovery can manufacture a success case, unwrap a failure, or discard source elements
 - Generic wrapper helpers need explicit `Use` selection and preserve every case
 
@@ -181,7 +185,9 @@ Nullable analysis and the property-null options do not apply inside a projection
 Attributes on a `[Mapper] partial class` or `[Mapper] static partial class` and its partial methods hold the configuration:
 - Non-partial methods with the matching types implement a member mapping by hand
 - Under `AutoUserMappings = false`, a hand-written mapping needs `[UserMapping]` for its type pair, and Mapperly uses it in place of an automatic conversion
-- `Default` marks the pair's one default mapping, `Ignore` excludes a discovered method
+- `Default` marks the pair's one default non-generic mapping, `Ignore` excludes a discovered method
+- Generic user mappings ignore `Default`, a lookup outside `Use` that finds no mapping registers their first matching instantiation as default
+- External generic mappings join that lookup once a `Use` names them
 - One user mapping holds the `ToValue` of a complex value object that declares `[ObjectFactory<string>]` outward, another formats with a text pattern
 
 ```csharp
@@ -265,7 +271,7 @@ Every attribute Mapperly reads, with its declaration target and whether it repea
 |  [29]   | `MapperIgnoreTargetValueAttribute`         | `method`                      |       Yes        | Exclude a target enum value          |
 
 - `Use` values and `IncludeMappingConfigurationAttribute` names accept a reference outside the mapper
-- Every ignore attribute except `MapperIgnoreObsoleteMembersAttribute` exposes `Justification` as a `string?`
+- Every ignore attribute except `MapperIgnoreObsoleteMembersAttribute` exposes `Justification` as a `string?`, a blank one reports `RMG096`
 
 ## [08]-[OPTIONS_AND_MEMBERS]
 
@@ -301,8 +307,9 @@ Mapperly resolves a flattening (`Item.Owner.Id` to `ItemDto.OwnerId`) from Pasca
 - `MapNestedPropertiesAttribute` brings every member under one path into scope as if the source declared them
 - Immediate source members outrank nested ones, automatic flattening outranks both
 - Nested paths that reach the same target member have no defined order, `MapPropertyAttribute` names the mapping
+- Members are instance properties and fields, a property spelled like a method (`GetItems`) included
 - `MapPropertyAttribute` resolves a name mismatch while domain and DTO members keep their names
-- `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` silence the unmapped-member diagnostic for a deliberate omission
+- `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` silence the unmapped-member diagnostic for an omission their `Justification` states
 
 ```csharp
 [Mapper]
@@ -324,7 +331,6 @@ internal static partial class ProfileMapper {
 - `StringFormat` is the format string Mapperly passes to `ToString` on an `IFormattable` type
 - `FormatProvider` names a field or property marked `FormatProviderAttribute`, one member per mapper sets `Default` to `true` as the fallback
 - `MapValueAttribute` assigns a constant of the target type, or with `Use` the result of a method returning the target type
-- `Use` method parameters match by name from the additional mapping parameters
 - `MapPropertyAttribute` sets `StringFormat`, `FormatProvider`, `Use`, and `SuppressNullMismatchDiagnostic` past the constructor
 - `MapPropertyFromSourceAttribute` sets `StringFormat`, `FormatProvider`, and `Use` past the constructor
 - `MapValueAttribute` sets `Use` and `FormatProviderAttribute` sets `Default` past the constructor

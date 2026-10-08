@@ -6,6 +6,6 @@ internal enum Codes {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record InvalidGenerator() : Expected("generator value rejected", (int)Codes.InvalidGenerator), IValidationError<InvalidGenerator> {
+public sealed record InvalidGenerator() : Expected("generator value outside its limits", (int)Codes.InvalidGenerator), IValidationError<InvalidGenerator> {
     public static InvalidGenerator Create(string message) => new();
 }

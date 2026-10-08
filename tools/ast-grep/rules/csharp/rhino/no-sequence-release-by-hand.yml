@@ -179,4 +179,4 @@ rule:
                     - has: {kind: argument, nthChild: 2, matches: release-callback}
                     - not: {has: {kind: argument, nthChild: 3}}
 message: '`$SEQ` releases each element by hand'
-note: 'Use `DisposalOps.AcquireAll(<acquire>).Bracket(Use: <body>, Fin: DisposalOps.Release)` where a scope releases the sequence and `DisposalOps.Release(<seq>)` elsewhere, with each element mapped to its disposable first'
+note: 'Use `DisposalOps.AcquireAll(<acquire>, DisposalOps.Release).Bracket(Use: <body>, Fin: DisposalOps.Release)` where a scope releases the sequence and `DisposalOps.Release(<seq>)` elsewhere, with each element mapped to its disposable first'

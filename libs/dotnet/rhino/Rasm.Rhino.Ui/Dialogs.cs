@@ -43,10 +43,6 @@ public static class HostDialogs {
         IO.lift(() =>
             Dialogs.ShowComboListBox(title.Local, message.Local, items.ToArray()) is T picked ? picked : Fin.Fail<T>(new Canceled()));
 
-    public static IO<int> ContextMenu(Seq<LocalizeStringPair> items, System.Drawing.Point screenPoint, Seq<int> modes) =>
-        IO.lift(() =>
-            Answers.Present(Dialogs.ShowContextMenu(items.Map(static item => item.Local), screenPoint, modes)).ToFin(new Canceled()));
-
     // --- [VALUES]
     public static IO<(double Min, double Max)> Range(RhinoDoc doc, double min, double max, int decimals, int increment, bool minAdjustable, bool maxAdjustable) =>
         DisposalOps.Using(() => new RangeDialog(min, max, decimals, increment, minAdjustable, maxAdjustable), dialog =>

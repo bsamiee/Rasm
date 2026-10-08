@@ -5,10 +5,10 @@ severity: error
 files: ['**/rhino/**']
 utils:
     source-read:
-        any:
-            - matches: {csharp-member-read: {member: {kind: identifier}, source: {kind: identifier, regex: '^[a-z_@]', pattern: $SRC}}}
-            - kind: member_access_expression
-              has: {field: expression, kind: member_access_expression, matches: source-read}
+        matches: {csharp-member-read: {member: {kind: identifier}, source: {kind: identifier, regex: '^[a-z_@]', pattern: $SRC}}}
+    resolution:
+        kind: member_access_expression
+        has: {field: expression, any: [{matches: source-read}, {matches: resolution}]}
     target-receiver:
         kind: identifier
         regex: '^[a-z_@]'
@@ -53,6 +53,18 @@ utils:
                     - has: {field: pattern, kind: declaration_pattern}
             - has: {field: consequence, any: [{kind: expression_statement, has: {kind: assignment_expression, has: {field: left, matches: target-member}}}, {kind: block, has: {kind: expression_statement, has: {kind: assignment_expression, has: {field: left, matches: target-member}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
             - not: {has: {field: alternative, pattern: $_}}
+    hand-completed:
+        kind: block
+        has:
+            kind: expression_statement
+            has:
+                any:
+                    - kind: invocation_expression
+                      any:
+                        - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $TARGET}}
+                        - has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $SRC}}}
+                    - kind: assignment_expression
+                      all: [{has: {field: left, matches: target-member}}, {has: {field: right, matches: resolution}}]
     plain-statement:
         kind: expression_statement
         has: {matches: copy-write}
@@ -99,7 +111,12 @@ utils:
         kind: 'from_clause, variable_declarator'
         all:
             - has: {field: name, pattern: $TARGET}
-            - has: {matches: source-read}
+            - has: {any: [{matches: source-read}, {matches: resolution}]}
+    tuple-bound:
+        kind: 'from_clause, variable_declarator'
+        all:
+            - has: {field: name, pattern: $SRC}
+            - has: {stopBy: end, kind: tuple_expression}
     same-type-pair:
         kind: parameter_list
         all:
@@ -112,6 +129,7 @@ rule:
             - has:
                 kind: initializer_expression
                 has: {matches: copied-member, precedes: {stopBy: end, matches: copied-member}}
+            - not: {has: {kind: initializer_expression, has: {kind: assignment_expression, has: {field: right, any: [{matches: resolution}, {kind: identifier, pattern: $SRC}]}}}}
             - matches: created-target
         - kind: assignment_expression
           all:
@@ -120,6 +138,7 @@ rule:
                 field: right
                 kind: tuple_expression
                 has: {kind: argument, has: {matches: source-read}, precedes: {stopBy: end, kind: argument, has: {matches: source-read}}}
+            - not: {has: {field: right, has: {kind: argument, has: {matches: resolution}}}}
             - has:
                 field: left
                 kind: tuple_expression
@@ -128,6 +147,7 @@ rule:
                     - not: {has: {kind: argument, not: {has: {matches: target-member}}}}
             - not: {has: {field: left, has: {kind: argument, has: {has: {field: expression, pattern: $SRC}}}}}
             - not: {matches: relay-body}
+            - not: {inside: {kind: expression_statement, inside: {matches: hand-completed}}}
         - kind: assignment_expression
           all:
             - has: {field: operator, regex: '^=$'}
@@ -139,6 +159,7 @@ rule:
                     - has: {kind: argument, has: {matches: target-member}, precedes: {stopBy: end, kind: argument, has: {matches: target-member}}}
                     - not: {has: {kind: argument, not: {any: [{has: {matches: target-member}}, {regex: '^_$'}]}}}
             - not: {matches: relay-body}
+            - not: {inside: {stopBy: end, matches: function-owner, has: {stopBy: end, matches: tuple-bound}}}
         - kind: 'expression_statement, if_statement'
           all:
             - matches: copy-statement
@@ -148,11 +169,11 @@ rule:
                 - matches: plain-statement
                 - precedes: {stopBy: end, matches: plain-statement}
             - not: {has: {stopBy: end, matches: target-member, has: {field: expression, pattern: $SRC}}}
-            - not: {inside: {kind: block, has: {kind: expression_statement, has: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $TARGET}}}}}}
+            - not: {inside: {matches: hand-completed}}
             - not:
                 inside:
                     stopBy: end
                     matches: function-owner
                     has: {stopBy: end, any: [{matches: source-addressed}, {matches: same-type-pair}]}
 message: 'Members of `$SRC` are written one by one onto `$TARGET`'
-note: Use a Mapperly `partial <host> To<host>(<record> source)` for a new host value or `partial void Update(<record> source, <host> target)` under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for a caller-owned mutable value, with `[MapProperty]` per renamed member, or the host value itself where the record adds no constraint. RhinoDoc setters mutate live document state and stay explicit. Mapping declarations and renamed members require a reviewed fix
+note: Use a Mapperly `partial <host> To<host>(<record> source)` for a new host value or `partial void Update(<record> source, <host> target)` under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for a caller-owned mutable value, with `[MapProperty]` per renamed member, or the host value itself where the record adds no constraint. RhinoDoc setters mutate live document state and stay explicit, as do setters completing a host call that drives the target or takes the source whole, and every write of a construction that resolves a source column (`source.Column.Member`) at the write, the resolution reading state no mapper owns. Mapping declarations and renamed members require a reviewed fix

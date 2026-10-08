@@ -487,6 +487,7 @@
                     "{workspaceRoot}/tsconfig.json",
                     "{workspaceRoot}/*.config.ts",
                     "{workspaceRoot}/{.codex/hooks,infra,tools/nx,tools/bridge}/*.ts",
+                    "{workspaceRoot}/eng/typescript/**/*.ts",
                     "{workspaceRoot}/plugins/function-hooks/{composition.ts,tsconfig.json,hooks/*.ts,policies/*.ts,repository/*.ts,context/*.ts,ui/*.ts,ui/*.tsx,observation/*.ts}",
                     "{workspaceRoot}/{apps,libs/typescript,tests/typescript}/**/vitest.config.ts",
                     {
@@ -555,14 +556,6 @@
                 ],
                 "options": {
                     "commands": ["uv sync --upgrade", "ncu --workspaces --target newest --upgrade --install always", "playwright install chromium", "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props", "mise upgrade", "python -m interface.cli upgrade"],
-                    "parallel": false
-                }
-            },
-            "clean": {
-                "executor": "nx:run-commands",
-                "parallelism": false,
-                "options": {
-                    "commands": ["dotnet clean Workspace.slnx", "dotnet nuget locals all --clear", "uv cache clean", "pulumi plugin rm --all --yes"],
                     "parallel": false
                 }
             }

@@ -12,12 +12,12 @@ namespace Rasm.Imaging.Tone.Formations;
 public sealed record ToneMapping(
     Formation Selected, Option<AgXLook> Look, FilmicView Filmic, FilmState Film, CurveApplication Application,
     SigmoidState Sigmoid, PiecewiseState Piecewise, LogarithmicState Logarithmic, PhotoreceptorState Photoreceptor,
-    Option<Exposure> ReinhardWhite, HableState Hable)
+    Gated<Exposure> ReinhardWhite, HableState Hable)
     : IStateRecord<ToneMapping, ToneMappingParameter, InvalidToneValue>, IPixelStage<ToneMapping> {
     public static ToneMapping Default { get; } = new(
         Formation.AgXView, None, FilmicView.MediumContrast, FilmPreset.Default.State, CurveApplication.Default,
         SigmoidState.Default, PiecewiseState.Default, LogarithmicState.Default, PhotoreceptorState.Default,
-        None, HableState.Default);
+        new(Enabled: false, Exposure.Neutral), HableState.Default);
 
     public static Option<PixelPass> Pass(ToneMapping state, PassContext context) => Some(state.Selected.Pass(state, context));
 }
@@ -123,7 +123,7 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
     public static readonly ToneMappingParameter FilmPrintDensity = new("film-print-density", new StateParameter<ToneMapping>.Bounded<Density, float, InvalidToneValue>(
         lens(Film, Lens<FilmState, Density>.New(static film => film.PrintDensity, static value => film => film with { PrintDensity = value })), FilmDensity), OnFilm);
     public static readonly ToneMappingParameter FilmBlackPoint = new("film-black-point", new StateParameter<ToneMapping>.OptionalBounded<BlackOffset, float, InvalidToneValue>(
-        lens(Film, Lens<FilmState, Option<BlackOffset>>.New(static film => film.BlackPoint, static value => film => film with { BlackPoint = value })), new() { Form = NumberForm.Field }), OnFilm);
+        lens(Film, Lens<FilmState, Gated<BlackOffset>>.New(static film => film.BlackPoint, static value => film => film with { BlackPoint = value })), new() { Form = NumberForm.Field }), OnFilm);
     public static readonly ToneMappingParameter FilmPostFilterRed = new("film-post-filter-red", new StateParameter<ToneMapping>.Bounded<Factor, float, InvalidToneValue>(
         lens(Film, Lens<FilmState, Factor>.New(static film => film.PostFilterRed, static value => film => film with { PostFilterRed = value })), FilmShare), OnFilm);
     public static readonly ToneMappingParameter FilmPostFilterGreen = new("film-post-filter-green", new StateParameter<ToneMapping>.Bounded<Factor, float, InvalidToneValue>(
@@ -172,17 +172,17 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
     public static readonly ToneMappingParameter LogarithmicBias = new("logarithmic-bias", new StateParameter<ToneMapping>.Bounded<DragoBias, float, InvalidToneValue>(
         lens(Logarithmic, Lens<LogarithmicState, DragoBias>.New(static logarithmic => logarithmic.Bias, static value => logarithmic => logarithmic with { Bias = value })), new() { Soft = (0.7f, 0.9f) }), OnLogarithmic);
     public static readonly ToneMappingParameter LogarithmicWhite = new("logarithmic-white", new StateParameter<ToneMapping>.OptionalBounded<Exposure, float, InvalidToneValue>(
-        lens(Logarithmic, Lens<LogarithmicState, Option<Exposure>>.New(static logarithmic => logarithmic.White, static value => logarithmic => logarithmic with { White = value })), Exposure.Presentation), OnLogarithmic);
+        lens(Logarithmic, Lens<LogarithmicState, Gated<Exposure>>.New(static logarithmic => logarithmic.White, static value => logarithmic => logarithmic with { White = value })), Exposure.Presentation), OnLogarithmic);
     public static readonly ToneMappingParameter PhotoreceptorIntensity = new("photoreceptor-intensity", new StateParameter<ToneMapping>.Bounded<ReceptorIntensity, float, InvalidToneValue>(
         lens(Photoreceptor, Lens<PhotoreceptorState, ReceptorIntensity>.New(static photoreceptor => photoreceptor.Intensity, static value => photoreceptor => photoreceptor with { Intensity = value })), new() { Soft = (-8f, 8f) }), OnPhotoreceptor);
     public static readonly ToneMappingParameter PhotoreceptorContrast = new("photoreceptor-contrast", new StateParameter<ToneMapping>.OptionalBounded<ReceptorContrast, float, InvalidToneValue>(
-        lens(Photoreceptor, Lens<PhotoreceptorState, Option<ReceptorContrast>>.New(static photoreceptor => photoreceptor.Contrast, static value => photoreceptor => photoreceptor with { Contrast = value })), new() { Soft = (0.3f, 1f) }), OnPhotoreceptor);
+        lens(Photoreceptor, Lens<PhotoreceptorState, Gated<ReceptorContrast>>.New(static photoreceptor => photoreceptor.Contrast, static value => photoreceptor => photoreceptor with { Contrast = value })), new() { Soft = (ReceptorContrast.Flattest, 1f) }), OnPhotoreceptor);
     public static readonly ToneMappingParameter PhotoreceptorLightAdaptation = new("photoreceptor-light-adaptation", new StateParameter<ToneMapping>.Bounded<Factor, float, InvalidToneValue>(
         lens(Photoreceptor, Lens<PhotoreceptorState, Factor>.New(static photoreceptor => photoreceptor.LightAdaptation, static value => photoreceptor => photoreceptor with { LightAdaptation = value })), Share), OnPhotoreceptor);
     public static readonly ToneMappingParameter PhotoreceptorChromaticAdaptation = new("photoreceptor-chromatic-adaptation", new StateParameter<ToneMapping>.Bounded<Factor, float, InvalidToneValue>(
         lens(Photoreceptor, Lens<PhotoreceptorState, Factor>.New(static photoreceptor => photoreceptor.ChromaticAdaptation, static value => photoreceptor => photoreceptor with { ChromaticAdaptation = value })), Share), OnPhotoreceptor);
     public static readonly ToneMappingParameter ReinhardWhite = new("reinhard-white", new StateParameter<ToneMapping>.OptionalBounded<Exposure, float, InvalidToneValue>(
-        Lens<ToneMapping, Option<Exposure>>.New(static state => state.ReinhardWhite, static white => state => state with { ReinhardWhite = white }), Exposure.Presentation),
+        Lens<ToneMapping, Gated<Exposure>>.New(static state => state.ReinhardWhite, static white => state => state with { ReinhardWhite = white }), Exposure.Presentation),
         Seq(Tone.Formations.Formation.ReinhardExtended));
     public static readonly ToneMappingParameter HableA = new("hable-a", new StateParameter<ToneMapping>.Bounded<ShoulderCoefficient, float, InvalidToneValue>(
         lens(Hable, Lens<HableState, ShoulderCoefficient>.New(static hable => hable.A, static value => hable => hable with { A = value })), new()), OnHable);
@@ -197,7 +197,7 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
     public static readonly ToneMappingParameter HableF = new("hable-f", new StateParameter<ToneMapping>.Bounded<ToeDenominator, float, InvalidToneValue>(
         lens(Hable, Lens<HableState, ToeDenominator>.New(static hable => hable.F, static value => hable => hable with { F = value })), new()), OnHable);
     public static readonly ToneMappingParameter HableWhite = new("hable-white", new StateParameter<ToneMapping>.OptionalBounded<Exposure, float, InvalidToneValue>(
-        lens(Hable, Lens<HableState, Option<Exposure>>.New(static hable => hable.White, static value => hable => hable with { White = value })), Exposure.Presentation), OnHable);
+        lens(Hable, Lens<HableState, Gated<Exposure>>.New(static hable => hable.White, static value => hable => hable with { White = value })), Exposure.Presentation), OnHable);
 
     public StateParameter<ToneMapping> Kind { get; }
     public Seq<Formation> Formations { get; }

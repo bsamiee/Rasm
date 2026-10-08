@@ -95,4 +95,4 @@ rule:
     kind: invocation_expression
     matches: traversal
 message: '`$SEQ` acquires a disposable per element of a traversal'
-note: 'Use `DisposalOps.AcquireAll(<items>.Map(<acquire>)).Bracket(Use: <body>, Fin: DisposalOps.Release)` over the whole sequence, `AcquireAll` releasing earlier handles when a later acquisition fails'
+note: 'Use `DisposalOps.AcquireAll(<items>.Map(<acquire>), DisposalOps.Release).Bracket(Use: <body>, Fin: DisposalOps.Release)` over the whole sequence, `AcquireAll` releasing earlier handles when a later acquisition fails'

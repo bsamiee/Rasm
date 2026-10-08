@@ -2,7 +2,7 @@
 id: no-split-precheck-lift
 language: csharp
 severity: error
-files: ['**/Rasm.Rhino.Modeling/**']
+files: ['**/rhino/**']
 utils:
     lift:
         kind: invocation_expression

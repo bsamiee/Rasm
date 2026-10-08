@@ -85,8 +85,19 @@ utils:
         kind: identifier
         regex: '^(GetField|GetProperty|GetMethod|GetMember|GetEvent|GetNestedType|GetInterface|InvokeMember|GetRuntime(Field|Method|Property|Event)|GetDeclared(Field|Method|Methods|Property|Event|NestedType))$'
         matches: method
+    type-parameter:
+        kind: identifier
+        pattern: $PARAMETER
+        inside:
+            stopBy: end
+            has: {kind: type_parameter_list, has: {kind: type_parameter, has: {field: name, pattern: $PARAMETER}}}
+    overload-lookup:
+        all:
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {kind: invocation_expression, has: {field: function, kind: identifier, regex: '^nameof$'}}}}
+            - has: {field: arguments, has: {kind: argument, has: {stopBy: end, kind: typeof_expression, has: {field: type, matches: type-parameter}}}}
     lookup:
         kind: invocation_expression
+        not: {matches: overload-lookup}
         all:
             - has:
                 field: function
@@ -134,4 +145,4 @@ rule:
         - matches: factory
         - matches: type-by-name
 message: '`$METHOD` looks up a member or type by name string `$NAME`'
-note: Name a type or member directly (`typeof(<type>)`, a property read, a method group, an expression lambda) and reach a non-public member through an `[UnsafeAccessor]` extern typed like it, a runtime binding by name and signature that throws on a missing member
+note: Name a type or member directly (`typeof(<type>)`, a property read, a method group, an expression lambda) and reach a non-public member through an `[UnsafeAccessor]` extern typed like it, a runtime binding by name and signature that throws on a missing member; a `nameof` overload lookup whose signature holds a type parameter selects the overload a type argument names, which no direct reference states

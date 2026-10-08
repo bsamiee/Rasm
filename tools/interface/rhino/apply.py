@@ -17,12 +17,12 @@ from interface.rhino.window import Measured
 async def ran(host: Host, rhino: Rhino, packages: tuple[Package, ...]) -> tuple[tuple[Line, ...], tuple[str, ...]]:
     """Report rows of the `main` call inside a fresh Rhino and of the files edited once it quit with the run's error output, a launch sending no port or a Rhino outliving its quit each an error row."""
     port = await launched(rhino)
-    rows, stderr = await run(port, t"main(__rhino_doc__)") if isinstance(port, int) else ((port,), ())
+    rows, stderr = await run(port, t"main(__rhino_doc__, {tuple(package.id for package in packages)})") if isinstance(port, int) else ((port,), ())
     reported = (*rows, *await quitted(await registered(running(rhino.bundle))))
     match outcome(host.app, reported):
         case Applied(folder=folder):
             (record,) = (row.record for row in rows if isinstance(row, Measurement))
-            edited = await anyio.to_thread.run_sync(edit, folder, rhino.bundle, msgspec.json.decode(record, type=Measured), packages, host.cache, rhino.directory)
+            edited = await anyio.to_thread.run_sync(edit, folder, rhino.bundle, msgspec.json.decode(record, type=Measured), packages, host.cache)
             return (*reported, *edited), stderr
         case Failed():
             return reported, stderr

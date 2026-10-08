@@ -17,6 +17,14 @@ rule:
           pattern: $ACCESSOR
           all:
             - has: {field: name, regex: '^set$'}
+            - not:
+                all:
+                    - has: {kind: modifier, regex: '^private$'}
+                    - inside: {kind: accessor_list, inside: {kind: property_declaration, inside: {kind: declaration_list, inside: {kind: class_declaration}}}}
+            - not:
+                all:
+                    - has: {kind: modifier, regex: '^internal$'}
+                    - inside: {kind: accessor_list, inside: {kind: property_declaration, inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: base_list}}}}}
             - inside:
                 kind: accessor_list
                 inside:

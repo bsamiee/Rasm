@@ -82,28 +82,26 @@ public static class PageStreams {
     private static IO<Option<RhinoObject>> Parented(RhinoDoc doc, ViewportRef row) =>
         row switch {
             { Detail.IsSome: true } => IO.pure(row.Detail.Map<RhinoObject>(static detail => detail)),
-            { View: RhinoPageView page } => new ObjectTarget.Query(new ObjectEnumeratorSettings { SpaceFilter = ActiveSpace.PageSpace, ViewportFilter = page.MainViewport })
-                .Objects(doc)
-                .Map(static found => found.Head),
+            { View: RhinoPageView page } => new ObjectTarget.Lookup(table => table.GetObjectList(new ObjectEnumeratorSettings { SpaceFilter = ActiveSpace.PageSpace, ViewportFilter = page.MainViewport })).Objects(doc).Map(static found => found.Head),
             _ => IO.pure(Option<RhinoObject>.None),
         };
 
     private static IO<ViewCaptureSettings> Projected(RhinoDoc doc, ViewportRef row, ViewportInfo camera, CaptureSubject.View frame) =>
         from settings in IO.lift(() => new ViewCaptureSettings(row.View, frame.Media, frame.Dpi))
         from bound in DisposalOps.OnFailure(
-            use(IO.lift(() => Missing.Unless(row.Viewport.DisplayMode, nameof(RhinoViewport.DisplayMode)))).Bind(mode =>
-                (from viewport in use(static () => new RhinoViewport())
-                 from shaped in IO.lift(() => {
-                     viewport.Size = frame.Media;
-                     viewport.DisplayMode = mode;
-                 })
-                 from restored in IO.lift(() => Cameras.Restore(viewport, camera, camera.TargetPoint))
-                 from attached in IO.lift(() => {
-                     settings.Document = doc;
-                     settings.SetViewport(viewport);
-                 })
-                 from valid in IO.lift(() => Refused.Unless(settings.IsValid, nameof(ViewCaptureSettings.IsValid)))
-                 select valid).Bracket()).Bracket(),
+            (from mode in use(IO.lift(() => Missing.Unless(row.Viewport.DisplayMode, nameof(RhinoViewport.DisplayMode))))
+             from viewport in use(static () => new RhinoViewport())
+             from restored in IO.lift(() => {
+                 viewport.Size = frame.Media;
+                 viewport.DisplayMode = mode;
+                 return Cameras.Restore(viewport, camera, camera.TargetPoint);
+             })
+             from valid in IO.lift(() => {
+                 settings.Document = doc;
+                 settings.SetViewport(viewport);
+                 return Refused.Unless(settings.IsValid, nameof(ViewCaptureSettings.IsValid));
+             })
+             select valid).Bracket(),
             IO.lift(settings.Dispose))
         select settings;
 
@@ -196,9 +194,8 @@ public static class PageStreams {
             blank: static (state, blank) => Blank(state.Doc, state.Pdf, blank.Sheet, blank.Marks))).As()
         select pdf;
 
-    private static Fin<Seq<OutputName>> Names(int count, FileExtension extension, FileOutput output) =>
-        Callbacks.Each(toSeq(Range(0, count)), (index, _) => Conversions.Validated<SequenceNumber, int, InvalidRhinoValue>(index)
-            .Map(number => new OutputName(output.Scope, output.Version, Seq<NamePart>(), Callbacks.Found(count > 1, number), extension)));
+    private static Seq<OutputName> Names(int count, FileExtension extension, FileOutput output) =>
+        toSeq(Range(0, count)).Map(index => new OutputName(output.Scope, output.Version, Seq<NamePart>(), Callbacks.Found(count > 1, SequenceNumber.Create(index)), extension));
 
     private static IO<Unit> Saved(OutputPath path, Action write) =>
         IO.lift(write).Catch(
@@ -206,16 +203,14 @@ public static class PageStreams {
             error => IO.fail<Unit>(new PublishRefused(path, error)));
 
     private static IO<Seq<(OutputName Name, OutputPath Path)>> Written(
-        RhinoDoc doc, Seq<PageSource> sources, Fin<FileExtension> extension, FileOutput output, Func<ViewCaptureSettings, OutputPath, IO<Unit>> write) =>
+        RhinoDoc doc, Seq<PageSource> sources, FileExtension extension, FileOutput output, Func<ViewCaptureSettings, OutputPath, IO<Unit>> write) =>
         Pages(doc, sources, pages =>
-            from names in IO.lift(extension.Bind(held => Names(pages.Count, held, output)))
-            from rows in Destinations.Resolve(doc, output.Destination, names)
+            from rows in Destinations.Resolve(doc, output.Destination, Names(pages.Count, extension, output))
             from written in pages.Zip(rows).TraverseM(pair => use(pair.First.Settings).Bind(settings => write(settings, pair.Second.Path)).Bracket()).As()
             select rows);
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToPdf(RhinoDoc doc, IterableNE<PdfSource> sources, PageText text, bool layers, FileOutput output) =>
-        from names in IO.lift(Conversions.Validated<FileExtension, string, InvalidRhinoValue>(".pdf").Bind(extension => Names(1, extension, output)))
-        from rows in Destinations.Resolve(doc, output.Destination, names)
+        from rows in Destinations.Resolve(doc, output.Destination, Names(1, FileExtension.Create(".pdf"), output))
         from pdf in Composed(doc, toSeq(sources), text, layers)
         from written in rows.TraverseM(row => Saved(row.Path, () => pdf.Write(row.Path))).As()
         select rows;
@@ -224,17 +219,16 @@ public static class PageStreams {
         Composed(doc, toSeq(sources), text, layers).Bind(pdf => IO.lift(() => pdf.Write(target)));
 
     public static IO<Unit> ToPrinter(RhinoDoc doc, IterableNE<PageSource> sources, PageText text, string printer, CopyCount copies) =>
-        Pages(doc, toSeq(sources), pages => DisposalOps.AcquireAll(pages.Map(page => Decorated(doc, page, text))).Bracket(
+        Pages(doc, toSeq(sources), pages => DisposalOps.AcquireAll(pages.Map(page => Decorated(doc, page, text)), DisposalOps.Release).Bracket(
             Use: settings => IO.lift(() => Refused.Unless(ViewCapture.SendToPrinter(printer, [.. settings], copies), nameof(ViewCapture.SendToPrinter))),
             Fin: DisposalOps.Release));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToRasters(RhinoDoc doc, IterableNE<PageSource> sources, RasterEncoding encoding, FileOutput output) =>
         Written(doc, toSeq(sources), encoding.Extension, output, (settings, path) =>
             use(IO.lift(() => Missing.Unless(ViewCapture.CaptureToBitmap(settings), nameof(ViewCapture.CaptureToBitmap))))
-                .Bind(bitmap => IO.lift(() => bitmap.Save(path, encoding.Format)))
-                .Bracket());
+                .Bind(bitmap => IO.lift(() => bitmap.Save(path, encoding.Format))));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToSvg(RhinoDoc doc, IterableNE<PageSource> sources, FileOutput output) =>
-        Written(doc, toSeq(sources), Conversions.Validated<FileExtension, string, InvalidRhinoValue>(".svg"), output, static (settings, path) =>
+        Written(doc, toSeq(sources), FileExtension.Create(".svg"), output, static (settings, path) =>
             Saved(path, () => ViewCapture.CaptureToSvg(settings).Save(path)));
 }

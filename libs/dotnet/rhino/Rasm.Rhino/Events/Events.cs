@@ -25,42 +25,33 @@ public sealed record TransformedObjects(Transform Transform, bool ObjectsWillBeC
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal sealed class FileBatch {
-    private readonly Lock gate = new();
+internal sealed class Debouncer<A> {
+    private readonly Atom<(Option<(long Since, Seq<A> Changes)> Pending, Option<Seq<A>> Taken)> held = Atom((Pending: Option<(long Since, Seq<A> Changes)>.None, Taken: Option<Seq<A>>.None));
     private readonly TimeProvider clock;
-    private readonly Duration quiet;
-    private Option<(long Timestamp, Seq<Either<ErrorEventArgs, FileSystemEventArgs>> Changes)> pending;
+    private readonly TimeSpan quiet;
 
-    public FileBatch(TimeProvider clock, Duration quiet, Func<Seq<Either<ErrorEventArgs, FileSystemEventArgs>>, IO<Unit>> deliver, CallbackSite site) {
+    public Debouncer(TimeProvider clock, Duration quiet, Func<Seq<A>, IO<Unit>> deliver, CallbackSite site) {
         this.clock = clock;
-        this.quiet = quiet;
-        Timer = clock.CreateTimer(
-            _ => _ = Callbacks.Answer(IO.lift(Take).Bind(changes => changes.Traverse(deliver).As()).Map(static _ => unit), static () => unit, site),
-            state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        this.quiet = quiet.ToTimeSpan();
+        Timer = clock.CreateTimer(_ => _ = Callbacks.Answer(Tick(deliver), static () => unit, site), state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public ITimer Timer { get; }
 
-    public IO<Unit> Post(Either<ErrorEventArgs, FileSystemEventArgs> change) =>
-        IO.lift(() => {
-            lock (gate) {
-                pending = Some((clock.GetTimestamp(), pending.Map(static batch => batch.Changes).IfNone(Seq<Either<ErrorEventArgs, FileSystemEventArgs>>()).Add(change)));
-                _ = Timer.Change(quiet.ToTimeSpan(), Timeout.InfiniteTimeSpan);
-            }
-        });
+    public IO<Unit> Post(A change) =>
+        from since in IO.lift(clock.GetTimestamp)
+        from posted in held.SwapIO(state => (Some((since, state.Pending.Map(static batch => batch.Changes).IfNone(Seq<A>()).Add(change))), Option<Seq<A>>.None))
+        from armed in IO.lift(() => Timer.Change(quiet, Timeout.InfiniteTimeSpan))
+        select unit;
 
-    private Option<Seq<Either<ErrorEventArgs, FileSystemEventArgs>>> Take() {
-        using Lock.Scope scope = gate.EnterScope();
-        return pending.Bind(batch => {
-            TimeSpan remaining = quiet.ToTimeSpan() - clock.GetElapsedTime(batch.Timestamp);
-            if (remaining > TimeSpan.Zero) {
-                _ = Timer.Change(remaining, Timeout.InfiniteTimeSpan);
-                return None;
-            }
-            pending = None;
-            return Some(batch.Changes);
-        });
-    }
+    private IO<Unit> Tick(Func<Seq<A>, IO<Unit>> deliver) =>
+        from now in IO.lift(clock.GetTimestamp)
+        from swapped in held.SwapIO(state => state.Pending.Exists(batch => clock.GetElapsedTime(batch.Since, now) >= quiet)
+            ? (Option<(long Since, Seq<A> Changes)>.None, state.Pending.Map(static batch => batch.Changes))
+            : state with { Taken = None })
+        from delivered in swapped.Taken.Traverse(deliver).As()
+        from rearmed in swapped.Pending.Traverse(batch => IO.lift(() => Timer.Change(quiet - clock.GetElapsedTime(batch.Since, now), Timeout.InfiniteTimeSpan))).As()
+        select unit;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -82,24 +73,21 @@ public static class EventKind {
         Subscriptions.Host<RhinoDoc.UserStringChangedArgs>(typeof(RhinoDoc), static h => RhinoDoc.UserStringChanged += h, static h => RhinoDoc.UserStringChanged -= h, static args => Conversions.Serial(args.Document));
     public static readonly DocumentEvent<RhinoDoc.WorksessionFileChangedEventArgs> WorksessionFileChanged =
         Subscriptions.Host<RhinoDoc.WorksessionFileChangedEventArgs>(typeof(RhinoDoc), static h => RhinoDoc.WorksessionFileChanged += h, static h => RhinoDoc.WorksessionFileChanged -= h, static args => Conversions.Serial(args.Document));
-    private static readonly HostEvent<DocumentEventArgs> LiveNewDocument =
-        Subscriptions.Host<DocumentEventArgs>(typeof(RhinoDoc), static h => RhinoDoc.NewDocument += h, static h => RhinoDoc.NewDocument -= h, nameof(RhinoDoc.NewDocument));
-    private static readonly HostEvent<DocumentOpenEventArgs> LiveEndOpenDocument =
-        Subscriptions.Host<DocumentOpenEventArgs>(typeof(RhinoDoc), static h => RhinoDoc.EndOpenDocument += h, static h => RhinoDoc.EndOpenDocument -= h, nameof(RhinoDoc.EndOpenDocument));
+    private static readonly HostEvent<uint> LiveNewDocument =
+        Subscriptions.Host<DocumentEventArgs>(typeof(RhinoDoc), static h => RhinoDoc.NewDocument += h, static h => RhinoDoc.NewDocument -= h, nameof(RhinoDoc.NewDocument))
+            .Choose(static args => Some(args.DocumentSerialNumber));
+    private static readonly HostEvent<uint> LiveEndOpenDocument =
+        Subscriptions.Host<DocumentOpenEventArgs>(typeof(RhinoDoc), static h => RhinoDoc.EndOpenDocument += h, static h => RhinoDoc.EndOpenDocument -= h, nameof(RhinoDoc.EndOpenDocument))
+            .Choose(static args => Callbacks.Found(!args.Merge && !args.Reference, args.DocumentSerialNumber));
     public static readonly HostEvent<uint> DocumentArrived = new(
         typeof(RhinoDoc),
         nameof(DocumentArrived),
         static (deliver, site) =>
-            from attached in DisposalOps.AcquireAll(
-                Seq(
-                    LiveNewDocument.Inline(args => deliver(args.DocumentSerialNumber), site.Sink),
-                    LiveEndOpenDocument.Inline(
-                        args => unless(args.Merge || args.Reference, IO.pure(args.DocumentSerialNumber).Bind(deliver)).As(),
-                        site.Sink)))
+            from attached in DisposalOps.AcquireAll(Seq(LiveNewDocument, LiveEndOpenDocument).Map(row => row.Inline(deliver, site.Sink)), DisposalOps.Release)
             from delivered in DisposalOps.OnFailure(
                 IO.lift(() => Conversions.Rows(RhinoDoc.OpenDocuments(includeHeadless: false)).Iter(doc => Callbacks.Answer(doc.RuntimeSerialNumber, deliver, static () => unit, site))),
                 DisposalOps.Release(attached))
-            select (IDisposable)DisposalOps.Composite(attached, site.Sink));
+            select DisposalOps.Composite(attached, site));
 
     // --- [OBJECTS]
     public static readonly DocumentEvent<RhinoObjectEventArgs> AddRhinoObject = Subscriptions.Watched<RhinoObjectEventArgs>(static (watcher, h) => watcher.AddRhinoObject += h, static args => Conversions.Serial(args.TheObject?.Document));
@@ -136,8 +124,8 @@ public static class EventKind {
                             from swapped in held.SwapIO(state => (state.Pending.Remove(id), state.Pending.Find(id)))
                             from delivered in swapped.Taken.Traverse(deliver).As()
                             select unit,
-                        site.Sink)))
-            select (IDisposable)DisposalOps.Composite(attached, site.Sink),
+                        site.Sink)), DisposalOps.Release)
+            select DisposalOps.Composite(attached, site),
         static args => args.Document);
 
     // --- [TABLES]
@@ -279,22 +267,22 @@ public static class EventKind {
             (deliver, site) =>
                 from watcher in IO.lift(() => new FileSystemWatcher(directory.FullName) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size, IncludeSubdirectories = subdirectories })
                     .Catch(static error => error.HasException<ArgumentException>() || error.HasException<FileNotFoundException>(), static _ => IO.fail<FileSystemWatcher>(new Missing(nameof(FileSystemWatcher))))
-                from batch in DisposalOps.OnFailure(IO.lift(() => new FileBatch(clock, quiet, deliver, site)), IO.lift(watcher.Dispose))
-                let changed = Callbacks.Handler<FileSystemEventArgs>(args => batch.Post(Right(args)), site)
+                from debouncer in DisposalOps.OnFailure(IO.lift(() => new Debouncer<Either<ErrorEventArgs, FileSystemEventArgs>>(clock, quiet, deliver, site)), IO.lift(watcher.Dispose))
+                let changed = Callbacks.Handler<FileSystemEventArgs>(args => debouncer.Post(Right(args)), site)
                 from held in DisposalOps.AcquireAll(
                     Seq(
-                        IO.pure<IDisposable>(batch.Timer),
+                        IO.pure<IDisposable>(debouncer.Timer),
                         IO.pure<IDisposable>(watcher),
                         Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Changed += h, h => watcher.Changed -= h, changed.Invoke),
                         Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Created += h, h => watcher.Created -= h, changed.Invoke),
                         Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Deleted += h, h => watcher.Deleted -= h, changed.Invoke),
                         Subscriptions.Attach<RenamedEventHandler>(h => watcher.Renamed += h, h => watcher.Renamed -= h, changed.Invoke),
-                        Subscriptions.Attach<ErrorEventHandler>(h => watcher.Error += h, h => watcher.Error -= h, Callbacks.Handler<ErrorEventArgs>(args => batch.Post(Left(args)), site).Invoke)))
+                        Subscriptions.Attach<ErrorEventHandler>(h => watcher.Error += h, h => watcher.Error -= h, Callbacks.Handler<ErrorEventArgs>(args => debouncer.Post(Left(args)), site).Invoke)), DisposalOps.Release)
                 from enabled in DisposalOps.OnFailure(
                     IO.lift(() => {
                         _ = filters.Iter(watcher.Filters.Add);
                         watcher.EnableRaisingEvents = true;
                     }),
                     DisposalOps.Release(held))
-                select (IDisposable)DisposalOps.Composite(held, site.Sink));
+                select DisposalOps.Composite(held, site));
 }

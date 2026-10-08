@@ -48,6 +48,7 @@ rule:
             any:
                 - has: {matches: serializer-attributes}
                 - matches: atomic-field
+                - inside: {stopBy: end, matches: csharp-wire-record}
                 - inside: {kind: field_declaration, has: {matches: serializer-attributes}}
                 - inside: {kind: 'parameter_list, declaration_list', inside: {matches: csharp-error-record}}
                 - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: csharp-error-record}}}

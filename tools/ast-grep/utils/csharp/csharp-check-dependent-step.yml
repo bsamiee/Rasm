@@ -49,7 +49,9 @@ rule:
                         all:
                             - has: {field: name, pattern: $CHECKED}
                             - has: {stopBy: end, matches: read, pattern: $SUBJECT}
-                            - not: {has: {stopBy: end, matches: host-call, not: {inside: {kind: member_access_expression, field: expression}}, has: {stopBy: end, matches: read, pattern: $SUBJECT}}}
+                            - any:
+                                - has: {stopBy: end, matches: csharp-mutation-call}
+                                - not: {has: {stopBy: end, matches: host-call, not: {inside: {kind: member_access_expression, field: expression}}, has: {stopBy: end, matches: read, pattern: $SUBJECT}}}
             - has:
                 stopBy: end
                 matches: read

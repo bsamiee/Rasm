@@ -135,6 +135,7 @@ public readonly partial struct ReceptorIntensity : IMinMaxValue<ReceptorIntensit
 public readonly partial struct ReceptorContrast : IMinMaxValue<ReceptorContrast> {
     public static ReceptorContrast MinValue { get; } = new(float.BitIncrement(0f));
     public static ReceptorContrast MaxValue { get; } = new(float.MaxValue);
+    public static ReceptorContrast Flattest { get; } = new(0.3f);
 
     static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
@@ -271,19 +272,19 @@ public sealed record PiecewiseState(
     public static PiecewiseState Default { get; } = new(Factor.Half, Factor.Half, Factor.MaxValue, CurveGamma.Linear, ShoulderStrength.Default, ShoulderLength.Default);
 }
 
-public sealed record LogarithmicState(DragoBias Bias, Option<Exposure> White) {
-    public static LogarithmicState Default { get; } = new(DragoBias.Default, None);
+public sealed record LogarithmicState(DragoBias Bias, Gated<Exposure> White) {
+    public static LogarithmicState Default { get; } = new(DragoBias.Default, new(Enabled: false, Exposure.Neutral));
 }
 
-public sealed record PhotoreceptorState(ReceptorIntensity Intensity, Option<ReceptorContrast> Contrast, Factor LightAdaptation, Factor ChromaticAdaptation) {
-    public static PhotoreceptorState Default { get; } = new(ReceptorIntensity.Neutral, None, Factor.MinValue, Factor.MinValue);
+public sealed record PhotoreceptorState(ReceptorIntensity Intensity, Gated<ReceptorContrast> Contrast, Factor LightAdaptation, Factor ChromaticAdaptation) {
+    public static PhotoreceptorState Default { get; } = new(ReceptorIntensity.Neutral, new(Enabled: false, ReceptorContrast.Flattest), Factor.MinValue, Factor.MinValue);
 }
 
 public sealed record HableState(
-    ShoulderCoefficient A, LinearCoefficient B, LinearAngle C, ToeCoefficient D, ToeNumerator E, ToeDenominator F, Option<Exposure> White) {
+    ShoulderCoefficient A, LinearCoefficient B, LinearAngle C, ToeCoefficient D, ToeNumerator E, ToeDenominator F, Gated<Exposure> White) {
     public static HableState Default { get; } = new(
         ShoulderCoefficient.Published, LinearCoefficient.Published, LinearAngle.Published,
-        ToeCoefficient.Published, ToeNumerator.Published, ToeDenominator.Published, Some(new Exposure(float.Log2(11.2f))));
+        ToeCoefficient.Published, ToeNumerator.Published, ToeDenominator.Published, new(Enabled: true, new Exposure(float.Log2(11.2f))));
 }
 
 public readonly record struct SigmoidCurve(float WhiteTarget, float PaperExposure, float FilmFog, float ContrastPower, float SkewPower) : IToneCurve {
@@ -396,7 +397,7 @@ public static class ToneCurves {
         Applied(state, context, PiecewiseCurve.Of(state.Piecewise));
 
     internal static PixelPass Logarithmic(ToneMapping state, PassContext context) =>
-        Whitened(context, state.Logarithmic.White, white => Applied(state, context, LogarithmicCurve.Of(state.Logarithmic, context.Display, white)));
+        Whitened(context, state.Logarithmic.White.Active, white => Applied(state, context, LogarithmicCurve.Of(state.Logarithmic, context.Display, white)));
 
     internal static PixelPass Photoreceptor(ToneMapping state, PassContext context) =>
         Measured(context, (frame, samples) => Curved(context, context.Working, Seq(Adapted(state.Photoreceptor, context.Working.Luminance, frame, samples.LogStatistics))));
@@ -405,11 +406,11 @@ public static class ToneCurves {
         ToneMapped(context, ToneMapOperator.Reinhard, new ToneMapParameters());
 
     internal static PixelPass ReinhardExtended(ToneMapping state, PassContext context) =>
-        Whitened(context, state.ReinhardWhite, white => ToneMapped(context, ToneMapOperator.ReinhardExtended, new ToneMapParameters(whitePoint: white)));
+        Whitened(context, state.ReinhardWhite.Active, white => ToneMapped(context, ToneMapOperator.ReinhardExtended, new ToneMapParameters(whitePoint: white)));
 
     internal static PixelPass Hable(ToneMapping state, PassContext context) =>
         state.Hable switch {
-            var hable => Whitened(context, hable.White, white => ToneMapped(context, ToneMapOperator.Hable, new ToneMapParameters(
+            var hable => Whitened(context, hable.White.Active, white => ToneMapped(context, ToneMapOperator.Hable, new ToneMapParameters(
                 a: hable.A, b: hable.B, c: hable.C, d: hable.D, e: (float)hable.B != 0f ? float.Min(hable.E, hable.C * (float)hable.F) : hable.E, f: hable.F, w: white))),
         };
 
@@ -458,9 +459,9 @@ public static class ToneCurves {
             (red, green, blue, count) = pixel.W > 0f ? (red + pixel.X, green + pixel.Y, blue + pixel.Z, count + 1L) : (red, green, blue, count);
         Vector3 mean = new((float)(red / count), (float)(green / count), (float)(blue / count));
         float intensity = MathF.Exp(-(float)state.Intensity);
-        float contrast = state.Contrast.Match(
+        float contrast = state.Contrast.Active.Match(
             Some: static manual => (float)manual,
-            None: () => logs.Maximum == logs.Minimum ? 1f : 0.3f + (0.7f * MathF.Pow((logs.Maximum - logs.Mean) / (logs.Maximum - logs.Minimum), 1.4f)));
+            None: () => logs.Maximum == logs.Minimum ? 1f : ReceptorContrast.Flattest + ((1f - ReceptorContrast.Flattest) * MathF.Pow((logs.Maximum - logs.Mean) / (logs.Maximum - logs.Minimum), 1.4f)));
         (float light, float chromatic) = (state.LightAdaptation, state.ChromaticAdaptation);
         Vector3 global = Vector3.Lerp(new Vector3(Vector3.Dot(weights, mean)), mean, chromatic);
         Vector3 resting = Raised(intensity * global, contrast);

@@ -138,5 +138,14 @@ rule:
                 - inside: {kind: declaration_list, inside: {has: {kind: base_list, has: {regex: '^((global::)?[\w.]*\.)?I[A-Z]\w*(<.*>)?$'}}}}
                 - has: {kind: modifier, regex: '^public$'}
                 - not: {has: {kind: modifier, regex: '^static$'}}
+            - all:
+                - has: {kind: modifier, regex: '^public$'}
+                - has: {kind: modifier, regex: '^static$'}
+                - inside:
+                    kind: declaration_list
+                    inside:
+                        all:
+                            - has: {field: name, pattern: $SELF}
+                            - has: {kind: base_list, has: {kind: generic_name, regex: '^I[A-Z]', has: {kind: type_argument_list, has: {kind: identifier, pattern: $SELF}}}}
 message: '`$NAME` forwards `$READ` unchanged'
 note: Read `<owner>.<member>` or `<owner>[<index>]` at each use and make a private forwarded field public, a forwarding member adds a name and no fact

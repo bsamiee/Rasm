@@ -20,34 +20,34 @@ utils:
             - has: {kind: modifier, regex: '^partial$'}
             - not: {has: {field: body, pattern: $_}}
             - inside: {kind: declaration_list, inside: {matches: mapper-class}}
+    use-argument:
+        kind: attribute_argument
+        has: {field: name, regex: '^Use$'}
+    use-nameof:
+        kind: invocation_expression
+        has: {field: function, regex: '^nameof$'}
     use-helper:
         all:
             - has: {field: name, pattern: $HELPER}
-            - inside:
-                kind: compilation_unit
-                stopBy: end
-                has:
-                    stopBy: {kind: 'block, arrow_expression_clause'}
-                    kind: attribute_argument
-                    all:
-                        - has: {field: name, regex: '^Use$'}
-                        - has:
-                            any:
-                                - kind: invocation_expression
-                                  all:
-                                    - has: {field: function, regex: '^nameof$'}
-                                    - has:
-                                        field: arguments
-                                        has:
-                                            kind: argument
-                                            has:
-                                                any:
-                                                    - kind: identifier
-                                                      pattern: $HELPER
-                                                    - kind: member_access_expression
-                                                      has: {field: name, pattern: $HELPER}
-                                - kind: string_literal
-                                  has: {kind: string_literal_content, pattern: $HELPER}
+            - any:
+                - inside:
+                    kind: declaration_list
+                    inside:
+                        kind: class_declaration
+                        has:
+                            stopBy: {kind: 'block, arrow_expression_clause'}
+                            matches: use-argument
+                            has:
+                                any:
+                                    - {matches: use-nameof, has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $HELPER}}}}
+                                    - {kind: string_literal, has: {kind: string_literal_content, pattern: $HELPER}}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: {kind: 'block, arrow_expression_clause'}
+                        matches: use-argument
+                        has: {matches: use-nameof, has: {field: arguments, has: {kind: argument, has: {kind: member_access_expression, has: {field: name, pattern: $HELPER}}}}}
 rule:
     kind: method_declaration
     any:

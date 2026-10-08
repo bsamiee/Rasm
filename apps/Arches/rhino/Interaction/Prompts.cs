@@ -13,14 +13,14 @@ public static class ProfileMarks {
             Succ: profile => profile.Switch(
                 (Display: display, profile.Span),
                 arcs: static (state, arcs) => Marks.DrawWorld(state.Display, arcs.Parts.Bind(static arc => ArcMarks(arc)) + SpanMarks(state.Span)),
-                parabolic: static (state, parabolic) => Curved(state.Display, parabolic.ToCurve(), state.Span),
-                elliptical: static (state, elliptical) => Curved(state.Display, elliptical.ToCurve(), state.Span)),
+                parabolic: static (state, parabolic) => Curved(state.Display, parabolic.Curve, state.Span),
+                elliptical: static (state, elliptical) => Curved(state.Display, elliptical.Curve, state.Span)),
             Fail: _ => Ends(display, span.Start, span.End));
 
     public static IO<Unit> Ends(DisplayPipeline display, Point3d start, Point3d end) =>
         Marks.DrawWorld(display, EndPoints(start, end));
 
-    private static IO<Unit> Curved(DisplayPipeline display, IO<Curve> curve, Span span) =>
+    private static IO<Unit> Curved(DisplayPipeline display, IO<NurbsCurve> curve, Span span) =>
         DisposalOps.Using(curve, drawn => Marks.DrawWorld(display, Seq<RetainedMark>(new RetainedMark.CurveMark(drawn, AppearanceSettings.FeedbackColor)) + SpanMarks(span)))
             .IfFail(_ => Ends(display, span.Start, span.End));
 

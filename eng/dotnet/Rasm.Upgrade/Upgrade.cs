@@ -12,14 +12,11 @@ namespace Rasm.Upgrade;
 
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record Row(string Id, string Version, int Line, Match Attribute);
-
 internal sealed record Move(Row Row, NuGetVersion Version);
 
 // --- [ERRORS] --------------------------------------------------------------------------
 internal sealed record Usage() : Expected("Pass one argument, the Directory.Packages.props file to upgrade", 2);
-
 internal sealed record UnknownFramework() : Expected("Entry assembly names no target framework to match releases against", 3);
-
 internal sealed record MissingMetadata(string Source) : Expected($"Package source {Source} serves no package metadata resource. Correct the source URL in NuGet.config", 4);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

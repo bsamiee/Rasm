@@ -16,7 +16,6 @@ DOTNET_NOLOGO = "1"
 DOTNET_ROLL_FORWARD = "Major"
 DOTNET_CLI_HOME = "{{config_root}}/.cache/dotnet"
 MSBUILDDISABLENODEREUSE = "1"
-NUGET_PACKAGES = "{{config_root}}/.cache/nuget/packages"
 NUGET_HTTP_CACHE_PATH = "{{config_root}}/.cache/nuget/http-cache"
 SIXLABORSLICENSEKEY = { value = "{{ exec(command='doppler secrets get SIXLABORSLICENSEKEY --plain --project rasm --config dev_repo') }}", tools = true, redact = true }
 UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }

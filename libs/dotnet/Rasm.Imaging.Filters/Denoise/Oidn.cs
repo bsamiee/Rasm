@@ -1,8 +1,6 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Emgu.CV;
-using Emgu.CV.CvEnum;
+using CommunityToolkit.HighPerformance.Buffers;
 using Microsoft.Win32.SafeHandles;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
@@ -20,6 +18,10 @@ internal enum OidnError {
     OutOfMemory,
     UnsupportedHardware,
     Cancelled,
+}
+
+internal enum OidnFormat {
+    Float3 = 3,
 }
 
 public enum GuidePrefilter {
@@ -90,10 +92,8 @@ internal sealed class SafeOidnBufferHandle() : SafeOidnHandle(Denoiser.oidnRelea
 
 public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
     // --- [NATIVE]
-    private const int FormatFloat3 = 3;
     private const string Library = "OpenImageDenoise.2";
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.U1)]
     private delegate bool ProgressMonitor(nint userPtr, double n);
 
@@ -117,11 +117,8 @@ public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
 
     [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
     private static partial void oidnSetFilterImage(
-        SafeOidnFilterHandle filter, string name, SafeOidnBufferHandle buffer, int format,
+        SafeOidnFilterHandle filter, string name, SafeOidnBufferHandle buffer, OidnFormat format,
         nuint width, nuint height, nuint byteOffset, nuint pixelByteStride, nuint rowByteStride);
-
-    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
-    private static partial void oidnUnsetFilterImage(SafeOidnFilterHandle filter, string name);
 
     [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
     private static partial void oidnSetFilterBool(SafeOidnFilterHandle filter, string name, [MarshalAs(UnmanagedType.U1)] bool value);
@@ -142,10 +139,10 @@ public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
     private static partial SafeOidnBufferHandle oidnNewBuffer(SafeOidnDeviceHandle device, nuint byteSize);
 
     [LibraryImport(Library)]
-    private static partial void oidnWriteBuffer(SafeOidnBufferHandle buffer, nuint byteOffset, nuint byteSize, nint srcHostPtr);
+    private static partial void oidnWriteBuffer(SafeOidnBufferHandle buffer, nuint byteOffset, nuint byteSize, ReadOnlySpan<float> srcHostPtr);
 
     [LibraryImport(Library)]
-    private static partial void oidnReadBuffer(SafeOidnBufferHandle buffer, nuint byteOffset, nuint byteSize, nint dstHostPtr);
+    private static partial void oidnReadBuffer(SafeOidnBufferHandle buffer, nuint byteOffset, nuint byteSize, Span<float> dstHostPtr);
 
     [LibraryImport(Library)]
     internal static partial void oidnReleaseDevice(nint device);
@@ -162,107 +159,64 @@ public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
             OidnError.Unknown => new OidnUnknown(),
             OidnError.OutOfMemory => new OidnOutOfMemory(),
             OidnError.UnsupportedHardware => new OidnUnsupportedHardware(),
-            OidnError.InvalidArgument => new OidnInvalidArgument(),
-            OidnError.InvalidOperation or OidnError.Cancelled => throw new InvalidOperationException(Marshal.PtrToStringUTF8(message)),
+            OidnError.InvalidArgument or OidnError.InvalidOperation or OidnError.Cancelled => throw new InvalidOperationException(Marshal.PtrToStringUTF8(message)),
         };
-
-    private static void Image(SafeOidnFilterHandle filter, string name, SafeOidnBufferHandle buffer, PixelExtent size, nuint offset) =>
-        oidnSetFilterImage(filter, name, buffer, FormatFloat3, (nuint)size.Width, (nuint)size.Height, offset, (nuint)Unsafe.SizeOf<Vector4>(), 0);
 
     // --- [LIFECYCLE]
     private readonly SafeOidnDeviceHandle device;
-    private readonly SafeOidnFilterHandle filter;
-    private readonly Seq<(GuideChannel Channel, string Name, SafeOidnFilterHandle Handle)> guideFilters;
     private readonly Lock gate = new();
 
-    private Denoiser(SafeOidnDeviceHandle device, SafeOidnFilterHandle filter, Seq<(GuideChannel Channel, string Name, SafeOidnFilterHandle Handle)> guideFilters) =>
-        (this.device, this.filter, this.guideFilters) = (device, filter, guideFilters);
+    private Denoiser(SafeOidnDeviceHandle device) => this.device = device;
 
     public static IO<Denoiser> Open() =>
-        (from device in use(static () => oidnNewDevice())
-         from created in IO.lift(() => Status(device))
-         from committed in IO.lift(() => {
-             oidnSetDeviceBool(device, "setAffinity", value: false);
-             oidnCommitDevice(device);
-             return Status(device);
-         })
-         from filter in Filter(device)
-         from hdr in IO.lift(() => oidnSetFilterBool(filter, "hdr", value: true))
-         from guides in Seq((Channel: GuideChannel.Albedo, Name: "albedo"), (Channel: GuideChannel.Normal, Name: "normal"))
-             .TraverseM(role => Filter(device).Map(handle => (role.Channel, role.Name, handle))).As()
-         select new Denoiser(device, filter, guides)).BracketFail();
+        use(static () => oidnNewDevice()).Bind(static device => IO.lift(() => {
+            oidnSetDeviceBool(device, "setAffinity", value: false);
+            oidnCommitDevice(device);
+            return Status(device).Map(_ => new Denoiser(device));
+        })).BracketFail();
 
-    public void Dispose() {
-        lock (gate) {
-            foreach (SafeOidnFilterHandle guide in guideFilters.Map(static role => role.Handle))
-                guide.Dispose();
-            filter.Dispose();
-            device.Dispose();
-        }
-    }
-
-    private static IO<SafeOidnFilterHandle> Filter(SafeOidnDeviceHandle device) =>
-        from filter in use(() => oidnNewFilter(device, "RT"))
-        from allocated in IO.lift(() => Status(device))
-        select filter;
+    public void Dispose() => device.Dispose();
 
     // --- [RUN]
     public static Seq<GuideChannel> Channels(DenoiseState state) => state.Guides.Channels;
 
     public IO<PixelFrame> Run(DenoiseState state, PixelFrame color, HashMap<GuideChannel, PixelFrame> guides, IProgress<int> rows) => IO.lift(() => {
-        lock (gate) {
-            int version = oidnGetDeviceInt(device, "version");
-            if (state.Quality.Since > version)
-                return Fin.Fail<PixelFrame>(new OidnQualityUnsupported(state.Quality, version));
-            nuint bytes = (nuint)color.Block.Length * sizeof(float);
-            (string Name, SafeOidnFilterHandle Handle, PixelFrame Frame, nuint Offset) beauty = ("color", filter, color, 0);
-            Seq<(string Name, SafeOidnFilterHandle Handle, PixelFrame Frame, nuint Offset)> auxiliaries = guideFilters
-                .Choose(role => guides.Find(role.Channel).Map(frame => (role.Name, role.Handle, Frame: frame)))
-                .Map((input, index) => (input.Name, input.Handle, input.Frame, Offset: (nuint)(index + 1) * bytes));
-            Seq<(string Name, SafeOidnFilterHandle Handle, PixelFrame Frame, nuint Offset)> inputs = auxiliaries.Add(beauty);
-            using SafeOidnBufferHandle buffer = oidnNewBuffer(device, (nuint)inputs.Count * bytes);
-            oidnSetFilterBool(filter, "cleanAux", state.Prefilter != GuidePrefilter.Fast);
-            return (from allocated in Status(device)
-                    let executions = (state.Prefilter == GuidePrefilter.Accurate ? auxiliaries : []).Add(beauty)
-                    from written in inputs.TraverseM(input => {
-                        oidnWriteBuffer(buffer, input.Offset, bytes, input.Frame.Address);
-                        GC.KeepAlive(input.Frame);
-                        return Status(device);
-                    }).As()
-                    let configured = guideFilters.Iter(role => auxiliaries.Find(input => input.Handle == role.Handle).Match(
-                        Some: input => Image(filter, role.Name, buffer, color.Size, input.Offset),
-                        None: () => oidnUnsetFilterImage(filter, role.Name)))
-                    let monitor = (ProgressMonitor)((step, n) => {
-                        rows.Report((int)((step + n) / executions.Count * color.Size.Height));
-                        return true;
-                    })
-                    from denoised in executions.Map(static (input, step) => (Input: input, Step: step)).TraverseM(work => {
-                        (string name, SafeOidnFilterHandle handle, PixelFrame _, nuint offset) = work.Input;
-                        Image(handle, name, buffer, color.Size, offset);
-                        Image(handle, "output", buffer, color.Size, offset);
-                        oidnSetFilterInt(handle, "quality", state.Quality.Value);
-                        oidnSetFilterProgressMonitorFunction(handle, Marshal.GetFunctionPointerForDelegate(monitor), work.Step);
-                        oidnCommitFilter(handle);
-                        return Status(device).Bind(_ => {
-                            oidnExecuteFilter(handle);
-                            GC.KeepAlive(monitor);
-                            return Status(device);
-                        });
-                    }).As()
-                    let output = new PixelFrame(color.Origin, color.Size, color.Extent, block => {
-                        oidnReadBuffer(buffer, beauty.Offset, bytes, Marshal.UnsafeAddrOfPinnedArrayElement(block, 0));
-                        GC.KeepAlive(block);
-                    })
-                    from read in Status(device)
-                    select output).Map(output => {
-                        if (state.Blend == Mix.Full)
-                            return output;
-                        using Mat noisy = new(color.Size.Width * color.Size.Height, 3, DepthType.Cv32F, 1, color.Address, Unsafe.SizeOf<Vector4>());
-                        using Mat denoised = new(noisy.Rows, noisy.Cols, noisy.Depth, noisy.NumberOfChannels, output.Address, noisy.Step);
-                        CvInvoke.AddWeighted(noisy, 1f - state.Blend, denoised, state.Blend, 0, denoised);
-                        GC.KeepAlive(color);
-                        return output;
-                    });
+        using Lock.Scope serialized = gate.EnterScope();
+        int version = oidnGetDeviceInt(device, "version");
+        if (state.Quality.Since > version)
+            return Fin.Fail<PixelFrame>(new OidnQualityUnsupported(state.Quality, version));
+        nuint bytes = (nuint)color.Block.Length * sizeof(float);
+        Seq<(string Role, PixelFrame Frame, nuint Offset)> inputs = Seq<(string Role, Option<PixelFrame> Frame)>(("color", color), ("albedo", guides.Find(GuideChannel.Albedo)), ("normal", guides.Find(GuideChannel.Normal)))
+            .Choose(static input => input.Frame.Map(frame => (input.Role, frame)))
+            .Map((input, index) => (input.Role, input.frame, (nuint)index * bytes));
+        Seq<(string Role, PixelFrame Frame, nuint Offset)> prefiltered = state.Prefilter == GuidePrefilter.Accurate ? inputs.Tail : [];
+        using SafeOidnBufferHandle buffer = oidnNewBuffer(device, (nuint)inputs.Count * bytes);
+        ProgressMonitor monitor = (step, n) => {
+            rows.Report((int)((step + n) / (prefiltered.Count + 1) * color.Size.Height));
+            return true;
+        };
+        void Execute(Seq<(string Role, PixelFrame Frame, nuint Offset)> images, nuint target, int step, Seq<(string Name, bool Value)> flags) {
+            using SafeOidnFilterHandle filter = oidnNewFilter(device, "RT");
+            _ = images.Map(static image => (image.Role, image.Offset)).Add(("output", target)).Iter(image => oidnSetFilterImage(
+                filter, image.Role, buffer, OidnFormat.Float3, (nuint)color.Size.Width, (nuint)color.Size.Height, image.Offset, (nuint)Marshal.SizeOf<Vector4>(), 0));
+            _ = flags.Iter(flag => oidnSetFilterBool(filter, flag.Name, flag.Value));
+            oidnSetFilterInt(filter, "quality", state.Quality.Value);
+            oidnSetFilterProgressMonitorFunction(filter, Marshal.GetFunctionPointerForDelegate(monitor), step);
+            oidnCommitFilter(filter);
+            oidnExecuteFilter(filter);
         }
+        _ = inputs.Iter(input => oidnWriteBuffer(buffer, input.Offset, bytes, input.Frame.Block));
+        _ = prefiltered.Iter((step, guide) => Execute([guide], guide.Offset, step, []));
+        Execute(inputs, 0, prefiltered.Count, Seq(("hdr", true), ("cleanAux", state.Prefilter != GuidePrefilter.Fast)));
+        GC.KeepAlive(monitor);
+        PixelFrame output = new(color.Origin, color.Size, color.Extent, block => {
+            oidnReadBuffer(buffer, 0, bytes, block);
+            if (state.Blend == Mix.Full)
+                return;
+            using SpanOwner<float> weights = SpanOwner<float>.Allocate(color.Size.Width * color.Size.Height);
+            weights.Span.Fill(state.Blend);
+            BlendingMode.Mix.Mixed(MemoryMarshal.Cast<float, Vector4>(color.Block), MemoryMarshal.Cast<float, Vector4>(block.AsSpan()), weights.Span);
+        });
+        return Status(device).Map(_ => output);
     });
 }
