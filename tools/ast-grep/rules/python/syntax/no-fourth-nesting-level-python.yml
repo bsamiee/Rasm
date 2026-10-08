@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fourth-nesting-level-python
+language: python
+severity: error
+utils:
+    function:
+        kind: function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+    nested-function:
+        any:
+            - kind: lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+            - kind: function_definition
+              inside: {kind: function_definition, stopBy: end}
+    fourth-function:
+        matches: nested-function
+        inside:
+            matches: nested-function
+            stopBy: end
+            inside:
+                matches: nested-function
+                stopBy: end
+                inside: {matches: nested-function, stopBy: end}
+    control:
+        any:
+            - kind: if_statement, for_statement, while_statement, try_statement, with_statement, match_statement
+            - kind: conditional_expression
+              not:
+                any:
+                    - nthChild: 3
+                      inside: {kind: conditional_expression}
+                    - inside: {kind: parenthesized_expression, nthChild: 3, inside: {kind: conditional_expression}}
+    boundary: {any: [{matches: control}, {matches: function}]}
+rule:
+    pattern: $SCOPE
+    any:
+        - matches: fourth-function
+          not: {inside: {matches: fourth-function, stopBy: end}}
+        - matches: control
+          inside:
+            matches: control
+            stopBy: {matches: boundary}
+            inside:
+                matches: control
+                stopBy: {matches: boundary}
+                inside:
+                    matches: control
+                    stopBy: {matches: boundary}
+                    not: {inside: {matches: control, stopBy: {matches: function}}}
+message: Function or control nesting reaches a fourth level
+note: Rebuild the logic within three levels, an extracted helper or inner function keeps the fourth level one call away
+labels:
+    SCOPE: {style: primary}

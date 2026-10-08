@@ -3,7 +3,7 @@
 """Blender interface configuration, timed workspace updates, report writing, and shutdown."""
 
 from collections.abc import Container, Generator, Iterator, Mapping
-from contextlib import closing, contextmanager
+from contextlib import closing, contextmanager, ExitStack
 from functools import partial
 from importlib import import_module
 from itertools import chain, starmap
@@ -22,7 +22,7 @@ from interface.blender.script.settings import configured_addons, styles
 from interface.blender.script.startup import ANALYSIS, cleared_objects, declared_scenes, prepared_scene
 from interface.blender.script.theme import imported_theme
 from interface.frame import Task
-from interface.report import converged, Error, Header, Line, reported, Row, Update
+from interface.report import converged, Error, Header, reported, Update
 from interface.units import Units
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -106,23 +106,20 @@ def interface(window: bpy.types.Window, launch: Launch) -> Generator[Update]:
 def steps(launch: Launch) -> Iterator[float]:
     """Converge each row the interface yields, save a completed apply, write the report through the first error line or exception, and quit even when applying or reporting raises."""
     window = bpy.context.window_manager.windows[0]
-    try:
-        with reported(launch.report) as body, closing(interface(window, launch)) as updates:
-            body.append(Header(bpy.app.version_string, bpy.utils.user_resource("CONFIG")))
-            for step in chain.from_iterable(converged(update) if isinstance(update, Row) else (update,) for update in updates):
-                match step:
-                    case Error():
-                        body.append(step)
-                        return
-                    case Line():
-                        body.append(step)
-                    case float():
-                        yield step
-            with bpy.context.temp_override(window=window), assigned((bpy.context.preferences, "use_preferences_save", True)):
-                bpy.ops.wm.save_homefile()
-                bpy.ops.wm.save_userpref()
-    finally:
-        operate(bpy.ops.wm.quit_blender, window)
+    with ExitStack() as quitting, reported(launch.report) as body, closing(interface(window, launch)) as updates:
+        quitting.callback(operate, bpy.ops.wm.quit_blender, window)
+        body.append(Header(bpy.app.version_string, bpy.utils.user_resource("CONFIG")))
+        for update in updates:
+            match update:
+                case float():
+                    yield update
+                case _:
+                    body.extend(converged(update))
+            if isinstance(body[-1], Error):
+                return
+        with bpy.context.temp_override(window=window), assigned((bpy.context.preferences, "use_preferences_save", True)):
+            bpy.ops.wm.save_homefile()
+            bpy.ops.wm.save_userpref()
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

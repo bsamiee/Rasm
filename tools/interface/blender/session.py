@@ -76,8 +76,9 @@ async def bridged[T](port: int, processes: tuple[psutil.Process, ...], code: str
         with anyio.fail_after(DEADLINE, reason=f"Blender bridge on port {port} exceeded {DEADLINE:.0f} s"):
             async with await anyio.connect_tcp(LOOPBACK, port) as stream:
                 await stream.send(msgspec.json.encode({"type": "execute", "code": code, "strict_json": True}) + b"\0")
-                reply = msgspec.json.decode(b"".join([chunk async for chunk in stream]).removesuffix(b"\0"), type=Done | Raised)
-                return Error(f"Blender bridge on port {port} raised {reply.message.rstrip()}") if isinstance(reply, Raised) else msgspec.json.decode(reply.result, type=kind)
+                received = b"".join([chunk async for chunk in stream])
+        reply = msgspec.json.decode(received.removesuffix(b"\0"), type=Done | Raised)
+        return Error(f"Blender bridge on port {port} raised {reply.message.rstrip()}") if isinstance(reply, Raised) else msgspec.json.decode(reply.result, type=kind)
     except (OSError, anyio.BrokenResourceError, msgspec.DecodeError) as error:
         return Error(f"Blender bridge on port {port} failed: {type(error).__name__}: {error}")
 

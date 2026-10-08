@@ -77,46 +77,36 @@ actor CodexClient: ProviderClient {
         candidates: [Account],
     ) async -> Result<AccountIdentity, ProviderError> {
         let incoming: URL = paths.codexHome(account.id).appending(path: CodexAuthFile.name)
-        return await preconditions().bind { _ in
-            await CodexAuthFile.read(at: incoming).bind {
-                saved -> Result<AccountIdentity, CodexFailure> in
-                guard let saved, saved.isSameAccount(as: account.identity) else {
-                    return .failure(.signInRequired)
+        return await preconditions()
+            .flatMap { _ in CodexAuthFile.read(at: incoming) }
+            .flatMap { saved -> Result<AccountIdentity, CodexFailure> in
+                switch saved {
+                    case .some(let saved) where saved.isSameAccount(as: account.identity): .success(saved)
+                    case .some, .none: .failure(.signInRequired)
                 }
+            }
+            .bind { saved -> Result<AccountIdentity, CodexFailure> in
                 await stopServer(liveHome)
                 await stopServer(paths.codexHome(account.id))
-                return await swapAuthFiles(account, candidates: candidates, incoming: incoming)
+                return await CodexAuthFile.read(at: liveAuthFile)
+                    .bind { live -> Result<Void, CodexFailure> in
+                        if let live, live.isSameAccount(as: account.identity) { return remove(incoming) }
+                        let outgoing: URL? = candidates.first { candidate in
+                            candidate.provider == .openAI && (live.map(candidate.identity.isSameAccount(as:)) ?? false)
+                        }
+                        .map { candidate in paths.codexHome(candidate.id) }
+                        if let outgoing { await stopServer(outgoing) }
+                        return
+                            (outgoing.map { home in
+                                installFile(from: liveAuthFile, to: home.appending(path: CodexAuthFile.name))
+                            } ?? .success(()))
+                            .flatMap { _ in installFile(from: incoming, to: liveAuthFile) }
+                            .flatMap { _ in remove(incoming) }
+                    }
                     .bind { _ in await CodexDesktop.relaunchIfRunning() }
                     .map { _ in saved }
             }
-        }
-        .mapError(ProviderError.init(failure:))
-    }
-
-    private func swapAuthFiles(
-        _ account: Account,
-        candidates: [Account],
-        incoming: URL,
-    ) async -> Result<Void, CodexFailure> {
-        await CodexAuthFile.read(at: liveAuthFile)
-            .bind { live -> Result<Void, CodexFailure> in
-                if let live, live.isSameAccount(as: account.identity) {
-                    return remove(incoming)
-                }
-                let outgoing: URL? = live.flatMap { live in
-                    candidates.first { candidate in
-                        candidate.provider == .openAI && candidate.identity.isSameAccount(as: live)
-                    }
-                }
-                .map { candidate in paths.codexHome(candidate.id) }
-                if let outgoing { await stopServer(outgoing) }
-                return
-                    (outgoing.map { home in
-                        installFile(from: liveAuthFile, to: home.appending(path: CodexAuthFile.name))
-                    } ?? .success(()))
-                    .flatMap { _ in installFile(from: incoming, to: liveAuthFile) }
-                    .flatMap { _ in remove(incoming) }
-            }
+            .mapError(ProviderError.init(failure:))
     }
 
     private func installFile(from source: URL, to destination: URL) -> Result<Void, CodexFailure> {
@@ -185,28 +175,25 @@ actor CodexClient: ProviderClient {
                     .accountLoginStart,
                     params: CodexProtocol.LoginStartParams(type: .chatgpt),
                 )
-                .bind { started in await Self.awaitLogin(started, on: connection) }
+                .flatMap { started -> Result<(loginID: String, url: URL), CodexFailure> in
+                    if let loginID: String = started.loginId, let address: String = started.authUrl,
+                        let url: URL = URL(string: address), url.scheme == "https", url.host(percentEncoded: false) != nil
+                    {
+                        .success((loginID, url))
+                    } else {
+                        .failure(.invalidResponse(field: "sign-in response"))
+                    }
+                }
+                .bind { loginID, url in await CodexDesktop.openSignIn(url).map { _ in loginID } }
+                .bind { loginID in
+                    await connection.notification(CodexProtocol.LoginCompleted.self, .accountLoginCompleted) { completed in
+                        completed.loginId == loginID
+                    }
+                }
                 .flatMap { completed in
                     completed.success ? .success(()) : .failure(.signInRefused(reason: completed.error))
                 }
             }
-        }
-    }
-
-    private static func awaitLogin(
-        _ started: CodexProtocol.LoginStarted,
-        on connection: CodexConnection,
-    ) async -> Result<CodexProtocol.LoginCompleted, CodexFailure> {
-        if let loginID: String = started.loginId, let address: String = started.authUrl,
-            let url: URL = URL(string: address), url.scheme == "https", url.host(percentEncoded: false) != nil
-        {
-            await CodexDesktop.openSignIn(url).bind { _ in
-                await connection.notification(CodexProtocol.LoginCompleted.self, .accountLoginCompleted) {
-                    completed in completed.loginId == loginID
-                }
-            }
-        } else {
-            .failure(.invalidResponse(field: "sign-in response"))
         }
     }
 

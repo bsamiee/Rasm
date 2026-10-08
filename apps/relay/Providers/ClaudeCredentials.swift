@@ -221,13 +221,23 @@ nonisolated struct ClaudeCredentialStore: Sendable {
 
     // --- [KEYCHAIN_ITEM]
     func read() async -> Result<ClaudeStoreContent, ClaudeFailure> {
-        await readItem().flatMap { item -> Result<ClaudeStoreContent, ClaudeFailure> in
-            switch item?.known.claudeAiOauth {
-                case .none: .success(.signedOut)
-                case .some(let oauth):
-                    ClaudeOAuthToken.make(oauth).flatMap { token in token.map(content(of:)) ?? .success(.signedOut) }
+        await readItem()
+            .flatMap { item -> Result<ClaudeOAuthToken?, ClaudeFailure> in
+                item?.known.claudeAiOauth.map(ClaudeOAuthToken.make) ?? .success(nil)
             }
-        }
+            .flatMap { token -> Result<(token: ClaudeOAuthToken, account: JSONDocument<ClaudeOAuthAccount>?)?, ClaudeFailure> in
+                token.map { token in readAccount().map { account in (token, account) } } ?? .success(nil)
+            }
+            .flatMap { stored -> Result<ClaudeStoreContent, ClaudeFailure> in
+                switch stored {
+                    case .none: .success(.signedOut)
+                    case .some((let token, .none)): .success(.unidentified(token))
+                    case .some((let token, .some(let account))):
+                        account.known.identity(plan: token.document.known.subscriptionType).map { identity in
+                            .credential(ClaudeCredential(token: token, account: account, identity: identity))
+                        }
+                }
+            }
     }
 
     func readItem() async -> Result<JSONDocument<ClaudeCredentialItem>?, ClaudeFailure> {
@@ -256,16 +266,6 @@ nonisolated struct ClaudeCredentialStore: Sendable {
 
     func deleteItem() async -> Result<Void, ClaudeFailure> {
         await Keychain.deleteGenericPassword(service: service, account: username).claude()
-    }
-
-    private func content(of token: ClaudeOAuthToken) -> Result<ClaudeStoreContent, ClaudeFailure> {
-        readAccount().flatMap { account in
-            account.map { account in
-                account.known.identity(plan: token.document.known.subscriptionType).map { identity in
-                    .credential(ClaudeCredential(token: token, account: account, identity: identity))
-                }
-            } ?? .success(.unidentified(token))
-        }
     }
 
     // --- [ACCOUNT_FILE]

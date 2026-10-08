@@ -145,16 +145,14 @@ def arrange(name: str) -> Resolved[Arranged]:
             area = temporary.screen.areas[0]
             area.ui_type = tree.bl_idname
             area.spaces[0].pin, area.spaces[0].node_tree = True, tree
-            for item in tree.nodes:
-                item.select = True
+            tree.nodes.foreach_set("select", [True] * len(tree.nodes))
             with bpy.context.temp_override(window=temporary, area=area, region=next(r for r in area.regions if r.type == "WINDOW")):
                 try:
                     bpy.ops.wm.redraw_timer(type="DRAW", iterations=1)
                     bpy.ops.node.na_arrange_selected()
                 finally:
                     bpy.ops.wm.window_close()
-                    for item in tree.nodes:
-                        item.select = item.name in selected
+                    tree.nodes.foreach_set("select", [n.name in selected for n in tree.nodes])
             return Arranged(tuple(n.name for n in tree.nodes if n.name not in held))
         case failed:
             return Faults.of(*failed)

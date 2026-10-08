@@ -44,8 +44,7 @@ utils:
                     all:
                         - has: {field: property, regex: '^fn$'}
                         - has: {field: object, matches: effect-effect-module}
-    effect-fn-body:
-        matches: syntax-function-boundary
+    effect-fn-argument:
         pattern: $BODY
         inside:
             kind: arguments
@@ -60,12 +59,15 @@ utils:
                 all:
                     - matches: effect-function-factory
                     - matches: module-constant-value
-    nested-scope:
-        matches: syntax-function-boundary
-        not: {matches: effect-fn-body}
+    callback-position:
         any:
             - inside: {matches: syntax-function-boundary, stopBy: end}
             - inside: {kind: arguments, stopBy: {not: {matches: callback-wrapper}}}
+    nested-scope:
+        all:
+            - matches: syntax-function-boundary
+            - not: {matches: effect-fn-argument}
+            - matches: callback-position
     fourth-level:
         matches: nested-scope
         inside:
@@ -84,11 +86,79 @@ utils:
               not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {matches: syntax-expression-wrapper}}}}
     control-boundary:
         any: [{matches: control}, {matches: syntax-function-boundary}]
+    helper:
+        any:
+            - kind: function_declaration, generator_function_declaration
+              not: {inside: {kind: export_statement}}
+              has: {field: name, pattern: $HELPER}
+            - matches: syntax-function-boundary
+              inside:
+                kind: variable_declarator
+                field: value
+                stopBy: {not: {matches: syntax-expression-wrapper}}
+                has: {field: name, kind: identifier, pattern: $HELPER}
+                inside: {kind: lexical_declaration, not: {inside: {kind: export_statement}}}
+    helper-site:
+        all:
+            - kind: identifier, shorthand_property_identifier
+            - pattern: $HELPER
+            - not: {inside: {stopBy: end, kind: 'function_declaration, generator_function_declaration, variable_declarator', has: {field: name, pattern: $HELPER}}}
+    other-site:
+        any: [{matches: helper-site}, {has: {stopBy: end, matches: helper-site}}]
+    beside-site:
+        any: [{follows: {stopBy: end, matches: other-site}}, {precedes: {stopBy: end, matches: other-site}}]
+    lone-site:
+        all:
+            - matches: helper-site
+            - pattern: $CALL
+            - not: {inside: {kind: 'export_statement, export_specifier, new_expression, jsx_opening_element, jsx_self_closing_element'}}
+            - not: {inside: {matches: fourth-level, stopBy: end}}
+            - not: {matches: beside-site}
+            - not: {inside: {stopBy: end, not: {kind: program}, matches: beside-site}}
+    invoked-site:
+        inside: {kind: call_expression, field: function}
+    value-site:
+        all:
+            - not: {matches: invoked-site}
+            - not: {matches: effect-fn-argument}
+            - matches: callback-position
+    site-1:
+        all:
+            - matches: lone-site
+            - any:
+                - matches: value-site
+                - inside: {matches: nested-scope, stopBy: end}
+    site-2:
+        all:
+            - matches: lone-site
+            - any:
+                - all: [{matches: value-site}, {inside: {matches: nested-scope, stopBy: end}}]
+                - inside: {matches: nested-scope, stopBy: end, inside: {matches: nested-scope, stopBy: end}}
+    site-3:
+        all:
+            - matches: lone-site
+            - any:
+                - all: [{matches: value-site}, {inside: {matches: nested-scope, stopBy: end, inside: {matches: nested-scope, stopBy: end}}}]
+                - inside: {matches: nested-scope, stopBy: end, inside: {matches: nested-scope, stopBy: end, inside: {matches: nested-scope, stopBy: end}}}
+    helper-body-1:
+        has: {matches: nested-scope, stopBy: end}
+    helper-body-2:
+        has: {matches: nested-scope, stopBy: end, has: {matches: nested-scope, stopBy: end}}
+    helper-body-3:
+        has: {matches: nested-scope, stopBy: end, has: {matches: nested-scope, stopBy: end, has: {matches: nested-scope, stopBy: end}}}
 rule:
     pattern: $SCOPE
     any:
         - matches: fourth-level
           not: {inside: {matches: fourth-level, stopBy: end}}
+        - all:
+            - matches: helper
+            - matches: helper-body-1
+            - not: {has: {matches: fourth-level, stopBy: end}}
+            - any:
+                - all: [{matches: helper-body-3}, {inside: {kind: 'program, statement_block', stopBy: end, has: {stopBy: end, matches: site-1}}}]
+                - all: [{matches: helper-body-2}, {inside: {kind: 'program, statement_block', stopBy: end, has: {stopBy: end, matches: site-2}}}]
+                - inside: {kind: 'program, statement_block', stopBy: end, has: {stopBy: end, matches: site-3}}
         - matches: control
           inside:
             matches: control
@@ -104,3 +174,4 @@ message: 'Function or control nesting reaches a fourth level'
 note: 'Rebuild the logic within three levels, an extracted helper or inner function keeps the fourth level one call away'
 labels:
     SCOPE: {style: primary}
+    CALL: {style: secondary, message: One call site of the helper}

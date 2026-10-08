@@ -35,10 +35,10 @@ const spawn = Effect.fn('spawn')(function* (command: string, args: readonly stri
     const handle = yield* ChildProcess.make(command, args, { stderr: 'inherit', stdin: Stream.fromQueue(outbound).pipe(Stream.map(parser.encode), Stream.filter(Predicate.isString), Stream.encodeText) });
     const protocol = yield* RpcClient.Protocol.make(
         Effect.fn('protocol')(function* (write, clientIds) {
-            const incoming = (message: RpcMessage.FromServerEncoded): Effect.Effect<void> =>
-                message._tag === 'Request' ? Effect.asVoid(message.isNotification === true ? Queue.offer(notifications, message) : Queue.offer(outbound, reply(message))) : Effect.forEach(clientIds, (clientId) => write(clientId, message), { discard: true });
             yield* handle.stdout.pipe(
-                Stream.runForEach((chunk) => Effect.forEach(parser.decode(chunk) as readonly RpcMessage.FromServerEncoded[], incoming, { discard: true })),
+                Stream.map((chunk) => parser.decode(chunk) as readonly RpcMessage.FromServerEncoded[]),
+                Stream.flattenIterable,
+                Stream.runForEach((message) => (message._tag === 'Request' ? Effect.asVoid(message.isNotification === true ? Queue.offer(notifications, message) : Queue.offer(outbound, reply(message))) : Effect.forEach(clientIds, (clientId) => write(clientId, message), { discard: true }))),
                 Effect.forkScoped,
             );
             return {
@@ -112,56 +112,55 @@ const LISTINGS = [
     { capability: 'resources', changed: McpSchema.ResourceListChangedNotification._tag, register: resources },
     { capability: 'prompts', changed: McpSchema.PromptListChangedNotification._tag, register: prompts },
 ] as const;
-const registerAdvertised =
-    (client: Client, capabilities: McpSchema.ServerCapabilities, hidden: readonly string[]) =>
-    (registry: Registry): Effect.Effect<void, Failure> =>
-        Effect.forEach(
-            Array.filter(LISTINGS, ({ capability }) => Predicate.isNotUndefined(capabilities[capability])),
-            ({ register }) => register(client, registry, hidden),
-            { concurrency: 'unbounded', discard: true },
-        );
-const dispatch =
-    (client: Client, registry: Registry, hidden: readonly string[]) =>
-    (notification: RpcMessage.RequestEncoded): Effect.Effect<void, Failure | Schema.SchemaError> =>
-        notification.tag === McpSchema.LoggingMessageNotification._tag
-            ? log(notification.payload)
-            : Effect.forEach(
-                  Array.filter(LISTINGS, ({ changed }) => changed === notification.tag),
-                  ({ register }) => register(client, registry, hidden),
-                  { discard: true },
-              );
+const register = (client: Client, registry: Registry, hidden: readonly string[], listings: readonly (typeof LISTINGS)[number][]): Effect.Effect<void, Failure> => Effect.forEach(listings, (listing) => listing.register(client, registry, hidden), { concurrency: 'unbounded', discard: true });
 
 // --- [LIFECYCLE]
 const initialize = (client: Client): Effect.Effect<McpSchema.InitializeResult, Failure> => client.initialize({ capabilities: {}, clientInfo: BRIDGE, protocolVersion: McpProtocol.v2025_11_25.protocolVersion }).pipe(Effect.tap(() => client['notifications/initialized'](undefined, { discard: true })));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-Command.make(
-    BRIDGE.name,
-    {
-        port: Flag.Int('port').pipe(Flag.withSchema(Port), Flag.withDescription('Loopback port the Streamable HTTP endpoint listens on')),
-        hide: Flag.String('hide').pipe(Flag.atLeast(0), Flag.withDescription('Server tool left out of the endpoint, repeated per tool')),
-        command: Argument.String('command').pipe(Argument.withDescription('Stdio MCP server to bridge, written after --')),
-        args: Argument.String('argument').pipe(Argument.variadic()),
-    },
-    ({ args, command, hide, port }) =>
-        Effect.gen(function* () {
-            const child = yield* spawn(command, args);
-            const serving = Effect.gen(function* () {
-                const info = yield* initialize(child.client);
-                const services = yield* Layer.build(
-                    HttpRouter.serve(
-                        Layer.effectDiscard(Effect.flatMap(McpServer.McpServer, registerAdvertised(child.client, info.capabilities, hide))).pipe(Layer.provideMerge(McpServer.layerHttp({ ...info.serverInfo, instructions: info.instructions, path: '/', protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_06_18] }))),
-                        {
-                            disableLogger: true,
-                        },
-                    ).pipe(Layer.provide(NodeHttpServer.layerServer(createServer, { host: '127.0.0.1', port }))),
-                );
-                return yield* Stream.runForEach(Stream.fromQueue(child.notifications), dispatch(child.client, Context.get(services, McpServer.McpServer), hide));
-            });
-            return yield* Effect.raceFirst(
-                serving,
-                Effect.flatMap(child.exit, (code) => Effect.fail(new ChildExited({ [Runtime.errorExitCode]: code }))),
-            );
-        }).pipe(Effect.scoped),
-).pipe(Command.run({ version: BRIDGE.version }), Effect.provide(NodeServices.layer), Effect.provideService(Logger.LogToStderr, true), NodeRuntime.runMain);
+const OPTIONS = {
+    port: Flag.Int('port').pipe(Flag.withSchema(Port), Flag.withDescription('Loopback port the Streamable HTTP endpoint listens on')),
+    hide: Flag.String('hide').pipe(Flag.atLeast(0), Flag.withDescription('Server tool left out of the endpoint, repeated per tool')),
+    command: Argument.String('command').pipe(Argument.withDescription('Stdio MCP server to bridge, written after --')),
+    args: Argument.String('argument').pipe(Argument.variadic()),
+};
+const bridge = Effect.fn('bridge')(function* ({ args, command, hide, port }: Command.Command.Config.Infer<typeof OPTIONS>) {
+    const child = yield* spawn(command, args);
+    const serving = Effect.gen(function* () {
+        const info = yield* initialize(child.client);
+        const services = yield* Layer.build(
+            HttpRouter.serve(
+                Layer.effectDiscard(
+                    Effect.flatMap(McpServer.McpServer, (server) =>
+                        register(
+                            child.client,
+                            server,
+                            hide,
+                            Array.filter(LISTINGS, ({ capability }) => Predicate.isNotUndefined(info.capabilities[capability])),
+                        ),
+                    ),
+                ).pipe(Layer.provideMerge(McpServer.layerHttp({ ...info.serverInfo, instructions: info.instructions, path: '/', protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_06_18] }))),
+                { disableLogger: true },
+            ).pipe(Layer.provide(NodeHttpServer.layerServer(createServer, { host: '127.0.0.1', port }))),
+        );
+        const registry = Context.get(services, McpServer.McpServer);
+        return yield* Stream.runForEach(
+            Stream.fromQueue(child.notifications),
+            (notification): Effect.Effect<void, Failure | Schema.SchemaError> =>
+                notification.tag === McpSchema.LoggingMessageNotification._tag
+                    ? log(notification.payload)
+                    : register(
+                          child.client,
+                          registry,
+                          hide,
+                          Array.filter(LISTINGS, ({ changed }) => changed === notification.tag),
+                      ),
+        );
+    });
+    return yield* Effect.raceFirst(
+        serving,
+        Effect.flatMap(child.exit, (code) => Effect.fail(new ChildExited({ [Runtime.errorExitCode]: code }))),
+    );
+}, Effect.scoped);
+Command.make(BRIDGE.name, OPTIONS, bridge).pipe(Command.run({ version: BRIDGE.version }), Effect.provide(NodeServices.layer), Effect.provideService(Logger.LogToStderr, true), NodeRuntime.runMain);

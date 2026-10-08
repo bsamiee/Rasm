@@ -3,7 +3,7 @@
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from functools import partial, reduce
-from itertools import accumulate, batched, starmap
+from itertools import accumulate, starmap
 from pathlib import Path
 import re
 import struct
@@ -159,7 +159,7 @@ def serialized(tree: Sequence[tuple[str, Stored]]) -> bytes:
 
     def lines(indent: str, tree: Sequence[tuple[str, Stored]]) -> str:
         def digits(data: bytes) -> str:
-            return "".join(f"{row}\r" for row in [f"{indent}\t{''.join(chunk)}" for chunk in batched(data.hex(), 64, strict=False)] or [""])
+            return "".join(f"{indent}\t{data[start : start + 32].hex()}\r" for start in range(0, len(data), 32)) or "\r"
 
         def line(key: str, value: Stored) -> str:
             head = f"{indent}/{re.sub(r'[ \\]', r'\\\g<0>', key)}"

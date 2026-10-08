@@ -86,23 +86,19 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
     root = importlib.import_module(package_name)
     exports: list[tuple[ModuleType, list[str]]] = []
     failures: list[tuple[str, str]] = []
-    for base in root.__path__:
-        for py in sorted(Path(base).rglob("*.py")):
-            parts = py.relative_to(base).with_suffix("").parts
-            stem = parts[:-1] if parts[-1] == "__init__" else parts
-            if any(part.startswith("_") for part in stem):
-                continue
-            mod_name = ".".join((package_name, *stem))
-            try:
-                module = importlib.import_module(mod_name)
-            except (ImportError, SyntaxError) as exc:
-                failures.append((mod_name, repr(exc)))
-            else:
-                match vars(module).get("__all__"):
-                    case None:
-                        failures.append((mod_name, "the module defines no __all__"))
-                    case names:
-                        exports.append((module, names))
+    paths = (py.relative_to(base) for base in root.__path__ for py in sorted(Path(base).rglob("*.py")))
+    stems = (path.parent if path.stem == "__init__" else path.with_suffix("") for path in paths)
+    for mod_name in (".".join((package_name, *stem.parts)) for stem in stems if not any(part.startswith("_") for part in stem.parts)):
+        try:
+            module = importlib.import_module(mod_name)
+        except (ImportError, SyntaxError) as exc:
+            failures.append((mod_name, repr(exc)))
+        else:
+            match vars(module).get("__all__"):
+                case None:
+                    failures.append((mod_name, "the module defines no __all__"))
+                case names:
+                    exports.append((module, names))
 
     public_api: dict[str, object] = {}
     for mod, names in exports:

@@ -503,7 +503,7 @@ require-lazy = [
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python", "tools"] }
+environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python", "tools", ".claude/skills/use-blender/scripts"] }
 analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "OpenImageIO", "PyObjCTools", "PyOpenColorIO", "svgelements"] }
 rules = { all = "error", dynamic-function-decorator-return = "ignore", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
 overrides = [{ include = ["tools/interface/rhino"], rules = { call-non-callable = "ignore", too-many-positional-arguments = "ignore" } }]

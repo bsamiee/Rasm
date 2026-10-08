@@ -17,7 +17,7 @@ import Rhino
 from Rhino.PlugIns import PlugIn
 from Rhino.UI import RhinoEtoApp
 
-from interface.report import converged, Error, Header, Item, Measurement, Row
+from interface.report import converged, Error, Header, Item, Measurement
 from interface.rhino.script import appearance, containers, display, keyboard, options, plugins, template
 from interface.rhino.script.accessors import action, port as listener
 from interface.units import Units
@@ -46,7 +46,7 @@ def emit(entries: Iterable[Item]) -> None:
     folder = Path(Rhino.RhinoApp.GetDataDirectory(localUser=True, forceDirectoryCreation=False)) / "settings"
     print(Header(str(Rhino.RhinoApp.Version), str(folder)))
     try:
-        for text in chain.from_iterable(converged(entry) if isinstance(entry, Row) else (entry,) for entry in entries):
+        for text in chain.from_iterable(map(converged, entries)):
             print(text)
     except Exception as error:
         root = cause(error)

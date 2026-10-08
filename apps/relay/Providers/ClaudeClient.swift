@@ -50,7 +50,7 @@ actor ClaudeClient: ProviderClient {
         isSelected ? shared : privateStore(account.id)
     }
 
-    private func privateStore(_ id: UUID) -> ClaudeCredentialStore {
+    private nonisolated func privateStore(_ id: UUID) -> ClaudeCredentialStore {
         let directory: URL = paths.claudeDirectory(id)
         return ClaudeCredentialStore(
             directory: directory,
@@ -160,41 +160,36 @@ actor ClaudeClient: ProviderClient {
             .bind { _ in await identity(of: incoming) }
             .bind { _ in
                 await ClaudeLock.withLock(directories: [shared.directory, incoming.directory]) {
-                    await self.switchCredential(account, candidates: candidates, incoming: incoming)
+                    let before: Result<(current: ClaudeCredential?, outgoing: (id: UUID, credential: ClaudeCredential)?), ClaudeFailure> =
+                        switch await self.shared.read() {
+                            case .success(.unidentified): .failure(.accountChanged)
+                            case .success(.signedOut): .success((nil, nil))
+                            case .success(.credential(let current)):
+                                .success(
+                                    (
+                                        current,
+                                        candidates.first { candidate in
+                                            candidate.provider == .claude && candidate.id != account.id
+                                                && candidate.identity.isSameAccount(as: current.identity)
+                                        }
+                                        .map { candidate in (candidate.id, current) },
+                                    )
+                                )
+                            case .failure(let error): .failure(error)
+                        }
+                    return await before.bind { current, outgoing in
+                        await ClaudeLock.withLock(
+                            directories: [outgoing.map { copy in self.privateStore(copy.id).directory }].compactMap(\.self)
+                        ) {
+                            await incoming.read().bind { content in
+                                await self.install(content.credential, replacing: current, for: account, saving: outgoing, incoming: incoming)
+                            }
+                        }
+                    }
                 }
             }
             .bind { credential in await verify(credential).map(\.identity) }
             .mapError(ProviderError.init(failure:))
-    }
-
-    private func switchCredential(
-        _ account: Account,
-        candidates: [Account],
-        incoming: ClaudeCredentialStore,
-    ) async -> Result<ClaudeCredential, ClaudeFailure> {
-        await shared.read().bind { before -> Result<ClaudeCredential, ClaudeFailure> in
-            if case .unidentified = before { return .failure(.accountChanged) }
-            let outgoing: (id: UUID, credential: ClaudeCredential)? = before.credential.flatMap { current in
-                candidates.first { candidate in
-                    candidate.provider == .claude && candidate.id != account.id
-                        && candidate.identity.isSameAccount(as: current.identity)
-                }
-                .map { candidate in (candidate.id, current) }
-            }
-            return await ClaudeLock.withLock(
-                directories: [outgoing.map { copy in privateStore(copy.id).directory }].compactMap(\.self)
-            ) {
-                await incoming.read().bind { content -> Result<ClaudeCredential, ClaudeFailure> in
-                    await self.install(
-                        content.credential,
-                        replacing: before.credential,
-                        for: account,
-                        saving: outgoing,
-                        incoming: incoming,
-                    )
-                }
-            }
-        }
     }
 
     private func install(
@@ -407,9 +402,19 @@ actor ClaudeClient: ProviderClient {
             .bind { content in await identified(content, in: store) }
             .flatMap { content in Self.matched(content, to: account.identity) }
             .bind { credential -> Result<ClaudeCredential, ClaudeFailure> in
-                await credential.token.needsRefresh(at: Date())
-                    || credential.token.accessToken == stale?.token.accessToken
-                    ? refreshCredential(in: store, for: credential) : .success(credential)
+                guard credential.token.needsRefresh(at: Date()) || credential.token.accessToken == stale?.token.accessToken else {
+                    return .success(credential)
+                }
+                return await withTaskCancellationShield {
+                    await ClaudeLock.withLock(directories: [store.directory]) {
+                        await store.read()
+                            .flatMap { content in Self.matched(content, to: credential.identity) }
+                            .bind { current -> Result<ClaudeCredential, ClaudeFailure> in
+                                await current.token.accessToken == credential.token.accessToken
+                                    ? self.renew(current, in: store) : .success(current)
+                            }
+                    }
+                }
             }
             .map { credential in
                 if isSelected { lastCredential = credential }
@@ -433,22 +438,6 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [REFRESH]
-    private nonisolated func refreshCredential(
-        in store: ClaudeCredentialStore,
-        for stale: ClaudeCredential,
-    ) async -> Result<ClaudeCredential, ClaudeFailure> {
-        await withTaskCancellationShield {
-            await ClaudeLock.withLock(directories: [store.directory]) {
-                await store.read()
-                    .flatMap { content in Self.matched(content, to: stale.identity) }
-                    .bind { current -> Result<ClaudeCredential, ClaudeFailure> in
-                        await current.token.accessToken == stale.token.accessToken
-                            ? self.renew(current, in: store) : .success(current)
-                    }
-            }
-        }
-    }
-
     private func renew(
         _ current: ClaudeCredential,
         in store: ClaudeCredentialStore,

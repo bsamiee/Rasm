@@ -112,10 +112,11 @@ class Blend(msgspec.Struct, frozen=True, dict=True):
         field = self.located(block, path)
         return field.codec.unpack_from(block.data, field.offset)[0]
 
-    def packed(self, payload: bytearray, block: Block, path: str, value: float) -> None:
-        """Write the block's scalar or pointer member into its payload through its codec."""
-        field = self.located(block, path)
-        field.codec.pack_into(payload, field.offset, value)
+    def packed(self, payload: bytearray, block: Block, members: Mapping[str, float]) -> None:
+        """Write the block's scalar or pointer members by path into its payload through their codecs."""
+        for path, value in members.items():
+            field = self.located(block, path)
+            field.codec.pack_into(payload, field.offset, value)
 
     def text(self, block: Block, path: str) -> str:
         """Characters of a char array member up to its terminator."""
@@ -241,11 +242,9 @@ def edited(blend: Blend, wanted: Mapping[str, tuple[str, ...]]) -> Blend:
     payloads = {block.old: bytearray(block.data) for block in (*blend.blocks, *added.values(), *links.values())}
 
     def relinked(owner: Block, path: str, chain: list[Block]) -> None:
-        blend.packed(payloads[owner.old], owner, f"{path}.first", chain[0].old if chain else 0)
-        blend.packed(payloads[owner.old], owner, f"{path}.last", chain[-1].old if chain else 0)
+        blend.packed(payloads[owner.old], owner, {f"{path}.first": chain[0].old if chain else 0, f"{path}.last": chain[-1].old if chain else 0})
         for before, link, after in zip([None, *chain], chain, [*chain[1:], None], strict=False):
-            blend.packed(payloads[link.old], link, "prev", before.old if before else 0)
-            blend.packed(payloads[link.old], link, "next", after.old if after else 0)
+            blend.packed(payloads[link.old], link, {"prev": before.old if before else 0, "next": after.old if after else 0})
 
     relinked(preferences, SETTINGS, list(settings.values()))
     for name, chain in chains.items():
@@ -301,8 +300,7 @@ def regions(path: Path, widths: tuple[Width, ...]) -> tuple[Result[Change], ...]
         wanted = (width.width, round(width.zoom, 4) if drawn_x else None)
         if held != wanted:
             payload = payloads[region.old] = bytearray(region.data)
-            for member, value in {"sizex": width.width, **({"v2d.cur.xmax": left + drawn_x / width.zoom, "v2d.cur.ymin": top - drawn_y / width.zoom} if drawn_x else {})}.items():
-                blend.packed(payload, region, member, value)
+            blend.packed(payload, region, {"sizex": width.width, **({"v2d.cur.xmax": left + drawn_x / width.zoom, "v2d.cur.ymin": top - drawn_y / width.zoom} if drawn_x else {})})
             rows.append(Change(f"startup.{subscript('screens', screen)}.areas[{index}].{width.editor}.{width.kind}", repr(held), repr(wanted)))
     if payloads:
         path.write_bytes(encoded(rebuilt(blend, blend.blocks, payloads)))

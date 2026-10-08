@@ -173,14 +173,12 @@ actor ClaudeLock {
     private func heartbeat<Value: Sendable>() async -> Result<Value, ClaudeFailure> {
         await Result { try await Task.sleep(for: .seconds(5)) }
             .mapError { _ in ClaudeFailure.cancelled }
-            .flatMap { _ in update() }
+            .flatMap { _ -> Result<Void, ClaudeFailure> in
+                lockfiles.indices.reduce(.success(())) { outcome, index in
+                    outcome.flatMap { _ in lockfiles[index].updated() }.map { current in lockfiles[index] = current }
+                }
+            }
             .bind { _ in await heartbeat() }
-    }
-
-    private func update() -> Result<Void, ClaudeFailure> {
-        lockfiles.indices.reduce(.success(())) { outcome, index in
-            outcome.flatMap { _ in lockfiles[index].updated().map { current in lockfiles[index] = current } }
-        }
     }
 
     private func release<Value: Sendable>(

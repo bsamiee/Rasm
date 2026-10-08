@@ -5,6 +5,7 @@
 from collections.abc import Iterator
 from contextlib import ExitStack
 from functools import partial
+from itertools import chain
 from pathlib import Path
 import zipfile
 
@@ -13,7 +14,7 @@ import bpy
 
 from interface.blender.rows import Archive, Archived, JSON, stamped
 from interface.blender.script import addons
-from interface.report import Action, Change, converged, Error, Header, Item, reported, Row, subscript
+from interface.report import Action, Change, converged, Error, Header, Item, reported, subscript
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -46,7 +47,8 @@ def pack(glyphs: str, icons: str, interpreter: str, scale: int) -> None:
             mesh = evaluated.to_mesh()
             resources.callback(evaluated.to_mesh_clear)
             mesh.calc_loop_triangles()
-            placed = (tuple(tuple(round((axis + 1) * scale / 2) for axis in mesh.vertices[index].co.xy) for index in triangle.vertices) for triangle in mesh.loop_triangles)
+            points = tuple(tuple(round((axis + 1) * scale / 2) for axis in vertex.co.xy) for vertex in mesh.vertices)
+            placed = (tuple(points[index] for index in triangle.vertices) for triangle in mesh.loop_triangles)
             return tuple((a, b, c) for a, b, c in placed if (a[0] - b[0]) * (b[1] - c[1]) + (a[1] - b[1]) * (c[0] - b[0]) > 0)
 
     header = b"VCO\x00" + bytes((scale, scale, 0, 0))
@@ -85,8 +87,7 @@ def install(folder: str, report: str) -> None:
 
     with reported(report) as body:
         try:
-            for item in declared():
-                body.extend(converged(item) if isinstance(item, Row) else (item,))
+            body.extend(chain.from_iterable(map(converged, declared())))
         finally:
             if any(isinstance(line, Change) for line in body):
                 bpy.ops.wm.save_userpref()

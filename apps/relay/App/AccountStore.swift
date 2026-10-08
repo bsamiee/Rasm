@@ -504,24 +504,20 @@ final class AccountStore {
                     model.run(.refreshing) { [self] in await readUsage(model) }
                 case (false, false):
                     model.run(.refreshing) { [self] in
-                        if await recheckSignIn(model), due { await readUsage(model) }
+                        switch await client(for: model.account.provider).holdsCredential(for: model.account) {
+                            case .success(true):
+                                model.authentication = .connected
+                                model.issue = nil
+                                scheduleSave()
+                            case .success(false): return
+                            case .failure(let error):
+                                await record(error, for: model)
+                                return
+                        }
+                        if due { await readUsage(model) }
                     }
                 case (true, _), (false, true): continue
             }
-        }
-    }
-
-    private func recheckSignIn(_ model: AccountModel) async -> Bool {
-        switch await client(for: model.account.provider).holdsCredential(for: model.account) {
-            case .success(true):
-                model.authentication = .connected
-                model.issue = nil
-                scheduleSave()
-                return true
-            case .success(false): return false
-            case .failure(let error):
-                await record(error, for: model)
-                return false
         }
     }
 

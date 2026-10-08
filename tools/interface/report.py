@@ -134,19 +134,23 @@ def changes(label: str, before: object, target: object) -> Iterator[Change]:
             yield Change(label, *(ABSENT if value is None else repr(value) for value in (before, target)))
 
 
-def converged(row: Row) -> Iterator[Change | Error]:
-    """Change lines of the row, its target written when the plain form of its value differs, an error line naming a refused write, and the label noted on an exception its read or write raises."""
-    target = row.plain(row.target)
-    try:
-        written = row.write() if (before := row.plain(row.read())) != target else None
-    except Exception as error:
-        error.add_note(row.label)
-        raise
-    match written:
-        case Refused(reason=reason):
-            return iter((Error(f"{row.label} {reason}"),))
-        case _:
-            return changes(row.label, before, target)
+def converged(item: Item) -> Iterator[Line]:
+    """Lines of the item: a line as itself, a row's change lines with its target written when the plain form of its value differs, an error line naming a refused write, and the label noted on an exception its read or write raises."""
+    match item:
+        case Line():
+            return iter((item,))
+        case Row():
+            target = item.plain(item.target)
+            try:
+                written = item.write() if (before := item.plain(item.read())) != target else None
+            except Exception as error:
+                error.add_note(item.label)
+                raise
+            match written:
+                case Refused(reason=reason):
+                    return iter((Error(f"{item.label} {reason}"),))
+                case _:
+                    return changes(item.label, before, target)
 
 
 @contextmanager
