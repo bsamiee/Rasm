@@ -1,8 +1,8 @@
 import { stderr, stdout } from 'node:process';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { ActionsRepositoryPermissions, Repository, type RepositoryArgs, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts } from '@pulumi/github';
+import { ActionsRepositoryPermissions, ActionsSecret, type ActionsSecretArgs, DependabotSecret, type DependabotSecretArgs, Repository, type RepositoryArgs, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts } from '@pulumi/github';
 import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
-import { BranchConfig, type BranchConfigArgs, Environment, Project, type ProjectArgs, Secret, type SecretArgs } from '@pulumiverse/doppler';
+import { BranchConfig, type BranchConfigArgs, Environment, Project, type ProjectArgs, Secret, type SecretArgs, ServiceToken, type ServiceTokenArgs } from '@pulumiverse/doppler';
 import { Array, Config, Effect, Equal, FileSystem, Path, Record, Redacted, Schema, Stdio } from 'effect';
 import { parse } from 'yaml';
 
@@ -21,7 +21,7 @@ const _Secrets = Config.all(
     (
         [
             ['dev', ['BLENDERMCP_POLYPIZZA_API_KEY', 'BLENDERMCP_SKETCHFAB_API_KEY']],
-            ['dev_repo', ['BUF_TOKEN', 'DOPPLER_TOKEN', 'GITHUB_TOKEN', 'NUGET_USER', 'PULUMI_ACCESS_TOKEN', 'RHINO_TOKEN']],
+            ['dev_repo', ['BUF_TOKEN', 'DOPPLER_TOKEN', 'GITHUB_TOKEN', 'NUGET_USER', 'PULUMI_ACCESS_TOKEN', 'RHINO_TOKEN', 'SIXLABORSLICENSEKEY']],
         ] as const
     ).flatMap(([config, names]) => names.map((name) => Config.map(Config.Redacted(name), (value) => ({ config, name, value })))),
 );
@@ -50,10 +50,13 @@ const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.
     const configs = { ...environments, [branchArgs.name]: new BranchConfig(branchArgs.name, branchArgs).name };
     const repository = new Repository(repositoryArgs.name, repositoryArgs, { protect: true });
     const vulnerabilityAlerts = new RepositoryVulnerabilityAlerts(`${repositoryArgs.name}-vulnerability-alerts`, { repository: repository.name });
+    const ciTokenArgs = { project: project.name, config: configs[branchArgs.name], name: 'ci', access: 'read' } as const satisfies ServiceTokenArgs;
+    const ciSecretArgs = { repository: repository.name, secretName: 'DOPPLER_TOKEN', value: new ServiceToken(`${projectArgs.name}.${branchArgs.name}.${ciTokenArgs.name}`, ciTokenArgs).key } as const satisfies ActionsSecretArgs & DependabotSecretArgs;
     return {
         repository: repository.fullName,
         configs: Record.values(configs),
         secrets: secrets.map(({ config, name, value }) => new Secret(`${projectArgs.name}.${config}.${name}`, { project: project.name, config: configs[config], name, value: Redacted.value(value) } satisfies SecretArgs).name),
+        ciSecrets: [new ActionsSecret(`${repositoryArgs.name}-actions-doppler-token`, ciSecretArgs).secretName, new DependabotSecret(`${repositoryArgs.name}-dependabot-doppler-token`, ciSecretArgs).secretName],
         securityUpdates: new RepositoryDependabotSecurityUpdates(`${repositoryArgs.name}-security-updates`, { repository: vulnerabilityAlerts.repository, enabled: true }).enabled,
         ruleset: new RepositoryRuleset(`${repositoryArgs.name}-main`, {
             repository: repository.name,

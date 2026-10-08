@@ -192,7 +192,7 @@ Generator emits one private constructor per base constructor with parameters in 
 - Derived classes that are neither abstract nor a base are `sealed` (037), a derived class can be generic, `Items` lists the permitted implementations
 - Keyless smart enums have no key member, `Get`, conversion operators, comparer settings, or generated `ToString`
 - Only `[ObjectFactory<string>]` serializes or binds a keyless smart enum
-- `ToString` overrides on a keyless smart enum supply the item name that `Switch`, `Map`, and Serilog otherwise render as the type name
+- Keyless smart enums inherit `object.ToString()`, the generated `Switch` and `Map` interpolate in their unreachable arm alone
 
 ### [02.1]-[GENERATED_API]
 

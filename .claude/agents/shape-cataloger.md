@@ -37,7 +37,7 @@ Read in order before the first row, `<paths>` the `file_path` values step 1 prin
 |  [02]   | `session` | `session_id = '<session_id>'`                                                          |
 |  [03]   | `range`   | `(cwd = '<worktree>' or cwd like '<worktree>/%') and ts > <from_ts> and ts <= <to_ts>` |
 
-2. `<id>`, the own-id command
+2. `<id>`, the range id command of `observation` for a `range` scope, else the own-id command
 3. `<scope>`, `{ git ls-files -c -o --exclude-standard -- <paths>; git ls-files -d -- <paths>; } | sort | uniq -u`, empty when step 1 printed no row
 4. Smells, fix, bar, and derivation sections of `references/rule-building.md` of `use-ast-grep`
 5. Changes, the change reader of `observation` with `:ids` `<tool_use_ids>`, its `structuredPatch` lines or a Write's `content` the text you judge

@@ -18,15 +18,6 @@
         "args": ["server"],
         "extensionToLanguage": { ".py": "python", ".pyi": "python" }
     },
-    "csharp": {
-        "command": "dotnet",
-        "args": ["dnx", "csharp-ls", "--yes", "--", "--solution", "${CLAUDE_PROJECT_DIR}/${user_config.solution}"],
-        "extensionToLanguage": { ".cs": "csharp" },
-        "startupTimeout": 120000,
-        "settings": {
-            "csharp": { "analyzersEnabled": true }
-        }
-    },
     "swift": {
         "command": "sourcekit-lsp",
         "extensionToLanguage": { ".swift": "swift" }

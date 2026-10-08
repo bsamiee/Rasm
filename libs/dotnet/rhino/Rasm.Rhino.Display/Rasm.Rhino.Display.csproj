@@ -17,8 +17,4 @@
         <ProjectReference Include="../Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
         <ProjectReference Include="../Rasm.Rhino.Persistence/Rasm.Rhino.Persistence.csproj" />
     </ItemGroup>
-
-    <ItemGroup Label="Embedded Resources">
-        <EmbeddedResource Include="AgX_Base_sRGB.cube" />
-    </ItemGroup>
 </Project>

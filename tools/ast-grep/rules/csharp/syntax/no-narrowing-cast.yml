@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-narrowing-cast
+language: csharp
+severity: error
+utils:
+    wide-type:
+        regex: '^((global::)?System\.)?(long|ulong|nint|nuint|Int64|UInt64|IntPtr|UIntPtr|Int128|UInt128)$'
+    stream-type:
+        regex: '^((global::)?System\.IO\.)?(Stream|MemoryStream|FileStream|BufferedStream|UnmanagedMemoryStream|RecyclableMemoryStream|FileInfo)$'
+    wide-value:
+        any:
+            - kind: identifier
+              matches: {csharp-declared-type: {type: {matches: wide-type}}}
+            - kind: member_access_expression
+              has: {field: name, regex: '^LongLength$'}
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, has: {field: name, regex: '^LongCount$'}}
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^(Length|Position)$'}
+                - has: {field: expression, kind: identifier, matches: {csharp-declared-type: {type: {matches: stream-type}}}}
+            - kind: parenthesized_expression
+              has: {matches: wide-value}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^([-+*/%&|^]|<<|>>|>>>)$'}
+                - any: [{has: {field: left, matches: wide-value}}, {has: {field: right, matches: wide-value}}]
+    mask:
+        kind: binary_expression
+        has: {field: operator, regex: '^&$'}
+rule:
+    kind: cast_expression
+    all:
+        - has: {field: type, pattern: $TYPE, regex: '^((global::)?System\.)?(int|uint|short|ushort|byte|sbyte|Int32|UInt32|Int16|UInt16|Byte|SByte)$'}
+        - has:
+            field: value
+            matches: wide-value
+            any:
+                - kind: parenthesized_expression
+                  has: {nthChild: 1, pattern: $VALUE}
+                - pattern: $VALUE
+        - not:
+            any:
+                - inside: {stopBy: end, kind: 'checked_expression, checked_statement'}
+                - has: {field: value, any: [{matches: mask}, {kind: parenthesized_expression, has: {matches: mask}}]}
+fix: $TYPE.CreateSaturating($VALUE)
+message: '`($TYPE)` narrows the 64-bit value `$VALUE` and throws past the `$TYPE` range in a checked build'
+note: Use `$TYPE.CreateSaturating(<value>)`, total over every input

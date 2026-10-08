@@ -19,7 +19,7 @@ description: "Use when a task drives a Rhino document, a .3dm file, or a Grassho
 - [09]-[GRASSHOPPER](references/grasshopper.md): Grasshopper 2 definitions
 
 [SCRIPTS]:
-- [01]-[HOOK](scripts/hook.py): Project hook running each `run_python` script through `document.run` and refusing router tools another call replaces
+- [01]-[HOOK](scripts/hook.py): Project hook running each `run_python` script through `document.run`
 - [02]-[RECORDS](scripts/records.py): Records and faults every script returns, a `Fault` naming the type that refused a value and values it accepts
 - [03]-[DOCUMENT](scripts/document.py): Entry points over documents, objects, files, views, renders, drawings, and plugin loads
 - [04]-[CANVAS](scripts/canvas.py): Grasshopper 2 task documents, builds, values, solves, bakes, and pictures
@@ -177,11 +177,11 @@ Grasshopper 2 starts once per process, and its editor and canvases are state eve
 ## [08]-[RESULTS]
 
 `run_python` returns one `payload` with `stdout` holding printed records, stderr, and tracebacks on `<run_python>` lines, the call succeeding:
-- Router tools an entry point replaces answer a hook refusal naming the replacing call
 - Other router tools keep their first content block alone, and the setup reference's listener call returns every block
 - `payload` of `guidance` alone means the call ran and its result dropped, fix each argument its note names and read state back
 - `error` with `message` drops detail blocks, a read-only call repeated through the listener returning each one
 - `unexpected` naming `TaskCanceledException` is the router's 300 s limit, its call running on and holding Rhino's UI thread for later calls
 - `rhino_crashed` and `rhino_closed` mean Rhino ended mid-call, the setup reference's exit read telling a crash from another session's quit
 - `close_failed` from `close_slot` with its slot gone from `list_slots` means the close ran
-- Main-conversation calls past 120 s move to a Claude Code background task with the result in its notification, subagent calls waiting to the router's limit
+- Main-conversation calls past 120 s move to a background task, the result in its notification
+- Subagent calls wait to the router's limit

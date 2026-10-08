@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-literal
+language: csharp
+severity: error
+utils:
+    number:
+        kind: 'integer_literal, real_literal'
+        regex: '^(0[xX][0-9A-Fa-f_]{3,}|[0-9][0-9_]{2,}(\.[0-9]*)?|[0-9]*\.[0-9]{3,})([eE][-+]?[0-9]+)?[uUlLfFdDmM]{0,2}$'
+        not: {regex: '^0?\.0*[1-9][fFdDmM]?$'}
+    xml-call:
+        any:
+            - kind: 'object_creation_expression, implicit_object_creation_expression'
+              has: {field: type, regex: '^((global::)?System\.Xml\.Linq\.)?X(Element|Attribute)$'}
+            - kind: invocation_expression
+              has:
+                field: function
+                kind: member_access_expression
+                has: {field: name, regex: '^(Element|Elements|Attribute|Attributes|Descendants|DescendantsAndSelf|Ancestors|AncestorsAndSelf|SetElementValue|SetAttributeValue|Get)$'}
+    xml-name:
+        kind: string_literal
+        inside: {kind: argument, nthChild: 1, inside: {kind: argument_list, inside: {matches: xml-call}}}
+    operand:
+        any:
+            - inside: {kind: binary_expression}
+            - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression}}}
+            - inside: {kind: array_rank_specifier}
+            - inside: {kind: prefix_unary_expression, matches: operand}
+    row:
+        inside:
+            stopBy: {kind: 'lambda_expression, anonymous_method_expression, field_declaration, property_declaration'}
+            any: [{kind: field_declaration}, {kind: property_declaration, has: {kind: accessor_list}}]
+    site:
+        not: {matches: row}
+        any:
+            - all: [{matches: number}, {matches: operand}]
+            - matches: xml-name
+    negated:
+        inside: {kind: prefix_unary_expression, regex: '^-'}
+    plain-site:
+        matches: site
+        not: {matches: negated}
+    negated-site:
+        all: [{matches: site}, {matches: negated}]
+    earlier-plain:
+        follows: {stopBy: end, any: [{pattern: $LITERAL, matches: plain-site}, {has: {stopBy: end, pattern: $LITERAL, matches: plain-site}}]}
+    earlier-negated:
+        follows: {stopBy: end, any: [{pattern: $LITERAL, matches: negated-site}, {has: {stopBy: end, pattern: $LITERAL, matches: negated-site}}]}
+rule:
+    kind: integer_literal, real_literal, string_literal
+    pattern: $LITERAL
+    any:
+        - all: [{matches: plain-site}, {any: [{matches: earlier-plain}, {inside: {stopBy: end, matches: earlier-plain}}]}]
+        - all: [{matches: negated-site}, {any: [{matches: earlier-negated}, {inside: {stopBy: end, matches: earlier-negated}}]}]
+message: '`$LITERAL` repeats a value an earlier site of the file spells, one named value states it once'
+note: Declare the value once at its owner, a `const`, a member of the type it measures, or the host or library member stating it (`byte.MaxValue`), and read it at every site

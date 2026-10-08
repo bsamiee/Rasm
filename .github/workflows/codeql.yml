@@ -38,8 +38,10 @@ jobs:
               with:
                 languages: ${{ matrix.language }}
                 build-mode: ${{ matrix.build-mode }}
-            - run: dotnet build Workspace.slnx
+            - run: nx run-many -t build -p tag:language:dotnet --skip-nx-cache
               if: matrix.language == 'csharp'
+              env:
+                DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
             - run: nx run-many -t build -p tag:host:macos --skip-nx-cache -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=
               if: matrix.language == 'swift'
             - uses: github/codeql-action/analyze@v4

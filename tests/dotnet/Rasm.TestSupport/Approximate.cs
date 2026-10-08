@@ -55,7 +55,5 @@ public abstract partial record NumericComparison {
 
         public override bool Matches(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance) =>
             Pairwise(left, right, (l, r) => tolerance.Matches(Math.Abs(Math.IEEERemainder(l - r, Period)), 0.0));
-
-        public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"Periodic({Period:R})");
     }
 }

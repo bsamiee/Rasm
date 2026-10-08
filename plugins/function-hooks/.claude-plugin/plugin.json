@@ -1,7 +1,7 @@
 {
     "name": "function-hooks",
     "version": "1.0.0",
-    "description": "Refuses or rewrites tool calls by policy, and with observation on records hook events as database rows and delivers findings per lineage",
+    "description": "Refuses, rewrites, and queues tool calls by policy, draws edit diagnostics, captures, notices, and down services, runs writers at stop, and with observation on records hook events and delivers findings",
     "author": {
         "name": "Bardia Samiee"
     },
@@ -10,7 +10,7 @@
         "observation": {
             "type": "boolean",
             "title": "Observation",
-            "description": "Recording of hook events and refused calls as database rows, agent spawns and finding delivery at stop boundaries, and the status line",
+            "description": "Recording of hook events and refused calls as database rows, agent spawns and finding delivery at stop boundaries",
             "default": false
         },
         "walkPolicy": {

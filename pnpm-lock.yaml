@@ -730,8 +730,8 @@ catalogs:
       specifier: 6.4.299
       version: 6.4.299
     playwright:
-      specifier: 1.64.0-alpha-2026-10-05
-      version: 1.64.0-alpha-2026-10-05
+      specifier: 1.65.0-alpha-2026-10-07
+      version: 1.65.0-alpha-2026-10-07
     plist:
       specifier: 5.0.0
       version: 5.0.0
@@ -1616,7 +1616,7 @@ importers:
         version: 6.4.299
       playwright:
         specifier: 'catalog:'
-        version: 1.64.0-alpha-2026-10-05
+        version: 1.65.0-alpha-2026-10-07
       plist:
         specifier: 'catalog:'
         version: 5.0.0
@@ -11768,13 +11768,13 @@ packages:
     resolution: {integrity: sha512-Oo/NZcSWccq8KyoG7gLE9fnltgHns+pNCjCAp/WmjsUySi+sX7y4z4Xqu4fVb42CDHzRPl33fjzT15V1wvcyhA==}
     engines: {node: '>=16.0.0'}
 
-  playwright-core@1.64.0-alpha-2026-10-05:
-    resolution: {integrity: sha512-pZQ/Z4+3xZ0jUfo8LfF0KJ+1fDN9AVp8EPgyBmEKoWpN2CnjcCzJJEAJgfRNEr4xABrzUjz5nABCMqpyr4Pf1Q==}
+  playwright-core@1.65.0-alpha-2026-10-07:
+    resolution: {integrity: sha512-M59r6rKub6ug5WRnCeNXkaCaql3BNhvAjcoBQcXeHvbYR0taZwm9Rlgcl3g8SQVArG4tAcMJqikmobR/k+glCw==}
     engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.64.0-alpha-2026-10-05:
-    resolution: {integrity: sha512-+UI6mn0gLx5JjdG4ySuW1UzdThk0CiEXdHL/PqpgtApmR6mrsEtoOqpi80rtcfLB8mDeUDHrZoZjALHlMxgVjw==}
+  playwright@1.65.0-alpha-2026-10-07:
+    resolution: {integrity: sha512-VyGa/rLkvIFVIMH2HhPPBBVQSgV1+9VMdECIcbyuABTgEl4cYggioc8KKvSMvrKWjZ7PESKUMXDqIT85Isfilw==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -25491,11 +25491,11 @@ snapshots:
       pvutils: 1.2.0
       tslib: 2.8.1
 
-  playwright-core@1.64.0-alpha-2026-10-05: {}
+  playwright-core@1.65.0-alpha-2026-10-07: {}
 
-  playwright@1.64.0-alpha-2026-10-05:
+  playwright@1.65.0-alpha-2026-10-07:
     dependencies:
-      playwright-core: 1.64.0-alpha-2026-10-05
+      playwright-core: 1.65.0-alpha-2026-10-07
 
   plist@5.0.0:
     dependencies:

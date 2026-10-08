@@ -52,11 +52,12 @@ public static class Ogee {
         Line firstQuarterPerpendicular = new(endToApex.PointAtLength(endToApexQuarter), endToApexPerpendicular);
         Line thirdQuarterPerpendicular = new(endToApex.PointAtLength(endToApexQuarter * 3), endToApexPerpendicular);
         return
-            from haunchCrossing in CurveConstruction.LineLine(endPerpendicular, firstQuarterPerpendicular)
-            let haunchCenter = endPerpendicular.PointAt(haunchCrossing.A)
+            from crossings in (CurveConstruction.LineLine(endPerpendicular, firstQuarterPerpendicular), CurveConstruction.LineLine(span.CenterLine, thirdQuarterPerpendicular))
+                .Apply(static (haunch, crown) => (Haunch: haunch, Crown: crown))
+                .As()
+            let haunchCenter = endPerpendicular.PointAt(crossings.Haunch.A)
             let haunchCircle = new Circle(new Plane(haunchCenter, span.Frame.XAxis, -span.Frame.YAxis), haunchCenter.DistanceTo(span.End))
-            from crownCrossing in CurveConstruction.LineLine(span.CenterLine, thirdQuarterPerpendicular)
-            let crownCenter = span.CenterLine.PointAt(crownCrossing.A)
+            let crownCenter = span.CenterLine.PointAt(crossings.Crown.A)
             let crownCircle = span.CircleAt(crownCenter, crownCenter.DistanceTo(apex))
             let startArc = new Arc(haunchCircle, new Interval(Math.PI / 2, Math.PI - Vector3d.VectorAngle(-span.Frame.XAxis, endToApexMidpoint - haunchCenter)))
             let endArc = new Arc(crownCircle, new Interval(Vector3d.VectorAngle(span.Frame.XAxis, endToApexMidpoint - crownCenter), Math.PI / 2))

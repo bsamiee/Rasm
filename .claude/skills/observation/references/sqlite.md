@@ -49,14 +49,15 @@ Page `lang_with.html`, span location and file reads:
 
 Page `lang_expr.html`, operators and subqueries:
 
-| [INDEX] | [FACT]                                                          | [DECIDES]                                                         |
-| :-----: | :-------------------------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | `\|\|`, `->`, and `->>` share one precedence and associate left | Parentheses around `value ->> '$.code'` beside a concatenation    |
-|  [02]   | Correlated subquery re-evaluates per outer row                  | Anti-join in `unjudged_edits`, temp tables in `lifecycle.sql`     |
-|  [03]   | `not in` answers null when the subquery holds a null            | `not in` over `finding_id` alone, a not-null column               |
-|  [04]   | `is not distinct from` compares null-safe, DuckDB reads no `is` | `agent_id` in `agent_digest`, `checker` in `insert.sql`           |
-|  [05]   | `''` inside a literal spells one quote                          | Bound text holding `'` goes as `"'<text>'"` with each `'` doubled |
-|  [06]   | `if(x, y, z)` equals `case when x then y else z end`            | `if` where a case has one arm, DuckDB reads no `iif`              |
+| [INDEX] | [FACT]                                                            | [DECIDES]                                                         |
+| :-----: | :---------------------------------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `\|\|`, `->`, and `->>` share one precedence and associate left   | Parentheses around `value ->> '$.code'` beside a concatenation    |
+|  [02]   | Correlated subquery re-evaluates per outer row                    | Anti-join in `unjudged_edits`, temp tables in `lifecycle.sql`     |
+|  [03]   | `not in` answers null when the subquery holds a null              | `not in` over `finding_id` alone, a not-null column               |
+|  [04]   | `is` compares null-safe, `is not distinct from` needs SQLite 3.39 | `is` in views DuckDB reads, `is not distinct from` in DuckDB SQL  |
+|  [05]   | `''` inside a literal spells one quote                            | Bound text holding `'` goes as `"'<text>'"` with each `'` doubled |
+|  [06]   | `iif(x, y, z)` equals `case when x then y else z end`             | `iif` where a case has one arm, DuckDB's SQLite has no `if`       |
+|  [07]   | DuckDB's SQLite 3.38.1 answers null to `unixepoch('subsec')`      | `unixepoch() * 1000` in `running_agents`                          |
 
 ## [06]-[JSON]
 
@@ -103,7 +104,7 @@ Page `cli.html`, the `sqlite3` process every reader and writer runs:
 |  [03]   | `-bail` stops at the first error                                | Writers run under `-bail`, a failed statement never reaches `commit`  |
 |  [04]   | `.timeout` waits on a locked database                           | `begin immediate` waits 10 seconds before failing                     |
 |  [05]   | `-json` prints one array per select with rows, nothing for none | Readers read an absent array as zero rows                             |
-|  [06]   | Default list mode prints each value unquoted                    | Hook statements `STATE` and `DELIVER` select one `json_object` each   |
+|  [06]   | Default list mode prints each value unquoted                    | `BOUNDARY` selects one `json_object`                                  |
 |  [07]   | `.output <file>` and `.read <file>` redirect and replay         | Open writes the delta file, scripts share files through `.read`       |
 |  [08]   | Arguments after the database run in order after every `-cmd`    | Script commands bind through `-cmd`, then the JSON insert and `.read` |
 |  [09]   | `.parameter set` evaluates SQL, unparsable text binds as text   | `'<text>'` binds text, an unquoted number an integer, `null` null     |

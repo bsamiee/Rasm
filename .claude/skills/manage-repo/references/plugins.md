@@ -21,6 +21,9 @@ Claude Code and Codex load one plugin folder, each through its own manifest, mar
 - `plugins/.claude-plugin/marketplace.json` rows hold `name`, `source` `./<name>`, and `description`, both harnesses read the one file
 - Codex repository marketplaces take `[marketplaces.<marketplace>]` in `.codex/config.toml` with an absolute local source path
 - Repository skills both harnesses run link from `.codex/skills/<skill>` to `../../.claude/skills/<skill>`
+- Plugin skills take no `.codex/skills` link, Codex lists them once from the installed plugin copy
+- Codex plugins load no agent, plugin Codex agents sit in `plugins/<name>/.codex/agents/<agent>.toml` beside `agents/<agent>.md`
+- `.codex/agents/<agent>.toml` links to each plugin agent, Codex reads the link target
 - `.claude/settings.json` enables a plugin as `"<name>@<marketplace>": true` under `enabledPlugins`
 - `.codex/config.toml` enables a plugin as `[plugins."<name>@<marketplace>"]`, a copy `codex plugin add` writes to `~/.codex/config.toml` goes
 - `.mcp.json` and manifest `mcpServers` rows take `command` and no `type` for stdio in the session directory, `"type": "http"` and `url` for HTTP

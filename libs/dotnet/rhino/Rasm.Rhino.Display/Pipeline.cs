@@ -7,14 +7,6 @@ using Rhino.Render.PostEffects;
 
 namespace Rasm.Rhino.Display;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PixelPass {
-    public sealed record Pointwise(Func<Vector4, int, int, Vector4> Pixel) : PixelPass;
-
-    public sealed record Frame(Action<Span<Vector4>, int> Whole) : PixelPass;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EffectPipeline {
     private static readonly Guid RgbaChannel = RenderWindow.ChannelId(RenderWindow.StandardChannels.RGBA);
@@ -37,13 +29,6 @@ public static class EffectPipeline {
                 return Refused.Unless(gamma.GetParam("gamma", ref value), nameof(PostEffect.GetParam)).Map(_ => (float)value);
             })
             .As());
-
-    private static void Mapped(float[] values, Rectangle rect, int height, Func<Vector4, int, int, Vector4> pixel) =>
-        _ = Parallel.For(0, rect.Height, line => {
-            Span<Vector4> row = MemoryMarshal.Cast<float, Vector4>(values.AsSpan()).Slice(line * rect.Width, rect.Width);
-            for (int column = 0; column < row.Length; column++)
-                row[column] = pixel(row[column], rect.X + column, height - 1 - rect.Y - line);
-        });
 
     private static IO<Unit> Rewritten(PostEffectPipeline pipeline, Rectangle rect, Action<float[]> pass) =>
         from values in Opened(pipeline.GetChannelForRead, nameof(PostEffectPipeline.GetChannelForRead), (_, channel) => IO.lift(() => Batches.Values(channel, rect, ComponentOrders.RGBA)))

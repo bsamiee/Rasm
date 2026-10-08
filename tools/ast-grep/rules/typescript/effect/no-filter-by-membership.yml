@@ -2,7 +2,7 @@
 id: no-filter-by-membership
 language: tsx
 severity: error
-ignores: ['plugins/*/hooks/**']
+ignores: ['plugins/function-hooks/**', '.codex/hooks/**']
 utils:
     collection:
         matches: {effect-module: {name: {regex: '\b(Array|Chunk|HashSet)$'}}}

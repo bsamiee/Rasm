@@ -554,13 +554,13 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [18]   | `Lens.tuple(Lens<A,C>, Lens<B,D>)`       | `static`   | Composed tuple lens                     |
 |  [19]   | `Seq<A>.headOrNone`                      | `property` | First-item lens over a `Seq`            |
 |  [20]   | `Seq<A>.lastOrNone`                      | `property` | Final-item lens over a `Seq`            |
-|  [21]   | `Prelude.memo(Func<A,B>)`                | `static`   | Memoized pure function                  |
-|  [22]   | `Prelude.memo(Func<A>)`                  | `static`   | Memoized nullary thunk                  |
-|  [23]   | `Prelude.memo(IEnumerable<A>)`           | `static`   | Lazy `Seq<A>`, each item cached once    |
-|  [24]   | `Prelude.memoUnsafe(Func<A,B>)`          | `static`   | Unsynchronized memo table               |
+|  [21]   | `Prelude.memo(Func<A,B>)`                | `static`   | Per-argument cache a GC clears          |
+|  [22]   | `Prelude.memo(Func<A>)`                  | `static`   | `Memo<A>` over a thunk                  |
+|  [23]   | `Prelude.memo(IEnumerable<A>)`           | `static`   | `toSeq` over the source                 |
+|  [24]   | `Prelude.memoUnsafe(Func<A,B>)`          | `static`   | Per-argument cache the function keeps   |
 |  [25]   | `Prelude.memoK(Func<K<F,A>>)`            | `static`   | Caches the `K<F,A>` construction        |
 |  [26]   | `Prelude.memoK(K<F,A>)` / `memoK(A)`     | `static`   | Preloaded memo over an existing value   |
-|  [27]   | `Memo.Reset()`                           | `instance` | Drop a memoized value                   |
+|  [27]   | `Memo.Reset()`                           | `instance` | Clears a thunk's value for rerun        |
 |  [28]   | `Range.fromMinMax(A, A, A)`              | `static`   | Generated bounded sequence              |
 |  [29]   | `Prelude.Range(int\|long from, count)`   | `static`   | `Range<A>` from origin and count        |
 |  [30]   | `Prelude.unit`                           | `property` | `Unit` literal                          |

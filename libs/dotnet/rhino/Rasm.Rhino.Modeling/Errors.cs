@@ -84,10 +84,11 @@ public static class GeometryResults {
         from answer in IO.lift(create)
         from kept in DisposalOps.OnFailure(
             IO.lift(() =>
-                from results in Kept(answer.Results, member, emptyFails: false)
-                from rows in Missing.Unless(answer.Rows, member)
-                from counted in CountMismatch.Unless(results.Count, rows.Count, member)
-                select results.Zip(toSeq(rows))),
+                from read in (Kept(answer.Results, member, emptyFails: false), Missing.Unless(answer.Rows, member))
+                    .Apply(static (results, rows) => (Results: results, Rows: rows))
+                    .As()
+                from counted in CountMismatch.Unless(read.Results.Count, read.Rows.Count, member)
+                select read.Results.Zip(toSeq(read.Rows))),
             Released(answer.Results))
         select kept;
 
@@ -99,8 +100,9 @@ public static class GeometryResults {
     internal static Fin<Seq<T>> Kept<T>(T?[]? results, string member, bool emptyFails) where T : GeometryBase =>
         from array in Missing.Unless(results, member)
         let valid = toSeq(array).Choose(static result => Optional(result).Filter(static geometry => geometry.IsValid)).Strict()
-        from sound in valid.Count == array.Length ? Fin.Succ(unit) : new InvalidOutput(member, array.Length - valid.Count)
-        from filled in emptyFails ? Answers.NonEmpty(valid, member) : valid
+        from filled in (valid.Count == array.Length ? Fin.Succ(unit) : new InvalidOutput(member, array.Length - valid.Count), emptyFails ? Answers.NonEmpty(valid, member) : valid)
+            .Apply(static (_, held) => held)
+            .As()
         select filled;
 
     internal static IO<Unit> Released<T>(T?[]? results) where T : GeometryBase =>

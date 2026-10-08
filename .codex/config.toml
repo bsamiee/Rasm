@@ -161,3 +161,9 @@ matcher = "^mcp__(blender|mcp_for_blender)__"
 type = "command"
 command = 'mise exec -- uv run --script "$(git rev-parse --show-toplevel)/.claude/skills/use-blender/scripts/wrapper.py"'
 timeout = 10
+
+[[hooks.Stop]]
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = 'mise exec -- node "$(git rev-parse --show-toplevel)/.codex/hooks/format.ts"'

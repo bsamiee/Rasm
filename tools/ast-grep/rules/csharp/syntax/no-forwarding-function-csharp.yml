@@ -221,7 +221,6 @@ rule:
                     - kind: method_declaration
                     - inside: {kind: declaration_list, inside: {has: {kind: base_list, has: {regex: '^((global::)?[\w.]*\.)?I[A-Z]\w*(<.*>)?$'}}}}
                     - has: {kind: modifier, regex: '^public$'}
-                    - not: {has: {kind: modifier, regex: '^static$'}}
                 - inside:
                     kind: declaration_list
                     has: {stopBy: end, kind: attribute_argument, all: [{has: {field: name, regex: '^Use$'}}, {has: {kind: invocation_expression, pattern: nameof($NAME)}}]}

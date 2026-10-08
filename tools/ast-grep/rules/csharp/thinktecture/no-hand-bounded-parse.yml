@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hand-bounded-parse
+language: csharp
+severity: error
+utils:
+    number-type:
+        any:
+            - kind: predefined_type
+              regex: '^(byte|sbyte|short|ushort|int|uint|long|ulong|nint|nuint|float|double|decimal)$'
+            - kind: identifier, qualified_name, member_access_expression
+              regex: '^((global::)?System\.)?(Byte|SByte|Int16|UInt16|Int32|UInt32|Int64|UInt64|Int128|UInt128|IntPtr|UIntPtr|Half|Single|Double|Decimal)$'
+    number-parse:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: number-type}}, {has: {field: name, regex: '^TryParse$'}}]}
+            - has: {field: arguments, has: {kind: argument, has: {kind: declaration_expression, has: {field: name, pattern: $VALUE}}}}
+    bound-check:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(<|<=|>|>=|==|!=)$'}
+                - any: [{has: {field: left, kind: identifier, pattern: $VALUE}}, {has: {field: right, kind: identifier, pattern: $VALUE}}]
+            - kind: is_pattern_expression
+              has: {field: expression, kind: identifier, pattern: $VALUE}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '(^|\.)(IsFinite|IsNaN|IsInfinity|IsPositiveInfinity|IsNegativeInfinity|IsPositive|IsNegative|IsNormal|IsSubnormal|IsZero|IsInteger|IsEvenInteger|IsOddInteger|IsPow2)$'}
+                - has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $VALUE}}}
+            - kind: prefix_unary_expression, parenthesized_expression
+              has: {matches: bound-check}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(&&|\|\|)$'}
+                - any: [{has: {field: left, matches: bound-check}}, {has: {field: right, matches: bound-check}}]
+    option-parse:
+        kind: invocation_expression
+        has: {field: function, regex: '^((global::)?LanguageExt\.)?(Prelude\.)?parse(Byte|SByte|Short|UShort|Int|UInt|Long|ULong|Float|Double|Decimal)$'}
+rule:
+    kind: invocation_expression
+    any:
+        - matches: number-parse
+          inside:
+            kind: binary_expression
+            stopBy: {not: {kind: 'binary_expression, parenthesized_expression'}}
+            all:
+                - has: {field: operator, regex: '^&&$'}
+                - has: {field: right, matches: bound-check}
+        - all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: option-parse}}, {has: {field: name, regex: '^(Filter|Where)$'}}]}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    has:
+                        kind: lambda_expression
+                        all:
+                            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $VALUE}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $VALUE}}}]}
+                            - has: {field: body, matches: bound-check}
+    not: {inside: {stopBy: end, matches: csharp-validation-hook}}
+message: Number text parses and checks its bounds by hand in place of a value object's validating parse
+note: Parse through the `[ValueObject<T>]` stating the bounds in `ValidateFactoryArguments`, its generated `TryParse` or `Validate` runs the hook

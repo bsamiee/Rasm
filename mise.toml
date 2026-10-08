@@ -26,14 +26,16 @@ RUFF_CACHE_DIR = "{{config_root}}/.cache/ruff"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
 SWIFTPM_BUILD_DIR = "{{config_root}}/.cache/swiftpm"
 NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data"
+NX_DEFAULT_OUTPUT_STYLE = "static-failures-only"
 BIOME_LOG_PATH = "{{config_root}}/.cache/biome/logs"
 WRANGLER_LOG_PATH = "{{config_root}}/.cache/wrangler/logs"
 MINIFLARE_REGISTRY_PATH = "{{config_root}}/.cache/wrangler/registry"
 PLAYWRIGHT_BROWSERS_PATH = "{{config_root}}/.cache/playwright/browsers"
-PLAYWRIGHT_MCP_USER_DATA_DIR = "{{ xdg_state_home }}/playwright-mcp/rasm"
-PLAYWRIGHT_MCP_BROWSER = "chromium"
+PLAYWRIGHT_MCP_CONFIG = "{{config_root}}/plugins/playwright/cli.config.json"
 PLAYWRIGHT_MCP_OUTPUT_DIR = "{{config_root}}/.artifacts/playwright"
 PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE = "268435456"
+PLAYWRIGHT_HTML_OPEN = "never"
+PLAYWRIGHT_HTML_OUTPUT_DIR = "{{config_root}}/.artifacts/playwright/report"
 AST_GREP_CONFIG = "{{config_root}}/sgconfig.yml"
 RHINO_PATH = "/Applications/RhinoBETA.app"
 RHINO_MCP_DEFAULT_VERSION = "9"
@@ -87,10 +89,57 @@ roslyn-codelens = { program = "{{ mise_bin }}", args = ["exec", "--", "dotnet", 
 nuget = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7402", "--", "dotnet", "dnx", "NuGet.Mcp.Server"], working_directory = "{{config_root}}", keep_alive = true }
 binlog = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7403", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"], working_directory = "{{config_root}}", keep_alive = true }
 ast-grep = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7404", "--", "ast-grep-server"], working_directory = "{{config_root}}", keep_alive = true }
-rhino-mcp-platform = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7406", "--", "rhino-mcp-router"], working_directory = "{{config_root}}", keep_alive = true }
-blender = { program = "{{ mise_bin }}", args = ["exec", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp", "--transport", "http", "--port", "7407"], working_directory = "{{config_root}}", keep_alive = true }
-mcp-for-blender = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7408", "--", "mcp-for-blender"], working_directory = "{{config_root}}", keep_alive = true }
+rhino-mcp-platform = { program = "{{ mise_bin }}", args = [
+    "exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7406",
+    "--hide", "run_command",
+    "--hide", "run_csharp",
+    "--hide", "open_doc",
+    "--hide", "save_doc",
+    "--hide", "close_doc",
+    "--hide", "get_context",
+    "--hide", "get_selection",
+    "--hide", "list_objects",
+    "--hide", "get_viewport_image",
+    "--hide", "zoom_to_object",
+    "--hide", "zoom_to_layer",
+    "--hide", "set_camera",
+    "--hide", "set_layer_material",
+    "--hide", "g2_get_canvas_graph",
+    "--hide", "g2_place_component",
+    "--hide", "g2_place_slider",
+    "--hide", "g2_connect",
+    "--hide", "g2_connect_many",
+    "--hide", "g2_apply_graph",
+    "--hide", "g2_delete_component",
+    "--hide", "g2_clear_canvas",
+    "--hide", "g2_solve_canvas",
+    "--hide", "ask_user",
+    "--", "rhino-mcp-router",
+], working_directory = "{{config_root}}", keep_alive = true }
+blender = { program = "{{ mise_bin }}", args = [
+    "exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7407",
+    "--hide", "execute_blender_code_for_cli",
+    "--hide", "get_blendfile_summary_datablocks_for_cli",
+    "--hide", "get_blendfile_summary_missing_files_for_cli",
+    "--hide", "get_blendfile_summary_of_linked_libraries_for_cli",
+    "--hide", "get_blendfile_summary_path_info_for_cli",
+    "--hide", "get_blendfile_summary_usage_guess",
+    "--hide", "get_blendfile_summary_usage_guess_for_cli",
+    "--hide", "get_screenshot_of_window_as_image",
+    "--hide", "jump_to_view3d_object_by_name",
+    "--hide", "jump_to_view3d_object_data_by_name",
+    "--hide", "render_thumbnail_to_path",
+    "--hide", "render_viewport_to_path",
+    "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp",
+], working_directory = "{{config_root}}", keep_alive = true }
+mcp-for-blender = { program = "{{ mise_bin }}", args = [
+    "exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7408",
+    "--hide", "get_scene_info",
+    "--hide", "disable_telemetry",
+    "--hide", "record_trajectory_feedback",
+    "--", "mcp-for-blender",
+], working_directory = "{{config_root}}", keep_alive = true }
 adobe = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts", "--port", "7409"], working_directory = "{{config_root}}", keep_alive = true }
 argus = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "plugins/argus/main.ts", "--port", "7410"], working_directory = "{{config_root}}", keep_alive = true }
-playwright = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "mcp", "--headless", "--host", "127.0.0.1", "--port", "7411", "--shared-browser-context", "--caps=config,network,pdf,storage,testing,vision,devtools"], working_directory = "{{config_root}}", keep_alive = true }
+playwright = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "mcp", "--host", "127.0.0.1", "--port", "7411", "--user-data-dir", "{{config_root}}/.cache/playwright/profile", "--shared-browser-context", "--caps=config,network,pdf,storage,testing,vision,devtools"], working_directory = "{{config_root}}", keep_alive = true }
 playwright-test = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "run-test-mcp-server", "--headless", "--host", "127.0.0.1", "--port", "7412"], working_directory = "{{config_root}}", keep_alive = true }

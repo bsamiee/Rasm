@@ -2,6 +2,7 @@
 id: no-member-copy-into-record
 language: csharp
 severity: error
+files: ['**/rhino/**']
 utils:
     file-record:
         inside:
@@ -73,10 +74,19 @@ utils:
                             - kind: local_function_statement
                               has: {field: type, kind: identifier, pattern: $TYPE}
     tuple-source:
-        kind: 'from_clause, variable_declarator'
-        all:
-            - has: {field: name, pattern: $SRC}
-            - has: {stopBy: end, kind: tuple_expression}
+        any:
+            - kind: 'from_clause, variable_declarator'
+              all:
+                - has: {field: name, pattern: $SRC}
+                - has: {stopBy: end, kind: tuple_expression}
+            - kind: variable_declarator
+              all:
+                - has: {field: name, pattern: $SRC}
+                - inside: {kind: variable_declaration, has: {field: type, kind: tuple_type}}
+            - kind: parameter
+              all:
+                - has: {field: name, pattern: $SRC}
+                - has: {field: type, kind: tuple_type}
 rule:
     all:
         - matches: built-record
@@ -101,7 +111,7 @@ rule:
         - not:
             inside:
                 stopBy: end
-                kind: 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration'
+                kind: 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, lambda_expression, anonymous_method_expression'
                 has: {stopBy: end, matches: tuple-source}
 message: '`$TYPE` is built member by member from `$SRC`'
 note: Use a Mapperly new-instance mapping `partial <record> To<record>(<host> source)`, a renamed or nested member takes `[MapProperty]`, a converted member a `[UserMapping]` method

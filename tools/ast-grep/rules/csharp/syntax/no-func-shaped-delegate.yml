@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-func-shaped-delegate
+language: csharp
+severity: error
+rule:
+    kind: delegate_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - not:
+            any:
+                - has: {kind: attribute_list}
+                - has: {field: type, kind: ref_type}
+                - has: {field: type, kind: pointer_type}
+                - has:
+                    field: parameters
+                    has:
+                        kind: parameter
+                        any:
+                            - has: {kind: modifier, regex: '^(ref|out|in|params|scoped|this)$'}
+                            - has: {kind: attribute_list}
+                            - has: {field: type, kind: 'pointer_type, function_pointer_type'}
+                            - regex: '='
+                - has: {field: parameters, has: {kind: parameter, nthChild: 17}}
+message: Delegate `$NAME` restates the shape of `Func` or `Action`
+note: Type each use as the `Func` or `Action` of the same signature, or the delegate an installed library declares for it

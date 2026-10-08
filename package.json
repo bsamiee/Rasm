@@ -303,14 +303,25 @@
             "grammar": {
                 "executor": "nx:run-commands",
                 "cache": true,
-                "inputs": [{ "externalDependencies": ["@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3"] }, { "runtime": "tree-sitter --version" }],
+                "inputs": [
+                    {
+                        "externalDependencies": ["@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3"]
+                    },
+                    {
+                        "runtime": "tree-sitter --version"
+                    }
+                ],
                 "outputs": ["{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql.so"],
                 "options": {
                     "commands": ["tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml", "tree-sitter build --output .cache/ast-grep/sql.so node_modules/tree-sitter-sqlite3"],
                     "parallel": false
                 }
             },
-            "rewrite": { "command": "ast-grep scan -U --no-ignore hidden", "parallelism": false, "dependsOn": ["grammar"] },
+            "rewrite": {
+                "command": "ast-grep scan -U --no-ignore hidden",
+                "parallelism": false,
+                "dependsOn": ["grammar"]
+            },
             "outline": {
                 "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml",
                 "dependsOn": ["grammar"]
@@ -335,8 +346,12 @@
                     "{workspaceRoot}/**/*.{xml,csproj,props,targets,slnx}",
                     "{workspaceRoot}/**/NuGet.config",
                     "{workspaceRoot}/**/*.sql",
-                    { "dependentTasksOutputFiles": "**/*.so" },
-                    { "runtime": "ast-grep --version" }
+                    {
+                        "dependentTasksOutputFiles": "**/*.so"
+                    },
+                    {
+                        "runtime": "ast-grep --version"
+                    }
                 ]
             },
             "lint:biome": {
@@ -350,47 +365,105 @@
                     "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}",
                     "!{workspaceRoot}/**/*.{xcassets,icon}/**",
                     "!{workspaceRoot}/tools/interface/adobe/script/*.jsx",
-                    { "runtime": "biome --version" }
+                    {
+                        "runtime": "biome --version"
+                    }
                 ]
             },
             "lint:ruff-check": {
                 "command": "ruff check",
                 "cache": true,
                 "parallelism": false,
-                "inputs": ["pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb,md}", "{workspaceRoot}/**/pyproject.toml", { "runtime": "ruff --version" }]
+                "inputs": [
+                    "pythonFiles",
+                    "{workspaceRoot}/**/*.{pyw,ipynb,md}",
+                    "{workspaceRoot}/**/pyproject.toml",
+                    {
+                        "runtime": "ruff --version"
+                    }
+                ]
             },
             "lint:ruff-format": {
                 "command": "ruff format --check",
                 "cache": true,
                 "parallelism": false,
-                "inputs": ["pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb,md}", "{workspaceRoot}/**/pyproject.toml", { "runtime": "ruff --version" }]
+                "inputs": [
+                    "pythonFiles",
+                    "{workspaceRoot}/**/*.{pyw,ipynb,md}",
+                    "{workspaceRoot}/**/pyproject.toml",
+                    {
+                        "runtime": "ruff --version"
+                    }
+                ]
             },
             "lint:yamllint": {
                 "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint",
                 "cache": true,
-                "inputs": ["yamlFiles", "{workspaceRoot}/.yamllint.yaml", { "runtime": "yamllint --version" }]
+                "inputs": [
+                    "yamlFiles",
+                    "{workspaceRoot}/.yamllint.yaml",
+                    {
+                        "runtime": "yamllint --version"
+                    }
+                ]
             },
             "lint:yamlfmt": {
                 "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint",
                 "cache": true,
-                "inputs": ["yamlFiles", "{workspaceRoot}/.yamlfmt", { "runtime": "yamlfmt -version" }]
+                "inputs": [
+                    "yamlFiles",
+                    "{workspaceRoot}/.yamlfmt",
+                    {
+                        "runtime": "yamlfmt -version"
+                    }
+                ]
             },
             "lint:actionlint": {
                 "command": "actionlint",
                 "cache": true,
-                "inputs": ["{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" }]
+                "inputs": [
+                    "{workspaceRoot}/.github/actionlint.yaml",
+                    "{workspaceRoot}/.github/workflows/*.{yml,yaml}",
+                    "{workspaceRoot}/.github/actions/*/action.{yml,yaml}",
+                    {
+                        "runtime": "actionlint --version"
+                    },
+                    {
+                        "runtime": "shellcheck --version"
+                    }
+                ]
             },
             "lint:google-java-format": {
                 "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed",
                 "cache": true,
-                "inputs": ["javaFiles", { "runtime": "google-java-format --version" }]
+                "inputs": [
+                    "javaFiles",
+                    {
+                        "runtime": "google-java-format --version"
+                    }
+                ]
             },
             "lint:pmd": {
                 "command": "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --use-version java-27 --cache .cache/pmd/java --no-progress",
                 "cache": true,
-                "inputs": ["javaFiles", "{workspaceRoot}/pmd.xml", { "runtime": "pmd --version" }]
+                "inputs": [
+                    "javaFiles",
+                    "{workspaceRoot}/pmd.xml",
+                    {
+                        "runtime": "pmd --version"
+                    }
+                ]
             },
-            "lint": { "dependsOn": ["lint:ast-grep", "lint:biome", "lint:ruff-check", "lint:ruff-format", "lint:yamllint", "lint:yamlfmt", "lint:actionlint", "lint:google-java-format", "lint:pmd"] },
+            "lint:dotnet-format": {
+                "command": "doppler run --project rasm --config dev_repo -- dotnet format style Workspace.slnx --no-restore --verify-no-changes",
+                "cache": true,
+                "parallelism": false,
+                "dependsOn": ["restore"],
+                "inputs": ["dotnet", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}"]
+            },
+            "lint": {
+                "dependsOn": ["lint:ast-grep", "lint:biome", "lint:ruff-check", "lint:ruff-format", "lint:yamllint", "lint:yamlfmt", "lint:actionlint", "lint:google-java-format", "lint:pmd", "lint:dotnet-format"]
+            },
             "format": {
                 "executor": "nx:run-commands",
                 "dependsOn": ["restore"],
@@ -413,28 +486,75 @@
                     "typescript",
                     "{workspaceRoot}/tsconfig.json",
                     "{workspaceRoot}/*.config.ts",
-                    "{workspaceRoot}/{.codex/hooks,infra,tools/nx,tools/bridge,plugins/function-hooks/hooks}/*.ts",
+                    "{workspaceRoot}/{.codex/hooks,infra,tools/nx,tools/bridge}/*.ts",
+                    "{workspaceRoot}/plugins/function-hooks/{composition.ts,policies/*.ts,repository/*.ts,findings/*.ts,surfaces/*.ts,surfaces/*.tsx,observation/*.ts}",
                     "{workspaceRoot}/{apps,libs/typescript,tests/typescript}/**/vitest.config.ts",
-                    { "externalDependencies": ["typescript"] }
+                    {
+                        "externalDependencies": ["typescript"]
+                    }
                 ],
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/root"]
             },
-            "typecheck:ty": { "command": "ty check", "cache": true, "parallelism": false, "inputs": ["python", "pythonFiles", { "runtime": "ty --version" }] },
-            "typecheck:mypy": { "command": "mypy", "cache": true, "inputs": ["python", "pythonFiles", { "runtime": "mypy --version" }] },
-            "typecheck": { "dependsOn": ["typecheck:tsc", "typecheck:ty", "typecheck:mypy"] },
-            "check": { "dependsOn": ["lint", "typecheck"] },
+            "typecheck:ty": {
+                "command": "ty check",
+                "cache": true,
+                "parallelism": false,
+                "inputs": [
+                    "python",
+                    "pythonFiles",
+                    {
+                        "runtime": "ty --version"
+                    }
+                ]
+            },
+            "typecheck:mypy": {
+                "command": "mypy",
+                "cache": true,
+                "inputs": [
+                    "python",
+                    "pythonFiles",
+                    {
+                        "runtime": "mypy --version"
+                    }
+                ]
+            },
+            "typecheck": {
+                "dependsOn": ["typecheck:tsc", "typecheck:ty", "typecheck:mypy"]
+            },
+            "check": {
+                "dependsOn": ["lint", "typecheck"]
+            },
             "infra": {
                 "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts",
                 "parallelism": false,
-                "configurations": { "up": { "args": "up" }, "refresh": { "args": "refresh" } }
+                "configurations": {
+                    "up": {
+                        "args": "up"
+                    },
+                    "refresh": {
+                        "args": "refresh"
+                    }
+                }
             },
-            "interface": { "command": "python -m interface.cli", "parallelism": false },
+            "interface": {
+                "command": "python -m interface.cli",
+                "parallelism": false
+            },
             "upgrade": {
                 "executor": "nx:run-commands",
                 "parallelism": false,
-                "dependsOn": [{ "projects": ["tag:language:swift"], "target": "upgrade" }, { "projects": ["tag:host:rhino", "tag:host:blender"], "target": "pack" }],
+                "dependsOn": [
+                    {
+                        "projects": ["tag:language:swift"],
+                        "target": "upgrade"
+                    },
+                    {
+                        "projects": ["tag:host:rhino", "tag:host:blender"],
+                        "target": "pack"
+                    }
+                ],
                 "options": {
-                    "commands": ["uv sync --upgrade", "ncu --workspaces --target newest --upgrade --install always", "playwright install chromium --no-shell", "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props", "mise upgrade", "python -m interface.cli upgrade"],
+                    "commands": ["uv sync --upgrade", "ncu --workspaces --target newest --upgrade --install always", "playwright install chromium", "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props", "mise upgrade", "python -m interface.cli upgrade"],
                     "parallel": false
                 }
             },

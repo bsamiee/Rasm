@@ -1,5 +1,5 @@
 {
     "extends": "../../tsconfig.base.json",
-    "compilerOptions": { "outDir": "../../.cache/typescript/out/plugins/function-hooks", "types": ["node"] },
-    "include": [".claude-plugin/types/claude-code", ".claude-plugin/types/claude-code-tools", "hooks"]
+    "compilerOptions": { "outDir": "../../.cache/typescript/out/plugins/function-hooks", "types": ["node"], "jsx": "react", "jsxFactory": "h", "jsxFragmentFactory": "Fragment" },
+    "include": [".claude-plugin/types/claude-code", ".claude-plugin/types/claude-code-tools", "composition.ts", "hooks", "policies", "repository", "context", "ui", "observation"]
 }

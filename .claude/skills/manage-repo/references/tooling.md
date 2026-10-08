@@ -34,5 +34,6 @@ Launchd agents run each local MCP server once as a Streamable HTTP service on a 
 - Agents inherit the GUI domain environment, machine setup places Homebrew on its PATH for `[env]` templates
 - `mise bootstrap macos launchd-agents apply` writes and loads `~/Library/LaunchAgents/dev.mise.<name>.plist`, launchd discards an agent's output
 - `mise bootstrap macos launchd-agents status` lists each agent's state, `launchctl print gui/$UID/dev.mise.<name>` its pid and last exit code
-- Servers speaking stdio alone run behind `tools/bridge/bridge.ts`
+- Servers speaking stdio alone, or exposing a tool a skill replaces, run over stdio behind `tools/bridge/bridge.ts`
+- `--hide <tool>` before the bridge's `--` leaves one server tool out of the endpoint, repeated per tool
 - Servers starting one process per connection, or approving the connecting process by its code signature, keep a stdio row

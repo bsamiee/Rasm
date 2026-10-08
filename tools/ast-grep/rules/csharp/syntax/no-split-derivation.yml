@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-derivation
+language: csharp
+severity: error
+utils:
+    member:
+        kind: 'property_declaration, method_declaration'
+    member-body:
+        kind: arrow_expression_clause
+        any:
+            - inside: {matches: member}
+            - inside: {kind: accessor_declaration, has: {field: name, regex: '^get$'}}
+    derivation:
+        not: {kind: 'identifier, member_access_expression, generic_name, qualified_name, predefined_type'}
+    part:
+        kind: 'member_access_expression, element_access_expression'
+        has: {field: expression, pattern: $DERIVATION}
+    split-part:
+        kind: 'member_access_expression, element_access_expression'
+        has: {field: expression, matches: derivation, pattern: $DERIVATION}
+rule:
+    matches: member
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {stopBy: end, matches: member-body, has: {nthChild: 1, matches: split-part}}
+        - any:
+            - follows: {stopBy: end, matches: member, has: {stopBy: end, matches: member-body, has: {nthChild: 1, matches: part}}}
+            - follows: {stopBy: end, matches: member, has: {stopBy: end, matches: member-body, has: {nthChild: 1, pattern: $DERIVATION}}}
+            - precedes: {stopBy: end, matches: member, has: {stopBy: end, matches: member-body, has: {nthChild: 1, pattern: $DERIVATION}}}
+message: '`$NAME` derives a part of `$DERIVATION` that another member also derives, one member answering the whole value states it once'
+note: Read each part at the consumer, the one member answering a tuple or record when the value has parts

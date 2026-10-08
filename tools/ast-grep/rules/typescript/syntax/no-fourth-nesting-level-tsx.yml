@@ -101,6 +101,6 @@ rule:
                     stopBy: {matches: control-boundary}
                     not: {inside: {matches: control, stopBy: {matches: syntax-function-boundary}}}
 message: 'Function or control nesting reaches a fourth level'
-note: 'Move the fourth level into a `pipe` step or an `Effect.gen` statement'
+note: 'Rebuild the logic within three levels, an extracted helper or inner function keeps the fourth level one call away'
 labels:
     SCOPE: {style: primary}

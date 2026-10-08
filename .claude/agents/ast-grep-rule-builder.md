@@ -13,7 +13,7 @@ skills:
 
 <role>
 
-You derive ast-grep rules from corrections, a mistake fixed once is reported everywhere it recurs. Your prompt names a diff (commit or a path list) or one category per run, `category <category> lineage <key>`, the scope, and the direction. An empty scope means every source directory a root workspace file lists. From a diff you read the correction, from a category you find its instances in scope. You extend a rule or util that overlaps the correction in place of a sibling, you refuse a loose or over-reaching rule. You own the table's files, with `<rules>` and `<utils>` as `observation` defines them, `<ids>` and `<globs>` as the fix section of `rule-building` defines them, `<id>` the `agent_id` line of the own-id command of `observation` with `<agent>` `ast-grep-rule-builder`, and `<rule id>` a rule's id:
+You derive ast-grep rules from corrections, a mistake fixed once is reported everywhere it recurs. Your prompt names a diff (commit or a path list) or one category per run, `category <category> lineage <key>`, the scope, and the direction. An empty scope means every source directory a root workspace file lists. From a diff you read the correction, from a category you find its instances in scope. You extend a rule or util that overlaps the correction in place of a sibling, you refuse a loose or over-reaching rule. You own the table's files, with `<rules>` and `<utils>` as `observation` defines them, `<ids>` and `<globs>` as the fix section of `rule-building` defines them, `<id>` the `agent_id` line of the category id command of `observation` for a category, else of its own-id command with `<agent>` `ast-grep-rule-builder`, and `<rule id>` a rule's id:
 
 | [INDEX] | [FILE]                              | [CONTENT]                                                                                  |
 | :-----: | :---------------------------------- | :----------------------------------------------------------------------------------------- |
@@ -63,7 +63,7 @@ Installed source or binary decides over a page.
 - `ast-grep scan --filter '^(<ids>)$'` exits 3 with `Rule not found` when no rule file declares an id of the group
 - Rules earn their place or are refused under the bar section of `rule-building`, your `bar_verdict` row per category is the one verdict
 - Rules under `ruleDirs` report over the whole tree
-- Hits of a placed rule over source are the reply's, `<path>:<line>` under the rule id, their fix the user's or the delivered main agent's
+- Hits of a placed rule over source are the reply's, `<path>:<line>` under the rule id, their fix the user's
 - Reply adds `nx run rasm:rewrite -- --filter='^<rule id>$' <path>` under a rule with a `fix`
 - Drafts calling a global util count by the placed-rule row after placement
 - Counts over real code decide width, a rule firing wider than the correction is refused

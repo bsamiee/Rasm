@@ -27,7 +27,7 @@ description: "Use when a task drives a live or headless Blender or a .blend file
 
 [SCRIPTS]:
 - [01]-[HEADLESS](scripts/headless.py): Background Blender runs, sessions, and frame renders with a JPEG sheet of a named file
-- [02]-[WRAPPER](scripts/wrapper.py): PreToolUse hook grouping undo steps and refusing server tools a script replaces
+- [02]-[WRAPPER](scripts/wrapper.py): PreToolUse hook closing each `execute_blender_code` call with an undo step
 - [03]-[BRIDGE](scripts/bridge.py): Host client of the MCP extension's execute protocol on a session's loopback port
 - [04]-[RESULTS](scripts/results.py): Faults every script returns, `result` dict conversion of case records, and `.artifacts/blender/` folders
 - [05]-[DISCOVER](scripts/discover.py): Operators, RNA types, and add-on settings matching words across stock Blender and every enabled add-on
@@ -233,7 +233,6 @@ Snippets hold each rule:
 - Warnings print once per line per call, add-on files included
 - Tracebacks and warnings count `<agent>` lines as sent, a traceback's last `File "<agent>", line <n>` frame naming the sent line
 - `mcp-for-blender` `execute_blender_code` answers printed output alone and drops `result`, a raise answering with its traceback
-- Server tools a script replaces answer a hook refusal naming the replacing call
 
 Use [execution.md](references/execution.md) for script faults and deferred passes.
 

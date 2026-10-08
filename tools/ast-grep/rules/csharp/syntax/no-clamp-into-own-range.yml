@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-clamp-into-own-range
+language: csharp
+severity: error
+utils:
+    limit-read:
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, pattern: $TYPE}
+                - has: {field: name, regex: '^(MinValue|MaxValue)$'}
+            - kind: 'cast_expression, parenthesized_expression, prefix_unary_expression'
+              has: {matches: limit-read}
+    limit:
+        kind: argument
+        has: {matches: limit-read}
+rule:
+    kind: invocation_expression
+    pattern: $CLAMP
+    any:
+        - all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Clamp$'}}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2, matches: limit}}, {has: {kind: argument, nthChild: 3, matches: limit}}]}
+        - all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Min|Max)$'}}
+            - has: {field: arguments, has: {kind: argument, matches: limit}}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    has:
+                        kind: invocation_expression
+                        all:
+                            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Min|Max)$'}}
+                            - has: {field: arguments, has: {kind: argument, matches: limit}}
+message: '`$CLAMP` forces a value into the limits of `$TYPE` and hides the out-of-range case its validation reports'
+note: Pass the unclamped value to the `$TYPE` factory or `Validate` and return its error for a value outside the limits

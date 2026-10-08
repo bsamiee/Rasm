@@ -19,23 +19,6 @@ utils:
             stopBy: end
             matches: holds-reference
             precedes: {stopBy: end, matches: holds-reference}
-    under-1:
-        inside: {matches: swift-nesting-level, stopBy: {matches: swift-nesting-boundary}}
-    under-2:
-        inside: {matches: swift-nesting-level, stopBy: {matches: swift-nesting-boundary}, all: [{matches: under-1}]}
-    under-3:
-        inside: {matches: swift-nesting-level, stopBy: {matches: swift-nesting-boundary}, all: [{matches: under-2}]}
-    body-level-1: {has: {field: body, has: {stopBy: end, matches: swift-nesting-level}}}
-    body-level-2: {has: {field: body, has: {stopBy: end, matches: swift-nesting-level, all: [{matches: under-1}]}}}
-    body-level-3: {has: {field: body, has: {stopBy: end, matches: swift-nesting-level, all: [{matches: under-2}]}}}
-    call-depth-1: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: reference, all: [{matches: under-1}]}}}
-    call-depth-2: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: reference, all: [{matches: under-2}]}}}
-    call-depth-3: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: reference, all: [{matches: under-3}]}}}
-    fourth-level-move:
-        any:
-            - all: [{matches: body-level-1}, {matches: call-depth-3}]
-            - all: [{matches: body-level-2}, {matches: call-depth-2}]
-            - all: [{matches: body-level-3}, {matches: call-depth-1}]
 rule:
     kind: function_declaration
     all:
@@ -51,7 +34,6 @@ rule:
                     swift-single-statement:
                         first: {not: {kind: 'for_statement, while_statement, repeat_while_statement, do_statement, guard_statement, assignment, property_declaration, function_declaration'}}
         - not: {has: {field: body, has: {stopBy: end, matches: reference}}}
-        - not: {matches: fourth-level-move}
         - inside:
             kind: source_file
             stopBy: end
@@ -59,4 +41,4 @@ rule:
                 - has: {stopBy: end, matches: reference}
                 - not: {matches: two-references}
 message: '`$NAME` is a one-expression function with one caller in its file'
-note: 'Write the expression at its call site with arguments in place of parameters'
+note: 'Write the expression at its call site with arguments in place of parameters, and rebuild the logic within three levels where it reaches a fourth'

@@ -49,11 +49,9 @@ internal readonly partial struct StatusOrText;
 
 [SmartEnum]
 internal sealed partial class Channel {
-    public static readonly Channel Email = new("email");
+    public static readonly Channel Email = new(lineLimit: 998);
 
-    public string Name { get; }
-
-    public override string ToString() => Name;
+    public int LineLimit { get; }
 }
 
 [Union]
@@ -90,7 +88,7 @@ union holding smart enum: "Paid"
 union holding complex value object: {"Lower": 1, "Upper": 10, "$type": "Bounds"}
 record with members: {"Status": "Paid", "Total": 99.95, "$type": "Entry"}
 complex value object: {"Lower": 1, "Upper": 10, "$type": "Bounds"}
-keyless smart enum: {"Name": "email", "$type": "Channel"}
+keyless smart enum: {"LineLimit": 998, "$type": "Channel"}
 regular union: {"Radius": 2.5, "$type": "Circle"}
 ```
 

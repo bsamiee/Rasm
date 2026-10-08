@@ -16,8 +16,7 @@ public static class ReferenceCalculations {
 
     // --- [POINT_MOMENTS]
     public static double[] Centroid(double[][] points, Option<double[]> weights = default) {
-        ArgumentOutOfRangeException.ThrowIfZero(points.Length, nameof(points));
-        int dim = points[0].Length;
+        int dim = points is [var first, ..] ? first.Length : throw new ArgumentOutOfRangeException(nameof(points));
         double[] mass = Mass(points.Length, weights);
         double total = mass.Sum();
         Shape(mass.Length == points.Length, "one weight per point", nameof(weights));
@@ -154,7 +153,4 @@ public sealed partial class MatrixNorm {
 
     [UseDelegateFromConstructor]
     public partial double Evaluate(int rows, int columns, Func<int, int, double> at);
-
-    public override string ToString() =>
-        Map(maxAbsoluteEntry: nameof(MaxAbsoluteEntry), l1: nameof(L1), lInfinity: nameof(LInfinity), frobenius: nameof(Frobenius));
 }

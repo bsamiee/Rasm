@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-check-call
+language: csharp
+utils:
+    mutation:
+        kind: invocation_expression
+        has:
+            field: function
+            regex: '(^|\.)(Set|Add|Remove|Delete|Insert|Replace|Modify|Transform|Append|Execute|Invoke|Run|Write|Save|Commit|Purge|Undelete|Clear|Swap|Update|Move|Rotate|Scale|Translate|Reverse|Flip|Close|Open|Register|Unregister|Attach|Detach|Rebuild|Redraw|Load|Import|Export|Dispose)([A-Z0-9_]\w*)?(\s*<.+>)?$'
+    plain-arguments:
+        kind: argument_list
+        not: {has: {stopBy: end, matches: mutation}}
+    lone-argument:
+        kind: argument_list
+        not: {has: {kind: argument, nthChild: 2}}
+    check-callback:
+        kind: argument_list
+        all:
+            - matches: lone-argument
+            - has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: csharp-check-call}}}
+rule:
+    kind: invocation_expression
+    any:
+        - all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|Check|NonEmpty|InRange|Unique)(\s*<.+>)?$'}}
+            - has: {field: arguments, matches: plain-arguments}
+        - all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?guard(\s*<.+>)?$'}
+            - has: {field: arguments, matches: plain-arguments}
+        - all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|Traverse|TraverseM)(\s*<.+>)?$'}}
+            - has: {field: arguments, matches: check-callback}
+        - all:
+            - has: {field: function, kind: member_access_expression, regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<.+>)?$'}
+            - has: {field: arguments, any: [{matches: check-callback}, {all: [{matches: lone-argument}, {has: {kind: argument, has: {matches: csharp-check-call}}}]}]}
+        - all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(As|ToFin|ToValidation|ToEither)$'}}, {has: {field: expression, matches: csharp-check-call}}]}
+            - has: {field: arguments, not: {has: {kind: argument}}}

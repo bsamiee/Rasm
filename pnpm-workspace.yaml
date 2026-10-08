@@ -329,7 +329,7 @@ catalog:
     vite-plugin-svgr: 5.2.0
     vite-plugin-webfont-dl: 3.13.1
     '@octokit/rest': 22.0.1
-    playwright: "1.64.0-alpha-2026-10-05"
+    playwright: "1.65.0-alpha-2026-10-07"
     '@modelcontextprotocol/inspector': 2.9.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
     npm-check-updates: 23.1.0
 

@@ -46,6 +46,6 @@ rule:
 transform:
     LINE: {replace: {source: $SCOPE, replace: '\s*\n[\s\S]*$', by: ''}}
 message: Lambda or control nesting reaches a fourth level at `$LINE`
-note: Flatten the fourth level with a guard clause, one `switch` over combined cases, or an upstream stream operation (`filter`, `flatMap`, `findFirst`, `anyMatch`)
+note: Rebuild the logic within three levels, an extracted helper or inner lambda keeps the fourth level one call away
 labels:
     SCOPE: {style: primary}

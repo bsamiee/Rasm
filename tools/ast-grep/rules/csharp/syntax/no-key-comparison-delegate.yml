@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-key-comparison-delegate
+language: csharp
+severity: error
+utils:
+    row-delegate:
+        kind: lambda_expression
+        all:
+            - has:
+                field: parameters
+                all:
+                    - has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $LEFT}}
+                    - has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $RIGHT}}
+                    - not: {has: {kind: parameter, nthChild: 3}}
+            - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: 'object_creation_expression, implicit_object_creation_expression'}}}
+rule:
+    kind: 'invocation_expression, binary_expression'
+    any:
+        - pattern: $KEY($LEFT).CompareTo($KEY($RIGHT))
+        - pattern: $KEY($LEFT, $$$REST).CompareTo($KEY($RIGHT, $$$REST))
+        - pattern: $LEFT.$KEY.CompareTo($RIGHT.$KEY)
+        - pattern: $LEFT.$KEY($$$REST).CompareTo($RIGHT.$KEY($$$REST))
+        - pattern: $COMPARER.Compare($KEY($LEFT), $KEY($RIGHT))
+        - pattern: $COMPARER.Compare($LEFT.$KEY, $RIGHT.$KEY)
+        - pattern: $KEY($LEFT) - $KEY($RIGHT)
+        - pattern: $LEFT.$KEY - $RIGHT.$KEY
+    inside: {stopBy: end, matches: row-delegate}
+message: Comparison delegate orders both operands through the key `$KEY`, the key as the row delegate states the rule once
+note: Derive the order and every test over the key in one member beside the key delegate

@@ -133,6 +133,7 @@ flowchart LR
 |  [14]   | Swift package version          | `.xcodeproj` package requirement                                                                     |
 |  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
 |  [16]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
+|  [17]   | MCP tool a skill replaces      | `--hide <tool>` on server's `mise.toml` launchd agent row                                            |
 
 - Package rows and `.editorconfig` analyzer rows hold a one-line purpose comment, every other configuration file holds section dividers alone
 - Tool rows name a release where `latest` resolves a development build
@@ -142,7 +143,7 @@ flowchart LR
 
 ## [05]-[QUALITY]
 
-- .NET: Roslyn analyzers at `latest-all`, warnings as errors, code style enforced in build
+- .NET: `dotnet build` and `dotnet format style --verify-no-changes` at zero findings
 - Python: `ruff`, `ty`, and `mypy` at zero findings
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
 - Swift: warnings as errors, strict memory safety, every supported upcoming feature, `swift-format lint --strict` and `swiftlint lint` at zero findings

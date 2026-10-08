@@ -36,4 +36,4 @@ transform:
     GROUPED_B: {replace: {source: $BG, replace: '(?s)^(.+)$', by: '($1)'}}
 fix: '$A$GROUPED_A is$NEGATION distinct from $B$GROUPED_B'
 message: '`$COMPARISON` compares `$LEFT` and `$RIGHT` through the shared default `$X`'
-note: 'Compare with `is not distinct from` or `is distinct from`, the null-safe comparisons SQLite and DuckDB both read'
+note: 'Compare null-safe with `is` and `is not` in SQLite text, `is not distinct from` and `is distinct from` in DuckDB SQL'

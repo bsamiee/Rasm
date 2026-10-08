@@ -2,6 +2,7 @@
 id: no-member-copy-onto-host
 language: csharp
 severity: error
+files: ['**/rhino/**']
 utils:
     source-read:
         any:

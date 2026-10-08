@@ -1,39 +1,45 @@
-# Running Playwright Tests
+# [PLAYWRIGHT_TESTS]
 
-To run Playwright tests, use the `npx playwright test` command, or a package manager script. To avoid opening the interactive html report, use `PLAYWRIGHT_HTML_OPEN=never` environment variable.
+`playwright test -c <project>` runs the tests of the `playwright.config.ts` in directory `<project>` from any directory. Filter arguments are regular expressions over absolute test file paths, `<file>:<line>` selects one test. Runs write each failure's `error-context.md` (error, aria snapshot of the failing locator, source), `.last-run.json`, and the traces, screenshots, and videos `use` turns on under the config's `outputDir`. `--reporter=html` writes the HTML report to the folder and open mode `mise.toml` `[env]` sets:
+- List reporter prints each failure as `<file>:<line>:<column> › <describe> › <test>` with the error, call log, and `Error Context` path
+- `--last-failed` reruns the failures the previous run recorded in `.last-run.json`, after a run without failures it exits `No tests found`
 
-```bash
-# Run all tests
-PLAYWRIGHT_HTML_OPEN=never npx playwright test
+```ts
+import { defineConfig } from 'playwright/test';
 
-# Run all tests through a custom npm script
-PLAYWRIGHT_HTML_OPEN=never npm run special-test-command
+export default defineConfig({
+    testDir: 'tests',
+    outputDir: `${process.env.PLAYWRIGHT_MCP_OUTPUT_DIR}/<project>`,
+});
 ```
 
-# Debugging Playwright Tests
-
-To debug a failing Playwright test, run it with `--debug=cli` option. This command will pause the test at the start and print the debugging instructions.
-
-**IMPORTANT**: run the command in the background and check the output until "Debugging Instructions" is printed. Make sure to stop the command after you have finished.
-
-Once instructions containing a session name are printed, use `playwright-cli` to attach the session and explore the page.
-
 ```bash
-# Run the test
-PLAYWRIGHT_HTML_OPEN=never npx playwright test --debug=cli
-# ...
-# ... debugging instructions for "tw-abcdef" session ...
-# ...
-
-# Attach to the test
-playwright-cli attach tw-abcdef
+playwright test -c <project>
+playwright test -c <project> login.spec.ts:12
+playwright test -c <project> --last-failed
 ```
 
-Keep the test running in the background while you explore and look for a fix.
-The test is paused at the start, so you should step over or pause at a particular location
-where the problem is most likely to be.
+## [01]-[DEBUGGING]
 
-Every action you perform with `playwright-cli` generates corresponding Playwright TypeScript code.
-This code appears in the output and can be copied directly into the test. Most of the time, a specific locator or an expectation should be updated, but it could also be a bug in the app. Use your judgement.
+`--debug=cli` runs one worker, stops after the first failure, keeps the config's headless mode, pauses at the test's first Playwright call (a fixture's call included), and prints `- Run "playwright-cli attach tw-<id>" to attach to this test`. The run stays in the background while the CLI drives the paused page:
+- `attach tw-<id>` from the repository root creates session `tw-<id>`, every later command takes `-s=tw-<id>`
+- Replies while paused end with `### Paused` naming the next call and its absolute `<file>:<line>`
+- `step-over` runs the next call, `pause-at <file>:<line>` runs to the first call on that line, the file matching as a path suffix
+- `pause-at` on a line holding no Playwright call never pauses, the test runs to its end
+- `step-over` on the test's last call or a failing call pauses at `Close context` with the page in its final state
+- Test and expect timeouts stop while paused and run while a stepped call executes
+- `snapshot`, `console`, `requests`, and `eval` read the page at the pause, each action prints `### Ran Playwright code` for the test
+- `resume` runs the test to its end, the run exits and session `tw-<id>` closes
+- `detach` leaves the test paused for a later `attach`, a kill of the background run removes the paused browser
 
-After fixing the test, stop the background test run. Rerun to check that test passes.
+```bash
+playwright test -c <project> login.spec.ts:12 --debug=cli
+
+playwright cli attach tw-<id>
+playwright cli -s=tw-<id> step-over
+playwright cli -s=tw-<id> pause-at login.spec.ts:20
+playwright cli -s=tw-<id> snapshot
+playwright cli -s=tw-<id> console
+playwright cli -s=tw-<id> requests
+playwright cli -s=tw-<id> resume
+```

@@ -1,185 +1,70 @@
-# Test generation (plan → generate → heal)
+# [TEST_GENERATION]
 
-End-to-end workflow for authoring and maintaining Playwright tests with `playwright-cli`. Every `playwright-cli` action emits the equivalent Playwright TypeScript, and that generated code is the raw material for every test. The sections below can be used independently:
+Every `playwright cli` action prints its Playwright TypeScript. Planning writes the scenarios a feature needs to a spec file, generation walks each scenario into a test file, and healing fixes a failing test at its paused page, each through a test paused under `--debug=cli`.
 
-- **How generation works** — the core mechanic everything else relies on: actions become TypeScript, plus how to add assertions.
-- **Plan** — explore the app, produce a spec file describing what to test.
-- **Generate** — turn a spec into Playwright test files. Update the spec if it's vague or stale.
-- **Heal** — diagnose failing tests, fix the code, reconcile the spec with reality.
+Use playwright-tests.md for the paused run and its commands.
 
-Plan / generate / heal lean on the same mechanic: run `npx playwright test --debug=cli` in the background, then `playwright-cli attach tw-XXXX` to drive the paused page interactively. See [playwright-tests.md](playwright-tests.md) for the debug/attach mechanics.
+## [01]-[GENERATION]
 
----
-
-## 0. How generation works
-
-Every action you perform with `playwright-cli` generates corresponding Playwright TypeScript code. This code appears in the output and can be copied directly into your test files.
+Each action prints `### Ran Playwright code` with the line a test runs, role-based locators where the page offers a role and name.
 
 ```bash
-# Start a session
-playwright-cli open https://example.com/login
-
-# Take a snapshot to see elements
-playwright-cli snapshot
-# Output shows: e1 [textbox "Email"], e2 [textbox "Password"], e3 [button "Sign In"]
-
-# Fill form fields - generates code automatically
-playwright-cli fill e1 "user@example.com"
-# Ran Playwright code:
+playwright cli open https://example.com/login
+playwright cli snapshot
+playwright cli fill e1 "user@example.com"
 # await page.getByRole('textbox', { name: 'Email' }).fill('user@example.com');
-
-playwright-cli fill e2 "password123"
-# Ran Playwright code:
+playwright cli fill e2 "password123"
 # await page.getByRole('textbox', { name: 'Password' }).fill('password123');
-
-playwright-cli click e3
-# Ran Playwright code:
+playwright cli click e3
 # await page.getByRole('button', { name: 'Sign In' }).click();
 ```
 
-### Building a test file
+Actions print no assertion, each `expect` comes from a locator and a value read at the page:
+- `--raw generate-locator <ref>` prints the locator expression
+- `--raw eval "el => el.textContent" <ref>` prints the text as a JSON string for `toHaveText`, `el.value` the value for `toHaveValue` and `toBeEmpty`
+- `--raw run-code "page => <locator>.ariaSnapshot()" | jq -r .` prints the `toMatchAriaSnapshot` template, `page.ariaSnapshot()` the whole page
+- Templates take a regular expression for an unstable value
+- Refs printed before `run-code` fail `not found` until the next `snapshot`
+- Locators built from the asserted text take `toBeVisible`, `getByTestId` and `getByLabel` locators take `toHaveText`
 
-Collect the generated code into a Playwright test:
+```bash
+playwright cli --raw generate-locator e5
+# getByRole('button', { name: 'Submit' })
+playwright cli --raw eval "el => el.textContent" e5
+playwright cli --raw eval "el => el.value" e5
+playwright cli --raw run-code "page => page.getByRole('navigation').ariaSnapshot()" | jq -r .
+```
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { expect, test } from 'playwright/test';
 
 test('login flow', async ({ page }) => {
-    // Generated code from playwright-cli session:
     await page.goto('https://example.com/login');
     await page.getByRole('textbox', { name: 'Email' }).fill('user@example.com');
     await page.getByRole('textbox', { name: 'Password' }).fill('password123');
     await page.getByRole('button', { name: 'Sign In' }).click();
 
-    // Add assertions
     await expect(page).toHaveURL(/.*dashboard/);
+    await expect(page.getByRole('alert', { name: 'Success' })).toBeVisible();
+    await expect(page.getByTestId('main-header')).toHaveText('Welcome, user');
+    await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue('user@example.com');
+    await expect(page.getByRole('checkbox', { name: 'Enable notifications' })).toBeChecked();
+    await expect(page.getByRole('navigation')).toMatchAriaSnapshot(`
+        - link "Home"
+        - link /\\d+ new messages?/
+        - link "Profile"
+    `);
 });
 ```
 
-### Use semantic locators
+## [02]-[PLANNING]
 
-The generated code uses role-based locators when possible, which are more resilient:
-
-```typescript
-// Generated (good - semantic)
-await page.getByRole('button', { name: 'Submit' }).click();
-
-// Avoid (fragile - CSS selectors)
-await page.locator('#submit-btn').click();
-```
-
-### Explore before recording
-
-Take snapshots to understand the page structure before recording actions:
-
-```bash
-playwright-cli open https://example.com
-playwright-cli snapshot
-# Review the element structure
-playwright-cli click e5
-```
-
-### Add assertions manually
-
-Generated code captures actions but not assertions. Add expectations in your test using one of the recommended matchers:
-
-- `toBeVisible()` — element is rendered and visible
-- `toHaveText(text)` — element text content matches
-- `toHaveValue(value) / toBeEmpty()` — input/select value matches
-- `toBeChecked() / toBeUnchecked()` — checkbox state matches
-- `toMatchAriaSnapshot(snapshot)` — page (or locator) matches a partial accessibility snapshot
-
-Use `playwright-cli generate-locator <target>` to produce the locator expression for the assertion, and the snapshot/eval commands to capture the expected value.
-
-When asserting text content, make sure that generated locator does not contain text from the element itself. `getByTestId()` or `getByLabel()` usually work well with asserting text. When locator is text-based, prefer `toBeVisible()` instead.
-
-Snapshot to be matched does not have to contain all the information - only capture what's necessary for the assertion. You can use regular expressions for unstable values.
-
-```bash
-# Get a stable locator for an element ref to use in the assertion
-playwright-cli --raw generate-locator e5
-# getByRole('button', { name: 'Submit' })
-
-# Capture expected text content for toHaveText
-playwright-cli --raw eval "el => el.textContent" e5
-
-# Capture expected input value for toHaveValue/toBeEmpty
-playwright-cli --raw eval "el => el.value" e5
-
-# Capture expected aria snapshot for toMatchAriaSnapshot/toBeChecked
-# (whole page, or use a ref to scope to a region)
-playwright-cli --raw snapshot
-playwright-cli --raw snapshot e5
-```
-
-```typescript
-// Generated action
-await page.getByRole('button', { name: 'Submit' }).click();
-
-// Manual assertions using the outputs above:
-await expect(page.getByRole('alert', { name: 'Success' })).toBeVisible();
-await expect(page.getByTestId('main-header')).toHaveText('Welcome, user');
-await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue('user@example.com');
-await expect(page.getByRole('checkbox', { name: 'Enable notifications' })).toBeChecked();
-
-// toMatchAriaSnapshot on the whole page, finds a matching region
-await expect(page).toMatchAriaSnapshot(`
-    - heading "Welcome, user"
-    - link /\\d+ new messages?/
-    - button "Sign out"
-`);
-
-// toMatchAriaSnapshot scoped to a region
-await expect(page.getByRole('navigation')).toMatchAriaSnapshot(`
-    - link "Home"
-    - link /\\d+ new messages?/
-    - link "Profile"
-`);
-```
-
----
-
-## 1. Planning
-
-Goal: produce a spec file (e.g. `specs/<feature>.plan.md`) that enumerates the scenarios to test. **Always** write the spec to a file.
-
-### 1.1 Prerequisite: workspace
-
-Check the workspace has Playwright installed before anything else:
-
-```bash
-# Either of these confirms a workspace:
-test -f playwright.config.ts || test -f playwright.config.js
-npx --no-install playwright --version
-```
-
-If there is no Playwright install, bootstrap one and let the user pick the defaults:
-
-```bash
-npm init playwright@latest
-```
-
-### 1.2 Prerequisite: seed test
-
-A **seed test** is a minimal test that lands the page in the state every scenario starts from: navigation to the app, any required login, feature flags, etc. Scenarios assume a fresh start *after* the seed. `--debug=cli` pauses *inside* this test, so the seed is where every planning and generation session begins.
-
-Minimum viable seed:
-
-```ts
-// tests/seed.spec.ts
-import { test } from '@playwright/test';
-
-test('seed', async ({ page }) => {
-    await page.goto('https://example.com/');
-});
-```
-
-Preferred — push navigation into a fixture so scenario tests reuse it:
+Planning writes `specs/<feature>.plan.md` listing the scenarios to test. Project `playwright.config.ts` names `testDir`, a seed test under it puts the page in the state every scenario starts from (navigation, login, feature flags). `--debug=cli` pauses the seed at its first Playwright call, the fixture's `page.goto`, every planning and generation session begins there.
 
 ```ts
 // tests/fixtures.ts
-import { test as baseTest } from '@playwright/test';
-export { expect } from '@playwright/test';
+import { test as baseTest } from 'playwright/test';
+export { expect } from 'playwright/test';
 
 export const test = baseTest.extend({
     page: async ({ page }, use) => {
@@ -194,53 +79,40 @@ export const test = baseTest.extend({
 import { test } from './fixtures';
 
 test('seed', async ({ page }) => {
-    // Fixture already navigates. This empty body tells agents where to start.
+    // Fixture navigates, scenarios start from this state
 });
 ```
 
-If no seed exists, create one that at least navigates to the app.
-
-### 1.3 Explore the app
-
-Launch the app via the seed in the background and attach:
+Exploration runs through the seed, the page holds the setup the seed performs. `step-over` runs the seed's calls until `### Paused` names `Close context`, the seed's setup done and the page open for every command:
 
 ```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/seed.spec.ts --debug=cli
-# wait for "Debugging Instructions" and the session name tw-XXXX
-playwright-cli attach tw-XXXX
+playwright test -c <project> seed.spec.ts --debug=cli
+playwright cli attach tw-<id>
+playwright cli -s=tw-<id> step-over
+playwright cli -s=tw-<id> snapshot
+playwright cli -s=tw-<id> click e5
+playwright cli -s=tw-<id> eval "location.href"
+playwright cli -s=tw-<id> resume
 ```
 
-Resume so the seed runs, then explore the app:
+Exploration covers:
+- Interactive elements (forms, buttons, lists, filters, modals)
+- Primary user journeys end to end
+- Edge cases (empty states, validation errors, long input, boundary values)
+- Persistence across reload, storage, and URL fragments
+- Controls that change the URL, with back and forward behavior
 
-```bash
-playwright-cli resume                   # resume so that seed test runs fully
-playwright-cli snapshot                 # inventory of interactive elements
-playwright-cli click e5                 # follow a flow
-playwright-cli eval "location.href"     # read URL / state
-playwright-cli show --annotate          # ask the user to point at something
-```
-
-Map out:
-
-- Interactive surfaces (forms, buttons, lists, filters, modals).
-- Primary user journeys end-to-end.
-- Edge cases: empty states, validation errors, very long input, boundary values.
-- Persistence: reload, local/session storage, URL fragments.
-- Navigation: which controls change the URL, back/forward behaviour.
-
-**Important**: Do not just open the app url with playwright-cli, always go through the test to capture any custom setup done there.
-**Important**: Stop the background test when done exploring.
-
-### 1.4 Write the spec file
-
-Save under `specs/<feature>.plan.md`. Use this structure:
+Spec files list groups of scenarios, each scenario independent and starting from the seed's fresh state:
+- Scenario names are kebab-case and name the test file (`should-add-single-todo` is `should-add-single-todo.spec.ts`)
+- Scenarios cover the happy path, edge cases, validation, negative flows, and persistence
+- Steps read at the user level (`Type 'Buy milk' into the input`), each `- expect:` line becomes one assertion
 
 ```markdown
 # <Feature> Test Plan
 
 ## Application Overview
 
-<One paragraph describing what the feature does and why it matters.>
+<One paragraph describing what the feature does>
 
 ## Test Scenarios
 
@@ -260,68 +132,40 @@ Save under `specs/<feature>.plan.md`. Use this structure:
     - expect: <outcome>
 
 #### 1.2. <next-scenario>
-...
 
 ### 2. <Next Group>
 
 **Seed:** `tests/seed.spec.ts`
-...
 ```
 
-Guidelines:
+## [03]-[GENERATE]
 
-- Each scenario is independent and starts from the seed's fresh state — never chain scenarios.
-- Scenario names are kebab-case and match the test file name (`should-add-single-todo` → `should-add-single-todo.spec.ts`).
-- Cover happy path, edge cases, validation, negative flows, persistence.
-- Write steps at the user level ("Type 'Buy milk' into the input"), not the API level ("call `fill`").
-- Put observable outcomes in `- expect:` bullets; each becomes an assertion during generation.
-
----
-
-## 2. Generate
-
-Goal: take a spec file and produce Playwright test files. Optionally update the spec if it has drifted.
-
-### 2.1 Inputs
-
-- **Spec file**, e.g. `specs/basic-operations.plan.md`.
-- **Target**: either a single scenario (e.g. `1.2`), a whole group (`1`), or all.
-- **Seed file**, read from the `**Seed:**` line of the scenario's group.
-
-### 2.2 Generate one scenario
-
-For each target scenario, in sequence (never in parallel — scenarios share the seed session):
+Generation takes a spec file, a target (one scenario `1.2`, one group `1`, or every scenario), and the seed file of the scenario's `**Seed:**` line. Each scenario runs in its own paused seed, one at a time. Live app decides over the spec, a vague step, a missing element, or a contradicted behavior updates the spec line and the walk continues.
 
 ```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test <seed-file> --debug=cli   # background
-playwright-cli attach tw-XXXX
-# resume
+playwright test -c <project> seed.spec.ts --debug=cli
+playwright cli attach tw-<id>
+playwright cli -s=tw-<id> step-over
+playwright cli -s=tw-<id> snapshot
+playwright cli -s=tw-<id> fill e3 "John Doe"
+playwright cli -s=tw-<id> press Enter
+playwright cli -s=tw-<id> click e7
+playwright cli -s=tw-<id> resume
 ```
 
-**Do not** just open the app url with playwright-cli, always go through the test to capture any custom setup done there.
-
-Walk the scenario's `Steps:` one by one with `playwright-cli`, treating the spec as the plan and the live app as the source of truth. If a step is vague ("click the button" — which button?), references an element that no longer exists, or contradicts the app's actual behaviour, use your judgement: update the spec to match what the app really does, then keep going. Editing the spec mid-generation is expected.
-
-Every action prints the equivalent Playwright TypeScript (see [How generation works](#0-how-generation-works)):
-
-```bash
-playwright-cli snapshot                         # find refs
-playwright-cli fill e3 "John Doe"               # -> page.getByRole('textbox', {...}).fill(...)
-playwright-cli press Enter
-playwright-cli click e7
-```
-
-For each `- expect:` bullet, add an explicit assertion. See [How generation works](#0-how-generation-works) for details.
-
-Collect the generated code and write the test file at the path given in the spec:
+Test files collect the printed code at the path the spec names, one test per file, each `- expect:` line as one assertion:
+- File path, describe name, and test name come verbatim from the spec without the ordinal
+- Each numbered step opens with a `// N. <step text>` comment before its actions
+- Imports come from the fixtures file by its path from the test (`../fixtures` under `tests/<group>/`), `playwright/test` without one
+- `resume` ends each scenario's run and session before the next scenario restarts the seed
 
 ```ts
 // spec: specs/basic-operations.plan.md
 // seed: tests/seed.spec.ts
-import { test, expect } from './fixtures';   // or '@playwright/test' if no fixtures file
+import { expect, test } from '../fixtures';
 
 test.describe('Signing in and out', () => {
-    test('should sign in', async ({ page }) => {
+    test('should-sign-in', async ({ page }) => {
         // 1. Navigate to the application
         // (handled by the seed fixture)
 
@@ -332,102 +176,43 @@ test.describe('Signing in and out', () => {
         await page.getByRole('textbox', { name: 'password' }).fill('TestPassword');
 
         // 4. Press Enter to submit
-        await page.getByRole('textbox', { name: 'password' }).press('Enter');
+        await page.keyboard.press('Enter');
 
         await expect(page.getByRole('heading')).toContainText('Welcome, John Doe!');
     });
 });
 ```
 
-Rules:
-
-- **One test per file.** File path, describe name, and test name come verbatim from the spec (minus the ordinal).
-- Prefix each numbered step with a `// N. <step text>` comment before its actions.
-- Use the describe group name verbatim from the spec (no `1.` ordinal).
-- Import from `./fixtures` if the project has one; otherwise `@playwright/test`.
-- **Important**: close the CLI session and stop the background test before moving to the next scenario.
-
-### 2.3 Generate multiple scenarios
-
-Loop 2.2 over the targeted scenarios one at a time, restarting the seed between each so every test starts from a clean page. This is safe to parallelise due to unique generated session names - just make sure each test run is stopped.
-
-### 2.4 Run generated tests
-
-After generation, run the new tests once:
+Generated tests run once, a failure goes to healing:
 
 ```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/<group>/<scenario>.spec.ts
+playwright test -c <project> <scenario>.spec.ts
 ```
 
-Any failure goes to Section 3.
+## [04]-[HEAL]
 
----
+Healing fixes failing tests one error at a time, with a rerun after each fix:
+1. `playwright test -c <project>` lists the failing `<file>:<line>` entries, each with its `error-context.md`
+2. One failing test runs paused in the background, `attach` binds its session, `pause-at <file>:<line>` runs up to the failing action or assertion
+3. `snapshot`, `console`, `requests`, `generate-locator`, and `eval` at the pause name the cause, `step-over` runs the failing call
+4. Corrected interactions run through `playwright cli`, the printed code replaces the failing locator, assertion, step order, or input in the test
+5. `resume` ends the paused run, `--last-failed` reruns the failures, a pass ends the cycle, the next error starts one
+6. `test.fixme()` marks the test after 3 fix-and-rerun cycles when the failure persists and the test reads correct
+7. Fixme comments sit before the failing step and state what happens in place of the expected behavior
 
-## 3. Heal
-
-Goal: fix failing tests, and update the spec if the app's intended behaviour changed.
-
-### 3.1 Find failing tests
+Causes are a changed selector, a new wrapper element, a renamed label or ARIA name, a timing gap, an assertion text the app changed, or data leaking between runs. Web-first assertions wait, `networkidle`, `waitForTimeout`, and skipped hooks stay out of every fix.
 
 ```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test
+playwright test -c <project> <scenario>.spec.ts:<test-line> --debug=cli
+playwright cli attach tw-<id>
+playwright cli -s=tw-<id> pause-at <scenario>.spec.ts:<failing-line>
+playwright cli -s=tw-<id> snapshot
+playwright cli -s=tw-<id> console
+playwright cli -s=tw-<id> requests
+playwright cli -s=tw-<id> --raw generate-locator e10
+playwright cli -s=tw-<id> --raw eval "el => el.textContent" e10
+playwright cli -s=tw-<id> resume
+playwright test -c <project> --last-failed
 ```
 
-Record the list of failing `<file>:<line>` entries and process them one at a time. Do not attempt parallel fixes — shared state and the single CLI session make that fragile.
-
-### 3.2 Debug one failure
-
-Run the single failing test in debug mode in the background, then attach:
-
-```bash
-PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/<group>/<scenario>.spec.ts:<line> --debug=cli
-# wait for "Debugging Instructions" and the tw-XXXX session name
-playwright-cli attach tw-XXXX
-```
-
-The test is paused at the start. Step forward or run to until just before the failing action or assertion, then diagnose:
-
-```bash
-playwright-cli snapshot                # did the element change / move / rename?
-playwright-cli console                 # app-side errors?
-playwright-cli requests                # failed request? wrong payload?
-playwright-cli show --annotate         # ask the user to point somewhere
-```
-
-Common causes: selector drift, new wrapper element, label/ARIA rename, timing (transition, async load), assertion text updated in the app, test data leaking between runs.
-
-Rehearse the corrected interaction with `playwright-cli` — the generated code in the output is what you paste back into the test.
-
-### 3.3 Apply the fix
-
-Edit the test file: update the locator, assertion, step order, or inputs to match the corrected behaviour. Stop the background debug run. Rerun the single test to confirm green.
-
-Never skip hooks or add sleeps as a fix. Never use `networkidle`.
-
-### 3.4 Reconcile with the spec
-
-Open the spec referenced by the `// spec:` header in the test file and locate the scenario that matches the test.
-
-- **Fix was purely technical** (locator drift, better assertion shape) and the spec's user-level behaviour still matches the app → leave the spec alone.
-- **Fix changed user-visible steps, inputs, order, or expected outcomes** that the spec describes → update the spec to match reality. Keep the scenario id and file path stable; only the step / expect lines change.
-- **Unclear whether the app change is intentional** (spec is stale) **or a regression** (test was right, app is wrong) → **stop and ask the user**. Provide:
-  - the scenario id (e.g. `2.3`),
-  - the spec lines that no longer match,
-  - the observed app behaviour (quote a snapshot excerpt or a concrete outcome).
-
-Only after the user answers, either update the spec (intentional change) or file/flag the test as covering a bug (regression).
-
-### 3.5 Iteration and giving up
-
-- Fix failures one at a time; rerun after each.
-- If after thorough investigation you are confident the test is correct but the app is wrong *and* the user has confirmed it's a bug: mark the test `test.fixme(...)` with a comment pointing at the user's decision or issue link. Never silently skip.
-
----
-
-## Cross-references
-
-| For... | See |
-|---|---|
-| `--debug=cli` / attach mechanics | [playwright-tests.md](playwright-tests.md) |
-| Mocking requests during exploration/generation | [request-mocking.md](request-mocking.md) |
-| Managing the CLI browser session | [session-management.md](session-management.md) |
+Spec files the test's `// spec:` header names reconcile with the fix at the matching scenario. Technical fixes (locator drift, assertion shape) leave the spec alone, fixes that change user-visible steps, inputs, order, or outcomes update the step and expect lines with the scenario id and file path kept.

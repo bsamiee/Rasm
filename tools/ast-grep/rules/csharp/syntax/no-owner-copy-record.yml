@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-owner-copy-record
+language: csharp
+severity: error
+utils:
+    owner-type:
+        kind: 'class_declaration, record_declaration, struct_declaration'
+    owner-value:
+        kind: identifier
+        pattern: $VALUE
+        inside:
+            stopBy: {matches: owner-type}
+            matches: owner-type
+            any:
+                - has: {field: body, has: {kind: property_declaration, has: {field: name, pattern: $VALUE}}}
+                - has: {field: body, has: {kind: field_declaration, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $VALUE}}}}}
+                - has: {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $VALUE}}}
+    copied-argument:
+        kind: argument
+        has:
+            nthChild: 1
+            any:
+                - matches: owner-value
+                - kind: member_access_expression
+                  all:
+                    - has: {field: expression, regex: '^this$'}
+                    - has: {field: name, matches: owner-value}
+    copy:
+        kind: 'object_creation_expression, implicit_object_creation_expression'
+        has:
+            kind: argument_list
+            all:
+                - has: {kind: argument, nthChild: 2}
+                - not: {has: {kind: argument, not: {matches: copied-argument}}}
+rule:
+    kind: 'property_declaration, method_declaration'
+    all:
+        - has: {field: name, pattern: $NAME}
+        - any:
+            - has: {field: type, pattern: $TYPE}
+            - has: {field: returns, pattern: $TYPE}
+        - not: {inside: {stopBy: {matches: owner-type}, matches: owner-type, has: {field: name, pattern: $TYPE}}}
+        - has: {kind: arrow_expression_clause, has: {nthChild: 1, matches: copy}}
+message: '`$NAME` copies members of its owner into `$TYPE`, members on the owner state what `$TYPE` derives'
+note: Declare each member of `$TYPE` on the owner holding its inputs, and delete `$TYPE` when no other producer builds it

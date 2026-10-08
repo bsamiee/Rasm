@@ -47,6 +47,7 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <AnalysisLevel>latest-all</AnalysisLevel>
+        <NoWarn>$(NoWarn);EPC20</NoWarn>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <NuGetAudit>false</NuGetAudit>

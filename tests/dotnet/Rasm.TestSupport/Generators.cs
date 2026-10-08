@@ -125,6 +125,7 @@ public static class Generators {
         select (Original: bytes, Corrupted: (byte[])[.. bytes.Select((value, position) => position == index ? (byte)(value ^ mask) : value)]);
 
     // --- [RESULT]
+    private const int Weights = 100;
     public static readonly Gen<Error> Errors = Gen.OneOfConst<Error>(new GeneratedError.Missing(), new GeneratedError.Rejected(), new GeneratedError.Canceled(), new GeneratedError.Conflict());
     public static readonly Gen<Error> ErrorsFromExceptions = Gen.OneOfConst<Exception>(
             new InvalidOperationException("generated invalid operation"),
@@ -136,11 +137,11 @@ public static class Generators {
     public static Gen<Fin<T>> FinOf<T>(Gen<T> success, Gen<Error> error, int successWeight = 80) =>
         Gen.Frequency(
             (successWeight, success.Select(static Fin<T> (value) => value)),
-            (100 - successWeight, error.Select(static Fin<T> (generatedError) => generatedError)));
+            (Weights - successWeight, error.Select(static Fin<T> (generatedError) => generatedError)));
     public static Gen<Option<T>> OptionOf<T>(Gen<T> some, int someWeight = 80) =>
         Gen.Frequency(
             (someWeight, some.Select(static Option<T> (v) => v)),
-            (100 - someWeight, Gen.Const(Option<T>.None)));
+            (Weights - someWeight, Gen.Const(Option<T>.None)));
     public static Gen<Validation<Error, T>> ValidationOf<T>(Gen<T> success) => ValidationOf(success, Errors);
     public static Gen<Validation<Error, T>> ValidationOf<T>(Gen<T> success, Gen<Error> error) =>
         Gen.OneOf(

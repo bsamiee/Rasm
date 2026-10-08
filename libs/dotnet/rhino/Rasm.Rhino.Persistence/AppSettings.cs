@@ -18,8 +18,6 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Persistence;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-public delegate (double Nudge, double Ctrl, double Shift) NudgeSteps(double resolution, ConstructionPlaneGridDefaults grid);
-
 public enum CommandPromptLocation { SeparatePanel = 0, SideBar = 1, CommandHistory = 2 }
 
 public enum CommandPromptStyle { Links = 0, Graphical = 1, Buttons = 2 }
@@ -259,7 +257,7 @@ public static class AppSettings {
         select written;
 
     // --- [MODEL_AIDS]
-    public static IO<IDisposable> NudgeFollowsActiveDocument(NudgeSteps steps, Action<Error> reject) =>
+    public static IO<IDisposable> NudgeFollowsActiveDocument(Func<double, ConstructionPlaneGridDefaults, (double Nudge, double Ctrl, double Shift)> steps, Action<Error> reject) =>
         from nudged in NudgeActiveDocument(steps)
         from attached in Events.AttachAll(
             Seq(
@@ -270,10 +268,10 @@ public static class AppSettings {
             reject)
         select attached;
 
-    private static IO<Unit> NudgeActiveDocument(NudgeSteps steps) =>
+    private static IO<Unit> NudgeActiveDocument(Func<double, ConstructionPlaneGridDefaults, (double Nudge, double Ctrl, double Shift)> steps) =>
         IO.lift(static () => Optional(RhinoDoc.ActiveDoc)).Bind(doc => doc.Traverse(active => Nudge(active, steps)).As()).Map(static _ => unit);
 
-    private static IO<Unit> Nudge(RhinoDoc doc, NudgeSteps steps) =>
+    private static IO<Unit> Nudge(RhinoDoc doc, Func<double, ConstructionPlaneGridDefaults, (double Nudge, double Ctrl, double Shift)> steps) =>
         from resolution in IO.lift(() => DisplayResolution(doc))
         from grid in IO.lift(doc.GetGridDefaults)
         from written in IO.lift(() => (ModelAidSettings.NudgeKeyStep, ModelAidSettings.CtrlNudgeKeyStep, ModelAidSettings.ShiftNudgeKeyStep) = steps(resolution, grid))

@@ -18,7 +18,9 @@
 - Commits and pushes happen on user request alone
 
 - Non-trivial work starts with a task file under tmp outside the project, holding every task with its facts and nothing else
+- Put status notes in the same message as your next action
 - Proactively delegate work to sub-agents for search, research, ideation, and writing, never tackle large solo when total workload is non-trivial
+- NEVER do prose validation on tmp/planning or other `.md` documents that are not going to be living in the project long-term
 - Any `.md` file that is durable, and part of the project receives a focused adversarial review with `clean-prose` fully read and focused on the git-diff/modified content
 - All code files are adversarially reviewed to rebuild aggressively, initial code is always slop, skills, memory, `CLAUDE/AGENTS.md`, and similar determine quality
 - Reviews are adversarial, reviewers assume code is wrong and commit corrections, a report stands where a task or skill asks for one
@@ -41,7 +43,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `manage-repo` skill for Nx targets, tooling, infrastructure, and CI
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
-- ALWAYS use `playwright:playwright-cli` skill for a browser, run as `playwright cli`, the plugin's `playwright` MCP server when each step depends on the last snapshot
+- ALWAYS use `playwright:playwright-cli` skill for a browser, a page, a Playwright test, or a trace
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `use-rhino` skill for Rhino and Grasshopper
 - ALWAYS use `use-blender` skill for Blender

@@ -33,11 +33,94 @@ utils:
               all:
                 - not: {regex: '^(global::)?(System\.)?(Func|Action)\s*<'}
                 - has: {field: name, matches: generic-type}
+    pinned-allocation:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                regex: '^(global::)?(System\.)?GC\.Allocate(Uninitialized)?Array\s*<'
+                has: {field: name, has: {kind: type_argument_list, has: {pattern: $ELEMENT}}}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    any:
+                        - regex: '^pinned\s*:\s*true$'
+                        - {nthChild: 2, regex: '^true$'}
+    pinned-array:
+        all:
+            - has: {field: type, kind: array_type, has: {field: type, pattern: $ELEMENT}}
+            - any:
+                - kind: property_declaration
+                  has: {field: name, pattern: $NAME}
+                - kind: variable_declaration
+                  has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+            - any:
+                - has: {field: value, matches: pinned-allocation}
+                - has: {kind: variable_declarator, has: {matches: pinned-allocation}}
+                - inside:
+                    stopBy: end
+                    kind: declaration_list
+                    has:
+                        stopBy: end
+                        kind: assignment_expression
+                        all:
+                            - has: {field: left, any: [{pattern: $NAME}, {has: {stopBy: end, pattern: $NAME}}]}
+                            - has: {field: right, any: [{matches: pinned-allocation}, {has: {stopBy: end, matches: pinned-allocation}}]}
+    field-reference:
+        not: {inside: {stopBy: end, kind: constructor_declaration}}
+        any:
+            - kind: identifier
+              pattern: $NAME
+              not: {inside: {field: name, kind: 'member_access_expression, variable_declarator, parameter'}}
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, regex: '^this$'}
+                - has: {field: name, pattern: $NAME}
+    whole-argument:
+        inside:
+            kind: argument
+            not: {has: {regex: '^(ref|out)$'}}
+            inside:
+                kind: argument_list
+                inside:
+                    kind: invocation_expression
+                    not: {has: {field: function, regex: '^(global::)?(System\.)?Array\.'}}
+    field-read:
+        any:
+            - matches: whole-argument
+            - inside: {field: expression, kind: member_access_expression, has: {field: name, regex: '^Length$'}}
+            - inside:
+                field: expression
+                kind: element_access_expression
+                not:
+                    any:
+                        - inside: {field: left, kind: assignment_expression}
+                        - inside: {kind: 'prefix_unary_expression, postfix_unary_expression', has: {regex: '^(\+\+|--)$'}}
+                        - inside: {kind: ref_expression}
+                        - inside: {kind: argument, has: {regex: '^(ref|out)$'}}
+    confined-array:
+        kind: variable_declaration
+        all:
+            - has: {field: type, kind: array_type}
+            - has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+            - inside:
+                kind: field_declaration
+                all:
+                    - has: {kind: modifier, regex: '^readonly$'}
+                    - not: {has: {kind: modifier, regex: '^(public|internal|protected)$'}}
+                inside:
+                    kind: declaration_list
+                    all:
+                        - has: {stopBy: end, all: [{matches: field-reference}, {matches: whole-argument}]}
+                        - not: {has: {stopBy: end, matches: field-reference, not: {matches: field-read}}}
 rule:
     matches: csharp-record-member
-    has:
-        field: type
-        pattern: $TYPE
-        matches: mutable-within
+    all:
+        - has:
+            field: type
+            pattern: $TYPE
+            matches: mutable-within
+        - not: {any: [{matches: pinned-array}, {matches: confined-array}]}
 message: 'Field of type `$TYPE` holds a mutable collection'
 note: Use `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, or `LanguageExt.HashSet<A>`, with input copied through `toSeq` at the boundary

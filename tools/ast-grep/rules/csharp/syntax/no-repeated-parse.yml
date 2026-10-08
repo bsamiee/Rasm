@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-parse
+language: csharp
+severity: error
+utils:
+    parse-call:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(Try)?Parse(Exact)?$'}
+                    - has: {field: expression, pattern: $RECEIVER}
+            - any:
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, not: {has: {regex: '^(out|ref)$'}}, pattern: $POLICY}}
+                - not: {has: {field: arguments, has: {kind: argument, nthChild: 2, not: {has: {regex: '^(out|ref)$'}}}}}
+    reader:
+        kind: method_declaration, property_declaration, field_declaration, constructor_declaration, operator_declaration, indexer_declaration, local_function_statement, class_declaration, record_declaration, struct_declaration, interface_declaration, namespace_declaration
+    unary:
+        kind: method_declaration, local_function_statement
+        has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $PARAMETER}}}, {not: {has: {kind: parameter, nthChild: 2}}}]}
+    owner-body:
+        inside: {kind: arrow_expression_clause, inside: {matches: unary}}
+    owner:
+        matches: unary
+        all:
+            - has: {field: name, pattern: $OWNER}
+            - has:
+                field: body
+                kind: arrow_expression_clause
+                all:
+                    - has: {pattern: '$RECEIVER.$METHOD($PARAMETER, $$$)'}
+                    - has: {pattern: '$_RECEIVER.$_METHOD($PARAMETER, $$$REST)'}
+    plain-owner:
+        matches: unary
+        all:
+            - has: {field: name, pattern: $OWNER}
+            - has: {field: body, kind: arrow_expression_clause, has: {pattern: '$RECEIVER.$METHOD($PARAMETER)'}}
+    owned:
+        any:
+            - all:
+                - pattern: $RECEIVER.$METHOD($ARGUMENT, $$$REST)
+                - not: {matches: owner-body}
+                - inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: owner}}
+            - all:
+                - pattern: $RECEIVER.$METHOD($ARGUMENT)
+                - not: {matches: owner-body}
+                - inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: plain-owner}}
+            - all:
+                - pattern: $RECEIVER.$METHOD($ARGUMENT, $$$REST)
+                - inside: {kind: arrow_expression_clause, inside: {matches: unary, follows: {stopBy: end, matches: owner}}}
+            - all:
+                - pattern: $RECEIVER.$METHOD($ARGUMENT)
+                - inside: {kind: arrow_expression_clause, inside: {matches: unary, follows: {stopBy: end, matches: plain-owner}}}
+rule:
+    all:
+        - pattern: $PARSE
+        - matches: parse-call
+        - any:
+            - matches: owned
+            - all:
+                - pattern: $SAME
+                - not: {matches: owner-body}
+                - inside:
+                    stopBy: end
+                    matches: reader
+                    follows: {stopBy: end, has: {stopBy: end, matches: parse-call}}
+transform:
+    WRAPPED: {replace: {source: $ARGUMENT, replace: '^((?s).*)$', by: '($1)'}}
+fix: $OWNER$WRAPPED$SAME
+message: '`$PARSE` repeats a parse an earlier reader of the file runs'
+note: Parse once at the owner of the text, a value object or smart enum member, and read the parsed value at every other reader

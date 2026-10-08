@@ -132,64 +132,81 @@ utils:
     declared-union:
         kind: class_declaration, record_declaration, struct_declaration
         has: {field: name, pattern: $UNION}
+    dispatch-arm:
+        kind: switch_expression_arm, switch_section
+        all:
+            - any:
+                - matches: case-arm
+                - has:
+                    kind: when_clause
+                    has:
+                        stopBy: end
+                        any:
+                            - kind: qualified_name
+                              has: {field: qualifier, matches: union-name}
+                            - kind: member_access_expression
+                              has: {field: expression, matches: union-name}
+            - not: {matches: catch-all}
     union-switch:
-        any:
-            - all:
-                - any: [{has: {matches: case-arm}}, {has: {field: body, has: {matches: case-arm}}}]
-                - inside:
-                    kind: compilation_unit
-                    stopBy: end
-                    has:
+        all:
+            - any:
+                - all:
+                    - any: [{has: {matches: case-arm}}, {has: {field: body, has: {matches: case-arm}}}]
+                    - inside:
+                        kind: compilation_unit
                         stopBy: end
-                        matches:
-                            csharp-file-union:
-                                name: {pattern: $UNION}
-            - all:
-                - any: [{has: {matches: typed-arm}}, {has: {field: body, has: {matches: typed-arm}}}]
-                - has: {nthChild: 1, matches: governed}
-            - all:
-                - any: [{has: {matches: simple-typed-arm}}, {has: {field: body, has: {matches: simple-typed-arm}}}]
-                - any: [{has: {matches: other-case-arm}}, {has: {field: body, has: {matches: other-case-arm}}}]
-            - all:
-                - any: [{has: {matches: own-case}}, {has: {field: body, has: {matches: own-case}}}]
-                - inside:
-                    stopBy: end
-                    all:
-                        - matches:
-                            csharp-file-union:
-                                name: {pattern: $UNION}
-                        - has:
-                            kind: declaration_list
-                            has:
-                                kind: record_declaration, class_declaration
-                                has: {field: name, pattern: $CASE}
-            - all:
-                - has: {nthChild: 1, matches: governed}
-                - inside:
-                    kind: compilation_unit
-                    stopBy: end
-                    has:
+                        has:
+                            stopBy: end
+                            matches:
+                                csharp-file-union:
+                                    name: {pattern: $UNION}
+                - all:
+                    - any: [{has: {matches: typed-arm}}, {has: {field: body, has: {matches: typed-arm}}}]
+                    - has: {nthChild: 1, matches: governed}
+                - all:
+                    - any: [{has: {matches: simple-typed-arm}}, {has: {field: body, has: {matches: simple-typed-arm}}}]
+                    - any: [{has: {matches: other-case-arm}}, {has: {field: body, has: {matches: other-case-arm}}}]
+                - all:
+                    - any: [{has: {matches: own-case}}, {has: {field: body, has: {matches: own-case}}}]
+                    - inside:
                         stopBy: end
-                        matches: declared-union
-                        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(SmartEnum|Union|AdHocUnion)(Attribute)?(<.+>)?$'}}}
-            - all:
-                - has: {nthChild: 1, matches: governed-key}
-                - inside:
-                    kind: compilation_unit
-                    stopBy: end
-                    has:
+                        all:
+                            - matches:
+                                csharp-file-union:
+                                    name: {pattern: $UNION}
+                            - has:
+                                kind: declaration_list
+                                has:
+                                    kind: record_declaration, class_declaration
+                                    has: {field: name, pattern: $CASE}
+                - all:
+                    - has: {nthChild: 1, matches: governed}
+                    - inside:
+                        kind: compilation_unit
                         stopBy: end
-                        matches: declared-union
-                        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?SmartEnum(Attribute)?(<.+>)?$'}}}
-            - all:
-                - has: {nthChild: 1, matches: governed-value}
-                - inside:
-                    kind: compilation_unit
-                    stopBy: end
-                    has:
+                        has:
+                            stopBy: end
+                            matches: declared-union
+                            has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(SmartEnum|Union|AdHocUnion)(Attribute)?(<.+>)?$'}}}
+                - all:
+                    - has: {nthChild: 1, matches: governed-key}
+                    - inside:
+                        kind: compilation_unit
                         stopBy: end
-                        matches: declared-union
-                        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(Union(Attribute)?<.+>|AdHocUnion(Attribute)?)$'}}}
+                        has:
+                            stopBy: end
+                            matches: declared-union
+                            has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?SmartEnum(Attribute)?(<.+>)?$'}}}
+                - all:
+                    - has: {nthChild: 1, matches: governed-value}
+                    - inside:
+                        kind: compilation_unit
+                        stopBy: end
+                        has:
+                            stopBy: end
+                            matches: declared-union
+                            has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(Union(Attribute)?<.+>|AdHocUnion(Attribute)?)$'}}}
+            - any: [{has: {matches: dispatch-arm}}, {has: {field: body, has: {matches: dispatch-arm}}}]
     catch-all-pattern:
         any:
             - kind: discard, var_pattern

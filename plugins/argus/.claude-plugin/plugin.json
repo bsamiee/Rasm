@@ -6,12 +6,6 @@
         "name": "Bardia Samiee"
     },
     "userConfig": {
-        "solution": {
-            "type": "string",
-            "title": "C# solution",
-            "description": "Solution file csharp-ls loads, relative to the project root",
-            "default": "Workspace.slnx"
-        },
         "javaWorkspace": {
             "type": "string",
             "title": "Java workspace",

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Drafting standards for sheets, title blocks, drawing scales, lines, lettering, and CAD naming</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+</Project>

@@ -18,6 +18,9 @@ defaults:
     run:
         shell: bash
 
+env:
+    DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+
 jobs:
     check:
         runs-on: ubuntu-26.04

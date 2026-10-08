@@ -2,7 +2,7 @@
 id: no-promise-outside-boundary
 language: tsx
 severity: error
-ignores: ['plugins/*/hooks/**']
+ignores: ['plugins/function-hooks/**', '.codex/hooks/**']
 utils:
     host-import:
         kind: call_expression

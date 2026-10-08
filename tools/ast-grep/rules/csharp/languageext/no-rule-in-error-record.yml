@@ -6,16 +6,16 @@ utils:
     limit-literal:
         kind: 'integer_literal, real_literal'
         not: {regex: '^0+(\.0+)?[dDfFmM]?$'}
-    argument-name:
-        kind: identifier
-        pattern: $NAME
-        inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $NAME}}}}
-    limit-name:
+    argument-read:
         any:
             - kind: identifier
-              not: {matches: argument-name}
+              pattern: $NAME
+              inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $NAME}}}}
             - kind: member_access_expression
-              has: {field: expression, kind: identifier, not: {matches: argument-name}}
+              has: {field: expression, matches: argument-read}
+    limit-name:
+        kind: 'identifier, member_access_expression'
+        not: {matches: argument-read}
     limit-comparison:
         kind: binary_expression
         all:
@@ -30,9 +30,7 @@ utils:
     guarded-value:
         any:
             - regex: '^unit$'
-            - kind: identifier
-              pattern: $VALUE
-              inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $VALUE}}}}
+            - matches: argument-read
     guard-factory:
         kind: method_declaration
         any:
@@ -78,6 +76,11 @@ rule:
             - any:
                 - has: {kind: modifier, regex: '^static$'}
                 - has: {field: value, kind: arrow_expression_clause}
+                - has: {field: accessors, has: {kind: accessor_declaration, has: {field: body, kind: 'arrow_expression_clause, block'}}}
+            - not: {matches: inherited}
+        - kind: indexer_declaration
+          all:
+            - has: {regex: '^this$', pattern: $$MEMBER}
             - not: {matches: inherited}
         - kind: operator_declaration
           has: {field: operator, pattern: $$MEMBER}
@@ -87,6 +90,6 @@ rule:
           all:
             - has: {field: name, pattern: $MEMBER}
             - not: {any: [{matches: guard-factory}, {matches: inherited}]}
-    inside: {kind: declaration_list, inside: {matches: csharp-error-record}}
+    inside: {stopBy: end, kind: declaration_list, inside: {matches: csharp-error-record}}
 message: '`$MEMBER` declares a limit or an operation on an error record'
 note: Use the raising operations class for limits and operations, an error record holds its fields, `Unless` guard, and `Create(string)` factory alone

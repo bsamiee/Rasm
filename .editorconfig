@@ -269,7 +269,6 @@ dotnet_diagnostic.RCS1143.severity = error                                    # 
 dotnet_diagnostic.RCS1145.severity = error                                    # Hidden by default: remove as to the operand's own type
 dotnet_diagnostic.RCS1154.severity = error                                    # Enum members sorted by value
 dotnet_diagnostic.RCS1157.severity = error                                    # Composite enum value with an undefined flag
-dotnet_diagnostic.RCS1161.severity = error                                    # Hidden by default: explicit enum member values
 dotnet_diagnostic.RCS1162.severity = error                                    # Off by default: no x = y = z chains
 dotnet_diagnostic.RCS1164.severity = error                                    # Unused type parameter
 dotnet_diagnostic.RCS1165.severity = error                                    # Hidden by default: unconstrained T compared to null
@@ -395,8 +394,8 @@ roslynator_doc_comment_summary_style = single_line                            # 
 roslynator_object_creation_parentheses_style = omit                           # RCS1050: new T { } without parentheses
 
 # --- [IDE_QUALITY_RULES] ----------------------------------------------------------------
-dotnet_diagnostic.IDE0001.severity = error                                    # Hidden by default and IDE-only: simplify qualified names, `dotnet format` rewrites them and the build never reports them
-dotnet_diagnostic.IDE0002.severity = error                                    # Hidden by default and IDE-only: simplify qualified member access, same route as IDE0001
+dotnet_diagnostic.IDE0001.severity = error                                    # Simplify qualified names
+dotnet_diagnostic.IDE0002.severity = error                                    # Simplify qualified member access
 dotnet_diagnostic.IDE0004.severity = error                                    # Remove unnecessary casts
 dotnet_diagnostic.IDE0005.severity = error                                    # Remove unnecessary using directives
 dotnet_diagnostic.IDE0035.severity = error                                    # Remove unreachable code

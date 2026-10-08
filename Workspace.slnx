@@ -8,6 +8,10 @@
     <Folder Name="/eng/dotnet/">
         <Project Path="eng/dotnet/Rasm.Upgrade/Rasm.Upgrade.csproj" />
     </Folder>
+    <Folder Name="/libs/dotnet/">
+        <Project Path="libs/dotnet/Rasm.Drafting/Rasm.Drafting.csproj" />
+        <Project Path="libs/dotnet/Rasm.Imaging/Rasm.Imaging.csproj" />
+    </Folder>
     <Folder Name="/libs/dotnet/rhino/">
         <Project Path="libs/dotnet/rhino/Rasm.Rhino.Annotation/Rasm.Rhino.Annotation.csproj" />
         <Project Path="libs/dotnet/rhino/Rasm.Rhino.Blocks/Rasm.Rhino.Blocks.csproj" />

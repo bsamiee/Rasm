@@ -87,7 +87,32 @@ rule:
                                 nthChild: {position: 1, reverse: true}
                                 any:
                                     - kind: predefined_type
-                                    - regex: '^((global::)?System\.Numerics\.)?(Vector[234]|Quaternion|Matrix3x2|Matrix4x4|Complex)$'
+                                    - kind: identifier, qualified_name, generic_name
+                                      regex: |-
+                                        (?x)^(global::)?(
+                                            (System\.)?(Half|U?Int128)
+                                            |(System\.Runtime\.InteropServices\.)?NFloat
+                                            |(System\.Numerics\.)?(Vector[234]|Plane|Quaternion|Matrix3x2|Matrix4x4|Complex|Vector<.+>)
+                                            |(System\.Runtime\.Intrinsics\.)?Vector(64|128|256|512)<.+>
+                                            |(SixLabors\.ImageSharp\.PixelFormats\.)?(
+                                                (A|Abgr|Argb|Bgr|Bgra|L|La|Rg|Rgb|Rgba)\d+P?
+                                                |(Normalized)?(Byte|Short)[24]P?
+                                                |Half(Single|Vector[24]P?)
+                                                |RgbaHalfP?
+                                                |RgbaVector
+                                            )
+                                        )$
+                                    - kind: identifier
+                                      pattern: $PARAMETER
+                                      inside:
+                                        stopBy: end
+                                        has:
+                                            kind: type_parameter_constraints_clause
+                                            all:
+                                                - has: {kind: identifier, pattern: $PARAMETER}
+                                                - has:
+                                                    kind: type_parameter_constraint
+                                                    has: {field: type, regex: '^(global::)?((System\.Numerics\.)?I(BinaryInteger|(Binary)?FloatingPointIeee754)|(SixLabors\.ImageSharp\.PixelFormats\.)?IPixel)<'}
                 - any:
                     - all:
                         - has: {field: expression, regex: '^(global::)?(System\.)?(Runtime\.CompilerServices\.)?Unsafe$'}

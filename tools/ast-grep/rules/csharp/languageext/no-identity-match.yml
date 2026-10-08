@@ -3,100 +3,24 @@ id: no-identity-match
 language: csharp
 severity: error
 utils:
-    same-value:
-        any:
-            - pattern: $VALUE
-            - kind: parenthesized_expression
-              has: {matches: same-value}
-    returned-value:
-        any:
-            - matches: same-value
-            - kind: block
-              all:
-                - has:
-                    kind: return_statement
-                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                    has: {matches: same-value}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-    identity-binding:
-        any:
-            - kind: parameter, variable_declarator, local_function_statement, declaration_pattern, declaration_expression, catch_declaration, from_clause
-              has: {field: name, regex: '^identity$'}
-            - kind: foreach_statement
-              has: {field: left, regex: '^identity$'}
-            - kind: tuple_pattern, let_clause, join_clause
-              has: {kind: identifier, regex: '^identity$'}
-            - kind: implicit_parameter
-              regex: '^identity$'
-    identity-callback:
-        any:
-            - regex: '^(global::)?(LanguageExt\.)?Prelude\.identity(\s*<.+>)?$'
-            - all:
-                - regex: '^identity(\s*<.+>)?$'
-                - not:
-                    inside:
-                        stopBy: end
-                        any:
-                            - kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, operator_declaration, accessor_declaration
-                              has: {stopBy: end, matches: identity-binding}
-                            - kind: class_declaration, struct_declaration, record_declaration, interface_declaration
-                              has:
-                                field: body
-                                has:
-                                    kind: field_declaration, property_declaration, method_declaration
-                                    any:
-                                        - has: {field: name, regex: '^identity$'}
-                                        - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, regex: '^identity$'}}}
-            - matches:
-                csharp-unary-callback:
-                    parameter: {pattern: $VALUE}
-                    body: {matches: returned-value}
-            - matches: relay-identity
-    relay-identity:
+    relay:
         kind: identifier
-        all:
-            - pattern: $RELAY
-            - inside:
-                kind: compilation_unit
-                stopBy: end
-                has:
-                    stopBy: end
-                    kind: method_declaration, local_function_statement
-                    all:
-                        - has: {field: name, pattern: $RELAY}
-                        - any:
-                            - has: {field: returns, pattern: $RELAY_TYPE}
-                            - has: {field: type, pattern: $RELAY_TYPE}
-                        - has:
-                            field: parameters
-                            has:
-                                kind: parameter
-                                all:
-                                    - has: {field: name, pattern: $VALUE}
-                                    - has: {field: type, pattern: $RELAY_TYPE}
-                                not: {has: {kind: 'modifier, attribute_list'}}
-                            not: {has: {kind: parameter, nthChild: 2}}
-                        - has:
-                            field: body
-                            any:
-                                - kind: arrow_expression_clause
-                                  has: {matches: same-value}
-                                - kind: block
-                                  matches: returned-value
+        not: {regex: '^identity$'}
+        matches: csharp-identity-function
     relayed:
         has:
             field: arguments
             has:
                 kind: argument
                 any:
-                    - matches: relay-identity
-                    - has: {matches: relay-identity}
+                    - matches: relay
+                    - has: {matches: relay}
     identity-argument:
         kind: argument
         pattern: $IDENTITY_ARGUMENT
         any:
-            - matches: identity-callback
-            - has: {matches: identity-callback}
+            - matches: csharp-identity-function
+            - has: {matches: csharp-identity-function}
     positional:
         kind: argument
         not: {has: {field: name, pattern: $_}}

@@ -63,7 +63,6 @@ Table `observation(event, ts, session_id, prompt_id, agent_id, tool, tool_use_id
 - `turn.start` rows come from the main loop alone, subagent runs write `turn.step` rows and one `turn.complete` row under their `agent_id`
 - Resumed subagent runs write one more `SubagentStart` and `turn.complete` row under the same `agent_id`
 - Agents from `$.agent.spawn` hold `SubagentStart`, `turn.step`, `turn.complete`, and refused `tool.call` rows alone and no `background_tasks` entry
-- Category agent's `turn.complete` adds `placed`, the untracked or modified files under `sgconfig.yml` rule and util directories
 - Classic rows hold `cwd` and `transcript_path`, subagent rows `agent_type`
 - `permission_mode` and `effort` appear on classic rows where the event supplies them
 - `Stop` and `SessionEnd` rows hold `$.session.usage()` as `usage` with `context`, `cost`, and `rateLimits`
@@ -80,7 +79,7 @@ Table `observation(event, ts, session_id, prompt_id, agent_id, tool, tool_use_id
 |  [04]   | `PostToolUse` `Edit`  | `tool_response{structuredPatch}`                                                                          |
 |  [05]   | `PostToolUse` `Agent` | `tool_response{agentId, agentType, resolvedModel, status, isAsync, usage, totalTokens, totalDurationMs}`  |
 |  [06]   | `PostToolUse` `Bash`  | `tool_response.gitOperation.commit{sha, kind, branch}` on a commit                                        |
-|  [07]   | `PostToolUseFailure`  | `tool_input`, `error`, `is_interrupt`, `duration_ms`                                                      |
+|  [07]   | `PostToolUseFailure`  | `tool_input`, `error` opening `Exit code <n>` on a Bash exit, `is_interrupt`, `duration_ms`               |
 |  [08]   | `PostToolBatch`       | `tool_calls[]{tool_name, tool_use_id, tool_input}`                                                        |
 |  [09]   | `PermissionDenied`    | `tool_input`, `reason`, auto mode alone                                                                   |
 |  [10]   | `SubagentStart`       | `agent_type`                                                                                              |
@@ -140,21 +139,18 @@ sqlite3 -json -cmd ".param set :session '<session>'" <db> "select * from edits_o
 
 # Which spawned agents no later turn.complete, SessionEnd, non-compact SessionStart, or Stop lacking an Agent-tool child in background_tasks ended
 sqlite3 -json -cmd ".param set :worktree '<worktree>'" <db> "select * from running_agents where cwd = :worktree order by started_ts"
-
-# Which rule files each spawned category agent placed, with its category, lineage_key, and told_on, the lineage keys a rules entry reached
-sqlite3 -json -cmd ".param set :key '<lineage_key>'" <db> "select * from placed_rules where lineage_key = :key order by ts"
 ```
 
 ## [03]-[FINDINGS]
 
 Lookup tables `checker`, `transition_state`, `transition_actor`, `delivery_channel`, `range_kind`, and `bar_verdict` hold the values of finding columns `checker`, `state`, `actor`, `channel`, `kind`, and `verdict`. Finding tables are `strict`:
 
-| [INDEX] | [TABLE]              | [PURPOSE]                                                                   | [WRITER]                         |
-| :-----: | :------------------- | :-------------------------------------------------------------------------- | :------------------------------- |
-|  [01]   | `finding`            | One row per site, never updated                                             | Checker script or judgment agent |
-|  [02]   | `finding_transition` | Every state change, append-only                                             | Judgment agents, checks, user    |
-|  [03]   | `finding_delivery`   | One row per id a context line or `report` reached, with its `lineage_key`   | Hooks alone                      |
-|  [04]   | `judged_range`       | One range per row, `kind` `edit`, key parts, `agent_id`, `at` of the answer | Hooks at range agent's answer    |
+| [INDEX] | [TABLE]              | [PURPOSE]                                                                  | [WRITER]                         |
+| :-----: | :------------------- | :------------------------------------------------------------------------- | :------------------------------- |
+|  [01]   | `finding`            | One row per site, never updated                                            | Checker script or judgment agent |
+|  [02]   | `finding_transition` | Every state change, append-only                                            | Judgment agents, checks, user    |
+|  [03]   | `finding_delivery`   | One row per id a context line or `report` reached, with its `lineage_key`  | Hooks alone                      |
+|  [04]   | `judged_range`       | One range per row, `kind` `edit`, key parts, `agent_id`, `at` of the spawn | Hooks at range agent's spawn     |
 
 Hashes are lowercase hex from `sha3` of the `sqlite3` shell alone. Columns, ids, and rule lookups:
 - `finding` and `site` generate `ntext` as `<normalized>` over `text`, tabs, returns, and newlines as spaces, every run of spaces as one
@@ -173,7 +169,7 @@ Hashes are lowercase hex from `sha3` of the `sqlite3` shell alone. Columns, ids,
 - Rows in a state with `live` 1 in `transition_state` hold a site on disk, `lifecycle.sql` re-checks each one
 - `lineage_key` is `<name>/<branch>`, `<name>` `.` for the main worktree or a linked worktree's directory name, `<branch>` empty on a detached head
 - `actor_id` is null for actor `user`, a subagent's `agent_id` or the main loop's `session_id` for `agent`, and the tool for `check`
-- `finding_delivery.agent_id` is the category agent on a `report` row and on rows a rules entry told, null on a finding entry
+- `finding_delivery.agent_id` is the category agent on a `report` row, null on a finding entry
 - `verdict` holds the category agent's `bar_verdict` row on a `confirmed` under a refused category, copied by reconfirm, kept across a move, else null
 - `bar_verdict` opens empty, category agents alone fill it through `bar.sql`
 - Retired verdicts keep their `bar_verdict` row, `finding_transition.verdict` references it
@@ -210,6 +206,12 @@ Views hold no `readfile`, a statement holding one runs from `<worktree>`:
 sqlite3 -json -cmd ".param set :agent '<agent>'" -cmd ".param set :worktree '<worktree>'" <db> "select agent_id from observation where event = 'SubagentStart' and json_extract(payload, '$.agent_type') = :agent and (json_extract(payload, '$.cwd') = :worktree or json_extract(payload, '$.cwd') like :worktree || '/%') order by ts desc limit 1"
 sqlite3 -json -cmd ".param set :literal '<literal>'" <db> "select session_id from observation where event = 'PostToolUse' and tool = 'Bash' and json_extract(payload, '$.tool_input.command') like '%' || :literal || '%' order by ts desc limit 1"
 
+# Range id: a range agent's <id>, from the judged_range row its spawn wrote
+sqlite3 -json -cmd ".param set :key '<key>'" -cmd ".param set :from <from_ts>" -cmd ".param set :to <to_ts>" <db> "select agent_id from judged_range where kind = 'edit' and lineage_key = :key and from_ts = :from and to_ts = :to"
+
+# Category id: a category agent's <id>, from the newest report row its spawn wrote
+sqlite3 -json -cmd ".param set :key '<key>'" -cmd ".param set :category '<category>'" <db> "select agent_id from finding_delivery where channel = 'report' and lineage_key = :key and finding_id in (select finding_id from finding where category = :category) order by delivered_at desc limit 1"
+
 # Every finding at its current path with its state, span, hash, and last close
 sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select * from finding_state where finding_id in (select value from json_each(:ids))"
 
@@ -243,8 +245,11 @@ sqlite3 -json -cmd ".param set :worktree '<worktree>'" <db> "select * from judge
 # Which in-tree edits no edit range covers
 sqlite3 -json -cmd ".param set :worktree '<worktree>'" <db> "select * from unjudged_edits where cwd = :worktree order by ts"
 
-# How often each checker category fires, in sites, sightings, and prompts, beside the prompts judged
+# How often each checker category fires, in sites, sightings, and prompts
 sqlite3 -json <db> "select * from category_fires order by sightings desc"
+
+# How many prompts an edit range judged
+sqlite3 -json <db> "select count(distinct prompt_id) as prompts_judged from judged_edits"
 
 # Which sites a checker rule missed
 sqlite3 -json <db> "select * from missed_sites order by category, path, start_line"
@@ -279,26 +284,20 @@ Checker category descriptions come from `ruff rule <code>`, `biome explain <rule
 
 ## [05]-[DELIVERY]
 
-Spawns through `$.agent.spawn` and the rows their answers write:
+Spawns through `$.agent.spawn` and the rows each spawn writes:
 - Categories at `categoryThreshold` confirmed sites spawn `categoryAgent` with `category <category> lineage <key>`, one at a time
-- Edit ranges at `editThreshold` files spawn `editAgent` with `range <key> <from_ts> <to_ts>`
-- Category agent's answer writes one `report` row per `finding` row of its category, counted in `reported_on` until its site closes
-- Range agent's answer holding a transition by it writes one `judged_range` row
+- Edit ranges at `editThreshold` files spawn `editAgent` with `range <key> <from_ts> <to_ts>` from a session that edited the range
+- Category agent's spawn writes one `report` row per `confirmed_findings` row of its category, counted in `reported_on` until its site closes
+- Range agent's spawn writes one `judged_range` row under its `agent_id`
 - Spawned agents outlive a compaction and end with the session
 
-Quiet `Stop` events have no editor of an unjudged range and no `editAgent` in `running_agents` or `background_tasks`. Each quiet `Stop` delivers:
-- `open_findings` rows present on disk with `delivered_on` lacking the lineage key, one `finding_delivery` row per id and one `additionalContext` entry `<n> findings on <branch>, ids <a, b>, use the observation skill for delivered findings`
-- `placed_rules` rows of the lineage with `told_on` lacking the key, one `finding_delivery` row per placing agent's `report` id and one entry `<n> rules placed on <branch>, <category> at <paths>, use the observation skill for delivered findings`
-
-Deliveries count in `delivered_on` until their site closes and in `told_on` without end.
+Quiet `Stop` events have no editor of an unjudged range and no `editAgent` in `running_agents`, and each one delivers:
+- `open_findings` rows present on disk with `delivered_on` lacking the lineage key
+- One `finding_delivery` row per id, counted in `delivered_on` until its site closes
+- One `additionalContext` entry with the count, branch, and ids, pointing at `observation`
 
 Model that receives a findings entry:
 1. Read ids through the `confirmed_findings` reader
 2. Validate each against the current task and act on in-scope sites
 3. Write one transition per id through `transition.sql`, `fixed` with its edit's `tool_use_id`, `wrong` with its reason, `waived` by actor `user` on the user's word
 4. Continue the task
-
-Model that receives a rules entry, its paths rule files untracked or modified in the working tree:
-1. Run `ast-grep scan --no-ignore hidden <paths of the task>` for sites the rules cover
-2. Keep or delete each rule on the user's word
-3. Continue the task

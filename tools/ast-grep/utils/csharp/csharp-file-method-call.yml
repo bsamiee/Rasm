@@ -2,22 +2,67 @@
 id: csharp-file-method-call
 language: csharp
 arguments: [declaration]
+utils:
+    method-name:
+        any:
+            - kind: identifier
+              pattern: $METHOD
+            - kind: generic_name
+              has: {kind: identifier, pattern: $METHOD}
+    type-name:
+        any:
+            - kind: identifier
+              pattern: $TYPE
+            - kind: generic_name
+              has: {kind: identifier, pattern: $TYPE}
+    type-declaration:
+        kind: class_declaration, struct_declaration, record_declaration, interface_declaration
+    member:
+        kind: method_declaration
+        all:
+            - has: {field: name, pattern: $METHOD}
+            - matches: declaration
 rule:
     kind: invocation_expression
-    all:
-        - has:
-            field: function
-            any:
-                - kind: identifier
-                  pattern: $METHOD
-                - kind: member_access_expression
-                  has: {field: name, kind: identifier, pattern: $METHOD}
-        - inside:
-            kind: compilation_unit
-            stopBy: end
-            has:
+    any:
+        - all:
+            - has:
+                field: function
+                any:
+                    - matches: method-name
+                    - kind: member_access_expression
+                      all:
+                        - has: {field: expression, regex: '^this$'}
+                        - has: {field: name, matches: method-name}
+            - inside:
                 stopBy: end
-                kind: method_declaration, local_function_statement
+                any:
+                    - matches: type-declaration
+                      has: {field: body, has: {matches: member}}
+                    - kind: block
+                      has:
+                        kind: local_function_statement
+                        all:
+                            - has: {field: name, pattern: $METHOD}
+                            - matches: declaration
+        - all:
+            - has:
+                field: function
+                kind: member_access_expression
                 all:
-                    - has: {field: name, pattern: $METHOD}
-                    - matches: declaration
+                    - has:
+                        field: expression
+                        any:
+                            - matches: type-name
+                            - kind: member_access_expression
+                              has: {field: name, matches: type-name}
+                    - has: {field: name, matches: method-name}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    matches: type-declaration
+                    all:
+                        - has: {field: name, pattern: $TYPE}
+                        - has: {field: body, has: {matches: member}}

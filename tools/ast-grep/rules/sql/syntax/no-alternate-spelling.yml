@@ -94,26 +94,6 @@ utils:
     equality:
         kind: binary_expression
         has: {field: operator, regex: '^(==|!=)$'}
-    is-comparison:
-        kind: is_expression
-        all:
-            - not: {has: {regex: '(?i)^distinct$'}}
-            - has:
-                field: right
-                not:
-                    any:
-                        - kind: 'null_literal, true_literal, false_literal'
-                        - {kind: unary_expression, has: {field: operator, regex: '(?i)^not$'}}
-    is-not-comparison:
-        kind: is_expression
-        all:
-            - not: {has: {regex: '(?i)^distinct$'}}
-            - has:
-                field: right
-                kind: unary_expression
-                all:
-                    - has: {field: operator, regex: '(?i)^not$'}
-                    - has: {field: operand, not: {kind: 'null_literal, true_literal, false_literal'}}
     distinct-null:
         kind: is_expression
         all:
@@ -267,8 +247,6 @@ rule:
         - matches: count-constant
         - matches: empty-count
         - matches: equality
-        - matches: is-comparison
-        - matches: is-not-comparison
         - matches: distinct-null
         - kind: is_null_expression
         - matches: coalescing
@@ -455,12 +433,6 @@ rewriters:
         EQUAL: {replace: {source: $OPERATOR, replace: '^==$', by: '='}}
         UNEQUAL: {replace: {source: $EQUAL, replace: '^!=$', by: '<>'}}
       fix: $LEFT $UNEQUAL $RIGHT
-    - id: not-distinct-from
-      rule: {matches: is-comparison, all: [{has: {field: left, pattern: _LEFT}}, {has: {field: right, pattern: _RIGHT}}]}
-      fix: $LEFT is not distinct from $RIGHT
-    - id: distinct-from
-      rule: {matches: is-not-comparison, all: [{has: {field: left, pattern: _LEFT}}, {has: {field: right, has: {field: operand, pattern: _RIGHT}}}]}
-      fix: $LEFT is distinct from $RIGHT
     - id: null-identity
       rule:
         matches: distinct-null
@@ -477,8 +449,8 @@ rewriters:
       rule: {kind: is_null_expression, has: {field: operand, pattern: _OPERAND}}
       fix: $OPERAND is not null
 transform:
-    FIXED: {rewrite: {source: $NODE, rewriters: [counted, counted-value, filtered, grouped, json-operator, operator, prefixed, included, coalesced, nullified, merged-case, merged-call, limited, insertion, joined, committed, selected, temp, star, starred, renamed, compared, not-distinct-from, distinct-from, null-identity, is-null, is-not-null]}}
+    FIXED: {rewrite: {source: $NODE, rewriters: [counted, counted-value, filtered, grouped, json-operator, operator, prefixed, included, coalesced, nullified, merged-case, merged-call, limited, insertion, joined, committed, selected, temp, star, starred, renamed, compared, null-identity, is-null, is-not-null]}}
 fix: $FIXED
 message: '`$NODE` is a second spelling of `$FIXED`'
 note: >-
-    Use the fix's spelling, one spelling per operation SQLite and DuckDB both read. Scalar CASE and iif remain because Cloudflare D1 rejects if through its function authorizer
+    Use the fix's spelling, one spelling per operation SQLite and DuckDB both read. Null-safe comparison keeps two spellings, `is` for SQLite text DuckDB's bundled SQLite 3.38.1 parses, `is not distinct from` for DuckDB SQL. Scalar CASE and iif remain because Cloudflare D1 rejects if through its function authorizer

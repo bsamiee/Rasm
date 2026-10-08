@@ -96,7 +96,7 @@ Domain errors are `sealed record`s extending `Expected` with a message and a mem
 - `ManyErrors` is the error `+` and `Validation` produce from accumulation
 - `Errors` holds the shared values (`Errors.TimedOut`, `Errors.None`)
 - Each namespace that raises errors declares its `Codes` enum numbered from 0 in declaration order, shadowing the parent namespace's `Codes`
-- A record raised from two or more namespaces sits in their nearest common parent
+- Records raised from more than one namespace sit in their nearest common parent
 
 ```csharp
 internal enum Codes {
@@ -447,8 +447,12 @@ internal static class Lenses {
 - `commute` applies its function inside the transaction and again at the commit point against the last committed value
 - `Isolation.Serialisable` sets serializable isolation
 - `TrackingHashMap<K, V>` records each key change in `Changes`, `Snapshot()` clears the log and keeps the entries
-- `memo(Func<A, B>)` caches one result per argument, `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on `Value`
-- `memoK` caches the construction of a `K<F, A>` and not its execution, a memoized `IO` is constructed once and runs each time `Value` is read
+- `memo(Func<A, B>)` and `memoUnsafe(Func<A, B>)` cache one result per argument and compute it under a lock per key
+- `memo` holds each result behind a weak reference, a garbage collection clears it and the next call reruns the function
+- `memoUnsafe` holds each result in a `ConcurrentDictionary` for the life of the returned function, a table built once and kept takes it
+- `memo(Func<A>)` returns a `Memo<A>` whose first `Value` runs the thunk once while concurrent readers spin
+- Throwing thunks leave the `Memo<A>` unloaded for the next read, `Reset` clears the value
+- `memoK` caches the construction of a `K<F, A>` and not its execution, `Value` returns the one `K<F, A>`, and a memoized `IO` runs its effect on every run
 
 ```csharp
 internal static class SharedState {

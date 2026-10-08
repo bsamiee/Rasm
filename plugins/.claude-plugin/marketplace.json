@@ -8,7 +8,7 @@
         {
             "name": "function-hooks",
             "source": "./function-hooks",
-            "description": "Refuses or rewrites tool calls by policy, and with observation on records hook events as database rows and delivers findings per lineage"
+            "description": "Refuses, rewrites, and queues tool calls by policy, draws edit diagnostics, captures, notices, and down services, runs writers at stop, and with observation on records hook events and delivers findings"
         },
         {
             "name": "argus",

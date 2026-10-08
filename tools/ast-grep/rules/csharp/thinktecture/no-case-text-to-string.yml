@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-case-text-to-string
+language: csharp
+severity: error
+utils:
+    case-text:
+        any:
+            - kind: string_literal, verbatim_string_literal, raw_string_literal
+            - kind: invocation_expression
+              has: {field: function, kind: identifier, regex: '^nameof$'}
+            - kind: lambda_expression
+              has: {field: body, matches: case-text}
+            - kind: parenthesized_expression
+              has: {matches: case-text}
+    case-table:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^(this\s*\.\s*)?(Map|Switch)(\s*<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument}}
+                - not: {has: {field: arguments, has: {kind: argument, not: {all: [{has: {field: name, kind: identifier}}, {has: {nthChild: {position: 1, reverse: true}, matches: case-text}}]}}}}
+            - kind: switch_expression
+              regex: '^this\s+switch\b'
+              all:
+                - has: {kind: switch_expression_arm, has: {nthChild: {position: 1, reverse: true}, matches: case-text}}
+                - not: {has: {kind: switch_expression_arm, has: {nthChild: {position: 1, reverse: true}, not: {any: [{matches: case-text}, {kind: throw_expression}]}}}}
+rule:
+    kind: method_declaration
+    all:
+        - has: {field: name, regex: '^ToString$'}
+        - has: {kind: modifier, regex: '^override$'}
+        - not: {has: {field: parameters, has: {kind: parameter}}}
+        - any:
+            - has:
+                field: body
+                any:
+                    - kind: arrow_expression_clause
+                      has: {matches: case-table}
+                    - kind: block
+                      all:
+                        - has: {kind: return_statement, has: {matches: case-table}}
+                        - not: {has: {kind: return_statement, nthChild: 2}}
+            - inside:
+                kind: declaration_list
+                stopBy: end
+                inside:
+                    kind: class_declaration, record_declaration, struct_declaration
+                    has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(SmartEnum|Union|AdHocUnion)(Attribute)?(<.+>)?$'}}}
+        - follows: {pattern: $$PREVIOUS}
+        - inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, pattern: $TYPE}}}
+fix:
+    template: $PREVIOUS
+    expandStart: {pattern: $$PREVIOUS}
+message: '`ToString` of `$TYPE` restates its cases or key as hand-written text'
+note: Delete the override, a keyed item reads through `Key` and a consumer showing a case maps it to its own text through the generated `Map`

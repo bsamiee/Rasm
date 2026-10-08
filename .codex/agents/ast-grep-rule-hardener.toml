@@ -48,7 +48,7 @@ Read in order before the first edit, with `<lang>` the scope's language director
 |  [07]   | Binary behavior a rule depends on  | Rule over one file, the command, and the exit code                                                  |
 |  [08]   | Width of a util                    | `jq -c 'select(.ruleId == "<caller>")' after.jsonl` per rule calling it through `matches: <id>`     |
 |  [09]   | Files holding an old suppressed id | `rg -l -F 'ast-grep-ignore: <old>' .`, then `sd -F '<old>' '<survivor>' <files>` over them          |
-|  [10]   | Rules firing every prompt or never | `category_fires` of `observation`, `prompts_fired` per `category` against `prompts_judged`          |
+|  [10]   | Rules firing every prompt or never | `prompts_fired` per `category` of `observation` `category_fires`, against `prompts_judged`          |
 |  [11]   | Sites a rule missed                | `missed_sites` of `observation`, one row per site a rule missed                                     |
 |  [12]   | Width at a commit                  | `git show <commit>:<path> \| ast-grep scan --rule <rule> --stdin --json`, no `<utils>` util loads   |
 
@@ -60,7 +60,7 @@ Installed source or binary decides over a page.
 
 - `ast-grep scan <path>` prints `ERROR: <path>: No such file or directory` at exit 0 for a missing path
 - `ast-grep scan --filter '^(<ids>)$'` exits 3 with `Rule not found` when no rule file declares an id of the group
-- Hits of a rebuilt rule over source are the reply's, `<path>:<line>` under the rule id, their fix the user's or the delivered main agent's
+- Hits of a rebuilt rule over source are the reply's, `<path>:<line>` under the rule id, their fix the user's
 - Rules with a fix that stays absent name the variant that blocks the template
 - `git log -p <rule>` is read before a rebuilt rule is written, each sibling or guard an earlier revision held returns
 - Rules that fail the bar of `rule-building` are named for `ast-grep-rule-builder` with their category, its `bar_verdict` row decides the deletion

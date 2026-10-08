@@ -10,7 +10,7 @@
 # ty: ignore[unresolved-attribute]
 # mypy: disable-error-code=attr-defined
 # ruff: file-ignore[boolean-positional-value-in-call, exec-builtin, mutable-class-default, private-member-access]
-"""PreToolUse hook grouping undo steps and refusing server tools a script replaces."""
+"""PreToolUse hook closing each `execute_blender_code` call with an undo step."""
 
 from collections.abc import Callable
 from pathlib import Path
@@ -107,44 +107,11 @@ def wrap(code: str) -> str:
     )
 
 
-def replacement(tool: str) -> str | None:
-    """Return the call that replaces a server tool, `None` for a tool the skill calls."""
-    match tool:
-        case "execute_blender_code_for_cli":
-            return "headless.py run <file> or start <file> <name> runs stdin code"
-        case "get_blendfile_summary_datablocks_for_cli" | "get_blendfile_summary_missing_files_for_cli" | "get_blendfile_summary_of_linked_libraries_for_cli":
-            return 'snapshot("<name>") through headless.py run <file> reads closed files'
-        case "get_blendfile_summary_path_info_for_cli":
-            return "ls -lT <file>* lists the file and its .blend1 backups"
-        case "get_blendfile_summary_usage_guess" | "get_blendfile_summary_usage_guess_for_cli":
-            return "get_blendfile_summary_datablocks counts each ID kind"
-        case "get_scene_info":
-            return "get_objects_summary reads collections, selection, and visibility"
-        case "get_object_info":
-            return 'get_object_detail_summary reads stacks, snapshot("<name>", objects=) evaluated bounds'
-        case "get_viewport_screenshot":
-            return 'capture("<name>", view="user") draws the user\'s view, overlays off'
-        case "get_screenshot_of_window_as_image":
-            return "screencapture -x -o -l <id> draws the window at device pixels"
-        case "jump_to_view3d_object_by_name" | "jump_to_view3d_object_data_by_name":
-            return "scene.py viewport() and bounds(drawn=True) frame it, selection kept"
-        case "render_thumbnail_to_path" | "render_viewport_to_path":
-            return "headless.py render <copy> --frames current renders, the user's view untouched"
-        case "set_texture":
-            return "execute_blender_code assigns the downloaded material at its real-world size"
-        case "disable_telemetry" | "record_trajectory_feedback":
-            return "settings.py holds telemetry_consent False, nx run rasm:interface -- blender applies it"
-        case _:
-            return None
-
-
 def decision(event: Event) -> dict[str, object] | None:
-    """Return the wrapped `execute_blender_code` input, a refusal naming the replacing call, or `None` for a call that runs as sent."""
+    """Return the wrapped `execute_blender_code` input, or `None` for a call that runs as sent."""
     match event["tool_name"].rpartition("__")[2], event["tool_input"]:
         case "execute_blender_code", {"code": str() as code} as tool_input:
             return {"permissionDecision": "allow", "updatedInput": tool_input | {"code": wrap(code)}}
-        case tool, _ if (instead := replacement(tool)) is not None:
-            return {"permissionDecision": "deny", "permissionDecisionReason": f"{tool} refused, {instead}"}
         case _:
             return None
 
@@ -164,4 +131,4 @@ if __name__ == "__main__":
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Event", "decision", "deferred", "main", "replacement", "run", "step", "wrap"]
+__all__ = ["Event", "decision", "deferred", "main", "run", "step", "wrap"]

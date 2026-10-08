@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-text-key-dispatch
+language: csharp
+severity: error
+utils:
+    text-constant:
+        any:
+            - kind: string_literal, verbatim_string_literal, raw_string_literal
+            - kind: identifier
+              pattern: $KEY
+              inside:
+                kind: compilation_unit
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: field_declaration, local_declaration_statement
+                    all:
+                        - has: {kind: modifier, regex: '^const$'}
+                        - has:
+                            kind: variable_declaration
+                            all:
+                                - has: {field: type, regex: '^(string|((global::)?System\.)?String)$'}
+                                - has: {kind: variable_declarator, has: {field: name, pattern: $KEY}}
+    text-pattern:
+        any:
+            - kind: constant_pattern
+              has: {matches: text-constant}
+            - kind: or_pattern
+              has: {field: left, matches: text-pattern}
+            - kind: parenthesized_pattern
+              has: {matches: text-pattern}
+    constant-pattern:
+        kind: constant_pattern, or_pattern, parenthesized_pattern
+    name-subject:
+        regex: '(\.ToString\(\s*("[GgFf]")?\s*\)|^nameof\s*\(.*\)|Enum\.GetName\b.*)$'
+    text-switch:
+        any:
+            - kind: switch_expression
+              all:
+                - has: {kind: switch_expression_arm, pattern: $FIRST, has: {nthChild: 1, matches: text-pattern}}
+                - has: {kind: switch_expression_arm, not: {pattern: $FIRST}, has: {nthChild: 1, matches: constant-pattern}}
+                - not: {has: {nthChild: 1, matches: name-subject}}
+            - kind: switch_statement
+              all:
+                - has:
+                    field: body
+                    all:
+                        - has: {kind: switch_section, pattern: $FIRST, has: {matches: text-pattern}}
+                        - has: {kind: switch_section, not: {pattern: $FIRST}, has: {matches: constant-pattern}}
+                - not: {has: {field: value, matches: name-subject}}
+    key-read:
+        kind: member_access_expression, invocation_expression
+        regex: '^@?\w+\s*\.\s*(Key|ToValue\s*\(\s*\))$'
+    key-comparison:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(==|!=)$'}
+                - any: [{has: {field: left, matches: key-read}}, {has: {field: right, matches: key-read}}]
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '(^|\.)Equals$'}
+                - has: {stopBy: end, matches: key-read}
+    key-scan:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|FindIndex|Where|Filter|Any|Exists)$'}}
+            - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: key-comparison}}}}
+rule:
+    kind: switch_expression, switch_statement, invocation_expression
+    any:
+        - matches: text-switch
+        - matches: key-scan
+message: Text keys select among a closed set by hand in place of a keyed lookup
+note: Declare a `[SmartEnum<string>]` with one item per key holding its case, read through the generated `TryGet` or `Validate`, and write through `Key`

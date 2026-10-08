@@ -2,7 +2,7 @@
 id: no-bind-by-conditional
 language: tsx
 severity: error
-files: ['plugins/*/hooks/**']
+files: ['plugins/function-hooks/**']
 utils:
     fault-test:
         kind: binary_expression

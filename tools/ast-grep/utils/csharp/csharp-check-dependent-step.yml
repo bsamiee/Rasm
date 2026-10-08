@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-check-dependent-step
+language: csharp
+utils:
+    nameof-call:
+        kind: invocation_expression
+        has: {field: function, kind: identifier, regex: '^nameof$'}
+    host-call:
+        kind: invocation_expression
+        not:
+            any:
+                - matches: nameof-call
+                - matches: csharp-check-call
+                - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<.+>)?$'}
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Zip|ForAll|Exists|Map|Filter|Fold|FoldBack|Choose|Count|Head|Last|Tail|Skip|Take|Distinct|Find|Contains|Any|All|Select|Where|Sum|Min|Max|Order|OrderBy|Rev|Append|Concat)(\s*<.+>)?$'}}
+    read:
+        kind: identifier
+        not:
+            any:
+                - inside: {kind: 'member_access_expression, member_binding_expression', field: name}
+                - inside: {kind: 'declaration_expression, from_clause', field: name}
+                - inside: {stopBy: end, matches: nameof-call}
+                - inside: {stopBy: end, kind: type_argument_list}
+                - inside: {kind: 'declaration_expression, cast_expression, object_creation_expression', field: type}
+                - all: [{nthChild: 1}, {inside: {kind: let_clause}}]
+                - all: [{regex: '^[A-Z]'}, {inside: {kind: member_access_expression, field: expression}}]
+    call-subject:
+        matches: read
+        any:
+            - inside: {stopBy: {kind: 'from_clause, let_clause'}, kind: argument_list, inside: {matches: host-call}}
+            - inside: {kind: member_access_expression, field: expression, inside: {kind: invocation_expression, field: function, matches: host-call}}
+    same-run:
+        follows: {stopBy: {not: {kind: 'let_clause, comment'}}, kind: from_clause, has: {field: name, pattern: $CHECKED}}
+rule:
+    kind: 'from_clause, let_clause'
+    all:
+        - matches: same-run
+        - any:
+            - has: {stopBy: end, kind: identifier, pattern: $CHECKED}
+            - has:
+                stopBy: end
+                matches: call-subject
+                pattern: $SUBJECT
+                inside:
+                    stopBy: end
+                    kind: query_expression
+                    has:
+                        kind: from_clause
+                        all:
+                            - has: {field: name, pattern: $CHECKED}
+                            - has: {stopBy: end, matches: read, pattern: $SUBJECT}
+                            - not: {has: {stopBy: end, matches: host-call, not: {inside: {kind: member_access_expression, field: expression}}, has: {stopBy: end, matches: read, pattern: $SUBJECT}}}
+            - has:
+                stopBy: end
+                matches: read
+                pattern: $DERIVED
+                inside:
+                    stopBy: end
+                    kind: query_expression
+                    has:
+                        kind: let_clause
+                        all:
+                            - has: {kind: identifier, nthChild: 1, pattern: $DERIVED}
+                            - matches: same-run
+                            - matches: csharp-check-dependent-step

@@ -2,7 +2,7 @@
 id: no-local-option-wrap
 language: tsx
 severity: error
-files: ['plugins/*/hooks/**']
+files: ['plugins/function-hooks/**']
 utils:
     constructor:
         kind: identifier

@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-identity-lens-by-hand
+language: csharp
+severity: error
+utils:
+    only-return:
+        kind: block
+        has:
+            kind: return_statement
+            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    set-value:
+        any:
+            - pattern: $SET
+            - kind: parenthesized_expression
+              has: {matches: set-value}
+            - matches: only-return
+              has: {kind: return_statement, has: {matches: set-value}}
+    constant-name:
+        regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?constantA?(\s*<.+>)?$'
+        not:
+            inside:
+                kind: compilation_unit
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: parameter, variable_declarator, local_function_statement, method_declaration, property_declaration
+                    has: {field: name, regex: '^constantA?$'}
+    constant-of-set:
+        any:
+            - kind: lambda_expression
+              all:
+                - has:
+                    field: parameters
+                    any:
+                        - kind: implicit_parameter
+                          not: {pattern: $SET}
+                        - kind: parameter_list
+                          has: {kind: parameter, not: {has: {field: name, pattern: $SET}}}
+                          not: {has: {kind: parameter, nthChild: 2}}
+                - has: {field: body, matches: set-value}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: constant-name}
+                - has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {matches: set-value}}, not: {has: {kind: argument, nthChild: 2}}}
+            - kind: parenthesized_expression
+              has: {matches: constant-of-set}
+            - matches: only-return
+              has: {kind: return_statement, has: {matches: constant-of-set}}
+    replacing-setter:
+        any:
+            - kind: identifier, generic_name, member_access_expression
+              matches: constant-name
+            - matches:
+                csharp-unary-callback:
+                    parameter: {pattern: $SET}
+                    body: {matches: constant-of-set}
+    named:
+        has: {field: name, pattern: $_}
+rule:
+    kind: invocation_expression
+    all:
+        - has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^New$'}
+                - has:
+                    field: expression
+                    regex: '^((global::)?LanguageExt\s*\.\s*)?Lens\s*<'
+                    has:
+                        stopBy: end
+                        kind: type_argument_list
+                        all:
+                            - has: {nthChild: 1, pattern: $TYPE}
+                            - has: {nthChild: 2, pattern: $TYPE}
+        - has:
+            field: arguments
+            all:
+                - has:
+                    kind: argument
+                    any:
+                        - has: {field: name, regex: '^Get$'}
+                        - all: [{nthChild: 1}, {not: {matches: named}}]
+                    has: {nthChild: {position: 1, reverse: true}, matches: csharp-identity-function}
+                - has:
+                    kind: argument
+                    any:
+                        - has: {field: name, regex: '^Set$'}
+                        - all: [{nthChild: 2}, {not: {matches: named}}]
+                    has: {nthChild: {position: 1, reverse: true}, matches: replacing-setter}
+message: '`Lens<$TYPE, $TYPE>.New` builds the identity lens by hand, call `Lens.identity<$TYPE>()`'
+note: '`Lens.identity` reads the whole value and replaces it whole, the lens a get returning its argument and a set returning the new value states'
+fix: Lens.identity<$TYPE>()

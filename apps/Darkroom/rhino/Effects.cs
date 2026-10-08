@@ -19,22 +19,8 @@ public sealed class AgXToneMapping() : ParameterEffect<Exposure, float>(Exposure
     private sealed class Stepper : ParameterSection<Exposure, float> {
         public Stepper(ParameterEffect<Exposure, float> effect) : base(effect) {
             NumericStepper stepper = new() { MinValue = Exposure.Lower, MaxValue = Exposure.Upper, Increment = Exposure.Step, DecimalPlaces = Exposure.Precision };
-            _ = stepper.ValueBinding.Bind(() => (float)effect.Value, value => Write((float)value));
+            _ = stepper.ValueBinding.Bind(() => (float)effect.Value, static value => Write((float)value));
             Content = stepper;
-        }
-    }
-}
-
-[Guid("f2d92349-c684-4276-86dd-587c71634aff")]
-[CustomPostEffect(PostEffectType.Late, "Dither", RenderPostEffects.Listed)]
-public sealed class OutputDither() : ParameterEffect<Dither, string>(Dither.Triangular, static (dither, _) => IO.pure(dither.Pass), static effect => new Menu(effect)) {
-    private sealed class Menu : ParameterSection<Dither, string> {
-        public Menu(ParameterEffect<Dither, string> effect) : base(effect) {
-            DropDown methods = new();
-            foreach (Dither method in Dither.Items)
-                methods.Items.Add(method.Key, method.Key);
-            _ = methods.SelectedKeyBinding.Bind(() => effect.Value.Key, Write);
-            Content = methods;
         }
     }
 }

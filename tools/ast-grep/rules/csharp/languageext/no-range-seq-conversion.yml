@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-range-seq-conversion
+language: csharp
+severity: error
+utils:
+    range:
+        kind: invocation_expression
+        has:
+            field: function
+            regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Range$|^((global::)?LanguageExt\.)?Range\s*\.\s*(fromMinMax|fromCount|zero)(\s*<.+>)?$'
+rule:
+    kind: invocation_expression
+    inside:
+        kind: member_access_expression
+        field: expression
+        has:
+            field: name
+            regex: '^(Fold(Back)?(While|Until)?M?|Fold(Back)?Maybe|FoldMap(Back)?(While|Until)?|Exists|ForAll|Contains|Find(All)?(Back)?|Iter|ForM|Sum|Product|Min|Max|Average|At|Partition|IsEmpty|Count|Head|Last|ToLst|ToArr|ToIterable)(\s*<.+>)?$'
+    any:
+        - all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?toSeq(\s*<.+>)?$'}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, not: {has: {field: name, pattern: $_}}, has: {matches: range, pattern: $RANGE}}}
+            - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}
+        - all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToSeq$'}}, {has: {field: expression, matches: range, pattern: $RANGE}}]}
+            - not: {has: {field: arguments, has: {kind: argument}}}
+message: '`$RANGE` converts to a `Seq` before a `Foldable` member the range answers itself, call the member on `$RANGE`'
+note: '`Range<A>` is `K<Range, A>` under `Foldable<Range>`, so every fold, search, count, and aggregate member reads it directly'
+fix: $RANGE

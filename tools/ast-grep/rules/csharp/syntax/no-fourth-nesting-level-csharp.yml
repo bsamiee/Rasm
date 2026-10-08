@@ -103,7 +103,7 @@ rule:
                     stopBy: {matches: boundary}
                     not: {inside: {matches: control, stopBy: {matches: function}}}
 message: Function or control nesting reaches a fourth level
-note: Use a match, query, or pipeline of flat steps, an extracted helper keeps the fourth level one call away, and a fourth-level lambda holding no function or control of its own stands
+note: Rebuild the logic within three levels, an extracted helper or local function keeps the fourth level one call away, and a fourth-level lambda holding no function or control of its own stands
 labels:
     SCOPE: {style: primary}
     CALL: {style: secondary, message: One call site of the helper}
