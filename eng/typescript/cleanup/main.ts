@@ -253,7 +253,7 @@ const cleanup = Effect.fn('cleanup')(function* () {
     const entries = Array.map(yield* litter(root), (entry) => path.join(root, entry));
     const lockers = Array.map(Array.filter((yield* read(['lsof', '-t', path.join(cache, '.lock')], [0, 1])).split('\n'), String.isNonEmpty), Number);
     const labels = holders(yield* snapshot, agents, [cache, ...entries], lockers);
-    yield* Effect.scoped(withoutAgents(root, labels).pipe(Effect.andThen(Effect.validate(commands, (sequence) => Effect.forEach(sequence, (argv) => run(argv, root), { discard: true }), { concurrency: 'unbounded', discard: true })), Effect.andThen(discard(entries)), Effect.andThen(run(['nx', 'reset'], root))));
+    yield* Effect.scoped(withoutAgents(root, labels).pipe(Effect.andThen(Effect.validate(commands, (sequence) => Effect.forEach(sequence, (argv) => run(argv, root), { discard: true }), { concurrency: 'unbounded', discard: true })), Effect.andThen(discard(entries))));
 });
 
 Command.make('cleanup', {}, cleanup).pipe(Command.run({ version: '0' }), Effect.provide(NodeServices.layer), NodeRuntime.runMain);

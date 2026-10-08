@@ -541,6 +541,10 @@
                 "command": "python -m interface.cli",
                 "parallelism": false
             },
+            "clean": {
+                "command": "node eng/typescript/cleanup/main.ts",
+                "parallelism": false
+            },
             "upgrade": {
                 "executor": "nx:run-commands",
                 "parallelism": false,
