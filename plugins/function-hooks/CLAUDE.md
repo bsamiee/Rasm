@@ -7,7 +7,8 @@ Hooks guard tool calls, check edits, and draw session facts. With `observation` 
 [TOOL_CALL]: Function hooks answer each tool call before it runs with `deny`, `next` over the call, or `next` over its rewrite
 - ALWAYS use `plugin-authoring` skill for writing or changing a function hook
 - ALWAYS write a policy as a pure function from the parsed call to its refusal, `register.ts` answers `deny` or `next`
-- ALWAYS write a rewrite as a pure function from parsed call, text, locks, root, and call id to command, notice, model context, and binary logs
+- ALWAYS write a rewrite as a pure function from parsed call, text, locks, root, and call id to command, notice, and model context
+- Identical rewrite context reaches the call's loop once per turn
 - `policies.ts` `commandDecision` runs every refusal policy over the parsed call, and queues and rewrites a call no policy refuses
 - `commandDecision` reads files, real paths, environment, and the repository root through a `Host`, `register.ts` builds one from `$`
 - ALWAYS fold every policy under the one `tool.call` registration, the first refusing policy answering
@@ -18,10 +19,7 @@ Hooks guard tool calls, check edits, and draw session facts. With `observation` 
 - `hooks` row holds the latest rewrite, spawn, or restart notice until a newer notice, a prompt, or 8 s, a timer clearing only the value it set
 - `services` row lists `mise.toml` launchd agents with no listener on their `--port` at a 60 s `lsof` read, its `1: restart` button runs `launchctl kickstart -k` per agent and drops each restarted one
 - `ToolResult` rows keyed by `tool_use_id` draw diagnostics under Edit and Write results and a capture under a capturing MCP call's result
-- Bash calls raise no `ToolResult` site, their diagnostics reach the model as context alone
-- ALWAYS write a fault (a row not written, a spawn that failed, a boundary skipped) as one `$.ui.log` line, nothing else reaches `$.ui.log`
 - Texts the model acts on hold a fact sentence, then an action sentence where an action follows
-- Parsers read producer text: attachment rows `  <mark> [Line L:C] `, `binlog_errors` lines, capture paths a tool prints, and the PNG `Capture` record through `exiftool`
 
 [RUNTIME]: Harness loads `hooks/register.ts` and the files it imports in an environment with no DOM and no Node
 - Modules import their own files by relative path and `claude-code` alone, `effect` and every other package fail at load
@@ -51,7 +49,7 @@ Policies read Bash and Monitor (git, stdin, wait, rewrite), Bash alone (script, 
 - Rewrite policy adds `-A` to an `sd` invocation lacking it when its find holds a line break, line mode never matches one
 - Rewrite policy adds `--` before an `sd` find when an operand opens with `-` outside the `flags` and `valued` options of its `invocation.ts` row
 - Rewrite policy drops an `npx`, `npm`, or `pnpm` launcher before `nx`
-- Rewrite policy adds `-bl` naming `<subcommand>-<tool_use_id>-<n>.binlog` under `.artifacts/dotnet/binlog/` to a `dotnet` MSBuild call passing none, help and version calls excepted
+- Rewrite policy adds `-bl` naming `<subcommand>-<tool_use_id>-<n>.binlog` under `.artifacts/dotnet/binlog/` to a `dotnet publish`, `pack`, or `msbuild` call passing none, help and version calls excepted
 - Rewrite policy splices top-level commands by the byte spans of their words, a command inside an inline body keeps its text
 - Queue policy wraps a command in `{ lockf 9 && {`, its lines, and `} 9>&-; } 9>>'<root>/<lock>'` once per lock the command needs
 - Queued commands from every agent, session, harness, and worktree share each lock under the main working tree and run one at a time per lock
@@ -60,18 +58,16 @@ Policies read Bash and Monitor (git, stdin, wait, rewrite), Bash alone (script, 
 - `policies.ts` `_queues` declares each `.cache/` lock with its commands and options, uv and uvx resolves and `ast-grep scan` or `sg scan` writes
 - `nx` calls queue when a task they name or its `dependsOn` closure in Nx's `project-graph.json` runs a queued command
 - `nx` words name tasks as `run <project>:<target>`, `run-many` or `affected` with `-t` and `-p`, or `<target> [<project>]`
-- Nx writes its graph under `NX_WORKSPACE_DATA_DIRECTORY`, else `.nx/workspace-data`, a call before the first graph queues on its own words
-- Unread or malformed project graph, or an unparsed target command, refuses the `nx` call
+- Nx writes its graph under `NX_WORKSPACE_DATA_DIRECTORY`, a call before the first graph queues on its own words
+- Unset `NX_WORKSPACE_DATA_DIRECTORY`, an unread or malformed project graph, or an unparsed target command refuses the `nx` call
 - `lockf` on a descriptor number skips every wrap and on a lock's path skips that lock's wrap, a nested wrap waits on its own holder
 
 ## [02]-[EDITS]
 
 Each Edit, Write, and NotebookEdit path under the repository root joins its loop's `edited` family (`agentId` or `main`), cleared at the loop's `turn.complete`:
 - Failed calls join nothing and draw nothing
-- Diagnostics attachments keep engine rows of the loop's edited files alone, `★` hint rows dropped
-- Edits turn `ast-grep scan` and `roslyn-codelens` output into diagnostics under the call's `tool_use_id`
-- Failed `dotnet` MSBuild calls turn `binlog_errors` of the binary logs the rewrite named into model context
-- At `Stop` and `SubagentStop`, each writer runs over the loop's edited files its `lint:*` target inputs match, reformatted files reach the model as context
+- At `Stop` and `SubagentStop` with `stop_hook_active` false, each writer runs over the loop's edited files its `lint:*` inputs match
+- Reformatted files and writer failures reach the model as context
 - Writers accept the exit a checker gives for findings it cannot fix, `lint:*` targets report those
 - Repository root is `git rev-parse --show-toplevel` from the session root, read per edit, capture, and boundary
 - Main-loop Read, Write, and Edit of a `.md` under `~/.claude/plans`, and Write or Edit of a `/tmp` task file holding a numbered row, set the plan pointer
@@ -84,7 +80,7 @@ Codex rows in `.codex/config.toml` run `.codex/hooks/rewrite.ts` over `Bash` and
 - `rewrite.ts` answers Bash calls through `commandDecision` with Codex's `tool_use_id`
 - Path policy reads each `*** Add File:` header of an `apply_patch` patch, the call Codex makes in place of Write
 - Refusal answers `deny` with its reason, rewrite answers `allow` with `updatedInput`, `additionalContext`, and its notice as `systemMessage`
-- `format.ts` runs writers over files the turn's `apply_patch` headers name, changes and failures print as one `systemMessage`
+- `format.ts` with `stop_hook_active` false runs writers over files the turn's `apply_patch` headers name, changes and failures continue the turn as one `decision: block` reason
 - Rollouts hold `apply_patch` calls inside `exec` code strings, each header ends at an escaped newline
 - `--walk-policy` on the row turns walker policy on, as `walkPolicy` does for Claude Code
 - Codex names an MCP tool `mcp__<server>__<tool>` with each character outside `[A-Za-z0-9_]` as `_`, skill hook matchers spell it so
@@ -97,7 +93,7 @@ With `observation` true, every `classic.*` and `turn.*` event `register.ts` name
 - Read, Write, and Edit call bodies, batch call responses, and deny trace values drop before the write
 - One awaited `sqlite3` process writes the row before `next(e)`, a deny row after the answer
 - Statements are constant text, values bind as parameters from one JSON object through `json_each`
-- Failed write is one `$.ui.log` line naming the row, the row is lost and nothing retries
+- Failed write loses the row with no retry
 - Shell rewrite of a file (`sd`, `sed -i`, a redirect) writes no edit row, `editThreshold` counts none
 - `row.ts` `USAGE` names the events with rows holding `$.session.usage()`
 
@@ -116,7 +112,7 @@ Declarations of `observation/sql.ts` are the schema, applied as a delta at a loa
 - Payload key the harness adds reaches new rows alone, older rows answer null to `->>` over the key
 - Scripts run under `-bail`, a failed statement without it reaches `commit`
 - Failed open is one log line and no rows until reload, a session outside a git repository opens nothing
-- Lost journal switch at a concurrent first open is one log line, the database stays open in its journal mode
+- Lost journal switch at a concurrent first open keeps the prior journal mode
 - WAL and the busy timeout serialize the processes and worktrees writing one file
 - Removing `.cache/observation/` is the reset
 

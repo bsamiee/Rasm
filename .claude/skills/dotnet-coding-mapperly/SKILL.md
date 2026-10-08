@@ -144,7 +144,6 @@ LanguageExt owns absence, failure, validation, effects, traversal, and transform
 - Mapperly methods supply the function passed to `Map`, `BiMap`, `Apply`, or a traversal, total over a validated source
 - Throw from `ThrowOnPropertyMappingNullMismatch` signals a defect
 - Host members without nullable annotations report `RMG089`, a member the host can return null for maps through an `Option` user mapping
-- `SuppressNullMismatchDiagnostic` marks a member the host source guarantees non-null, the generated `?? throw` stays
 - Automatic wrapper construction through constructor or cast discovery can manufacture a success case, unwrap a failure, or discard source elements
 - Generic wrapper helpers need explicit `Use` selection and preserve every case
 

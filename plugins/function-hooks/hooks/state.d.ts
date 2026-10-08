@@ -10,6 +10,7 @@ declare module 'claude-code' {
             diagnostics: StateFamily<readonly Diagnostic[]>;
             capture: StateFamily<Option<Capture>>;
             plan: Plan;
+            said: StateFamily<readonly string[]>;
         };
     }
 }
@@ -29,7 +30,6 @@ export interface Diagnostic {
     readonly file: string;
     readonly line: Option<number>;
     readonly message: string;
-    readonly source: 'roslyn-codelens' | 'ast-grep' | 'binlog';
 }
 export interface Plan {
     readonly path: Option<string>;

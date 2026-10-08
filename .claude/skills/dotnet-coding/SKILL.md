@@ -266,11 +266,11 @@ Workflow runs in domain order (normalize, validate, transition), `Fin` handles t
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift`. Each namespace that raises errors declares a `Codes` enum numbered from 0 in declaration order, shadowing the parent namespace's `Codes`, and its errors as `sealed record`s extending `Expected` with a message and a `Codes` member. A record raised from two or more namespaces sits in their nearest common parent:
+Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift`. Namespaces raising errors declare a `Codes` enum that shadows the parent namespace's `Codes` and numbers members in declaration order from 1, above `Error.New`'s code 0. Namespace errors are `sealed record`s extending `Expected` with a message and a `Codes` member. A record raised from two or more namespaces sits in their nearest common parent:
 
 ```csharp
 internal enum Codes {
-    InvalidQuantity,
+    InvalidQuantity = 1,
 }
 
 internal sealed record InvalidQuantity() : Expected("quantity out of range", (int)Codes.InvalidQuantity), IValidationError<InvalidQuantity> {

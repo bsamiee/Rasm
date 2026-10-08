@@ -1,4 +1,3 @@
-# ruff: file-ignore[banned-api]
 """Unit systems every application shows, imperial by default and metric beside it, every length in meters."""
 
 from enum import Enum
@@ -49,37 +48,6 @@ class Standard(NamedTuple):
     document: tuple[float, float]
     margin: float
 
-
-class Units(Standard, Enum):
-    """Unit systems by the name applications store for them."""
-
-    IMPERIAL = Standard(
-        length=Length.FEET,
-        page=Length.INCHES,
-        resolution=Length.INCHES / 16,
-        grid=Length.FEET,
-        snap=Length.INCHES,
-        extent=250 * Length.FEET,
-        sheet_scale=48,
-        text=3 * Length.INCHES / 32,
-        paper=(36 * Length.INCHES, 24 * Length.INCHES),
-        document=(8.5 * Length.INCHES, 11 * Length.INCHES),
-        margin=Length.INCHES / 2,
-    )
-    METRIC = Standard(
-        length=Length.MILLIMETERS,
-        page=Length.MILLIMETERS,
-        resolution=Length.MILLIMETERS,
-        grid=100 * Length.MILLIMETERS,
-        snap=10 * Length.MILLIMETERS,
-        extent=75.0,
-        sheet_scale=50,
-        text=2.5 * Length.MILLIMETERS,
-        paper=(841 * Length.MILLIMETERS, 594 * Length.MILLIMETERS),
-        document=(210 * Length.MILLIMETERS, 297 * Length.MILLIMETERS),
-        margin=13 * Length.MILLIMETERS,
-    )
-
     @property
     def tolerance(self) -> float:
         """Modeling tolerance in meters."""
@@ -119,6 +87,37 @@ class Units(Standard, Enum):
         """Fewest digits in the base stating the resolution in the unit exactly."""
         ratio = Fraction(self.resolution / unit).limit_denominator()
         return next(digits for digits in range(ratio.denominator.bit_length()) if (ratio * base**digits).denominator == 1)
+
+
+class Units(Standard, Enum):
+    """Unit systems by the name applications store for them."""
+
+    IMPERIAL = Standard(
+        length=Length.FEET,
+        page=Length.INCHES,
+        resolution=Length.INCHES / 16,
+        grid=Length.FEET,
+        snap=Length.INCHES,
+        extent=250 * Length.FEET,
+        sheet_scale=48,
+        text=3 * Length.INCHES / 32,
+        paper=(36 * Length.INCHES, 24 * Length.INCHES),
+        document=(8.5 * Length.INCHES, 11 * Length.INCHES),
+        margin=Length.INCHES / 2,
+    )
+    METRIC = Standard(
+        length=Length.MILLIMETERS,
+        page=Length.MILLIMETERS,
+        resolution=Length.MILLIMETERS,
+        grid=100 * Length.MILLIMETERS,
+        snap=10 * Length.MILLIMETERS,
+        extent=75.0,
+        sheet_scale=50,
+        text=2.5 * Length.MILLIMETERS,
+        paper=(841 * Length.MILLIMETERS, 594 * Length.MILLIMETERS),
+        document=(210 * Length.MILLIMETERS, 297 * Length.MILLIMETERS),
+        margin=13 * Length.MILLIMETERS,
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

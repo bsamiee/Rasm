@@ -261,8 +261,8 @@ Checker commands run from `<worktree>` over `<paths>` relative to it, each outpu
 - Checkers `ast-grep`, `ruff`, and `biome` exit 1 on a finding
 - Empty `:out` marks a checker failure, `json_each` over it raises
 - Zero-width diagnostics write `text` `''` at `occurrence` 1
-- `dotnet build` writes one SARIF log per compiled project, `--no-incremental` compiles one that is up to date
-- `<project>` is the project owning the scope's `.cs` files
+- Builds write one SARIF log per compiled project, `--no-incremental` compiles up-to-date projects
+- `<project>` is the Nx project owning the scope's `.cs` files
 - `<log>` is `$(dotnet msbuild Directory.Build.props -getProperty:ArtifactsPath)/binlog/<project>.sarif`
 - Roslyn `:out` binds as `-cmd ".param set :out \"cast(readfile('<log>') as text)\""`
 
@@ -277,7 +277,7 @@ ruff check --output-format json <paths>
 biome lint --reporter=json <paths>
 
 # [ROSLYN] SARIF 2.1 with unencoded file URIs and one-based columns
-dotnet build <project> --no-dependencies --no-incremental -p:ErrorLog=<log>%2Cversion=2.1
+nx run <project>:build --skip-nx-cache -- --no-incremental -p:ErrorLog=<log>%2Cversion=2.1
 ```
 
 Checker category descriptions come from `ruff rule <code>`, `biome explain <rule>`, `<rules>/**/<rule id>.yml`, or the `.editorconfig` row of a Roslyn id.

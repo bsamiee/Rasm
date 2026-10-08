@@ -95,6 +95,13 @@ args = ["lldb-mcp"]
 startup_timeout_sec = 20
 tool_timeout_sec = 120
 
+[mcp_servers.node_repl]
+env_vars = ["DOPPLER_CONFIG_DIR"]
+
+[mcp_servers.node_repl.env]
+NODE_REPL_UNTRUSTED_ENV_ALLOWLIST = "DOPPLER_CONFIG_DIR"
+NODE_REPL_WORKER_WRAPPER = '["/bin/sh", "-c", "shift; exec mise exec -- \"$@\"", "node_repl"]'
+
 [mcp_servers.rhino-mcp-platform]
 default_tools_approval_mode = "approve"
 url = "http://127.0.0.1:7406/"
@@ -118,6 +125,9 @@ source = "/Users/bardiasamiee/Developer/Rasm/plugins"
 [plugins."argus@rasm"]
 enabled = true
 mcp_servers.argus.default_tools_approval_mode = "approve"
+
+[plugins."unified-computer-use@openai-bundled"]
+enabled = false
 
 [plugins."playwright@rasm"]
 enabled = true

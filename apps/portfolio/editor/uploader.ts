@@ -1,7 +1,7 @@
 import { BrowserCrypto } from '@effect/platform-browser';
 import Uppy, { type Body, type Meta, type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
-import { Array, Crypto, Effect, Equivalence, Function, Match, Option, Struct } from 'effect';
+import { Array, Crypto, Effect, Equivalence, Function, Match, Optic, Option, Record, Struct } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { type Asset, mediaTypes, uploadLimit } from '../model/asset.ts';
 import type { PortfolioData } from '../model/document.ts';
@@ -53,10 +53,7 @@ const uploads = Atom.make((get): Uppy<UploadMeta, Body> => {
         if (file && prepared) {
             const queue = prepared.compositions.length > 0 ? uploader.getFiles() : [];
             const following = new Set(queue.slice(queue.findIndex((item) => item.id === file.id) + 1).flatMap((item) => item.meta.prepared?.compositions.map(Struct.get('id')) ?? []));
-            get.registry.update(
-                draft,
-                AsyncResult.map((data) => receive(data, { ...prepared, destination: file.meta.destination, following })),
-            );
+            get.registry.update(draft, AsyncResult.map(receive({ ...prepared, destination: file.meta.destination, following })));
             uploader.setFileMeta(file.id, { ...file.meta, renditions: [] });
         }
     });
@@ -135,19 +132,27 @@ const prepare = Effect.fnUntraced(function* (uploader: Uppy<UploadMeta, Body>, i
         Effect.race(removed(uploader, id)),
     );
 });
-const place = (current: readonly (typeof Composition.Type)[], { compositions, following }: Uploaded): readonly (typeof Composition.Type)[] => {
+const place = (current: readonly (typeof Composition.Type)[], { compositions, following }: Pick<Uploaded, 'compositions' | 'following'>): readonly (typeof Composition.Type)[] => {
     const [before, after] = Array.span(current, (item) => !following.has(item.id));
     return [...before, ...compositions, ...after];
 };
-const receive = (data: typeof PortfolioData.Type, uploaded: Uploaded): typeof PortfolioData.Type => ({
-    assets: { ...data.assets, [uploaded.asset.id]: uploaded.asset },
-    portfolio: Match.value(uploaded.destination).pipe(
-        Match.when({ kind: 'library' }, () => data.portfolio),
-        Match.when({ kind: 'hero' }, () => ({ ...data.portfolio, hero: Array.headNonEmpty(placementsFor(uploaded.asset, false)) })),
-        Match.when({ kind: 'entry' }, ({ id }) => (uploaded.asset.mime === 'application/pdf' ? data.portfolio : { ...data.portfolio, entries: data.portfolio.entries.map((entry) => (entry.id === id ? { ...entry, compositions: place(entry.compositions, uploaded) } : entry)) })),
-        Match.exhaustive,
-    ),
-});
+const receive = ({ asset, destination: target, ...uploaded }: Uploaded): ((data: typeof PortfolioData.Type) => typeof PortfolioData.Type) => {
+    const data = Optic.id<typeof PortfolioData.Type>();
+    const stored = data.key('assets').modify(Record.set(asset.id, asset));
+    if (target.kind === 'hero') {
+        return Function.flow(stored, Optic.replace(data.key('portfolio').optionalKey('hero'), Array.headNonEmpty(placementsFor(asset, false))));
+    }
+    if (target.kind === 'entry' && asset.mime !== 'application/pdf') {
+        return Function.flow(
+            stored,
+            data
+                .key('portfolio')
+                .key('entries')
+                .modify(Array.map((entry) => (entry.id === target.id ? { ...entry, compositions: place(entry.compositions, uploaded) } : entry))),
+        );
+    }
+    return stored;
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

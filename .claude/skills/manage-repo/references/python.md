@@ -33,11 +33,6 @@ uv owns resolution, lock, and environment of the root project file.
 ## [04]-[CHECKERS]
 
 - `ruff check` and `ty check` take `--config '<key> = <value>'` to override one row, `mypy` an option flag or a temporary `--config-file`
-- `# ty: ignore[<code>]` above the first statement covers its whole file, as `# mypy: disable-error-code=<code>` and `# ruff: file-ignore[<code>]` do
-- `respect-type-ignore-comments = false` makes ty read `ty: ignore` comments alone, a line ignoring both checkers holds both comments
-- Packages with no stubs or `py.typed` take a mypy `ignore_missing_imports` override, and a ty `replace-imports-with-any` row for unresolved members
-- `disallow_any_unimported` and `disallow_subclassing_any` fail a module naming or subclassing an ignored module's type, its override sets both false
-- Header `disable-error-code` codes that suppress nothing stay silent in mypy
 - `mypy` skips dot-prefixed children in a directory walk, each hidden tree takes its own `files` row
 - Ruff `target-version` and ty `python-version` hold the raised group `requires-python`, each reads `[project] requires-python` when unset
 - Per-path target versions exist in ruff alone, mypy checks every file at one version, ty checks a PEP 723 script at its `requires-python`

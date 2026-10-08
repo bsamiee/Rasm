@@ -22,7 +22,15 @@ rule:
     kind: invocation_expression
     any:
         - all:
-            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|Check|NonEmpty|InRange|Unique)(\s*<.+>)?$'}}
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|InRange)(\s*<.+>)?$'}}
+            - has: {field: arguments, matches: plain-arguments}
+        - all:
+            - has:
+                field: function
+                kind: member_access_expression
+                any:
+                    - all: [{has: {field: name, regex: '^Unique(\s*<.+>)?$'}}, {has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.)?Callbacks$'}}]
+                    - all: [{has: {field: name, regex: '^(NonEmpty|FromResult|Validated)(\s*<.+>)?$'}}, {has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.)?Conversions$'}}]
             - has: {field: arguments, matches: plain-arguments}
         - all:
             - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?guard(\s*<.+>)?$'}

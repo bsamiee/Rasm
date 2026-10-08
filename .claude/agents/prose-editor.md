@@ -91,7 +91,7 @@ Rename coined names through the tool that updates every reference:
 - `ast-grep scan --no-ignore hidden <scope>`
 - `biome check --error-on-warnings <files>`, `ruff check <files>`, and `ruff format --check <files>`
 - `yamlfmt -lint <files>` over the scope's YAML
-- `dotnet format <project> --no-restore --verify-no-changes --include <files>` per project holding scope C# files
+- `nx run rasm:lint:dotnet-format` when the scope holds C# files
 - `nx affected -t check --files=<path>[,<path>]` over the scope
 
 12. Bound fix cycles at 3 per file

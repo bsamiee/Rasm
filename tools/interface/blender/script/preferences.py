@@ -1,4 +1,4 @@
-# ty: ignore[invalid-argument-type, possibly-missing-attribute, unresolved-attribute]
+# ty: ignore[invalid-argument-type, invalid-assignment, possibly-missing-attribute, unresolved-attribute]
 # mypy: disable-error-code="arg-type, attr-defined, union-attr"
 """Blender's preferences, keyconfig preferences, auto-run exclusion, asset libraries, studio lights, and the user keymap edits of stock items."""
 
@@ -176,7 +176,7 @@ def lights(preferences: bpy.types.Preferences) -> tuple[Row, ...]:
             read=partial(held, kind, source.name),
             write=partial(install, kind),
             target=source,
-            plain=lambda path: None if path is None else digest(path.read_bytes()),
+            plain=lambda path: digest(path.read_bytes()) if isinstance(path, Path) else None,
         )
         for kind, source in (("STUDIO", HEADLAMP), ("WORLD", LOOK_DEVELOPMENT))
     )

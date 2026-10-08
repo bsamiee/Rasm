@@ -1,6 +1,6 @@
 # ty: ignore[invalid-argument-type, invalid-assignment, invalid-type-form, unresolved-attribute, unresolved-import]
-# mypy: disable-error-code="arg-type, attr-defined, explicit-any, import-not-found, no-any-return, union-attr, unreachable, valid-type"
-# ruff: file-ignore[import-private-name, invalid-class-name, mutable-class-default, relative-imports]
+# mypy: disable-error-code="arg-type, attr-defined, explicit-any, no-any-return, union-attr, unreachable, valid-type"
+# ruff: file-ignore[import-private-name, invalid-class-name, mutable-class-default]
 """Command aliases per editor, the operators they add, and the leader that runs an alias typed in the status bar."""
 
 from collections.abc import Callable, Mapping
@@ -19,7 +19,7 @@ from .unit_system import cap, scene_units, snapped
 from .units import Units
 
 if TYPE_CHECKING:
-    from bpy.stub_internal.rna_enums import OperatorReturnItems
+    from bpy.stub_internal.rna_enums import OperatorReturnItems, SpaceTypeItems
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -64,11 +64,11 @@ class INTERFACE_OT_deform(AliasOperator):
 
     @classmethod
     @override
-    def poll(cls, context: bpy.types.Context | None) -> bool:
+    def poll(cls, context: bpy.types.Context) -> bool:
         return context.object is not None
 
     @override
-    def execute(self, context: bpy.types.Context | None) -> "set[OperatorReturnItems]":
+    def execute(self, context: bpy.types.Context) -> "set[OperatorReturnItems]":
         context.object.modifiers.new(self.bl_label, "SIMPLE_DEFORM").deform_method = self.method
         return {"FINISHED"}
 
@@ -81,11 +81,11 @@ class INTERFACE_OT_text(AliasOperator):
 
     @classmethod
     @override
-    def poll(cls, context: bpy.types.Context | None) -> bool:
+    def poll(cls, context: bpy.types.Context) -> bool:
         return scene_units(context.scene) is not None
 
     @override
-    def execute(self, context: bpy.types.Context | None) -> "set[OperatorReturnItems]":
+    def execute(self, context: bpy.types.Context) -> "set[OperatorReturnItems]":
         units, face = scene_units(context.scene), context.preferences.view.font_path_ui
         curve = bpy.data.curves.new(self.bl_label, "FONT")
         curve.font, curve.size, curve.align_x = bpy.data.fonts.load(face, check_existing=True), units.text * units.sheet_scale / cap(face), "LEFT"
@@ -106,7 +106,7 @@ class INTERFACE_OT_select_instances(AliasOperator):
     bl_label = "Select Instances"
 
     @override
-    def execute(self, context: bpy.types.Context | None) -> "set[OperatorReturnItems]":
+    def execute(self, context: bpy.types.Context) -> "set[OperatorReturnItems]":
         for target in [target for target in context.selectable_objects if target.instance_type == "COLLECTION"]:
             target.select_set(state=True)
         return {"FINISHED"}
@@ -139,11 +139,11 @@ class INTERFACE_OT_primitive(AliasOperator):
 
     @classmethod
     @override
-    def poll(cls, context: bpy.types.Context | None) -> bool:
+    def poll(cls, context: bpy.types.Context) -> bool:
         return context.mode in {"OBJECT", "EDIT_MESH"} and scene_units(context.scene) is not None
 
     @override
-    def execute(self, context: bpy.types.Context | None) -> "set[OperatorReturnItems]":
+    def execute(self, context: bpy.types.Context) -> "set[OperatorReturnItems]":
         stock = {
             "Cube": ("mesh.primitive_cube_add", {"size": 1.0}),
             "Cone": ("mesh.primitive_cone_add", {"radius1": 2.0, "radius2": 1.0, "depth": 1.0}),
@@ -174,11 +174,11 @@ class INTERFACE_OT_alias(bpy.types.Operator):
 
     @classmethod
     @override
-    def poll(cls, context: bpy.types.Context | None) -> bool:
+    def poll(cls, context: bpy.types.Context) -> bool:
         return context.area is not None and context.area.type in BINDINGS
 
     @override
-    def invoke(self, context: bpy.types.Context | None, event: bpy.types.Event | None) -> "set[OperatorReturnItems]":
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> "set[OperatorReturnItems]":
         registered = frozenset(ops.dir())
         self.present = {alias: (row, function) for alias, row in BINDINGS[context.area.type].items() if (function := operator(row.idname)).idname() in registered}
         self.acting = {alias: row.enabled(context) and function.poll() for alias, (row, function) in self.present.items()}
@@ -188,7 +188,7 @@ class INTERFACE_OT_alias(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     @override
-    def modal(self, context: bpy.types.Context | None, event: bpy.types.Event | None) -> "set[OperatorReturnItems]":
+    def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> "set[OperatorReturnItems]":
         match event.type, event.value:
             case "ESC" | "RIGHTMOUSE", "PRESS":
                 self.cancel(context)
@@ -207,7 +207,7 @@ class INTERFACE_OT_alias(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     @override
-    def cancel(self, context: bpy.types.Context | None) -> None:
+    def cancel(self, context: bpy.types.Context) -> None:
         context.workspace.status_text_set(None)
 
     def run(self, context: bpy.types.Context, alias: Alias | None) -> "set[OperatorReturnItems]":
@@ -229,7 +229,7 @@ class INTERFACE_OT_alias(bpy.types.Operator):
             layout = header.layout
             if not self.typed:
                 for family in families(self.present):
-                    layout.label(text=family.value, icon=f"EVENT_{family.name}")
+                    layout.label(text=family.name.title(), icon=f"EVENT_{family.value}")
                 return
             layout.label(text=self.typed)
             for alias in [alias for alias in self.present if alias.name.startswith(self.typed)]:
@@ -250,7 +250,7 @@ def bind(keyconfigs: bpy.types.KeyConfigurations) -> list[tuple[bpy.types.KeyMap
 
 # --- [ALIASES] --------------------------------------------------------------------------
 
-BINDINGS: Final[Mapping[str, Mapping[Alias, Binding]]] = MappingProxyType({
+BINDINGS: Final[Mapping["SpaceTypeItems", Mapping[Alias, Binding]]] = MappingProxyType({
     "VIEW_3D": MappingProxyType({
         Alias.Q: binding("view3d.slvs_add_line2d", continuous_draw=False),
         Alias.Q1: binding("curve.extrude_move"),
@@ -432,4 +432,4 @@ CLASSES: Final = (INTERFACE_OT_deform, INTERFACE_OT_text, INTERFACE_OT_select_in
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["bind", "CLASSES", "LAST"]
+__all__ = ["CLASSES", "LAST", "bind"]

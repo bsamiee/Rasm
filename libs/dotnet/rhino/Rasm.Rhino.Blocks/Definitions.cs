@@ -7,7 +7,6 @@ using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Answers))]
 
 namespace Rasm.Rhino.Blocks;
 

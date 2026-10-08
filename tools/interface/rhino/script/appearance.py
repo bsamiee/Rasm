@@ -1,4 +1,4 @@
-# ty: ignore[unresolved-import, redundant-condition-strict]
+# ty: ignore[redundant-condition-strict, unresolved-import]
 # mypy: disable-error-code="import-untyped"
 """Rhino's theme keys and appearance colors in their color roles."""
 

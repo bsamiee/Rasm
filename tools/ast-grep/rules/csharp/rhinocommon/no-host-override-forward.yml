@@ -125,7 +125,7 @@ utils:
                     - has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: hook-read}}
                     - has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: base-default}}
             - all:
-                - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^(Answer|Succeeded)$'}}}
+                - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: held-read}}}
             - has:
                 field: arguments

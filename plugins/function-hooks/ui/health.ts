@@ -23,8 +23,10 @@ const down = (known: readonly Service[], listeners: string): readonly Service[] 
     return known.filter(({ port }) => !ports.has(port));
 };
 
+const remaining = (held: readonly Service[], restarted: ReadonlySet<string>): readonly Service[] => held.filter(({ name }) => !restarted.has(name));
+
 const kickstart = (name: string, uid: string): Invocation => ['launchctl', 'kickstart', '-k', `gui/${uid.trim()}/dev.mise.${name}`];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { down, kickstart, LAUNCHD_AGENTS, LISTENERS, services, UID };
+export { down, kickstart, LAUNCHD_AGENTS, LISTENERS, remaining, services, UID };

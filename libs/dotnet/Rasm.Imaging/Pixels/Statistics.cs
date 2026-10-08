@@ -268,9 +268,9 @@ internal static class BandFold {
 }
 
 file readonly struct BandAction<TFold>(Memory2D<Vector4> rows, int bands, Memory<int> counts, TFold fold) : IAction where TFold : struct, IRowFold {
-    public void Invoke(int band) {
-        Span<int> bins = counts.Span.Slice(band * fold.Bins, fold.Bins);
-        for (int line = (int)((long)band * rows.Height / bands); line < (int)((long)(band + 1) * rows.Height / bands); line++)
+    public void Invoke(int i) {
+        Span<int> bins = counts.Span.Slice(i * fold.Bins, fold.Bins);
+        for (int line = (int)((long)i * rows.Height / bands); line < (int)((long)(i + 1) * rows.Height / bands); line++)
             fold.Fold(rows.Span.GetRowSpan(line), bins);
     }
 }

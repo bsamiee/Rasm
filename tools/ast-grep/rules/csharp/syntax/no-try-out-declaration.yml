@@ -16,13 +16,24 @@ utils:
         all:
             - has: {kind: modifier, regex: '^out$'}
             - has: {field: type, matches: bool-type}
+    result-type:
+        regex: '^((global::)?LanguageExt\.)?(Option|Fin|IO)<'
+    host-answer-adapter:
+        any:
+            - kind: method_declaration
+              has: {field: returns, matches: result-type}
+            - kind: local_function_statement
+              has: {field: type, matches: result-type}
+        has: {field: parameters, has: {kind: parameter, has: {field: type, any: [{pattern: $NAME}, {has: {pattern: $NAME, stopBy: end}}]}}}
 rule:
     all:
+        - has: {field: name, pattern: $NAME}
         - any:
             - kind: 'delegate_declaration, local_function_statement'
               any:
                 - all: [{has: {field: type, matches: bool-type}}, {has: {field: parameters, has: {matches: answer-parameter}}}]
                 - has: {field: parameters, has: {matches: flag-parameter}}
+              not: {kind: delegate_declaration, inside: {kind: compilation_unit, stopBy: end, has: {matches: host-answer-adapter, stopBy: end}}}
             - kind: method_declaration
               any:
                 - all: [{has: {field: returns, matches: bool-type}}, {has: {field: parameters, has: {matches: answer-parameter}}}]
@@ -32,6 +43,5 @@ rule:
                     - has: {kind: modifier, regex: '^(override|extern)$'}
                     - has: {kind: explicit_interface_specifier}
                     - matches: interface-member
-        - has: {field: name, pattern: $NAME}
 message: '`$NAME` answers through a `bool` and an `out` parameter'
 note: Return `Option<T>` or `Fin<T>`, one value holds both the answer and its presence

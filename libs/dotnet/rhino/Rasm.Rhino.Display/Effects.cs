@@ -63,9 +63,6 @@ public abstract class ParameterEffect<TValue, TRaw> : PostEffect
     private IO<Unit> Swapped(IO<TValue> next) =>
         next.Map(value => ignore(held.Swap(_ => value)));
 
-    private static Fin<TValue> Converted(object raw) =>
-        Answers.Validated<TValue, TRaw>((TRaw)Convert.ChangeType(raw, typeof(TRaw), CultureInfo.InvariantCulture));
-
     // --- [UI]
     public sealed override void AddUISections(PostEffectUI ui) => ui.AddSection(section(this));
 

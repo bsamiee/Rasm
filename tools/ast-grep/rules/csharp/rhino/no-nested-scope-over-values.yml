@@ -20,32 +20,34 @@ utils:
               all:
                 - not: {has: {field: parameters, has: {kind: parameter}}}
                 - has: {field: body, matches: held}
-    using-scope:
+    use-value:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?DisposalOps\s*\.\s*Using(\s*<.+>)?$'}
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: value}}}
-    bracket-scope:
+    value-scope:
         kind: invocation_expression
-        all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bracket$'}}, {has: {field: expression, matches: value}}]}
-            - has: {field: arguments, has: {kind: argument}}
+        has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^Bracket$'}
+                - has: {field: expression, any: [{matches: value}, {has: {stopBy: end, matches: use-value}}]}
     scope-body:
         kind: argument
         any:
             - all:
-                - nthChild: 2
-                - inside: {kind: argument_list, inside: {matches: using-scope}}
-            - all:
                 - any: [{has: {field: name, regex: '^Use$'}}, {all: [{nthChild: 1}, {not: {has: {field: name, pattern: $_}}}]}]
-                - inside: {kind: argument_list, inside: {matches: bracket-scope}}
+                - inside: {kind: argument_list, inside: {matches: value-scope}}
+            - inside:
+                kind: argument_list
+                inside:
+                    kind: invocation_expression
+                    has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bind$'}}, {has: {field: expression, matches: use-value}}]}
+                    inside: {kind: member_access_expression, field: expression, inside: {matches: value-scope}}
 rule:
-    kind: invocation_expression
-    any:
-        - matches: using-scope
-          has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $VALUES}}}
-        - matches: bracket-scope
-          has: {field: function, has: {field: expression, pattern: $VALUES}}
+    matches: value-scope
+    has: {field: function, has: {field: expression, pattern: $VALUES}}
     inside: {stopBy: end, matches: scope-body}
 message: '`$VALUES` opens a second scope inside a scope over acquired values'
-note: Use `DisposalOps.Using(IO.pure((<first>, <second>)), <member>, <body>)` for sequences paired by position, `DisposalOps.Using(IO.pure<Seq<IDisposable>>([.. <first>, .. <second>]), <body>)` otherwise, or `DisposalOps.Release<IDisposable>([.. <first>, .. <second>])` where no body follows
+note: 'Use `IO.pure<Seq<IDisposable>>([.. <first>, .. <second>]).Bracket(Use: <body>, Fin: DisposalOps.Release)`, or `DisposalOps.Release<IDisposable>([.. <first>, .. <second>])` where no body follows'

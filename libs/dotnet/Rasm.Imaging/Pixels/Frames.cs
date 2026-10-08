@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -34,23 +33,25 @@ public readonly partial struct PixelExtent {
 }
 
 public sealed class PixelFrame {
+    private readonly float[] block;
+
     public PixelFrame(Point origin, PixelExtent size, PixelExtent extent, Action<float[]> fill) {
-        (Origin, Size, Extent, Block) = (origin, size, extent, GC.AllocateUninitializedArray<float>(4 * size.Width * size.Height, pinned: true));
-        fill(Block);
+        (Origin, Size, Extent, block) = (origin, size, extent, GC.AllocateUninitializedArray<float>(4 * size.Width * size.Height, pinned: true));
+        fill(block);
     }
 
     public Point Origin { get; }
     public PixelExtent Size { get; }
     public PixelExtent Extent { get; }
-    [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "The pinned block is the frame's identity, its address read by native consumers")]
-    public float[] Block { get; }
+    public ReadOnlySpan<float> Block => block;
+    public nint Address => Marshal.UnsafeAddrOfPinnedArrayElement(block, 0);
     public Rectangle Window => new(Origin.X, Origin.Y, Size.Width, Size.Height);
     public bool Whole => Origin == Point.Empty && Size == Extent;
-    internal Memory2D<Vector4> View => Block.AsMemory().Cast<float, Vector4>().AsMemory2D(Size.Height, Size.Width);
+    public Memory2D<Vector4> View => block.AsMemory().Cast<float, Vector4>().AsMemory2D(Size.Height, Size.Width);
 
     public int Line(int index) => Extent.Height - 1 - Origin.Y - index;
 
-    public Span<Vector4> Row(int line) => MemoryMarshal.Cast<float, Vector4>(Block.AsSpan()).AsSpan2D(Size.Height, Size.Width).GetRowSpan(Line(line));
+    public Span<Vector4> Row(int line) => MemoryMarshal.Cast<float, Vector4>(block.AsSpan()).AsSpan2D(Size.Height, Size.Width).GetRowSpan(Line(line));
 
     public PixelFrame Downscaled(PixelExtent bound) =>
         Size.Fitted(bound) switch {
@@ -174,4 +175,30 @@ public sealed record ImageFile {
 
     public static IO<ImageFile> Load(ImagePath path) =>
         Reads[System.IO.Path.GetExtension(path)](new FileInfo(path)).Map(frame => new ImageFile(path, frame));
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class PixelSampling {
+    extension(ReadOnlySpan2D<Vector4> plane) {
+        public Vector4 Sample(Vector2 point, (WrapMode Across, WrapMode Down) wrap) =>
+            plane.Sample(point, wrap, Vector4.Zero, static (sum, pixel, weight) => sum + (pixel * (float)weight));
+
+        public T Sample<T>(Vector2 point, (WrapMode Across, WrapMode Down) wrap, T sum, Func<T, Vector4, double, T> add) {
+            (double x, double y) = (point.X - 0.5d, point.Y - 0.5d);
+            (double left, double top) = (Math.Floor(x), Math.Floor(y));
+            (double across, double down) = (x - left, y - top);
+            for (int row = 0; row < 2; row++) {
+                Option<int> wrappedRow = wrap.Down.Index(top + row, plane.Height);
+                double vertical = row == 0 ? 1d - down : down;
+                for (int column = 0; column < 2; column++) {
+                    double weight = vertical * (column == 0 ? 1d - across : across);
+                    sum = (wrappedRow, wrap.Across.Index(left + column, plane.Width)) switch {
+                        ( { IsSome: true } atRow, { IsSome: true } atColumn) => add(sum, plane[(int)atRow, (int)atColumn], weight),
+                        _ => sum,
+                    };
+                }
+            }
+            return sum;
+        }
+    }
 }

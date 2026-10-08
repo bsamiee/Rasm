@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-size-ratio-count
+language: csharp
+severity: error
+utils:
+    size:
+        any:
+            - kind: sizeof_expression
+            - kind: invocation_expression
+              has: {field: function, regex: '^(global::)?(System\.Runtime\.(CompilerServices|InteropServices)\.)?(Unsafe|Marshal)\.SizeOf\b'}
+            - kind: parenthesized_expression
+              has: {matches: size}
+rule:
+    kind: binary_expression
+    pattern: $RATIO
+    all:
+        - has: {field: operator, regex: '^/$'}
+        - has: {field: left, matches: size}
+        - has: {field: right, matches: size}
+message: '`$RATIO` counts elements as a ratio of type sizes'
+note: 'Read the count the type declares (`Vector128<T>.Count`, `Vector<T>.Count`), or write the count its layout fixes (`4` lanes of a `Vector4`), a size ratio holds only while the layout has no padding'

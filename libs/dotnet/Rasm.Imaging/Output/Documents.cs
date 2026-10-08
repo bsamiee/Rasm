@@ -32,7 +32,7 @@ public abstract partial record DocumentLayer {
         new Folder(name, None, Mix.Full, Visible: true, Open: false, entries.Map(entry => (DocumentLayer)new Raster(
             entry.Name,
             new PixelFrame(ids.Origin, ids.Size, ids.Extent, block =>
-                IdentityLayer.Fill(Seq(entry))(MemoryMarshal.Cast<float, Vector4>(ids.Block.AsSpan()), MemoryMarshal.Cast<float, Vector4>(block.AsSpan()))),
+                IdentityLayer.Fill(Seq(entry))(MemoryMarshal.Cast<float, Vector4>(ids.Block), MemoryMarshal.Cast<float, Vector4>(block.AsSpan()))),
             BlendingMode.Mix, Mix.Full, Visible: true, None)));
 }
 
@@ -109,7 +109,7 @@ public sealed record LayeredDocument {
     private PixelFrame Isolated(Seq<DocumentLayer> layers) =>
         Flatten(layers, new PixelFrame(Canvas.Origin, Canvas.Size, Canvas.Extent, static block => block.AsSpan().Clear())) switch {
             var flat => new PixelFrame(flat.Origin, flat.Size, flat.Extent, block => {
-                ReadOnlySpan<Vector4> associated = MemoryMarshal.Cast<float, Vector4>(flat.Block.AsSpan());
+                ReadOnlySpan<Vector4> associated = MemoryMarshal.Cast<float, Vector4>(flat.Block);
                 Span<Vector4> straight = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
                 for (int i = 0; i < straight.Length; i++)
                     straight[i] = associated[i].W > 0f ? new Vector4(associated[i].AsVector3() / associated[i].W, associated[i].W) : Vector4.Zero;
@@ -237,10 +237,7 @@ public sealed record LayeredDocument {
             });
             writer.Write(Signature);
             writer.Write(Mode);
-            writer.Write((byte)MathF.Round((float)Opacity * byte.MaxValue, MidpointRounding.ToEven));
-            writer.Write((byte)0);
-            writer.Write((byte)(Visible ? 8 : 10));
-            writer.Write((byte)0);
+            writer.Write([(byte)MathF.Round((float)Opacity * byte.MaxValue, MidpointRounding.ToEven), 0, (byte)(Visible ? 8 : 10), 0]);
             writer.Write(uint.CreateSaturating(extra.Length));
             writer.Write(extra.GetBuffer(), 0, int.CreateSaturating(extra.Length));
         }

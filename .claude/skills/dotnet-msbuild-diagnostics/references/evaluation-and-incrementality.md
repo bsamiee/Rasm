@@ -9,8 +9,8 @@ MSBuild evaluates a project before it executes targets, once per project instanc
 ### [01.1]-[MEASUREMENT]
 
 ```bash
-dotnet build <project> -profileEvaluation:<dir>/evaluation-{}.md
-dotnet build <project> -v:diag | rg 'Property reassignment'
+nx run <project>:build --skip-nx-cache -- -profileEvaluation:<dir>/evaluation-{}.md
+nx run <project>:build --skip-nx-cache -- -v:diag | rg 'Property reassignment'
 ```
 
 - `-profileEvaluation` prints one row per import, property, item, and target
@@ -59,12 +59,12 @@ Diagnosis finds targets that break incremental rules. Use `dotnet-msbuild-execut
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
 ```bash
-dotnet restore Solution.slnx --artifacts-path <dir>/artifacts
-dotnet build Solution.slnx --no-restore --artifacts-path <dir>/artifacts -bl:<dir>/establish-{}.binlog
-dotnet build Solution.slnx --no-restore --artifacts-path <dir>/artifacts -bl:<dir>/no-change-{}.binlog
+nx run rasm:restore --skip-nx-cache -- --artifacts-path <dir>/artifacts
+nx run <project>:build --skip-nx-cache -- --artifacts-path <dir>/artifacts
+nx run <project>:build --skip-nx-cache -- --artifacts-path <dir>/artifacts
 ```
 
-Analyze the second binlog:
+Analyze the newest `build-*.binlog`:
 1. Run `binlog_incremental_analysis`, read each `targets` row with `skipped: false` for its `reason`, `triggerInputs`, and `staleOutputs`
 2. Read `incrementalCleanDeletions` for a file a skipped target had declared
 3. Run `binlog_project_target_times` for each project the rows name

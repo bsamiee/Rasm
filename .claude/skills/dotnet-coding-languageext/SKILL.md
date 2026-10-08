@@ -95,12 +95,12 @@ Domain errors are `sealed record`s extending `Expected` with a message and a mem
 - `Exceptional` is the error `Try` and `IO` produce from a captured exception
 - `ManyErrors` is the error `+` and `Validation` produce from accumulation
 - `Errors` holds the shared values (`Errors.TimedOut`, `Errors.None`)
-- Each namespace that raises errors declares its `Codes` enum numbered from 0 in declaration order, shadowing the parent namespace's `Codes`
+- Namespaces raising errors declare a `Codes` enum that shadows the parent namespace's `Codes` and numbers members in declaration order from 1, above `Error.New`'s code 0
 - Records raised from more than one namespace sit in their nearest common parent
 
 ```csharp
 internal enum Codes {
-    InvalidQuantity,
+    InvalidQuantity = 1,
     NotFound,
     Rejected,
 }

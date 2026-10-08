@@ -25,7 +25,7 @@ utils:
         inside: {stopBy: end, kind: method_declaration, has: {kind: modifier, regex: '^public$'}}
     answer-error:
         kind: object_creation_expression
-        has: {field: type, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Refused$'}
+        has: {field: type, regex: '^((global::)?Rasm\.Rhino\.)?Refused$'}
 rule:
     kind: invocation_expression
     any:
@@ -38,13 +38,13 @@ rule:
                     field: expression
                     kind: invocation_expression
                     all:
-                        - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers\s*\.\s*Present$'}
+                        - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?Conversions\s*\.\s*Present$'}
                         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
         - all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers\s*\.\s*(NonEmpty|Required)(\s*<.+>)?$'}
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?Conversions\s*\.\s*(NonEmpty|Required)(\s*<.+>)?$'}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
         - all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless$'}}, {has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.Document\.)?(Refused|Missing|CountMismatch)$'}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless$'}}, {has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.)?(Refused|Missing|CountMismatch)$'}}]}
             - has:
                 field: arguments
                 has:
@@ -60,4 +60,4 @@ rule:
                                 - has: {stopBy: end, kind: identifier, matches: public-input, pattern: $VALUE}
                                 - not: {has: {stopBy: end, kind: 'invocation_expression, object_creation_expression, member_access_expression, element_access_expression, conditional_access_expression'}}
 message: '`$VALUE` is caller input checked as a host answer'
-note: Use `Limits.AtLeast(0).Check(<value>, <subject>)` for a bound and `Invalid.Unless` over an emptiness test for an id or a sequence, `Refused`, `Missing`, and `CountMismatch` name a value the host returned
+note: Use a value type implementing `IMinMaxValue<TSelf>` for a bound and a value type whose validation hook rejects an empty id or sequence, crossing through `Conversions.Validated`, `Refused` and `Missing` naming a value the host returned

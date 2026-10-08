@@ -3,11 +3,33 @@ id: no-forwarding-user-mapping
 language: csharp
 severity: error
 utils:
+    selected:
+        kind: method_declaration
+        has:
+            kind: attribute_list
+            has:
+                kind: attribute
+                all:
+                    - has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?UserMapping(Attribute)?$'}
+                    - has: {kind: attribute_argument_list, has: {kind: attribute_argument, all: [{has: {field: name, regex: '^Default$'}}, {has: {kind: boolean_literal, regex: '^false$'}}]}}
+    declared-owner:
+        any:
+            - kind: identifier
+              pattern: $TYPE
+            - kind: member_access_expression
+              has: {field: name, pattern: $TYPE}
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has: {stopBy: end, kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration', has: {field: name, pattern: $TYPE}}
     forward:
         any:
             - pattern: $OWNER.$MEMBER($SOURCE)
               has: {field: function, pattern: $CALLEE}
               not: {has: {field: function, matches: csharp-throwing-factory}}
+              any:
+                - inside: {stopBy: end, matches: selected}
+                - has: {field: function, has: {field: expression, matches: declared-owner}}
             - pattern: $MEMBER($SOURCE)
               has: {field: function, pattern: $CALLEE}
               inside:
@@ -36,4 +58,4 @@ rule:
 constraints:
     OWNER: {regex: '^(global::)?(@?[A-Z]\w*(<.+>)?\.)*@?[A-Z]\w*(<.+>)?$'}
 message: 'Mapping method `$NAME` passes `$SOURCE` to `$CALLEE` unchanged'
-note: 'Reference the owner member directly through its `[UserMapping]` with `[UseStaticMapper(typeof(<owner>))]` or through `Use = nameof(@<owner>.<member>)`, and delete the forwarding method'
+note: 'Select the owner member through `Use = nameof(@<owner>.<member>)` in place of a `Default = false` forward, or mark a member the repository declares `[UserMapping]` with `[UseStaticMapper(typeof(<owner>))]` for another type, and delete the forwarding method'

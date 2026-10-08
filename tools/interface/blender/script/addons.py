@@ -6,6 +6,7 @@
 from collections.abc import Callable, Set as AbstractSet
 from functools import partial
 from importlib import metadata
+import inspect
 from pathlib import Path, PurePosixPath
 import platform
 import sys
@@ -63,7 +64,7 @@ def identity(module: ModuleType) -> str:
 
 def core_addon(module: ModuleType) -> bool:
     """Whether the module is one of Blender's bundled add-ons."""
-    return Path(module.__file__).is_relative_to(bpy.utils.system_resource("SCRIPTS", path="addons_core"))
+    return Path(inspect.getfile(module)).is_relative_to(bpy.utils.system_resource("SCRIPTS", path="addons_core"))
 
 
 def installed(name: str) -> tuple[ModuleType, ...]:
@@ -89,8 +90,8 @@ def build(row: Declaration, module: ModuleType) -> str | None:
         case Listed() if addon_utils.check_extension(module.__name__):
             return str(tomllib.loads(Path(module.__file_manifest__).read_text(encoding="utf-8"))["version"])
         case Archived():
-            file = Path(module.__file__)
-            owned = file.parent if file.name == "__init__.py" else file
+            file = Path(inspect.getfile(module))
+            owned = file.parent if module.__package__ == module.__name__ else file
             return stamped(owned, None if addon_utils.check_extension(module.__name__) else owned.parent)
         case Bundled() | Listed() | None:
             return None
@@ -107,9 +108,9 @@ def user_repository(preferences: bpy.types.Preferences) -> bpy.types.UserExtensi
     return next(repo for repo in preferences.extensions.repos if repo.source == "USER" and not repo.use_remote_url)
 
 
-def module_repository(preferences: bpy.types.Preferences, module: str) -> bpy.types.UserExtensionRepo | None:
-    """Repository with the module name, None while the preferences hold none."""
-    return next((repo for repo in preferences.extensions.repos if repo.module == module), None)
+def module_repositories(preferences: bpy.types.Preferences, module: str) -> tuple[bpy.types.UserExtensionRepo, ...]:
+    """Repositories with the module name, one per declared module and empty while the preferences hold none."""
+    return tuple(repo for repo in preferences.extensions.repos if repo.module == module)
 
 
 def remote(preferences: bpy.types.Preferences, declared: Repository) -> Row:
@@ -117,11 +118,14 @@ def remote(preferences: bpy.types.Preferences, declared: Repository) -> Row:
     target: dict[str, object] = {"enabled": True, "use_remote_url": True, "remote_url": declared.url}
 
     def read() -> dict[str, object] | None:
-        repo = module_repository(preferences, declared.module)
-        return None if repo is None else {name: getattr(repo, name) for name in target}
+        match module_repositories(preferences, declared.module):
+            case (repo,):
+                return {name: getattr(repo, name) for name in target}
+            case _:
+                return None
 
     def write(values: dict[str, object]) -> None:
-        repo = module_repository(preferences, declared.module) or preferences.extensions.repos.new(name=declared.name, module=declared.module)
+        (repo,) = module_repositories(preferences, declared.module) or (preferences.extensions.repos.new(name=declared.name, module=declared.module),)
         for name, value in values.items():
             setattr(repo, name, value)
 
@@ -168,7 +172,8 @@ def removed(preferences: bpy.types.Preferences, module: ModuleType) -> Refused |
     """Uninstall extensions, disable bundled add-ons, or remove legacy add-ons in the first window's first area."""
     match module.__name__.split("."):
         case ["bl_ext", repository, package_id]:
-            return extension_command(partial(bpy.ops.extensions.package_uninstall, repo_directory=module_repository(preferences, repository).directory, pkg_id=package_id))
+            (repo,) = module_repositories(preferences, repository)
+            return extension_command(partial(bpy.ops.extensions.package_uninstall, repo_directory=repo.directory, pkg_id=package_id))
         case _ if core_addon(module):
             bpy.ops.preferences.addon_disable(module=module.__name__)
         case _:
@@ -182,7 +187,8 @@ def install(preferences: bpy.types.Preferences, row: Declaration, module: str) -
     """Install through Blender, a legacy add-on disabled and its modules evicted so the enable imports the new files."""
     match row:
         case Listed():
-            return extension_command(partial(bpy.ops.extensions.package_install, repo_directory=module_repository(preferences, row.repository).directory, pkg_id=row.identity, enable_on_install=False))
+            (repo,) = module_repositories(preferences, row.repository)
+            return extension_command(partial(bpy.ops.extensions.package_install, repo_directory=repo.directory, pkg_id=row.identity, enable_on_install=False))
         case Archived(archive=archive) if addon_utils.check_extension(module):
             return extension_command(partial(bpy.ops.extensions.package_install_files, filepath=archive.path, repo=user_repository(preferences).module, enable_on_install=False))
         case Archived(archive=archive):

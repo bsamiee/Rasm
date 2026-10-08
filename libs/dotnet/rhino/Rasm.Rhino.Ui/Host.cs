@@ -5,12 +5,6 @@ using Rhino.Runtime.RhinoAccounts;
 namespace Rasm.Rhino.Ui;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record PrinterMargins(double LeftMillimeters, double TopMillimeters, double RightMillimeters, double BottomMillimeters);
-
-public sealed record PrinterForm(string Name, Option<(double Width, double Height)> Millimeters, Option<PrinterMargins> Portrait, Option<PrinterMargins> Landscape);
-
-public sealed record Printer(string Name, Option<double> HorizontalDpi, Option<double> VerticalDpi, Seq<PrinterForm> Forms);
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Entitlement {
     public sealed record Entitled(Option<string> Signature) : Entitlement;
@@ -47,31 +41,6 @@ public abstract partial record TokenRequest {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Host {
-    // --- [PRINTERS]
-    public static IO<Seq<Printer>> Printers() =>
-        IO.lift(static () => toSeq(HostUtils.GetPrinterNames()).Map(ReadPrinter).Strict());
-
-    private static Printer ReadPrinter(string printer) =>
-        new(
-            printer,
-            Dpi(printer, horizontal: true),
-            Dpi(printer, horizontal: false),
-            toSeq(HostUtils.GetPrinterFormNames(printer))
-                .Map(form => new PrinterForm(
-                    form,
-                    Answers.Found(HostUtils.GetPrinterFormSize(printer, form, out double width, out double height), (Width: width, Height: height)),
-                    Margins(printer, form, portrait: true),
-                    Margins(printer, form, portrait: false)))
-                .Strict());
-
-    private static Option<PrinterMargins> Margins(string printer, string form, bool portrait) =>
-        Answers.Found(
-            HostUtils.GetPrinterFormMargins(printer, form, portrait, out double left, out double top, out double right, out double bottom),
-            new PrinterMargins(left, top, right, bottom));
-
-    private static Option<double> Dpi(string printer, bool horizontal) =>
-        Some(HostUtils.GetPrinterDPI(printer, horizontal)).Filter(static dpi => dpi != 0.0);
-
     // --- [ASSEMBLIES]
     public static IO<System.Reflection.Assembly> Load(AssemblySource source) =>
         IO.lift(() => source.Switch(

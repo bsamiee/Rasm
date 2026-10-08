@@ -43,7 +43,7 @@ def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[str,
     """Replace each ``target.member`` with its stub and return the one log of ``(member, args, kwargs)`` every call appends in call order."""
     calls: list[CallRecord] = []
 
-    def runner(member: str, stub: Stub[object]) -> Callable[..., object]:
+    def runner(member: str, stub: Stub[object]) -> object:
         match stub:
             case Sync(value):
 
@@ -62,14 +62,9 @@ def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[str,
                 return coroutine
             case Factory(value):
 
-                def factory(*args: object, **kwargs: object) -> Callable[..., object]:
+                def factory(*args: object, **kwargs: object) -> object:
                     calls.append((member, args, kwargs))
-
-                    def call(*call_args: object, **call_kwargs: object) -> object:
-                        calls.append((f"{member}()", call_args, call_kwargs))
-                        return value
-
-                    return call
+                    return runner(f"{member}()", Sync(value))
 
                 return factory
 

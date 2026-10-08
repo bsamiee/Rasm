@@ -1,13 +1,9 @@
-import type { PromptAttachmentResult } from 'claude-code';
-import { counted, decoded, map, none, type Option, ok, type Result, some } from '../composition.ts';
+import { counted, decoded, type Fault, map, none, type Option, ok, type Result, some } from '../composition.ts';
 import type { Diagnostic } from '../hooks/state.d.ts';
 import { basename } from '../policies/invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface CodelensDiagnostics {
-    readonly items: readonly { readonly id: string; readonly message: string; readonly file: string; readonly line: number }[];
-}
 interface AstGrepMatch {
     readonly ruleId: string;
     readonly message: string;
@@ -18,47 +14,37 @@ interface AstGrepMatch {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _ROW = /\n(?= {2}\S+ \[Line \d+:\d+\] )/u;
-const _BLOCK = /\n\n(?=[^\n]+:\n {2}\S+ \[Line \d+:\d+\] )/u;
-const _CLOSING = /\n*<\/new-diagnostics>$/u;
-const _ERROR = /^(?<code>[A-Z]+\d+) (?<file>[^(]+?)(?:\((?<line>\d+),\d+\))?: (?<message>.+?)(?: \[[^\]]*\])?$/u;
+const _RULE = /^Error: (?<code>Cannot parse rule) (?<file>.+)$/mu;
+const _AT = / at line (?<line>\d+) column \d+$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [ATTACHMENT]
-
-const trimmed = (text: string, edited: readonly string[]): PromptAttachmentResult => {
-    const hint = '  ★ ';
-    const start = text.indexOf('\n\n') + 2;
-    const end = text.search(_CLOSING);
-    const headers = new Set(edited.map((path) => `${basename(path)}:`));
-    const kept = text
-        .slice(start, end)
-        .split(_BLOCK)
-        .flatMap((block) => {
-            const header = block.slice(0, block.indexOf('\n'));
-            const rows = block
-                .slice(header.length + 1)
-                .split(_ROW)
-                .filter((row) => !row.startsWith(hint));
-            return headers.has(header) && rows.length > 0 ? [[header, ...rows].join('\n')] : [];
-        });
-    return { text: kept.length === 0 ? null : `${text.slice(0, start)}${kept.join('\n\n')}${text.slice(end)}` };
-};
-
 // --- [DECODING]
 
-const fromCodelens = (text: string, file: string): Result<readonly Diagnostic[]> =>
-    map(decoded<CodelensDiagnostics>('roslyn-codelens get_diagnostics', ok(text)), ({ items }) => items.filter((item) => item.file === file).map((item): Diagnostic => ({ code: item.id, file: item.file, line: some(item.line), message: item.message, source: 'roslyn-codelens' })));
+const _unparsed = (value: Fault, file: string): readonly Diagnostic[] => {
+    if (value.kind !== 'exited') {
+        return [];
+    }
+    const groups = _RULE.exec(value.stderr)?.groups;
+    if (groups?.code === undefined || groups.file !== file) {
+        return [];
+    }
+    const cause = '╰▻ ';
+    const message = value.stderr
+        .split('\n')
+        .flatMap((line) => (line.startsWith(cause) ? [line.slice(cause.length)] : []))
+        .join(': ');
+    const at = _AT.exec(message)?.groups?.line;
+    return [{ code: groups.code, file, line: at === undefined ? none : some(Number(at)), message }];
+};
 
-const fromAstGrep = (text: string): Result<readonly Diagnostic[]> =>
-    map(decoded<readonly AstGrepMatch[]>('ast-grep scan', ok(text)), (found) => found.map((match): Diagnostic => ({ code: match.ruleId, file: match.file, line: some(match.range.start.line + 1), message: match.note === null ? match.message : `${match.message}. ${match.note}`, source: 'ast-grep' })));
-
-const fromBinlog = (text: string): readonly Diagnostic[] =>
-    text.split('\n').flatMap((line) => {
-        const groups = _ERROR.exec(line)?.groups;
-        return groups?.code === undefined || groups.file === undefined || groups.message === undefined ? [] : [{ code: groups.code, file: groups.file, line: groups.line === undefined ? none : some(Number(groups.line)), message: groups.message, source: 'binlog' as const }];
-    });
+const fromAstGrep = (printed: Result<string>, file: string): Result<readonly Diagnostic[]> => {
+    if (printed.kind === 'ok') {
+        return map(decoded<readonly AstGrepMatch[]>('ast-grep scan', printed), (found) => found.map((match): Diagnostic => ({ code: match.ruleId, file: match.file, line: some(match.range.start.line + 1), message: match.note === null ? match.message : `${match.message}. ${match.note}` })));
+    }
+    const unparsed = printed.faults.flatMap((value) => _unparsed(value, file));
+    return unparsed.length === printed.faults.length ? ok(unparsed) : printed;
+};
 
 // --- [TEXT]
 
@@ -70,8 +56,8 @@ const summary = (rows: readonly Diagnostic[]): string => {
     return [counted(rows.length, 'diagnostic', 'diagnostics'), ...shown, ...(rows.length > limit ? [`+${rows.length - limit} more`] : [])].join(' · ');
 };
 
-const lines = (rows: readonly Diagnostic[]): readonly string[] => rows.map((row) => `${row.code} ${_location(row.file, row.line)} ${row.message} (${row.source})`);
+const lines = (rows: readonly Diagnostic[]): readonly string[] => rows.map((row) => `${row.code} ${_location(row.file, row.line)} ${row.message}`);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { fromAstGrep, fromBinlog, fromCodelens, lines, summary, trimmed };
+export { fromAstGrep, lines, summary };

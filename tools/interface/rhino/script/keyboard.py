@@ -1,5 +1,5 @@
-# ty: ignore[unresolved-import, unresolved-attribute, invalid-argument-type, no-matching-overload]
-# mypy: disable-error-code="import-untyped, call-overload"
+# ty: ignore[invalid-argument-type, no-matching-overload, unresolved-attribute, unresolved-import]
+# mypy: disable-error-code="call-overload, import-untyped"
 """Rhino's command aliases as the rows of `aliases.txt` and the shortcut keys the interface binds."""
 
 from functools import partial

@@ -25,7 +25,7 @@ const band = ({ Box, Button, Text }: Elements[RenderSurface], rows: readonly Row
     <Box flexDirection="column">
         {below}
         {rows.map((row) => (
-            <Box flexDirection="row" justifyContent="space-between">
+            <Box flexDirection="row" justifyContent="space-between" key={row.label}>
                 <Box>
                     <Box flexShrink={0} width={2}>
                         <Text color="suggestion">✦</Text>

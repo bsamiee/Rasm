@@ -1,8 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
+using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Pixels;
@@ -257,12 +257,11 @@ public sealed partial class ReferenceDistribution {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Reference scenes and rolls replay from the caller's seed through xoshiro256**, one seed answering one scene on every machine")]
 public static class Lighting {
     extension(Xoshiro256StarStar random) {
-        internal float Uniform(double low, double high) => (float)(low + ((high - low) * random.NextDouble()));
+        internal float Uniform(double low, double high) => (float)ContinuousUniform.Sample(random, low, high);
 
-        internal bool Chance(double probability) => random.NextDouble() < probability;
+        internal bool Chance(double probability) => Bernoulli.Sample(random, probability) == 1;
 
         internal T Pick<T>(IReadOnlyList<T> items) => items[random.Next(0, items.Count)];
     }
@@ -285,7 +284,7 @@ public static class Lighting {
             foreach ((float level, int index) in samples)
                 logs[index] = float.Log2(level);
             ReadOnlySpan2D<float> plane = new(logs, height, width);
-            ReadOnlySpan<Vector4> pixels = MemoryMarshal.Cast<float, Vector4>(analysis.Block.AsSpan());
+            ReadOnlySpan<Vector4> pixels = MemoryMarshal.Cast<float, Vector4>(analysis.Block);
             (Vector4 Light, Vector2 Moment)[] hues = new (Vector4, Vector2)[sectors];
             (Vector4 shadow, Vector4 middle, Vector4 bright, Vector4 halves, Vector4 halved) = (Vector4.Zero, Vector4.Zero, Vector4.Zero, Vector4.Zero, Vector4.Zero);
             (Vector2 moment, Vector2 rings, Vector2 ringed, float steepest) = (Vector2.Zero, Vector2.Zero, Vector2.Zero, float.NaN);

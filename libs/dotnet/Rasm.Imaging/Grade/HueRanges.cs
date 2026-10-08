@@ -158,12 +158,14 @@ public sealed record SelectiveColor(HueRange Range, HueShift Shift, Saturation S
     public static SelectiveColor Default { get; } = new(HueRange.All, HueShift.Neutral, Saturation.Neutral, Exposure.Neutral);
 
     public Func<Vector4, Vector4> Graded() =>
-        (Range, (float)Shift, (float)Saturation, new Vector4(new Vector3(Exposure.Scale), 1f), Shift == HueShift.Neutral && Saturation == Saturation.Neutral) switch {
+        (Range, (float)Shift, (float)Saturation, Exposure.Scale, Shift == HueShift.Neutral && Saturation == Saturation.Neutral) switch {
             var (range, shift, saturation, gain, kept) => color => Hsy.From(color) switch {
-                var hsy => Vector4.Lerp(
-                    color,
-                    (kept ? color : (hsy with { Hue = hsy.Hue + shift, Saturation = hsy.Saturation * saturation }).ToRgb(color.W)) * gain,
-                    range.Membership(hsy)),
+                var hsy => new(
+                    Vector3.Lerp(
+                        color.AsVector3(),
+                        (kept ? color : (hsy with { Hue = hsy.Hue + shift, Saturation = hsy.Saturation * saturation }).ToRgb(color.W)).AsVector3() * gain,
+                        range.Membership(hsy)),
+                    color.W),
             },
         };
 

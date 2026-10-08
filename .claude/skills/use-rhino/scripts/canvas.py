@@ -1,5 +1,5 @@
-# ty: ignore[unresolved-import, no-matching-overload, unsupported-operator, too-many-positional-arguments]
-# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, no-any-return, call-overload, call-arg, type-abstract, operator"
+# ty: ignore[no-matching-overload, too-many-positional-arguments, unresolved-import, unsupported-operator]
+# mypy: disable-error-code="call-arg, call-overload, import-not-found, import-untyped, no-any-return, no-any-unimported, operator, type-abstract"
 # /// script
 # dependencies = ["msgspec"]
 #

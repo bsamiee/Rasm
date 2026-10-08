@@ -73,12 +73,12 @@ public sealed record LutBake(LatticeSize Size, LatticeInput Input, ColorEncoding
 }
 
 file readonly struct LatticeRows(int edge, Seq<Action<Span<Vector4>>> steps, Memory<float> samples) : IAction {
-    public void Invoke(int line) {
+    public void Invoke(int i) {
         using SpanOwner<Vector4> nodes = SpanOwner<Vector4>.Allocate(edge);
         Span<Vector4> row = nodes.Span;
-        for (int red = 0; red < edge; red++) row[red] = new Vector4(red, line % edge, line / edge, edge - 1) / (edge - 1);
+        for (int red = 0; red < edge; red++) row[red] = new Vector4(red, i % edge, i / edge, edge - 1) / (edge - 1);
         foreach (Action<Span<Vector4>> step in steps) step(row);
-        Span<Vector3> written = MemoryMarshal.Cast<float, Vector3>(samples.Span).Slice(edge * line, edge);
+        Span<Vector3> written = MemoryMarshal.Cast<float, Vector3>(samples.Span).Slice(edge * i, edge);
         for (int red = 0; red < edge; red++) written[red] = row[red].AsVector3();
     }
 }

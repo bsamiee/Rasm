@@ -13,7 +13,7 @@ Diagnosing a build from its binary log, from capture through the `binlog` MCP se
 
 ## [01]-[CAPTURE]
 
-Pass `-bl:<dir>/<purpose>-{}.binlog` on every MSBuild invocation. `<dir>` is `binlog` under the absolute path `dotnet msbuild <root>/Directory.Build.props -getProperty:ArtifactsPath` prints, MSBuild replaces `{}` with a UTC date, time, process id, and random string, one file per invocation. Every `dotnet` command that runs MSBuild accepts the switch.
+Every build and restore target passes `-bl:<dir>/<purpose>-{}.binlog`. `<dir>` is `binlog` under the absolute path `dotnet msbuild <root>/Directory.Build.props -getProperty:ArtifactsPath` prints. MSBuild replaces `{}` with a UTC date, time, process id, and random string. `nx run <project>:build --skip-nx-cache -- <switches>` forwards switches to the build. Nx cache hits write no log. `dotnet msbuild` runs evaluation reads and replays. `build`, `test`, and `format` run through Nx targets alone. Every `dotnet` command that runs MSBuild accepts `-bl`.
 
 | [INDEX] | [SWITCH]                                             | [EFFECT]                                                                 |
 | :-----: | :--------------------------------------------------- | :----------------------------------------------------------------------- |
@@ -47,9 +47,9 @@ Pass `-bl:<dir>/<purpose>-{}.binlog` on every MSBuild invocation. `<dir>` is `bi
 - `Directory.Build.props` evaluates the root values without a project
 
 ```bash
-dotnet build Solution.slnx -bl:<dir>/build-{}.binlog
-dotnet build Solution.slnx -check -bl:<dir>/check-{}.binlog
-dotnet test --project Item.Tests/Item.Tests.csproj -bl:<dir>/test-{}.binlog
+nx run <project>:build --skip-nx-cache -- -t:Rebuild -check
+nx run-many -t build -p tag:language:dotnet --skip-nx-cache -- -check
+dotnet msbuild <log>.binlog -check
 dotnet msbuild Item/Item.csproj -getProperty:OutputPath -getItem:Compile -getResultOutputFile:<dir>/item.json
 ```
 
@@ -180,7 +180,7 @@ Start at `binlog_diagnose`, route the error class by the table, fix the first er
 |  [12]   | Other `NETSDK*`                         | `binlog_explain_property`, named property    | Assignment                                    |
 |  [13]   | `MSB3277` assembly version conflict     | `binlog_assembly_conflicts`                  | `binlog_assets` with `package`, both chains   |
 |  [14]   | One target ran twice                    | `binlog_search_targets` on the target        | Shared output paths, duplicate evaluations    |
-|  [15]   | Projects writing one file               | `dotnet build -check`, `BC0102`              | Shared output paths                           |
+|  [15]   | Projects writing one file               | `-check`, `BC0102`                           | Shared output paths                           |
 |  [16]   | One property has the wrong value        | `binlog_explain_property`                    | Assignment order                              |
 |  [17]   | One target never ran, build succeeded   | `binlog_search` for the `BeforeTargets` text | Fix the target name                           |
 |  [18]   | Failed status with no error record      | `binlog_overview` failing project            | `binlog_project_targets`, the failed target   |
@@ -198,7 +198,7 @@ Start at `binlog_diagnose`, route the error class by the table, fix the first er
 
 ## [04]-[BUILDCHECK]
 
-`dotnet build -check` runs every inbox check and reports each finding as a build diagnostic with a `BC` code. The checks belong to MSBuild, `dotnet build`, `dotnet msbuild`, and a replay run one set.
+`-check` runs every inbox check and reports each finding as a build diagnostic with a `BC` code. Checks belong to MSBuild. A build target, `dotnet msbuild`, and a replay run one set.
 
 | [INDEX] | [CODE]   | [REPORTS]                                                            | [DEFAULT]           |
 | :-----: | :------- | :------------------------------------------------------------------- | :------------------ |
@@ -220,7 +220,7 @@ Start at `binlog_diagnose`, route the error class by the table, fix the first er
 - `BC0201` and `BC0202` accept a self-reference and an emptiness check, and report a read inside a `Condition`
 - `AllowUninitializedPropertiesInConditions=true` on both codes accepts the condition reads, `false` is the default
 - Project scope covers the project file, `scope=all` extends `BC0201`, `BC0202`, and `BC0203` to every import
-- `-check` on a replay, `dotnet build <log>.binlog -check`, reruns the checks over the stored events and writes no file
+- `-check` on a replay, `dotnet msbuild <log>.binlog -check`, reruns checks over stored events and writes no file
 - Replays print the original `BinaryLogger wrote to:` line and double every count
 - `binlog_warnings` with `category=BuildCheck` lists the reports of a `-check` capture with the console counts
 - Under `MSBuildTreatWarningsAsErrors` the reports print as `error BC`, fail the build, and land in `binlog_errors`
@@ -231,18 +231,16 @@ Start at `binlog_diagnose`, route the error class by the table, fix the first er
 ```ini
 [*.csproj]
 build_check.BC0101.severity = error
-build_check.BC0106.severity = none
 build_check.BC0201.scope = all
 build_check.BC0201.AllowUninitializedPropertiesInConditions = true
 build_check.BC0202.AllowUninitializedPropertiesInConditions = true
 ```
 
 - `severity` takes `default`, `none`, `suggestion`, `warning`, or `error`, `scope` takes `project_file`, `work_tree_imports`, or `all`
-- Codes the build accepts get `severity = none`
 
 ### [04.1]-[WORKFLOW]
 
-1. Run `dotnet build <solution> -t:Rebuild -check -bl:<dir>/check-{}.binlog`
+1. Run `nx run <project>:build --skip-nx-cache -- -t:Rebuild -check`, `nx run-many -t build -p tag:language:dotnet` in place of `nx run <project>:build` for every project
 2. Read each `BC` line on the console, or run `binlog_errors` then `binlog_warnings` with `category=BuildCheck`
 3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)`, `BC0101` and `BC0102` name the path and both projects
 4. Run the same command again, the code is gone from the console and the log
@@ -256,7 +254,7 @@ MSBuild creates one project instance per project path and global-property set. I
 4. Run `binlog_search_targets` on `CoreCompile`, `skipped: false` rows repeating one project file are separate instances
 5. Run `binlog_evaluations` with the `project` filter, then `binlog_evaluation_global_properties` per evaluation
 6. Compare the build-pass evaluations by the table, the global property differing between them names the extra instance
-7. Run `dotnet restore`, then `dotnet build --no-restore -graph -isolate`, an instance the graph did not declare fails `MSB4252`
+7. Run `nx run <project>:build --skip-nx-cache -- -graph -isolate`, an instance the graph did not declare fails `MSB4252`
 
 - `BC0101` naming `Library.csproj and Library.csproj` reports a second instance of one project
 - Relative SDK defaults group every project in `binlog_compare_property` and mean nothing, a second instance of one project shows no group

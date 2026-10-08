@@ -1,6 +1,6 @@
 # ty: ignore[invalid-assignment, redundant-condition-strict, too-many-positional-arguments, unresolved-attribute]
 # mypy: disable-error-code="attr-defined, call-arg, func-returns-value, union-attr, untyped-decorator"
-# ruff: file-ignore[import-private-name, private-member-access, start-process-with-partial-path, subprocess-without-shell-equals-true]
+# ruff: file-ignore[import-private-name, private-member-access]
 """Background Blender runs, sessions, and frame renders with a JPEG sheet of a named file."""
 
 from collections.abc import Mapping, Sequence
@@ -34,11 +34,12 @@ if "bpy" in sys.modules:
 else:
     import anyio
     from anyio.abc import SocketAttribute
-    import bridge
     import cyclopts
     from cyclopts.types import ResolvedExistingFile, ResolvedFile
     import msgspec
     import psutil
+
+    import bridge
     from results import artifacts, Fault, Faults, JSON, repository, Resolved
     from wrapper import wrap
 
@@ -571,8 +572,8 @@ __all__ = [
     "running",
     "serve",
     "sessions",
-    "spawn",
     "span",
+    "spawn",
     "start",
     "stop",
     "synced",

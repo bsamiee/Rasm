@@ -7,12 +7,12 @@ utils:
     answer-call:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^Answer$'}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}, {not: {has: {kind: argument, nthChild: {position: 4, ofRule: {kind: argument}}}}}]}
     succeeded-call:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^Succeeded$'}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}}, {not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}]}
     owner-answer:
         any:
@@ -131,8 +131,8 @@ utils:
                 field: arguments
                 all:
                     - has: {matches: first-argument, has: {pattern: $EFFECT}}
-                    - has: {matches: second-argument, has: {pattern: $REJECT}}
-                    - has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}, not: {has: {field: name, pattern: $_}}, has: {pattern: $FALLBACK, not: {any: [{kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, assignment_expression, await_expression'}, {has: {stopBy: end, kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, assignment_expression, await_expression'}}]}}}
+                    - has: {matches: second-argument, has: {pattern: $FAILED}}
+                    - has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}, not: {has: {field: name, pattern: $_}}, has: {pattern: $SITE}}
     one-fallback-some:
         kind: lambda_expression
         all:
@@ -141,9 +141,7 @@ utils:
     one-fallback-none:
         kind: lambda_expression
         pattern: $NONE
-        all:
-            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
-            - has: {field: body, pattern: $FALLBACK}
+        has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
     succeeded-some:
         kind: lambda_expression
         all:
@@ -153,7 +151,7 @@ utils:
                 matches: succeeded-call
                 all:
                     - has: {field: function, pattern: $CALLEE}
-                    - has: {field: arguments, all: [{has: {matches: first-argument, has: {pattern: $EFFECT}}}, {has: {matches: second-argument, has: {pattern: $REJECT}}}]}
+                    - has: {field: arguments, all: [{has: {matches: first-argument, has: {pattern: $EFFECT}}}, {has: {matches: second-argument, has: {pattern: $SITE}}}]}
     lambda-none:
         kind: 'lambda_expression, anonymous_method_expression'
         pattern: $NONE
@@ -181,7 +179,9 @@ rewriters:
             - has: {field: arguments, matches: fixable-arms}
             - has: {field: arguments, has: {stopBy: end, matches: owner-answer, has: {field: arguments, has: {matches: first-argument, has: {pattern: $RUN}}}}}
             - not: {has: {stopBy: end, kind: comment}}
-      fix: $CALLEE($SOURCE, $REJECT, $NONE)
+      transform:
+        FAILED_TAIL: {replace: {source: $FAILED, replace: '(?s)^(.+)$', by: '$1, '}}
+      fix: $CALLEE($SOURCE, $NONE, $FAILED_TAIL$SITE)
     - id: optional-answer
       rule:
         kind: invocation_expression
@@ -189,7 +189,9 @@ rewriters:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match$'}}, {has: {field: expression, pattern: $SOURCE}}]}
             - has: {field: arguments, matches: fixable-arms}
             - not: {has: {stopBy: end, kind: comment}}
-      fix: $CALLEE($SOURCE.Map($RUN => $EFFECT), $REJECT, $NONE)
+      transform:
+        FAILED_TAIL: {replace: {source: $FAILED, replace: '(?s)^(.+)$', by: '$1, '}}
+      fix: $CALLEE($SOURCE.Map($RUN => $EFFECT), $NONE, $FAILED_TAIL$SITE)
 rule:
     kind: invocation_expression
     pattern: $CALL
@@ -199,10 +201,10 @@ rule:
             - matches: prelude-match
             - matches: mapped-fallback
             - matches: combinator-answer
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^(Answer|Succeeded)$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}}
 transform:
     ANSWERED:
         rewrite: {source: $CALL, rewriters: [optional-run, optional-answer]}
 fix: $ANSWERED
 message: '`$OPTION` answers an optional callback through `$ANSWER` by hand'
-note: 'Use `Answers.Answer(<option>.Map(<run> => <effect>), <reject>, <none arm>)` or `Answers.Succeeded(<option>.Map(<run> => <effect>), <reject>, <none arm>)`, each `Option` overload handles `None`'
+note: 'Use `Callbacks.Answer(<option>.Map(<run> => <effect>), <none arm>, <failed>, <site>)` or `Callbacks.Succeeded(<option>.Map(<run> => <effect>), <none arm>, <site>)`, each `Option` overload answering `None` through its absent answer'

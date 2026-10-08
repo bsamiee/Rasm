@@ -1,10 +1,10 @@
 # ty: ignore[invalid-argument-type, invalid-return-type, invalid-type-form, unresolved-attribute]
 # mypy: disable-error-code="arg-type, attr-defined, no-any-return, return-value, union-attr, untyped-decorator, valid-type"
-# ruff: file-ignore[invalid-class-name, mutable-class-default, relative-imports]
+# ruff: file-ignore[invalid-class-name, mutable-class-default]
 """Scene unit systems with every setting that follows them, the RNA forms converges compare in, the switch operator, and the file-load handler."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from functools import cache, reduce
+from functools import cache
 from importlib import import_module
 from math import ceil, sqrt
 from operator import setitem
@@ -47,11 +47,9 @@ def scene_units(scene: bpy.types.Scene) -> Units | None:
 
 def struct_at(root: "bpy.types.bpy_struct[object]", path: str) -> "bpy.types.bpy_struct[object] | None":
     """Struct at the dotted path under the root, None when a step is unregistered or unset."""
-
-    def step(struct: "bpy.types.bpy_struct[object] | None", name: str) -> "bpy.types.bpy_struct[object] | None":
-        return getattr(struct, name) if struct is not None and name in struct.bl_rna.properties else None
-
-    return reduce(step, path.split("."), root)
+    name, _, rest = path.partition(".")
+    struct = getattr(root, name) if name in root.bl_rna.properties else None
+    return struct_at(struct, rest) if struct is not None and rest else struct
 
 
 @cache
@@ -65,7 +63,7 @@ def cap(path: str) -> float:
         blf.unload(path)
 
 
-def preset(camera: bpy.types.PropertyGroup, sheet: int) -> str:
+def preset(camera: "bpy.types.bpy_struct[object]", sheet: int) -> str:
     """Bonsai drawing scale preset at the sheet scale from its preset list for the context scene's unit system."""
     return next(identifier for identifier, *_ in sys.modules[type(camera).__module__].get_diagram_scales(camera, bpy.context) if identifier.endswith(f"|1/{sheet}"))
 
@@ -77,7 +75,7 @@ def snapped(units: Units, value: float) -> float:
     return step * max(round(value / step), 1 if value > 0 else 0)
 
 
-def profile(units: Units, settings: bpy.types.PropertyGroup) -> dict[str, float]:
+def profile(units: Units, settings: "bpy.types.bpy_struct[object]") -> dict[str, float]:
     """Curve Profile Creator lengths by member over the add-on defaults, each arc depth the quarter-circle sagitta of its chord."""
     lengths = {
         name: value if units is Units.IMPERIAL else settings.bl_rna.properties[name].default
@@ -96,11 +94,11 @@ def profile(units: Units, settings: bpy.types.PropertyGroup) -> dict[str, float]
     return {**lengths, **{depth: geometry.default_arc_depth(lengths[chord]) for depth, chord in chords}}
 
 
-def extent(units: Units, scene: bpy.types.Scene) -> dict[str, float]:
+def extent(units: Units, scene: bpy.types.Scene, blosm: "bpy.types.bpy_struct[object]") -> dict[str, float]:
     """Blosm import extent one modeling extent each way around the scene's georeference, with its snapped level height."""
-    mercator = import_module(f"{type(scene.blosm).__module__.partition('.')[0]}.util.transverse_mercator").TransverseMercator(lat=scene["lat"], lon=scene["lon"])
+    mercator = import_module(f"{type(blosm).__module__.partition('.')[0]}.util.transverse_mercator").TransverseMercator(lat=scene["lat"], lon=scene["lon"])
     (south, west), (north, east) = (mercator.toGeographic(corner, corner) for corner in (-units.extent, units.extent))
-    return {"minLat": south, "minLon": west, "maxLat": north, "maxLon": east, "levelHeight": snapped(units, scene.blosm.bl_rna.properties["levelHeight"].default)}
+    return {"minLat": south, "minLon": west, "maxLat": north, "maxLon": east, "levelHeight": snapped(units, blosm.bl_rna.properties["levelHeight"].default)}
 
 
 # --- [SETTINGS]
@@ -120,18 +118,18 @@ def declared(units: Units, scene: bpy.types.Scene, preferences: bpy.types.Prefer
     }
     tokens, sheet, em = by_units[units], units.sheet_scale, units.text / Length.POINTS / cap(preferences.view.font_path_ui)
     groups = (
-        ("unit_settings", lambda: {"system": units.name, "scale_length": 1.0, "length_unit": units.length.name, **tokens["unit_settings"], "time_unit": "SECONDS", "system_rotation": "DEGREES"}),
-        ("tool_settings", lambda: {"double_threshold": units.tolerance, "proportional_distance": units.grid}),
-        ("eevee", lambda: {"volumetric_end": units.far}),
-        ("camera.data", lambda: {"clip_start": units.snap, "clip_end": units.far, "display_size": units.grid, "ortho_scale": units.paper[0] * sheet}),
-        ("camera.data.BIMCameraProperties", lambda: {"diagram_scale": preset(scene.camera.data.BIMCameraProperties, sheet), "width": units.paper[0] * sheet, "height": units.paper[1] * sheet}),
-        ("cpc_settings", lambda: {"merge_tolerance": units.tolerance, **profile(units, scene.cpc_settings)}),
-        ("scale_interactive_settings", lambda: {**tokens["scale_interactive_settings"], "decimal_precision": str(units.places(units.page, 10))}),
-        *((("blosm", lambda: extent(units, scene)),) if {"lat", "lon"} <= set(scene.keys()) else ()),
-        ("BIMProperties", lambda: {**tokens["BIMProperties"], "time_unit": "SECOND"}),
+        ("unit_settings", lambda _: {"system": units.name, "scale_length": 1.0, "length_unit": units.length.name, **tokens["unit_settings"], "time_unit": "SECONDS", "system_rotation": "DEGREES"}),
+        ("tool_settings", lambda _: {"double_threshold": units.tolerance, "proportional_distance": units.grid}),
+        ("eevee", lambda _: {"volumetric_end": units.far}),
+        ("camera.data", lambda _: {"clip_start": units.snap, "clip_end": units.far, "display_size": units.grid, "ortho_scale": units.paper[0] * sheet}),
+        ("camera.data.BIMCameraProperties", lambda camera: {"diagram_scale": preset(camera, sheet), "width": units.paper[0] * sheet, "height": units.paper[1] * sheet}),
+        ("cpc_settings", lambda settings: {"merge_tolerance": units.tolerance, **profile(units, settings)}),
+        ("scale_interactive_settings", lambda _: {**tokens["scale_interactive_settings"], "decimal_precision": str(units.places(units.page, 10))}),
+        *((("blosm", lambda blosm: extent(units, scene, blosm)),) if {"lat", "lon"} <= set(scene.keys()) else ()),
+        ("BIMProperties", lambda _: {**tokens["BIMProperties"], "time_unit": "SECOND"}),
         (
             "dimensions_settings",
-            lambda: {
+            lambda _: {
                 "imperial_unit_style": "FEET_INCHES",
                 "metric_unit_style": Units.METRIC.length.name,
                 "output_sizing_mode": "WORLD",
@@ -140,14 +138,14 @@ def declared(units: Units, scene: bpy.types.Scene, preferences: bpy.types.Prefer
                 "output_world_line_width": Pen.THIN * sheet,
             },
         ),
-        ("MeasureItArchProps", lambda: {"default_scale": sheet}),
+        ("MeasureItArchProps", lambda _: {"default_scale": sheet}),
         (
             "StyleGenerator",
-            lambda: {
-                **{f"annotations[{index}].{name}": value for index, _ in enumerate(scene.StyleGenerator.annotations) for name, value in (("fontSize", em), ("lineWeight", Pen.THIN / Length.POINTS))},
+            lambda styles: {
+                **{f"annotations[{index}].{name}": value for index, _ in enumerate(styles.annotations) for name, value in (("fontSize", em), ("lineWeight", Pen.THIN / Length.POINTS))},
                 **{
                     f"alignedDimensions[{index}].{name}": value
-                    for index, _ in enumerate(scene.StyleGenerator.alignedDimensions)
+                    for index, _ in enumerate(styles.alignedDimensions)
                     for name, value in (
                         ("fontSize", em),
                         ("lineWeight", Pen.THIN / Length.POINTS),
@@ -159,7 +157,7 @@ def declared(units: Units, scene: bpy.types.Scene, preferences: bpy.types.Prefer
             },
         ),
     )
-    yield from (Group(f"{subscript('scenes', scene.name)}.{path}", struct, rows()) for path, rows in groups if (struct := struct_at(scene, path)) is not None)
+    yield from (Group(f"{subscript('scenes', scene.name)}.{path}", struct, rows(struct)) for path, rows in groups if (struct := struct_at(scene, path)) is not None)
 
 
 def parameters(units: Units, bonsai: bpy.types.AddonPreferences) -> dict[str, object]:
@@ -299,11 +297,11 @@ class INTERFACE_OT_units(bpy.types.Operator):
     system: EnumProperty(name="System", items=[(member.name, member.name.title(), "") for member in Units])
 
     @override
-    def invoke(self, context: bpy.types.Context | None, event: bpy.types.Event | None) -> "set[OperatorReturnItems]":
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> "set[OperatorReturnItems]":
         return self.execute(context) if self.properties.is_property_set("system") else context.window_manager.invoke_props_dialog(self)
 
     @override
-    def execute(self, context: bpy.types.Context | None) -> "set[OperatorReturnItems]":
+    def execute(self, context: bpy.types.Context) -> "set[OperatorReturnItems]":
         write(resolved(Units[self.system], bpy.data.scenes, context.preferences))
         return {"FINISHED"}
 

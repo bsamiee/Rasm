@@ -24,12 +24,9 @@ Packages installed while Rhino runs stay out of `get_commands` and `PlugIn.IdFro
 ## [03]-[BUILDS]
 
 Repository builds load into Rhino's shared process for calls on a task document:
-1. `nx run <project>:build` writes a library `.dll` or plugin `.rhp`
-2. `dotnet msbuild <project.csproj> <properties> -getProperty:TargetPath` reads output's absolute path
-3. `spawn_slot` gives the task's document
-4. `document.assembly("<TargetPath>")` in task slot returns an `AssemblyRecord`
-
-`<properties>` repeats explicit build properties as `-p:<name>=<value>` arguments. Omit for defaults.
+1. `nx run <project>:build` writes `.artifacts/dotnet/bin/<project>/debug/<project>.dll`, a plugin project `.artifacts/dotnet/bin/<project>/debug_<rid>/<project>.rhp`
+2. `spawn_slot` gives the task's document
+3. `document.assembly("<repository>/<file>")` on that slot, `<file>` a file step 1 wrote, returns an `AssemblyRecord`
 
 | [INDEX] | [FIELD]    | [DECIDES]                                                                    |
 | :-----: | :--------- | :--------------------------------------------------------------------------- |
@@ -40,8 +37,8 @@ Repository builds load into Rhino's shared process for calls on a task document:
 
 Rhino holds one assembly per name until it quits:
 - Workspace dependencies beside a plugin are named `<PlugIn>.<Project>.dll`, plain library builds `<Project>.dll`
-- `document.assembly("<dependency path>")` reads which build a call binds to
-- When `current` is `False`, use `setup.md` to relaunch Rhino
+- `assembly` on a dependency in the build folder (`Rasm.Rhino.dll` beside a library, `<PlugIn>.Rasm.Rhino.dll` beside a plugin) reads which build a call binds to
+- When `current` is `False` for a plugin's commands, use `setup.md` to relaunch Rhino
 - For an installed app, `nx run <app>:install` updates its package before relaunch
 
 ## [04]-[CALLS]
@@ -65,6 +62,14 @@ print(IOExtensions.RunSafe[BlockState](Definitions.Snapshot(__rhino_doc__, Compo
 
 - Records print their members, `Fin` results print `Succ(...)` or `Fail(<error record>)`
 - `IO` results run into a `Fin` through `IOExtensions.RunSafe[T](io)`, and `io.Run()` raises a failure as `WrappedErrorExpectedException`
+
+Library calls taking a delegate, and builds `current` reads `False` for, run as a C# script with no Python on Rhino's stack:
+1. `<file>.cs` writes `start` to `<output>`, appends each reading, and writes `done` or the exception last
+2. `LoadFromStream` of each build file's bytes on a collectible `AssemblyLoadContext` loads the rebuilt assembly beside Rhino's copy
+3. Context's `Resolving` loads each dependency the build folder lacks from `<repository>/.cache/nuget/packages/`, `<project>.deps.json` naming its file
+4. Types come from the loaded assembly through `GetType("<namespace>.<Type>")` and reflection
+5. `rhinocode --rhino <pipeId> script <file>.cs`, `pipeId` from `rhinocode list --json`, returns before the script ends
+6. `<output>` holds the run once its last line reads `done`
 
 ## [05]-[STATE]
 

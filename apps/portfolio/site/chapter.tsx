@@ -1,4 +1,5 @@
 import { useAtom } from '@effect/atom-react';
+import { Option, Record } from 'effect';
 import useEmblaCarousel from 'embla-carousel-react';
 import { ArrowLeft, ArrowRight, Grid2x2, X } from 'lucide-react';
 import { useInView, useReducedMotion } from 'motion/react';
@@ -48,18 +49,10 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
         }
     });
     const navigate = (event: KeyboardEvent<HTMLButtonElement>): void => {
-        if (event.altKey || event.ctrlKey || event.metaKey) {
-            return;
-        }
-        switch (event.key) {
-            case 'ArrowLeft':
-                event.preventDefault();
-                api.goToPrev();
-                break;
-            case 'ArrowRight':
-                event.preventDefault();
-                api.goToNext();
-                break;
+        const step = Record.get<string, () => void>({ ArrowLeft: api.goToPrev, ArrowRight: api.goToNext }, event.key);
+        if (Option.isSome(step) && !(event.altKey || event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            step.value();
         }
     };
     useEffect(() => {
@@ -101,8 +94,7 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
                 {Boolean(entry.description) && <p className="lead col-span-full max-w-[64ch] hyphens-auto text-justify leading-[1.55] [hyphenate-limit-chars:7_3_3] [text-align-last:start]">{entry.description}</p>}
             </div>
             {entry.compositions.length > 0 ? (
-                // biome-ignore lint/a11y/useSemanticElements: A carousel group belongs within its named project region
-                <div aria-label={`${title} compositions`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom" role="group">
+                <section aria-label={`${title} compositions`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom">
                     <div className={entry.compositions.length > 1 ? 'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-2' : ''}>
                         {entry.compositions.length > 1 && (
                             <>
@@ -177,7 +169,7 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
             ) : (
                 <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
                     <h4 className="text-xl">No compositions yet</h4>

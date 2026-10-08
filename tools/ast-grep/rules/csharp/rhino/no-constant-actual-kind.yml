@@ -6,7 +6,7 @@ utils:
     constant-kind:
         any:
             - kind: member_access_expression
-              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(RenderContentKind|CameraProjection|LightStyle|GetResult|Result|RenderReturnCode|LoadPlugInResult)$'}
+              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(RenderContentKind|LightStyle|GetResult|Result|RenderReturnCode|LoadPlugInResult)$'}
             - kind: typeof_expression
             - kind: cast_expression
               has: {field: value, kind: 'integer_literal, prefix_unary_expression'}
@@ -80,13 +80,13 @@ utils:
         matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongLightStyle|UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}}}
     second-creation:
         any:
-            - matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|WrongKind|ProjectionMismatch|LoadRefused)$', pattern: $RECORD}}}
+            - matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|WrongKind|LoadRefused)$', pattern: $RECORD}}}
             - kind: invocation_expression
               has:
                 field: function
                 kind: member_access_expression
                 all:
-                    - has: {field: expression, kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|WrongKind|ProjectionMismatch|LoadRefused|WrongLightStyle|UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}
+                    - has: {field: expression, kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|WrongKind|LoadRefused|WrongLightStyle|UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}
                     - has: {field: name, regex: '^Unless$'}
     positional:
         kind: argument

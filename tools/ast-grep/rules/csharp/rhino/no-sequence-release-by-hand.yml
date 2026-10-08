@@ -52,12 +52,12 @@ utils:
     release-call:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?DisposalOps\s*\.\s*Release(\s*<.+>)?$'}
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?DisposalOps\s*\.\s*Release(\s*<.+>)?$'}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $ITEM}}
     release-callback:
         kind: argument
         any:
-            - has: {regex: '^((global::)?Rasm\.Rhino\.Document\.)?DisposalOps\s*\.\s*Release$'}
+            - has: {regex: '^((global::)?Rasm\.Rhino\.)?DisposalOps\s*\.\s*Release$'}
             - has:
                 matches: element-lambda
                 has: {field: body, any: [{matches: release-call}, {has: {stopBy: end, matches: release-call}}]}
@@ -178,16 +178,5 @@ rule:
                     - has: {kind: argument, nthChild: 1, pattern: $SEQ}
                     - has: {kind: argument, nthChild: 2, matches: release-callback}
                     - not: {has: {kind: argument, nthChild: 3}}
-        - kind: invocation_expression
-          all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bracket$'}}, {has: {field: expression, pattern: $SEQ}}]}
-            - has:
-                field: arguments
-                has:
-                    kind: argument
-                    matches: release-callback
-                    any:
-                        - has: {field: name, regex: '^Fin$'}
-                        - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
 message: '`$SEQ` releases each element by hand'
-note: Use `DisposalOps.Using(<acquire>, <body>)` where a `use` or `Bracket` scope releases the sequence, and `DisposalOps.Release(<seq>)` elsewhere, with each element mapped to its disposable first
+note: 'Use `DisposalOps.AcquireAll(<acquire>).Bracket(Use: <body>, Fin: DisposalOps.Release)` where a scope releases the sequence and `DisposalOps.Release(<seq>)` elsewhere, with each element mapped to its disposable first'

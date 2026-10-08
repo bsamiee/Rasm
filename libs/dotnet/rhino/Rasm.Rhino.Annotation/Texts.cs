@@ -2,7 +2,6 @@ using Rasm.Rhino.Document;
 using Rasm.Rhino.Objects;
 using Rhino;
 using Rhino.DocObjects;
-using Rhino.Runtime;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Annotation;
@@ -56,18 +55,14 @@ public sealed record TextState(
     AnnotationType AnnotationType,
     Plane Plane,
     BoundingBox Bounds,
-    string PlainText,
-    string PlainTextWithFields,
-    string RichText,
+    Option<string> PlainText,
+    Option<string> PlainTextWithFields,
+    Option<string> RichText,
     string DisplayText,
     bool TextHasRtfFormatting,
     bool HasMeasurableTextFields,
-    string FontFaceName,
-    string FirstCharFontFaceName,
-    bool FirstCharFontBold,
-    bool FirstCharFontItalic,
-    bool FirstCharFontUnderlined,
-    bool FirstCharFontStrikeout,
+    FontState Font,
+    FontState FirstCharFont,
     bool IsAllBold,
     bool IsAllItalic,
     bool IsAllUnderlined,
@@ -154,23 +149,14 @@ public static partial class Texts {
     // --- [READS]
     public static IO<TextState> State(RhinoDoc doc, Guid id) =>
         from resolved in Queries.Resolve<AnnotationObjectBase, AnnotationBase>(doc, id)
-        select Project(resolved.Geometry, resolved.Object.DisplayText, resolved.Object.HasMeasurableTextFields);
+        select Project(resolved.Geometry, resolved.Object.DisplayText, resolved.Object.HasMeasurableTextFields, Fonts.State(resolved.Geometry.Font), Fonts.State(resolved.Geometry.FirstCharFont));
 
-    [MapProperty(nameof(AnnotationBase.PlainText), nameof(TextState.PlainText), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(AnnotationBase.PlainTextWithFields), nameof(TextState.PlainTextWithFields), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(AnnotationBase.RichText), nameof(TextState.RichText), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(@AnnotationBase.Font.FaceName), nameof(TextState.FontFaceName), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(@AnnotationBase.FirstCharFont.FaceName), nameof(TextState.FirstCharFontFaceName), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(@AnnotationBase.FirstCharFont.Bold), nameof(TextState.FirstCharFontBold), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(@AnnotationBase.FirstCharFont.Italic), nameof(TextState.FirstCharFontItalic), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(@AnnotationBase.FirstCharFont.Underlined), nameof(TextState.FirstCharFontUnderlined), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(@AnnotationBase.FirstCharFont.Strikeout), nameof(TextState.FirstCharFontStrikeout), SuppressNullMismatchDiagnostic = true)]
     [MapPropertyFromSource(nameof(TextState.Bounds), Use = nameof(Bounds))]
     [MapPropertyFromSource(nameof(TextState.IsAllBold), Use = nameof(IsAllBold))]
     [MapPropertyFromSource(nameof(TextState.IsAllItalic), Use = nameof(IsAllItalic))]
     [MapPropertyFromSource(nameof(TextState.IsAllUnderlined), Use = nameof(IsAllUnderlined))]
     [MapPropertyFromSource(nameof(TextState.Overridden), Use = nameof(Overridden))]
-    private static partial TextState Project(AnnotationBase annotation, string displayText, bool hasMeasurableTextFields);
+    private static partial TextState Project(AnnotationBase annotation, string displayText, bool hasMeasurableTextFields, FontState font, FontState firstCharFont);
 
     private static BoundingBox Bounds(AnnotationBase annotation) =>
         annotation.GetBoundingBox(accurate: true);
@@ -250,11 +236,4 @@ public static partial class Texts {
 
     public static IO<double> DimensionScale(RhinoDoc doc, DimensionStyle style, ViewportTarget target) =>
         DisposalOps.Using(Viewports.ResolveViewport(doc, target), row => IO.lift(() => AnnotationBase.GetDimensionScale(doc, style, row.Viewport)));
-
-    // --- [FIELDS]
-    public static IO<string> FormatFields(RhinoDoc doc, string text) =>
-        IO.lift(() => Refused.Unless(TextFields.TryFormat(text, doc, out string result), result, nameof(TextFields.TryFormat)));
-
-    public static IO<Seq<string>> ParseFields(RhinoDoc doc, string text) =>
-        IO.lift(() => Refused.Unless(TextFields.TryParse(text, doc, out List<string> tokens), toSeq(tokens), nameof(TextFields.TryParse)));
 }

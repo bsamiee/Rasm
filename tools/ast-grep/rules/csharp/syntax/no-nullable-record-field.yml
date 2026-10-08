@@ -13,6 +13,27 @@ utils:
                     (?x)^(global::)?((System\.(Text\.Json\.Serialization|Runtime\.Serialization|Xml\.Serialization)|MessagePack|Newtonsoft\.Json)\.)?
                     (Json\w*|DataMember|Key|Xml\w*)(Attribute)?$
                 not: {regex: 'Ignore'}
+    atomic-ref:
+        kind: argument
+        regex: '^ref\s'
+        inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?System\.Threading\.)?(Interlocked|Volatile)\s*\.'}}}
+    atomic-field:
+        all:
+            - has: {kind: variable_declarator, has: {field: name, pattern: $FIELD}}
+            - inside:
+                stopBy: end
+                kind: declaration_list
+                all:
+                    - has: {stopBy: end, kind: identifier, pattern: $FIELD, inside: {stopBy: end, matches: atomic-ref}}
+                    - not:
+                        has:
+                            stopBy: end
+                            kind: identifier
+                            pattern: $FIELD
+                            not:
+                                any:
+                                    - inside: {stopBy: end, kind: field_declaration}
+                                    - inside: {stopBy: end, matches: atomic-ref}
 rule:
     matches: csharp-record-member
     all:
@@ -26,6 +47,7 @@ rule:
         - not:
             any:
                 - has: {matches: serializer-attributes}
+                - matches: atomic-field
                 - inside: {kind: field_declaration, has: {matches: serializer-attributes}}
                 - inside: {kind: 'parameter_list, declaration_list', inside: {matches: csharp-error-record}}
                 - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: csharp-error-record}}}

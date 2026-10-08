@@ -1,4 +1,3 @@
-# ruff: file-ignore[subprocess-without-shell-equals-true]
 """SessionStart and SessionEnd hook that stops each ghidra-cli bridge of an ended Claude Code session and runs `ghidra status` to clear pid, port, and lock files dead bridges left on each project no bridge holds."""
 
 from collections.abc import Mapping

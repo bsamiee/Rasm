@@ -140,17 +140,19 @@ public readonly record struct LogCurve(float Base, Vector3 LogSlope, Vector3 Log
         new(2f, new(1f / (maximum - minimum)), new(-minimum / (maximum - minimum)), Vector3.One, new(offset), None);
 
     public Vector3 Forward(Vector3 linear) =>
-        Camera.ToSpan() switch {
-            [var camera] => Vector3.ConditionalSelect(Vector3.LessThanOrEqual(linear, camera.Break), (camera.Slope * (linear - camera.Break)) + Logarithmic(camera.Break), Logarithmic(linear)),
-            _ => Logarithmic(linear),
+        Logarithmic(linear) switch {
+            var log => Camera.ToSpan() is [var camera]
+                ? Vector3.ConditionalSelect(Vector3.LessThanOrEqual(linear, camera.Break), (camera.Slope * (linear - camera.Break)) + Logarithmic(camera.Break), log)
+                : log,
         };
 
     public Vector3 Inverse(Vector3 encoded) =>
-        Camera.ToSpan() switch {
-            [var camera] => Logarithmic(camera.Break) switch {
-                var joint => Vector3.ConditionalSelect(Vector3.LessThanOrEqual(encoded, joint), ((encoded - joint) / camera.Slope) + camera.Break, Exponential(encoded)),
-            },
-            _ => Exponential(encoded),
+        Exponential(encoded) switch {
+            var exponential => Camera.ToSpan() is [var camera]
+                ? Logarithmic(camera.Break) switch {
+                    var joint => Vector3.ConditionalSelect(Vector3.LessThanOrEqual(encoded, joint), ((encoded - joint) / camera.Slope) + camera.Break, exponential),
+                }
+                : exponential,
         };
 
     private Vector3 Logarithmic(Vector3 linear) => (LogSlope * (Vector3.Log(Vector3.Max((LinSlope * linear) + LinOffset, Floor)) / float.Log(Base))) + LogOffset;

@@ -2270,6 +2270,18 @@ wheels = [
 ]
 
 [[package]]
+name = "eto-stubs-typed"
+version = "8.20.25157"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "netstandard-stubs" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a1/63/7a54b09c1802f91e4ce22a4750a93532cbf0b638210af08e488bfd2e0f41/eto_stubs_typed-8.20.25157.tar.gz", hash = "sha256:bcfa91722ab43aa4df403f9ee49b1a46858f4f576754b8040068bc8cc1b2f26c", size = 78245, upload-time = "2025-10-05T03:49:52.283Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/3b/7773ce7e3889f636197088015ad25a743a7dd35dd087c3b284340fe253c6/eto_stubs_typed-8.20.25157-py3-none-any.whl", hash = "sha256:41d8d202fa0995c64d2b63316f952f3325d597bb761311a62b4660d5a1f84032", size = 83421, upload-time = "2025-10-05T03:49:50.679Z" },
+]
+
+[[package]]
 name = "etuples"
 version = "0.3.10"
 source = { registry = "https://pypi.org/simple" }
@@ -2362,11 +2374,11 @@ wheels = [
 
 [[package]]
 name = "fake-bpy-module-latest"
-version = "20261004"
+version = "20261007"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f2/90/d87b331f648f8841fcb6a2fbe57d6ec96aa82d514ec198f0b29f08957e43/fake_bpy_module_latest-20261004.tar.gz", hash = "sha256:1e1bfb28d1955dc4da2e4e2de65d0cd8f4e9387777404e3154f95ea15126a259", size = 969537, upload-time = "2026-10-04T11:31:00.045Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/10/b3/bd74faf645f670482a7e6c31e84c1e89f92fab71d37287422408f791ec2e/fake_bpy_module_latest-20261007.tar.gz", hash = "sha256:0e8a467d7af6a6d232eefba52cee507c747b8c192f0f2ae42a04e0c69284c4eb", size = 972343, upload-time = "2026-10-07T12:15:53.479Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/52/c4c6d014a1c0dd277a53b9ee2d9762159b1cd7e828a2ef68e655fa25eecd/fake_bpy_module_latest-20261004-py3-none-any.whl", hash = "sha256:b048e9799f678d2f02b6acff3af6ec47a4552d8db3783687baf8c2ee6eb8f848", size = 1117159, upload-time = "2026-10-04T11:30:57.834Z" },
+    { url = "https://files.pythonhosted.org/packages/69/39/bd21360795c62a0495c8abc519b2ebd0ef1ea78aee1a390cadeba2025bfe/fake_bpy_module_latest-20261007-py3-none-any.whl", hash = "sha256:20f00b340e3daa150dc7b1ee3a145f91690df6dd81923832237d66a893edf564", size = 1120014, upload-time = "2026-10-07T12:15:51.555Z" },
 ]
 
 [[package]]
@@ -8889,6 +8901,7 @@ dev = [
     { name = "coverage", marker = "python_full_version >= '3.15'" },
     { name = "cyclopts", marker = "python_full_version >= '3.15'" },
     { name = "editorconfig", marker = "python_full_version >= '3.15'" },
+    { name = "eto-stubs-typed", marker = "python_full_version >= '3.15'" },
     { name = "fake-bpy-module-latest", marker = "python_full_version >= '3.15'" },
     { name = "fonttools", marker = "python_full_version >= '3.15'" },
     { name = "fsspec", marker = "python_full_version >= '3.15'" },
@@ -8930,6 +8943,7 @@ dev = [
     { name = "types-geopandas", marker = "python_full_version >= '3.15'" },
     { name = "types-lxml", marker = "python_full_version >= '3.15'" },
     { name = "types-networkx", marker = "python_full_version >= '3.15'" },
+    { name = "types-opencolorio", marker = "python_full_version >= '3.15'" },
     { name = "types-openpyxl", marker = "python_full_version >= '3.15'" },
     { name = "types-protobuf", marker = "python_full_version >= '3.15'" },
     { name = "types-psutil", marker = "python_full_version >= '3.15'" },
@@ -9248,6 +9262,7 @@ dev = [
     { name = "coverage", marker = "python_full_version >= '3.15'" },
     { name = "cyclopts", marker = "python_full_version >= '3.15'" },
     { name = "editorconfig", marker = "python_full_version >= '3.15'" },
+    { name = "eto-stubs-typed", marker = "python_full_version >= '3.15'" },
     { name = "fake-bpy-module-latest", marker = "python_full_version >= '3.15'" },
     { name = "fonttools", marker = "python_full_version >= '3.15'" },
     { name = "fsspec", marker = "python_full_version >= '3.15'" },
@@ -9289,6 +9304,7 @@ dev = [
     { name = "types-geopandas", marker = "python_full_version >= '3.15'" },
     { name = "types-lxml", marker = "python_full_version >= '3.15'" },
     { name = "types-networkx", marker = "python_full_version >= '3.15'" },
+    { name = "types-opencolorio", marker = "python_full_version >= '3.15'" },
     { name = "types-openpyxl", marker = "python_full_version >= '3.15'" },
     { name = "types-protobuf", marker = "python_full_version >= '3.15'" },
     { name = "types-psutil", marker = "python_full_version >= '3.15'" },
@@ -10875,6 +10891,14 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e9/8c/a788d233be06b9f20fbaaf4b090bbd6423ea8d67d27e47115fa22a930c6b/types_networkx-3.6.1.20260911.tar.gz", hash = "sha256:d592c4520b05f87e7b94087ce7f244194209ad213633a605131f6ab89cd6f8ea", size = 76365, upload-time = "2026-09-11T06:45:10.322Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d3/65/24c71d89a4f4ce053912ed46fe036e2e86019199c08b4d0e49568e4ee18c/types_networkx-3.6.1.20260911-py3-none-any.whl", hash = "sha256:e0ea7f786451bd2e16d7b657a1208edcb80c5e01b86e15b1c78bdeca9db620cf", size = 167431, upload-time = "2026-09-11T06:45:08.865Z" },
+]
+
+[[package]]
+name = "types-opencolorio"
+version = "2.4.2.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1c/86/17f33598865b875b5780311426cf1ff56904659f7f56b4a65b5fc9f0f936/types_opencolorio-2.4.2.0-py2.py3-none-any.whl", hash = "sha256:c281760999a3ab4445590c89a11b53fa496afa85736051412fa1c20c8622a007", size = 16064, upload-time = "2025-07-22T02:57:28.699Z" },
 ]
 
 [[package]]

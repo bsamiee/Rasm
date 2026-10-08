@@ -40,7 +40,6 @@ import java.util.stream.Stream;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-@SuppressWarnings("PMD.AvoidAccessibilityAlteration")
 public class Headers extends GhidraScript {
     // --- [ARGUMENTS]
 

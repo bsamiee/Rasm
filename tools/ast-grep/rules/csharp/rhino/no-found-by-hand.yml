@@ -153,7 +153,7 @@ rule:
         - not: {has: {stopBy: end, kind: comment}}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Found$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Found$'}}}}
 transform:
     NOT_FLAG:
         replace:
@@ -180,6 +180,6 @@ transform:
             source: $TEST
             replace: '(?s)^(.+)$'
             by: '!($1)'
-fix: Answers.Found$TYPES($COND$INNER$NOT_FLAG$SUBJECT$NOT_TESTED$LEFT$NOT_EQUAL$NOT_UNEQUAL$NOT_TEST, $V)
-message: '`$V` lifts into an `Option` under a found flag by hand'
-note: Use `Answers.Found(<found>, <value>)` where `<value>` is an out answer, a local, a parameter, or a member read the flag does not guard, `Found` reads `<value>` before `<found>`
+fix: Callbacks.Found$TYPES($COND$INNER$NOT_FLAG$SUBJECT$NOT_TESTED$LEFT$NOT_EQUAL$NOT_UNEQUAL$NOT_TEST, $V)
+message: '`$V` lifts into an `Option` under a found flag by hand in place of `Callbacks.Found`'
+note: Use `Callbacks.Found(<found>, <value>)` where `<value>` is an out answer, a local, a parameter, or a member read the flag does not guard, `Found` reads `<value>` before `<found>`

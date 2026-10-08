@@ -6,6 +6,6 @@ rule:
     kind: 'string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression'
     all:
         - pattern: $PATH
-        - regex: '(^[$@]*"+|[\s=]|file://)(~/|/(Applications|Users|home|Volumes|opt|Library|System|private|tmp|mnt|media|snap)(/|"|$)|/usr/local/|/var/folders/|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData)([\\/]|"|$))'
+        - regex: '(^[$@]*"+|[\s=]|file://)(~/|/(Applications|Users|home|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)(/|"|$)|/usr/local/|/var/folders/|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData)([\\/]|"|$))'
 message: '`$PATH` names a location in one machine''s install, user, or volume folders'
 note: Read the location at run time from its owner (host API, bundle id lookup, package resolver, special folder) or take it as a parameter

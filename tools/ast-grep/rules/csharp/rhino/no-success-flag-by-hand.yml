@@ -197,9 +197,8 @@ utils:
             - matches: inverted
             - kind: parenthesized_expression
               has: {matches: inverted-slot}
-    eager-true:
-        kind: boolean_literal
-        regex: '^true$'
+    failed-true:
+        matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
     lifted-true:
         kind: invocation_expression
         all:
@@ -257,19 +256,8 @@ utils:
         all:
             - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Some(\s*<.+>)?$'}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: effect-slot}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
-    eager-false:
-        any:
-            - kind: boolean_literal
-              regex: '^false$'
-            - kind: default_expression
-              any:
-                - regex: '^default$'
-                - has: {field: type, regex: '^((global::)?System\.)?(bool|Boolean)$'}
-    lazy-false:
-        kind: lambda_expression
-        all:
-            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
-            - has: {field: body, matches: eager-false}
+    failed-false:
+        matches: {csharp-constant-lambda: {value: {any: [{regex: '^false$'}, {kind: default_expression}]}}}
     slot:
         kind: argument
         any:
@@ -277,43 +265,49 @@ utils:
                 - not: {has: {field: name, kind: identifier}}
                 - nthChild: 1
             - has: {field: name, regex: '^effect$'}
-    reject-slot:
+    site-slot:
         kind: argument
         all:
             - any:
-                - all: [{not: {has: {field: name, kind: identifier}}}, {nthChild: 2}]
-                - has: {field: name, regex: '^reject$'}
-            - has: {nthChild: {position: 1, reverse: true}, pattern: $REJECT}
-    fallback-slot:
+                - all: [{not: {has: {field: name, kind: identifier}}}, {nthChild: {position: 1, reverse: true}}]
+                - has: {field: name, regex: '^site$'}
+            - has: {nthChild: {position: 1, reverse: true}, pattern: $SITE}
+    failed-slot:
         kind: argument
         any:
-            - all: [{not: {has: {field: name, kind: identifier}}}, {nthChild: 3}]
-            - has: {field: name, regex: '^fallback$'}
+            - all: [{not: {has: {field: name, kind: identifier}}}, {nthChild: {position: 2, reverse: true}}, {not: {nthChild: 1}}]
+            - has: {field: name, regex: '^failed$'}
+    absent-slot:
+        kind: argument
+        any:
+            - all: [{not: {has: {field: name, kind: identifier}}}, {nthChild: 2}, {nthChild: {position: 3, reverse: true}}]
+            - has: {field: name, regex: '^absent$'}
     answer:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^Answer$'}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
             - has:
                 field: arguments
                 all:
-                    - has: {matches: reject-slot}
-                    - not: {has: {kind: argument, nthChild: 4}}
+                    - has: {matches: site-slot}
+                    - has: {kind: argument, nthChild: 3}
+                    - not: {has: {kind: argument, nthChild: 5}}
                     - any:
                         - all:
                             - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: optional-slot-map}}
-                            - has: {matches: fallback-slot, has: {nthChild: {position: 1, reverse: true}, matches: lazy-false}}
+                            - has: {matches: failed-slot, has: {matches: failed-false}}
                         - all:
                             - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: direct-slot}}
-                            - has: {matches: fallback-slot, has: {nthChild: {position: 1, reverse: true}, matches: eager-false}}
+                            - has: {matches: failed-slot, has: {matches: failed-false}}
                         - all:
                             - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: inverted-slot}}
-                            - has: {matches: fallback-slot, has: {nthChild: {position: 1, reverse: true}, matches: eager-true}}
+                            - has: {matches: failed-slot, has: {matches: failed-true}}
                         - all:
                             - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: lazy-slot}}
-                            - has: {matches: fallback-slot, has: {nthChild: {position: 1, reverse: true}, matches: lazy-false}}
+                            - has: {matches: failed-slot, has: {matches: failed-false}}
                         - all:
                             - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: held}}
-                            - has: {matches: fallback-slot, has: {nthChild: {position: 1, reverse: true}, matches: eager-false}}
+                            - has: {matches: failed-slot, has: {matches: failed-false}}
                             - inside:
                                 kind: invocation_expression
                                 inside:
@@ -327,10 +321,10 @@ utils:
         has: {field: arguments, has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: optional-slot-map}}}
     read-absent:
         matches: optional-answer
-        has: {field: arguments, has: {matches: fallback-slot, has: {nthChild: {position: 1, reverse: true}, pattern: $ABSENT}}}
+        has: {field: arguments, has: {matches: absent-slot, has: {nthChild: {position: 1, reverse: true}, pattern: $ABSENT}}}
     dropped-absent:
         matches: optional-answer
-        has: {field: arguments, has: {matches: fallback-slot, pattern: $DROPPED_ABSENT}}
+        has: {field: arguments, has: {matches: absent-slot, pattern: $DROPPED_ABSENT}}
     inverted-answer:
         has: {field: arguments, has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: inverted-slot}}}
     read-inverted:
@@ -376,7 +370,7 @@ rule:
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: dropped-answer}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Succeeded$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}}
 rewriters:
     - id: drop-identity
       rule:
@@ -420,7 +414,7 @@ transform:
         replace:
             source: $ABSENT
             replace: '(?s)^(.+)$'
-            by: ', $1'
+            by: '$1, '
     VOID_BODY:
         rewrite:
             source: $LIFTED
@@ -454,22 +448,22 @@ transform:
         replace:
             source: $READ
             replace: '(?s)^.*$'
-            by: Answers.Succeeded(
+            by: Callbacks.Succeeded(
     ANSWERED:
         replace:
             source: $DROPPED
             replace: '(?s)^.*$'
-            by: Answers.Answer(
+            by: Callbacks.Answer(
     UNIT_TAIL:
         replace:
             source: $DROPPED_PLAIN
             replace: '(?s)^.*$'
-            by: ', unit'
+            by: 'static () => unit, '
     ABSENT_UNIT_TAIL:
         replace:
             source: $DROPPED_ABSENT
             replace: '(?s)^.*$'
-            by: ', static () => unit'
+            by: 'static () => unit, static () => unit, '
     NOT:
         replace:
             source: $INVERTED
@@ -481,7 +475,7 @@ transform:
             replace: '(?s)^(.+)$'
             by: '$1.Map(ignore)'
 fix:
-    template: $OPEN$NOT$SUCCEEDED$ANSWERED$EFFECT$IGNORED$VOID$VOIDED, $REJECT$ABSENT_TAIL$UNIT_TAIL$ABSENT_UNIT_TAIL)$CLOSE
+    template: $OPEN$NOT$SUCCEEDED$ANSWERED$EFFECT$IGNORED$VOID$VOIDED, $ABSENT_TAIL$UNIT_TAIL$ABSENT_UNIT_TAIL$SITE)$CLOSE
     expandStart: {kind: local_declaration_statement}
-message: "`Answers.Answer` maps an effect to a constant for a host success flag by hand"
-note: Use `Answers.Succeeded(<effect>, <reject>)`, negated for a flag that marks failure, or `Answers.Succeeded(<option>.Map(<run> => <effect>), <reject>, <absent>)` for an optional effect, with `<effect>.Map(ignore)` where the effect holds a value, and `Answers.Answer(<effect>, <reject>, unit)` or `static () => unit` for an optional effect where the caller discards the answer
+message: "`Callbacks.Answer` maps an effect to a constant for a host success flag by hand"
+note: Use `Callbacks.Succeeded(<effect>, <site>)`, negated for a flag that marks failure, or `Callbacks.Succeeded(<option>.Map(<run> => <effect>), <absent>, <site>)` for an optional effect, with `<effect>.Map(ignore)` where the effect holds a value, and `Callbacks.Answer(<effect>, static () => unit, <site>)` where the caller discards the answer

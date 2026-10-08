@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using MathNet.Numerics.LinearAlgebra;
@@ -185,13 +184,12 @@ public sealed partial class FilmicView {
 public static class Film {
     private static readonly LogCurve Window = LogCurve.Allocation(-10f, 10f, float.ScaleB(1f, -10));
     private static readonly Vector256<double> Weights = Vector256.Create(0.3d, 0.5d, 0.2d, 0d);
-    private static readonly ConditionalWeakTable<FilmState, Lut3D> Baked = [];
 
     internal static PixelPass Formed(ToneMapping state, PassContext context) =>
         Formation.Formed(
             [.. LutTables.Between(context.Working, Gamut.StandardRgb).Map<Action<Span<Vector4>>>(static step => step.Apply),
              new LutTable.Log(Window).Apply,
-             new LutTable.Cube(Baked.GetValue(state.Film, Developed), LutInterpolation.Tetrahedral).Apply],
+             new LutTable.Cube(context.Derivations.Derived(state.Film, Developed), LutInterpolation.Tetrahedral).Apply],
             new ColorEncoding(Gamut.StandardRgb, TransferCurve.Linear, Nits.ReferenceWhite), context.Display);
 
     private static Lut3D Developed(FilmState state) {

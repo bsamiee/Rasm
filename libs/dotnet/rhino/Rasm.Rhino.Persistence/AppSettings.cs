@@ -13,7 +13,6 @@ using Rhino.UI.DialogPanels;
 using Rhino.UI.Theme;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Answers))]
 
 namespace Rasm.Rhino.Persistence;
 
@@ -474,11 +473,12 @@ public static class Appearance {
         let panelSetting = Accessors.PrivatePanelButtonSize(buttons)
         let image = (Minimum: Accessors.MinimumToolBarImageSize(owner: null), Maximum: Accessors.MaximumToolBarImageSize(owner: null))
         let tab = int.Clamp(stripHeight - (2 * Accessors.ItemPadding(owner: null).Height), image.Minimum, image.Maximum)
+        let icon = int.Clamp(tab, MinIconSize, MaxIconSize)
         select Seq(
             TabIconSize.Set(tab),
             ToolBarImageSize.Set(int.Clamp(glyph, image.Minimum, image.Maximum)),
             ButtonPadding.Set(padding),
             PanelButtonSize.Set(int.Clamp(tab, Accessors.Min(panelSetting), Accessors.Max(panelSetting))),
-            OSnapIconSize.Set(int.Clamp(tab, MinIconSize, MaxIconSize)),
-            SelectionFilterIconSize.Set(int.Clamp(tab, MinIconSize, MaxIconSize)));
+            OSnapIconSize.Set(icon),
+            SelectionFilterIconSize.Set(icon));
 }

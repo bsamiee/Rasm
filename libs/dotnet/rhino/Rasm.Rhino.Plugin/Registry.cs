@@ -4,7 +4,6 @@ using Rhino;
 using Rhino.PlugIns;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Answers))]
 
 namespace Rasm.Rhino.Plugin;
 
@@ -23,8 +22,6 @@ public sealed record PlugInState(
     Seq<string> FileTypeExtensions,
     bool LoadSilently,
     bool LoadProtected);
-
-public readonly record struct FileTypeRow(Guid PlugInId, string Description, Seq<string> Extensions);
 
 public sealed record LicenseState(
     Guid PluginId,
@@ -66,9 +63,6 @@ internal static partial class RegistryMapper {
 
     [MapperIgnoreSource(nameof(LicenseLease.LeaseId), Justification = "Resolved to the leaseId parameter")]
     internal static partial LeaseState ToState(LicenseLease lease, string leaseId);
-
-    [UserMapping]
-    private static Option<DateTime> Present(DateTime? date) => Optional(date);
 }
 
 public static class PlugInRegistry {
@@ -93,15 +87,6 @@ public static class PlugInRegistry {
             _ = PlugIn.GetLoadProtection(id, out bool loadSilently);
             return RegistryMapper.ToState(info, loadSilently, loadProtected);
         }));
-
-    public static IO<Seq<FileTypeRow>> InstalledFileTypes(PlugInType type) =>
-        IO.lift(() => toSeq(PlugIn.GetInstalledPlugIns().Keys)
-            .Choose(static id => Optional(PlugIn.GetPlugInInfo(id)))
-            .Filter(info => info.PlugInType.HasFlag(type))
-            .Bind(static info => toSeq(info.FileTypeDescriptions).Zip(
-                toSeq(info.FileTypeExtensions),
-                (description, extensions) => new FileTypeRow(info.Id, description, toSeq(extensions.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)))))
-            .Strict());
 
     // --- [SETTINGS]
     public static IO<Unit> SavePluginSettings(Guid id) =>

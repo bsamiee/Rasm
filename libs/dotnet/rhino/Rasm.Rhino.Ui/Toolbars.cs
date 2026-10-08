@@ -3,7 +3,6 @@ using Rhino;
 using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Answers))]
 
 namespace Rasm.Rhino.Ui;
 

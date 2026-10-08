@@ -144,13 +144,10 @@ const locations =
             .map((target) => ('targetUri' in target ? location(root, target.targetUri, target.targetSelectionRange) : location(root, target.uri, target.range)));
 const render =
     (root: string, uri: string, threshold: DiagnosticSeverity) =>
-    (diagnostic: Diagnostic): readonly string[] =>
+    ({ severity, range, source, code, message }: Diagnostic): readonly string[] =>
         Object.entries(DiagnosticSeverity)
-            .filter(([, severity]) => severity === (diagnostic.severity ?? DiagnosticSeverity.Error) && severity <= threshold)
-            .map(
-                ([name]) =>
-                    `${location(root, uri, diagnostic.range)} ${name.toLowerCase()} ${[...Array.fromNullishOr(diagnostic.source), ...Array.fromNullishOr(diagnostic.code).map((code) => `(${code})`)].join('')}: ${(MarkupContent.is(diagnostic.message) ? diagnostic.message.value : diagnostic.message).replaceAll('\n', ' ')}`,
-            );
+            .filter(([, value]) => value === (severity ?? DiagnosticSeverity.Error) && value <= threshold)
+            .map(([name]) => `${location(root, uri, range)} ${name.toLowerCase()} ${source ?? ''}${code === undefined ? '' : `(${code})`}: ${(MarkupContent.is(message) ? message.value : message).replaceAll('\n', ' ')}`);
 
 // --- [QUERIES]
 

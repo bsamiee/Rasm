@@ -5,7 +5,6 @@ using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Answers))]
 
 namespace Rasm.Rhino.Annotation;
 
@@ -29,7 +28,7 @@ public sealed record DimensionStyleRow(
     bool IsChild,
     bool HasFieldOverrides,
     Seq<DimensionStyle.Field> Overridden,
-    string FontFaceName,
+    FontState Font,
     UnitSystem DimensionLengthDisplayUnit,
     UnitSystem AlternateDimensionLengthDisplayUnit,
     bool IsReference,
@@ -42,11 +41,10 @@ public static partial class DimensionStyles {
     // --- [READS]
     public static IO<DimensionStyleRow> Row(RhinoDoc doc, DimensionStyle style) =>
         from userStrings in GeometryOps.ReadUserStrings(GeometryOps.UserStrings(style))
-        select Project(style, style.DimensionLengthDisplayUnit(doc.RuntimeSerialNumber), style.AlternateDimensionLengthDisplayUnit(doc.RuntimeSerialNumber), userStrings);
+        select Project(style, Fonts.State(style.Font), style.DimensionLengthDisplayUnit(doc.RuntimeSerialNumber), style.AlternateDimensionLengthDisplayUnit(doc.RuntimeSerialNumber), userStrings);
 
     [MapPropertyFromSource(nameof(DimensionStyleRow.Overridden), Use = nameof(Overridden))]
-    [MapProperty(nameof(@DimensionStyle.Font.FaceName), nameof(DimensionStyleRow.FontFaceName), SuppressNullMismatchDiagnostic = true)]
-    private static partial DimensionStyleRow Project(DimensionStyle style, UnitSystem dimensionLengthDisplayUnit, UnitSystem alternateDimensionLengthDisplayUnit, HashMap<string, string> userStrings);
+    private static partial DimensionStyleRow Project(DimensionStyle style, FontState font, UnitSystem dimensionLengthDisplayUnit, UnitSystem alternateDimensionLengthDisplayUnit, HashMap<string, string> userStrings);
 
     private static Seq<DimensionStyle.Field> Overridden(DimensionStyle style) =>
         Overrides(style.IsFieldOverriden);

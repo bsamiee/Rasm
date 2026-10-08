@@ -10,24 +10,26 @@ utils:
                 field: arguments
                 any:
                     - has: {kind: argument, nthChild: 1, has: {field: name, not: {regex: '^effect$'}}}
-                    - has: {kind: argument, nthChild: 2, has: {field: name, not: {regex: '^reject$'}}}
-                    - has: {kind: argument, nthChild: 3, has: {field: name, not: {regex: '^absent$'}}}
+                    - has: {kind: argument, nthChild: 2, has: {field: name, not: {regex: '^(absent|site)$'}}}
+                    - has: {kind: argument, nthChild: 3, has: {field: name, not: {regex: '^site$'}}}
     succeeded:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^Succeeded$'}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}
             - has: {field: function, pattern: $CALLEE}
             - matches: in-order
             - has:
                 field: arguments
                 all:
                     - has: {kind: argument, nthChild: 1, pattern: $FIRST}
-                    - has: {kind: argument, nthChild: 2, pattern: $SECOND}
                     - any:
-                        - not: {has: {kind: argument, nthChild: 3}}
-                          pattern: $EAGER
-                        - has: {kind: argument, nthChild: 3, pattern: $ABSENT, matches: {csharp-constant-lambda: {value: {kind: 'boolean_literal, default_expression'}}}}
-                          not: {has: {kind: argument, nthChild: 4}}
+                        - all:
+                            - has: {kind: argument, nthChild: 2, pattern: $SITE}
+                            - not: {has: {kind: argument, nthChild: 3}}
+                        - all:
+                            - has: {kind: argument, nthChild: 2, pattern: $ABSENT, matches: {csharp-constant-lambda: {value: {kind: 'boolean_literal, default_expression'}}}}
+                            - has: {kind: argument, nthChild: 3, pattern: $SITE}
+                            - not: {has: {kind: argument, nthChild: 4}}
 rule:
     any:
         - matches: succeeded
@@ -44,16 +46,11 @@ transform:
             source: $CALLEE
             replace: 'Succeeded$'
             by: Answer
-    EAGER_FALLBACK:
-        replace:
-            source: $EAGER
-            replace: '(?s)^.*$'
-            by: unit
-    LAZY_FALLBACK:
+    ABSENT_UNIT:
         replace:
             source: $ABSENT
             replace: '(?s)^.*$'
-            by: static () => unit
-fix: $ANSWER($FIRST, $SECOND, $EAGER_FALLBACK$LAZY_FALLBACK)
-message: '`Answers.Succeeded` over `$FIRST` computes a success flag the caller discards'
-note: Use `Answers.Answer(<effect>, <reject>, unit)`, with `static () => unit` as the fallback of an optional effect
+            by: 'static () => unit, '
+fix: $ANSWER($FIRST, static () => unit, $ABSENT_UNIT$SITE)
+message: '`Callbacks.Succeeded` over `$FIRST` computes a success flag the caller discards'
+note: Use `Callbacks.Answer(<effect>, static () => unit, <site>)`, with `static () => unit` as the absent answer of an optional effect

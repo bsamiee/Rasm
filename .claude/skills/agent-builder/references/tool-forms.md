@@ -61,7 +61,7 @@ Use `dotnet-msbuild-diagnostics` for binlog capture.
 - `dotnet msbuild <project> -getItem:PackageReference` lists every reference with `DefiningProjectFullPath`
 - `fd -e csproj . <scope> -x dotnet msbuild {} -getItem:PackageReference` evaluates a scope in one call
 - `dotnet msbuild <file> -getProperty:MSBuildProjectFile` is the parse check, a broken file answers `MSB4025`
-- `dotnet format <project> --no-restore --verify-no-changes --include <files>` is the writer's check form, a missing path prints nothing at exit 0
+- `nx run rasm:lint:dotnet-format` is the writer's solution-wide check form
 - `-p:LangVersion=7.3` produces a failing build without a repository edit
 - `Csc` execution count in `binlog_expensive_tasks` shows a compile, a duration shows none
 

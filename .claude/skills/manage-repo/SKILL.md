@@ -34,9 +34,7 @@ Entries state the principles by which the repository is maintained and improved.
 - Project files extending a root file exist for a plugin discovering projects by file name, a `--config` tool reads the root file from any `cwd`
 - Rows restating a tool's documented default go, the default comes from a schema, release notes, or installed source
 - Rows that leave tool output and lock unchanged when deleted go, a row that only cancels another row's effect goes with the canceled row
-- Relaxing checker rows (ignore, allowlist, suppression, raised threshold) stay while a file violates the rule without them
 - Tightening checker rows (ban, required form, lowered threshold) state policy and stay with no violating file
-- Suppressions one file needs sit at its top, one every importer of a package needs (missing stubs) sits in the tool's table
 - Skills name the tools they drive, their scripts, and output paths under `.artifacts/`, and hold no target or project row
 - Scripts join their subject's skill, a script an app, target, or workflow consumes joins the repository
 - Scripts and `eng/` projects do work no tool command, package feature, or target does, and hold that work alone

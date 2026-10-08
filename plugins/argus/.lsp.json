@@ -11,20 +11,24 @@
             ".jsx": "javascriptreact",
             ".mjs": "javascript",
             ".cjs": "javascript"
-        }
+        },
+        "diagnostics": false
     },
     "python": {
         "command": "${CLAUDE_PROJECT_DIR}/.venv/bin/ty",
         "args": ["server"],
-        "extensionToLanguage": { ".py": "python", ".pyi": "python" }
+        "extensionToLanguage": { ".py": "python", ".pyi": "python" },
+        "diagnostics": false
     },
     "swift": {
         "command": "sourcekit-lsp",
-        "extensionToLanguage": { ".swift": "swift" }
+        "extensionToLanguage": { ".swift": "swift" },
+        "diagnostics": false
     },
     "java": {
         "command": "jdtls",
         "extensionToLanguage": { ".java": "java" },
+        "diagnostics": false,
         "workspaceFolder": "${CLAUDE_PROJECT_DIR}/${user_config.javaWorkspace}",
         "startupTimeout": 120000,
         "initializationOptions": {
@@ -46,6 +50,7 @@
         "command": "yaml-language-server",
         "args": ["--stdio"],
         "extensionToLanguage": { ".yaml": "yaml", ".yml": "yaml" },
+        "diagnostics": false,
         "settings": {
             "yaml": { "schemaStore": { "enable": true } }
         }
@@ -54,25 +59,30 @@
         "command": "taplo",
         "args": ["lsp", "stdio"],
         "extensionToLanguage": { ".toml": "toml" },
+        "diagnostics": false,
         "settings": {}
     },
     "bash": {
         "command": "bash-language-server",
         "args": ["start"],
-        "extensionToLanguage": { ".sh": "shellscript", ".bash": "shellscript" }
+        "extensionToLanguage": { ".sh": "shellscript", ".bash": "shellscript" },
+        "diagnostics": false
     },
     "c": {
         "command": "clangd",
         "args": ["--background-index"],
-        "extensionToLanguage": { ".c": "c", ".h": "c", ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp", ".hxx": "cpp", ".m": "objective-c", ".mm": "objective-cpp" }
+        "extensionToLanguage": { ".c": "c", ".h": "c", ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp", ".hxx": "cpp", ".m": "objective-c", ".mm": "objective-cpp" },
+        "diagnostics": false
     },
     "lua": {
         "command": "lua-language-server",
-        "extensionToLanguage": { ".lua": "lua" }
+        "extensionToLanguage": { ".lua": "lua" },
+        "diagnostics": false
     },
     "nix": {
         "command": "nixd",
         "extensionToLanguage": { ".nix": "nix" },
+        "diagnostics": false,
         "settings": {
             "nixd": {
                 "nixpkgs": { "expr": "import (builtins.getFlake \"git+file://${CLAUDE_PROJECT_DIR}\").inputs.nixpkgs {}" },

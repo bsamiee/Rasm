@@ -1,5 +1,5 @@
-# ty: ignore[invalid-argument-type, invalid-return-type, no-matching-overload, unresolved-import]
-# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, return-value, no-any-return, call-overload, arg-type, unreachable"
+# ty: ignore[invalid-argument-type, invalid-return-type, no-matching-overload, too-many-positional-arguments]
+# mypy: disable-error-code="arg-type, call-arg, call-overload, import-untyped, no-any-return, no-any-unimported, return-value, unreachable"
 """Rhino settings rows by settings path, member, and internal type, the scope disposing a .NET resource, and the plain form every Rhino row and action compares in."""
 
 from collections.abc import Callable, Generator, Mapping
@@ -127,24 +127,32 @@ def labeled(path: SettingsPath, name: str) -> str:
     return ".".join((owner, *names, name))
 
 
-def key(path: SettingsPath, name: str, *, target: bool | int | str | Guid | tuple[str, ...] | Color, stored: type | None = None, default: bool | int | Guid | None = None) -> Row:
+def key(path: SettingsPath, name: str, *, target: bool | int | str | Guid | tuple[str, ...] | Color, stored: type[UInt32] | None = None, default: bool | int | Guid | None = None) -> Row:
     """Row of a settings key through the unbound accessor pair of its stored type, the target's own unless named, read from the child the store holds, the owner's default while the child or key is absent, and written into the child added on demand."""
-    accessors = {
-        bool: (PersistentSettings.TryGetBool, PersistentSettings.SetBool),
-        int: (PersistentSettings.TryGetInteger, PersistentSettings.SetInteger),
-        UInt32: (PersistentSettings.TryGetUnsignedInteger, PersistentSettings.SetUnsignedInteger),
-        str: (PersistentSettings.TryGetString, PersistentSettings.SetString),
-        Guid: (PersistentSettings.TryGetGuid, PersistentSettings.SetGuid),
-        tuple: (PersistentSettings.TryGetStringList, PersistentSettings.SetStringList),
-        Color: (PersistentSettings.TryGetColor, PersistentSettings.SetColor),
-    }
-    get, put = accessors[type(target) if stored is None else stored]
-    return preference(
-        label=labeled(path, name),
-        read=lambda: default if (child := located(path)) is None or (held := found(get(child, name))) is None else held,
-        write=lambda value: put(opened(path), name, value),
-        target=target,
-    )
+
+    def row[T](get: Callable[[PersistentSettings, str], tuple[bool, T]], put: Callable[[PersistentSettings, str, T], None], value: T) -> Row:
+        return preference(
+            label=labeled(path, name),
+            read=lambda: default if (child := located(path)) is None or (held := found(get(child, name))) is None else held,
+            write=lambda written: put(opened(path), name, written),
+            target=value,
+        )
+
+    match target:
+        case bool():
+            return row(PersistentSettings.TryGetBool, PersistentSettings.SetBool, target)
+        case int() if stored is None:
+            return row(PersistentSettings.TryGetInteger, PersistentSettings.SetInteger, target)
+        case int():
+            return row(PersistentSettings.TryGetUnsignedInteger, PersistentSettings.SetUnsignedInteger, target)
+        case str():
+            return row(PersistentSettings.TryGetString, PersistentSettings.SetString, target)
+        case Guid():
+            return row(PersistentSettings.TryGetGuid, PersistentSettings.SetGuid, target)
+        case tuple():
+            return row(PersistentSettings.TryGetStringList, PersistentSettings.SetStringList, target)
+        case Color():
+            return row(PersistentSettings.TryGetColor, PersistentSettings.SetColor, target)
 
 
 def member(owner: object, name: str, *, target: object) -> Row:

@@ -97,6 +97,6 @@ rule:
                 - any:
                     - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: identity}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
                     - has: {field: arguments, not: {has: {kind: argument}}}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Each$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Each$'}}}}
 message: '`$ITEMS` pairs each element with its index for `$RECORD.Unless` by hand'
-note: Use `Answers.Each(<items>, <call>, <member>)` for the indexed traversal and any private helper restating it, each `RefusedElement` it returns names the element index
+note: Use `Callbacks.Each(<items>, <call>, <member>)` for a `bool` host call and `Callbacks.Each(<items>, (<item>, <index>) => <element>)` for an answering one, and delete any private helper restating it, each failed element's error naming its index

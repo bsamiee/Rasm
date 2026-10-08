@@ -13,6 +13,10 @@ rule:
           all:
             - has: {field: condition, pattern: $DOC}
             - has: {kind: member_binding_expression, has: {field: name, regex: '^CreateDefaultAttributes$'}}
-    not: {matches: {csharp-owner-body: {type: {regex: '^TableOps$'}, member: {regex: '^WithAttributes$'}}}}
+    not:
+        inside:
+            kind: argument
+            nthChild: 1
+            inside: {kind: argument_list, inside: {matches: {csharp-owner-call: {type: {regex: '^TableOps$'}, member: {regex: '^WithAttributes$'}}}}}
 message: '`$DOC.CreateDefaultAttributes` builds default object attributes by hand'
-note: Use `TableOps.WithAttributes(<doc>, <attributes>, <body>)`, with `None` for document defaults, `WithAttributes` disposes defaults it created after `<body>`
+note: Use `TableOps.WithAttributes(<defaults>, <attributes>, <body>)`, with `<doc>.CreateDefaultAttributes` as a document's defaults and `None` for each defaulted object, `WithAttributes` disposing what it created after `<body>`

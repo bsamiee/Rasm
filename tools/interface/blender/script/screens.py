@@ -49,12 +49,12 @@ class Side(StrEnum):
         return first_low >= second_high if self is Side.TOP else second_low >= first_high
 
 
-class View(StrEnum):
-    """View a layout's canvas opens on, an axis view by its `view3d.view_axis` type."""
+class View(Enum):
+    """View a layout's canvas opens on."""
 
-    PERSPECTIVE = "PERSP"
-    TOP = "TOP"
-    CAMERA = "CAMERA"
+    PERSPECTIVE = auto()
+    TOP = auto()
+    CAMERA = auto()
 
 
 class Extent(Enum):

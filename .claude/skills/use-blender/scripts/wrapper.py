@@ -9,7 +9,7 @@
 # ///
 # ty: ignore[unresolved-attribute]
 # mypy: disable-error-code=attr-defined
-# ruff: file-ignore[boolean-positional-value-in-call, exec-builtin, mutable-class-default, private-member-access]
+# ruff: file-ignore[boolean-positional-value-in-call, exec-builtin, mutable-class-default]
 """PreToolUse hook closing each `execute_blender_code` call with an undo step."""
 
 from collections.abc import Callable
@@ -80,13 +80,14 @@ def deferred(check: Callable[[], object]) -> Callable[[], object]:
 
 def run(code: str, namespace: dict[str, object]) -> Callable[[], object] | None:
     """Execute the code in the namespace with each warning printed once per line on the call's stderr, then push the final mode's undo step, or return the `check_is_finished` the code defines pushing it after its last pass."""
-    try:
-        with warnings.catch_warnings(action="default", category=DeprecationWarning):
-            warnings.showwarning = warnings._showwarning_orig
+    with warnings.catch_warnings(record=True, action="default", category=DeprecationWarning) as caught:
+        try:
             exec(compile(code, "<agent>", "exec"), namespace)
-    except BaseException:
-        step()
-        raise
+        except BaseException:
+            step()
+            raise
+        finally:
+            sys.stderr.writelines(warnings.formatwarning(w.message, w.category, w.filename, w.lineno, w.line) for w in caught)
     match namespace.get("check_is_finished"):
         case check if callable(check):
             return deferred(check)

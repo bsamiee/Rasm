@@ -1,6 +1,6 @@
 # ty: ignore[invalid-argument-type, invalid-assignment, invalid-type-form, unresolved-attribute]
 # mypy: disable-error-code="arg-type, attr-defined, explicit-any, union-attr, valid-type"
-# ruff: file-ignore[invalid-class-name, mutable-class-default, relative-imports]
+# ruff: file-ignore[invalid-class-name, mutable-class-default]
 """3D Viewport and canvas navigation that orbits a perspective view and pans every other view, unit system nudges, and their keys."""
 
 from collections.abc import Callable
@@ -14,7 +14,7 @@ from .unit_system import scene_units
 from .units import Units
 
 if TYPE_CHECKING:
-    from bpy.stub_internal.rna_enums import OperatorReturnItems
+    from bpy.stub_internal.rna_enums import EventTypeItems, EventValueItems, OperatorReturnItems
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -37,11 +37,11 @@ class INTERFACE_OT_navigate(bpy.types.Operator):
 
     @classmethod
     @override
-    def poll(cls, context: bpy.types.Context | None) -> bool:
+    def poll(cls, context: bpy.types.Context) -> bool:
         return context.region_data is not None and navigator(context).poll()
 
     @override
-    def invoke(self, context: bpy.types.Context | None, event: bpy.types.Event | None) -> "set[OperatorReturnItems]":
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> "set[OperatorReturnItems]":
         return {"CANCELLED"} if "CANCELLED" in navigator(context)("INVOKE_DEFAULT") else {"FINISHED"}
 
 
@@ -58,11 +58,11 @@ class INTERFACE_OT_nudge(bpy.types.Operator):
 
     @classmethod
     @override
-    def poll(cls, context: bpy.types.Context | None) -> bool:
+    def poll(cls, context: bpy.types.Context) -> bool:
         return scene_units(context.scene) is not None
 
     @override
-    def execute(self, context: bpy.types.Context | None) -> "set[OperatorReturnItems]":
+    def execute(self, context: bpy.types.Context) -> "set[OperatorReturnItems]":
         return bpy.ops.transform.translate(value=tuple(scene_units(context.scene).nudge[self.step] * part for part in self.direction), orient_type=self.orientation)
 
 
@@ -83,7 +83,8 @@ def bind(keyconfigs: bpy.types.KeyConfigurations) -> list[tuple[bpy.types.KeyMap
     items = [(keymap, keymap.keymap_items.new_from_item(source)) for source in default.keymaps[view.name].keymap_items if source.type in numpad and not source.alt for keymap in (view, sculpt)]
     for _, item in items:
         item.type, item.alt = numpad[item.type], True
-    items.extend((view, view.keymap_items.new(INTERFACE_OT_navigate.bl_idname, event, value)) for event, value in (("RIGHTMOUSE", "CLICK_DRAG"), ("TRACKPADPAN", "ANY")))
+    drags: tuple[tuple[EventTypeItems, EventValueItems], ...] = (("RIGHTMOUSE", "CLICK_DRAG"), ("TRACKPADPAN", "ANY"))
+    items.extend((view, view.keymap_items.new(INTERFACE_OT_navigate.bl_idname, event, value)) for event, value in drags)
     for name, idname in (("View2D", "view2d.pan"), ("Image", "image.view_pan"), ("Clip Editor", "clip.view_pan")):
         source = default.keymaps[name]
         canvas = addon.keymaps.new(name=name, space_type=source.space_type, region_type=source.region_type)
@@ -95,15 +96,16 @@ def bind(keyconfigs: bpy.types.KeyConfigurations) -> list[tuple[bpy.types.KeyMap
             item = canvas.keymap_items.new_from_item(pan)
             item.type, item.value = "RIGHTMOUSE", "CLICK_DRAG"
             items.append((canvas, item))
+    nudges: tuple[tuple[EventTypeItems, tuple[float, float, float], str], ...] = (
+        ("LEFT_ARROW", (-1.0, 0.0, 0.0), "VIEW"),
+        ("RIGHT_ARROW", (1.0, 0.0, 0.0), "VIEW"),
+        ("DOWN_ARROW", (0.0, -1.0, 0.0), "VIEW"),
+        ("UP_ARROW", (0.0, 1.0, 0.0), "VIEW"),
+        ("PAGE_DOWN", (0.0, 0.0, -1.0), "GLOBAL"),
+        ("PAGE_UP", (0.0, 0.0, 1.0), "GLOBAL"),
+    )
     for step, (ctrl, shift) in enumerate(((False, False), (True, False), (False, True))):
-        for event, direction, orientation in (
-            ("LEFT_ARROW", (-1.0, 0.0, 0.0), "VIEW"),
-            ("RIGHT_ARROW", (1.0, 0.0, 0.0), "VIEW"),
-            ("DOWN_ARROW", (0.0, -1.0, 0.0), "VIEW"),
-            ("UP_ARROW", (0.0, 1.0, 0.0), "VIEW"),
-            ("PAGE_DOWN", (0.0, 0.0, -1.0), "GLOBAL"),
-            ("PAGE_UP", (0.0, 0.0, 1.0), "GLOBAL"),
-        ):
+        for event, direction, orientation in nudges:
             item = view.keymap_items.new(INTERFACE_OT_nudge.bl_idname, event, "PRESS", alt=True, ctrl=ctrl, shift=shift)
             item.properties.direction, item.properties.orientation, item.properties.step = direction, orientation, step
             items.append((view, item))
@@ -116,4 +118,4 @@ CLASSES: Final = (INTERFACE_OT_navigate, INTERFACE_OT_nudge)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["bind", "CLASSES", "KEYMAPS", "local_view"]
+__all__ = ["CLASSES", "KEYMAPS", "bind", "local_view"]

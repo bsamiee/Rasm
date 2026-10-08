@@ -9,7 +9,7 @@ utils:
             kind: member_access_expression
             all:
                 - has: {field: name, regex: '^Found(\s*<.+>)?$'}
-                - has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers$'}
+                - has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.)?Callbacks$'}
     non-enum-parameter:
         inside:
             stopBy: end
@@ -59,15 +59,15 @@ rule:
         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: csharp-setting-accessor}}}
         - any:
             - all:
-                - pattern: Answers.Found($STORE.$READ($ENTRY, out $TYPE $V), $V)
+                - pattern: Callbacks.Found($STORE.$READ($ENTRY, out $TYPE $V), $V)
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {has: {field: function, has: {field: name, regex: '^TryGet(Bool|Integer|UnsignedInteger|Double|String|Color)$'}}}}}
-            - pattern: Answers.Found($STORE.TryGetColor($ENTRY, out $_ $V), Optional($V))
+            - pattern: Callbacks.Found($STORE.TryGetColor($ENTRY, out $_ $V), Optional($V))
             - all:
                 - any:
                     - all:
-                        - pattern: Answers.Found($STORE.TryGetEnumValue($ENTRY, out $TYPE $V), $V)
+                        - pattern: Callbacks.Found($STORE.TryGetEnumValue($ENTRY, out $TYPE $V), $V)
                         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {stopBy: end, kind: declaration_expression, has: {field: type, not: {regex: '^var$'}}}}}
-                    - pattern: Answers.Found($STORE.TryGetEnumValue<$TYPE>($ENTRY, out $_ $V), $V)
+                    - pattern: Callbacks.Found($STORE.TryGetEnumValue<$TYPE>($ENTRY, out $_ $V), $V)
                 - not: {matches: non-enum-parameter}
         - not: {matches: scoped-out}
         - not: {matches: named-read}

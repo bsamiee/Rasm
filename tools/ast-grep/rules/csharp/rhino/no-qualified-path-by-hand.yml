@@ -87,6 +87,5 @@ rule:
         - any:
             - matches: effect
             - inside: {stopBy: end, matches: effect}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^QualifiedPath$'}}}}
 message: "`$CHECK($PATH)` requires a qualified path inside an effect by hand"
-note: Use `Answers.QualifiedPath(<path>)` as a bind step, `QualifiedPath` fails with `Invalid` on a path that is not fully qualified
+note: Use `Exchange.QualifiedPath(<path>)` through `IO.lift` as a bind step, `QualifiedPath` fails with `UnqualifiedPath` on a path that is not fully qualified

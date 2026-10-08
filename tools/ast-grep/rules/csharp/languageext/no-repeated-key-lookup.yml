@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-key-lookup
+language: csharp
+severity: error
+utils:
+    member:
+        kind: 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, property_declaration, indexer_declaration, operator_declaration, field_declaration'
+    named-read:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: expression, pattern: $MAP}
+                    - has: {field: name, regex: '^(Find|FindSeq|ContainsKey|TryGetValue)$'}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    nthChild: 1
+                    not: {has: {field: name, pattern: $_}}
+                    has: {pattern: $KEY, not: {kind: 'lambda_expression, anonymous_method_expression'}}
+                not: {has: {kind: argument, has: {field: name, not: {regex: '^(Some|None)$'}}}}
+    index-read:
+        kind: element_access_expression
+        all:
+            - has: {field: expression, pattern: $MAP}
+            - has: {field: subscript, has: {kind: argument, pattern: $KEY}, not: {has: {kind: argument, nthChild: 2}}}
+            - not: {inside: {kind: assignment_expression, field: left}}
+    earlier-named:
+        follows: {stopBy: end, any: [{matches: named-read}, {has: {stopBy: end, matches: named-read}}]}
+    earlier-value-read:
+        follows:
+            stopBy: end
+            any:
+                - matches: named-read
+                  not: {has: {field: function, has: {field: name, regex: '^ContainsKey$'}}}
+                - has: {stopBy: end, matches: named-read, not: {has: {field: function, has: {field: name, regex: '^ContainsKey$'}}}}
+    earlier-any:
+        follows: {stopBy: end, any: [{matches: named-read}, {matches: index-read}, {has: {stopBy: end, any: [{matches: named-read}, {matches: index-read}]}}]}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - pattern: $LOOKUP
+            - matches: named-read
+            - any:
+                - matches: earlier-any
+                - inside: {stopBy: {matches: member}, not: {matches: member}, matches: earlier-any}
+        - kind: element_access_expression
+          all:
+            - pattern: $LOOKUP
+            - matches: index-read
+            - any:
+                - matches: earlier-value-read
+                - inside: {stopBy: {matches: member}, not: {matches: member}, matches: earlier-value-read}
+message: '`$LOOKUP` looks `$KEY` up in `$MAP` again after an earlier read of the same key in one member'
+note: Read the key once and pass the entry it answers on, `Find` with `Map`, `Match`, or a `Some` pattern where the presence test and the value read share one lookup

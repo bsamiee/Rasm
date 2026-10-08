@@ -109,7 +109,6 @@ Properties hold one string, the last assignment in evaluation order wins, a glob
     <_ToolDir>$([MSBuild]::NormalizeDirectory('$(ToolPath)'))</_ToolDir>
     <ToolFile>$([MSBuild]::NormalizePath('$(_ToolDir)', 'tool.exe'))</ToolFile>
     <ToolRelative>$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(ToolPath)'))</ToolRelative>
-    <NoWarn>$(NoWarn);NU1603</NoWarn>
 </PropertyGroup>
 ```
 

@@ -10,9 +10,10 @@ from typing import Any
 import attrs
 import bpy
 from bpy_extras import anim_utils
-from nodes import Digest, record, trees
 import numpy as np
 from numpy.typing import NDArray
+
+from nodes import Digest, record, trees
 from results import artifacts, collect_faults, Fault, JSON, Resolved, unknown
 from rna import DIGITS, plain, stored
 from scene import bounds, drawings, points

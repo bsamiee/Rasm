@@ -13,6 +13,7 @@ from typing import Protocol, runtime_checkable, TextIO
 import attrs
 import bpy
 import numpy as np
+
 from results import artifacts, collect_faults, Fault, Faults, JSON, Resolved
 from rna import DIGITS, operators
 from scene import bounds

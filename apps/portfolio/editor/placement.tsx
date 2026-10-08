@@ -1,6 +1,6 @@
 import { Struct } from 'effect';
 import type { ReactNode } from 'react';
-import { type AssetCollection, ImageAsset } from '../model/asset.ts';
+import { type AssetCollection, ImageAsset, sheets } from '../model/asset.ts';
 import type { Placement } from '../model/placement.ts';
 import { Field, MenuButton, SelectField, SliderField } from './controls.tsx';
 
@@ -25,7 +25,7 @@ function PlacementFields({ value, assets, onChange, onHero, onCover }: { value: 
             <span className="wrap-anywhere text-[13px]">{value.asset.name}</span>
             <Field label="Caption" onChange={(caption): void => onChange({ ...value, caption })} value={value.caption} />
             {value.kind === 'pdf' && (
-                <MenuButton label="Sheet" onAction={({ page }): void => onChange({ ...value, page })} options={value.asset.pages.map((page, index) => ({ id: String(index + 1), label: `${index + 1} of ${value.asset.pages.length}${page.label ? ` · ${page.label}` : ''}`, page: { ...page, number: index + 1 } }))}>
+                <MenuButton label="Sheet" onAction={({ page }): void => onChange({ ...value, page })} options={sheets(value.asset).map((page) => ({ id: String(page.number), label: `${page.number} of ${value.asset.pages.length}${page.label ? ` · ${page.label}` : ''}`, page }))}>
                     Sheet {value.page.number}
                 </MenuButton>
             )}

@@ -1,4 +1,3 @@
-// biome-ignore-all lint/style/noNamespace lint/style/noDefaultExport: Cloudflare declares bindings on the Cloudflare.Env namespace and loads the default Worker export
 import { Layer } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { HttpApiBuilder } from 'effect/http-api';
@@ -12,6 +11,7 @@ import { owner } from './session.ts';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 declare global {
+    // biome-ignore lint/style/noNamespace: Cloudflare declares Worker bindings on the Cloudflare.Env namespace interface
     namespace Cloudflare {
         interface Env {
             DB: D1Database;
@@ -28,4 +28,5 @@ const { handler } = HttpRouter.toWebHandler(Layer.mergeAll(page, download, HttpA
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+// biome-ignore lint/style/noDefaultExport: Cloudflare loads the fetch handler from the Worker module's default export
 export default { fetch: handler };

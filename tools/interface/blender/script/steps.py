@@ -111,7 +111,7 @@ def steps(launch: Launch) -> Iterator[float]:
         body.append(Header(bpy.app.version_string, bpy.utils.user_resource("CONFIG")))
         for update in updates:
             match update:
-                case float():
+                case int() | float():
                     yield update
                 case _:
                     body.extend(converged(update))

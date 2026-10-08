@@ -331,6 +331,7 @@ dev = [
     "coverage",                                           # Coverage engine pytest-cov drives, configured by [tool.coverage]
     "cyclopts",                                           # CLI parser of the interface command
     "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
+    "eto-stubs-typed",                                    # Eto.Drawing and Eto.Forms stubs for the Rhino interface and use-rhino skill scripts that run in Rhino's Python
     "fake-bpy-module-latest",                             # bpy, bmesh, mathutils, and gpu stubs from Blender's main branch for skill scripts
     "fonttools",                                          # Glyph pens and SVG path parsing for Blender extension packing
     "fsspec",                                             # Memory and directory filesystems in the test environment fixture
@@ -372,6 +373,7 @@ dev = [
     "types-geopandas",                                    # Stubs for geopandas
     "types-lxml",                                         # Stubs for lxml
     "types-networkx",                                     # Stubs for networkx
+    "types-opencolorio",                                  # Stubs for PyOpenColorIO
     "types-openpyxl",                                     # Stubs for openpyxl
     "types-protobuf",                                     # Stubs for protobuf
     "types-psutil",                                       # Stubs for psutil
@@ -409,7 +411,7 @@ build-backend = { module-name = "rasm", module-root = "libs/python", namespace =
 preview = true
 target-version = "py315"
 line-length = 200
-src = [".", "libs/python", "tools"]
+src = [".", "libs/python", "tools", ".claude/skills/use-blender/scripts"]
 per-file-target-version = { "{.claude/skills/use-blender/scripts/*,.claude/skills/use-rhino/scripts/{canvas,document,file3dm,records},tools/interface/{aliases,frame,render,report,roles,units,blender/rows,rhino/markup,rhino/window},tools/interface/{*/script,blender/extension}/**/*,tools/fitout/script}.py" = "py313" }
 format = { line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
@@ -428,14 +430,13 @@ ignore = [
     "typing-only-first-party-import",
     "typing-only-third-party-import",
     "typing-only-standard-library-import",
-    "unsorted-dunder-all",
     "suspicious-subprocess-import",
     "implicit-namespace-package",
     "missing-copyright-notice",
     "commented-out-code",
     "django-extra",
 ]
-per-file-ignores = { "tests/**" = ["assert"] }
+per-file-ignores = { "tests/**" = ["assert"], ".claude/skills/*/scripts/*.py" = ["subprocess-without-shell-equals-true", "start-process-with-partial-path"], "tools/interface/blender/extension/*.py" = ["relative-imports"], "tools/interface/**/units.py" = ["banned-api"], "tools/interface/rhino/script/entries.py" = ["blind-except", "import-outside-top-level", "print"], "tools/interface/rhino/script/options.py" = ["import-outside-top-level"] }
 flake8-bandit = { check-typed-exception = true }
 flake8-boolean-trap = { extend-allowed-calls = ["ctypes.c_bool"] }
 flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", scipy = "sp", sympy = "sym", xarray = "xr" } }
@@ -504,9 +505,8 @@ require-lazy = [
 
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python", "tools", ".claude/skills/use-blender/scripts"] }
-analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "OpenImageIO", "PyObjCTools", "PyOpenColorIO", "svgelements"] }
+analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "OpenImageIO", "svgelements"] }
 rules = { all = "error", dynamic-function-decorator-return = "ignore", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
-overrides = [{ include = ["tools/interface/rhino"], rules = { call-non-callable = "ignore", too-many-positional-arguments = "ignore" } }]
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
@@ -524,11 +524,11 @@ disallow_any_unimported = true
 plugins = ["pydantic.mypy"]
 enable_error_code = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 overrides = [
-    { module = "tests.*", disallow_any_explicit = false, disallow_any_unimported = false, warn_unreachable = false, disable_error_code = ["arg-type"] },
-    { module = ["AppKit", "CoreFoundation", "Foundation", "OpenImageIO", "PyObjCTools", "PyOpenColorIO", "_bpy", "fontTools.*", "fsspec.*", "pathops", "s3fs", "svgelements"], ignore_missing_imports = true },
+    { module = "tests.python.support.env", disallow_any_unimported = false },
+    { module = "tests.python.support.strategies", warn_unreachable = false },
+    { module = ["AppKit", "CoreFoundation", "Foundation", "OpenImageIO", "PyObjCTools", "_bpy", "fontTools.*", "fsspec.*", "pathops", "s3fs", "svgelements"], ignore_missing_imports = true },
     { module = "interface.host", disallow_any_unimported = false, disallow_subclassing_any = false },
     { module = "fitout.__main__", disallow_any_unimported = false, disallow_subclassing_any = false },
-    { module = "interface.rhino.*", disable_error_code = ["abstract", "call-arg", "type-abstract"] },
 ]
 
 # --- [PYDANTIC_MYPY] --------------------------------------------------------------------

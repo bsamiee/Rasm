@@ -33,12 +33,9 @@ utils:
             - not: {has: {nthChild: 3}}
     to-result:
         any:
-            - kind: member_access_expression
-              regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers\.ToResult$'
             - matches: host-failure
             - kind: lambda_expression
               any:
-                - has: {field: body, matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^ToResult$'}}}}
                 - has: {field: body, matches: host-failure}
                 - has: {field: body, matches: reported-failure}
                 - has:
@@ -125,17 +122,25 @@ utils:
         any:
             - matches: success-map
             - matches: kept-results
+    failed-failure:
+        kind: argument
+        not: {has: {field: name, not: {regex: '^failed$'}}}
+        has:
+            kind: lambda_expression
+            all:
+                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                - has: {field: body, matches: host-failure}
     effect-answer:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^Answer$'}}}
-            - not: {has: {field: arguments, has: {kind: argument, nthChild: 5}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
             - any:
                 - has:
                     field: arguments
                     all:
                         - has: {kind: argument, nthChild: 1, has: {matches: answered}}
-                        - has: {kind: argument, nthChild: 3, regex: '^(fallback\s*:\s*)?((global::)?Rhino\.Commands\.)?Result\.Failure$'}
+                        - has: {kind: argument, nthChild: 2, matches: failed-failure}
+                        - has: {kind: argument, nthChild: 3}
                         - not: {has: {kind: argument, nthChild: 4}}
                 - has:
                     field: arguments
@@ -148,9 +153,9 @@ utils:
                                 all:
                                     - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Map$'}}
                                     - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {kind: lambda_expression, has: {field: body, matches: answered}}}}
-                        - any:
-                            - not: {has: {kind: argument, nthChild: 4}}
-                            - has: {kind: argument, nthChild: 3, regex: '^(refused\s*:\s*)?((global::)?Rhino\.Commands\.)?Result\.Failure$'}
+                        - has: {kind: argument, nthChild: 3, matches: failed-failure}
+                        - has: {kind: argument, nthChild: 4}
+                        - not: {has: {kind: argument, nthChild: 5}}
 rule:
     any:
         - matches: fin-match
@@ -158,4 +163,4 @@ rule:
         - matches: fin-test
         - matches: effect-answer
 message: '`$SOURCE` converts to a host `Result` by hand'
-note: Use `Answers.ToResult(<fin>, <reject>)`, or `Answers.ToResult(<fin>)` where the caller keeps the error, with `<effect>.RunSafe()` as the `Fin` of an effect
+note: Use `Callbacks.Answer(Conversions.ToResult(<effect>), static () => Result.Failure, <site>)`, `ToResult` recovering each terminal answer and `Answer` reporting every other failure at the site, with `IO.lift(<fin>)` as the effect of an evaluated `Fin<Unit>`

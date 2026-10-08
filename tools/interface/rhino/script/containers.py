@@ -1,22 +1,21 @@
-# ty: ignore[unresolved-import, unresolved-attribute, unsupported-operator, invalid-argument-type, no-matching-overload, redundant-condition-strict]
-# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, operator, arg-type, no-any-return, typeddict-item"
-# ruff: file-ignore[banned-api, suspicious-xml-etree-import, suspicious-xml-element-tree-usage]
+# ty: ignore[call-non-callable, invalid-argument-type, invalid-return-type, no-matching-overload, redundant-condition-strict, too-many-positional-arguments, unresolved-attribute, unresolved-import, unsupported-operator]
+# mypy: disable-error-code="abstract, arg-type, attr-defined, call-arg, import-not-found, import-untyped, no-any-return, no-any-unimported, operator, type-abstract, typeddict-item"
 """Rhino's content panel settings, its Rendering panel sections, the measures of its window, and the window layout restored from the one the measures size."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from itertools import starmap
-import json
 import math
 from pathlib import Path
 import tempfile
 import uuid
-import xml.etree.ElementTree as ET
 
 from AppKit import NSTableHeaderCell, NSTextFieldCell
 import clr
 from CoreGraphics import CGRect
 from Eto.Forms import Control, Splitter, TextArea, TreeGridView
+from lxml import etree
+import msgspec
 import Rhino
 from Rhino.Display import DisplayModeDescription
 from Rhino.DocObjects.Tables import RestoreLayerProperties
@@ -81,7 +80,7 @@ def inset(shell: object, grid: TreeGridView) -> float:
     return shell.Size.Width - outline.EnclosingScrollView.DocumentVisibleRect.Size.Width.Value + (last.Right.Value + first.X.Value - widths)
 
 
-def measured(doc: Rhino.RhinoDoc, root: ET.Element, shown: Sequence[Labels]) -> Measured:
+def measured(doc: Rhino.RhinoDoc, root: etree._Element, shown: Sequence[Labels]) -> Measured:
     """Dock site heights, extents, Layers column default widths, Layers and Layouts columns fitted to every template's texts, and each toggle panel's grid, every panel measured as its container's selected tab and the container left with the tab the exported layout selects."""
     bars, serial = Internal.TAB_PANEL_DOCK_BARS.type, UInt32(doc.RuntimeSerialNumber)
     dock_sites = Internal.TAB_PANEL_DOCK_SITES.type.GetMethod("FromDocument", Array[System.Type]([clr.GetClrType(Rhino.RhinoDoc)])).Invoke(None, Array[System.Object]([doc]))
@@ -196,29 +195,30 @@ def measured(doc: Rhino.RhinoDoc, root: ET.Element, shown: Sequence[Labels]) -> 
 
 
 # --- [LAYOUT]
-def exported(doc: Rhino.RhinoDoc) -> ET.Element:
+def exported(doc: Rhino.RhinoDoc) -> etree._Element:
     """Live window layout of the document's window under the Modeling name, as the writer of `containers.xml` serializes it."""
     with disposed(MemoryStream()) as stream:
         Internal.WINDOW_LAYOUT_FILE.type.GetMethod("Write").Invoke(None, Array[System.Object]([doc, stream, Task.MODELING.value, None, False]))
-        return ET.fromstring(bytes(stream.ToArray()))
+        return etree.fromstring(bytes(stream.ToArray()))
 
 
-def bundled_layout() -> ET.Element:
+def bundled_layout() -> etree._Element:
     """Default window layout Rhino.UI includes."""
     with disposed(Internal.TAB_PANEL_DOCK_BARS.type.Assembly.GetManifestResourceStream("Rhino.UI.Resources.rui.default.rhw")) as stream, disposed(MemoryStream()) as held:
         stream.CopyTo(held)
-        return ET.fromstring(bytes(held.ToArray()))
+        return etree.fromstring(bytes(held.ToArray()))
 
 
-def resolved(root: ET.Element, bands: Mapping[Site, Band]) -> dict[DockBar, ET.Element]:
+def resolved(root: etree._Element, bands: Mapping[Site, Band]) -> dict[DockBar, etree._Element]:
     """Dock bar of each bar the bands name, a panel container no bar holds created on its band's first held bar's placement."""
-    bars, held = list(root.iterfind("dock_bars/dock_bar")), dict[DockBar, ET.Element]()
+    bars = list(root.iterfind("dock_bars/dock_bar"))
+    held: dict[DockBar, etree._Element] = {}
 
     def created(head: PanelId) -> str:
         """Id of the container the layout creates for the panel it holds first."""
         return str(uuid.uuid5(uuid.UUID(head), Task.MODELING))
 
-    def holds(bar: ET.Element, name: DockBar) -> bool:
+    def holds(bar: etree._Element, name: DockBar) -> bool:
         """Whether the dock bar is the named bar, or a free bar holding the container's first panel or carrying its created id."""
         identity = bar.get("guid")
         match name:
@@ -232,13 +232,13 @@ def resolved(root: ET.Element, bands: Mapping[Site, Band]) -> dict[DockBar, ET.E
         if holders:
             held[name] = holders[0]
         elif isinstance(name, tuple) and siblings:
-            held[name] = ET.SubElement(element(root, "dock_bars"), "dock_bar", {"guid": created(name[0])})
+            held[name] = etree.SubElement(element(root, "dock_bars"), "dock_bar", {"guid": created(name[0])})
             held[name].extend(deepcopy(placement) for placement in siblings[0].iterfind("placement"))
-            ET.SubElement(held[name], "tabs")
+            etree.SubElement(held[name], "tabs")
     return held
 
 
-def lacking(held: Mapping[DockBar, ET.Element], bands: Mapping[Site, Band], bundled_tabs: Mapping[str, ET.Element]) -> tuple[str, ...]:
+def lacking(held: Mapping[DockBar, etree._Element], bands: Mapping[Site, Band], bundled_tabs: Mapping[str, etree._Element]) -> tuple[str, ...]:
     """Name of each bar the bands name that no dock bar holds, and of each ribbon tab neither the ribbon nor the bundled layout holds."""
     live = {row.attrib["guid"] for name, bar in held.items() if name == Bar.RIBBON for row in bar.iterfind("tabs/tool_bar")}
     return (
@@ -247,19 +247,19 @@ def lacking(held: Mapping[DockBar, ET.Element], bands: Mapping[Site, Band], bund
     )
 
 
-def band_element(sites: ET.Element, band: Band, held: Mapping[DockBar, ET.Element]) -> ET.Element:
+def band_element(sites: etree._Element, band: Band, held: Mapping[DockBar, etree._Element]) -> etree._Element:
     """Band holding the layout band's bars in order at their shares, keeping the attributes Rhino wrote on the first bar's band and on each row."""
     banded = {row.attrib["guid"]: (owner, row) for owner in sites.iterfind("dock_site/band") for row in owner}
     guids = [held[name].attrib["guid"] for name, _ in band["bars"]]
-    made = ET.Element("band", {**(banded[guids[0]][0].attrib if guids[0] in banded else {}), "size": str(band["size"])})
+    made = etree.Element("band", {**(banded[guids[0]][0].attrib if guids[0] in banded else {}), "size": str(band["size"])})
     for bar, (_, share) in zip(guids, band["bars"], strict=True):
-        row = ET.SubElement(made, "dock_bar", dict(banded[bar][1].attrib) if bar in banded else {"guid": bar})
+        row = etree.SubElement(made, "dock_bar", dict(banded[bar][1].attrib) if bar in banded else {"guid": bar})
         if share is not None:
             row.set("size", repr(share))
     return made
 
 
-def arranged(root: ET.Element, held: Mapping[DockBar, ET.Element], bands: Mapping[Site, Band], bundled_tabs: Mapping[str, ET.Element]) -> None:
+def arranged(root: etree._Element, held: Mapping[DockBar, etree._Element], bands: Mapping[Site, Band], bundled_tabs: Mapping[str, etree._Element]) -> None:
     """Edit the exported layout into the bands and the containers panels return to, the command prompt in the sidebar, every other dock bar hidden and holding no panel, and a Right dock location left unwritten as Rhino's writer leaves its default."""
     panels, ribbon = {row.attrib["guid"]: row for row in root.iterfind("dock_bars/dock_bar/tabs/panel")}, held[Bar.RIBBON]
     live = {row.attrib["guid"]: row for row in ribbon.iterfind("tabs/tool_bar")}
@@ -268,7 +268,7 @@ def arranged(root: ET.Element, held: Mapping[DockBar, ET.Element], bands: Mappin
     for tabs in root.iterfind("dock_bars/dock_bar/tabs"):
         tabs[:] = [row for row in tabs if row.tag != "panel"]
     for name, tabs in ((name, element(bar, "tabs")) for name, bar in held.items() if isinstance(name, tuple)):
-        tabs.extend(deepcopy(panels[panel]) if panel in panels else ET.Element("panel", {"guid": panel}) for panel in name)
+        tabs.extend(deepcopy(panels[panel]) if panel in panels else etree.Element("panel", {"guid": panel}) for panel in name)
         tabs.set("selected_item", name[0])
     tabs = element(ribbon, "tabs")
     tabs[:] = [*(row for row in tabs if row.tag != "tool_bar"), *(live[tab] if tab in live else deepcopy(bundled_tabs[tab]) for tab in RibbonTab)]
@@ -284,23 +284,28 @@ def arranged(root: ET.Element, held: Mapping[DockBar, ET.Element], bands: Mappin
                 placement.attrib.pop("visible", None)
             case site, size, slot:
                 width, height = placement.attrib["dock_band_size"].split(",")
-                placement.attrib = {name: value for name, value in placement.attrib.items() if name not in {"dock_location", "recent_dock_location"}} | {
-                    "docked_placement": f"0,{slot}",
-                    "visible": "True",
-                    "dock_band_size": f"{size},{height}" if site in {Site.LEFT, Site.RIGHT} else f"{width},{size}",
-                    **({} if site is Site.RIGHT else {"dock_location": site, "recent_dock_location": site}),
-                }
+                kept = {name: value for name, value in placement.attrib.items() if name not in {"dock_location", "recent_dock_location"}}
+                placement.attrib.clear()
+                placement.attrib.update(
+                    kept
+                    | {
+                        "docked_placement": f"0,{slot}",
+                        "visible": "True",
+                        "dock_band_size": f"{size},{height}" if site in {Site.LEFT, Site.RIGHT} else f"{width},{size}",
+                        **({} if site is Site.RIGHT else {"dock_location": site, "recent_dock_location": site}),
+                    }
+                )
     returns = element(root, "last_collection_panel_was_in")
     for panel, name in RETURNS.items():
         element(returns, "item", guid=panel).attrib.update({"dock_bar": held[name].attrib["guid"]})
 
 
-def restore(doc: Rhino.RhinoDoc, target: ET.Element) -> Refused | None:
+def restore(doc: Rhino.RhinoDoc, target: etree._Element) -> Refused | None:
     """Refusal of restoring the live layout from the target, the Modeling layout deleted and imported from it first and the window laid out after, None once the restore ran."""
     serial = "rhino_doc_sn"
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder, f"{Task.MODELING}.rhw")
-        ET.ElementTree(target).write(path, encoding="utf-8", xml_declaration=True)
+        path.write_bytes(etree.tostring(target, encoding="utf-8", xml_declaration=True))
         called(doc, "Rhino.UI.Internal.TabPanels.NamedCallbacks.DeleteWindowLayout", serial, name=Task.MODELING.value)
         imported = called(doc, "Rhino.UI.Internal.TabPanels.NamedCallbacks.ImportWindowLayout", serial, filename=str(path))
     if not imported:
@@ -311,10 +316,10 @@ def restore(doc: Rhino.RhinoDoc, target: ET.Element) -> Refused | None:
     return None
 
 
-def window_layout(doc: Rhino.RhinoDoc, bundled: ET.Element, shown: Sequence[Labels], *, restored: bool) -> Iterator[Line]:
+def window_layout(doc: Rhino.RhinoDoc, bundled: etree._Element, shown: Sequence[Labels], *, restored: bool) -> Iterator[Line]:
     """Measured record and report lines of the live window layout, exported after the measures, restored from their render, measured and rendered again once a restore gave the containers their rendered forms, an error line naming what the render lacks or the restore refused."""
     record, label = measured(doc, exported(doc), shown), f'WindowLayouts["{Task.MODELING}"]'
-    root, measurement = exported(doc), Measurement(json.dumps(record))
+    root, measurement = exported(doc), Measurement(msgspec.json.encode(record).decode())
     bands, ribbon = layout(record), {row.attrib["guid"]: row for row in bundled.iterfind(f"dock_bars/dock_bar[@guid='{Bar.RIBBON}']/tabs/tool_bar")}
     target = deepcopy(root)
     held = resolved(target, bands)
@@ -322,7 +327,7 @@ def window_layout(doc: Rhino.RhinoDoc, bundled: ET.Element, shown: Sequence[Labe
         yield Error(f"{label} export holds no {', '.join(missing)}")
         return
     arranged(target, held, bands, ribbon)
-    if (before := canonical(ET.tostring(root, encoding="unicode"))) == (after := canonical(ET.tostring(target, encoding="unicode"))):
+    if (before := canonical(root)) == (after := canonical(target)):
         yield measurement
         return
     match restore(doc, target):

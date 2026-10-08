@@ -1,5 +1,5 @@
-# ty: ignore[invalid-argument-type, invalid-return-type, unknown-argument, unresolved-attribute, unresolved-import, unsupported-operator]
-# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, arg-type, attr-defined, call-overload, no-any-return, operator, return-value"
+# ty: ignore[call-non-callable, invalid-argument-type, too-many-positional-arguments, unknown-argument, unresolved-attribute, unsupported-operator]
+# mypy: disable-error-code="abstract, attr-defined, call-arg, call-overload, import-untyped, no-any-return, no-any-unimported, operator"
 """Rhino's display modes as rows, every user mode deleted and each built-in mode's members at their roles, and the point and curve widths previews draw at."""
 
 from collections.abc import Callable, Iterator
@@ -37,7 +37,7 @@ class Native(StrEnum):
         def entries(*selector: object) -> tuple[Callable[[], object], Callable[[object], object]]:
             return partial(native, f"CDisplayPipelineAttributes_Get{self}", attributes, *selector), partial(native, f"CDisplayPipelineAttributes_Set{self}", attributes, *selector)
 
-        def fill(value: Color) -> None:
+        def fill(value: object) -> None:
             mode = attributes.FillMode
             attributes.SetFill(value)
             attributes.FillMode = mode
@@ -57,6 +57,8 @@ class Native(StrEnum):
             case Native.PER_PIXEL_LIGHTNING:
                 return entries()
 
+
+type Member = str | tuple[Native, *tuple[str, ...]]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -98,8 +100,8 @@ def rows() -> Iterator[Row]:
     screen, drawn = (tuple(mode for mode in built_in if mode not in held) for held in (paper, rendered))
     logical = point_width()
     subd_usages = ("SubDSmoothInteriorEdgeColorUsage", "SubDCreaseInteriorEdgeColorUsage", "SubDBoundaryEdgeColorUsage")
-    fills = ((Native.COLOR, "GradTopLeft"), (Native.COLOR, "GradBottomLeft"), (Native.COLOR, "GradTopRight"), (Native.COLOR, "GradBottomRight"))
-    inked = (
+    fills: tuple[Member, ...] = ((Native.COLOR, "GradTopLeft"), (Native.COLOR, "GradBottomLeft"), (Native.COLOR, "GradTopRight"), (Native.COLOR, "GradBottomRight"))
+    inked: tuple[Member, ...] = (
         "CurveColor",
         "SurfaceEdgeColor",
         "SurfaceIsoUVColor",
@@ -228,7 +230,7 @@ def rows() -> Iterator[Row]:
 
     written = set[System.Guid]()
 
-    def row(mode: System.Guid, owner: object, label: str, member: str | tuple[Native, *tuple[str, ...]], target: object) -> Row:
+    def row(mode: System.Guid, owner: object, label: str, member: Member, target: object) -> Row:
         """Row of one member of a mode's description or display attributes under the owner's label, a public member by its dotted path and a native attribute by its family and internal enum member, its write marking the mode written."""
         read: Callable[[], object]
         write: Callable[[object], object]

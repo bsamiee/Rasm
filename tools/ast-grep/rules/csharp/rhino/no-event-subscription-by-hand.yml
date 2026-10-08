@@ -35,4 +35,4 @@ rule:
                 - has: {field: left, kind: member_access_expression, not: {has: {field: expression, regex: '^(this|base)$'}}}
                 - has: {field: right, kind: 'lambda_expression, anonymous_method_expression'}
 message: '`+=` attaches a handler to `$EVENT` of another object by hand'
-note: Use `Events.Attach<THandler>(h => <source>.<event> += h, h => <source>.<event> -= h, <handler>)` and dispose the returned handle to detach
+note: Use `Subscriptions.Attach<THandler>(h => <source>.<event> += h, h => <source>.<event> -= h, <handler>)` with the handler `Callbacks.Handler` builds at its site, and dispose the `IDisposable` it answers to detach

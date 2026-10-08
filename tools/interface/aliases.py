@@ -1,4 +1,3 @@
-# ruff: file-ignore[ambiguous-variable-name]
 """Command alias families by first key and every alias by its typed key with the label every application shows for it."""
 
 from collections.abc import Iterable
@@ -8,27 +7,27 @@ from enum import Enum
 
 
 class Family(Enum):
-    """Alias families by first key, each named by its commands."""
+    """Alias families by their commands, each valued by its first key."""
 
-    Q = "Curves"
-    W = "Rectangles"
-    E = "Circles"
-    R = "Rotate"
-    T = "Text"
-    A = "Offset"
-    S = "Surfaces"
-    D = "Dimensions"
-    F = "Trim"
-    G = "Group"
-    Z = "Zoom"
-    X = "Extrude"
-    C = "Copy"
-    V = "Move"
-    B = "Blocks"
-    M = "Merge"
-    L = "Layouts"
-    I = "Import"
-    P = "Purge"
+    CURVES = "Q"
+    RECTANGLES = "W"
+    CIRCLES = "E"
+    ROTATE = "R"
+    TEXT = "T"
+    OFFSET = "A"
+    SURFACES = "S"
+    DIMENSIONS = "D"
+    TRIM = "F"
+    GROUP = "G"
+    ZOOM = "Z"
+    EXTRUDE = "X"
+    COPY = "C"
+    MOVE = "V"
+    BLOCKS = "B"
+    MERGE = "M"
+    LAYOUTS = "L"
+    IMPORT = "I"
+    PURGE = "P"
 
 
 class Alias(Enum):
@@ -239,7 +238,7 @@ class Alias(Enum):
 
 def families(aliases: Iterable[Alias]) -> tuple[Family, ...]:
     """Families whose first key opens one of the aliases, in key order."""
-    held = {Family[alias.name[0]] for alias in aliases}
+    held = {Family(alias.name[0]) for alias in aliases}
     return tuple(family for family in Family if family in held)
 
 

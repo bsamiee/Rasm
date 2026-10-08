@@ -1,4 +1,3 @@
-# ty: ignore[invalid-argument-type]
 # mypy: disable-error-code="arg-type"
 """Blender's color role declaration, the members held for a scope, and the rows of declared RNA members in the installed extension's value forms."""
 
@@ -8,7 +7,7 @@ from functools import partial
 from itertools import chain
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING
+from typing import Protocol, TYPE_CHECKING
 
 from attrs import frozen
 import bpy
@@ -19,6 +18,15 @@ from interface.roles import fractions
 
 if TYPE_CHECKING:
     from interface.blender.extension.unit_system import Group
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Named(Protocol):
+    """Collection answering whether it holds an item by name, as every RNA collection does."""
+
+    def __contains__(self, name: str, /) -> bool: ...
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -34,7 +42,7 @@ class Paint:
     def stored(self, prop: bpy.types.FloatProperty) -> tuple[float, ...]:
         """Channels of the member: byte fractions for a `COLOR_GAMMA` member or a display-drawn one, scene-linear channels for any other `COLOR` member, and the alpha at its byte step for a four-channel member."""
         display = fractions(self.rgb)
-        channels = display if prop.subtype == "COLOR_GAMMA" or self.display else tuple(Color(display).from_srgb_to_scene_linear())
+        channels = display if prop.subtype == "COLOR_GAMMA" or self.display else Color(display).from_srgb_to_scene_linear()[:]
         match prop.array_length:
             case 3 if self.alpha != 1:
                 raise ValueError(f"{prop.identifier} stores three channels, so the declared alpha {self.alpha} has no channel")
@@ -47,7 +55,7 @@ class Paint:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def held(collection: "bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]", name: str) -> str | None:
+def held(collection: Named, name: str) -> str | None:
     """Name when the collection holds an item by it, None otherwise."""
     return name if name in collection else None
 

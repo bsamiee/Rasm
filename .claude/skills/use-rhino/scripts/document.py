@@ -1,6 +1,5 @@
-# ty: ignore[unresolved-import, unresolved-attribute, invalid-argument-type, invalid-assignment, not-subscriptable, unsupported-operator, no-matching-overload, too-many-positional-arguments, call-non-callable, redundant-condition-strict]
-# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, attr-defined, call-overload, call-arg, type-abstract, abstract, operator"
-# ruff: file-ignore[blind-except, exec-builtin]
+# ty: ignore[call-non-callable, invalid-argument-type, invalid-assignment, no-matching-overload, not-subscriptable, redundant-condition-strict, too-many-positional-arguments, unresolved-attribute, unresolved-import, unsupported-operator]
+# mypy: disable-error-code="abstract, attr-defined, call-arg, call-overload, import-not-found, import-untyped, no-any-unimported, operator, type-abstract"
 # /// script
 # dependencies = ["msgspec", "pillow"]
 #
@@ -15,6 +14,7 @@
 # ///
 """Rhino document operations and plugin loads returning a record or faults, and the `run_python` script runner."""
 
+from code import InteractiveInterpreter
 from collections import Counter
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, nullcontext, redirect_stderr
@@ -25,7 +25,6 @@ from operator import methodcaller
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
-import traceback
 from types import FunctionType
 
 from AppKit import NSDocument, NSDocumentController, NSSaveOperationType
@@ -1475,15 +1474,18 @@ def assembly(path: str) -> AssemblyRecord:
 
 
 def run(source: str, label: str, doc: RhinoDoc, namespace: dict[str, object]) -> None:
-    """Run a `run_python` script on its slot's document `doc` in one undo step named `label`, stderr and an exception's traceback on stdout."""
-    active = scriptcontext.doc
+    """Run a `run_python` script on its slot's document `doc` in one undo step named `label`, stderr and a syntax error's or exception's traceback on stdout."""
+    active, interpreter = scriptcontext.doc, InteractiveInterpreter(namespace)
     linecache.cache["<run_python>"] = (len(source), None, source.splitlines(keepends=True), "<run_python>")
     scriptcontext.doc, record = doc, doc.BeginUndoRecord(label)
     try:
         with redirect_stderr(sys.stdout):
-            exec(compile(source, "<run_python>", "exec"), namespace)
-    except BaseException as error:
-        traceback.print_exception(error, file=sys.stdout)
+            try:
+                compiled = compile(source, "<run_python>", "exec")
+            except SyntaxError:
+                interpreter.showsyntaxerror()
+            else:
+                interpreter.runcode(compiled)
     finally:
         scriptcontext.doc = active
         if record:

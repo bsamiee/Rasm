@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-use-argument-constant
+language: csharp
+severity: error
+utils:
+    reference:
+        kind: identifier
+        pattern: $NAME
+        not: {inside: {field: name, kind: 'member_access_expression, variable_declarator, parameter, argument'}}
+    holds-reference:
+        any: [{matches: reference}, {has: {stopBy: end, matches: reference}}]
+rule:
+    kind: local_declaration_statement
+    all:
+        - has: {kind: modifier, regex: '^const$'}
+        - has:
+            kind: variable_declaration
+            all:
+                - has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+                - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+        - precedes: {stopBy: end, has: {stopBy: end, matches: reference, inside: {kind: argument}}}
+        - not:
+            any:
+                - precedes: {stopBy: end, matches: holds-reference, precedes: {stopBy: end, matches: holds-reference}}
+                - precedes: {stopBy: end, has: {stopBy: end, matches: holds-reference, follows: {stopBy: end, matches: holds-reference}}}
+message: 'Local constant `$NAME` is read once, as an argument the callee''s parameter names'
+note: 'Pass the value at the argument, a local constant names a value two or more sites read'

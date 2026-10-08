@@ -20,7 +20,7 @@ from interface.report import Error, Line, Measurement
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 SCRIPT: Final = "interface.rhino.script"
-REQUIREMENTS: Final = "# r: attrs\n"
+REQUIREMENTS: Final = "# r: attrs\n# r: lxml\n# r: msgspec\n"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

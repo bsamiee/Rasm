@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-extension-block
+language: csharp
+severity: error
+utils:
+    block:
+        kind: constructor_declaration
+        all:
+            - has: {field: name, regex: '^extension$'}
+            - has:
+                field: parameters
+                has:
+                    kind: parameter
+                    any:
+                        - has: {field: type, pattern: $RECEIVER}
+                        - all:
+                            - not: {has: {field: type, pattern: $_}}
+                            - has: {field: name, pattern: $RECEIVER}
+rule:
+    kind: constructor_declaration
+    all:
+        - matches: block
+        - follows: {stopBy: end, matches: block}
+message: '`extension` block repeats the receiver `$RECEIVER` an earlier block of its class declares'
+note: 'Declare every member over one receiver in one `extension` block, with subsection dividers inside it naming each family'

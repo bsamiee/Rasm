@@ -61,8 +61,8 @@ utils:
                         stopBy: end
                         kind: is_pattern_expression
                         all:
-                            - has: {field: expression, kind: 'member_access_expression, conditional_access_expression, invocation_expression, parenthesized_expression, interpolated_string_expression', matches: message-text}
                             - has: {field: pattern, kind: declaration_pattern, has: {field: name, pattern: $TEXT}}
+                            - has: {field: expression, kind: 'member_access_expression, conditional_access_expression, invocation_expression, parenthesized_expression, interpolated_string_expression', matches: message-text}
     element-error:
         kind: lambda_expression, anonymous_method_expression
         all:

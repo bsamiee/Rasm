@@ -36,7 +36,7 @@ utils:
     outcome:
         kind: invocation_expression
         any:
-            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^FromResult$'}}
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?Conversions\s*\.\s*FromResult$'}
             - all:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Unless(\s*<.+>)?$'}}
                 - has:

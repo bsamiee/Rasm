@@ -75,6 +75,11 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
     const busy = operation.waiting || deletion.waiting || reloading.waiting;
     const current = data.portfolio.entries.find((item) => item.id === selected);
     const show = (name: 'entries' | 'files' | 'identity'): void => setSelectedTab(`${ids}${name}`);
+    const openEntry = (id: string): void => {
+        setSelected(id);
+        setWorkspace('entry');
+        focus(`${ids}entry`);
+    };
     const chooseSource = (entryId: string, assetId: string): void => {
         setSelected(entryId);
         setTarget({ kind: 'entry', id: entryId });
@@ -98,11 +103,7 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
         Match.value({ head: path[0], index: path[1] }).pipe(
             Match.when({ head: 'entries', index: Match.number }, ({ index }) => {
                 show('entries');
-                Option.map(Array.get(snapshot.entries, index), (item) => {
-                    setSelected(item.id);
-                    setWorkspace('entry');
-                    focus(`${ids}entry`);
-                });
+                Array.get(snapshot.entries, index).pipe(Option.map(Struct.get('id')), Option.map(openEntry));
             }),
             Match.orElse(() => show('files')),
         );
@@ -184,9 +185,7 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
                                         focus(`${ids}new`);
                                     }}
                                     onSelect={(item): void => {
-                                        setSelected(item.id);
-                                        setWorkspace('entry');
-                                        focus(`${ids}entry`);
+                                        openEntry(item.id);
                                         setTarget({ kind: 'entry', id: item.id });
                                     }}
                                     selected={selected}
@@ -200,14 +199,7 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
                                     <h3 className="wrap-anywhere text-xl tracking-tight outline-none" id={`${ids}source`} tabIndex={-1}>
                                         Add to {entryTitle(current)}
                                     </h3>
-                                    <button
-                                        className="button button-ghost"
-                                        onClick={(): void => {
-                                            setWorkspace('entry');
-                                            focus(`${ids}entry`);
-                                        }}
-                                        type="button"
-                                    >
+                                    <button className="button button-ghost" onClick={(): void => openEntry(current.id)} type="button">
                                         <ArrowLeft className="size-4" />
                                         Back to entry
                                     </button>
@@ -217,8 +209,7 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
                                     onAdd={(compositions): void => {
                                         updateEntry((entry) => ({ ...entry, compositions: [...entry.compositions, ...compositions] }));
                                         setComposition(compositions[0]?.id);
-                                        setWorkspace('entry');
-                                        focus(`${ids}entry`);
+                                        openEntry(current.id);
                                     }}
                                     onSelect={setSheets}
                                     onSource={setSource}

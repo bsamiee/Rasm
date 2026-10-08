@@ -6,7 +6,7 @@ import dataclasses
 from decimal import Decimal
 from fractions import Fraction
 import operator
-from typing import Protocol, runtime_checkable, Self
+from typing import Concatenate, Protocol, runtime_checkable, Self
 
 from expression import Option, Result
 from expression.collections import Block
@@ -249,7 +249,7 @@ def assert_none(option: Option[object]) -> None:
             raise AssertionError(f"expected Nothing, got {option!r}")
 
 
-def rejects_counterexample[T](counterexample: T, property_assertion: Callable[..., None], *args: object, **kwargs: object) -> None:
+def rejects_counterexample[T, **P](counterexample: T, property_assertion: Callable[Concatenate[T, P], None], *args: P.args, **kwargs: P.kwargs) -> None:
     """Raise ``AssertionError`` when the property assertion accepts the counterexample."""
     try:
         property_assertion(counterexample, *args, **kwargs)
@@ -271,31 +271,31 @@ def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "Case",
-    "Relation",
     "JSON_ENCODER",
     "MSGPACK_ENCODER",
-    "close",
-    "assert_close",
-    "roundtrip",
-    "identity",
-    "idempotent",
-    "involution",
-    "inverse",
-    "commutative",
-    "associative",
-    "distributive",
+    "Case",
+    "Relation",
     "absorbing",
+    "assert_close",
+    "assert_error",
+    "assert_none",
+    "assert_ok",
+    "assert_roundtrip",
+    "assert_some",
+    "assert_table",
+    "associative",
+    "close",
+    "commutative",
+    "differential",
+    "distributive",
+    "idempotent",
+    "identity",
     "identity_element",
+    "inverse",
+    "involution",
+    "metamorphic",
     "monotone",
     "permutation_invariant",
-    "differential",
-    "metamorphic",
-    "assert_table",
-    "assert_ok",
-    "assert_error",
-    "assert_some",
-    "assert_none",
     "rejects_counterexample",
-    "assert_roundtrip",
+    "roundtrip",
 ]

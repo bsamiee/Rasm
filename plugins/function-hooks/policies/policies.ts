@@ -47,7 +47,6 @@ interface Rewrite {
     readonly command: string;
     readonly notice: string;
     readonly context: string;
-    readonly binlogs: readonly string[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -60,6 +59,13 @@ const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
 const _DESCRIPTOR = /^\d+$/u;
 const _TRAILING = /\/$/u;
 const _BINLOG = /^(?:--?|\/)(?:bl|binarylogger)(?::|$)/iu;
+const _DOTNET: ReadonlyMap<string, string> = new Map(
+    Object.entries({
+        build: 'compiles outside the Nx task graph and its cache. Run nx run <project>:build, -- forwarding MSBuild switches and --skip-nx-cache forcing the run, then read the binary log under .artifacts/dotnet/binlog/ through the binlog MCP',
+        test: 'runs tests outside the Nx task graph and its cache. Run nx run <project>:test',
+        format: 'checks or rewrites files outside the Nx task graph. Run nx run rasm:lint:dotnet-format to check or nx run rasm:format to write',
+    }),
+);
 const _MINI_CONFIGS: readonly (readonly [RegExp, string])[] = [
     [/^project\.json$/u, 'package.json'],
     [/^\.nxignore$/u, '.gitignore'],
@@ -204,6 +210,22 @@ const _script = ({ commands, clocks }: Script): readonly string[] => {
     ];
 };
 
+// --- [DOTNET]
+
+const _subcommand = (invocation: Invocation): Option<string> => {
+    const [program, subcommand] = invocation;
+    return program !== 'dotnet' || subcommand === undefined || _informational(program, operands(invocation).options) ? none : some(subcommand);
+};
+
+const _dotnet = (commands: readonly Command[]): readonly string[] =>
+    commands
+        .flatMap((command) => command.invocations)
+        .flatMap((invocation) => {
+            const subcommand = _subcommand(invocation);
+            const reason = subcommand.kind === 'some' ? _DOTNET.get(subcommand.value) : undefined;
+            return subcommand.kind === 'none' || reason === undefined ? [] : [`dotnet ${subcommand.value} ${reason}`];
+        });
+
 // --- [WALK]
 
 const _starts = (invocation: Invocation): readonly string[] => {
@@ -316,8 +338,7 @@ const _queues = (commands: readonly Command[]): readonly string[] => {
 
 const _locks = async (host: Host, root: string, commands: readonly Command[]): Promise<Result<readonly string[]>> => {
     const requested = requests(commands);
-    const path = graphPath(root, await host.workspaceData());
-    const lines = requested.length > 0 && (await host.exists(path)) ? map(await graph(host.read, path), (held) => taskCommands(held, requested)) : ok<readonly string[]>([]);
+    const lines = requested.length === 0 ? ok<readonly string[]>([]) : await bind(graphPath(await host.workspaceData()), async (path) => ((await host.exists(path)) ? map(await graph(host.read, path), (held) => taskCommands(held, requested)) : ok<readonly string[]>([])));
     const targeted = await bind(lines, async (text) => (text.length === 0 ? ok([]) : map(await parse(host.scan, text.join('\n')), (script) => script.commands)));
     const locks = map(targeted, (found) => _queues([...commands, ...found]).map((lock) => `${root}/${lock}`));
     return bind(locks, async (paths) => (paths.length === 0 ? locks : map(await host.make(paths.map((lock) => lock.slice(0, lock.lastIndexOf('/')))), () => paths)));
@@ -363,9 +384,9 @@ const _builds = (command: Command): readonly Build[] =>
     command.nested
         ? []
         : command.invocations.flatMap((invocation, index) => {
-              const [program, subcommand, ...rest] = invocation;
+              const subcommand = _subcommand(invocation);
               const named = command.spans[offset(command, index) + 1];
-              return program !== 'dotnet' || subcommand === undefined || !['build', 'test', 'publish', 'pack', 'msbuild'].includes(subcommand) || rest.some((word) => _BINLOG.test(word)) || _informational(program, operands(invocation).options) || named === undefined ? [] : [{ at: named.end, subcommand }];
+              return subcommand.kind === 'none' || !['publish', 'pack', 'msbuild'].includes(subcommand.value) || invocation.slice(2).some((word) => _BINLOG.test(word)) || named === undefined ? [] : [{ at: named.end, subcommand: subcommand.value }];
           });
 
 const _rewrite = (commands: readonly Command[], text: string, held: readonly string[], root: Option<string>, id: string): Option<Rewrite> => {
@@ -377,7 +398,7 @@ const _rewrite = (commands: readonly Command[], text: string, held: readonly str
     const notes: readonly (readonly [notice: string, ...actions: string[]])[] = [
         ...(sd.length === 0 ? [] : [[`sd ran with ${added.join(' and ')} added`, ...added.map((option) => actions[option])] as const]),
         ...(launchers.length === 0 ? [] : [['nx ran without its launcher', 'Call nx directly'] as const]),
-        ...(builds.length === 0 ? [] : [['dotnet ran with -bl added'] as const]),
+        ...(builds.length === 0 ? [] : [['dotnet ran with -bl added', `Diagnose a failed build from ${builds.map(({ path }) => path).join(' and ')} with the dotnet-msbuild-diagnostics skill`] as const]),
         ...(held.length === 0 ? [] : [[`command queued under lockf on ${held.map(basename).join(' and ')}`] as const]),
     ];
     const bytes = new TextEncoder().encode(text);
@@ -391,7 +412,6 @@ const _rewrite = (commands: readonly Command[], text: string, held: readonly str
               command: held.reduce((body, lock) => `{ lockf 9 && {\n${body}\n} 9>&-; } 9>>${_quoted(lock)}`, [...spliced.pieces, decoder.decode(bytes.subarray(spliced.at))].join('')),
               notice: notes.map(([notice]) => notice).join(' · '),
               context: notes.flat().join('. '),
-              binlogs: builds.map(({ path }) => path),
           });
 };
 
@@ -403,7 +423,7 @@ const _refusal = async (host: Host, tool: 'Bash' | 'Monitor', script: Script, wa
     const named = calls.flatMap((call) => (call.kind === 'subcommand' && (call.key === 'reset' || call.key === 'checkout') ? call.args.filter((word) => !word.startsWith('-')) : []));
     const [existing, home] = await Promise.all([Promise.all(named.map(async (path) => ((await host.exists(path)) ? [path] : []))), walkPolicy && tool === 'Bash' ? host.home() : none]);
     const walked = home.kind === 'some' ? await _walk(host.real, home.value, commands) : [];
-    const reasons = [_git(calls, existing.flat()), _stdin(commands), _wait(commands), ...(tool === 'Bash' ? [_script(script)] : []), walked].find((found) => found.length > 0);
+    const reasons = [_git(calls, existing.flat()), _stdin(commands), _wait(commands), ...(tool === 'Bash' ? [_script(script), _dotnet(commands)] : []), walked].find((found) => found.length > 0);
     return reasons === undefined ? none : some([...new Set(reasons)].join('. '));
 };
 

@@ -5,7 +5,7 @@ description: "Use when listing a file's declarations, reading, searching, or rew
 
 # [AST_GREP]
 
-MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_code_rule`) answer searches with a match list or a tree. CLI runs `ast-grep outline`, `ast-grep scan`, writes (`-U`, `-i`), and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`. Language tooling resolves symbol identity, types, and behavior beyond syntax.
+MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_code_rule`) answer searches with a match list or a tree. CLI runs through `nx run rasm:outline`, `nx run rasm:lint:ast-grep`, and `nx run rasm:rewrite`, and directly for interactive writes (`-i`) and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`. Language tooling resolves symbol identity, types, and behavior beyond syntax.
 
 [REFERENCES]:
 - [01]-[RULE_BUILDING](references/rule-building.md): Deriving rules from diffs, code smells, and principles
@@ -110,7 +110,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `files:` and `ignores:` globs match paths relative to the config directory with no `./` prefix, `ignores:` reads first
 - `scan -r` reads `files:` from the rule file
 - Wildcard globs take an implied `**/` prefix, a plain file name matches the one file beside `sgconfig.yml`, `**/<name>` every file of that name
-- Scopes name the folder a rule's cause covers, one file's exemption is its first line `ast-grep-ignore: <id>` over a blank second line
+- Scopes name the folder a rule's cause covers
 - Dot directories under a walked path need `--no-ignore hidden`, a dot path named on the command needs no flag
 - Injection entries capture the embedded source as `$CONTENT` and name the parser in `injected`, a language or a candidate list with `$LANG`
 - `injected` names a built-in language or a `customLanguages` key, `run -l <injected>` walks every file of a host that injects it
@@ -119,8 +119,6 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - Kind lists inside a flow map are quoted (`{kind: 'block_mapping_pair, flow_pair'}`), an unquoted second kind reads as a key
 - Under `expandoChar`, patterns spell metavariables with that character (`_VAR`, `___VAR`), fix templates and transform sources use `$`
 - Unparsable rule files of any language and duplicate ids fail every load of the root config, an unknown key in `sgconfig.yml` loads silently
-- `ast-grep-ignore` on the line before or on the line of the match suppresses every rule, `ast-grep-ignore: <id>, <id>` the listed rules alone
-- Rules over comments miss a trailing `ast-grep-ignore` naming them or no id, a full-line one suppresses the next line alone and is reported
 - `unused-suppression` reports a comment suppressing nothing at `hint`, `--filter`, `--off`, `--min-severity`, `-r`, or `--inline-rules` turns it off
 - `no-suppress-all` reports an idless comment and is off, `--error=<id>` raises either built-in rule
 

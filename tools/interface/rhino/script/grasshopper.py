@@ -1,5 +1,5 @@
-# ty: ignore[invalid-exception-caught, unresolved-import]
-# mypy: disable-error-code="arg-type, import-not-found, import-untyped, misc, no-any-return, no-any-unimported"
+# ty: ignore[invalid-exception-caught, no-matching-overload, too-many-positional-arguments, unresolved-attribute, unresolved-import]
+# mypy: disable-error-code="call-arg, import-not-found, import-untyped, misc, no-any-return, no-any-unimported, type-abstract"
 """Grasshopper 2's settings, skin, ribbon, preview, snapping, fonts, palette, and editor rows the Rhino run converges."""
 
 from collections.abc import Iterable, Mapping

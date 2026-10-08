@@ -194,9 +194,10 @@ public abstract partial record ChartPlacement {
             (sum[3] > 0d ? sum / sum[3] : sum) switch {
                 var mean => PatchSample.Validate(mean[0], mean[1], mean[2], out PatchSample sample) is { } error ? error : (patch, sample),
             };
-        Memory2D<Vector4> texels = frame.View;
+        ReadOnlyMemory2D<Vector4> texels = frame.View;
         (Func<Vector2, Option<Vector2>> image, (WrapMode Across, WrapMode Down) wrap) = ToImage(frame.Extent);
-        Func<Vector256<double>, Vector2, Vector256<double>> add = (sum, point) => Bilinear(texels, wrap, sum, point);
+        Func<Vector256<double>, Vector2, Vector256<double>> add = (sum, point) =>
+            texels.Span.Sample(point, wrap, sum, static (total, texel, weight) => total + (Vector256.Create(texel.X, texel.Y, texel.Z, 1d) * weight));
         (double width, double height) = (
             (Length(Quad.TopLeft, Quad.TopRight) + Length(Quad.BottomLeft, Quad.BottomRight)) / 2d,
             (Length(Quad.TopLeft, Quad.BottomLeft) + Length(Quad.TopRight, Quad.BottomRight)) / 2d);
@@ -215,20 +216,6 @@ public abstract partial record ChartPlacement {
     }
 
     internal abstract (Func<Vector2, Option<Vector2>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image);
-
-    private static Vector256<double> Bilinear(Memory2D<Vector4> view, (WrapMode Across, WrapMode Down) wrap, Vector256<double> sum, Vector2 point) {
-        (double x, double y) = (point.X - 0.5d, point.Y - 0.5d);
-        (int left, int top) = ((int)Math.Floor(x), (int)Math.Floor(y));
-        (double across, double down) = (x - left, y - top);
-        Vector256<double> Add(Vector256<double> total, int row, int column, double weight) =>
-            (wrap.Down.Index(row, view.Height), wrap.Across.Index(column, view.Width)) switch {
-                ( { IsSome: true } wrappedRow, { IsSome: true } wrappedColumn) => view.Span[(int)wrappedRow, (int)wrappedColumn] switch {
-                    var texel => total + (Vector256.Create(texel.X, texel.Y, texel.Z, 1d) * weight),
-                },
-                _ => total,
-            };
-        return Add(Add(Add(Add(sum, top, left, (1d - across) * (1d - down)), top, left + 1, across * (1d - down)), top + 1, left, (1d - across) * down), top + 1, left + 1, across * down);
-    }
 
     private static Vector2 Centre(int cell) => new(((cell % ColorChart.Columns) + 0.5f) / ColorChart.Columns, ((cell / ColorChart.Columns) + 0.5f) / ColorChart.Rows);
     private static double Between(Vector3 first, Vector3 second) => double.Atan2(Vector3.Cross(first, second).Length(), Vector3.Dot(first, second));

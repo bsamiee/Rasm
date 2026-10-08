@@ -55,10 +55,11 @@
     </PropertyGroup>
 
     <PropertyGroup Label="Mapperly">
+        <MapperlyEnumMappingStrategy>ByName</MapperlyEnumMappingStrategy>
         <MapperlyAutoUserMappings>false</MapperlyAutoUserMappings>
         <MapperlyRequiredMappingStrategy>Target</MapperlyRequiredMappingStrategy>
-        <MapperlyEnabledConversions>None</MapperlyEnabledConversions>
         <MapperlyThrowOnPropertyMappingNullMismatch>true</MapperlyThrowOnPropertyMappingNullMismatch>
+        <MapperlyEnabledConversions>Queryable, Enumerable, Dictionary, Span, Memory, EnumToEnum</MapperlyEnabledConversions>
     </PropertyGroup>
 
     <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">

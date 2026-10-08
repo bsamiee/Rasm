@@ -89,6 +89,7 @@ rule: {any: [{kind: variable_name, regex: '^(SECONDS|EPOCHREALTIME|EPOCHSECONDS)
 
 const _unquoted = (_match: string, quote: string | undefined, body: string): string => (quote === '"' ? body.replace(_ESCAPED, '$<char>') : body);
 const _owner = (hit: Hit): number => (hit.ruleId === 'operand' || hit.ruleId === 'write' || hit.ruleId === 'read' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start;
+const _destinations = (own: readonly Hit[], id: 'write' | 'read'): readonly string[] => own.flatMap((other) => (other.ruleId === id ? [other.metaVariables.single.DEST.text.replace(_QUOTED, _unquoted)] : []));
 
 const _script = (hits: readonly Hit[], context: Context): Script => {
     const sorted = hits.toSorted((left, right) => left.range.byteOffset.start - right.range.byteOffset.start);
@@ -98,23 +99,26 @@ const _script = (hits: readonly Hit[], context: Context): Script => {
             if (hit === undefined) {
                 return [];
             }
-            const marked = (marker: Marker): boolean => context[marker] || own.some((other) => other.ruleId === marker);
-            const destinations = (id: 'write' | 'read'): readonly string[] => own.flatMap((other) => (other.ruleId === id ? [other.metaVariables.single.DEST.text.replace(_QUOTED, _unquoted)] : []));
+            const rules = new Set(own.map((other) => other.ruleId));
+            const marked = (marker: Marker): boolean => context[marker] || rules.has(marker);
             const tokens = [hit.metaVariables.single.CMD, ...(hit.metaVariables.multi.ARGS ?? []), ...own.filter((other) => other.ruleId === 'operand')].filter(({ text }) => _WORD.test(text));
             const words = tokens.map(({ text }) => text.replace(_QUOTED, _unquoted));
-            return [{ words, spans: tokens.map(({ range }) => range.byteOffset), invocations: invocations(words), nested: context.nested, looped: marked('looped'), polled: marked('polled'), fed: marked('fed'), writes: destinations('write'), reads: destinations('read') }];
+            return [{ words, spans: tokens.map(({ range }) => range.byteOffset), invocations: invocations(words), nested: context.nested, looped: marked('looped'), polled: marked('polled'), fed: marked('fed'), writes: _destinations(own, 'write'), reads: _destinations(own, 'read') }];
         }),
         clocks: sorted.flatMap((hit) => (hit.ruleId === 'clock' ? [hit.text] : [])),
     };
 };
 
-const _bodies = (command: Command): readonly string[] =>
-    command.invocations.slice(-1).flatMap((invocation) => {
-        const [program, ...rest] = invocation;
-        const { bodies, shell } = declared(program);
-        const { inputs, options, values } = operands(invocation);
-        return [...(program === 'eval' ? [rest.join(' ')] : []), ...(shell === true && options.includes('-c') ? inputs.slice(0, 1) : []), ...(bodies === undefined ? [] : [...inputs, ...values.flatMap(([name, value]) => (bodies.includes(name) ? [value] : []))])];
-    });
+const _bodies = (command: Command): readonly string[] => {
+    const invocation = command.invocations.at(-1);
+    if (invocation === undefined) {
+        return [];
+    }
+    const [program, ...rest] = invocation;
+    const { bodies, shell } = declared(program);
+    const { inputs, options, values } = operands(invocation);
+    return [...(program === 'eval' ? [rest.join(' ')] : []), ...(shell === true && options.includes('-c') ? inputs.slice(0, 1) : []), ...(bodies === undefined ? [] : [...inputs, ...values.flatMap(([name, value]) => (bodies.includes(name) ? [value] : []))])];
+};
 
 // --- [PARSE]
 

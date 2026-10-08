@@ -7,7 +7,6 @@ using Rhino.Render;
 using Rhino.Render.CustomRenderMeshes;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Answers))]
 
 namespace Rasm.Rhino.Objects;
 

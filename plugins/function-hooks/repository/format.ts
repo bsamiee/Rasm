@@ -1,4 +1,4 @@
-import { type Fault, map, none, type Option, ok, type Result, some } from '../composition.ts';
+import { map, type Option, ok, type Result, rendered } from '../composition.ts';
 import type { Invocation } from '../policies/invocation.ts';
 import { inputs, matches, repository } from './nx.ts';
 
@@ -11,14 +11,10 @@ interface Formatter {
     readonly read: (path: string) => Promise<Result<string>>;
     readonly mtime: (path: string) => Promise<Option<number>>;
 }
-interface Reformatted {
-    readonly context: Option<string>;
-    readonly failed: readonly Fault[];
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const reformatted = async (host: Formatter, root: string, paths: readonly string[]): Promise<Reformatted> => {
+const reformatted = async (host: Formatter, root: string, paths: readonly string[]): Promise<readonly string[]> => {
     const stamped = async (files: readonly string[]): Promise<ReadonlyMap<string, number>> => new Map((await Promise.all(files.map(async (file) => [file, await host.mtime(`${root}/${file}`)] as const))).flatMap(([file, mtime]) => (mtime.kind === 'some' ? [[file, mtime.value] as const] : [])));
     const before = await stamped(paths.flatMap((path) => (path.startsWith(`${root}/`) ? [path.slice(root.length + 1)] : [])));
     const present = [...before.keys()];
@@ -50,7 +46,7 @@ const reformatted = async (host: Formatter, root: string, paths: readonly string
                   ];
               });
     if (writers.kind === 'fault') {
-        return { context: none, failed: writers.faults };
+        return [`${rendered(writers.faults)}. Fix the named file`];
     }
     const invocations = writers.value.flatMap(([globs, commands]) => {
         const operands = present.filter((file) => matches(globs, file));
@@ -59,7 +55,7 @@ const reformatted = async (host: Formatter, root: string, paths: readonly string
     const ran = await invocations.reduce<Promise<readonly Result<string>[]>>(async (earlier, [invocation, exits]) => [...(await earlier), await host.exec(invocation, exits)], Promise.resolve([]));
     const after = await stamped(present);
     const changed = present.filter((file) => before.get(file) !== after.get(file));
-    return { context: changed.length === 0 ? none : some(`Writers reformatted ${changed.join(', ')}`), failed: ran.flatMap((result) => (result.kind === 'fault' ? result.faults : [])) };
+    return [...(changed.length === 0 ? [] : [`Writers reformatted ${changed.join(', ')}. Read each before its next Edit`]), ...ran.flatMap((result) => (result.kind === 'fault' ? [`${rendered(result.faults)}. Fix the named file`] : []))];
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

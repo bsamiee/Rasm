@@ -5,7 +5,7 @@ severity: error
 files: ['**/rhino/**']
 utils:
     answer-call:
-        matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^(Answer|Succeeded)$'}}}
+        matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}
     unit-value:
         any:
             - kind: identifier
@@ -21,6 +21,10 @@ utils:
         all:
             - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
             - has: {field: body, matches: unit-value}
+    some-effect:
+        kind: argument
+        nthChild: 1
+        has: {nthChild: {position: 1, reverse: true}, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Some(\s*<.+>)?$'}}
     answer:
         matches: answer-call
         any:
@@ -30,18 +34,30 @@ utils:
                     field: arguments
                     all:
                         - has: {kind: argument, nthChild: 1, pattern: $EFFECT}
-                        - any:
-                            - has: {kind: argument, nthChild: 3, has: {nthChild: {position: 1, reverse: true}, matches: unit-value}}
-                            - all:
-                                - has: {kind: argument, nthChild: 3, has: {nthChild: {position: 1, reverse: true}, matches: lazy-unit}}
-                                - has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Some(\s*<.+>)?$'}}}
+                        - has: {kind: argument, nthChild: 2, has: {nthChild: {position: 1, reverse: true}, matches: lazy-unit}}
+                        - has: {kind: argument, nthChild: 3}
                         - not: {has: {kind: argument, nthChild: 4}}
+            - all:
+                - has: {field: function, regex: 'Answer$'}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {kind: argument, nthChild: 1, pattern: $EFFECT}
+                        - has: {kind: argument, nthChild: 3, has: {nthChild: {position: 1, reverse: true}, matches: lazy-unit}}
+                        - has: {kind: argument, nthChild: 4}
+                        - not: {has: {kind: argument, nthChild: 5}}
+                        - any:
+                            - not: {has: {matches: some-effect}}
+                            - all:
+                                - has: {matches: some-effect}
+                                - has: {kind: argument, nthChild: 2, has: {nthChild: {position: 1, reverse: true}, matches: lazy-unit}}
             - all:
                 - has: {field: function, regex: 'Succeeded$'}
                 - has:
                     field: arguments
                     all:
                         - has: {kind: argument, nthChild: 1, pattern: $EFFECT}
+                        - has: {kind: argument, nthChild: 2}
                         - not: {has: {kind: argument, nthChild: 3}}
     discard:
         kind: assignment_expression
@@ -141,7 +157,7 @@ utils:
                     kind: argument_list
                     inside:
                         kind: invocation_expression
-                        has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Events\s*\.\s*Attach\s*<\s*((global::)?System\.)?EventHandler\s*<'}
+                        has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Events\.)?Subscriptions\s*\.\s*Attach\s*<\s*((global::)?System\.)?EventHandler\s*<'}
             - inside:
                 kind: variable_declarator
                 inside: {kind: variable_declaration, has: {field: type, matches: generic-type}}
@@ -178,6 +194,6 @@ rule:
                         stopBy: end
                         matches: subscription
                         has: {field: right, kind: identifier, pattern: $LOCAL}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Handler$'}}}}
-message: Event handler over `$ARGS` runs its effect through `Answers.Answer` by hand
-note: Use `Answers.Handler<TArgs>(<args> => <effect>, <reject>)`, with `TArgs` the event argument type the delegate names
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Handler$'}}}}
+message: Event handler over `$ARGS` runs its effect through `Callbacks.Answer` by hand
+note: Use `Callbacks.Handler<TArgs>(<args> => <effect>, <site>)`, with `TArgs` the event argument type the delegate names

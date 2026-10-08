@@ -100,6 +100,8 @@ flowchart LR
 - Targets call one tool, arguments on the command, configuration in the tool's own file
 - `nx run rasm:check` runs every `lint:<checker>` and `typecheck:<checker>` root target, `nx run rasm:lint:<checker>` one checker
 - `nx run <project>:<target>` runs one target of one project
+- `nx run <project>:build -- <switch>` forwards MSBuild switches to a .NET build beside the target's `-bl`
+- `--skip-nx-cache` runs a build in place of an Nx cache replay
 - `nx run <project>:install` installs a built product into its host
 - `nx run <project>:pack` builds a Rhino yak package with a `yak spec` manifest or Blender platform archives under `.artifacts/<host>/<project>/`
 - `nx run rasm:upgrade` moves catalogs, Swift package locks, tool binaries, and application packages to their newest builds
@@ -124,7 +126,7 @@ flowchart LR
 |  [05]   | .NET tool package              | `dotnet dnx <id>` on the command                                                                     |
 |  [06]   | Task graph                     | `nx.json`, root `package.json` `nx`                                                                  |
 |  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
-|  [08]   | Secret                         | Doppler, read through `doppler run` around the command                                               |
+|  [08]   | Secret                         | Doppler, `mise.toml` `[env]` `exec` row for every process, `doppler run` around one command          |
 |  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:infra:up`                           |
 |  [10]   | Tool with no consumer          | Machine setup                                                                                        |
 |  [11]   | Application package            | `packages.toml` row beside the script installing it                                                  |
@@ -135,7 +137,6 @@ flowchart LR
 |  [16]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
 |  [17]   | MCP tool a skill replaces      | `--hide <tool>` on server's `mise.toml` launchd agent row                                            |
 
-- Package rows and `.editorconfig` analyzer rows hold a one-line purpose comment, every other configuration file holds section dividers alone
 - Tool rows name a release where `latest` resolves a development build
 - Tool consumers are targets, MCP rows, skills, `.gitattributes` filters, and CLAUDE.md `[CLI_TOOLING]` rows
 - Facts sit once in their owning file, other files name the owner
@@ -148,9 +149,11 @@ flowchart LR
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
 - Swift: warnings as errors, strict memory safety, every supported upcoming feature, `swift-format lint --strict` and `swiftlint lint` at zero findings
 - Java: `google-java-format --aosp` and `pmd check` at zero findings
+- Checker decisions: PMD `AvoidAccessibilityAlteration` skips `use-ghidra` `Headers.run`, Ghidra's `PreProcessor` takes a `DefineTable` through package-private field `defs` alone
 - Tree: `yamllint`, `yamlfmt -lint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
 - Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format` per Xcode project
 - Checks run through Nx targets alone, each target with every command, dependency, and path the target declares
+- .NET targets write `.artifacts/dotnet/binlog/<purpose>-{}.binlog` for the `binlog` MCP to read a failed or slow run
 - Failing checks are fixed in the code or the rule, severity stays as configured
 
 ## [06]-[STRUCTURE]

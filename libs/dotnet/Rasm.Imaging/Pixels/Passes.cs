@@ -33,7 +33,14 @@ public interface IStateParameterVisitor<TRecord, out TResult> {
         where TValue : ISmartEnum<string, TValue, TError>
         where TError : Error, IValidationError<TError>;
 
+    public TResult Variant<TValue, TCase, TError>(Lens<TRecord, TValue> lens)
+        where TValue : class
+        where TCase : class, IStateCase<TValue>, ISmartEnum<string, TCase, TError>
+        where TError : Error, IValidationError<TError>;
+
     public TResult Enumerated<TEnum>(Lens<TRecord, TEnum> lens) where TEnum : struct, Enum;
+
+    public TResult Record<TNested>(Lens<TRecord, TNested> lens) where TNested : IStateRecord<TNested>;
 
     public TResult Toggle(Lens<TRecord, bool> lens);
 
@@ -67,6 +74,14 @@ public interface IStateParameterVisitor<TRecord, out TResult> {
         where TError : Error, IValidationError<TError>;
 
     public TResult Opaque<TValue>(Lens<TRecord, TValue> lens) where TValue : notnull;
+}
+
+public interface IStateCaseVisitor<TUnion, out TResult> where TUnion : class {
+    public TResult Case<TCase>() where TCase : class, TUnion, IStateRecord<TCase>;
+}
+
+public interface IStateCase<TUnion> where TUnion : class {
+    public TResult Accept<TResult>(IStateCaseVisitor<TUnion, TResult> visitor);
 }
 
 public interface IStateParameter<TRecord> {
@@ -122,7 +137,7 @@ public sealed record SceneLights(Option<Vector3> Sun, HashMap<Guid, Vector3> Poi
 
 public readonly record struct PassContext(
     PixelExtent Extent, Gamut Working, Display Display, OutputDepth Depth, Transfer Signal, Exposure Exposure,
-    Option<Camera> Camera, HashMap<GuideChannel, PixelFrame> Guides, Option<TimeSpan> Time, SceneLights Lights);
+    Option<Camera> Camera, HashMap<GuideChannel, PixelFrame> Guides, Option<TimeSpan> Time, SceneLights Lights, Derivations Derivations);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PixelPass {
@@ -341,7 +356,9 @@ public sealed record Presentation<TValue, TKey>
         Scale.Position(double.CreateChecked(key), double.CreateChecked(track.Low), double.CreateChecked(track.High));
 
     public double Key(double position, (TKey Low, TKey High) track) =>
-        double.Clamp(Scale.Key(position, double.CreateChecked(track.Low), double.CreateChecked(track.High)), double.CreateChecked(track.Low), double.CreateChecked(track.High));
+        (double.CreateChecked(track.Low), double.CreateChecked(track.High)) switch {
+            var (low, high) => double.Clamp(Scale.Key(position, low, high), low, high),
+        };
 
     public Option<Vector4> Fill(double key) =>
         Stops.Map(ramp => ramp.Tabulate(Gamut.StandardRgb).Sample((key - double.CreateChecked(Soft.Low)) / double.CreateChecked(Soft.High - Soft.Low)));
@@ -378,8 +395,19 @@ public abstract class StateParameter<TRecord> {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalChoice<TValue, TError>(lens);
     }
 
+    public sealed class Variant<TValue, TCase, TError>(Lens<TRecord, TValue> lens) : StateParameter<TRecord>
+        where TValue : class
+        where TCase : class, IStateCase<TValue>, ISmartEnum<string, TCase, TError>
+        where TError : Error, IValidationError<TError> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Variant<TValue, TCase, TError>(lens);
+    }
+
     public sealed class Enumerated<TEnum>(Lens<TRecord, TEnum> lens) : StateParameter<TRecord> where TEnum : struct, Enum {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Enumerated(lens);
+    }
+
+    public sealed class Record<TNested>(Lens<TRecord, TNested> lens) : StateParameter<TRecord> where TNested : IStateRecord<TNested> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Record(lens);
     }
 
     public sealed class Toggle(Lens<TRecord, bool> lens) : StateParameter<TRecord> {
@@ -518,6 +546,15 @@ file readonly struct RowAction(PixelFrame frame, Memory2D<Vector4> rows, Action<
         kernel(rows.Span.GetRowSpan(i), frame.Origin.X, frame.Line(i));
         progress.Report(Interlocked.Increment(ref finished.Value));
     }
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+public sealed class Derivations {
+    private readonly Atom<HashMap<Delegate, (object State, Lazy<object> Value)>> held = Atom(HashMap<Delegate, (object State, Lazy<object> Value)>());
+
+    public TValue Derived<TState, TValue>(TState state, Func<TState, TValue> derive) where TState : notnull where TValue : notnull =>
+        (TValue)held.Swap(map => map.Find(derive).Exists(kept => kept.State.Equals(state)) ? map : map.AddOrUpdate(derive, (state, new Lazy<object>(() => derive(state)))))
+            .Find(derive).Map(static entry => entry.Value).ValueUnsafe()!.Value;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

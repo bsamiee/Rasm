@@ -82,7 +82,7 @@ public sealed class GumballHandle : IDisposable {
             frame: static (target, frame) => Refused.Unless(target.UpdateGumball(frame.Plane), nameof(GumballDisplayConduit.UpdateGumball))));
 
     public IO<GumballTransforms> Transforms() =>
-        IO.lift(() => GumballMapper.ToTransforms(conduit));
+        IO.lift(() => GumballMapper.ToTransforms(conduit, conduit.Gumball.Frame));
 
     public IO<Unit> CheckShiftAndControlKeys() =>
         IO.lift(conduit.CheckShiftAndControlKeys);
@@ -108,6 +108,5 @@ public sealed class GumballHandle : IDisposable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 internal static partial class GumballMapper {
-    [MapProperty(nameof(@GumballDisplayConduit.Gumball.Frame), nameof(GumballTransforms.Frame), SuppressNullMismatchDiagnostic = true)]
-    internal static partial GumballTransforms ToTransforms(GumballDisplayConduit conduit);
+    internal static partial GumballTransforms ToTransforms(GumballDisplayConduit conduit, GumballFrame frame);
 }

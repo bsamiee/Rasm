@@ -32,7 +32,14 @@ utils:
                         kind: method_declaration
                         all:
                             - has: {field: name, pattern: $WRAPPER}
-                            - has: {field: body, kind: arrow_expression_clause, has: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Map|Select)$'}}}}
+                            - has:
+                                field: body
+                                kind: arrow_expression_clause
+                                has:
+                                    kind: invocation_expression
+                                    all:
+                                        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Map|Select)$'}}
+                                        - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     materialized:
         any:
             - matches: projection

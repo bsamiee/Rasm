@@ -8,6 +8,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Packages">
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Display/Rasm.Rhino.Display.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

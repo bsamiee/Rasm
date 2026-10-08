@@ -1,6 +1,6 @@
 # ty: ignore[unresolved-attribute]
 # mypy: disable-error-code="index, union-attr"
-# ruff: file-ignore[subprocess-without-shell-equals-true, suspicious-xml-etree-import]
+# ruff: file-ignore[suspicious-xml-etree-import]
 """Grease Pencil strokes an orthographic camera sees as SVG, PDF, and PNG sheets at scale."""
 
 from collections import Counter
@@ -15,6 +15,7 @@ import attrs
 import bpy
 import numpy as np
 from numpy.typing import NDArray
+
 from results import artifacts, collect_faults, Fault, Faults, Resolved, unknown
 
 # --- [MODELS] ---------------------------------------------------------------------------

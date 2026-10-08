@@ -7,6 +7,7 @@ from collections.abc import Iterable
 
 import attrs
 import bpy
+
 from results import Fault, Faults, Resolved
 from rna import plain, stored
 

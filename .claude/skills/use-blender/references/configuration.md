@@ -106,7 +106,6 @@ result = {
 - `bl_pkg`, `io_anim_bvh`, `io_curve_svg`, `io_mesh_uv_layout`, and `io_scene_fbx` load at every start whatever their record says
 - Add-on Scene properties save into `startup.blend` and every file made from it
 - Disabled add-ons keep their Scene values in `scene.bl_system_properties_get()` until deleted there
-- Stored records read without importing an add-on under `BLENDER_USER_CONFIG` on a scratch copy and every other `BLENDER_USER_*` on empty folders
 
 Use extensions.md for installs and registration.
 

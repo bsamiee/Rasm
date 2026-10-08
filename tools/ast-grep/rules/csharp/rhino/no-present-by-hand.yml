@@ -465,7 +465,7 @@ rule:
         - not: {has: {stopBy: end, kind: comment}}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Present$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Conversions$'}, member: {regex: '^(Present|Rows)$'}}}}
 transform:
     OPEN:
         replace:
@@ -481,7 +481,7 @@ transform:
         replace:
             source: $X
             replace: '(?s)^.+$'
-            by: Answers.Present(
+            by: Conversions.Present(
     SHUT:
         replace:
             source: $X
@@ -495,9 +495,9 @@ rewriters:
         COALESCED: {matches: reference-items}
         UNWRAPPED: {matches: reference-items}
         RECEIVER: {matches: reference-items}
-      fix: Answers.Present($COALESCED$UNWRAPPED$RECEIVER)
+      fix: Conversions.Rows($COALESCED$UNWRAPPED$RECEIVER)
 fix:
     template: $OPEN$PRESENT$X$SHUT$CLOSE$SLOTS
     expandStart: {kind: local_declaration_statement}
-message: Sentinel, null, or `Has` predicate test on `$X$COALESCED$UNWRAPPED$RECEIVER` rebuilds `Answers.Present` by hand
-note: Use `Answers.Present(<value or items>)`, `Present` filters each empty, negative, zero, and null host answer, including the empty value `Get<X>` returns where `Has<X>` is false
+message: Sentinel, null, or `Has` predicate test on `$X$COALESCED$UNWRAPPED$RECEIVER` rebuilds `Conversions.Present` or `Conversions.Rows` by hand
+note: Use `Conversions.Present(<value>)` or `Conversions.Rows(<items>)`, `Present` filtering each empty, negative, zero, and unset host answer, including the empty value `Get<X>` returns where `Has<X>` is false, and `Rows` each null row

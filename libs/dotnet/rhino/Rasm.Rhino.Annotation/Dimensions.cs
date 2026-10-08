@@ -62,8 +62,8 @@ public sealed record DimensionState(
     string DisplayText,
     bool HasMeasurableTextFields,
     double NumericValue,
-    string PlainUserText,
-    string TextFormula,
+    Option<string> PlainUserText,
+    Option<string> TextFormula,
     Point2d TextPosition,
     double TextRotation,
     bool UseDefaultTextPoint,
@@ -172,8 +172,6 @@ public static partial class Dimensions {
 
     private static partial DimensionTypeState.Centermark TypeState(Centermark mark);
 
-    [MapProperty(nameof(Dimension.PlainUserText), nameof(DimensionState.PlainUserText), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(Dimension.TextFormula), nameof(DimensionState.TextFormula), SuppressNullMismatchDiagnostic = true)]
     private static partial DimensionState Project(Dimension dimension, string displayText, bool hasMeasurableTextFields, DimensionTypeState typeState);
 
     public static IO<DimensionDisplayGeometry> DisplayGeometry(RhinoDoc doc, Guid id, double scale) =>

@@ -17,6 +17,7 @@ import numpy as np
 from numpy.typing import NDArray
 from OpenImageIO import ImageBuf, UINT8
 from PyOpenColorIO import GetCurrentConfig
+
 from results import artifacts, collect_faults, Fault, Faults, JSON, Resolved, unknown
 from scene import bounds, SHOWN, Viewport, viewport
 

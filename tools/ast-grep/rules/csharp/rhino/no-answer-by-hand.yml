@@ -10,11 +10,20 @@ utils:
             - inside:
                 kind: assignment_expression
                 has: {field: left, regex: '^_$'}
-    constant:
+    static-constant:
         any:
             - kind: integer_literal, real_literal, boolean_literal, character_literal, string_literal, verbatim_string_literal, raw_string_literal, null_literal, default_expression
             - kind: prefix_unary_expression
               regex: '^-\s*[0-9.]+[a-zA-Z]*$'
+            - kind: identifier
+              regex: '^unit$'
+            - kind: member_access_expression
+              regex: '^(global::)?[A-Z]\w*(\s*\.\s*[A-Z]\w*)+$'
+            - kind: parenthesized_expression
+              has: {matches: static-constant}
+    constant:
+        any:
+            - matches: static-constant
             - kind: identifier
             - kind: member_access_expression
               not: {has: {stopBy: end, kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, element_access_expression, conditional_access_expression'}}
@@ -32,27 +41,28 @@ utils:
                         - has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $ERROR}}
                         - not: {has: {kind: parameter, nthChild: 2}}
             - not: {has: {kind: modifier, regex: '^async$'}}
+    reported-error:
+        kind: argument
+        nthChild: 1
+        regex: '^\w+$'
+        has: {kind: identifier, pattern: $ERROR}
     reject-call:
         kind: invocation_expression
-        all:
-            - has:
-                field: function
-                pattern: $REJECT
-                not:
-                    any:
-                        - pattern: $ERROR
-                        - has: {stopBy: end, kind: identifier, pattern: $ERROR}
-            - has:
-                field: arguments
-                all:
-                    - has: {kind: argument, nthChild: 1, regex: '^\w+$', has: {kind: identifier, pattern: $ERROR}}
-                    - not: {has: {kind: argument, nthChild: 2}}
+        any:
+            - pattern: $SITE.Sink.Report($$$)
+              has: {field: arguments, all: [{has: {matches: reported-error}}, {has: {kind: argument, nthChild: 2, has: {pattern: $SITE.Owner}}}, {has: {kind: argument, nthChild: 3, has: {pattern: $SITE.Member}}}, {not: {has: {kind: argument, nthChild: 4}}}]}
+            - all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Report$'}}, {has: {field: expression, pattern: $SINK, not: {any: [{pattern: $ERROR}, {has: {stopBy: end, kind: identifier, pattern: $ERROR}}]}}}]}
+                - has: {field: arguments, all: [{has: {matches: reported-error}}, {has: {kind: argument, nthChild: 2, pattern: $OWNER}}, {has: {kind: argument, nthChild: 3, pattern: $MEMBER}}, {not: {has: {kind: argument, nthChild: 4}}}]}
     fallback-return:
         kind: return_statement
         all:
             - any:
                 - has: {matches: constant, pattern: $CONSTANT}
                 - has: {pattern: $LAZY, not: {any: [{matches: constant}, {kind: comment}]}}
+            - any:
+                - has: {matches: static-constant, pattern: $STATIC}
+                - not: {has: {matches: static-constant}}
             - not: {has: {stopBy: end, kind: identifier, pattern: $ERROR}}
     reject-block:
         kind: block
@@ -117,12 +127,6 @@ utils:
         has:
             field: arguments
             not: {has: {kind: argument, nthChild: 2}}
-    fun-reject:
-        kind: invocation_expression
-        all:
-            - pattern: $UNIT
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?fun$'}
-            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, pattern: $REJECT}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     ran:
         any:
             - kind: invocation_expression
@@ -141,13 +145,9 @@ utils:
                         - has: {field: name, pattern: $FIN}
                         - has: {nthChild: {position: 1, reverse: true}, kind: invocation_expression, pattern: $_RUN.RunSafe()}
     recovery:
-        any:
-            - all:
-                - matches: single-argument
-                - has: {field: arguments, has: {kind: argument, has: {matches: fallback-handler}}}
-            - all:
-                - matches: single-argument
-                - has: {field: arguments, has: {kind: argument, has: {matches: fun-reject}}}
+        all:
+            - matches: single-argument
+            - has: {field: arguments, has: {kind: argument, has: {matches: fallback-handler}}}
     run-call:
         kind: invocation_expression
         all:
@@ -213,30 +213,20 @@ rule:
                     - has: {field: function, has: {field: name, regex: '^Run$'}}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Answer$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
 constraints:
     ALWAYS: {matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}
 transform:
-    OPEN:
-        replace:
-            source: $LAZY
-            replace: '(?s)^.*$'
-            by: Some(
-    CLOSE:
-        replace:
-            source: $LAZY
-            replace: '(?s)^.*$'
-            by: )
-    THUNK:
-        replace:
-            source: $LAZY
-            replace: '(?s)^.*$'
-            by: '() => '
     UNPARENTHESIZED:
         replace:
             source: $CONSTANT
             replace: '^\(+\s*((?s).*?)\s*\)+$'
             by: '$1'
+    STATIC_THUNK:
+        replace:
+            source: $STATIC
+            replace: '(?s)^.*$'
+            by: 'static '
     LIFTED:
         replace:
             source: $FIN
@@ -247,11 +237,31 @@ transform:
             source: $DISCARDED
             replace: '(?s)^(.+)$'
             by: '.Map(static _ => $1)'
+    UNIT_THUNK:
+        replace:
+            source: $UNIT
+            replace: '(?s)^.*$'
+            by: 'static '
     UNIT_FALLBACK:
         replace:
             source: $UNIT
             replace: '(?s)^.*$'
             by: unit
-fix: Answers.Answer($OPEN$EFFECT$DISCARD$LIFTED$CLOSE, $REJECT, $THUNK$UNPARENTHESIZED$LAZY$UNIT_FALLBACK)
-message: "`$EFFECT` runs and routes its failure to `$REJECT` by hand"
-note: Use `Answers.Answer(<effect>, <reject>, <fallback>)`, with `Some(<effect>)` and `() => <fallback>` for a computed fallback, `Answer` runs the effect and reports its failure once
+    NEW_SITE:
+        replace:
+            source: $SINK
+            replace: '(?s)^(.+)$'
+            by: 'new CallbackSite($1, '
+    SITE_OWNER:
+        replace:
+            source: $OWNER
+            replace: '(?s)^(.+)$'
+            by: '$1, '
+    SITE_MEMBER:
+        replace:
+            source: $MEMBER
+            replace: '(?s)^(.+)$'
+            by: '$1)'
+fix: Callbacks.Answer($EFFECT$DISCARD$LIFTED, $STATIC_THUNK$UNIT_THUNK() => $UNPARENTHESIZED$LAZY$UNIT_FALLBACK, $SITE$NEW_SITE$SITE_OWNER$SITE_MEMBER)
+message: "`$EFFECT` runs and reports its failure to a sink by hand"
+note: Use `Callbacks.Answer(<effect>, () => <fallback>, <site>)`, `Answer` runs the effect once and reports its failure at the site

@@ -27,7 +27,7 @@ utils:
         any:
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|Check|NonEmpty|InRange|Unique)(\s*<.+>)?$'}}
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|Validated|NonEmpty|InRange|Unique)(\s*<.+>)?$'}}
                 - has: {field: arguments, matches: value-arguments}
             - kind: invocation_expression
               all:
@@ -65,12 +65,12 @@ utils:
     missing-host:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Missing\s*\.\s*Unless$'}
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?Missing\s*\.\s*Unless$'}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {kind: invocation_expression}}}, {not: {has: {kind: argument, nthChild: 3}}}]}
     host-step:
         any:
             - kind: invocation_expression
-              has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Modeling\.)?GeometryResults\s*\.\s*Acquire(\s*<.+>)?$'}
+              has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.Shapes\.)?Copies\s*\.\s*Acquire(NonEmpty)?(\s*<.+>)?$'}
             - matches: lift
               has: {field: arguments, has: {kind: argument, has: {matches: thunk-body, has: {field: body, matches: missing-host}}}}
 rule:
@@ -84,4 +84,4 @@ rule:
                 - has: {field: name, pattern: $BUILT}
                 - has: {matches: host-step}
 message: '`$CHECKED` lifts a `Fin` check apart from the host call `$BUILT` lifts next'
-note: Use one `GeometryResults.Acquire(() => <check>.Map(<checked> => <host call>), <member>)`, its `Fin` thunk overload lifts the check and the host answer in one effect
+note: Use one `Copies.Acquire(() => <check>.Map(<checked> => <host call>), <member>)`, or `Copies.AcquireNonEmpty` for a host member whose empty answer is its refusal, its `Fin` thunk overload lifting the check and the host answer in one effect

@@ -57,13 +57,14 @@ log show --last 10m --style compact --predicate 'process == "runningboardd" AND 
 fd -t f 'Rhinoceros-' ~/Library/Logs/DiagnosticReports --changed-within 10m -x jq -s -r '.[1] | "\(.pid) \(.exception.type)"'
 ```
 
-- Quits are another session's, and a crash leaves an `.ips` naming the pid
+- Quits are another session's, `close_slot` on the process's last document quitting Rhino, and a crash leaves an `.ips` naming the pid
 - `log show --last 10m --predicate 'process == "Rhinoceros" AND eventMessage CONTAINS "Start command"'` lists commands any caller ran
 - Edits since the last macOS autosave die with a crashed process, `file3dm.py` shows what a titled file holds
 - Untitled documents of a crashed process return at relaunch from `~/Library/Autosave Information/`
 - Crashed processes restart within seconds, `list_slots` then names adopted documents anew and a router's own rows under their names
 - Crashed processes return under launchd's environment, and quit and relaunch from a shell give Rhino the shell's environment
 - `ps -o stat,%cpu -p <pid>` at a steady 100% while every `tools/call` times out marks a UI thread spinning, `sample <pid> 1` names its native frame
+- Spinning UI threads take `kill -KILL <pid>` then `open -g -b com.mcneel.rhinoceros.9 <file>...` in place of the quit sequence
 
 ## [04]-[QUIT_AND_RELAUNCH]
 

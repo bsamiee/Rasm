@@ -210,10 +210,8 @@ GOOD in a `netstandard2.0` analyzer project:
 
 - SMELL: `NoWarn` with a compiler or analyzer code in a project, or `NoWarn` assigned without `$(NoWarn);`
 - WHY:
-    - `.editorconfig` owns compiler and analyzer severity per path, the form is `dotnet_diagnostic.CS1591.severity = none` under `[*.cs]`
-    - `NU*` and `MSB*` codes take `NoWarn`, an assignment without `$(NoWarn);` drops the SDK default `1701;1702`
+    - An assignment without `$(NoWarn);` drops the SDK default `1701;1702`
 - RULE:
-    - Compiler and analyzer codes go to `.editorconfig`, restore and MSBuild codes go to `NoWarn` in `Directory.Build.props`
     - Every `NoWarn` assignment starts with `$(NoWarn);`
 
 BAD in `MyProject.csproj`:
@@ -225,7 +223,7 @@ BAD in `MyProject.csproj`:
 GOOD in `Directory.Build.props`:
 
 ```xml
-<NoWarn>$(NoWarn);NU1603</NoWarn>
+<NoWarn>$(NoWarn);EPC20</NoWarn>
 ```
 
 ### [02.7]-[AP-10]-[ERROR]-[RSP_OR_SOLUTION_PROPS_FOR_A_PROJECT_SETTING]

@@ -87,8 +87,8 @@ public readonly partial struct ViewWindow {
     public static ViewWindow Centered(FieldOfView field, PixelExtent extent) => Centered(float.Tan(field / 2f), extent);
     public static ViewWindow Centered(SweepAngle sweep, PixelExtent extent) => Centered(sweep / 2f, extent);
 
-    public Vector2 WindowPoint(Vector2 point, PixelExtent extent) =>
-        new(Left + (point.X / extent.Width * (Right - Left)), Top - (point.Y / extent.Height * (Top - Bottom)));
+    public Vector2 WindowPoint(double x, double y, PixelExtent extent) =>
+        new((float)(Left + (x / extent.Width * ((double)Right - Left))), (float)(Top - (y / extent.Height * ((double)Top - Bottom))));
 
     public Vector2 FramePoint(Vector2 window, PixelExtent extent) =>
         new((window.X - Left) / (Right - Left) * extent.Width, (Top - window.Y) / (Top - Bottom) * extent.Height);
@@ -272,10 +272,10 @@ public sealed record Camera {
     public Matrix4x4 WorldToView => Matrix4x4.CreateTranslation(-Location) * Matrix4x4.CreateFromQuaternion(Quaternion.Conjugate(Orientation));
 
     public Vector3 WorldPoint(Vector2 point, float depth) =>
-        Location + Vector3.Transform(Frustum.At(Frustum.Window.WindowPoint(point, Extent), depth), Orientation);
+        Location + Vector3.Transform(Frustum.At(Frustum.Window.WindowPoint(point.X, point.Y, Extent), depth), Orientation);
 
     public (Vector3 Origin, Vector3 Direction) Ray(Vector2 point) =>
-        Frustum.Ray(Frustum.Window.WindowPoint(point, Extent)) switch {
+        Frustum.Ray(Frustum.Window.WindowPoint(point.X, point.Y, Extent)) switch {
             var (origin, direction) => (Location + Vector3.Transform(origin, Orientation), Vector3.Transform(direction, Orientation)),
         };
 
@@ -285,12 +285,12 @@ public sealed record Camera {
 
 [SmartEnum]
 public sealed partial class WrapMode {
-    public static readonly WrapMode Black = new(static (index, size) => index >= 0 && index < size ? Some(index) : None);
-    public static readonly WrapMode Clamp = new(static (index, size) => Some(int.Clamp(index, 0, size - 1)));
-    public static readonly WrapMode Periodic = new(static (index, size) => Some(((index % size) + size) % size));
+    public static readonly WrapMode Black = new(static (index, size) => index >= 0d && index < size ? Some((int)index) : None);
+    public static readonly WrapMode Clamp = new(static (index, size) => Some((int)double.Clamp(index, 0d, size - 1)));
+    public static readonly WrapMode Periodic = new(static (index, size) => Some((int)(((index % size) + size) % size)));
 
     [UseDelegateFromConstructor]
-    public partial Option<int> Index(int index, int size);
+    public partial Option<int> Index(double index, int size);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -336,7 +336,7 @@ public abstract partial record Projection {
     private static float SolidRadius(float angle, float reach) => reach * float.Sin(angle / 2f);
 
     public sealed record Rectilinear(PixelExtent Extent, Frustum.Perspective Frustum) : Projection(Extent) {
-        public override Option<Vector3> Ray(Vector2 point) => Some(Frustum.Ray(Frustum.Window.WindowPoint(point, Extent)).Direction);
+        public override Option<Vector3> Ray(Vector2 point) => Some(Frustum.Ray(Frustum.Window.WindowPoint(point.X, point.Y, Extent)).Direction);
         public override Option<Vector2> Pixel(Vector3 ray) => Frustum.Locate(ray, Extent).Map(static located => located.Point);
     }
 
@@ -345,9 +345,8 @@ public abstract partial record Projection {
         public override (WrapMode Across, WrapMode Down) Wrap => (WrapMode.Periodic, WrapMode.Clamp);
 
         public override Option<Vector3> Ray(Vector2 point) =>
-            (((point.X / Extent.Width) - 0.5f) * float.Tau, (0.5f - (point.Y / Extent.Height)) * float.Pi) switch {
-                var (longitude, latitude) =>
-                    Some(new Vector3(float.Sin(longitude) * float.Cos(latitude), float.Sin(latitude), -float.Cos(longitude) * float.Cos(latitude))),
+            (float.SinCos(((point.X / Extent.Width) - 0.5f) * float.Tau), float.SinCos((0.5f - (point.Y / Extent.Height)) * float.Pi)) switch {
+                var (longitude, latitude) => Some(new Vector3(longitude.Sin * latitude.Cos, latitude.Sin, -longitude.Cos * latitude.Cos)),
             };
 
         public override Option<Vector2> Pixel(Vector3 ray) =>
@@ -360,7 +359,7 @@ public abstract partial record Projection {
         public override bool Upright => true;
 
         public override Option<Vector3> Ray(Vector2 point) =>
-            Window.WindowPoint(point, Extent) switch {
+            Window.WindowPoint(point.X, point.Y, Extent) switch {
                 var window => Some(Vector3.Normalize(new Vector3(float.Sin(window.X), window.Y, -float.Cos(window.X)))),
             };
 
@@ -376,11 +375,11 @@ public abstract partial record Projection {
         public override Option<Vector2> Pixel(Vector3 ray) => RadialPoint(ray, Sweep / 2f, Sweep / (2f * Circle), static (angle, scale) => angle / scale);
     }
 
-    public sealed record Equisolid(PixelExtent Extent, SweepAngle Sweep, FocalLength Lens, SensorSize Sensor) : Projection(Extent) {
+    public sealed record Equisolid(PixelExtent Extent, SweepAngle Sweep) : Projection(Extent) {
         public override Option<Vector3> Ray(Vector2 point) => Radial(point, Sweep / 2f, Reach, SolidAngle);
         public override Option<Vector2> Pixel(Vector3 ray) => RadialPoint(ray, Sweep / 2f, Reach, SolidRadius);
 
-        private float Reach => 4f * Lens * int.Max(Extent.Width, Extent.Height) / (Sensor * Extent.Width);
+        private float Reach => Circle / float.Sin(Sweep / 4f);
     }
 
     public sealed record MirrorBall(PixelExtent Extent) : Projection(Extent) {

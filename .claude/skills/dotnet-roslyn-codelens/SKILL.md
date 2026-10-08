@@ -15,11 +15,6 @@ Before a text search on a `.cs`, `.razor`, or `.cshtml` file, the target decides
 3. Reflection pattern → `find_reflection_usage`
 4. String literal, comment, or other plain text → `rg`
 
-Before `dotnet build` or `msbuild` through Bash, the wanted result decides:
-1. Compiler or analyzer diagnostics of a written or edited `.cs` file → `<new-diagnostics>` block
-2. Compiler or analyzer diagnostics of any other file → `get_diagnostics`
-3. Binary, test run, or package → the build
-
 Before `Read` on a `.cs` file, the wanted view decides:
 1. File structure → `get_file_overview` or `get_type_overview`
 2. One method's shape → `analyze_method`

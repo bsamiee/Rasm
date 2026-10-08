@@ -105,6 +105,7 @@ const _VIEWS: readonly string[] = [
 const OPEN = bound(
     { rows: Object.fromEntries(_TABLES.flatMap(([name, _body, rows]) => (rows === undefined ? [] : [[name, rows]]))) },
     [
+        'pragma journal_mode=wal;',
         ..._TABLES.map(([name, body]) => `create temp table ${name}${body};`),
         ..._INDEXES,
         'begin immediate;',

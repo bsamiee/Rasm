@@ -5,8 +5,6 @@ using Rhino;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Answers))]
-[assembly: UseStaticMapper(typeof(DocumentHandles))]
 
 namespace Rasm.Rhino.Render;
 
@@ -111,14 +109,6 @@ internal static partial class ContentMapper {
 
 public static class Contents {
     // --- [RESOLUTION]
-    public static RenderContentKind KindOf(RenderContent content) =>
-        content switch {
-            RenderMaterial => RenderContentKind.Material,
-            RenderEnvironment => RenderContentKind.Environment,
-            RenderTexture => RenderContentKind.Texture,
-            _ => throw new UnreachableException(),
-        };
-
     public static IO<Option<RenderContent>> Resolve(RhinoDoc doc, RenderContentKind kind, ComponentRef row, Seq<string> slots) =>
         from table in IO.lift(() => Table(doc, kind))
         from root in IO.lift(() => row.Switch(

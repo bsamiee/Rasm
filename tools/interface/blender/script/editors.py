@@ -5,6 +5,7 @@
 from collections.abc import Iterator, Mapping
 from functools import partial
 from itertools import chain
+from typing import TYPE_CHECKING
 
 import bpy
 from mathutils import Quaternion, Vector
@@ -17,6 +18,9 @@ from interface.render import FRAME_SIZE, LENS
 from interface.report import Action, Row, subscript, Update
 from interface.roles import Alpha, Ink, Line, Surface
 from interface.units import GRID_THICK_EVERY, Units
+
+if TYPE_CHECKING:
+    from bpy.stub_internal.rna_enums import ContextModeItems
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -41,9 +45,9 @@ def aligned(window: bpy.types.Window, layout: Layout) -> tuple[Row, ...]:
             return (
                 Action(
                     label=f"{area_label(window.workspace, area)}.spaces.active.region_3d",
-                    read=lambda: (view.is_orthographic_side_view, tuple(view.view_rotation)),
-                    act=partial(operate, bpy.ops.view3d.view_axis, window, area, region(area, "WINDOW"), type=layout.view),
-                    target=(True, tuple(Quaternion())),
+                    read=lambda: (view.is_orthographic_side_view, view.view_rotation[:]),
+                    act=partial(operate, bpy.ops.view3d.view_axis, window, area, region(area, "WINDOW"), type="TOP"),
+                    target=(True, Quaternion()[:]),
                 ),
             )
         case View.PERSPECTIVE | View.CAMERA:
@@ -316,7 +320,8 @@ def declared_workspace(workspace: bpy.types.WorkSpace, layout: Layout, units: Un
                     ),
                 }
 
-    screen, owner, tools = workspace.screens[0], workspace_label(workspace), {"OBJECT": "object_tool.select_box_xray", "EDIT_MESH": "mesh_tool.select_box_xray"}
+    tools: Mapping[ContextModeItems, str] = {"OBJECT": "object_tool.select_box_xray", "EDIT_MESH": "mesh_tool.select_box_xray"}
+    screen, owner = workspace.screens[0], workspace_label(workspace)
     pairs, main = paired(layout.screen, screen.areas[:]), canvas(workspace, layout)
     return (
         (owner, workspace, {"use_pin_scene": False, "use_filter_by_owner": True, "screens[0].name": workspace.name, "screens[0].show_statusbar": True}),
@@ -364,12 +369,12 @@ def cleared_history(window: bpy.types.Window) -> tuple[Row, ...]:
     return tuple(
         Action(
             label=f"{area_label(window.workspace, area)}.spaces.active.history",
-            read=partial(typed, area.spaces.active),
+            read=partial(typed, space),
             act=partial(operate, bpy.ops.console.clear, window, area, region(area, "WINDOW"), scrollback=False, history=True),
             target=(),
         )
         for area in window.screen.areas
-        if area.type == "CONSOLE"
+        if isinstance(space := area.spaces.active, bpy.types.SpaceConsole)
     )
 
 

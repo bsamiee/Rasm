@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Optics, detail, denoise, stylize, warp, and generator filters over float RGBA frames through OpenCV, ImageSharp, and the host's Open Image Denoise</Description>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Imaging">
+        <PackageReference Include="Emgu.CV" />
+        <PackageReference Include="Emgu.CV.runtime.mini.macos" />
+        <PackageReference Include="SixLabors.ImageSharp" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../Rasm.Imaging/Rasm.Imaging.csproj" />
+    </ItemGroup>
+</Project>

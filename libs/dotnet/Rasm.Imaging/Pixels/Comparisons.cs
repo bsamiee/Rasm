@@ -74,16 +74,16 @@ file readonly record struct Measure(double Error, double Signal, Vector3 Peak) {
 }
 
 file readonly struct DifferenceAction(Memory2D<Vector4> reference, Memory2D<Vector4> test, Memory2D<Vector4> difference, Memory<Measure> rows) : IAction {
-    public void Invoke(int line) {
-        ReadOnlySpan<Vector4> a = reference.Span.GetRowSpan(line);
-        ReadOnlySpan<Vector4> b = test.Span.GetRowSpan(line);
-        Span<Vector4> d = difference.Span.GetRowSpan(line);
+    public void Invoke(int i) {
+        ReadOnlySpan<Vector4> a = reference.Span.GetRowSpan(i);
+        ReadOnlySpan<Vector4> b = test.Span.GetRowSpan(i);
+        Span<Vector4> d = difference.Span.GetRowSpan(i);
         Measure measure = default;
         for (int x = 0; x < d.Length; x++) {
             (Vector3 r, Vector3 t) = (a[x].AsVector3(), b[x].AsVector3());
             d[x] = new(Vector3.Abs(r - t), 1f);
             measure += new Measure(Vector3.DistanceSquared(r, t), r.LengthSquared(), Vector3.Max(r, t));
         }
-        rows.Span[line] = measure;
+        rows.Span[i] = measure;
     }
 }

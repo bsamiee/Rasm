@@ -9,11 +9,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Packages">
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Commands/Rasm.Rhino.Commands.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Display/Rasm.Rhino.Display.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Modeling/Rasm.Rhino.Modeling.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Persistence/Rasm.Rhino.Persistence.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Plugin/Rasm.Rhino.Plugin.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

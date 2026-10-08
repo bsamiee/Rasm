@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-zero-error-code
+language: csharp
+severity: error
+utils:
+    code-site:
+        kind: cast_expression
+        all:
+            - has: {field: type, regex: '^int$'}
+            - has: {field: value, kind: member_access_expression, has: {field: expression, pattern: $ENUM}}
+            - inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    inside:
+                        any:
+                            - kind: primary_constructor_base_type
+                              inside: {kind: base_list, inside: {matches: csharp-error-record}}
+                            - kind: object_creation_expression
+                              has: {field: type, regex: '^(global::)?(LanguageExt\.Common\.)?(Expected|Exceptional)$'}
+                            - kind: invocation_expression
+                              has: {field: function, regex: '^((global::)?LanguageExt\.Common\.)?Error\s*\.\s*New$'}
+rule:
+    kind: enum_member_declaration
+    all:
+        - nthChild: 1
+        - has: {field: name, pattern: $MEMBER}
+        - any:
+            - not: {has: {field: value, pattern: $_}}
+            - has: {field: value, regex: '^0+$'}
+        - not: {has: {kind: attribute_list}}
+        - inside:
+            kind: enum_member_declaration_list
+            inside:
+                kind: enum_declaration
+                all:
+                    - has: {field: name, pattern: $ENUM}
+                    - not: {not: {inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: code-site}}}}
+fix: $MEMBER = 1
+message: '`$ENUM.$MEMBER` converts to error code 0, the code `Error.New` gives every untyped error'
+note: Number the first member `= 1` and let declaration order number the rest, a typed error then never shares a code with an untyped one

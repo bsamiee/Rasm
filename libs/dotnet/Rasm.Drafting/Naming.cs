@@ -208,9 +208,12 @@ public sealed partial class StandardName : IComparable<StandardName> {
     public int CompareTo(StandardName? other) =>
         other is null ? 1
         : Standard.CompareTo(other.Standard) is var standard and not 0 ? standard
-        : Standard.Fields.Map(field => Fields.Find(field).Match(
-                Some: left => other.Fields.Find(field).Match(Some: right => field.Role.Compare(left, right), None: static () => 1),
-                None: () => other.Fields.Find(field).IsSome ? -1 : 0))
+        : Standard.Fields.Map(field => (Fields.Find(field).Case, other.Fields.Find(field).Case) switch {
+            (string left, string right) => field.Role.Compare(left, right),
+            (string, _) => 1,
+            (_, string) => -1,
+            _ => 0,
+        })
             .Find(static order => order != 0).IfNone(0);
 
     public static bool operator <(StandardName? left, StandardName? right) => Comparer<StandardName>.Default.Compare(left, right) < 0;

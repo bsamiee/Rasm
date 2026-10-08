@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Rhino documents, viewports, persistence, blocks, objects, annotation, modeling, commands, display, UI, rendering, and plug-in definitions as IO effects over RhinoCommon</Description>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Mapperly">
+        <MapperlyAbstractionsScope>runtime</MapperlyAbstractionsScope>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino">
+        <PackageReference Include="System.Drawing.Common" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="LanguageExt.Streaming" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="compile;contentfiles;analyzers;build" />
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="QuikGraph" />
+    </ItemGroup>
+
+    <ItemGroup Label="Color">
+        <PackageReference Include="Wacton.Unicolour" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../../Rasm.Drafting/Rasm.Drafting.csproj" />
+        <ProjectReference Include="../../Rasm.Imaging/Rasm.Imaging.csproj" />
+    </ItemGroup>
+</Project>

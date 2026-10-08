@@ -1,8 +1,8 @@
-# ty: ignore[unresolved-import, unresolved-attribute, invalid-argument-type, unsupported-operator]
-# mypy: disable-error-code="import-not-found, import-untyped, call-overload, misc, operator"
-# ruff: file-ignore[import-outside-top-level]
+# ty: ignore[call-non-callable, invalid-argument-type, too-many-positional-arguments, unresolved-attribute, unresolved-import, unsupported-operator]
+# mypy: disable-error-code="abstract, call-arg, call-overload, import-not-found, import-untyped, operator, type-abstract"
 """Rhino's application settings with the Alerter, Rhino Render, and default renderer rows."""
 
+from collections.abc import Callable
 from functools import partial
 import math
 
@@ -62,6 +62,10 @@ def rows() -> tuple[Row, ...]:
     general, advanced, mouse, appearance = ((options, name) for name in ("General", "Advanced", "Mouse", "Appearance"))
     text = clr.GetClrType(String)
     _, system_family = opened(appearance).TryGetDefault.Overloads[text, text.MakeByRefType()]("CommandPromptFontName")
+
+    def user_default[T](domain: str, read: Callable[[str], object], write: Callable[[T, str], object], name: str, *, target: T) -> Row:
+        """Row of a user default the domain's store reads and writes by key."""
+        return preference(label=f'{domain}["{name}"]', read=partial(read, name), write=lambda value: write(value, name), target=target)
 
     def prompt_font(family: str) -> None:
         """Set the command prompt font family through the appearance state the native owner reads."""
@@ -195,17 +199,12 @@ def rows() -> tuple[Row, ...]:
             )
         ),
         Internal.RUNTIME_SETTINGS.setting("NotesRestoreCursorPosition", target=False),
-        *(
-            preference(label=f'{domain}["{name}"]', read=partial(read, name), write=lambda value, write=write, name=name: write(value, name), target=target)
-            for domain, read, write, name, target in (
-                (standard, defaults.BoolForKey, defaults.SetBool, "AppleReduceDesktopTinting", True),
-                (standard, defaults.BoolForKey, defaults.SetBool, "SUAutomaticallyUpdate", False),
-                (standard, lambda name: defaults.IntForKey(name).ToInt64(), lambda value, name: defaults.SetInt(System.IntPtr(value), name), "AppleAccentColor", 4),
-                (standard, defaults.StringForKey, defaults.SetString, "AppleHighlightColor", " ".join((*(f"{channel / 255:.6f}" for channel in Accent.TEXT_SELECTED), "Other"))),
-                (standard, defaults.StringForKey, defaults.SetString, "MRLanguage", english.Parent.Name),
-                ("RhinoMonitor", monitor.BoolForKey, monitor.SetBool, "MRShouldIncludeModelFileInReport", False),
-            )
-        ),
+        user_default(standard, defaults.BoolForKey, defaults.SetBool, "AppleReduceDesktopTinting", target=True),
+        user_default(standard, defaults.BoolForKey, defaults.SetBool, "SUAutomaticallyUpdate", target=False),
+        user_default(standard, lambda name: defaults.IntForKey(name).ToInt64(), lambda value, name: defaults.SetInt(System.IntPtr(value), name), "AppleAccentColor", target=4),
+        user_default(standard, defaults.StringForKey, defaults.SetString, "AppleHighlightColor", target=" ".join((*(f"{channel / 255:.6f}" for channel in Accent.TEXT_SELECTED), "Other"))),
+        user_default(standard, defaults.StringForKey, defaults.SetString, "MRLanguage", target=english.Parent.Name),
+        user_default("RhinoMonitor", monitor.BoolForKey, monitor.SetBool, "MRShouldIncludeModelFileInReport", target=False),
         preference(
             label=f'{standard}["{languages}"]',
             read=partial(defaults.StringArrayForKey, languages),

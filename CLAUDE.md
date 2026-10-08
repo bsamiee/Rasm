@@ -11,6 +11,7 @@
 - Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
 - `tools/` shares no dependency in either direction with `libs/`, `apps/`, or agent harness code, tools read project files, skills run tools
 - Tool settings and rules that push code against the coding standards are removed at their owner
+- Checks, formats, builds, and tests run as `nx run` targets with each tool's config, direct call, copied config, or path a target skips is a defect
 - Tests are made at the user's request alone
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections

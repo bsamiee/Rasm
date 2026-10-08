@@ -71,4 +71,4 @@ rule:
         - matches: override-send
         - matches: callback-send
 message: 'Host callback sends a `$UNION` case to one delegate'
-note: Use an application override of the host member or an application handler on its event, each with one `Answers.Answer`, `Answers.Succeeded`, or `Answers.ToResult` line, a union restates host overrides and hides their base members
+note: Use an application override of the host member or an application handler on its event, each with one `Callbacks.Answer` or `Callbacks.Succeeded` line, a union restates host overrides and hides their base members

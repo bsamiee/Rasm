@@ -1,14 +1,17 @@
-# ty: ignore[not-iterable, unresolved-attribute, unresolved-import]
+# ty: ignore[unresolved-attribute, unresolved-import]
 # mypy: disable-error-code="attr-defined, unreachable"
 # ruff: file-ignore[import-private-name]
 """Stored RNA values of a struct as JSON and the function of every registered operator."""
 
+from collections.abc import Iterable
 from typing import Final, Protocol
 
 import _bpy
 import bpy
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+type Value = float | str | int | set[str] | "bpy.types.bpy_struct[object]" | Iterable[Value] | None
 
 
 class BPyOpFunction(Protocol):
@@ -67,7 +70,7 @@ def stored(p: bpy.types.Property) -> bool:
             return not p.is_readonly
 
 
-def plain(value: object) -> object:
+def plain(value: Value) -> object:
     """JSON form of an RNA value, floats rounded to `Object.location` precision, IDs by name, and structs by stored properties."""
     match value:
         case float():

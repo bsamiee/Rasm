@@ -129,7 +129,7 @@ def property_test[**P](subject: object, *, given: bool = True) -> Callable[[Call
     return _decorator
 
 
-def covers(module: str, *subjects: Callable[..., object]) -> list[pytest.MarkDecorator]:
+def covers(module: str, *subjects: object) -> list[pytest.MarkDecorator]:
     """Return one property mark per subject for the ``pytestmark`` of the test module named ``module``."""
     return [pytest.mark.property(record=_record(subject, "covers", module)) for subject in subjects]
 
@@ -185,15 +185,15 @@ def assert_property_coverage(records: tuple[PropertyRecord, ...], packages: Mapp
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "property_test",
+    "PACKAGES_UNDER_TEST",
+    "PROPERTY_RECORDS",
+    "PackageUnderTest",
+    "PropertyRecord",
+    "assert_property_coverage",
     "covers",
+    "is_automatically_exempt",
+    "property_test",
     "register_package",
     "register_package_tree",
-    "assert_property_coverage",
-    "is_automatically_exempt",
     "uncollected_test_modules",
-    "PROPERTY_RECORDS",
-    "PACKAGES_UNDER_TEST",
-    "PropertyRecord",
-    "PackageUnderTest",
 ]

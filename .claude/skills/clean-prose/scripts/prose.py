@@ -1,4 +1,3 @@
-# ruff: file-ignore[subprocess-without-shell-equals-true, start-process-with-partial-path]
 # /// script
 # requires-python = ">=3.15"
 # dependencies = ["editorconfig", "msgspec", "pygments", "regex", "wcwidth"]

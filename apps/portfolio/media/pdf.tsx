@@ -9,6 +9,7 @@ import { EventBus, LinkTarget, PDFFindController, PDFLinkService, PDFPageView, P
 import { type ReactElement, useEffect, useReducer, useState } from 'react';
 import { Button, Input, SearchField, ToggleButton, Toolbar } from 'react-aria-components';
 import { useErrorBoundary } from 'react-error-boundary';
+import { sheets } from '../model/asset.ts';
 import type { Placement } from '../model/placement.ts';
 import { ZoomControls } from './controls.tsx';
 import { mediaUrl, numeral } from './display.ts';
@@ -91,7 +92,7 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
             nativeViewer.currentScaleValue = scale;
         });
         eventBus.on('pagesinit', () => {
-            nativeViewer.setPageLabels(placement.asset.pages.map((page, index) => page.label ?? String(index + 1)));
+            nativeViewer.setPageLabels(sheets(placement.asset).map(({ label, number }) => label ?? String(number)));
             nativeViewer.currentPageNumber = placement.page.number;
             nativeViewer.currentScaleValue = 'page-fit';
             resize.observe(container);
@@ -113,7 +114,7 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
             nativeViewer.setDocument(null);
             controller.abort();
         };
-    }, [container, document, placement.asset.pages, placement.page.number, showBoundary]);
+    }, [container, document, placement.asset, placement.page.number, showBoundary]);
     usePinch(
         ({ offset: [scale], origin }): void => {
             viewer?.updateScale({ scaleFactor: scale / viewer.currentScale, origin });
@@ -175,10 +176,9 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                             }}
                             value={currentPage}
                         >
-                            {placement.asset.pages.map(({ label }, index) => (
-                                // biome-ignore lint/suspicious/noArrayIndexKey: A PDF source page ordinal is its immutable identity.
-                                <option key={index} value={index + 1}>
-                                    {numeral(index + 1)} / {numeral(document.numPages)}
+                            {sheets(placement.asset).map(({ label, number }) => (
+                                <option key={number} value={number}>
+                                    {numeral(number)} / {numeral(document.numPages)}
                                     {label ? ` · ${label}` : ''}
                                 </option>
                             ))}

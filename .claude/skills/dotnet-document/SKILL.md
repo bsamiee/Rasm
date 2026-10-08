@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # [DOTNET_DOCUMENT]
 
-Covers XML documentation comments (`///`) on C# members, from the tag syntax to the diagnostics the build raises on them. `GenerateDocumentationFile` writes every doc comment to the XML file, member documentation is optional (`.editorconfig` sets `CS1591`, `RCS1140`, `RCS1141`, `RCS1142`, and `RCS1181` to `none`).
+Covers XML documentation comments (`///`) on C# members, from the tag syntax to the diagnostics the build raises on them. `GenerateDocumentationFile` writes every doc comment to the XML file, member documentation is optional (`.editorconfig` sets `CS1591` and `RCS1181` to `none`).
 
 [REFERENCES]:
 - [01]-[REVIEW](references/review.md): Review of existing doc comments against their source, with severity classes and the closing report

@@ -17,7 +17,7 @@ skills:
 
 <role>
 
-You keep MSBuild files free of the antipattern catalog's findings. Your prompt names files or folders, `<files>` is those files, else `fd -e csproj -e props -e targets -e rsp -e nuspec . <folder>` output per named folder, else that command over `.`. You read files through `Read`, edit through `Edit`, and run builds, evaluations, and scans through `Bash`. You add or move a `PackageVersion` row when central package management requires it and keep its version number. Every binlog and `-pp` output goes under `<logs>`, the `<dir>/` of `dotnet-msbuild-diagnostics`. `<project>` is the `.csproj` a question names, `<solution>` the `fd -e slnx .` line. BuildCheck builds run on `<build>`, the solution when `dotnet sln <solution> list` prints every in-scope `.csproj`, else once per `.csproj` the list lacks. A `-check` build failing on `error BC` lines alone holds findings. A build failing on another error is `msbuild-debugger`'s, named with its capture path. You own the table's files:
+You keep MSBuild files free of the antipattern catalog's findings. Your prompt names files or folders, `<files>` is those files, else `fd -e csproj -e props -e targets -e rsp -e nuspec . <folder>` output per named folder, else that command over `.`. You read files through `Read`, edit through `Edit`, and run builds, evaluations, and scans through `Bash`. You add or move a `PackageVersion` row when central package management requires it and keep its version number. Every binlog and `-pp` output goes under `<logs>`, the `<dir>/` of `dotnet-msbuild-diagnostics`. `<project>` is the `.csproj` a question names, `<solution>` the `fd -e slnx .` line. `<projects>` lists in-scope `.csproj` files by Nx name, `tag:language:dotnet` when the scope holds them all. A `-check` build failing on `error BC` lines alone holds findings. A build failing on another error is `msbuild-debugger`'s, named with its capture path. You own the table's files:
 
 | [INDEX] | [FILES]                                                           | [CONTENT]                                         |
 | :-----: | :---------------------------------------------------------------- | :------------------------------------------------ |
@@ -33,11 +33,11 @@ Read in order before the first edit:
 1. `references/worked-examples.md` of `dotnet-msbuild-antipatterns`
 2. `references/multi-level-examples.md` of `dotnet-msbuild-evaluation`
 3. `mcp__roslyn-codelens__list_solutions`, then `mcp__roslyn-codelens__load_solution` with the `<solution>` path when no row reads `isActive: true`
-4. `dotnet sln <solution> list`, the project set that decides `<build>`
+4. `nx show projects -p tag:language:dotnet`, the names `<projects>` draws on
 5. `yq -r '[.id, .message] | join(" | ")' tools/ast-grep/rules/dotnet/msbuild/*.yml`, the entries the rule family reports, paired by message
 6. Every in-scope file whole through `Read`
 7. `rg -n 'build_check' .editorconfig`, the severity each `BC` code reports under, no line means each code's default
-8. `ast-grep scan --report-style short <files>` and the `-check` build of `<build>` as the baseline, a `-check` failure with no `BC` line ends the run
+8. `ast-grep scan --report-style short <files>` and `-check` build of `<projects>` as the baseline, a `-check` failure with no `BC` line ends run
 
 </context_gathering>
 
@@ -48,7 +48,7 @@ Read in order before the first edit:
 |  [01]   | Catalog entries a rule reports      | `ast-grep scan --report-style short <files>`, each hit `file:line`                              |
 |  [02]   | Catalog entry with no rule          | `ast-grep scan --inline-rules '<yaml>' --report-style short <files>`, `language: xml`           |
 |  [03]   | Node kinds of an MSBuild element    | `ast-grep run -p '<pattern>' -l xml --debug-query=cst --stdin`                                  |
-|  [04]   | BuildCheck findings of the scope    | `dotnet build <build> -t:Rebuild -check -bl:<logs>check-{}.binlog`, its `error BC` lines        |
+|  [04]   | BuildCheck findings of the scope    | `nx run-many -t build -p <projects> --skip-nx-cache -- -t:Rebuild -check`, its `error BC` lines |
 |  [05]   | BuildCheck reports of a capture     | `mcp__binlog__binlog_errors`, then `mcp__binlog__binlog_warnings`, with `category=BuildCheck`   |
 |  [06]   | Value behind a placement question   | `dotnet msbuild <project> -getProperty:A,B -getItem:C \| jq`, one project per call              |
 |  [07]   | File that assigned a value          | `dotnet msbuild <project> -pp:<logs><name>-pp.xml`, then `rg -n '<Name' <logs><name>-pp.xml`    |
@@ -97,7 +97,7 @@ Files read, scans, and the `-check` build decide over a page.
 9. Classify each finding under the decision rules
 10. Fix in severity order, one catalog entry per edit pass per file, `STYLE` findings in files the run already edits
 11. Apply each edit as one exact-string replacement
-12. Scan `<files>` and build `<build>` with `-check` again, each hit and `BC` line a finding for steps 9 to 11
+12. Scan `<files>` and build `<projects>` with `-check` again, each hit and `BC` line a finding for steps 9 to 11
 13. Bound fix cycles at 3
 14. Delete every `-pp` output and every capture but the last by its printed path
 

@@ -1,5 +1,5 @@
 import { Atom } from 'effect/reactivity';
-import { type RefObject, useEffect, useEffectEvent, useState } from 'react';
+import { type RefObject, useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { Entry, Portfolio } from '../model/document.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -30,6 +30,7 @@ const fragment = (project: string, composition?: string): string => `#${new URLS
 const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLElement | null>, sticky: RefObject<HTMLDivElement | null>, foreground: boolean): Navigation => {
     const [active, setActive] = useState<string>();
     const [selections, setSelections] = useState<Readonly<Record<string, string>>>({});
+    const intersections = useRef(new Set<string>());
     const selected = (entry: typeof Entry.Type): string | undefined => entry.compositions.find((item) => item.id === selections[entry.id])?.id ?? entry.compositions[0]?.id;
     const select = (project: string, composition: string | undefined): void => {
         const target = fragment(project, composition);
@@ -48,14 +49,21 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         section?.querySelector('h3')?.focus({ preventScroll: true });
         section?.scrollIntoView();
     };
-    const trackActive = useEffectEvent((project: string | undefined) => {
+    const track = useEffectEvent((records: readonly IntersectionObserverEntry[], entries: readonly (typeof Entry.Type)[]) => {
+        records.forEach(({ isIntersecting, target: { id } }) => {
+            if (isIntersecting) {
+                intersections.current.add(id);
+            } else {
+                intersections.current.delete(id);
+            }
+        });
         if (!foreground) {
             return;
         }
-        setActive(project);
+        const entry = entries.findLast(({ id }) => intersections.current.has(id));
+        setActive(entry?.id);
         const bounds = work.current?.getBoundingClientRect();
         const page = bounds && bounds.top > Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) ? '#top' : '#work';
-        const entry = portfolio.entries.find((item) => item.id === project);
         const target = entry ? fragment(entry.id, selected(entry)) : page;
         history.scrollRestoration = entry ? 'manual' : 'auto';
         if (location.hash !== target) {
@@ -93,22 +101,11 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     useEffect(() => {
         let height = sticky.current?.getBoundingClientRect().height ?? 0;
         let observer: IntersectionObserver | undefined;
-        const intersections = new Set<string>();
-        const track: IntersectionObserverCallback = (entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                    intersections.add(entry.target.id);
-                } else {
-                    intersections.delete(entry.target.id);
-                }
-            });
-            trackActive(portfolio.entries.findLast((entry) => intersections.has(entry.id))?.id);
-        };
         const observe = (): void => {
             observer?.disconnect();
-            intersections.clear();
+            intersections.current.clear();
             const line = Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
-            observer = new IntersectionObserver(track, { rootMargin: `${-line}px 0px ${line + 1 - window.innerHeight}px 0px` });
+            observer = new IntersectionObserver((records) => track(records, portfolio.entries), { rootMargin: `${-line}px 0px ${line + 1 - window.innerHeight}px 0px` });
             if (work.current) {
                 observer.observe(work.current);
             }

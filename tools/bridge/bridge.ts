@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { NodeHttpServer, NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Array, Context, Effect, flow, Layer, Logger, type LogLevel, Option, Predicate, Queue, Runtime, Schema, Stream, Struct } from 'effect';
+import { Array, Context, Effect, flow, Layer, Logger, type LogLevel, Match, Option, Predicate, Queue, Runtime, Schema, Stream, Struct } from 'effect';
 import { McpProtocol, McpSchema, McpServer } from 'effect/ai';
 import { Argument, Command, Flag } from 'effect/cli';
 import { HttpRouter } from 'effect/http';
@@ -56,18 +56,14 @@ const spawn = Effect.fn('spawn')(function* (command: string, args: readonly stri
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [TRANSPORT]
-const outgoing = (request: RpcMessage.FromClientEncoded): Option.Option<RpcMessage.FromClientEncoded> => {
-    switch (request._tag) {
-        case 'Request':
-            return Option.some(McpSchema.ClientNotificationRpcs.requests.has(request.tag) ? { ...request, isNotification: true } : request);
-        case 'Interrupt':
-            return Option.some({ _tag: 'Request', headers: [], id: request.requestId, isNotification: true, payload: { requestId: request.requestId }, tag: McpSchema.CancelledNotification._tag });
-        case 'Ack':
-        case 'Ping':
-        case 'Eof':
-            return Option.none();
-    }
-};
+const outgoing = (request: RpcMessage.FromClientEncoded): Option.Option<RpcMessage.FromClientEncoded> =>
+    Match.valueTags(request, {
+        Request: (message) => Option.some<RpcMessage.FromClientEncoded>(McpSchema.ClientNotificationRpcs.requests.has(message.tag) ? { ...message, isNotification: true } : message),
+        Interrupt: ({ requestId }) => Option.some<RpcMessage.FromClientEncoded>({ _tag: 'Request', headers: [], id: requestId, isNotification: true, payload: { requestId }, tag: McpSchema.CancelledNotification._tag }),
+        Ack: Option.none,
+        Ping: Option.none,
+        Eof: Option.none,
+    });
 const reply = (request: RpcMessage.RequestEncoded): RpcMessage.ResponseExitEncoded => ({
     _tag: 'Exit',
     exit: request.tag === McpSchema.Ping._tag ? { _tag: 'Success', value: {} } : { _tag: 'Failure', cause: [{ _tag: 'Fail', error: Schema.encodeSync(McpSchema.MethodNotFound)(new McpSchema.MethodNotFound({ message: `${request.tag} is not supported by the bridge` })) }] },

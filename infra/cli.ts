@@ -1,9 +1,9 @@
 import { stderr, stdout } from 'node:process';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { ActionsRepositoryPermissions, ActionsSecret, type ActionsSecretArgs, DependabotSecret, type DependabotSecretArgs, Repository, type RepositoryArgs, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts } from '@pulumi/github';
-import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
+import { type InlineProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
 import { BranchConfig, type BranchConfigArgs, Environment, Project, type ProjectArgs, Secret, type SecretArgs, ServiceToken, type ServiceTokenArgs } from '@pulumiverse/doppler';
-import { Array, Config, Effect, Equal, FileSystem, Path, Record, Redacted, Schema, Stdio } from 'effect';
+import { Array, Config, Effect, Equal, FileSystem, Path, Record, Redacted, Schema, Stdio, Struct } from 'effect';
 import { parse } from 'yaml';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -29,7 +29,7 @@ const _Secrets = Config.all(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.Success<typeof _Secrets>): Record.ReadonlyRecord<string, unknown> => {
-    const patternsAlloweds = [...workflows.flatMap(({ jobs }) => Record.values(jobs).flatMap(({ steps }) => steps)), ...actions.flatMap(({ runs }) => runs.steps)].flatMap(({ uses }) => (typeof uses === 'object' ? [`${uses[0]}@*`] : []));
+    const patternsAlloweds = [...workflows.flatMap(({ jobs }) => Record.values(jobs)), ...actions.map(Struct.get('runs'))].flatMap(({ steps }) => steps).flatMap(({ uses }) => (typeof uses === 'object' ? [`${uses[0]}@*`] : []));
     const requiredChecks = workflows.flatMap(({ jobs }) => Record.toEntries(jobs).flatMap(([id, { name, needs }]) => (needs !== undefined && Equal.equals(Array.difference(Record.keys(jobs), needs), [id]) ? [{ context: name ?? id }] : [])));
     const projectArgs = { name: 'rasm', description: 'Repository and service secrets' } as const satisfies ProjectArgs;
     const repositoryArgs = {
@@ -75,7 +75,7 @@ const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.
     };
 };
 
-Effect.gen(function* () {
+const infra = Effect.fn('infra')(function* () {
     const [fs, path, stdio, home, secrets] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Stdio.Stdio, Config.String('PULUMI_HOME'), _Secrets]);
     const [operation] = yield* stdio.args.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([Schema.Literals(['up', 'refresh'])]))));
     const workDir = path.join(home, 'work');
@@ -91,12 +91,14 @@ Effect.gen(function* () {
         ),
         { concurrency: 'unbounded' },
     ).pipe(Effect.flatMap(Schema.decodeUnknownEffect(_Actions)));
+    const stack = { stackName: 'rasm', projectName: 'rasm-infra', program: async () => _program(actions, secrets) } as const satisfies InlineProgramArgs;
     yield* Effect.tryPromise(async (signal) =>
-        (await LocalWorkspace.createOrSelectStack({ stackName: 'rasm', projectName: 'rasm-infra', program: async () => _program(actions, secrets) }, { workDir }))[operation]({
-            diff: true,
+        (await LocalWorkspace.createOrSelectStack(stack, { workDir }))[operation]({
             onOutput: (text) => stdout.write(text),
             onError: (text) => stderr.write(text),
             signal,
         }),
     );
-}).pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);
+});
+
+infra().pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);

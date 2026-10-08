@@ -2,4 +2,6 @@
 id: csharp-owner-level
 language: csharp
 rule:
-    inside: {matches: csharp-member-list, stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}}
+    any:
+        - inside: {matches: csharp-member-list, stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}}
+        - inside: {kind: block, inside: {kind: constructor_declaration, has: {field: name, regex: '^extension$'}}}

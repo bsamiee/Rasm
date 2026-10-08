@@ -1,5 +1,5 @@
 # ty: ignore[invalid-argument-type, invalid-assignment, redundant-condition, unresolved-attribute, unresolved-import]
-# mypy: disable-error-code="arg-type, assignment, attr-defined, func-returns-value, import-not-found, no-any-return, union-attr, unreachable"
+# mypy: disable-error-code="assignment, attr-defined, func-returns-value, import-not-found, method-assign, no-any-return, union-attr, unreachable"
 # ruff: file-ignore[invalid-class-name, mutable-class-default, private-member-access, unnecessary-dunder-call]
 """Add-on panels collapsed under their owners, icon sidebar tabs, stock header draws, packed toolbar columns of the workspace's owners for a scope, and one asset shelf per asset kind."""
 
@@ -7,6 +7,7 @@ from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from functools import cache
 from importlib.metadata import packages_distributions
+import inspect
 from itertools import chain, groupby
 from pathlib import Path
 import sys
@@ -96,7 +97,7 @@ def lineage[T](base: type[T]) -> list[type[T]]:
 def owning(addons: frozenset[str]) -> Callable[[str], str | None]:
     """Resolver from a module name to its owning add-on, read from the enabled add-ons' folders and the wheels their extension manifests list, cached per add-on set."""
     modules = [module for name, module in sys.modules.items() if name in addons and name not in addon_utils._addons_hidden_core]
-    folders = {Path(module.__file__).parent if module.__spec__.submodule_search_locations else Path(module.__file__): module.__name__ for module in modules}
+    folders = {file.parent if module.__package__ == module.__name__ else file: module.__name__ for module in modules for file in (Path(inspect.getfile(module)),)}
     wheels = {
         parse_wheel_filename(Path(wheel).name)[0]: module
         for folder, module in folders.items()
@@ -107,7 +108,7 @@ def owning(addons: frozenset[str]) -> Callable[[str], str | None]:
 
     @cache
     def owner(name: str) -> str | None:
-        file, top = Path(sys.modules[name].__file__), name.partition(".")[0]
+        file, top = Path(inspect.getfile(sys.modules[name])), name.partition(".")[0]
         bundled = (module for folder, module in folders.items() if file.is_relative_to(folder))
         installed = (wheels[wheel] for wheel in map(canonicalize_name, distributions.get(top, ())) if wheel in wheels)
         return next(chain(bundled, installed), None)

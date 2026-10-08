@@ -1,4 +1,3 @@
-// biome-ignore-all lint/correctness/useUniqueElementIds: Public fragment links target the top and work sections
 import { useAtomValue } from '@effect/atom-react';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
@@ -40,7 +39,7 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
             <a className="fixed -top-[100px] left-5 z-[100] bg-background p-[15px] focus:top-2.5" href="#work">
                 Skip to work
             </a>
-            <header className="mx-(--page-gutter) flex min-h-[92px] items-center justify-between gap-7 border-line border-b py-[18px] max-md:min-h-[76px] max-md:gap-5" id="top">
+            <header className="mx-(--page-gutter) flex min-h-[92px] items-center justify-between gap-7 border-line border-b py-[18px] max-md:min-h-[76px] max-md:gap-5">
                 <a className="wrap-anywhere flex min-w-0 max-w-[45%] items-center gap-5 text-[27px] leading-[1.1] tracking-[-0.04em] max-md:max-w-[65%]" href="#top">
                     {portfolio.name || 'Portfolio'}
                     <Plus className="size-9 shrink-0 stroke-2 text-accent" nonScalingStroke={true} />
@@ -141,6 +140,7 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                             </div>
                         )}
                     </section>
+                    {/* biome-ignore lint/correctness/useUniqueElementIds: Public #work fragment links and history entries target this section */}
                     <section className="pt-[82px] pb-[72px] outline-none max-md:py-[60px]" id="work" ref={work} tabIndex={-1}>
                         <div className="border-foreground border-t pt-[19px]">
                             <h2 className={populated ? 'font-medium text-sm' : 'text-[clamp(1.875rem,calc(1rem+3cqw),4rem)] leading-[1.05] tracking-[-0.045em]'}>Projects and studies</h2>

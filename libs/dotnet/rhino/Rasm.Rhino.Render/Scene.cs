@@ -93,12 +93,6 @@ public sealed record GroundPlaneState(
 public sealed record SunState(
     bool Enabled,
     double Intensity,
-    double North,
-    double Latitude,
-    double Longitude,
-    double TimeZone,
-    Option<int> DaylightSavingMinutes,
-    DateTime LocalMoment,
     Option<(double Azimuth, double Altitude)> Manual);
 
 public sealed record LinearWorkflowState(bool PreProcessColors, float PostProcessGamma, bool PostProcessGammaOn);
@@ -124,8 +118,6 @@ internal static partial class SceneMapper {
     [MapPropertyFromSource(nameof(GroundPlaneState.Effect), Use = nameof(Effect))]
     internal static partial GroundPlaneState ToState(GroundPlane ground);
 
-    [MapPropertyFromSource(nameof(SunState.DaylightSavingMinutes), Use = nameof(DaylightSaving))]
-    [MapPropertyFromSource(nameof(SunState.LocalMoment), Use = nameof(LocalMoment))]
     [MapPropertyFromSource(nameof(SunState.Manual), Use = nameof(Manual))]
     internal static partial SunState ToState(Sun sun);
 
@@ -148,17 +140,11 @@ internal static partial class SceneMapper {
     internal static partial void Update(GroundPlaneState state, GroundPlane ground);
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapProperty(nameof(@SunState.DaylightSavingMinutes.IsSome), nameof(Sun.DaylightSavingOn))]
-    [MapperIgnoreSource(nameof(SunState.LocalMoment), Justification = "Written through SetDateTime")]
     [MapperIgnoreSource(nameof(SunState.Manual), Justification = "ManualControlOn is written before the angles")]
     internal static partial void Update(SunState state, Sun sun);
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     internal static partial void Update(LinearWorkflowState state, LinearWorkflow workflow);
-
-    [UserMapping]
-    private static T Kept<T>(Option<T> value, [MappingTargetOriginalValue] T current) where T : struct =>
-        value.IfNone(current);
 
     private static RenderSource Source(RenderSettings settings) =>
         settings.RenderSource switch {
@@ -175,12 +161,6 @@ internal static partial class SceneMapper {
         ground.ShadowOnly
             ? new GroundEffect.ShadowCatcher()
             : new GroundEffect.Material(Answers.Present(ground.MaterialInstanceId).Filter(static id => id != ContentUuids.DefaultMaterialInstance));
-
-    private static Option<int> DaylightSaving(Sun sun) =>
-        Answers.Found(sun.DaylightSavingOn, sun.DaylightSavingMinutes);
-
-    private static DateTime LocalMoment(Sun sun) =>
-        sun.GetDateTime(DateTimeKind.Local);
 
     private static Option<(double Azimuth, double Altitude)> Manual(Sun sun) =>
         Answers.Found(sun.ManualControlOn, (sun.Azimuth, sun.Altitude));
@@ -262,7 +242,6 @@ public static class Scene {
         static (settings, state) => {
             Sun sun = settings.Sun;
             SceneMapper.Update(state, sun);
-            sun.SetDateTime(state.LocalMoment, DateTimeKind.Local);
             sun.ManualControlOn = state.Manual.IsSome;
             _ = state.Manual.Iter(angles => (sun.Azimuth, sun.Altitude) = angles);
         });

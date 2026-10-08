@@ -18,15 +18,20 @@ utils:
     acquire:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '(^|\.)\s*(Acquire|EditCopy|Duplicate\w*)(\s*<.+>)?$'}
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.Shapes\.)?Copies\s*\.\s*(Acquire|AcquireNonEmpty|AcquireSparse|Duplicate|DuplicateShallow|Edit)(\s*<.+>)?$'}
             - not: {inside: {stopBy: {kind: lambda_expression}, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}}}
     element-scope:
         kind: invocation_expression
-        any:
-            - all:
-                - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?DisposalOps\s*\.\s*Using(\s*<.+>)?$'}
-                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: element}}}
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bracket$'}}, {has: {field: expression, matches: element}}]}
+        has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^Bracket$'}
+                - has:
+                    field: expression
+                    any:
+                        - matches: element
+                        - has: {stopBy: end, kind: invocation_expression, all: [{has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}}, {has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: element}}}}]}
     sequence-type:
         regex: '^((global::)?(LanguageExt\.|System\.Collections\.Generic\.)?(Seq|Lst|Arr|IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List)\s*<|\[\]\??$)'
     sequence:
@@ -55,7 +60,7 @@ utils:
     per-element:
         kind: argument
         any:
-            - has: {kind: member_access_expression, regex: '\.\s*(Acquire|Duplicated)$'}
+            - has: {kind: member_access_expression, regex: 'Copies\s*\.\s*(Duplicate|DuplicateShallow)$'}
             - has:
                 kind: lambda_expression
                 all:
@@ -90,4 +95,4 @@ rule:
     kind: invocation_expression
     matches: traversal
 message: '`$SEQ` acquires a disposable per element of a traversal'
-note: Use `DisposalOps.AcquireAll(<items>.Map(<acquire>))` or `DisposalOps.Using(<IO<Seq<T>>>, <body>)` over the whole sequence, `AcquireAll` releases earlier handles when a later acquisition fails
+note: 'Use `DisposalOps.AcquireAll(<items>.Map(<acquire>)).Bracket(Use: <body>, Fin: DisposalOps.Release)` over the whole sequence, `AcquireAll` releasing earlier handles when a later acquisition fails'

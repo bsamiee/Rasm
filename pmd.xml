@@ -45,7 +45,13 @@
 
     <!-- [ERROR_PRONE] -->
     <rule ref="category/java/errorprone.xml">
+        <exclude name="AvoidAccessibilityAlteration" />
         <exclude name="EmptyCatchBlock" />
+    </rule>
+    <rule ref="category/java/errorprone.xml/AvoidAccessibilityAlteration">
+        <properties>
+            <property name="violationSuppressXPath" value="./ancestor::MethodDeclaration[@Name = 'run'][ancestor::ClassDeclaration[@SimpleName = 'Headers']]" />
+        </properties>
     </rule>
     <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
         <properties>

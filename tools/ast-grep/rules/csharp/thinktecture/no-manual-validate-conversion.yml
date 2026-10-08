@@ -69,7 +69,7 @@ rule:
                 - inside: {stopBy: end, kind: method_declaration, has: {field: name, regex: '^Validate$'}}
                 - matches:
                     csharp-owner-body:
-                        type: {regex: '^Answers$'}
+                        type: {regex: '^Conversions$'}
                         member: {regex: '^Validated$'}
-message: "`$VALUE` crosses into its value type through a hand-written `Validate` or `TryCreate` answer in place of `Answers.Validated`"
-note: Use `Answers.Validated<<type>, <raw>>(<value>)`, the one crossing answering `Fin`, and delete any helper with the crossing as its body
+message: "`$VALUE` crosses into its value type through a hand-written `Validate` or `TryCreate` answer in place of `Conversions.Validated`"
+note: Use `Conversions.Validated<<type>, <raw>, <error>>(<value>)` and delete any helper with the conversion as its body

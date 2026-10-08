@@ -139,9 +139,6 @@ public static class Cycles {
             SampleClampIndirect.Set(Some(preset.SampleClampIndirect)),
             AdaptiveMinSamples.Set(Some(preset.AdaptiveMinSamples)));
 
-    private static SceneSetting<Option<TValue>> Key<TValue, TStored>(string name) where TValue : IObjectFactory<TValue, TStored, ValidationFailure>, IConvertible<TStored> where TStored : struct =>
-        Key<TValue, TStored>(name, Answers.Validated<TValue, TStored>, static value => value.ToValue());
-
     private static SceneSetting<Option<TValue>> Key<TValue, TStored>(string name, Func<TStored, Fin<TValue>> parse, Func<TValue, TStored> store) where TStored : struct =>
         new(
             settings => ArchivableDictionaries.Find<TStored>(settings.UserDictionary, name).RunSafe().Bind(stored => stored.Traverse(parse).As()),

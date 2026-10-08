@@ -3,7 +3,6 @@ using Rasm.Rhino.Persistence;
 using Rhino.Display;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Answers))]
 
 namespace Rasm.Rhino.Display;
 

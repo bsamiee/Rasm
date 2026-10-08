@@ -10,6 +10,7 @@ from itertools import accumulate
 
 import attrs
 import bpy
+
 from rna import BPyOpFunction, operators, plain, stored
 from scene import viewport
 

@@ -1,8 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Pixels;
 using SixLabors.ImageSharp.Metadata.Profiles.Cicp;
 using TinyEXR;
@@ -190,10 +190,9 @@ public sealed partial class TransferCurve {
     [UseDelegateFromConstructor]
     public partial void Decode(Span<Vector4> row, Nits white);
 
-    [SuppressMessage("Performance", "CA1517:Prefer ReadOnlySpan over Span", Justification = "Each pixel is rewritten through the foreach ref local, a write the analyzer does not read")]
     internal static void PerLane(Span<Vector4> row, Func<double, double> curve) {
-        foreach (ref Vector4 pixel in row)
-            pixel = new Vector4((float)curve(pixel.X), (float)curve(pixel.Y), (float)curve(pixel.Z), pixel.W);
+        for (int index = 0; index < row.Length; index++)
+            row[index] = new Vector4((float)curve(row[index].X), (float)curve(row[index].Y), (float)curve(row[index].Z), row[index].W);
     }
 
     private static Span<float> Lanes(ref Vector4 pixel) => MemoryMarshal.CreateSpan(ref pixel.X, 3);
@@ -226,12 +225,15 @@ public abstract partial record Transfer : IConvertible<string> {
 
     public PixelFrame Light(PixelFrame frame) =>
         new(frame.Origin, frame.Size, frame.Extent, block => {
-            frame.Block.CopyTo(block, 0);
+            frame.Block.CopyTo(block);
             Decode(MemoryMarshal.Cast<float, Vector4>(block.AsSpan()), Nits.ReferenceWhite);
         });
 
     public int[] Displayed(PixelFrame frame) {
-        Span<Vector4> light = MemoryMarshal.Cast<float, Vector4>(Light(frame).Block.AsSpan());
+        using SpanOwner<float> buffer = SpanOwner<float>.Allocate(frame.Block.Length);
+        frame.Block.CopyTo(buffer.Span);
+        Span<Vector4> light = MemoryMarshal.Cast<float, Vector4>(buffer.Span);
+        Decode(light, Nits.ReferenceWhite);
         TransferCurve.Srgb.Encode(light, Nits.ReferenceWhite);
         foreach (ref Vector4 pixel in light)
             pixel = new Vector4(pixel.Z, pixel.Y, pixel.X, pixel.W);
@@ -329,9 +331,12 @@ public sealed record GamutCompression(
             (limit - threshold) / float.Pow(float.Pow((1f - threshold) / (limit - threshold), -power) - 1f, 1f / power);
 
         static float Compress(float component, float ach, (float Threshold, float Scale) curve, float power) =>
-            ach == 0f ? 0f : ((ach - component) / float.Abs(ach)) switch {
-                var distance when distance < curve.Threshold => component,
-                var distance => ach - (float.Abs(ach) * (curve.Threshold + ((distance - curve.Threshold) / float.Pow(1f + float.Pow((distance - curve.Threshold) / curve.Scale, power), 1f / power)))),
+            float.Abs(ach) switch {
+                0f => 0f,
+                var reach => (((ach - component) / reach) - curve.Threshold) switch {
+                    < 0f => component,
+                    var over => ach - (reach * (curve.Threshold + (over / float.Pow(1f + float.Pow(over / curve.Scale, power), 1f / power)))),
+                },
             };
 
         Gamut target = state.Target.IfNone(context.Working);

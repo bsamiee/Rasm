@@ -5,7 +5,7 @@ severity: error
 files: ['**/rhino/**']
 utils:
     owner:
-        regex: '^((global::)?Rasm\.Rhino\.Document\.)?(Refused|Invalid|InvalidAnswer)$'
+        regex: '^((global::)?Rasm\.Rhino\.)?(Refused|InvalidAnswer)$'
     unsafe:
         any:
             - kind: member_access_expression, element_access_expression, conditional_access_expression, cast_expression
@@ -61,7 +61,7 @@ constraints:
                 - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $DISCARDED}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $DISCARDED}}}]}
                 - has: {field: body, not: {kind: block}, matches: plain}
                 - not: {has: {field: body, any: [{pattern: $DISCARDED}, {has: {stopBy: end, kind: identifier, pattern: $DISCARDED}}]}}
-    ANSWERS: {regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers$'}
+    ANSWERS: {regex: '^((global::)?Rasm\.Rhino\.)?Callbacks$'}
     FOUND: {regex: '^Found(\s*<.+>)?$'}
 message: Check selects between a value and `$OWNER` by hand
-note: Use `<owner>.Unless(<check>, <arguments>)`, or `Unless<T>(<check>, <value>, <arguments>)` with `T` a base type of `<value>`, declared on the error record in its package `Errors.cs`
+note: Use `<owner>.Unless(<check>, <arguments>)`, or `Unless<T>(<check>, <value>, <arguments>)` with `T` a base type of `<value>`, declared on the error record in its namespace's `Errors.cs`

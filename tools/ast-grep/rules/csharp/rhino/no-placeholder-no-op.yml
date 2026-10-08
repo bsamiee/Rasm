@@ -32,4 +32,4 @@ rule:
             - has: {field: name, regex: '^Dispose$', pattern: $PLACEHOLDER}
             - has: {field: body, matches: empty-block}
 message: '`$PLACEHOLDER` stands in for an absent callback or resource'
-note: Use `Option<IDisposable>` or `Option<Action>` the consumer matches, a `DisposalOps.Using` scope around the inner body in the arm that acquires, or `Answers.ToResult(<fin>)` where the caller keeps the error, a no-op value hides absence from the type
+note: Use `Option<IDisposable>` or `Option<Action>` the consumer matches, a `use(<acquire>).Bind(<body>).Bracket()` scope around the inner body in the arm that acquires, or `Conversions.ToResult(<effect>)` where the caller keeps the error, a no-op value hides absence from the type

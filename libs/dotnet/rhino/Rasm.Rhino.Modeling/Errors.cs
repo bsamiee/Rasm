@@ -1,5 +1,3 @@
-using Rasm.Rhino.Document;
-
 namespace Rasm.Rhino.Modeling;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -23,8 +21,6 @@ public static class Codes {
     public const int OutOfDomain = 2008;
 
     public const int Degenerate = 2009;
-
-    public const int InvalidOutput = 2010;
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -63,63 +59,3 @@ public sealed record Degenerate(string Member) : Expected("{Member} is degenerat
     public static Fin<Unit> Unless(Vector3d direction, string member) => direction.IsValid && !direction.IsTiny() ? unit : new Degenerate(member);
 }
 
-public sealed record InvalidOutput(string Member, int ItemCount) : Expected("{Member} returned {ItemCount} invalid items", Codes.InvalidOutput);
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class GeometryResults {
-    // --- [ACQUIRE]
-    public static IO<T> Acquire<T>(Func<T?> create, string member) where T : GeometryBase =>
-        Acquired(() => Fin.Succ(Single(create())), member, emptyFails: false).Map(static kept => kept[0]);
-
-    public static IO<T> Acquire<T>(Func<Fin<T>> create, string member) where T : GeometryBase =>
-        Acquired(() => create().Map(Single), member, emptyFails: false).Map(static kept => kept[0]);
-
-    public static IO<Seq<T>> Acquire<T>(Func<T?[]?> create, string member, bool emptyFails) where T : GeometryBase =>
-        Acquired(() => Fin.Succ(create()), member, emptyFails);
-
-    public static IO<Seq<T>> Acquire<T>(Func<Fin<T[]>> create, string member, bool emptyFails) where T : GeometryBase =>
-        Acquired(() => create().Map<T?[]?>(static results => results), member, emptyFails);
-
-    public static IO<Seq<(T Result, TRow Row)>> Acquire<T, TRow>(Func<(T?[]? Results, IReadOnlyList<TRow>? Rows)> create, string member) where T : GeometryBase =>
-        from answer in IO.lift(create)
-        from kept in DisposalOps.OnFailure(
-            IO.lift(() =>
-                from read in (Kept(answer.Results, member, emptyFails: false), Missing.Unless(answer.Rows, member))
-                    .Apply(static (results, rows) => (Results: results, Rows: rows))
-                    .As()
-                from counted in CountMismatch.Unless(read.Results.Count, read.Rows.Count, member)
-                select read.Results.Zip(toSeq(read.Rows))),
-            Released(answer.Results))
-        select kept;
-
-    public static IO<(T Copy, TResult Result)> EditCopy<T, TResult>(T source, Func<T, Fin<TResult>> edit) where T : GeometryBase =>
-        from copy in GeometryOps.Duplicated(source)
-        from result in DisposalOps.OnFailure(IO.lift(() => edit(copy)), IO.lift(copy.Dispose))
-        select (copy, result);
-
-    internal static Fin<Seq<T>> Kept<T>(T?[]? results, string member, bool emptyFails) where T : GeometryBase =>
-        from array in Missing.Unless(results, member)
-        let valid = toSeq(array).Choose(static result => Optional(result).Filter(static geometry => geometry.IsValid)).Strict()
-        from filled in (valid.Count == array.Length ? Fin.Succ(unit) : new InvalidOutput(member, array.Length - valid.Count), emptyFails ? Answers.NonEmpty(valid, member) : valid)
-            .Apply(static (_, held) => held)
-            .As()
-        select filled;
-
-    internal static IO<Unit> Released<T>(T?[]? results) where T : GeometryBase =>
-        DisposalOps.Release(Answers.Present(results));
-
-    private static IO<Seq<T>> Acquired<T>(Func<Fin<T?[]?>> create, string member, bool emptyFails) where T : GeometryBase =>
-        from results in IO.lift(create)
-        from kept in DisposalOps.OnFailure(IO.lift(() => Kept(results, member, emptyFails)), Released(results))
-        select kept;
-
-    private static T?[]? Single<T>(T? result) where T : GeometryBase =>
-        result is null ? null : [result];
-
-    // --- [CHECKS]
-    internal static Fin<Unit> InRange(Seq<int> indices, int itemCount, string member) =>
-        indices.Traverse(index => IndexOutOfRange.Unless(index, itemCount, member)).As().Map(static _ => unit);
-
-    internal static Fin<Seq<Unit>> Sets<T>((Seq<T> Items, string Member) first, (Seq<T> Items, string Member) second) =>
-        Seq(first, second).Traverse(static set => Invalid.Unless(!set.Items.IsEmpty, set.Member)).As();
-}

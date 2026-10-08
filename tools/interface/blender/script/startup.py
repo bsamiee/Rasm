@@ -1,5 +1,5 @@
-# ty: ignore[invalid-argument-type, unresolved-attribute]
-# mypy: disable-error-code="arg-type, attr-defined, union-attr"
+# ty: ignore[unresolved-attribute]
+# mypy: disable-error-code="attr-defined, union-attr"
 """Blender's startup scenes with their data-blocks, render, pass, color, snapping, sky, sun, ground, and camera settings, and the stock objects every task deletes."""
 
 from collections.abc import Callable

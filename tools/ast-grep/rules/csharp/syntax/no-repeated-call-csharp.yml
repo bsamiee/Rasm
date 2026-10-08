@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-call-csharp
+language: csharp
+severity: error
+utils:
+    member:
+        kind: 'method_declaration, local_function_statement, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, property_declaration, indexer_declaration, field_declaration'
+    numeric-static:
+        kind: invocation_expression
+        has:
+            field: function
+            kind: member_access_expression
+            has: {field: expression, regex: '^(System\.)?(Math|MathF|float|double|decimal|Half|int|uint|long|ulong|short|ushort|byte|sbyte|nint|nuint|Single|Double|Int32|Int64|BitOperations|Vector2|Vector3|Vector4|Vector64|Vector128|Vector256|Vector512|Quaternion|Matrix3x2|Matrix4x4|Plane|Complex)$'}
+    effect:
+        any:
+            - kind: invocation_expression
+              not: {matches: numeric-static}
+            - kind: 'object_creation_expression, implicit_object_creation_expression, assignment_expression, await_expression, throw_expression, stackalloc_expression, implicit_stackalloc_expression'
+            - kind: 'prefix_unary_expression, postfix_unary_expression'
+              regex: '^(\+\+|--)|(\+\+|--)$'
+    computation:
+        kind: invocation_expression
+        all:
+            - not: {has: {field: arguments, has: {stopBy: end, matches: effect}}}
+            - any:
+                - matches: numeric-static
+                - matches: {csharp-file-method-call: {declaration: {has: {field: body, not: {has: {stopBy: end, matches: effect}}}}}}
+    holds-call:
+        any:
+            - pattern: $CALL
+            - has: {stopBy: end, pattern: $CALL}
+    pair:
+        has: {matches: holds-call, follows: {stopBy: end, matches: holds-call}}
+    binds:
+        any:
+            - kind: implicit_parameter
+              pattern: $Y
+            - kind: 'parameter, declaration_pattern, catch_declaration, declaration_expression, variable_declarator, from_clause, tuple_pattern'
+              has: {field: name, pattern: $Y}
+            - kind: let_clause
+              has: {kind: identifier, nthChild: 1, pattern: $Y}
+            - kind: foreach_statement
+              has: {field: left, pattern: $Y}
+    mutates:
+        any:
+            - kind: assignment_expression
+              has: {field: left, any: [{pattern: $Y}, {kind: tuple_expression, has: {stopBy: end, pattern: $Y}}]}
+            - kind: 'prefix_unary_expression, postfix_unary_expression'
+              regex: '^(\+\+|--)|(\+\+|--)$'
+              has: {pattern: $Y}
+            - kind: argument
+              all: [{has: {regex: '^(ref|out)$'}}, {has: {pattern: $Y}}]
+    unshared:
+        kind: identifier
+        pattern: $Y
+        not: {inside: {kind: member_access_expression, field: name}}
+        any:
+            - inside:
+                stopBy: {matches: member}
+                not: {any: [{matches: pair}, {has: {stopBy: end, matches: pair}}, {not: {has: {stopBy: end, matches: binds}}}]}
+            - inside:
+                stopBy: end
+                matches: member
+                not: {not: {has: {stopBy: end, matches: mutates}}}
+    earlier:
+        not: {matches: member}
+        follows: {stopBy: end, matches: holds-call}
+rule:
+    pattern: $CALL
+    all:
+        - matches: computation
+        - any:
+            - matches: earlier
+            - inside: {stopBy: {matches: member}, matches: earlier}
+        - not: {has: {stopBy: end, matches: unshared}}
+message: '`$CALL` is evaluated again from the same inputs in one member'
+note: Bind the call to a name before its first site, a local or a query `let`, and read the name at each use

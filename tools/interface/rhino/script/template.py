@@ -1,5 +1,5 @@
-# ty: ignore[unresolved-attribute, unresolved-import, invalid-argument-type, invalid-return-type, invalid-exception-caught]
-# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, misc, no-any-return, call-overload"
+# ty: ignore[invalid-argument-type, invalid-exception-caught, invalid-return-type, too-many-positional-arguments, unresolved-attribute, unresolved-import]
+# mypy: disable-error-code="call-arg, call-overload, import-not-found, import-untyped, misc, no-any-return, no-any-unimported, type-abstract"
 """Rows of Rhino's imperial default template, the metric one beside it, and the default template setting naming the imperial one, and the texts each template's documents show in the Layers and Layouts grids."""
 
 from collections.abc import Iterable, Mapping
@@ -30,7 +30,8 @@ from Rhino.DocObjects import (
     SectionStyle,
     ViewInfo,
 )
-from Rhino.FileIO import File3dm, File3dmWriteOptions, FileWriteOptions
+from Rhino.DocObjects.Tables import NamedConstructionPlaneTable, NamedLayerStateTable, NamedPositionTable, NamedViewTable
+from Rhino.FileIO import File3dm, File3dmRenderContent, File3dmWriteOptions, FileWriteOptions
 from Rhino.Geometry import BoundingBox, MeshingParameterStyle, Plane, Point3d, Rectangle3d, Vector2d, Vector3d
 from Rhino.Render import ContentUuids, ParameterNames, RenderChannels, RenderContent, RenderContentType, RenderSettings, RenderWindow, Sun
 from Rhino.Render.PostEffects import PostEffectType
@@ -164,7 +165,7 @@ class Template(TypedDict):
     dimension_styles: int
     render: Mapping[str, object]
     render_channels: Mapping[str, object]
-    render_dictionary: Mapping[str, object]
+    render_dictionary: Mapping[str, float]
     render_mesh: MeshingParameterStyle
     sun_moment: datetime
     earth_anchor: Mapping[str, object]
@@ -283,7 +284,7 @@ def model_views(file: File3dm, path: str) -> tuple[ViewInfo, ...]:
     return tuple(view for view in file.Views if str(view.Viewport.Id) not in pages)
 
 
-def saved_states(doc: Rhino.RhinoDoc) -> tuple[tuple[object, tuple[str, ...]], ...]:
+def saved_states(doc: Rhino.RhinoDoc) -> tuple[tuple[NamedViewTable | NamedConstructionPlaneTable | NamedPositionTable | NamedLayerStateTable, tuple[str, ...]], ...]:
     """Each saved-state table of the document with the names it holds."""
     return (
         (doc.NamedViews, tuple(view.Name for view in doc.NamedViews)),
@@ -542,7 +543,7 @@ def uniform(values: Iterable[object]) -> object:
             return several
 
 
-def content_facts(held: RenderContent, target: Content) -> dict[str, object]:
+def content_facts(held: File3dmRenderContent, target: Content) -> dict[str, object]:
     """Type of the render content and each parameter the target names, converted to the type of the target's value."""
     return {"TypeId": held.TypeId, "Parameters": {name: System.Convert.ChangeType(held.GetParameter(name), clr.GetClrType(type(value))) for name, value in target["Parameters"].items()}}
 
@@ -568,10 +569,19 @@ def file_ground(file: File3dm, target: Material) -> dict[str, object] | None:
     return None if held is None else {"Name": held.Name, **content_facts(held, target)}
 
 
-def typed(dictionary: ArchivableDictionary, targets: Mapping[str, object]) -> dict[str, object]:
-    """Each target's entry read through the unbound typed getter of the target's type the engine reads it with, None where the entry is absent or holds another type."""
-    getters = {bool: ArchivableDictionary.TryGetBool, int: ArchivableDictionary.TryGetInteger, float: ArchivableDictionary.TryGetDouble}
-    return {name: found(getters[type(value)](dictionary, name)) for name, value in targets.items()}
+def typed(dictionary: ArchivableDictionary, targets: Mapping[str, float]) -> dict[str, float | None]:
+    """Each target's entry read through the typed getter of the target's type the engine reads it with, None where the entry is absent or holds another type."""
+
+    def entry(name: str, value: float) -> float | None:
+        match value:
+            case bool():
+                return found(dictionary.TryGetBool(name))
+            case int():
+                return found(dictionary.TryGetInteger(name))
+            case float():
+                return found(dictionary.TryGetDouble(name))
+
+    return {name: entry(name, value) for name, value in targets.items()}
 
 
 def layer_facts(doc: Rhino.RhinoDoc, layer: Layer) -> dict[str, object]:

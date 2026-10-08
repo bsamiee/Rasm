@@ -1,5 +1,5 @@
 # ty: ignore[invalid-argument-type]
-# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, misc"
+# mypy: disable-error-code="import-untyped"
 """Rhino plug-in rows: the load protection or Grasshopper 2 marker of each package file, the bundled plug-ins' load modes, and package plug-in settings."""
 
 from collections.abc import Iterator
@@ -11,7 +11,7 @@ from Rhino.PlugIns import PlugIn, PlugInLoadTime
 from Rhino.Runtime import HostUtils
 from System import Guid
 
-from interface.report import Error, Item, Skip
+from interface.report import Error, Item, Row, Skip
 from interface.rhino.script.accessors import action, color, found, Internal, key, located, preference
 from interface.roles import Status
 
@@ -45,15 +45,14 @@ def rows() -> Iterator[Item]:
     plugins = tuple(plugin for files in held.values() for plugin in files.values() if plugin is not None)
     edges = tuple(plugin for plugin in plugins if unwelded in PlugIn.GetEnglishCommandNames(plugin))
     bundled = {name: PlugIn.IdFromName(name) for name in (f"3DxRhino.{Rhino.RhinoApp.ExeVersion}", "PanelingTools")}
-    yield from (
-        preference(
-            label=f'PlugIns["{PlugIn.GetPlugInInfo(plugin).Name}"].LoadProtection',
-            read=lambda plugin=plugin: found(PlugIn.GetLoadProtection(plugin)),
-            write=partial(PlugIn.SetLoadProtection, plugin),
-            target=True,
+
+    def protection(plugin: Guid) -> Row:
+        """Row of the plug-in's silent load protection."""
+        return preference(
+            label=f'PlugIns["{PlugIn.GetPlugInInfo(plugin).Name}"].LoadProtection', read=lambda: found(PlugIn.GetLoadProtection(plugin)), write=partial(PlugIn.SetLoadProtection, plugin), target=True
         )
-        for plugin in plugins
-    )
+
+    yield from map(protection, plugins)
     yield from (
         action(label=f'packages["{package}"]["{marker.name}"]', read=marker.is_file, act=marker.touch, target=True)
         for package, files in held.items()

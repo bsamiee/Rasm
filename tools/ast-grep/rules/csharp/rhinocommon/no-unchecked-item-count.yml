@@ -27,7 +27,7 @@ utils:
             nthChild: 2
             inside:
                 kind: argument_list
-                inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?CountMismatch\s*\.\s*Unless$'}}
+                inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?CountMismatch\s*\.\s*Unless$'}}
 rule:
     kind: invocation_expression
     all:

@@ -134,6 +134,7 @@ Rules the hook cannot hold:
 - `Rhino.UI.Localization.FormatNumber(<length>, doc.ModelUnitSystem, Rhino.UI.DistanceDisplayMode.FeetInches, <p>, False)` prints to 1/2^p in
 - `doc.AdjustModelUnitSystem(UnitSystem.<unit>, False)` sets the model unit alone, tolerance, distance display, page units, style, and grid staying
 - Solves started in one call read in the next, a call waiting on UI-thread work (`Task.Wait`, a Grasshopper 2 solve) deadlocking Rhino
+- Python callables reach .NET as event handlers the same call removes, library delegates running in the plugins reference's C# script
 - Out parameters take no argument and follow the return value in a tuple, `TryGetBool(key)` reading `(found, value)` and `PlugInExists(id)` a triple
 - .NET arrays reach a collection overload through `method.Overloads[IEnumerable[T]](array)`, pythonnet binding the single-item overload otherwise
 - Enum parameters take a member or `<Enum>(<int>)`, pythonnet converting no integer

@@ -27,6 +27,11 @@ utils:
                 any:
                     - {kind: assignment_expression, has: {field: left, matches: target-member}}
                     - {kind: block, has: {kind: expression_statement, has: {kind: assignment_expression, has: {field: left, matches: target-member}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}
+    relay-body:
+        inside:
+            field: body
+            kind: lambda_expression
+            inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|Do)$'}}}}}
     relay-write:
         kind: invocation_expression
         all:
@@ -117,6 +122,7 @@ rule:
                     - has: {kind: argument, has: {matches: target-member}}
                     - not: {has: {kind: argument, not: {has: {matches: target-member}}}}
             - not: {has: {field: left, has: {kind: argument, has: {has: {field: expression, pattern: $SRC}}}}}
+            - not: {matches: relay-body}
         - kind: assignment_expression
           all:
             - has: {field: operator, regex: '^=$'}
@@ -127,12 +133,7 @@ rule:
                 all:
                     - has: {kind: argument, has: {matches: target-member}, precedes: {stopBy: end, kind: argument, has: {matches: target-member}}}
                     - not: {has: {kind: argument, not: {any: [{has: {matches: target-member}}, {regex: '^_$'}]}}}
-            - not:
-                inside:
-                    kind: lambda_expression
-                    inside:
-                        kind: argument
-                        inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|Do)$'}}}}
+            - not: {matches: relay-body}
         - kind: 'expression_statement, if_statement'
           all:
             - matches: copy-statement

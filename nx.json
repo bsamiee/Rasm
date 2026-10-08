@@ -21,7 +21,7 @@
             { "cache": true },
             { "filter": { "projects": ["tag:host:rhino"] }, "inputs": ["...", "rhino"] },
             { "filter": { "projects": ["tag:host:rhino", "!directory:libs/**"] }, "inputs": ["...", "icons"], "options": { "args": ["--no-restore"] }, "configurations": { "debug": { "args": ["--no-restore", "--configuration", "Debug"] }, "release": { "args": ["--no-restore", "--configuration", "Release"] } } },
-            { "filter": { "projects": ["tag:language:dotnet"] }, "command": "doppler run --project rasm --config dev_repo -- dotnet build -bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog", "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }], "inputs": ["...", "dotnet"] },
+            { "filter": { "projects": ["tag:language:dotnet"] }, "command": "dotnet build -bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog", "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }], "inputs": ["...", "dotnet"] },
             {
                 "filter": { "projects": ["tag:language:swift"] },
                 "executor": "nx:run-commands",

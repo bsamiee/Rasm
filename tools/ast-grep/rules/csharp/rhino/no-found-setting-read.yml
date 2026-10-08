@@ -6,7 +6,7 @@ files: ['**/rhino/**']
 rewriters:
     - id: found-read
       rule:
-        pattern: Answers.Found($STORE.$READ($ENTRY, out $TYPE $V), $V)
+        pattern: Callbacks.Found($STORE.$READ($ENTRY, out $TYPE $V), $V)
       constraints:
         READ: {regex: '^TryGet(Bool|Integer|UnsignedInteger|Double|String|Color)$'}
       transform:
@@ -14,13 +14,13 @@ rewriters:
       fix: SettingType.$KIND.Read($STORE, $ENTRY)
     - id: found-optional-color
       rule:
-        pattern: Answers.Found($STORE.TryGetColor($ENTRY, out $_ $V), Optional($V))
+        pattern: Callbacks.Found($STORE.TryGetColor($ENTRY, out $_ $V), Optional($V))
       fix: SettingType.Color.Read($STORE, $ENTRY)
     - id: found-enum
       rule:
         any:
-            - pattern: Answers.Found($STORE.TryGetEnumValue($ENTRY, out $TYPE $V), $V)
-            - pattern: Answers.Found($STORE.TryGetEnumValue<$TYPE>($ENTRY, out $_ $V), $V)
+            - pattern: Callbacks.Found($STORE.TryGetEnumValue($ENTRY, out $TYPE $V), $V)
+            - pattern: Callbacks.Found($STORE.TryGetEnumValue<$TYPE>($ENTRY, out $_ $V), $V)
       fix: SettingType.Enumeration<$TYPE>().Read($STORE, $ENTRY)
 rule:
     kind: invocation_expression
@@ -33,5 +33,5 @@ transform:
     ROW:
         rewrite: {source: $SITE, rewriters: [found-read, found-optional-color, found-enum]}
 fix: $ROW
-message: '`Answers.Found` over `$MEMBER` reads a `PersistentSettings` value outside its `SettingType` row'
+message: '`Callbacks.Found` over `$MEMBER` reads a `PersistentSettings` value outside its `SettingType` row'
 note: Use `SettingType.<Kind>.Read(<settings>, <key>)`, `SettingType.Enumeration<T>()` for an enum, the row parses stored text once and fails with `TypeMismatch` where a typed `TryGet*` retypes the key and reads an integer as a bool

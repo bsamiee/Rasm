@@ -1,5 +1,5 @@
-# ty: ignore[unresolved-import, unresolved-attribute, not-iterable, invalid-argument-type]
-# mypy: disable-error-code="attr-defined, arg-type, unreachable"
+# ty: ignore[invalid-argument-type, not-iterable, unresolved-attribute, unresolved-import]
+# mypy: disable-error-code="arg-type, attr-defined, unreachable"
 # /// script
 # requires-python = ">=3.13"
 # dependencies = ["msgspec", "rhino3dm"]

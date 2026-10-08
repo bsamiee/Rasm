@@ -154,7 +154,7 @@ def stated(path: Path, held: bytes, root: etree._Element, children: Sequence[Chi
     """Change of a settings file once every child is stated in the root parsed from its held bytes."""
     for child in children:
         state(root, child)
-    return written(path, held, root, lambda tree: canonical(etree.tostring(tree, encoding="unicode")))
+    return written(path, held, root, canonical)
 
 
 def pruned(root: etree._Element, directory: Path, kept: frozenset[str]) -> tuple[str, ...]:

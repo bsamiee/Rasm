@@ -1,4 +1,4 @@
-import { Schema } from 'effect';
+import { Array, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -10,6 +10,7 @@ const Id = Schema.String.check(Schema.isUUID());
 const extent = Schema.Finite.check(Schema.isGreaterThan(0));
 const Dimensions = Schema.Struct({ width: extent, height: extent });
 const Page = Schema.Struct({ ...Dimensions.fields, label: Schema.optionalKey(Schema.String) });
+const Sheet = Schema.Struct({ ...Page.fields, number: Schema.Int.check(Schema.isGreaterThan(0)) });
 const file = { id: Id, name: Schema.NonEmptyString, size: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: uploadLimit })) };
 class ImageAsset extends Schema.Class<ImageAsset>('ImageAsset')({
     ...file,
@@ -25,6 +26,10 @@ const Asset = Schema.Union([ImageAsset, VideoAsset, PdfAsset]);
 const AssetCollection = Schema.Record(Schema.String, Asset);
 const mediaTypes = Asset.members.flatMap((member) => member.fields.mime.literals);
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const sheets = ({ pages }: PdfAsset): Array.NonEmptyArray<typeof Sheet.Type> => Array.map(pages, (page, index) => ({ ...page, number: index + 1 }));
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Asset, AssetCollection, Dimensions, Id, ImageAsset, mediaTypes, Page, PdfAsset, uploadLimit, VideoAsset };
+export { Asset, AssetCollection, Dimensions, Id, ImageAsset, mediaTypes, Page, PdfAsset, Sheet, sheets, uploadLimit, VideoAsset };

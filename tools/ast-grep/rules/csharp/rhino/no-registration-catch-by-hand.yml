@@ -55,4 +55,4 @@ rule:
             - has: {field: left, matches: registering}
             - has: {field: right, kind: invocation_expression, all: [{has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}}, {has: {field: arguments, matches: missing-id}}]}
 message: '`$REGISTER` maps its missing plug-in id exception by hand'
-note: Use `Answers.Registered(<register>, <assembly>, <plugInId>, <member>)` over the `(Assembly, Guid)` host overload, `Registered` maps its `InvalidDataException` to `ExportMissingGuid`
+note: Leave content classes to Rhino, whose `PlugIn.InternalOnLoad` calls `RenderContent.RegisterContent(plugIn)` after `OnLoad`, and run `MissingGuid.Unless(<type>)` before a host registration that reads the class's `GuidAttribute`, so no catch maps an `InvalidDataException`

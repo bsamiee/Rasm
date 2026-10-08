@@ -49,23 +49,4 @@ public static class HostInterop {
 
     public static IO<(Seq<object> Values, Seq<string> Warnings)> Evaluate(ComponentFunctionInfo function, Seq<object> args, bool keepTree) =>
         IO.lift(() => (Values: toSeq(function.Evaluate(args, keepTree, out string[] warnings)), Warnings: toSeq(warnings)));
-
-    // --- [CALLBACKS]
-    private static readonly AtomHashMap<string, Guid> Names = AtomHashMap<string, Guid>();
-
-    public static IO<IDisposable> Register(string name, Func<NamedParametersEventArgs, IO<Unit>> reply, Action<Error> reject) =>
-        from token in IO.lift(static () => Guid.NewGuid())
-        from attached in Events.AttachAll(
-            Seq(
-                IO.lift(() => Taken.Unless(Names.FindOrAdd(name, token) == token, nameof(HostUtils.RegisterNamedCallback), name)).Map<IDisposable>(_ => new Disposal(() => Names.Remove(name))),
-                Events.Attach(h => HostUtils.RegisterNamedCallback(name, h), _ => HostUtils.RemoveNamedCallback(name), Answers.Handler(reply, reject))),
-            reject)
-        select attached;
-
-    public static IO<T> Execute<T>(string name, Action<NamedParametersEventArgs> write, Func<NamedParametersEventArgs, Option<T>> read) =>
-        DisposalOps.Using(static () => new NamedParametersEventArgs(), args =>
-            from written in IO.lift(() => write(args))
-            from answered in IO.lift(() => HostUtils.ExecuteNamedCallback(name, args))
-            from reply in IO.lift(() => (answered ? read(args) : None).ToFin(new Missing(name)))
-            select reply);
 }

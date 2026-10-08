@@ -1,4 +1,4 @@
-import { both, decoded, map, none, type Option, type Result, some } from '../composition.ts';
+import { both, decoded, fault, map, none, type Option, ok, type Result, some } from '../composition.ts';
 import type { Command } from '../policies/command.ts';
 import { operands } from '../policies/invocation.ts';
 
@@ -42,7 +42,7 @@ const _TOKEN = /\*\*\/|\*\*|[*?]|\{[^}]*\}|[$()+.[\]\\^|]/gu;
 
 // --- [DECODING]
 
-const graphPath = (root: string, data: Option<string>): string => `${data.kind === 'some' ? data.value : `${root}/.nx/workspace-data`}/project-graph.json`;
+const graphPath = (data: Option<string>): Result<string> => (data.kind === 'some' ? ok(`${data.value}/project-graph.json`) : fault({ kind: 'unread', subject: 'NX_WORKSPACE_DATA_DIRECTORY', cause: 'unset' }));
 
 const graph = async (read: Read, path: string): Promise<Result<ProjectGraph>> => decoded<ProjectGraph>('project-graph.json', await read(path));
 

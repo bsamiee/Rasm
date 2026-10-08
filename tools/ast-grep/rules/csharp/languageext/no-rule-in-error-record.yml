@@ -31,6 +31,16 @@ utils:
         any:
             - regex: '^unit$'
             - matches: argument-read
+            - kind: identifier
+              pattern: $NARROWED
+              inside:
+                kind: conditional_expression
+                has:
+                    field: condition
+                    kind: is_pattern_expression
+                    all:
+                        - has: {field: expression, matches: argument-read}
+                        - has: {field: pattern, kind: 'declaration_pattern, recursive_pattern', has: {field: name, pattern: $NARROWED}, not: {has: {stopBy: end, kind: relational_pattern}}}
     guard-factory:
         kind: method_declaration
         any:
@@ -64,6 +74,29 @@ utils:
                 - has: {field: parameters, regex: '^\(\s*string\s+\w+\s*\)$'}
     inherited:
         has: {kind: modifier, regex: '^(override|abstract)$'}
+    type-argument-read:
+        any:
+            - kind: typeof_expression
+              all:
+                - has: {field: type, kind: identifier, pattern: $PARAM}
+                - inside: {stopBy: end, kind: record_declaration, has: {kind: type_parameter_list, has: {kind: type_parameter, has: {field: name, pattern: $PARAM}}}}
+            - kind: member_access_expression
+              has: {field: expression, matches: type-argument-read}
+    type-argument-property:
+        any:
+            - has: {field: value, kind: arrow_expression_clause, has: {matches: type-argument-read}}
+            - has:
+                field: accessors
+                not: {has: {kind: accessor_declaration, nthChild: 2}}
+                has:
+                    kind: accessor_declaration
+                    all:
+                        - has: {field: name, regex: '^get$'}
+                        - has:
+                            field: body
+                            any:
+                                - {kind: arrow_expression_clause, has: {matches: type-argument-read}}
+                                - {kind: block, has: {kind: return_statement, has: {matches: type-argument-read}}, not: {has: {nthChild: 2}}}
 rule:
     any:
         - kind: field_declaration
@@ -77,7 +110,7 @@ rule:
                 - has: {kind: modifier, regex: '^static$'}
                 - has: {field: value, kind: arrow_expression_clause}
                 - has: {field: accessors, has: {kind: accessor_declaration, has: {field: body, kind: 'arrow_expression_clause, block'}}}
-            - not: {matches: inherited}
+            - not: {any: [{matches: inherited}, {matches: type-argument-property}]}
         - kind: indexer_declaration
           all:
             - has: {regex: '^this$', pattern: $$MEMBER}
@@ -92,4 +125,4 @@ rule:
             - not: {any: [{matches: guard-factory}, {matches: inherited}]}
     inside: {stopBy: end, kind: declaration_list, inside: {matches: csharp-error-record}}
 message: '`$MEMBER` declares a limit or an operation on an error record'
-note: Use the raising operations class for limits and operations, an error record holds its fields, `Unless` guard, and `Create(string)` factory alone
+note: Use the raising operations class for limits and operations, an error record holds its fields, `typeof` reads of its type parameters, `Unless` guard, and `Create(string)` factory alone

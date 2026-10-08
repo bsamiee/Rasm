@@ -5,7 +5,7 @@ description: "Use when a program needs a runtime secret or an agent needs a cred
 
 # [SECRETS]
 
-1Password and Doppler each hold every secret at its current value. Code and repository files name Doppler alone, and Doppler serves every running program through `doppler run`. 1Password serves the owner and local agents through `op` and the desktop app.
+1Password and Doppler each hold every secret at its current value. Code and repository files name Doppler alone. 1Password serves the owner and local agents through `op` and the desktop app. Use `README.md` for how a running program reads a Doppler secret.
 
 ## [01]-[DOPPLER_SCOPES]
 

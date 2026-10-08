@@ -2,7 +2,6 @@ using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
-using Rhino.Runtime;
 using Rhino.UI;
 
 namespace Rasm.Rhino.Blocks;
@@ -26,27 +25,6 @@ public sealed record ExplodedPiece(RhinoObject Piece, ObjectAttributes Attribute
     }
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record InstanceMotion {
-    public sealed record Similarity(Vector3d Translation, double Dilation, Transform Rotation) : InstanceMotion {
-        public bool Mirrored => Dilation < 0.0;
-    }
-
-    public sealed record Affinity(Vector3d Translation, Transform Rotation, Transform Orthogonal, Vector3d Diagonal) : InstanceMotion {
-        public bool Mirrored => Diagonal.X * Diagonal.Y * Diagonal.Z < 0.0;
-    }
-
-    public sealed record Projective() : InstanceMotion;
-
-    public static InstanceMotion Of(Transform xform, double tolerance) =>
-        xform.DecomposeSimilarity(out Vector3d translation, out double dilation, out Transform rotation, tolerance) switch {
-            TransformSimilarityType.OrientationPreserving or TransformSimilarityType.OrientationReversing => new Similarity(translation, dilation, rotation),
-            TransformSimilarityType.NotSimilarity => xform.DecomposeAffine(out Vector3d shift, out Transform turn, out Transform basis, out Vector3d diagonal)
-                ? new Affinity(shift, turn, basis, diagonal)
-                : new Projective(),
-        };
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Instances {
     // --- [READS]
@@ -58,15 +36,6 @@ public static class Instances {
             inViewport: static viewport => (SkipHidden: true, Viewport: viewport.ViewportId))
         from value in DisposalOps.Using(IO.lift(() => Exploded(reference.Object, host.SkipHidden, host.Viewport, explodeNested)), body)
         select value;
-
-    public static IO<Seq<TextFields.InstanceAttributeField>> Fields(string text) =>
-        IO.lift(() => toSeq(TextFields.GetInstanceAttributeFields(text)));
-
-    public static IO<Seq<TextFields.InstanceAttributeField>> Fields(RhinoDoc doc, Guid textObjectId) =>
-        Queries.Resolve<TextObject, TextEntity>(doc, textObjectId).Map(static resolved => toSeq(TextFields.GetInstanceAttributeFields(resolved.Object)));
-
-    public static IO<Seq<TextFields.InstanceAttributeField>> Fields(RhinoDoc doc, ComponentRef key) =>
-        TableOps.Find(doc.InstanceDefinitions, key, includeDeleted: false).Map(static definition => toSeq(TextFields.GetInstanceAttributeFields(definition)));
 
     private static Seq<ExplodedPiece> Exploded(InstanceObject reference, bool skipHidden, Guid viewport, bool explodeNested) {
         reference.Explode(skipHidden, viewport, explodeNested, out RhinoObject[] pieces, out ObjectAttributes[] attributes, out Transform[] xforms);

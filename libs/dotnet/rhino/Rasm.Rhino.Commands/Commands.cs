@@ -4,7 +4,6 @@ using Rhino.Commands;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Answers))]
 
 namespace Rasm.Rhino.Commands;
 

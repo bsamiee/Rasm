@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-module-state-csharp
+language: csharp
+severity: error
+utils:
+    weak-table:
+        regex: '^(global::)?(System\.Runtime\.CompilerServices\.)?ConditionalWeakTable\s*<'
+rule:
+    kind: field_declaration, property_declaration
+    all:
+        - has: {kind: modifier, regex: '^static$'}
+        - any:
+            - has: {field: type, matches: weak-table}
+            - has: {kind: variable_declaration, has: {field: type, matches: weak-table}}
+            - kind: field_declaration
+              not: {has: {kind: modifier, regex: '^(readonly|const)$'}}
+            - kind: property_declaration
+              has: {kind: accessor_list, has: {kind: accessor_declaration, has: {field: name, regex: '^set$'}}}
+        - any:
+            - has: {field: name, pattern: $NAME}
+            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}}
+message: 'Static `$NAME` holds mutable state every call of its type can write'
+note: 'Pass changing state to the next operation as a returned value, a value derived from an object belongs to its type, and a lifetime the consumer''s scope holds needs no `ConditionalWeakTable`'
