@@ -128,11 +128,10 @@ Each case decides the next step:
 Preference reloads and quits run through `mcp-for-blender`, its execute running with no sandbox:
 
 ```python
-# [MCP_FOR_BLENDER] Quit, saving a titled file with unsaved changes and discarding an untitled one
+# [MCP_FOR_BLENDER] Quit, discarding unsaved changes
 import bpy
 
-status = bpy.ops.wm.save_mainfile(exit=True) if bpy.data.filepath and bpy.data.is_dirty else bpy.ops.wm.quit_blender()
-print(sorted(status))
+print(sorted(bpy.ops.wm.quit_blender()))
 ```
 
 - `blender` raises on `sys.exit`, `wm.quit_blender`, `read_userpref`, `read_factory_settings`, and `read_factory_userpref`, and runs `read_homefile`

@@ -1,3 +1,4 @@
+using System.Net;
 using Rhino;
 using Rhino.Render;
 
@@ -50,6 +51,14 @@ public sealed record JobEntryRejected : Expected {
     public JobEntryRejected(int index, Error cause) : base("Render queue job entry {Index} holds a rejected value", (int)Codes.JobEntryRejected, cause) => Index = index;
 
     public int Index { get; }
+}
+
+public sealed record NoticeRefused(HttpStatusCode Status) : Expected("{Status} answered the notice post", (int)Codes.NoticeRefused);
+
+public sealed record NoticeUnreached : Expected {
+    public NoticeUnreached(string server, Error cause) : base("{Server} received no notice post", (int)Codes.NoticeUnreached, cause) => Server = server;
+
+    public string Server { get; }
 }
 
 public sealed record QueueEmpty() : Expected("Render queue holds no entry", (int)Codes.QueueEmpty);

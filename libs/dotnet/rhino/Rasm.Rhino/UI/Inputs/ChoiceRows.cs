@@ -59,7 +59,7 @@ public static class ChoiceRows {
             let site = new CallbackSite(scope.Sink, typeof(DropDown), nameof(DropDown.SelectedValueChanged))
             from popup in Popped(listed, site)
             from bound in DisposalOps.OnFailure(
-                RowEdit.Bind<TRecord, EventHandler<EventArgs>>(source, IterableNE.create(field),
+                RowEdit.Bind(source, IterableNE.create(field),
                     h => popup.Control.SelectedValueChanged += h, h => popup.Control.SelectedValueChanged -= h,
                     edit => Callbacks.Handler<EventArgs>(_ =>
                         from picked in popup.Picked
@@ -69,7 +69,7 @@ public static class ChoiceRows {
                     value => popup.Write(value.Map(lens.Get)), scope, site),
                 IO.lift(popup.Release.Dispose))
             from opening in DisposalOps.OnFailure(
-                Subscriptions.Attach<EventHandler<EventArgs>>(h => popup.Control.DropDownOpening += h, h => popup.Control.DropDownOpening -= h,
+                Subscriptions.Attach(h => popup.Control.DropDownOpening += h, h => popup.Control.DropDownOpening -= h,
                     Callbacks.Handler<EventArgs>(
                         _ => items(scope).Bind(popup.Relist).Bind(changed => when(changed, bound.Edit.Shown).As()),
                         new CallbackSite(scope.Sink, typeof(DropDown), nameof(DropDown.DropDownOpening)))),
@@ -89,7 +89,7 @@ public static class ChoiceRows {
                 toSeq(members.Map(member => new ChoiceItem<RowField<TRecord>>(member.Field, Wording.English.Shown(member.Field.Caption, scope.Sink), Some(member.Glyph)))),
                 SegmentedSelectionMode.Multiple, site)
             from bound in DisposalOps.OnFailure(
-                RowEdit.Bind<TRecord, EventHandler<EventArgs>>(source, members.Map(static member => member.Field),
+                RowEdit.Bind(source, members.Map(static member => member.Field),
                     h => strip.Control.SelectedItemsChanged += h, h => strip.Control.SelectedItemsChanged -= h,
                     edit => Callbacks.Handler<EventArgs>(_ =>
                         from picked in strip.Picked
@@ -131,7 +131,7 @@ public static class ChoiceRows {
         let held = entries.Bind(static realized => realized)
         from menu in IO.lift(() => new ContextMenu(Joined(entries)))
         from opened in DisposalOps.OnFailure(Opened(menu.Items, h => menu.Opening += h, h => menu.Opening -= h, refreshes, listing, site), Free(held))
-        select (menu, DisposalOps.Composite(((IDisposable)new Disposal<ContextMenu>(menu, static owned => owned.Dispose())).Cons(held.Map(static entry => entry.Release)).Add(opened), site));
+        select (menu, DisposalOps.Composite(new Disposal<ContextMenu>(menu, static owned => owned.Dispose()).Cons(held.Map(static entry => entry.Release)).Add(opened), site));
 
     public static Func<Option<Label>, Seq<Seq<Command>>, IO<Unit>, IO<IDisposable>> Context(Control control, Seq<Seq<MenuEntry>> own, Seq<IO<Unit>> refreshes, IPlugInSink sink) =>
         (_, groups, refresh) => Attached(control, own, refreshes, groups, refresh, sink);
@@ -143,7 +143,7 @@ public static class ChoiceRows {
 
     private static IO<IDisposable> Attached(Control control, Seq<Seq<MenuEntry>> own, Seq<IO<Unit>> refreshes, Seq<Seq<Command>> groups, IO<Unit> refresh, IPlugInSink sink) =>
         from built in Menu(own + groups.Map(static group => group.Map(static command => (MenuEntry)command)), refreshes.Add(refresh), None, sink)
-        from set in DisposalOps.OnFailure(IO.lift(() => control.ContextMenu = built.Menu), IO.lift(built.Release.Dispose))
+DisposalOps.OnFailure(IO.lift(() => control.ContextMenu = built.Menu), IO.lift(built.Release.Dispose))
         select DisposalOps.Composite(
             Seq<IDisposable>(built.Release, new Disposal<Control>(control, static held => held.ContextMenu = null)),
             new CallbackSite(sink, control.GetType(), nameof(Control.ContextMenu)));
@@ -151,7 +151,7 @@ public static class ChoiceRows {
     // --- [SEARCH]
     public static IO<(SearchBox Control, IDisposable Release)> Search(string placeholder, Func<Func<string, bool>, IO<Unit>> filter, IPlugInSink sink) =>
         from field in IO.lift(() => new SearchBox { PlaceholderText = placeholder })
-        from attached in Subscriptions.Attach<EventHandler<EventArgs>>(h => field.TextChanged += h, h => field.TextChanged -= h,
+        from attached in Subscriptions.Attach(h => field.TextChanged += h, h => field.TextChanged -= h,
             Callbacks.Handler<EventArgs>(
                 _ => IO.lift(() => field.Text.Trim()).Bind(query => filter(text => RowText.Culture.CompareInfo.IndexOf(text, query, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0)),
                 new CallbackSite(sink, typeof(SearchBox), nameof(SearchBox.TextChanged))))
@@ -168,12 +168,12 @@ public static class ChoiceRows {
             popup,
             (Func<Option<TModel>, IO<Unit>>)(value => held.ValueIO.Bind(current => IO.lift(() => {
                 (popup.DataStore, popup.SelectedValue) = value.Match(
-                    Some: model => (current.Entries, (object?)current.Entry(model).ValueUnsafe()),
-                    None: () => (((object)varies).Cons(current.Entries), (object?)varies));
+                    Some: model => (current.Entries, current.Entry(model).ValueUnsafe()),
+                    None: () => (varies.Cons(current.Entries), (object?)varies));
             }))),
             held.ValueIO.Bind(current => IO.lift(() => current.Value(popup.SelectedValue))),
             (Func<Seq<ChoiceItem<TModel>>, IO<bool>>)(next => held.ValueIO.Bind(current => current.Rows.Map(static row => row.Item).Equals(next)
-                ? IO.pure(false)
+                ? IO.pure(value: false)
                 : from fresh in Listed(next, site)
                   from swapped in held.SwapIO(_ => fresh)
                   from released in IO.lift(current.Themed.Dispose)
@@ -189,7 +189,7 @@ public static class ChoiceRows {
     private static IO<(SegmentedButton Control, Func<Option<Seq<TModel>>, IO<Unit>> Write, IO<Seq<TModel>> Picked, IDisposable Release)> Segmented<TModel>(
         Seq<ChoiceItem<TModel>> items, SegmentedSelectionMode mode, CallbackSite site) where TModel : notnull =>
         from rows in IO.lift(() => items.Map(static item => (Item: item, Segment: new ButtonSegmentedItem {
-            Text = item.Glyph.Map(static _ => string.Empty).IfNone(item.Caption), ToolTip = item.Caption,
+            Text = item.Glyph.Map(static _ => "").IfNone(item.Caption), ToolTip = item.Caption,
         })).Strict())
         from strip in IO.lift(() => new SegmentedButton { SelectionMode = mode })
         from added in IO.lift(() => strip.Items.AddRange(rows.Map(static row => (SegmentedItem)row.Segment)))
@@ -233,15 +233,15 @@ public static class ChoiceRows {
         pick.Switch(site,
             item: static (at, item) =>
                 from check in IO.lift(() => MenuPickMapper.ToCheckMenuItem(item))
-                from clicked in Subscriptions.Attach<EventHandler<EventArgs>>(h => check.Click += h, h => check.Click -= h,
+                from clicked in Subscriptions.Attach(h => check.Click += h, h => check.Click -= h,
                     Callbacks.Handler<EventArgs>(_ => item.Run, new CallbackSite(at.Sink, typeof(CheckMenuItem), nameof(CheckMenuItem.Click))))
-                select ((MenuItem)check, DisposalOps.Composite(Seq<IDisposable>(new Disposal<MenuItem>(check, static held => held.Dispose()), clicked), at)),
+                select ((MenuItem)check, DisposalOps.Composite(Seq(new Disposal<MenuItem>(check, static held => held.Dispose()), clicked), at)),
             group: static (at, nested) =>
                 from picks in DisposalOps.AcquireAll(nested.Picks.Map(child => Pick(child, at)), Free)
                 let children = picks.Map(static child => child.Item)
                 from sub in IO.lift(() => new SubMenuItem([.. children]) { Text = nested.Caption })
                 select ((MenuItem)sub, DisposalOps.Composite(
-                    ((IDisposable)new Disposal<MenuItem>(sub, static held => held.Dispose())).Cons(picks.Map(static child => child.Release)), at)));
+                    new Disposal<MenuItem>(sub, static held => held.Dispose()).Cons(picks.Map(static child => child.Release)), at)));
 
     private static IO<IDisposable> Opened(
         MenuItemCollection items, Action<EventHandler<EventArgs>> add, Action<EventHandler<EventArgs>> remove,
@@ -261,7 +261,7 @@ public static class ChoiceRows {
                    from kept in shown.SwapIO(held => held with { Shown = listed })
                    select unit).ToSeq()).Map(static _ => unit), site))
         select DisposalOps.Composite(
-            Seq<IDisposable>(new Disposal<Atom<ListedPicks>>(shown, cell => _ = Callbacks.Answer(Free(cell.Value.Shown), static () => unit, site)), attached), site);
+            Seq(new Disposal<Atom<ListedPicks>>(shown, cell => _ = Callbacks.Answer(Free(cell.Value.Shown), static () => unit, site)), attached), site);
 
     private static IO<Unit> Free(Seq<(MenuItem Item, IDisposable Release)> held) =>
         DisposalOps.Release(held.Map(static entry => entry.Release));

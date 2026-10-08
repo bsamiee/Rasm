@@ -120,7 +120,7 @@ public sealed partial class WellShape {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ScopeKind {
     public static readonly ScopeKind Histogram = new("histogram", WellShape.Banded, static (frames, _, _, _) =>
-        (ScopePlan)new ScopePlan.Histogram(
+        new ScopePlan.Histogram(
             frames.Frame, new ScopeRequest.Histogram(frames.Gamut, frames.Levels.Map(static levels => levels.Clipping)),
             frames.Scene.Map(static scene => (scene.Frame, new ScopeRequest.Histogram(scene.Gamut, None)))));
     public static readonly ScopeKind WaveformLuma = new("waveform-luma", WellShape.Banded, WaveformLayout.Luma.Plan);
@@ -285,10 +285,10 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         from source in frames
         from width in IO.lift(() => (float)Width)
         from requested in (from held in scale
-                   from shown in source
-                   from plan in after.Value.Chosen.Kind.Plan(shown, Placed(after, width).Plot, held, after.Zoom).ToOption()
-                   where !run.Value.Exists(current => current.Requested == plan)
-                   select Requested(after.Value.Chosen.Kind, plan)).IfNone(IO.pure(unit))
+                           from shown in source
+                           from plan in after.Value.Chosen.Kind.Plan(shown, Placed(after, width).Plot, held, after.Zoom).ToOption()
+                           where !run.Value.Exists(current => current.Requested == plan)
+                           select Requested(after.Value.Chosen.Kind, plan)).IfNone(IO.pure(unit))
         select unit;
 
     private IO<Unit> Requested(ScopeKind kind, ScopePlan plan) =>
@@ -354,7 +354,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static Option<(RectangleF Bounds, ScopePart Part)> Footer(ScopeViewState state, RectangleF well, RectangleF plot) =>
         state.Value.Switch(
-            (Well: well, Plot: plot, Shape: state.Value.Chosen.Kind.Shape),
+            (Well: well, Plot: plot, state.Value.Chosen.Kind.Shape),
             chart: static (held, _) => held.Shape.Resizes
                 ? Some((new RectangleF(held.Well.Left, held.Well.Bottom, held.Well.Width, GripHeight), (ScopePart)new ScopePart.Grip(held.Well)))
                 : None,
@@ -414,7 +414,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private static float LevelX(ScopeViewState state, RectangleF plot, float level) =>
         plot.Left + (Located(state, level) * plot.Width / state.Value.Chosen.Range.Bins);
 
-    private static float Level(LevelsParameter handle, Levels pair) => handle.Map<float>(black: pair.Black, white: pair.Black + float.Exp2(pair.White));
+    private static float Level(LevelsParameter handle, Levels pair) => handle.Map(black: pair.Black, white: pair.Black + float.Exp2(pair.White));
 
     // --- [TRANSITIONS]
     private const float GainStep = 120f * 0.00125f;
@@ -535,7 +535,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             .ToOption()
             .Map(aspect => (ScopeEdit)new ScopeEdit.Chart(state.Value.Chosen, aspect));
 
-    private static Transition<ScopeViewState, ScopeEdit> Edited(ScopeViewState state, Option<ScopeEdit> value, Func<ScopeEdit, Edit<ScopeEdit>> edit) =>
+    private static new Transition<ScopeViewState, ScopeEdit> Edited(ScopeViewState state, Option<ScopeEdit> value, Func<ScopeEdit, Edit<ScopeEdit>> edit) =>
         value.Map(shown => new Transition<ScopeViewState, ScopeEdit>(state with { Value = shown }, Some(edit(shown))))
             .IfNone(new Transition<ScopeViewState, ScopeEdit>(state, None));
 
@@ -562,7 +562,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private const float WorkingAlpha = 0.7f;
     private static readonly SizeF LabelOffset = new(13f, 16f);
     private static readonly (float Least, float Most) WhiteSide = (3f, 6f);
-    private static readonly Seq<float> Quarters = toSeq(Prelude.Range(1, 4)).Map(static quarter => quarter / 4f);
+    private static readonly Seq<float> Quarters = toSeq(Range(1, 4)).Map(static quarter => quarter / 4f);
     private static readonly MarkStyle Split = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.ControlText), 0.5f, 1f);
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, ScopeViewState state, Seq<PlotMark<ScopePart>> marks, Interaction<ScopePart> interaction) =>
@@ -633,7 +633,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static Seq<(float Level, string Format)> Ticks(int bins) =>
         Quarters.Map(static level => (Level: level, Format: "F2"))
-            .Concat(toSeq(Prelude.Range(1, HistogramAxis.TopStop)).Map(static stop => (Level: float.Exp2(stop), Format: "0")))
+            .Concat(toSeq(Range(1, HistogramAxis.TopStop)).Map(static stop => (Level: float.Exp2(stop), Format: "0")))
             .Filter(tick => HistogramAxis.Bin(tick.Level) <= bins);
 
     private static Seq<PlotMark<ScopePart>> Edges(RectangleF plot, Seq<(TraceChannel Channel, Vector3 Ink, float[] Heights)> fills, Option<float[]> scene) =>
@@ -672,7 +672,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         select unit;
 
     private static Seq<int> Tenths(float limit) =>
-        toSeq(Prelude.Range(0, Divisions + 1)).Filter(tenth => (float)tenth / Divisions <= limit);
+        toSeq(Range(0, Divisions + 1)).Filter(tenth => (float)tenth / Divisions <= limit);
 
     private static IO<Unit> VectorscopePaint(PlotCanvas canvas, ScopeViewState state, RectangleF plot, ScopeTraces.Vectorscope traces) =>
         (Axes: new ChromaAxes(traces.Reading.Request.Gamut.Luminance), Peak: Peak(traces.Reading.Bins.Counts), Square: ScopeKind.Unit(plot)) switch {
@@ -749,16 +749,16 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static IO<Unit> ChromaticityPlot(PlotCanvas canvas, RectangleF plot, ScopeTraces.Chromaticity traces) =>
         (Square: ScopeKind.Unit(ScopeTraces.Chromaticity.Square(plot)), Ink: Ink(canvas, new MarkColor.Themed(PaintSlot.ControlText)), Peak: Peak(traces.Reading.Bins.Counts),
-         Fit: ScopeTraces.Chromaticity.Fit, Roles: Roles(traces), Side: float.Clamp(plot.Width * WhiteShare, WhiteSide.Least, WhiteSide.Most)) switch {
-            var held =>
-                from extent in IO.lift(Plots.Device(held.Square, canvas.Scale))
-                from rastered in Rastered(canvas, held.Square.Plot, extent, point => held.Ink * Weight(Count(traces.Reading.Bins, held.Square.Value(point)), held.Peak, TraceBrightness.Normal))
-                from ruled in Plots.Paint(canvas, Lattice(held.Square, held.Fit).Concat(Gamuts(held.Square, held.Side, held.Roles)))
-                from based in Plots.Labels(canvas, held.Square, LabelSide.Bottom, Evens(held.Fit.X))
-                from sided in Plots.Labels(canvas, held.Square, LabelSide.Left, Evens(held.Fit.Y))
-                from listed in Legend(canvas, plot, held.Roles)
-                select unit,
-        };
+          ScopeTraces.Chromaticity.Fit, Roles: Roles(traces), Side: float.Clamp(plot.Width * WhiteShare, WhiteSide.Least, WhiteSide.Most)) switch {
+              var held =>
+                  from extent in IO.lift(Plots.Device(held.Square, canvas.Scale))
+                  from rastered in Rastered(canvas, held.Square.Plot, extent, point => held.Ink * Weight(Count(traces.Reading.Bins, held.Square.Value(point)), held.Peak, TraceBrightness.Normal))
+                  from ruled in Plots.Paint(canvas, Lattice(held.Square, held.Fit).Concat(Gamuts(held.Square, held.Side, held.Roles)))
+                  from based in Plots.Labels(canvas, held.Square, LabelSide.Bottom, Evens(held.Fit.X))
+                  from sided in Plots.Labels(canvas, held.Square, LabelSide.Left, Evens(held.Fit.Y))
+                  from listed in Legend(canvas, plot, held.Roles)
+                  select unit,
+          };
 
     private static Seq<PlotMark<ScopePart>> Lattice(PlotPlane.Cartesian square, Vector2 fit) =>
         Plots.Rules(square, Orientation.Vertical, Tenths(fit.X).Map(static tenth => (float)tenth / Divisions))
@@ -801,7 +801,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static IO<Unit> Legend(PlotCanvas canvas, RectangleF plot, Seq<(string Role, Gamut Gamut, float Alpha)> roles) =>
         IO.lift(() => roles
-            .Map((role, block) => Lines(role.Role, role.Gamut).Map(text => (Text: text, role.Alpha, Block: block)))
+            .Map(static (role, block) => Lines(role.Role, role.Gamut).Map(text => (Text: text, role.Alpha, Block: block)))
             .Flatten()
             .Map((line, index) => (line.Text, line.Alpha, Top: plot.Top + (index * canvas.Font.LineHeight) + (line.Block * canvas.Font.LineHeight / 2f)))
             .Iter(line => canvas.Graphics.DrawText(

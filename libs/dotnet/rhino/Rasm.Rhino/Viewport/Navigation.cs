@@ -158,11 +158,11 @@ public static class Navigation {
             });
 
     // --- [VIEWPORTS]
-    public static IO<Seq<bool>> ApplyToViewports(RhinoDoc doc, ViewportSet viewports, Func<RhinoViewport, Fin<Unit>> edit, RedrawPolicy redraw) =>
+    public static IO<Seq<bool>> ApplyToViewports(RhinoDoc doc, ViewportSet viewports, Func<RhinoViewport, IO<Unit>> edit, RedrawPolicy redraw) =>
         Commits.WithinRedraw(doc, redraw, Viewports.ResolveViewports(doc, viewports).Bracket(
             Use: rows => rows.TraverseM(row =>
                 from before in IO.lift(() => row.Viewport.ChangeCounter)
-                from edited in IO.lift(() => edit(row.Viewport))
+                from edited in edit(row.Viewport)
                 from moved in IO.lift(() => row.Viewport.ChangeCounter != before)
                 from committed in when(moved, IO.lift(row.CommitViewportChanges)).As()
                 select moved).As(),

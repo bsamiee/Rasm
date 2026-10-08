@@ -115,14 +115,12 @@ public static class Sources {
 
     public static IO<ValueDiff> Copy(SceneSource source, SceneSource target) =>
         from values in IO.lift(Bindings(source).ToFin()).Bind(static group => group.Capture)
-        from diff in Edit(target, staged =>
+Edit(target, staged =>
             from group in IO.lift(Bindings(staged).ToFin())
-            from applied in group.Apply(values, toHashSet(group.Keys().Filter(static key => key.Owner == RenderSourceState.Owner)))
-            select applied)
-        select diff;
+group.Apply(values, toHashSet(group.Keys().Filter(static key => key.Owner == RenderSourceState.Owner)))
 
     public static IO<Unit> Reset(SceneSource source) =>
-        Edit(source, staged => Rows(staged).TraverseM(static row => row.Reset).As().Map(static _ => unit));
+        Edit(source, static staged => Rows(staged).TraverseM(static row => row.Reset).As().Map(static _ => unit));
 
     private static Seq<(ValueBinding Binding, IO<Unit> Reset)> Rows(SceneSource source) =>
         Seq(Row<ImageOutputState, ImageOutputParameter>(source), Row<RenderSourceState, RenderSourceParameter>(source), Row<FrameState, FrameParameter>(source),

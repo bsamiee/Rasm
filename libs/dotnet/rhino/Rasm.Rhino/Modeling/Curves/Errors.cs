@@ -6,4 +6,4 @@ internal enum Codes {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record UnorderedParameters(string Member) : Expected("{Member} requires strictly increasing parameters", (int)Codes.UnorderedParameters);
+public sealed record UnorderedParameters() : Expected($"{nameof(Curve.GetPerpendicularFrames)} requires strictly increasing parameters", (int)Codes.UnorderedParameters);

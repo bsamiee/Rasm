@@ -7,9 +7,11 @@ namespace Rasm.Rhino.Display;
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct ObjectEffectAmount : System.Numerics.IMinMaxValue<ObjectEffectAmount> {
-    public static ObjectEffectAmount MinValue => Off;
+    // --- [LIMITS]
+    public static ObjectEffectAmount MinValue { get; } = new(0f);
     public static ObjectEffectAmount MaxValue { get; } = new(1f);
 
+    // --- [FACTORY]
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
@@ -17,9 +19,11 @@ public readonly partial struct ObjectEffectAmount : System.Numerics.IMinMaxValue
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct DiagonalHatchWidth : System.Numerics.IMinMaxValue<DiagonalHatchWidth> {
+    // --- [LIMITS]
     public static DiagonalHatchWidth MinValue { get; } = new(0f);
     public static DiagonalHatchWidth MaxValue { get; } = new(float.MaxValue);
 
+    // --- [FACTORY]
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
@@ -45,8 +49,9 @@ public sealed record ObjectEffects(Color FadeColor, ObjectEffectAmount FadeAmoun
     }
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record FrameBufferFill {
+    // --- [CASES]
     public sealed record DefaultColor() : FrameBufferFill;
 
     public sealed record SolidColor(Color Color) : FrameBufferFill;
@@ -61,6 +66,7 @@ public abstract partial record FrameBufferFill {
 
     public sealed record Transparent() : FrameBufferFill;
 
+    // --- [ATTRIBUTES]
     public static FrameBufferFill FromHost(DisplayPipelineAttributes attributes) {
         attributes.GetFill(out Color topLeft, out Color bottomLeft, out Color topRight, out Color bottomRight);
         return attributes.FillMode switch {

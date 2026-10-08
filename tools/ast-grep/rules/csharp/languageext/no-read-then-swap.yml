@@ -39,9 +39,31 @@ utils:
                 - all:
                     - has: {field: function, pattern: $SWAP}
                     - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: receiver}}}
-    step:
-        kind: 'local_declaration_statement, expression_statement, return_statement, if_statement, while_statement, do_statement, for_statement, foreach_statement, using_statement, lock_statement, yield_statement, from_clause, let_clause, where_clause, select_clause'
+    binding:
+        kind: 'local_declaration_statement, from_clause, let_clause'
         not: {inside: {kind: if_statement, field: consequence}}
+        any:
+            - has: {field: name, pattern: $BOUND}
+            - has: {kind: identifier, nthChild: 1, pattern: $BOUND}
+            - has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $BOUND}}
+    derived:
+        kind: 'local_declaration_statement, from_clause, let_clause'
+        all:
+            - has: {stopBy: end, kind: identifier, pattern: $BOUND}
+            - any:
+                - has: {field: name, pattern: $DERIVED}
+                - has: {kind: identifier, nthChild: 1, pattern: $DERIVED}
+                - has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $DERIVED}}
+    fed-bound:
+        kind: invocation_expression
+        all:
+            - matches: swap
+            - has: {stopBy: end, kind: identifier, pattern: $BOUND}
+    fed-derived:
+        kind: invocation_expression
+        all:
+            - matches: swap
+            - has: {stopBy: end, kind: identifier, pattern: $DERIVED}
 rule:
     kind: member_access_expression
     all:
@@ -52,8 +74,14 @@ rule:
         - any:
             - inside:
                 stopBy: end
-                matches: step
-                precedes: {stopBy: end, has: {stopBy: end, matches: swap}}
+                matches: binding
+                precedes:
+                    stopBy: end
+                    any:
+                        - has: {stopBy: end, matches: fed-bound}
+                        - all:
+                            - matches: derived
+                            - precedes: {stopBy: end, has: {stopBy: end, matches: fed-derived}}
             - inside:
                 stopBy: end
                 field: condition

@@ -21,6 +21,8 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
 
     public static readonly SettingsNode Options = Application.Child("Options");
 
+    public static readonly SettingsNode DisplayModes = Options.Child("DisplayAttributesManager");
+
     public SettingsNode Child(string key) => this with { Path = Path.Add(key) };
 }
 

@@ -51,8 +51,10 @@ public sealed partial class PaintSlot {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Themes {
     // --- [METRIC]
+    public static IO<float> Scale => IO.lift(static () => Screen.Screens.Max(static screen => screen.LogicalPixelSize));
+
     public static IO<System.Drawing.Size> Device(Size logical) =>
-        IO.lift(static () => Screen.Screens.Max(static screen => screen.LogicalPixelSize))
+        Scale
             .Map(scale => Size.Ceiling(logical * scale))
             .Map(static device => new System.Drawing.Size(device.Width, device.Height));
 

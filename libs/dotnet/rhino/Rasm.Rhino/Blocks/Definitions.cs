@@ -23,14 +23,15 @@ public sealed record Hyperlink(string Address, Option<string> Tag) {
 
 public sealed record DefinitionMetadata(string Name, Option<string> Description, Option<Hyperlink> Link) {
     public Option<string> Description { get; } = Description.Bind(Conversions.Present);
-
     public Option<Hyperlink> Link { get; } = Link.Filter(static link => link.Address.Length > 0);
+    internal string Url => Conversions.Unset(Link.Map(static link => link.Address));
+    internal string UrlTag => Conversions.Unset(Link.Bind(static link => link.Tag));
 
     public static DefinitionMetadata Of(InstanceDefinitionGeometry definition) =>
         new(
             definition.Name,
-            Conversions.Present(definition.Description),
-            Conversions.Present(definition.Url).Map(address => new Hyperlink(address, Conversions.Present(definition.UrlDescription))));
+            Optional(definition.Description),
+            Optional(definition.Url).Map(address => new Hyperlink(address, Optional(definition.UrlDescription))));
 }
 
 public sealed record SourceReference(string FullPath, Option<string> RelativePath);
@@ -45,11 +46,6 @@ public sealed record LinkState(
 
 public sealed record DefinitionUsage(int TopLevel, int Nested) {
     public int Total => TopLevel + Nested;
-
-    public static DefinitionUsage Of(InstanceDefinition definition) {
-        _ = definition.UseCount(out int topLevel, out int nested);
-        return new DefinitionUsage(topLevel, nested);
-    }
 }
 
 public sealed record DefinitionState(
@@ -67,8 +63,9 @@ public sealed record DefinitionState(
 
     public bool ClippingDrawing => UserStrings.ContainsKey("SectionTools");
 
-    public static DefinitionState Of(InstanceDefinition definition) =>
-        new(
+    public static DefinitionState Of(InstanceDefinition definition) {
+        _ = definition.UseCount(out int topLevel, out int nested);
+        return new(
             definition.Id,
             definition.Index,
             DefinitionMetadata.Of(definition),
@@ -85,43 +82,96 @@ public sealed record DefinitionState(
             definition.IsReference,
             Conversions.Rows(definition.GetObjectIds()),
             Conversions.Rows(definition.GetContainers()).Map(static container => container.Id).Strict(),
-            DefinitionUsage.Of(definition),
+            new DefinitionUsage(topLevel, nested),
             Document.Tables.UserStrings.Held(definition.GetUserStrings()));
+    }
 }
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record PreviewMethod {
     public sealed record ByMode(DefinedViewportProjection Projection, DisplayMode DisplayMode, bool ApplyDpiScaling, Option<Guid> Selected) : PreviewMethod;
 
     public sealed record ByCamera(Guid DisplayModeId, DefinedViewportProjection Projection, IsometricCamera Camera, bool DrawDecorations, bool ApplyDpiScaling) : PreviewMethod;
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record DefinitionEdit {
-    public sealed record Modify(DefinitionMetadata Metadata) : DefinitionEdit;
+    internal abstract IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition);
 
-    public sealed record ModifyGeometry(Seq<GeometryPair> Members) : DefinitionEdit;
+    public sealed record Modify(DefinitionMetadata Metadata) : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
+            IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Modify(
+                definition.Index, Metadata.Name, Conversions.Unset(Metadata.Description), Metadata.Url, Metadata.UrlTag, quiet: true), nameof(InstanceDefinitionTable.Modify)));
+    }
 
-    public sealed record ModifyInsertionPlane(Plane Plane) : DefinitionEdit;
+    public sealed record ModifyGeometry(Seq<GeometryPair> Members) : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
+            TableOps.WithAttributes(doc.CreateDefaultAttributes, Members, (geometry, attributes) => IO.lift(() => Refused.Unless(
+                doc.InstanceDefinitions.ModifyGeometry(definition.Index, geometry, attributes), nameof(InstanceDefinitionTable.ModifyGeometry))));
+    }
 
-    public sealed record ModifyUserData(UserData Data) : DefinitionEdit;
+    public sealed record ModifyInsertionPlane(Plane Plane) : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
+            IO.lift(() => Refused.Unless(doc.InstanceDefinitions.ModifyInsertionPlane(definition.Index, Plane), nameof(InstanceDefinitionTable.ModifyInsertionPlane)));
+    }
 
-    public sealed record ModifySourceArchive(SourceReference Source, InstanceDefinitionUpdateType UpdateType, InstanceDefinitionLayerStyle LayerStyle) : DefinitionEdit;
+    public sealed record ModifyUserData(UserData Data) : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
+            IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Modify(definition.Index, Data, quiet: true), nameof(InstanceDefinitionTable.Modify)));
+    }
 
-    public sealed record DestroySourceArchive() : DefinitionEdit;
+    public sealed record ModifySourceArchive(SourceReference Source, InstanceDefinitionUpdateType UpdateType, InstanceDefinitionLayerStyle LayerStyle) : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
+            (from path in IO.lift(() => Exchange.ExistingPath(Source.FullPath))
+             from reference in use(IO.lift(() => Missing.Unless(
+                 FileReference.CreateFromFullAndRelativePaths(path, Source.RelativePath.ValueUnsafe()), nameof(FileReference.CreateFromFullAndRelativePaths))))
+             from modified in IO.lift(() => Refused.Unless(
+                 doc.InstanceDefinitions.ModifySourceArchive(definition.Index, reference, UpdateType, LayerStyle, quiet: true), nameof(InstanceDefinitionTable.ModifySourceArchive)))
+             select modified).Bracket();
+    }
 
-    public sealed record RefreshLinkedBlock() : DefinitionEdit;
+    public sealed record DestroySourceArchive : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
+            IO.lift(() => Refused.Unless(doc.InstanceDefinitions.DestroySourceArchive(definition, quiet: true), nameof(InstanceDefinitionTable.DestroySourceArchive)));
+    }
 
-    public sealed record UpdateLinked(string Path, bool UpdateNestedLinks) : DefinitionEdit;
+    public sealed record RefreshLinkedBlock : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
+            IO.lift(() => Refused.Unless(doc.InstanceDefinitions.RefreshLinkedBlock(definition), nameof(InstanceDefinitionTable.RefreshLinkedBlock)));
+    }
 
-    public sealed record Set(Action<InstanceDefinition> Write) : DefinitionEdit;
+    public sealed record UpdateLinked(string Path, bool UpdateNestedLinks) : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
+            from path in IO.lift(() => Exchange.ExistingPath(Path))
+            from modified in IO.lift(() => Refused.Unless(
+                doc.InstanceDefinitions.UpdateLinkedInstanceDefinition(definition.Index, path, UpdateNestedLinks, quiet: true), nameof(InstanceDefinitionTable.UpdateLinkedInstanceDefinition)))
+            select modified;
+    }
 
-    public sealed record Delete(bool DeleteReferences) : DefinitionEdit;
+    public sealed record Set(Action<InstanceDefinition> Write) : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) => IO.lift(() => Write(definition));
+    }
+
+    public sealed record Delete(bool DeleteReferences) : DefinitionEdit {
+        internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
+            from containers in IO.lift(() => Conversions.Rows(definition.GetContainers()).Map(static container => container.Id).Strict())
+            from free in guard<Error>(containers.IsEmpty, new DefinitionContained(definition.Id, containers))
+            from deleted in IO.lift(() => Refused.Unless(
+                doc.InstanceDefinitions.Delete(definition.Index, DeleteReferences, quiet: true), nameof(InstanceDefinitionTable.Delete)))
+            select deleted;
+    }
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record DefinitionOp {
-    public sealed record Add(DefinitionMetadata Metadata, Point3d BasePoint, Seq<GeometryPair> Members, bool OverrideExisting) : DefinitionOp;
+    internal abstract IO<int> Apply(RhinoDoc doc);
+
+    public sealed record Add(DefinitionMetadata Metadata, Point3d BasePoint, Seq<GeometryPair> Members, bool OverrideExisting) : DefinitionOp {
+        internal override IO<int> Apply(RhinoDoc doc) =>
+            TableOps.WithAttributes(doc.CreateDefaultAttributes, Members, (geometry, attributes) => IO.lift(() => Conversions.Required(
+                doc.InstanceDefinitions.Add(Metadata.Name, Conversions.Unset(Metadata.Description), Metadata.Url, Metadata.UrlTag, BasePoint, geometry, attributes, OverrideExisting),
+                nameof(InstanceDefinitionTable.Add))));
+    }
 
     public sealed record CreateFromFile(
         string Path,
@@ -129,11 +179,31 @@ public abstract partial record DefinitionOp {
         InstanceDefinitionUpdateType UpdateType,
         InstanceDefinitionLayerStyle LayerStyle,
         InstanceDefinitionNameConflictResolution Conflict,
-        bool SkipNestedLinkedDefinitions) : DefinitionOp;
+        bool SkipNestedLinkedDefinitions) : DefinitionOp {
+        internal override IO<int> Apply(RhinoDoc doc) =>
+            from path in IO.lift(() => Exchange.ExistingPath(Path))
+            from count in IO.lift(() => doc.InstanceDefinitions.Count)
+            from index in IO.lift(() => Conversions.Required(doc.InstanceDefinitions.CreateFromFile(
+                path, Metadata.Name, Conversions.Unset(Metadata.Description), Metadata.Url, Metadata.UrlTag,
+                UpdateType, LayerStyle, Conflict, SkipNestedLinkedDefinitions), nameof(InstanceDefinitionTable.CreateFromFile)))
+            from row in TableOps.Find(doc.InstanceDefinitions, index, includeDeleted: false)
+            from created in guard<Error>(index >= count || TableOps.Names<InstanceDefinition>().Equals(row.Name, Metadata.Name), new AlreadyLinked(path, row.Id))
+            select index;
+    }
 
-    public sealed record Edit(ComponentRef<InstanceDefinition> Address, DefinitionEdit Change) : DefinitionOp;
+    public sealed record Edit(ComponentRef<InstanceDefinition> Address, DefinitionEdit Change) : DefinitionOp {
+        internal override IO<int> Apply(RhinoDoc doc) =>
+            from definition in TableOps.Find(doc.InstanceDefinitions, Address, includeDeleted: false)
+            from edited in Change.Apply(doc, definition)
+            select definition.Index;
+    }
 
-    public sealed record Undelete(ComponentRef<InstanceDefinition> Address) : DefinitionOp;
+    public sealed record Undelete(ComponentRef<InstanceDefinition> Address) : DefinitionOp {
+        internal override IO<int> Apply(RhinoDoc doc) =>
+            from definition in TableOps.Find(doc.InstanceDefinitions, Address, includeDeleted: true)
+            from restored in IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Undelete(definition.Index), nameof(InstanceDefinitionTable.Undelete)))
+            select definition.Index;
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -148,8 +218,9 @@ public static class Definitions {
         select container.Index == nested.Index ? Option<int>.None : Some(container.UsesDefinition(nested.Index)).Filter(static level => level > 0);
 
     public static IO<ContentKey> Stamp(RhinoDoc doc, ComponentRef<InstanceDefinition> address) =>
-        TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false).Map(static definition => DefinitionMetadata.Of(definition) switch {
-            var metadata => ContentKey.Of(KeyDomain.Definition, stream => stream
+        from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
+        let metadata = DefinitionMetadata.Of(definition)
+        select ContentKey.Of(KeyDomain.Definition, stream => stream
                 .Text(metadata.Name)
                 .Rows(metadata.Description.ToSeq(), static (row, text) => row.Text(text))
                 .Rows(metadata.Link.ToSeq(), static (row, link) => row.Text(link.Address).Rows(link.Tag.ToSeq(), static (tag, text) => tag.Text(text)))
@@ -160,13 +231,12 @@ public static class Definitions {
                 .Integer(Measurements.Checksum(Conversions.Rows(definition.GetObjects()).Map(static member => member.Geometry).Strict()))
                 .Rows(
                     definition.IsLinkedType ? toSeq(ContentHash.CreateFromFile(definition.SourceArchive).Sha1ContentHash) : Seq<byte>(),
-                    static (row, value) => row.Integer<int>(value))),
-        });
+                    static (row, value) => row.Integer((int)value)));
 
     // --- [PREVIEW]
     public static IO<TValue> Preview<TValue>(RhinoDoc doc, ComponentRef<InstanceDefinition> address, PreviewMethod method, Size pixels, Func<Bitmap, IO<TValue>> body) =>
-        TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false).Bind(definition =>
-            use(IO.lift(() => Missing.Unless(
+        (from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
+         from bitmap in use(IO.lift(() => Missing.Unless(
                     method.Switch(
                         (Definition: definition, Pixels: pixels),
                         byMode: static (target, mode) =>
@@ -174,96 +244,18 @@ public static class Definitions {
                         byCamera: static (target, camera) =>
                             target.Definition.CreatePreviewBitmap(camera.DisplayModeId, camera.Projection, camera.Camera, camera.DrawDecorations, target.Pixels, camera.ApplyDpiScaling)),
                     nameof(InstanceDefinition.CreatePreviewBitmap))))
-                .Bind(body)
-                .Bracket());
+         from result in body(bitmap)
+         select result).Bracket();
 
     // --- [WRITES]
     public static IO<Committed<Seq<int>>> Commit(RhinoDoc doc, string name, RedrawPolicy redraw, Seq<DefinitionOp> ops) =>
-        Commits.Commit(doc, name, redraw, ops.TraverseM(op => Apply(doc, op)).As());
-
-    internal static IO<int> Apply(RhinoDoc doc, DefinitionOp op) =>
-        op.Switch(
-            doc,
-            add: static (document, add) => TableOps.WithAttributes(document.CreateDefaultAttributes, add.Members, (geometry, attributes) => IO.lift(() => Conversions.Required(
-                document.InstanceDefinitions.Add(
-                    add.Metadata.Name, Conversions.Unset(add.Metadata.Description), Url(add.Metadata), UrlTag(add.Metadata), add.BasePoint, geometry, attributes, add.OverrideExisting),
-                nameof(InstanceDefinitionTable.Add)))),
-            createFromFile: static (document, create) =>
-                from path in IO.lift(() => Exchange.ExistingPath(create.Path))
-                from count in IO.lift(() => document.InstanceDefinitions.Count)
-                from index in IO.lift(() => Conversions.Required(
-                    document.InstanceDefinitions.CreateFromFile(
-                        path, create.Metadata.Name, Conversions.Unset(create.Metadata.Description), Url(create.Metadata), UrlTag(create.Metadata),
-                        create.UpdateType, create.LayerStyle, create.Conflict, create.SkipNestedLinkedDefinitions),
-                    nameof(InstanceDefinitionTable.CreateFromFile)))
-                from row in TableOps.Find(document.InstanceDefinitions, index, includeDeleted: false)
-                from created in IO.lift(() => AlreadyLinked.Unless(index >= count || TableOps.Names<InstanceDefinition>().Equals(row.Name, create.Metadata.Name), path, row.Id))
-                select index,
-            edit: static (document, edit) =>
-                from definition in TableOps.Find(document.InstanceDefinitions, edit.Address, includeDeleted: false)
-                from edited in Edited(document, definition, edit.Change)
-                select definition.Index,
-            undelete: static (document, undelete) =>
-                from definition in TableOps.Find(document.InstanceDefinitions, undelete.Address, includeDeleted: true)
-                from restored in IO.lift(() => Refused.Unless(document.InstanceDefinitions.Undelete(definition.Index), nameof(InstanceDefinitionTable.Undelete)))
-                select definition.Index);
-
-    private static IO<Unit> Edited(RhinoDoc doc, InstanceDefinition definition, DefinitionEdit change) =>
-        change.Switch(
-            (Doc: doc, Definition: definition),
-            modify: static (state, modify) => IO.lift(() => Refused.Unless(
-                state.Doc.InstanceDefinitions.Modify(
-                    state.Definition.Index, modify.Metadata.Name, Conversions.Unset(modify.Metadata.Description), Url(modify.Metadata), UrlTag(modify.Metadata), quiet: true),
-                nameof(InstanceDefinitionTable.Modify))),
-            modifyGeometry: static (state, modify) => TableOps.WithAttributes(state.Doc.CreateDefaultAttributes, modify.Members, (geometry, attributes) => IO.lift(() => Refused.Unless(
-                state.Doc.InstanceDefinitions.ModifyGeometry(state.Definition.Index, geometry, attributes),
-                nameof(InstanceDefinitionTable.ModifyGeometry)))),
-            modifyInsertionPlane: static (state, modify) => IO.lift(() => Refused.Unless(
-                state.Doc.InstanceDefinitions.ModifyInsertionPlane(state.Definition.Index, modify.Plane),
-                nameof(InstanceDefinitionTable.ModifyInsertionPlane))),
-            modifyUserData: static (state, modify) => IO.lift(() => Refused.Unless(
-                state.Doc.InstanceDefinitions.Modify(state.Definition.Index, modify.Data, quiet: true),
-                nameof(InstanceDefinitionTable.Modify))),
-            modifySourceArchive: static (state, modify) =>
-                from path in IO.lift(() => Exchange.ExistingPath(modify.Source.FullPath))
-                from landed in use(IO.lift(() => Missing.Unless(
-                        FileReference.CreateFromFullAndRelativePaths(path, modify.Source.RelativePath.ValueUnsafe()),
-                        nameof(FileReference.CreateFromFullAndRelativePaths))))
-                    .Bind(reference => IO.lift(() => Refused.Unless(
-                        state.Doc.InstanceDefinitions.ModifySourceArchive(state.Definition.Index, reference, modify.UpdateType, modify.LayerStyle, quiet: true),
-                        nameof(InstanceDefinitionTable.ModifySourceArchive))))
-                    .Bracket()
-                select landed,
-            destroySourceArchive: static (state, _) => IO.lift(() => Refused.Unless(
-                state.Doc.InstanceDefinitions.DestroySourceArchive(state.Definition, quiet: true),
-                nameof(InstanceDefinitionTable.DestroySourceArchive))),
-            refreshLinkedBlock: static (state, _) => IO.lift(() => Refused.Unless(
-                state.Doc.InstanceDefinitions.RefreshLinkedBlock(state.Definition),
-                nameof(InstanceDefinitionTable.RefreshLinkedBlock))),
-            updateLinked: static (state, update) =>
-                from path in IO.lift(() => Exchange.ExistingPath(update.Path))
-                from landed in IO.lift(() => Refused.Unless(
-                    state.Doc.InstanceDefinitions.UpdateLinkedInstanceDefinition(state.Definition.Index, path, update.UpdateNestedLinks, quiet: true),
-                    nameof(InstanceDefinitionTable.UpdateLinkedInstanceDefinition)))
-                select landed,
-            set: static (state, set) => IO.lift(() => set.Write(state.Definition)),
-            delete: static (state, delete) =>
-                from free in IO.lift(() => DefinitionContained.Unless(state.Definition.Id, Conversions.Rows(state.Definition.GetContainers()).Map(static container => container.Id).Strict()))
-                from deleted in IO.lift(() => Refused.Unless(
-                    state.Doc.InstanceDefinitions.Delete(state.Definition.Index, delete.DeleteReferences, quiet: true),
-                    nameof(InstanceDefinitionTable.Delete)))
-                select deleted);
-
-    private static string Url(DefinitionMetadata metadata) =>
-        Conversions.Unset(metadata.Link.Map(static link => link.Address));
-
-    private static string UrlTag(DefinitionMetadata metadata) =>
-        Conversions.Unset(metadata.Link.Bind(static link => link.Tag));
+        Commits.Commit(doc, name, redraw, ops.TraverseM(op => op.Apply(doc)).As());
 
     // --- [TABLE]
     public static IO<Unit> Purge(RhinoDoc doc, ComponentRef<InstanceDefinition> address) =>
-        TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: true).Bind(definition =>
-            IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Purge(definition.Index), nameof(InstanceDefinitionTable.Purge))));
+        from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: true)
+        from purged in IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Purge(definition.Index), nameof(InstanceDefinitionTable.Purge)))
+        select purged;
 
     public static IO<Unit> Export(RhinoDoc doc, ComponentRef<InstanceDefinition> address, string path) =>
         from target in IO.lift(() => Exchange.QualifiedPath(path))
@@ -272,13 +264,14 @@ public static class Definitions {
         select written;
 
     public static IO<Unit> UndoModify(RhinoDoc doc, ComponentRef<InstanceDefinition> address) =>
-        TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false).Bind(definition =>
-            IO.lift(() => Refused.Unless(doc.InstanceDefinitions.UndoModify(definition.Index), nameof(InstanceDefinitionTable.UndoModify))));
+        from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
+        from restored in IO.lift(() => Refused.Unless(doc.InstanceDefinitions.UndoModify(definition.Index), nameof(InstanceDefinitionTable.UndoModify)))
+        select restored;
 
     // --- [ARCHIVE]
     public static IO<int> Add(File3dm archive, DefinitionMetadata metadata, Point3d basePoint, Seq<GeometryPair> members) =>
         TableOps.WithAttributes(static () => new ObjectAttributes(), members, (geometry, attributes) => IO.lift(() => Conversions.Required(
-            archive.AllInstanceDefinitions.Add(metadata.Name, Conversions.Unset(metadata.Description), Url(metadata), UrlTag(metadata), basePoint, geometry, attributes),
+            archive.AllInstanceDefinitions.Add(metadata.Name, Conversions.Unset(metadata.Description), metadata.Url, metadata.UrlTag, basePoint, geometry, attributes),
             nameof(File3dmInstanceDefinitionTable.Add))));
 
     public static IO<int> AddLinked(File3dm archive, string path, string name, Option<string> description) =>

@@ -87,7 +87,7 @@ public sealed record LightScene(
     Option<SkylightReference> Skylight) {
     // --- [CAPTURE]
     public static IO<LightScene> Capture(RhinoDoc doc, TimeProvider clock) =>
-        from captured in IO.lift(() => clock.GetCurrentInstant())
+        from captured in IO.lift(clock.GetCurrentInstant)
         from scale in IO.lift(() => Conversions.Validated<MetresPerUnit, double, InvalidRhinoValue>(Quantities.From(1d, doc.ModelUnits).Meters.ToDouble()))
         from transfer in Lights.Gamma(doc)
         from read in Lights.States(doc)
@@ -109,7 +109,7 @@ public sealed record LightScene(
 
     // --- [EMISSION]
     private static float[] Emission(LightColor color, Transfer transfer) =>
-        color.Switch<Transfer, float[]>(
+        color.Switch(
             transfer,
             rgb: static (curve, rgb) => Decoded(rgb.Diffuse, curve),
             blackbody: static (_, blackbody) => Adaptation.Blackbody(Gamut.StandardRgb, blackbody.Kelvin).RgbLinear switch {
@@ -122,7 +122,7 @@ public sealed record LightScene(
     private static float[] Decoded(Color color, Transfer transfer) {
         Span<System.Numerics.Vector4> light = [new System.Numerics.Vector4(color.R, color.G, color.B, byte.MaxValue) / byte.MaxValue];
         transfer.Decode(light, Nits.ReferenceWhite);
-        return [light[0].X, light[0].Y, light[0].Z];
+        return new float[] { light[0].X, light[0].Y, light[0].Z };
     }
 
     // --- [DESCRIPTION]
@@ -136,7 +136,7 @@ public sealed record LightScene(
         };
 
     private static ContentKey Keyed(SceneFile.Body body) =>
-        ContentKey.Of(KeyDomain.Scene, stream => stream.Rows(toSeq(JsonSerializer.SerializeToUtf8Bytes(body, SceneFileContext.Default.Body)), ContentKeys.Integer<byte>));
+        ContentKey.Of(KeyDomain.Scene, stream => stream.Rows(toSeq(JsonSerializer.SerializeToUtf8Bytes(body, SceneFileContext.Default.Body)), ContentKeys.Integer));
 
     private SceneFile.Body Body() =>
         new(

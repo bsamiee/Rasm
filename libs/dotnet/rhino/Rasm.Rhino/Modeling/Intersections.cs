@@ -1,6 +1,7 @@
 using Rasm.Rhino.Document.Notation;
 using Rasm.Rhino.Document.Shapes;
 using Rhino.DocObjects;
+using Rhino.FileIO;
 using Rhino.Geometry.Intersect;
 
 namespace Rasm.Rhino.Modeling;
@@ -16,14 +17,9 @@ public readonly partial struct ReflectionCount : System.Numerics.IMinMaxValue<Re
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Crossing<T> {
-    public Option<Two> Secant =>
-        Switch(
-            disjoint: static _ => Option<Two>.None,
-            one: static _ => Option<Two>.None,
-            two: static two => Some(two),
-            coincident: static _ => Option<Two>.None);
+    public Option<Two> Secant => this is Two two ? Some(two) : None;
 
     public sealed record Disjoint : Crossing<T>;
 
@@ -34,7 +30,7 @@ public abstract partial record Crossing<T> {
     public sealed record Coincident : Crossing<T>;
 }
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SphereCrossing {
     public sealed record Disjoint : SphereCrossing;
 
@@ -45,19 +41,15 @@ public abstract partial record SphereCrossing {
     public sealed record Coincident : SphereCrossing;
 }
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record CurveCrossing<TAt, TSpan> {
     public sealed record Hit(double A, TAt B, Point3d OnA, Point3d OnB) : CurveCrossing<TAt, TSpan>;
 
     public sealed record Overlap(Interval A, TSpan B) : CurveCrossing<TAt, TSpan>;
 }
 
-[Union]
-public abstract partial record ProjectionTargets {
-    public sealed record OnMeshes(Seq<Mesh> Meshes) : ProjectionTargets;
-
-    public sealed record OnBreps(Seq<Brep> Breps) : ProjectionTargets;
-}
+[Union<Seq<Mesh>, Seq<Brep>>(T1Name = nameof(Mesh), T2Name = nameof(Brep), MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class ProjectionTargets;
 
 public sealed record MeshCrossings(Seq<Polyline> Polylines, Seq<Polyline> Overlaps, Option<Mesh> OverlapMesh);
 
@@ -179,42 +171,27 @@ public static class Intersections {
         select (curves, toSeq(answer.Points));
 
     // --- [MESHES]
-    public static IO<MeshCrossings> MeshMesh(Seq<Mesh> meshes, Tolerances tolerances, bool overlaps, bool overlapMesh, Option<IProgress<double>> progress) =>
-        cancelToken.Bind(token => IO.lift(() => Meshed(
-            Intersection.MeshMesh(meshes, tolerances.MeshIntersection, out Polyline[] polylines, overlaps, out Polyline[] overlapped, overlapMesh, out Mesh merged, textLog: null, token, progress.ValueUnsafe()),
-            polylines,
-            overlapped,
-            merged,
-            token,
-            nameof(Intersection.MeshMesh))));
-
-    public static IO<MeshCrossings> MeshMeshTwoSets(Seq<Mesh> setA, Seq<Mesh> setB, Tolerances tolerances, bool overlaps, bool overlapMesh, Option<IProgress<double>> progress) =>
-        cancelToken.Bind(token => IO.lift(() => Meshed(
-            Intersection.MeshMeshTwoSets(setA, setB, tolerances.MeshIntersection, out Polyline[] polylines, overlaps, out Polyline[] overlapped, overlapMesh, out Mesh merged, textLog: null, token, progress.ValueUnsafe()),
-            polylines,
-            overlapped,
-            merged,
-            token,
-            nameof(Intersection.MeshMeshTwoSets))));
+    public static IO<MeshCrossings> MeshMesh(Seq<Mesh> meshes, Option<Seq<Mesh>> against, Tolerances tolerances, bool overlaps, bool overlapMesh, Option<IProgress<double>> progress, Option<TextLog> textLog) =>
+        from token in cancelToken
+        from answer in IO.lift(() => against.Match(
+            Some: others => (Accepted: Intersection.MeshMeshTwoSets(meshes, others, tolerances.MeshIntersection, out Polyline[] polylines, overlaps, out Polyline[] overlapped, overlapMesh, out Mesh merged, textLog.ValueUnsafe(), token, progress.ValueUnsafe()), Polylines: polylines, Overlaps: overlapped, Mesh: merged, Member: nameof(Intersection.MeshMeshTwoSets)),
+            None: () => (Accepted: Intersection.MeshMesh(meshes, tolerances.MeshIntersection, out Polyline[] polylines, overlaps, out Polyline[] overlapped, overlapMesh, out Mesh merged, textLog.ValueUnsafe(), token, progress.ValueUnsafe()), Polylines: polylines, Overlaps: overlapped, Mesh: merged, Member: nameof(Intersection.MeshMesh))))
+        from crossings in IO.lift(Fin<MeshCrossings> () => answer.Accepted
+            ? new MeshCrossings(Conversions.Rows(answer.Polylines), Conversions.Rows(answer.Overlaps), Optional(answer.Mesh))
+            : token.IsCancellationRequested ? Errors.Cancelled : new Refused(answer.Member))
+        select crossings;
 
     public static IO<Option<(double T, Seq<int> Faces)>> MeshRay(Mesh mesh, Ray3d ray) =>
         IO.lift(() => Some((T: Intersection.MeshRay(mesh, ray, out int[] faces), Faces: faces))
             .Filter(static hit => hit.T >= 0.0)
             .Map(static hit => (hit.T, Faces: Conversions.Rows(hit.Faces))));
 
-    public static IO<Seq<Option<double>>> MeshRays(Mesh mesh, Seq<Ray3d> rays) =>
-        IO.lift(() => Conversions.Rows(Intersection.MeshRays(mesh, rays)).Map(static t => Some(t).Filter(static at => at >= 0.0)).Strict());
+    public static IO<Seq<Option<double>>> MeshRays(Mesh mesh, Seq<Ray3d> rays, bool multithreaded) =>
+        IO.lift(() => Conversions.Rows(Intersection.MeshRays(mesh, rays, multithreaded)).Map(static t => Some(t).Filter(static at => at >= 0.0)).Strict());
 
-    public static IO<Seq<(Point3d Point, int Face)>> MeshLine(Mesh mesh, Line line) =>
-        IO.lift(() => Conversions.Rows(Intersection.MeshLine(mesh, line, out int[] faces)).Zip(Conversions.Rows(faces), static (point, face) => (Point: point, Face: face)).Strict());
-
-    public static IO<Seq<(Point3d Point, int Face)>> MeshPolyline(Mesh mesh, PolylineCurve polyline) =>
-        IO.lift(() => Conversions.Rows(Intersection.MeshPolyline(mesh, polyline, out int[] faces)).Zip(Conversions.Rows(faces), static (point, face) => (Point: point, Face: face)).Strict());
-
-    private static Fin<MeshCrossings> Meshed(bool done, Polyline[]? polylines, Polyline[]? overlaps, Mesh? merged, CancellationToken token, string member) =>
-        done
-            ? new MeshCrossings(Conversions.Rows(polylines), Conversions.Rows(overlaps), Optional(merged))
-            : token.IsCancellationRequested ? Errors.Cancelled : new Refused(member);
+    public static IO<Seq<(Point3d Point, int Face)>> MeshPoints(Func<(Point3d[] Points, int[]? Faces)> host) =>
+        from answer in IO.lift(host)
+        select toSeq(answer.Points).Zip(Conversions.Rows(answer.Faces), static (point, face) => (Point: point, Face: face)).Strict();
 
     // --- [RAYS_AND_PROJECTIONS]
     public static IO<Seq<(Point3d Point, int Geometry, Option<int> Face)>> RayShoot(Seq<GeometryBase> geometry, Ray3d ray, ReflectionCount reflections, bool honorTrims) =>
@@ -223,12 +200,12 @@ public static class Intersections {
             .Strict());
 
     public static IO<Seq<(int Source, Point3d Point)>> Project(ProjectionTargets targets, Seq<Point3d> points, Vector3d direction, Tolerances tolerances) =>
-        IO.lift(() => targets.Switch(
+        from answer in IO.lift(() => targets.Switch(
             (Points: points, Direction: direction, tolerances.Absolute),
-            onMeshes: static (state, on) => Missing.Unless(Intersection.ProjectPointsToMeshesEx(on.Meshes, state.Points, state.Direction, state.Absolute, out int[] sources), nameof(Intersection.ProjectPointsToMeshesEx))
-                .Map(projected => toSeq(sources).Zip(toSeq(projected), static (source, point) => (Source: source, Point: point))),
-            onBreps: static (state, on) => Missing.Unless(Intersection.ProjectPointsToBrepsEx(on.Breps, state.Points, state.Direction, state.Absolute, out int[] sources), nameof(Intersection.ProjectPointsToBrepsEx))
-                .Map(projected => toSeq(sources).Zip(toSeq(projected), static (source, point) => (Source: source, Point: point)))));
+            mesh: static (state, meshes) => (Points: Intersection.ProjectPointsToMeshesEx(meshes, state.Points, state.Direction, state.Absolute, out int[] sources), Sources: sources, Member: nameof(Intersection.ProjectPointsToMeshesEx)),
+            brep: static (state, breps) => (Points: Intersection.ProjectPointsToBrepsEx(breps, state.Points, state.Direction, state.Absolute, out int[] sources), Sources: sources, Member: nameof(Intersection.ProjectPointsToBrepsEx))))
+        from projected in IO.lift(Missing.Unless(answer.Points, answer.Member))
+        select toSeq(answer.Sources).Zip(toSeq(projected), static (source, point) => (Source: source, Point: point));
 
     // --- [CLASHES]
     public static IO<Seq<MeshClash>> Clashes(Seq<Mesh> setA, Seq<Mesh> setB, double distance, int maxEvents) =>

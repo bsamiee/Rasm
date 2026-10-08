@@ -4,11 +4,11 @@ using Rhino.PlugIns;
 namespace Rasm.Rhino.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class Applied {
     private static readonly IO<Unit> Flush =
-        from flushed in IO.lift(PlugIn.FlushSettingsSavedQueue)
-        from raised in IO.lift(PlugIn.RaiseOnPlugInSettingsSavedEvent)
+        from flushed in IO.lift(static () => PlugIn.FlushSettingsSavedQueue())
+        from raised in IO.lift(static () => PlugIn.RaiseOnPlugInSettingsSavedEvent())
         select raised;
 
     public static readonly Applied Live = new(Option<IO<Unit>>.None);
@@ -29,18 +29,11 @@ public sealed record ValueStore<T>(IO<Option<T>> Read, Func<Option<T>, IO<Unit>>
         Apply(value).Map(static applied => applied.Owed);
 
     private IO<(Change<T> Change, Option<IO<Unit>> Owed)> Apply(Option<T> value) =>
-        from held in Read.Map(static found => Some(found)) | @catch(error => value.IsNone && error.IsExpected, static _ => IO.pure(Option<Option<T>>.None))
-        let change = Diff(held.Flatten(), value)
-        let written = held.ForAll(_ => change.HasChanged)
-        from put in when(written, Put(value)).As()
-        select (change, Applied.Drain.Filter(_ => written));
-
-    private Change<T> Diff(Option<T> held, Option<T> value) =>
-        held.Match(
-            Some: before => value.Match(
-                Some: after => Same(before, after) ? Change<T>.None : Change<T>.Mapped(before, after),
-                None: () => Change<T>.Removed(before)),
-            None: () => value.Match(Some: Change<T>.Added, None: static () => Change<T>.None));
+        from held in Read
+        let same = (from before in held from after in value select Same(before, after)).IfNone(noneValue: false)
+        let change = same ? Change<T>.None : held.Map(Change<T>.Removed).IfNone(Change<T>.None).Combine(value.Map(Change<T>.Added).IfNone(Change<T>.None))
+        from put in when(change.HasChanged, Put(value)).As()
+        select (change, Applied.Drain.Filter(_ => change.HasChanged));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -52,8 +45,9 @@ public static class ValueStore {
     // --- [COMMIT]
     public static IO<Unit> Commit(Seq<IO<Option<IO<Unit>>>> edits) =>
         from parts in edits.PartitionFallible().As()
-        from drained in parts.Succs.Somes().Head.Traverse(static drain => drain).As()
-        from failed in unless(parts.Fails.IsEmpty, IO.fail<Unit>(Error.Many(parts.Fails))).As()
+        from drained in parts.Succs.Somes().Head.ToSeq().PartitionFallible().As()
+        let failures = parts.Fails + drained.Fails
+        from failed in unless(failures.IsEmpty, IO.fail<Unit>(Error.Many(failures))).As()
         select unit;
 
     // --- [SIGNAL]

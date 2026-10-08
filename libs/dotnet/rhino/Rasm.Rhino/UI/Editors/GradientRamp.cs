@@ -139,12 +139,12 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
 
     private static Color Displayed(Vector4 light) {
         Span<Vector4> row = [light];
-        Rasm.Imaging.Tone.Formations.Display.Rec1886.Encoding.Encode(row);
+        Imaging.Tone.Formations.Display.Rec1886.Encoding.Encode(row);
         return new Color(row[0].X, row[0].Y, row[0].Z);
     }
 
     private static Seq<AxisLabel> KeyLabels(Option<AgXLook> look) =>
-        (NumberText.Scalar(Exposure.Presentation, string.Empty), FalseColor.Key(look)) switch {
+        (NumberText.Scalar(Exposure.Presentation, ""), FalseColor.Key(look)) switch {
             var (text, key) => key.Ramp.Stops.Zip(key.Stops)
                 .Map(band => band.Second.Map(stop => new AxisLabel((float)(double)band.First.Position, text.Shown(Some(stop)))))
                 .Somes(),
@@ -236,7 +236,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
             Keys.Left => Stepping(editor, ramp, index, -Scale(e.Modifiers)),
             Keys.Right => Stepping(editor, ramp, index, Scale(e.Modifiers)),
             Keys.Delete or Keys.Backspace => Some(Dropped(editor, ramp, index).Match(
-                Succ: dropped => new Transition<GradientRampState, Ramp>(dropped.Editor, new Edit<Ramp>.Step(dropped.Rest)),
+                Succ: static dropped => new Transition<GradientRampState, Ramp>(dropped.Editor, new Edit<Ramp>.Step(dropped.Rest)),
                 Fail: _ => new Transition<GradientRampState, Ramp>(editor, None))),
             _ => None,
         }

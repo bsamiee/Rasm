@@ -33,42 +33,34 @@ public static class DisplayModes {
     public static Guid ConceptId { get; } = new("881f20dd-a78e-4930-a7c3-690e5e6b0927");
 
     // --- [TABLE]
-    public static IO<Seq<ModeState>> GetDisplayModes() =>
-        IO.lift(static () => Conversions.Rows(DisplayModeDescription.GetDisplayModes()))
-            .Bracket(Use: static modes => IO.lift(() => modes.Map(ModeMapper.ToState).Strict()), Fin: DisposalOps.Release);
+    public static IO<Seq<ModeState>> GetDisplayModes() => ReadModes(static modes => Fin.Succ(modes.Map(ModeMapper.ToState).Strict()));
 
     public static IO<Guid> FindByName(string englishName) =>
-        use(IO.lift(() => Missing.Unless(DisplayModeDescription.FindByName(englishName), nameof(DisplayModeDescription.FindByName))))
-            .Map(static mode => mode.Id)
-            .Bracket();
+        ReadModes(modes => modes.Find(mode => string.Equals(mode.EnglishName, englishName, StringComparison.OrdinalIgnoreCase))
+            .Map(static mode => mode.Id).ToFin(new Missing(nameof(DisplayModeDescription.FindByName))));
 
-    public static IO<Guid> AddDisplayMode(string name) =>
-        Saved(IO.lift(() => Conversions.Required(DisplayModeDescription.AddDisplayMode(name), nameof(DisplayModeDescription.AddDisplayMode))));
-
-    public static IO<Guid> CopyDisplayMode(Guid source, string name) =>
-        Saved(IO.lift(() => Conversions.Required(DisplayModeDescription.CopyDisplayMode(source, name), nameof(DisplayModeDescription.CopyDisplayMode))));
+    public static IO<Guid> AddDisplayMode(string name, Option<Guid> source = default) =>
+        Saved(IO.lift(() => source.Match(
+            Some: id => Conversions.Required(DisplayModeDescription.CopyDisplayMode(id, name), nameof(DisplayModeDescription.CopyDisplayMode)),
+            None: () => Conversions.Required(DisplayModeDescription.AddDisplayMode(name), nameof(DisplayModeDescription.AddDisplayMode)))));
 
     public static IO<TValue> UpdateDisplayMode<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> edit) =>
-        Viewports.WithMode(id, copy =>
-            from value in edit(copy)
-            from updated in IO.lift(() => Refused.Unless(DisplayModeDescription.UpdateDisplayMode(copy), nameof(DisplayModeDescription.UpdateDisplayMode)))
-            select value);
+        Viewports.WithMode(id, copy => from value in edit(copy)
+                                       from updated in IO.lift(() => Refused.Unless(DisplayModeDescription.UpdateDisplayMode(copy), nameof(DisplayModeDescription.UpdateDisplayMode)))
+                                       select value);
 
     public static IO<Unit> DeleteDisplayMode(Guid id) =>
         Saved(
             from removed in Removed(id)
-            from forgotten in SettingRoots.DeleteChild(SettingsNode.Options.Child("DisplayAttributesManager"), id.ToString())
+            from forgotten in SettingRoots.DeleteChild(SettingsNode.DisplayModes, id.ToString())
             select forgotten);
 
-    public static IO<Guid> ImportFromFile(string path, bool interactive) =>
-        Saved(IO.lift(() => Exchange.ExistingPath(path)).Bind(existing => Imported(existing, interactive)));
-
-    public static IO<Guid> Install(string path) =>
+    public static IO<Guid> ImportFromFile(string path, bool interactive, bool replace = false) =>
         Saved(
             from existing in IO.lift(() => Exchange.ExistingPath(path))
-            from staged in Imported(existing, interactive: false)
-            from removed in Removed(staged)
-            from installed in Imported(existing, interactive: false)
+            let import = IO.lift(() => Conversions.Required(DisplayModeDescription.ImportFromFile(existing, interactive), nameof(DisplayModeDescription.ImportFromFile)))
+            from staged in import
+            from installed in replace ? from removed in Removed(staged) from fresh in import select fresh : IO.pure(staged)
             select installed);
 
     public static IO<Unit> ExportToFile(Guid id, string path) =>
@@ -76,8 +68,9 @@ public static class DisplayModes {
         from exported in Viewports.WithMode(id, mode => IO.lift(() => Refused.Unless(DisplayModeDescription.ExportToFile(mode, target), nameof(DisplayModeDescription.ExportToFile))))
         select exported;
 
-    private static IO<Guid> Imported(string path, bool interactive) =>
-        IO.lift(() => Conversions.Required(DisplayModeDescription.ImportFromFile(path, interactive), nameof(DisplayModeDescription.ImportFromFile)));
+    private static IO<T> ReadModes<T>(Func<Seq<DisplayModeDescription>, Fin<T>> read) =>
+        IO.lift(static () => Conversions.Rows(DisplayModeDescription.GetDisplayModes()))
+            .Bracket(Use: modes => IO.lift(() => read(modes)), Fin: DisposalOps.Release);
 
     private static IO<Unit> Removed(Guid id) =>
         IO.lift(() => Refused.Unless(DisplayModeDescription.DeleteDisplayMode(id), nameof(DisplayModeDescription.DeleteDisplayMode)));
@@ -94,17 +87,12 @@ public static class DisplayModes {
             .Bracket();
 
     public static IO<Seq<bool>> SetDisplayMode(RhinoDoc doc, ViewportSet viewports, Guid id, RedrawPolicy redraw) =>
-        Viewports.WithMode(id, mode => Navigation.ApplyToViewports(doc, viewports, viewport => {
-            viewport.DisplayMode = mode;
-            return unit;
-        }, redraw));
+        Viewports.WithMode(id, mode => Navigation.ApplyToViewports(doc, viewports, viewport => IO.lift(() => { viewport.DisplayMode = mode; }), redraw));
 
     // --- [VARIANTS]
     public static IO<Bitmap> CaptureToBitmap(RhinoView view, Guid id, Option<Size> pixels, Func<DisplayPipelineAttributes, IO<Unit>> edit) =>
-        Viewports.WithMode(id, mode =>
-            from edited in edit(mode.DisplayAttributes)
-            from raster in IO.lift(() => Missing.Unless(
-                pixels.Match(Some: size => view.CaptureToBitmap(size, mode.DisplayAttributes), None: () => view.CaptureToBitmap(mode.DisplayAttributes)),
-                nameof(RhinoView.CaptureToBitmap)))
-            select raster);
+        Viewports.WithMode(id, mode => from edited in edit(mode.DisplayAttributes)
+                                       let size = pixels.IfNone(() => view.ClientRectangle.Size)
+                                       from raster in IO.lift(() => Missing.Unless(view.CaptureToBitmap(size, mode.DisplayAttributes), nameof(RhinoView.CaptureToBitmap)))
+                                       select raster);
 }

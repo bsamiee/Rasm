@@ -43,14 +43,8 @@ public readonly partial struct SearchDistance : System.Numerics.IMinMaxValue<Sea
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
 
-[Union]
-public abstract partial record CurveAddress {
-    public sealed record CurveParameter(double Value) : CurveAddress;
-
-    public sealed record LengthParameter(ArcLength Value) : CurveAddress;
-
-    public sealed record NormalizedLengthParameter(NormalizedLength Value) : CurveAddress;
-}
+[Union<double, ArcLength, NormalizedLength>(T1Name = "CurveParameter", T2Name = "LengthParameter", T3Name = "NormalizedLengthParameter", MapMethods = SwitchMapMethodsGeneration.None)]
+public readonly partial struct CurveAddress;
 
 public readonly record struct CurveSample(double Parameter, Point3d Point) {
     public static CurveSample Of(Curve curve, double parameter) => new(parameter, curve.PointAt(parameter));
@@ -61,7 +55,7 @@ public readonly record struct CurveSample(double Parameter, Point3d Point) {
 
 public readonly record struct CurveStation(CurveSample At, Vector3d Tangent, Vector3d Curvature);
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record CurvePointSet {
     public sealed record DivideByCount(int SegmentCount, bool IncludeEnds) : CurvePointSet;
 
@@ -75,7 +69,7 @@ public abstract partial record CurvePointSet {
 
     public sealed record ExtremeParameters(Vector3d Direction) : CurvePointSet;
 
-    public sealed record Discontinuities(Continuity ContinuityType) : CurvePointSet;
+    public sealed record Discontinuities(Continuity ContinuityType, double CosAngleTolerance, double CurvatureTolerance) : CurvePointSet;
 }
 
 public readonly record struct Proximity<T>(Point3d PointOnCurve, Point3d PointOnObject, T Geometry) where T : GeometryBase;
@@ -88,9 +82,9 @@ public static class CurveEvaluation {
     public static Fin<double> Resolve(Curve curve, CurveAddress at, string member) =>
         at.Switch(
             (Curve: curve, Member: member),
-            curveParameter: static (state, address) => OutOfDomain.Unless(state.Curve.Domain, address.Value, state.Member).Map(_ => address.Value),
-            lengthParameter: static (state, address) => Refused.Unless(state.Curve.LengthParameter(address.Value, out double t), t, nameof(Curve.LengthParameter)),
-            normalizedLengthParameter: static (state, address) => Refused.Unless(state.Curve.NormalizedLengthParameter(address.Value, out double t), t, nameof(Curve.NormalizedLengthParameter)));
+            curveParameter: static (state, address) => OutOfDomain.Unless(state.Curve.Domain, address, state.Member).Map(_ => address),
+            lengthParameter: static (state, address) => Refused.Unless(state.Curve.LengthParameter(address, out double t), t, nameof(Curve.LengthParameter)),
+            normalizedLengthParameter: static (state, address) => Refused.Unless(state.Curve.NormalizedLengthParameter(address, out double t), t, nameof(Curve.NormalizedLengthParameter)));
 
     // --- [STATIONS]
     public static Fin<CurveStation> Station(Curve curve, CurveAddress at) =>
@@ -100,31 +94,31 @@ public static class CurveEvaluation {
         select new CurveStation(CurveSample.Of(curve, t), tangent, curve.CurvatureAt(t));
 
     public static Fin<Seq<Vector3d>> Derivatives(Curve curve, CurveAddress at, DerivativeCount count, CurveEvaluationSide side) =>
-        Resolve(curve, at, nameof(Curve.DerivativeAt))
-            .Bind(t => Missing.Unless(curve.DerivativeAt(t, count, side), nameof(Curve.DerivativeAt)))
-            .Map(static jet => toSeq(jet));
+        from t in Resolve(curve, at, nameof(Curve.DerivativeAt))
+        from jet in Missing.Unless(curve.DerivativeAt(t, count, side), nameof(Curve.DerivativeAt))
+        select toSeq(jet);
 
     public static Fin<double> LengthAt(Curve curve, CurveAddress at) =>
-        Resolve(curve, at, nameof(Curve.GetLength))
-            .Bind(t => curve.GetLength(new Interval(curve.Domain.T0, t)) switch {
-                var length => Refused.Unless(length > 0d || t == curve.Domain.T0, length, nameof(Curve.GetLength)),
-            });
+        from t in Resolve(curve, at, nameof(Curve.GetLength))
+        let length = curve.GetLength(new Interval(curve.Domain.T0, t))
+        from measured in Refused.Unless(length > 0d || t == curve.Domain.T0, length, nameof(Curve.GetLength))
+        select measured;
 
     // --- [FRAMES]
-    public static Fin<Plane> FrameAt(Curve curve, CurveAddress at) =>
-        Resolve(curve, at, nameof(Curve.FrameAt)).Bind(t => Refused.Unless(curve.FrameAt(t, out Plane plane), plane, nameof(Curve.FrameAt)));
-
-    public static Fin<Plane> PerpendicularFrameAt(Curve curve, CurveAddress at) =>
-        Resolve(curve, at, nameof(Curve.PerpendicularFrameAt)).Bind(t => Refused.Unless(curve.PerpendicularFrameAt(t, out Plane plane), plane, nameof(Curve.PerpendicularFrameAt)));
+    public static Fin<Plane> FrameAt(Curve curve, CurveAddress at, bool zeroTwisting) =>
+        from t in Resolve(curve, at, zeroTwisting ? nameof(Curve.PerpendicularFrameAt) : nameof(Curve.FrameAt))
+        from frame in zeroTwisting
+            ? Refused.Unless(curve.PerpendicularFrameAt(t, out Plane perpendicular), perpendicular, nameof(Curve.PerpendicularFrameAt))
+            : Refused.Unless(curve.FrameAt(t, out Plane plane), plane, nameof(Curve.FrameAt))
+        select frame;
 
     public static IO<Seq<Plane>> PerpendicularFrames(Curve curve, Seq<double> parameters) =>
-        IO.lift(() =>
-                from frames in Missing.Unless(curve.GetPerpendicularFrames(parameters), nameof(Curve.GetPerpendicularFrames))
-                from complete in CountMismatch.Unless(parameters.Count, frames.Length, nameof(Curve.GetPerpendicularFrames))
-                select toSeq(frames))
+        from frames in IO.lift(() => Missing.Unless(curve.GetPerpendicularFrames(parameters), nameof(Curve.GetPerpendicularFrames)))
             .Catch(
-                static error => error.HasException<InvalidOperationException>() && !error.HasException<ObjectDisposedException>(),
-                static _ => IO.fail<Seq<Plane>>(new UnorderedParameters(nameof(Curve.GetPerpendicularFrames))));
+                static error => error.Exception.Exists(static exception => exception.GetType() == typeof(InvalidOperationException)),
+                static _ => IO.fail<Plane[]>(new UnorderedParameters()))
+        from complete in IO.lift(CountMismatch.Unless(parameters.Count, frames.Length, nameof(Curve.GetPerpendicularFrames)))
+        select toSeq(frames);
 
     // --- [POINTS]
     public static Fin<Seq<CurveSample>> Points(Curve curve, CurvePointSet set) =>
@@ -145,10 +139,10 @@ public static class CurveEvaluation {
                     var parameters => Refused.Unless(!parameters.IsEmpty || source.IsPeriodic, parameters.Map(t => CurveSample.Of(source, t)).Strict(), nameof(Curve.ExtremeParameters)),
                 },
             discontinuities: static (source, rule) =>
-                toSeq(LanguageExt.List.unfold(source.Domain.T0, t0 =>
-                        t0 < source.Domain.T1 ? Callbacks.Found(source.GetNextDiscontinuity(rule.ContinuityType, t0, source.Domain.T1, out double t), (t, t)) : None))
+                Fin.Succ(toSeq(LanguageExt.List.unfold(source.Domain.T0, t0 =>
+                        t0 < source.Domain.T1 ? Callbacks.Found(source.GetNextDiscontinuity(rule.ContinuityType, t0, source.Domain.T1, rule.CosAngleTolerance, rule.CurvatureTolerance, out double t), (t, t)) : None))
                     .Map(t => CurveSample.Of(source, t))
-                    .Strict());
+                    .Strict()));
 
     // --- [PROXIMITY]
     public static Fin<CurveSample> ClosestPoint(Curve curve, Point3d test) =>

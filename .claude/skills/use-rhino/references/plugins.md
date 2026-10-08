@@ -17,7 +17,6 @@ Searches run without Rhino, and each prints one `<package> (<version>)` line per
 2. `document.assembly("<package directory>/<package>/<version>/<file>.rhp")` in `run_python` loads its Rhino plugin into the running Rhino
 3. `canvas.plugins()` loads its Grasshopper 2 library
 4. `yak uninstall <package>` deletes every version, and Rhino keeps a loaded plugin until it quits
-5. `PersistentSettings.RhinoAppSettings.GetChild("PlugInRegistry").GetChild("6").DeleteChild("<plugin id>")` after a restart drops its record
 
 Packages installed while Rhino runs stay out of `get_commands` and `PlugIn.IdFromName` until `assembly` loads them.
 
@@ -38,8 +37,6 @@ Repository builds load into Rhino's shared process for calls on a task document:
 Rhino holds one assembly per name until it quits:
 - Workspace dependencies beside a plugin are named `<PlugIn>.<Project>.dll`, plain library builds `<Project>.dll`
 - `assembly` on a dependency in the build folder (`Rasm.Rhino.dll` beside a library, `<PlugIn>.Rasm.Rhino.dll` beside a plugin) reads which build a call binds to
-- When `current` is `False` for a plugin's commands, use `setup.md` to relaunch Rhino
-- For an installed app, `nx run <app>:install` updates its package before relaunch
 
 ## [04]-[CALLS]
 

@@ -16,16 +16,8 @@ public readonly partial struct CatenaryPointCount : System.Numerics.IMinMaxValue
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
 
-[Union]
-public abstract partial record CatenaryForm {
-    public sealed record ThroughPoint(Point3d Point) : CatenaryForm;
-
-    public sealed record FromLength(double Length) : CatenaryForm;
-
-    public sealed record FromParameter(double Parameter) : CatenaryForm;
-
-    public sealed record FromApex(Point3d Apex) : CatenaryForm;
-}
+[Union<Point3d, double, double, Point3d>(T1Name = "ThroughPoint", T2Name = "FromLength", T3Name = "FromParameter", T4Name = "FromApex", MapMethods = SwitchMapMethodsGeneration.None)]
+public readonly partial struct CatenaryForm;
 
 public sealed record CatenaryCurve(Curve Curve, Point3d Apex, double Parameter, double Length, double MaxDeviation);
 
@@ -35,13 +27,13 @@ public static class CurveConstruction {
     public static IO<Seq<Grouped<Curve>>> JoinCurves(Seq<Curve> curves, Tolerances tolerances, bool preserveDirection, bool simpleJoin) =>
         Copies.Owned(
             IO.lift(() => (Curves: Curve.JoinCurves(curves, tolerances.Absolute, preserveDirection, simpleJoin, out int[] key), Key: key)),
-            static answer => Measurements.Valid(toSeq<Curve?>(answer.Curves), nameof(Curve.JoinCurves)).Map(joined => Group(joined, toSeq(answer.Key))),
+            static answer => Measurements.Valid(toSeq(answer.Curves), nameof(Curve.JoinCurves)).Map(joined => Group(joined, toSeq(answer.Key))),
             static answer => DisposalOps.Release(Conversions.Rows(answer.Curves)));
 
     public static IO<Seq<Grouped<Curve>>> CreateBooleanUnion(Seq<Curve> curves, Tolerances tolerances) =>
         Copies.Owned(
             IO.lift(() => (Curves: Curve.CreateBooleanUnion(curves, tolerances.Absolute, out int[] indexMap), IndexMap: indexMap)),
-            static answer => Measurements.Valid(toSeq<Curve?>(answer.Curves), nameof(Curve.CreateBooleanUnion))
+            static answer => Measurements.Valid(toSeq(answer.Curves), nameof(Curve.CreateBooleanUnion))
                 .Bind(static united => Conversions.NonEmpty(united, nameof(Curve.CreateBooleanUnion)))
                 .Map(united => Group(united, toSeq(answer.IndexMap))),
             static answer => DisposalOps.Release(Conversions.Rows(answer.Curves)));
@@ -54,7 +46,9 @@ public static class CurveConstruction {
          select Group(boundaries, toSeq(Range(0, regions.PointCount)).Map(regions.RegionPointIndex))).Bracket();
 
     private static Seq<Grouped<T>> Group<T>(Seq<T> outputs, Seq<int> key) =>
-        outputs.Map((output, index) => new Grouped<T>(output, key.Choose((input, owner) => Some(input).Filter(_ => owner == index))));
+        key.Map(static (owner, input) => (owner, input)).ToLookup(static entry => entry.owner, static entry => entry.input) switch {
+            var inputs => outputs.Map((output, index) => new Grouped<T>(output, toSeq(inputs[index]))).Strict(),
+        };
 
     // --- [ANALYTIC]
     public static IO<NurbsCurve> EllipticalArc(Ellipse ellipse, Interval angles) =>
@@ -66,22 +60,25 @@ public static class CurveConstruction {
     // --- [CATENARIES]
     public static IO<CatenaryCurve> CreateCatenaryCurve(Point3d start, Point3d end, Vector3d axis, CatenaryForm form, bool smooth, CatenaryPointCount pointCount) =>
         Copies.Owned(
-            IO.lift<(Curve? Curve, Point3d Apex, double Parameter, double Length, double Deviation, string Member)>(() => form.Switch(
+            IO.lift(() => form.Switch(
                 (Start: start, End: end, Axis: axis, Smooth: smooth, Count: pointCount.ToValue()),
-                throughPoint: static (hung, through) => (
-                    Curve.CreateCatenaryCurveThroughPoint(hung.Start, hung.End, hung.Axis, through.Point, hung.Smooth, hung.Count, out Point3d apex, out double parameter, out double length, out double deviation),
-                    apex, parameter, length, deviation, nameof(Curve.CreateCatenaryCurveThroughPoint)),
-                fromLength: static (hung, of) => (
-                    Curve.CreateCatenaryCurveFromLength(hung.Start, hung.End, hung.Axis, of.Length, hung.Smooth, hung.Count, out Point3d apex, out double parameter, out double length, out double deviation),
-                    apex, parameter, length, deviation, nameof(Curve.CreateCatenaryCurveFromLength)),
-                fromParameter: static (hung, of) => (
-                    Curve.CreateCatenaryCurveFromParameter(hung.Start, hung.End, hung.Axis, of.Parameter, hung.Smooth, hung.Count, out Point3d apex, out double parameter, out double length, out double deviation),
-                    apex, parameter, length, deviation, nameof(Curve.CreateCatenaryCurveFromParameter)),
-                fromApex: static (hung, of) => (
-                    Curve.CreateCatenaryCurveFromApex(hung.Start, hung.End, hung.Axis, of.Apex, hung.Smooth, hung.Count, out Point3d apex, out double parameter, out double length, out double deviation),
-                    apex, parameter, length, deviation, nameof(Curve.CreateCatenaryCurveFromApex)))),
-            static made => Missing.Unless(made.Curve, made.Member)
-                .Bind(curve => Measurements.Valid(curve, made.Member))
-                .Map(curve => new CatenaryCurve(curve, made.Apex, made.Parameter, made.Length, made.Deviation)),
-            static made => DisposalOps.Release(Conversions.Rows(Seq(made.Curve))));
+                throughPoint: static (state, through) => (
+                    Curve: Curve.CreateCatenaryCurveThroughPoint(state.Start, state.End, state.Axis, through, state.Smooth, state.Count, out Point3d apex, out double parameter, out double length, out double deviation),
+                    Apex: apex, Parameter: parameter, Length: length, Deviation: deviation, Member: nameof(Curve.CreateCatenaryCurveThroughPoint)),
+                fromLength: static (state, length) => (
+                    Curve: Curve.CreateCatenaryCurveFromLength(state.Start, state.End, state.Axis, length, state.Smooth, state.Count, out Point3d apex, out double parameter, out double computedLength, out double deviation),
+                    Apex: apex, Parameter: parameter, Length: computedLength, Deviation: deviation, Member: nameof(Curve.CreateCatenaryCurveFromLength)),
+                fromParameter: static (state, parameter) => (
+                    Curve: Curve.CreateCatenaryCurveFromParameter(state.Start, state.End, state.Axis, parameter, state.Smooth, state.Count, out Point3d apex, out double computedParameter, out double length, out double deviation),
+                    Apex: apex, Parameter: computedParameter, Length: length, Deviation: deviation, Member: nameof(Curve.CreateCatenaryCurveFromParameter)),
+                fromApex: static (state, apex) => (
+                    Curve: Curve.CreateCatenaryCurveFromApex(state.Start, state.End, state.Axis, apex, state.Smooth, state.Count, out Point3d computedApex, out double parameter, out double length, out double deviation),
+                    Apex: computedApex, Parameter: parameter, Length: length, Deviation: deviation, Member: nameof(Curve.CreateCatenaryCurveFromApex)))),
+            static made => made switch {
+                var (curve, apex, parameter, length, deviation, member) =>
+                    from present in Missing.Unless(curve, member)
+                    from valid in Measurements.Valid(present, member)
+                    select new CatenaryCurve(valid, apex, parameter, length, deviation),
+            },
+            static made => DisposalOps.Release(Optional(made.Curve).ToSeq()));
 }

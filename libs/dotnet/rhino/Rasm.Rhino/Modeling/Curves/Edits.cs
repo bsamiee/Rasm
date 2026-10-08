@@ -14,7 +14,7 @@ public readonly partial struct TrimLength : System.Numerics.IMinMaxValue<TrimLen
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SmoothFrame {
     public sealed record World : SmoothFrame;
 
@@ -37,25 +37,27 @@ public sealed record NurbsCurveFit(NurbsCurve Curve, Option<Line> MaximumSeparat
 public static class CurveEdits {
     // --- [FITS]
     public static IO<NurbsCurveFit> CreateNurbsCurveFit(Curve curve, Interval domain, NurbsCurveFitParameters rebuildOptions) =>
-        from answer in IO.lift(() => (
-            Curve: Curve.CreateNurbsCurveFit(curve, domain, rebuildOptions, out Line maximumSeparation, out double thisSeparationParameter, out double nurbsSeparationParameter),
-            MaximumSeparation: maximumSeparation,
-            Source: thisSeparationParameter,
-            Fit: nurbsSeparationParameter))
-        from fitted in Copies.Acquire(() => answer.Curve, nameof(Curve.CreateNurbsCurveFit))
-        select new NurbsCurveFit(
-            fitted,
-            Conversions.Present(answer.MaximumSeparation),
-            from source in Conversions.Present(answer.Source)
-            from fit in Conversions.Present(answer.Fit)
-            select (Source: source, Fit: fit));
+        Copies.Owned(
+            IO.lift(() => (
+                Curve: Curve.CreateNurbsCurveFit(curve, domain, rebuildOptions, out Line maximumSeparation, out double source, out double fit),
+                MaximumSeparation: maximumSeparation, Source: source, Fit: fit)),
+            static answer => Missing.Unless(answer.Curve, nameof(Curve.CreateNurbsCurveFit))
+                .Bind(static fitted => Measurements.Valid(fitted, nameof(Curve.CreateNurbsCurveFit)))
+                .Map(fitted => new NurbsCurveFit(fitted, Conversions.Present(answer.MaximumSeparation),
+                    from source in Conversions.Present(answer.Source)
+                    from fit in Conversions.Present(answer.Fit)
+                    select (Source: source, Fit: fit))),
+            static answer => DisposalOps.Release(Optional(answer.Curve).ToSeq()));
 
     public static IO<(NurbsCurve Curve, Option<Line> MaximumDeviation)> RebuildToMatchTemplateCurve(Curve source, Curve templateCurve, bool flipSourceDirection, bool preserveEndTangents, bool makeSubDFriendly) =>
-        from answer in IO.lift(() => (
-            Curve: source.RebuildToMatchTemplateCurve(templateCurve, flipSourceDirection, preserveEndTangents, makeSubDFriendly, out Line maximumDeviation),
-            MaximumDeviation: maximumDeviation))
-        from rebuilt in Copies.Acquire(() => answer.Curve, nameof(Curve.RebuildToMatchTemplateCurve))
-        select (Curve: rebuilt, MaximumDeviation: Conversions.Present(answer.MaximumDeviation));
+        Copies.Owned(
+            IO.lift(() => (
+                Curve: source.RebuildToMatchTemplateCurve(templateCurve, flipSourceDirection, preserveEndTangents, makeSubDFriendly, out Line maximumDeviation),
+                MaximumDeviation: maximumDeviation)),
+            static answer => Missing.Unless(answer.Curve, nameof(Curve.RebuildToMatchTemplateCurve))
+                .Bind(static rebuilt => Measurements.Valid(rebuilt, nameof(Curve.RebuildToMatchTemplateCurve)))
+                .Map(rebuilt => (Curve: rebuilt, MaximumDeviation: Conversions.Present(answer.MaximumDeviation))),
+            static answer => DisposalOps.Release(Optional(answer.Curve).ToSeq()));
 
     // --- [SPLIT]
     public static IO<Seq<Curve>> Split(Curve source, Seq<double> parameters) =>
@@ -66,9 +68,11 @@ public static class CurveEdits {
 
     // --- [MATCHING]
     public static IO<Seq<NurbsCurve>> MakeCompatible(Seq<Curve> curves, Option<Point3d> startPt, Option<Point3d> endPt, CurveFit fit, Tolerances tolerances) =>
-        Copies.AcquireNonEmpty(
-            () => NurbsCurve.MakeCompatible(curves, Conversions.Unset(startPt), Conversions.Unset(endPt), (int)fit.RebuildType, fit.RebuildPointCount, fit.RefitTolerance, tolerances.Angle),
-            nameof(NurbsCurve.MakeCompatible));
+        fit.Parameters switch {
+            var fitting => Copies.AcquireNonEmpty(
+                () => NurbsCurve.MakeCompatible(curves, Conversions.Unset(startPt), Conversions.Unset(endPt), (int)fitting.RebuildType, fitting.RebuildPointCount, fitting.RefitTolerance, tolerances.Angle),
+                nameof(NurbsCurve.MakeCompatible)),
+        };
 
     public static IO<(Curve A, Curve B)> MakeEndsMeet(Curve curveA, bool adjustStartCurveA, Curve curveB, bool adjustStartCurveB) =>
         from copyA in Copies.Duplicate(curveA)

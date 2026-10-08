@@ -10,6 +10,7 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Input;
 using Rhino.Input.Custom;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Commands;
 
@@ -41,65 +42,42 @@ public readonly partial struct PickCount : System.Numerics.IMinMaxValue<PickCoun
 [Union]
 public abstract partial record SelectionEnd {
     public sealed record OnEnter : SelectionEnd;
-
     public sealed record AtMinimum : SelectionEnd;
-
     public sealed record AtCount(PickCount Maximum) : SelectionEnd;
 }
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record NumberEntry<T> {
     private NumberEntry(bool zero) => Zero = zero;
-
     public bool Zero { get; }
-
     public sealed record Plain(bool Zero, Func<double, IO<T>> Then) : NumberEntry<T>(Zero);
-
     public sealed record Distance(bool Zero, Func<Length, IO<T>> Then) : NumberEntry<T>(Zero);
 }
 
 public sealed record Accepts<T> {
     public Option<(Option<string> Shown, IO<T> Then)> Nothing { get; init; }
-
     public Option<IO<T>> Undo { get; init; }
-
     public Option<Func<string, IO<T>>> String { get; init; }
-
     public Option<(Option<Color> Default, Func<Color, IO<T>> Then)> Color { get; init; }
-
     public Option<NumberEntry<T>> Number { get; init; }
-
     public Option<Func<PointPick, IO<T>>> Point { get; init; }
-
     public Option<(Duration Wait, IO<T> Then)> Timeout { get; init; }
-
     public Option<Func<object, IO<T>>> Message { get; init; }
 }
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record PointHandler {
-    internal abstract IO<IDisposable> Attach(GetPoint getter, CallbackSite site);
+    public sealed record MouseMove(Func<GetPointMouseEventArgs, IO<Unit>> Handle) : PointHandler;
+    public sealed record MouseDown(Func<GetPointMouseEventArgs, IO<Unit>> Handle) : PointHandler;
+    public sealed record DynamicDraw(Func<GetPointDrawEventArgs, IO<Unit>> Handle) : PointHandler;
+    public sealed record PostDraw(Func<DrawEventArgs, IO<Unit>> Handle) : PointHandler;
 
-    public sealed record MouseMove(Func<GetPointMouseEventArgs, IO<Unit>> Handle) : PointHandler {
-        internal override IO<IDisposable> Attach(GetPoint getter, CallbackSite site) =>
-            Subscriptions.Attach<EventHandler<GetPointMouseEventArgs>>(h => getter.MouseMove += h, h => getter.MouseMove -= h, Callbacks.Handler(Posting(Handle), site));
-    }
-
-    public sealed record MouseDown(Func<GetPointMouseEventArgs, IO<Unit>> Handle) : PointHandler {
-        internal override IO<IDisposable> Attach(GetPoint getter, CallbackSite site) =>
-            Subscriptions.Attach<EventHandler<GetPointMouseEventArgs>>(h => getter.MouseDown += h, h => getter.MouseDown -= h, Callbacks.Handler(Posting(Handle), site));
-    }
-
-    public sealed record DynamicDraw(Func<GetPointDrawEventArgs, IO<Unit>> Handle) : PointHandler {
-        internal override IO<IDisposable> Attach(GetPoint getter, CallbackSite site) =>
-            Subscriptions.Attach<EventHandler<GetPointDrawEventArgs>>(h => getter.DynamicDraw += h, h => getter.DynamicDraw -= h, Callbacks.Handler(Posting(Handle), site));
-    }
-
-    public sealed record PostDraw(Func<DrawEventArgs, IO<Unit>> Handle) : PointHandler {
-        internal override IO<IDisposable> Attach(GetPoint getter, CallbackSite site) =>
-            IO.lift(() => getter.FullFrameRedrawDuringGet |= getter is GetTransform)
-                .Bind(_ => Subscriptions.Attach<EventHandler<DrawEventArgs>>(h => getter.PostDrawObjects += h, h => getter.PostDrawObjects -= h, Callbacks.Handler(Posting(Handle), site)));
-    }
+    internal IO<IDisposable> Attach(GetPoint getter, CallbackSite site) =>
+        Switch((Getter: getter, Site: site),
+            mouseMove: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseMove += h, h => at.Getter.MouseMove -= h, Callbacks.Handler(Posting(row.Handle), at.Site)),
+            mouseDown: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseDown += h, h => at.Getter.MouseDown -= h, Callbacks.Handler(Posting(row.Handle), at.Site)),
+            dynamicDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.DynamicDraw += h, h => at.Getter.DynamicDraw -= h, Callbacks.Handler(Posting(row.Handle), at.Site)),
+            postDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.PostDrawObjects += h, h => at.Getter.PostDrawObjects -= h, Callbacks.Handler(Posting(row.Handle), at.Site)));
 
     private static Func<TArgs, IO<Unit>> Posting<TArgs>(Func<TArgs, IO<Unit>> handle) =>
         args => IO.pure(args).Bind(handle).IfFail(static error => IO.lift(() => GetBaseClass.PostCustomMessage(error)));
@@ -107,21 +85,16 @@ public abstract partial record PointHandler {
 
 public record GetterRequest<TGetter, T>(string Prompt, CallbackSite Site) where TGetter : GetBaseClass {
     public Accepts<T> Accept { get; init; } = new();
-
     public Seq<OptionSpec<T>> Options { get; init; }
-
     public Func<TGetter, IO<Unit>> Configure { get; init; } = static _ => IO.pure(unit);
 }
 
 public sealed record PointRequest<T>(string Prompt, CallbackSite Site) : GetterRequest<GetPoint, T>(Prompt, Site) {
     public Option<Point3d> Default { get; init; }
-
     public bool OnMouseUp { get; init; }
-
     public Seq<PointHandler> Handlers { get; init; }
-
-    internal bool Released =>
-        OnMouseUp || Handlers.Exists(static handler => handler.Map(mouseMove: false, mouseDown: true, dynamicDraw: false, postDraw: false));
+    internal bool Released => OnMouseUp || Handlers.Exists(static handler => handler is PointHandler.MouseDown);
+    internal bool FullFrame => Handlers.Exists(static handler => handler is PointHandler.PostDraw);
 }
 
 public sealed record EntryRequest<TGetter, TValue, T>(string Prompt, CallbackSite Site) : GetterRequest<TGetter, T>(Prompt, Site) where TGetter : GetBaseClass {
@@ -130,17 +103,28 @@ public sealed record EntryRequest<TGetter, TValue, T>(string Prompt, CallbackSit
 
 public sealed record ObjectRequest<T>(string Prompt, CallbackSite Site) : GetterRequest<GetObject, T>(Prompt, Site) {
     public Option<PickCount> Minimum { get; init; } = PickCount.MinValue;
-
     public SelectionEnd End { get; init; } = PickCount.MinValue;
 }
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record StageStep<TStage, TValue> {
-    public static StageStep<TStage, TValue> Of(Fin<TStage> next) =>
-        next.Match<StageStep<TStage, TValue>>(Succ: static stage => new Advance(stage), Fail: static rejection => new Retry(rejection));
+    public static StageStep<TStage, TValue> Of<TNext>(Fin<TNext> value, Func<TNext, StageStep<TStage, TValue>> next) =>
+        value.Match(Succ: next, Fail: static rejection => new Retry(rejection));
 
-    public static StageStep<TStage, TValue> Finished(Fin<TValue> value) =>
-        value.Match<StageStep<TStage, TValue>>(Succ: static done => new Done(done), Fail: static rejection => new Retry(rejection));
+    internal static IO<Next<(TStage Current, Seq<TStage> Earlier), TValue>> Transition(
+        (TStage Current, Seq<TStage> Earlier) trail,
+        Func<TStage, Accepts<StageStep<TStage, TValue>>, IO<StageStep<TStage, TValue>>> prompt) =>
+        from step in prompt(trail.Current, new Accepts<StageStep<TStage, TValue>> {
+            Undo = trail.Earlier.Head.Map(earlier => IO.pure<StageStep<TStage, TValue>>(new Back(earlier, trail.Earlier.Tail))),
+        })
+        from next in step.Switch(
+            trail,
+            advance: static (at, advance) => IO.pure(Next.Loop<(TStage Current, Seq<TStage> Earlier), TValue>((advance.Stage, at.Current.Cons(at.Earlier)))),
+            back: static (_, back) => IO.pure(Next.Loop<(TStage Current, Seq<TStage> Earlier), TValue>((back.Stage, back.Earlier))),
+            retry: static (at, retry) => IO.lift(() => RhinoApp.WriteLine(ErrorOps.Localize(retry.Rejection)))
+                .Map(_ => Next.Loop<(TStage Current, Seq<TStage> Earlier), TValue>(at)),
+            done: static (_, done) => IO.pure(Next.Done<(TStage Current, Seq<TStage> Earlier), TValue>(done.Value)))
+        select next;
 
     public sealed record Advance(TStage Stage) : StageStep<TStage, TValue>;
 
@@ -158,37 +142,43 @@ public abstract partial record StageStep<TStage, TValue> {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal sealed class CallbackGetTransform(Func<RhinoViewport, Point3d, Transform> calculate) : GetTransform {
-    public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) => calculate(viewport, point);
+internal sealed class CallbackGetTransform(RhinoDoc document, Func<RhinoViewport, PointPick, Transform> calculate) : GetTransform {
+    public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) =>
+        calculate(viewport, new PointPick(point, Getters.Space(Optional(View()), document), Some(Getters.Located(viewport))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Getters {
+[Mapper]
+public static partial class Getters {
     // --- [ROUTES]
     private static IO<T> Run<TBase, TGetter, T>(
         Func<TGetter> create,
         GetterRequest<TBase, T> request,
         RhinoDoc doc,
         Func<TGetter, IO<GetResult>> get,
-        Func<TGetter, Seq<(GetResult Result, IO<Unit> Enable, IO<T> Then)>> own)
+        Func<TGetter, Seq<(GetResult Result, IO<T> Then)>> own)
         where TBase : GetBaseClass
         where TGetter : TBase =>
         (from getter in use(create)
          from prompted in IO.lift(() => getter.SetCommandPrompt(RowText.Localize(request.Prompt, table: Some<object>(request.Site.Sink)).Local))
-         let routes = own(getter) + Accepted(getter, request, doc)
-         from enabled in routes.TraverseM(static route => route.Enable).As()
+         let accepted = Accepted(getter, request, doc)
+         let routes = own(getter) + accepted.Map(static route => (route.Result, route.Then))
+         from enabled in accepted.TraverseM(static route => route.Enable).As()
          from configured in request.Configure(getter)
          from answer in CommandOptions.Using(
-             getter, request.Site.Sink, request.Options, chosen => get(getter).Bind(result => Routed(routes.Add((GetResult.Option, IO.pure(unit), chosen)), result, request.Site.Member)))
+             getter, request.Site.Sink, request.Options,
+             chosen => Routed(routes.Add((GetResult.Option, chosen)), get(getter), request.Site.Member))
          select answer).Bracket();
 
-    private static IO<T> Routed<T>(Seq<(GetResult Result, IO<Unit> Enable, IO<T> Then)> routes, GetResult result, string member) =>
-        routes.Find(route => route.Result == result).Map(static route => route.Then).IfNone(() => IO.fail<T>(result switch {
+    private static IO<T> Routed<T>(Seq<(GetResult Result, IO<T> Then)> routes, IO<GetResult> get, string member) =>
+        from result in get
+        from answer in routes.Find(route => route.Result == result).Map(static route => route.Then).IfNone(() => IO.fail<T>(result switch {
             GetResult.Cancel or GetResult.Timeout => Errors.Cancelled,
             GetResult.Nothing => new Ended(member, Result.Nothing),
             GetResult.ExitRhino => new Ended(member, Result.ExitRhino),
             _ => new UnexpectedGetResult(result),
-        }));
+        }))
+        select answer;
 
     private static Seq<(GetResult Result, IO<Unit> Enable, IO<T> Then)> Accepted<TBase, T>(GetBaseClass getter, GetterRequest<TBase, T> request, RhinoDoc doc)
         where TBase : GetBaseClass =>
@@ -213,7 +203,9 @@ public static class Getters {
             request.Accept.Point.Map(then => (GetResult.Point, IO.lift(() => getter.AcceptPoint(enable: true)), Pick(getter, doc).Bind(then))),
             request.Accept.Timeout.Map(timeout => (
                 GetResult.Timeout,
-                IO.lift(Conversions.Whole(timeout.Wait, Duration.FromMilliseconds(1))).Bind(milliseconds => IO.lift(() => getter.SetWaitDuration(milliseconds))),
+                from milliseconds in IO.lift(Conversions.Whole(timeout.Wait, Duration.FromMilliseconds(1)))
+                from set in IO.lift(() => getter.SetWaitDuration(milliseconds))
+                select set,
                 timeout.Then)),
             request.Accept.Message.Map(message => (GetResult.CustomMessage, IO.lift(() => getter.AcceptCustomMessage(enable: true)), Posted(getter, Some(message)))))
             .Somes();
@@ -225,14 +217,17 @@ public static class Getters {
             distance: static (at, distance) => IO.lift(() => Quantities.From(at.Getter.Number(), Space(Optional(at.Getter.View()), at.Doc))).Bind(distance.Then));
 
     private static IO<T> Posted<T>(GetBaseClass getter, Option<Func<object, IO<T>>> message) =>
-        IO.lift(() => Missing.Unless(getter.CustomMessage(), nameof(GetBaseClass.CustomMessage))).Bind(payload => payload switch {
+        from payload in IO.lift(() => Optional(getter.CustomMessage()))
+        from value in IO.lift(payload.ToFin(new UnexpectedGetResult(GetResult.CustomMessage)))
+        from answer in value switch {
             Error error => IO.fail<T>(error),
-            _ => IO.lift(message.ToFin(new Missing(nameof(Accepts<T>.Message)))).Bind(then => then(payload)),
-        });
+            _ => message.Map(then => then(value)).IfNone(static () => IO.fail<T>(new UnexpectedGetResult(GetResult.CustomMessage))),
+        }
+        select answer;
 
     // --- [POINTS]
     public static IO<T> Point<T>(RhinoDoc doc, PointRequest<T> request, Func<WorldPick, IO<T>> picked) =>
-        Pointed(static () => new GetPoint(), doc, request, getter => getter.Get(request.Released, get2DPoint: false), getter => (GetResult.Point, IO.pure(unit), World(getter, doc, picked)));
+        Pointed(static () => new GetPoint(), doc, request, getter => getter.Get(request.Released, get2DPoint: false), getter => (GetResult.Point, World(getter, doc, picked)));
 
     public static IO<T> WindowPoint<T>(RhinoDoc doc, PointRequest<T> request, Func<WindowPick, IO<T>> picked) =>
         Pointed(
@@ -240,25 +235,25 @@ public static class Getters {
             doc,
             request,
             getter => getter.Get(request.Released, get2DPoint: true),
-            getter => (GetResult.Point2d, IO.pure(unit), IO.lift(() => Optional(getter.View())).Map(view => new WindowPick(getter.Point2d(), Located(view))).Bind(picked)));
+            getter => (GetResult.Point2d, IO.lift(() => new WindowPick(getter.Point2d(), Optional(getter.View()).Map(static view => Located(view.ActiveViewport)))).Bind(picked)));
 
     public static IO<T> Transformed<T>(
-        RhinoDoc doc, PointRequest<T> request, TransformObjectList objects, Func<RhinoViewport, Point3d, Transform> calculate, Func<TransformPick, IO<T>> picked) =>
+        RhinoDoc doc, PointRequest<T> request, TransformObjectList objects, Func<RhinoViewport, PointPick, Transform> calculate, Func<TransformPick, IO<T>> picked) =>
         Pointed(
-            () => new CallbackGetTransform(calculate),
+            () => new CallbackGetTransform(doc, calculate),
             doc,
             request,
             getter => {
                 getter.AddTransformObjects(objects);
                 return getter.GetXform();
             },
-            getter => (GetResult.Point, IO.pure(unit), World(getter, doc, pick => picked(new TransformPick(pick, Callbacks.Found(getter.HaveTransform, getter.Transform))))));
+            getter => (GetResult.Point, World(getter, doc, pick => picked(new TransformPick(pick, Callbacks.Found(getter.HaveTransform, getter.Transform))))));
 
     public static LengthUnit Space(Option<RhinoView> view, RhinoDoc doc) =>
         view.Exists(static found => found is RhinoPageView { ActiveDetail: null }) ? doc.PageUnits : doc.ModelUnits;
 
     private static IO<T> Pointed<TGetter, T>(
-        Func<TGetter> create, RhinoDoc doc, PointRequest<T> request, Func<TGetter, GetResult> get, Func<TGetter, (GetResult Result, IO<Unit> Enable, IO<T> Then)> answered)
+        Func<TGetter> create, RhinoDoc doc, PointRequest<T> request, Func<TGetter, GetResult> get, Func<TGetter, (GetResult Result, IO<T> Then)> answered)
         where TGetter : GetPoint =>
         Run(
             create,
@@ -267,24 +262,26 @@ public static class Getters {
             getter => DisposalOps.AcquireAll(request.Handlers.Map(handler => handler.Attach(getter, request.Site)), DisposalOps.Release)
                 .Bracket(
                     Use: _ => IO.lift(() => {
+                        getter.AcceptCustomMessage(!request.Handlers.IsEmpty || request.Accept.Message.IsSome);
+                        SetFullFrame(getter.FullFrameRedrawDuringGet || (getter is GetTransform && request.FullFrame), getter);
                         request.Default.Iter(getter.SetDefaultPoint);
                         return get(getter);
                     }),
                     Fin: DisposalOps.Release),
             getter => request.Handlers.IsEmpty
                 ? Seq(answered(getter))
-                : Seq(answered(getter), (GetResult.CustomMessage, IO.lift(() => getter.AcceptCustomMessage(enable: true)), Posted(getter, request.Accept.Message))));
+                : Seq(answered(getter), (GetResult.CustomMessage, Posted(getter, request.Accept.Message))));
 
     private static IO<T> World<T>(GetPoint getter, RhinoDoc doc, Func<WorldPick, IO<T>> picked) =>
         IO.lift(() => Optional(getter.PointOnObject())).Bracket(
-            Use: on => Pick(getter, doc).Map(pick => new WorldPick(pick, getter.GotDefault(), getter.OsnapEventType, Callbacks.Found(getter.TryGetBasePoint(out Point3d start), start), on)).Bind(picked),
-            Fin: static on => DisposalOps.Release(on.ToSeq()));
+            Use: reference => Pick(getter, doc).Map(pick => new WorldPick(pick, getter.GotDefault(), getter.OsnapEventType, Callbacks.Found(getter.TryGetBasePoint(out Point3d start), start), reference)).Bind(picked),
+            Fin: static reference => DisposalOps.Release(reference.ToSeq()));
 
     private static IO<PointPick> Pick(GetBaseClass getter, RhinoDoc doc) =>
-        IO.lift(() => Optional(getter.View())).Map(view => new PointPick(getter.Point(), Space(view, doc), Located(view)));
+        IO.lift(() => Optional(getter.View())).Map(view => new PointPick(getter.Point(), Space(view, doc), view.Map(static found => Located(found.ActiveViewport))));
 
-    private static Option<(ViewportTarget Viewport, Plane ConstructionPlane)> Located(Option<RhinoView> view) =>
-        view.Map(static found => found.ActiveViewport).Map(static viewport => ((ViewportTarget)new ViewportTarget.Id(viewport.Id), viewport.ConstructionPlane()));
+    internal static (ViewportTarget Viewport, Plane ConstructionPlane) Located(RhinoViewport viewport) =>
+        (new ViewportTarget.Id(viewport.Id), viewport.ConstructionPlane());
 
     // --- [OBJECTS]
     public static IO<T> Objects<T>(RhinoDoc doc, ObjectRequest<T> request, Func<Seq<ObjRef>, IO<T>> selected) =>
@@ -293,7 +290,7 @@ public static class Getters {
             request,
             doc,
             getter => Selected(getter, request),
-            getter => Seq((GetResult.Object, IO.pure(unit), IO.lift(() => toSeq(getter.Objects())).Bracket(Use: selected, Fin: DisposalOps.Release))));
+            getter => Seq((GetResult.Object, IO.lift(() => toSeq(getter.Objects())).Bracket(Use: selected, Fin: DisposalOps.Release))));
 
     private static IO<GetResult> Selected<T>(GetObject getter, ObjectRequest<T> request) =>
         IO.lift(() => {
@@ -318,30 +315,35 @@ public static class Getters {
                 request.Default.Iter(value => getter.SetDefaultNumber(double.CreateChecked(value.ToValue())));
                 return getter.Get();
             }),
-            getter => Seq((GetResult.Number, IO.pure(unit),
+            getter => Seq((GetResult.Number,
                 IO.lift(() => Conversions.Validated<TValue, TRaw, TError>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
 
     public static IO<T> Integer<TValue, TRaw, TError, T>(RhinoDoc doc, EntryRequest<GetInteger, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
         where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
         where TRaw : struct, System.Numerics.IBinaryInteger<TRaw>
         where TError : Error, IValidationError<TError> =>
-        Run(
+        from values in IO.lift(() => Callbacks.Thrown<OverflowException, (int Lower, int Upper, Option<int> Default)>(
+            () => (int.CreateChecked(TValue.MinValue.ToValue()), int.CreateChecked(TValue.MaxValue.ToValue()), request.Default.Map(static value => int.CreateChecked(value.ToValue()))),
+            nameof(int.CreateChecked)))
+        from answer in Run(
             static () => new GetInteger(),
             request,
             doc,
             getter => IO.lift(() => {
-                getter.SetLowerLimit(int.CreateSaturating(TValue.MinValue.ToValue()), strictlyGreaterThan: false);
-                getter.SetUpperLimit(int.CreateSaturating(TValue.MaxValue.ToValue()), strictlyLessThan: false);
-                request.Default.Iter(value => getter.SetDefaultInteger(int.CreateSaturating(value.ToValue())));
+                getter.SetLowerLimit(values.Lower, strictlyGreaterThan: false);
+                getter.SetUpperLimit(values.Upper, strictlyLessThan: false);
+                values.Default.Iter(getter.SetDefaultInteger);
                 return getter.Get();
             }),
-            getter => Seq((GetResult.Number, IO.pure(unit),
-                IO.lift(() => Conversions.Validated<TValue, TRaw, TError>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
+            getter => Seq((GetResult.Number,
+                IO.lift(() => Conversions.Validated<TValue, TRaw, TError>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))))
+        select answer;
 
     public static IO<T> Distance<TValue, TError, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
         where TValue : IObjectFactory<TValue, Length, TError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue>
         where TError : Error, IValidationError<TError> =>
-        IO.lift(() => Space(Optional(doc.Views.ActiveView), doc)).Bind(space => Run(
+        from space in IO.lift(() => Space(Optional(doc.Views.ActiveView), doc))
+        from answer in Run(
             static () => new GetNumber(),
             request,
             doc,
@@ -351,8 +353,9 @@ public static class Getters {
                 request.Default.Iter(value => getter.SetDefaultNumber(Quantities.As(value.ToValue(), space)));
                 return getter.Get();
             }),
-            getter => Seq((GetResult.Number, IO.pure(unit),
-                IO.lift(() => Conversions.Validated<TValue, Length, TError>(Quantities.From(getter.Number(), space)).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered)))));
+            getter => Seq((GetResult.Number,
+                IO.lift(() => Conversions.Validated<TValue, Length, TError>(Quantities.From(getter.Number(), space)).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))))
+        select answer;
 
     public static IO<T> Text<T>(RhinoDoc doc, EntryRequest<GetString, string, T> request, bool literal, Func<Entered<string>, IO<T>> entered) =>
         Run(
@@ -363,10 +366,10 @@ public static class Getters {
                 request.Default.Iter(getter.SetDefaultString);
                 return literal ? getter.GetLiteralString() : getter.Get();
             }),
-            getter => Seq((GetResult.String, IO.pure(unit), IO.lift(() => new Entered<string>(getter.StringResult(), getter.GotDefault())).Bind(entered))));
+            getter => Seq((GetResult.String, IO.lift(() => new Entered<string>(getter.StringResult(), getter.GotDefault())).Bind(entered))));
 
     public static IO<T> Choice<T>(RhinoDoc doc, GetterRequest<GetOption, T> request) =>
-        Run(static () => new GetOption(), request, doc, static getter => IO.lift(getter.Get), static _ => Seq<(GetResult Result, IO<Unit> Enable, IO<T> Then)>());
+        Run(static () => new GetOption(), request, doc, static getter => IO.lift(getter.Get), static _ => Seq<(GetResult Result, IO<T> Then)>());
 
     // --- [DRAG]
     public static IO<TransformObjectList> DragList(Seq<ObjRef> references, bool feedback) =>
@@ -378,7 +381,7 @@ public static class Getters {
             request,
             doc,
             getter => Selected(getter, request),
-            getter => Seq((GetResult.Object, IO.pure(unit), Listed(list => Missing.Unless(list.AddObjects(getter, allowGrips) > 0, nameof(TransformObjectList.AddObjects)), feedback))));
+            getter => Seq((GetResult.Object, Listed(list => Missing.Unless(list.AddObjects(getter, allowGrips) > 0, nameof(TransformObjectList.AddObjects)), feedback))));
 
     public static IO<Unit> Dragged(TransformObjectList list, Transform xform) =>
         IO.lift(() => Refused.Unless(list.UpdateDisplayFeedbackTransform(xform), nameof(TransformObjectList.UpdateDisplayFeedbackTransform)));
@@ -391,40 +394,36 @@ public static class Getters {
             Conversions.Present(list.GetBoundingBox(regularObjects: true, grips: true))));
 
     private static IO<TransformObjectList> Listed(Func<TransformObjectList, Fin<Unit>> fill, bool feedback) =>
-        from list in IO.lift(() => new TransformObjectList { DisplayFeedbackEnabled = feedback })
+        from list in IO.lift(() => CreateList(feedback))
         from filled in DisposalOps.OnFailure(IO.lift(() => fill(list)), IO.lift(list.Dispose))
         select list;
 
     // --- [STAGES]
     public static IO<TValue> Stages<TStage, TValue>(TStage entry, Func<TStage, Accepts<StageStep<TStage, TValue>>, IO<StageStep<TStage, TValue>>> prompt) =>
         Monad.recur<IO, (TStage Current, Seq<TStage> Earlier), TValue>(
-                (entry, Seq<TStage>()),
-                trail => prompt(trail.Current, new Accepts<StageStep<TStage, TValue>> {
-                        Undo = trail.Earlier.Head.Map(earlier => IO.pure<StageStep<TStage, TValue>>(new StageStep<TStage, TValue>.Back(earlier, trail.Earlier.Tail))),
-                    })
-                    .Bind(step => step.Switch(
-                        trail,
-                        advance: static (at, advance) => IO.pure(Next.Loop<(TStage Current, Seq<TStage> Earlier), TValue>((advance.Stage, at.Current.Cons(at.Earlier)))),
-                        back: static (_, back) => IO.pure(Next.Loop<(TStage Current, Seq<TStage> Earlier), TValue>((back.Stage, back.Earlier))),
-                        retry: static (at, retry) =>
-                            IO.lift(() => RhinoApp.WriteLine(ErrorOps.Localize(retry.Rejection))).Map(_ => Next.Loop<(TStage Current, Seq<TStage> Earlier), TValue>(at)),
-                        done: static (_, done) => IO.pure(Next.Done<(TStage Current, Seq<TStage> Earlier), TValue>(done.Value)))))
+                (entry, Seq<TStage>()), trail => StageStep<TStage, TValue>.Transition(trail, prompt))
             .As();
 
     // --- [AWAIT]
-    public static IO<A> Await<A>(RhinoDoc doc, string prompt, Option<string> progress, Func<IProgress<double>, IO<A>> work) =>
-        (from getter in use(static () => new GetCancel())
-         from shown in IO.lift(() => {
-             getter.SetCommandPrompt(prompt);
-             progress.Iter(message => (getter.ProgressReporting, getter.ProgressMessage) = (true, message));
-         })
-         from running in IO.lift(() => Task.Run(() => Detached(work(getter.Progress), getter.Token)))
+    public static async Task<IO<A>> AwaitAsync<A>(RhinoDoc doc, string prompt, Option<string> progress, Func<IProgress<double>, IO<A>> work) =>
+        (from getter in use(() => CreateWaiter((progress.IsSome, progress)))
+         from shown in IO.lift(() => getter.SetCommandPrompt(prompt))
+         from running in IO.lift(() => Task.Run(() => {
+             using EnvIO environment = EnvIO.New(token: getter.Token);
+             return Try.lift(() => work(getter.Progress).Run(environment)).Run();
+         }))
          from waited in IO.lift(() => Conversions.FromResult(getter.Wait(running, doc), nameof(GetCancel.Wait)))
-         from value in IO.lift(running.Result)
-         select value).Bracket();
+         from value in await IO select value).Bracket();
 
-    private static Fin<A> Detached<A>(IO<A> work, CancellationToken token) {
-        using EnvIO env = EnvIO.New(token: token);
-        return Try.lift(() => work.Run(env)).Run();
-    }
+    // --- [MAPPING]
+    [MapPropertyFromSource(nameof(TransformObjectList.DisplayFeedbackEnabled))]
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    private static partial TransformObjectList CreateList(bool feedback);
+
+    [MapPropertyFromSource(nameof(GetPoint.FullFrameRedrawDuringGet))]
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    private static partial void SetFullFrame(bool enabled, GetPoint getter);
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    private static partial GetCancel CreateWaiter((bool ProgressReporting, Option<string> ProgressMessage) settings);
 }

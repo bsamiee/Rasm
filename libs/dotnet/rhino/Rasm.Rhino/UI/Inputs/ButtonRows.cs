@@ -38,7 +38,7 @@ public static class ButtonRows {
         from command in IO.lift(() => new Command { ToolTip = RowText.Localize(caption).Local, Enabled = stage.Pick.IsSome })
         let site = new CallbackSite(scope.Sink, typeof(Command), nameof(Command.Executed))
         from executed in DisposalOps.AcquireAll(
-            stage.Pick.ToSeq().Map(picker => Subscriptions.Attach<EventHandler<EventArgs>>(
+            stage.Pick.ToSeq().Map(picker => Subscriptions.Attach(
                 h => command.Executed += h, h => command.Executed -= h,
                 Callbacks.Handler<EventArgs>(
                     _ => IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
@@ -53,7 +53,7 @@ public static class ButtonRows {
         from button in IO.lift(() => new ImageButton { ToolTip = command.ToolTip, MaskImageWithBackgroundColorWhenDisabled = true, Command = command })
         let bound = new Disposal<ImageButton>(button, static held => held.Command = null)
         from themed in DisposalOps.OnFailure(Icons.Themed(sink, glyph, slot, icon => button.Image = icon), IO.lift(bound.Dispose))
-        select (button, DisposalOps.Composite(Seq<IDisposable>(bound, themed), new CallbackSite(sink, typeof(ImageButton), nameof(ImageButton.Command))));
+        select (button, DisposalOps.Composite(Seq(bound, themed), new CallbackSite(sink, typeof(ImageButton), nameof(ImageButton.Command))));
 
     public static IO<(SegmentedButton Control, IDisposable Release)> Split(
         CheckCommand toggle, Seq<(RadioCommand Command, IGlyph Glyph)> modes, IconSlot slot, IPlugInSink sink) =>
@@ -66,13 +66,13 @@ public static class ButtonRows {
             .Bind(icon => IO.lift(() => icon.Iter(frames => pressed.Image = frames)))
         from heard in DisposalOps.OnFailure(
             DisposalOps.AcquireAll(
-                modes.Map(mode => Subscriptions.Attach<EventHandler<EventArgs>>(
+                modes.Map(mode => Subscriptions.Attach(
                         h => mode.Command.CheckedChanged += h, h => mode.Command.CheckedChanged -= h, Callbacks.Handler<EventArgs>(_ => shown, site)))
                     .Add(Themes.Changed.Inline(_ => shown, sink)),
                 DisposalOps.Release),
             DisposalOps.Release(held))
         from painted in DisposalOps.OnFailure(shown, DisposalOps.Release(held + heard))
-        from button in IO.lift(() => new SegmentedButton {
+        from button in IO.lift(static () => new SegmentedButton {
             SelectionMode = SegmentedSelectionMode.Multiple,
             Items = { pressed, new MenuSegmentedItem { CanSelect = false, Menu = menu.Menu } },
         })
@@ -81,15 +81,15 @@ public static class ButtonRows {
     // --- [GROUPS]
     public static IO<(AddRemoveButton Control, IDisposable Release)> AddRemove(Command add, Command remove) =>
         IO.lift(() => new AddRemoveButton {
-                AddToolTip = add.ToolTip, RemoveToolTip = remove.ToolTip,
-                AddCommand = add, RemoveCommand = remove,
-                AddEnabled = add.Enabled, RemoveEnabled = remove.Enabled,
-            })
+            AddToolTip = add.ToolTip, RemoveToolTip = remove.ToolTip,
+            AddCommand = add, RemoveCommand = remove,
+            AddEnabled = add.Enabled, RemoveEnabled = remove.Enabled,
+        })
             .Map(static pair => (pair, (IDisposable)new Disposal<AddRemoveButton>(pair, static held => (held.AddCommand, held.RemoveCommand) = (null, null))));
 
     public static IO<(SegmentedButton Control, IDisposable Release)> Modes(Seq<(RadioCommand Command, Option<IGlyph> Glyph)> modes, IconSlot slot, IPlugInSink sink) =>
         from segments in IO.lift(() => modes.Map(static mode => (mode.Glyph, Segment: new ButtonSegmentedItem {
-            Text = mode.Glyph.Map(static _ => string.Empty).IfNone(mode.Command.ToolBarText), ToolTip = mode.Command.ToolTip, Command = mode.Command,
+            Text = mode.Glyph.Map(static _ => "").IfNone(mode.Command.ToolBarText), ToolTip = mode.Command.ToolTip, Command = mode.Command,
         })).Strict())
         from strip in IO.lift(static () => new SegmentedButton { SelectionMode = SegmentedSelectionMode.Single })
         from added in IO.lift(() => strip.Items.AddRange(segments.Map(static held => (SegmentedItem)held.Segment)))
@@ -104,7 +104,6 @@ public static class ButtonRows {
             .Fold(Seq<StackLayoutItem>(), static (items, group) =>
                 (items.IsEmpty ? items : items.Add(new StackLayoutItem(new Divider(), VerticalAlignment.Stretch))) + group.Map(static control => new StackLayoutItem(control)))
             .Iter(strip.Items.Add))
-        select strip;
 
     // --- [MENUS]
     public static IO<(SegmentedButton Control, IDisposable Release)> Menu(ContextMenu menu, IGlyph glyph, IconSlot slot, string toolTip, IPlugInSink sink) =>

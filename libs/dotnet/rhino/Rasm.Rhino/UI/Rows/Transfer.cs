@@ -20,8 +20,7 @@ public static class Transfer {
         from read in IO.lift(ValueSet.Read(text))
         let scoped = read.Scoped(keys)
         from matched in IO.lift(UnmatchedValues.Unless(group.Keys().Exists(scoped.Entries.ContainsKey), read.Entries.Count))
-        from diff in scope.Commit(group, scoped)
-        select diff;
+scope.Commit diff;
 
     // --- [DRAGS]
     public static IO<Unit> Drag(Control source, Seq<string> files, Option<Image> image) =>

@@ -70,7 +70,7 @@ public sealed partial class RangeHandle {
     [UseDelegateFromConstructor]
     public partial MarkShape Shape(MarkShape area, float ramp, float x);
 
-    public RangeHandle Under(Keys modifiers) => (modifiers & Keys.Alt) != Keys.None ? Alternate.IfNone(this) : this;
+    public RangeHandle Under(Keys modifiers) => modifiers.HasFlag(Keys.Alt) ? Alternate.IfNone(this) : this;
 
     internal static float Fraction(float key) =>
         key.CompareTo(AxisFraction.MinValue.ToValue()) < 0 ? AxisFraction.MinValue.ToValue()
@@ -131,7 +131,7 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
     private static Hsy Reference(HueRange range) =>
         toSeq(RangeAxis.Items).Fold(new Hsy(0f, 0f, 0f), (hsy, item) => item.Replaced(hsy, item.Band.Get(range).Center));
 
-    private static Color Shown(Vector4 linear) => Plots.Encoded(Gamut.StandardRgb, linear.AsVector3());
+    private static new Color Shown(Vector4 linear) => Plots.Encoded(Gamut.StandardRgb, linear.AsVector3());
 
     // --- [TRANSITIONS]
     protected override HueRangeBarState Received(HueRangeBarState state, Option<HueRange> value) =>

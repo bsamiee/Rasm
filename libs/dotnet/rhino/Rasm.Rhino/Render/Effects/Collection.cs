@@ -66,11 +66,7 @@ public abstract partial record EffectRequest {
         public string Key { get; }
         public string Text { get; }
 
-        public static Seq<EffectRequest> Of<TEffect, TState, TParameter, TError>(TState state)
-            where TEffect : DefinedEffect<TEffect, TState, TParameter, TError>
-            where TState : IStateRecord<TState, TParameter, TError>
-            where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
-            where TError : Error, IValidationError<TError> =>
+        public static Seq<EffectRequest> Of<TEffect, TState>(TState state) where TEffect : PostEffect where TState : IStateRecord<TState> =>
             FieldTexts<TState>.Items.Choose(field => field.Capture(state).Map(text => (EffectRequest)new Tuning(typeof(TEffect).GUID, EffectCollection.ParameterName(field.Path), text)));
 
         public static Tuning Amount<TEffect>(Mix mix) where TEffect : PostEffect =>
@@ -108,11 +104,7 @@ public static class EffectCollection {
         from entries in IO.lift(() => Conversions.Rows(effects).Map(data => EffectMapper.ToEntry(data, selected)).Strict())
         select entries;
 
-    public static IO<TState> State<TEffect, TState, TParameter, TError>(RenderSettings settings)
-        where TEffect : DefinedEffect<TEffect, TState, TParameter, TError>
-        where TState : IStateRecord<TState, TParameter, TError>
-        where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
-        where TError : Error, IValidationError<TError> =>
+    public static IO<TState> State<TEffect, TState>(RenderSettings settings) where TEffect : PostEffect where TState : IStateRecord<TState> =>
         Entry(settings, typeof(TEffect).GUID, static data => FieldTexts.Recalled<TState>(EntryKey.TypeOwner(typeof(TEffect).GUID), path => Stored(data, ParameterName(path))));
 
     public static IO<Option<Mix>> Amount<TEffect>(RenderSettings settings) where TEffect : PostEffect =>

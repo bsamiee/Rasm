@@ -99,7 +99,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
 
     public event EventHandler<Option<CurveAnchor>>? Anchored;
 
-    public Seq<Command> Commands => Seq<Command>(resetCurve, inputHistogram);
+    public Seq<Command> Commands => Seq(resetCurve, inputHistogram);
 
     public IO<Unit> Choose(CurveKey key) =>
         Advance(state => new(state.Switch<CurveKey, CurveEditorState>(key,
@@ -196,7 +196,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
                 graph: static (held, graph) => Graphed(graph, held.Size, held.Scale)));
 
     protected override PartFacet Facet(CurveEditorState state, CurvePart key) =>
-        state.Switch((Key: key, Text: text, Size: Size, Pointer: Pointer),
+        state.Switch((Key: key, Text: text, Size, Pointer),
             editing: static (held, editing) => Indexed(held.Key).Match(
                 Some: index => new PartFacet(
                     PartRole.Handle, Cursors.Pointer, RowText.Localize("{0} point {1}", arguments: [held.Text.Curve(editing.Active), index + 1]).Local,
@@ -297,16 +297,16 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
             toSeq(bins.Counts.ToArray())
                 .Map((count, bin) => (Column: int.Clamp((int)(Placed.X.Unit((float)CurveAxis.ToStops(HistogramAxis.LowerBound(bin))) * columns), 0, columns - 1), Count: count))
                 .Fold(HashMap<int, int>(), static (held, bin) => held.AddOrUpdate(bin.Column, total => total + bin.Count, bin.Count)) switch {
-                var counts => counts.Fold(1, int.Max) switch {
-                    var tallest => new MarkShape.Polygon([
-                        new PointF(Placed.Plot.Left, Placed.Plot.Bottom),
-                        .. toSeq(Prelude.Range(0, columns)).Map(column => new PointF(
+                    var counts => counts.Fold(1, int.Max) switch {
+                        var tallest => new MarkShape.Polygon([
+                            new PointF(Placed.Plot.Left, Placed.Plot.Bottom),
+                        .. toSeq(Range(0, columns)).Map(column => new PointF(
                             Placed.Plot.Left + ((column + 0.5f) * Placed.Plot.Width / columns),
                             Placed.Plot.Bottom - ((float)counts.Find(column).IfNone(0) / tallest * Placed.Plot.Height))),
                         new PointF(Placed.Plot.Right, Placed.Plot.Bottom),
                     ]),
-                },
-            };
+                    },
+                };
 
         // --- [EDITS]
         public Transition<CurveEditorState, PlottedCurve> Raised(Func<PlottedCurve, Edit<PlottedCurve>> edit) => new(State, Some(edit(Curve)));
@@ -328,12 +328,12 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
             moving.Map(index => Room(moving, index)).Fold(
                     (Left: double.NegativeInfinity, Right: double.PositiveInfinity, Low: double.NegativeInfinity, High: double.PositiveInfinity),
                     static (held, room) => (double.Max(held.Left, room.Left), double.Min(held.Right, room.Right), double.Max(held.Low, room.Low), double.Min(held.High, room.High))) switch {
-                var room => (X: double.Max(room.Left, double.Min(room.Right, dx)), Y: double.Max(room.Low, double.Min(room.High, dy))) switch {
-                    var travel => Rewritten(
-                        Curve.Points.Map((point, index) => moving.Exists(held => held == index) ? new CurvePoint(point.X + travel.X, point.Y + travel.Y) : point),
-                        State.Selected),
-                },
-            };
+                        var room => (X: double.Max(room.Left, double.Min(room.Right, dx)), Y: double.Max(room.Low, double.Min(room.High, dy))) switch {
+                            var travel => Rewritten(
+                                Curve.Points.Map((point, index) => moving.Exists(held => held == index) ? new CurvePoint(point.X + travel.X, point.Y + travel.Y) : point),
+                                State.Selected),
+                        },
+                    };
 
         public (double X, double Y) Snapped((float First, float Second) at) =>
             ((at.First + at.Second) / 2f) switch {
@@ -383,7 +383,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
     private const float HaloDiameter = 24f;
 
     private static readonly MarkStyle Halo = new MarkStyle.Fill(PaintSlot.ControlText, 0.1f);
-    private static readonly MarkStyle Focus = new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f);
+    private static new readonly MarkStyle Focus = new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f);
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, CurveEditorState state, Seq<PlotMark<CurvePart>> marks, Interaction<CurvePart> interaction) =>
         from well in Plots.Well(canvas, bounds)

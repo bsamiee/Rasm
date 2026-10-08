@@ -161,7 +161,7 @@ public abstract partial class CyclesKey {
     public static readonly CyclesKey Samples = new Row<SampleCount, int>(
         ValueKey.Of<SampleCount, int, InvalidRhinoValue>("Samples", "Samples", "Settings for controlling Cycles in a session", SampleCount.Default));
     public static readonly CyclesKey UseDocumentSamples = new Row<bool, bool>(
-        ValueKey.Raw("UseDocumentSamples", "Override Production Render Quality", "If unchecked affects only viewport sample count", false));
+        ValueKey.Raw("UseDocumentSamples", "Override Production Render Quality", "If unchecked affects only viewport sample count", default: false));
     public static readonly CyclesKey MaxBounce = new Row<BounceLimit, int>(
         ValueKey.Of<BounceLimit, int, InvalidRhinoValue>("MaxBounce", "Maximum", "Settings controlling the bounce limits for different types of rays", BounceLimit.Path));
     public static readonly CyclesKey MaxDiffuseBounce = new Row<BounceLimit, int>(
@@ -177,7 +177,7 @@ public abstract partial class CyclesKey {
     public static readonly CyclesKey TextureBakeQuality = new Row<TextureBake, int>(
         ValueKey.Of<TextureBake, int, InvalidRhinoValue>("TextureBakeQuality", "Texture Bake Quality", "Setting for controlling texture bake resolution", TextureBake.Low));
     public static readonly CyclesKey UseAdaptiveSampling = new Row<bool, bool>(
-        ValueKey.Raw("UseAdaptiveSampling", "Adaptive sampling", "Stop sampling pixels that reach the noise threshold", true));
+        ValueKey.Raw("UseAdaptiveSampling", "Adaptive sampling", "Stop sampling pixels that reach the noise threshold", default: true));
     public static readonly CyclesKey AdaptiveThreshold = new Row<NoiseThreshold, double>(
         ValueKey.Of<NoiseThreshold, double, InvalidRhinoValue>("AdaptiveThreshold", "Adaptive threshold", "Noise level a pixel stops sampling at", NoiseThreshold.Default));
     public static readonly CyclesKey AdaptiveMinSamples = new Row<MinimumSamples, int>(
@@ -191,24 +191,22 @@ public abstract partial class CyclesKey {
     public static readonly CyclesKey FilterGlossy = new Row<GlossyFilter, double>(
         ValueKey.Of<GlossyFilter, double, InvalidRhinoValue>("FilterGlossy", "Filter glossy", "Blur of glossy paths that suppresses caustic fireflies, 0 off", GlossyFilter.Default));
     public static readonly CyclesKey CausticsReflective = new Row<bool, bool>(
-        ValueKey.Raw("CausticsReflective", "Reflective caustics", "Light paths reflected onto diffuse surfaces", true));
+        ValueKey.Raw("CausticsReflective", "Reflective caustics", "Light paths reflected onto diffuse surfaces", default: true));
     public static readonly CyclesKey CausticsRefractive = new Row<bool, bool>(
-        ValueKey.Raw("CausticsRefractive", "Refractive caustics", "Light paths refracted onto diffuse surfaces", true));
+        ValueKey.Raw("CausticsRefractive", "Refractive caustics", "Light paths refracted onto diffuse surfaces", default: true));
     public static readonly CyclesKey UseDirectLight = new Row<bool, bool>(
-        ValueKey.Raw("UseDirectLight", "Sample all lights", "Direct light from every light at each bounce", true));
+        ValueKey.Raw("UseDirectLight", "Sample all lights", "Direct light from every light at each bounce", default: true));
     public static readonly CyclesKey UseIndirectLight = new Row<bool, bool>(
-        ValueKey.Raw("UseIndirectLight", "Sample all lights indirect", "Indirect light from every light at each bounce", true));
+        ValueKey.Raw("UseIndirectLight", "Sample all lights indirect", "Indirect light from every light at each bounce", default: true));
     public static readonly CyclesKey MaxPasses = new Row<bool, bool>(
-        ValueKey.Raw("MaxPasses", "Show max passes", "Raytraced heads-up display shows the pass limit", true));
+        ValueKey.Raw("MaxPasses", "Show max passes", "Raytraced heads-up display shows the pass limit", default: true));
 
     public static string Owner => "rhino-render";
 
     internal abstract (ValueBinding Binding, IO<Unit> Reset) Entry(DictionaryOwner owner);
 
-    private sealed class Row<TValue, TRaw> : CyclesKey where TValue : notnull where TRaw : notnull {
-        private readonly ValueKey<TValue, TRaw, InvalidRhinoValue> key;
-
-        public Row(ValueKey<TValue, TRaw, InvalidRhinoValue> key) : base(key.Name) => this.key = key;
+    private sealed class Row<TValue, TRaw>(ValueKey<TValue, TRaw, InvalidRhinoValue> key) : CyclesKey(key.Name) where TValue : notnull where TRaw : notnull {
+        private readonly ValueKey<TValue, TRaw, InvalidRhinoValue> key = key;
 
         internal override (ValueBinding Binding, IO<Unit> Reset) Entry(DictionaryOwner owner) =>
             ArchivableDictionaries.Store(owner, key, None) switch {
@@ -268,9 +266,9 @@ public abstract partial class CyclesSetting {
     public static readonly CyclesSetting PixelSize = new Row<ViewportPixelSize, int>(
         ValueKey.Of<ViewportPixelSize, int, InvalidRhinoValue>("PixelSize", "Pixel size", "Raytraced pixel size, Sharpness writes 11 minus it", ViewportPixelSize.Full), SettingType.Integer, Applied.Live);
     public static readonly CyclesSetting StartGpuKernelCompiler = new Row<bool, bool>(
-        ValueKey.Raw("StartGpuKernelCompiler", "Compile GPU kernels", "Compile GPU kernels when Rhino Render loads", true), SettingType.Bool, Applied.Relaunch);
+        ValueKey.Raw("StartGpuKernelCompiler", "Compile GPU kernels", "Compile GPU kernels when Rhino Render loads", default: true), SettingType.Bool, Applied.Relaunch);
     public static readonly CyclesSetting UseLightTree = new Row<bool, bool>(
-        ValueKey.Raw("UseLightTree", "Light tree", "Sample lights through the light tree", true), SettingType.Bool, Applied.Live);
+        ValueKey.Raw("UseLightTree", "Light tree", "Sample lights through the light tree", default: true), SettingType.Bool, Applied.Live);
     public static readonly CyclesSetting SunLightFactor = new Row<LightFactor, double>(
         ValueKey.Of<LightFactor, double, InvalidRhinoValue>("SunLightFactor", "Sun light factor", "Multiplier Rhino Render applies to the sun's intensity", LightFactor.Sun), SettingType.Double, Applied.Live);
     public static readonly CyclesSetting AreaLightFactor = new Row<LightFactor, double>(
@@ -292,11 +290,8 @@ public abstract partial class CyclesSetting {
 
     internal abstract ValueBinding Bind();
 
-    private sealed class Row<TValue, TRaw> : CyclesSetting where TValue : notnull where TRaw : notnull {
-        private readonly PlugInSetting<TValue, TRaw, InvalidRhinoValue> row;
-
-        public Row(ValueKey<TValue, TRaw, InvalidRhinoValue> key, SettingType<TRaw> kind, Applied applied) : base(key.Name) =>
-            row = new(key, kind, applied, Seq<string>(), Hidden: false);
+    private sealed class Row<TValue, TRaw>(ValueKey<TValue, TRaw, InvalidRhinoValue> key, SettingType<TRaw> kind, Applied applied) : CyclesSetting(key.Name) where TValue : notnull where TRaw : notnull {
+        private readonly PlugInSetting<TValue, TRaw, InvalidRhinoValue> row = new(key, kind, applied, Seq<string>(), Hidden: false);
 
         internal override ValueBinding Bind() => ValueBinding.Key(Owner, row.Value, PlugInSettings.Store(Node, row));
     }

@@ -60,7 +60,7 @@ public abstract class ComponentControl : Drawable {
 
     public static string StyleName(Type control) => $"{control.Assembly.GetName().Name}.{control.Name}";
     public static float Scale(Keys modifiers) => (modifiers & Application.Instance.CommonModifier) != Keys.None ? 0.1f : 1f;
-    public static bool Snaps(Keys modifiers) => (modifiers & Keys.Shift) != Keys.None;
+    public static bool Snaps(Keys modifiers) => modifiers.HasFlag(Keys.Shift);
 }
 
 public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, TState initial, Option<Func<Control, IO<Func<TState, TState>>>> sampled) : ComponentControl(sink)
@@ -154,9 +154,9 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     // --- [POINTER]
     protected override void OnMouseDown(MouseEventArgs e) {
         _ = Answered(scale => Pressing(scale, e));
-        if (!e.Handled) {
-            base.OnMouseDown(e);
-        }
+        if (e.Handled) return;
+
+        base.OnMouseDown(e);
     }
 
     protected override void OnMouseMove(MouseEventArgs e) {
@@ -174,16 +174,16 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
             e.Handled = true;
             _ = Abandon();
         }));
-        if (!e.Handled) {
-            base.OnMouseDoubleClick(e);
-        }
+        if (e.Handled) return;
+
+        base.OnMouseDoubleClick(e);
     }
 
     protected override void OnMouseWheel(MouseEventArgs e) {
         _ = Answered(scale => HasFocus ? Claimed(Scrolled(State, Size, scale, Hit(scale, e.Location), e), () => e.Handled = true) : unit);
-        if (!e.Handled) {
-            base.OnMouseWheel(e);
-        }
+        if (e.Handled) return;
+
+        base.OnMouseWheel(e);
     }
 
     protected override void OnMouseLeave(MouseEventArgs e) {
@@ -233,9 +233,9 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     // --- [KEYS]
     protected override void OnKeyDown(KeyEventArgs e) {
         _ = Answered(scale => Keying(scale, e));
-        if (!e.Handled) {
-            base.OnKeyDown(e);
-        }
+        if (e.Handled) return;
+
+        base.OnKeyDown(e);
     }
 
     protected override void OnGotFocus(EventArgs e) {

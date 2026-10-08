@@ -1,3 +1,4 @@
+using System.Numerics;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Tables;
@@ -9,169 +10,150 @@ using UnitsNet.Units;
 namespace Rasm.Rhino.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
-public readonly partial struct HistoryCapacity : System.Numerics.IMinMaxValue<HistoryCapacity> {
+public readonly partial struct HistoryCapacity : IMinMaxValue<HistoryCapacity> {
     public static HistoryCapacity MinValue { get; } = new(1);
     public static HistoryCapacity MaxValue { get; } = new(100);
     public static HistoryCapacity Default { get; } = new(10);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value == int.Clamp(value, MinValue._value, MaxValue._value) ? null : new InvalidRhinoValue();
+        validationError = value.CompareTo(MinValue._value) < 0 || value.CompareTo(MaxValue._value) > 0 ? new InvalidRhinoValue() : null;
 }
 
-[ValueObject<int>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValueObject<int>(SkipIParsable = true, AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
-public readonly partial struct MergeWindow : System.Numerics.IMinMaxValue<MergeWindow> {
+public readonly partial struct MergeWindow : IMinMaxValue<MergeWindow> {
     public static MergeWindow MinValue { get; } = new(0);
     public static MergeWindow MaxValue { get; } = new(600);
     public static MergeWindow Default { get; } = new(5);
     public static Presentation<MergeWindow, int> Presentation { get; } = new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(DurationUnit.Second) };
 
-    public Duration Span => Duration.FromSeconds(_value);
-
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value == int.Clamp(value, MinValue._value, MaxValue._value) ? null : new InvalidRhinoValue();
+        validationError = value.CompareTo(MinValue._value) < 0 || value.CompareTo(MaxValue._value) > 0 ? new InvalidRhinoValue() : null;
 }
 
 public sealed record HistoryLimits(HistoryCapacity Capacity, MergeWindow Window) {
     public static HistoryLimits Default { get; } = new(HistoryCapacity.Default, MergeWindow.Default);
 }
 
-public sealed record HistoryEntry(uint Serial, ValueDiff Diff, Instant At);
+public sealed record HistoryEntry(BigInteger Serial, ValueDiff Diff, Instant At);
+
+[SmartEnum]
+public sealed partial class StepDirection {
+    public static readonly StepDirection Undo = new();
+    public static readonly StepDirection Redo = new();
+}
 
 public sealed record ValueHistory {
     // --- [STATE]
-    private ValueHistory(Seq<HistoryEntry> done, Seq<HistoryEntry> undone, uint next) => (Done, Undone, Next) = (done, undone, next);
+    private ValueHistory(Seq<HistoryEntry> done, Seq<HistoryEntry> undone, BigInteger next) => (Done, Undone, Next) = (done, undone, next);
 
     public const uint TypeCode = 0x4849_5354u;
-
-    public static ValueHistory Empty { get; } = new(Seq<HistoryEntry>(), Seq<HistoryEntry>(), 0u);
-
+    public static ValueHistory Empty { get; } = new([], [], BigInteger.Zero);
     public static DictionaryCodec<HashMap<Guid, ValueHistory>> Codec { get; } = new("ValueHistory", 1, Encoded, Histories);
-
     public Seq<HistoryEntry> Done { get; }
-
     public Seq<HistoryEntry> Undone { get; }
-
-    private uint Next { get; }
+    private BigInteger Next { get; }
 
     // --- [TRANSITIONS]
     public ValueHistory Committed(ValueDiff diff, Instant at, HistoryLimits limits) =>
-        diff.Changes.IsEmpty
-            ? this
-            : Done.Head
-                .Filter(head => Undone.IsEmpty
-                    && toHashSet(head.Diff.Changes.Keys) == toHashSet(diff.Changes.Keys)
-                    && new NodaTime.Interval(head.At, head.At.Plus(limits.Window.Span)).Contains(at))
-                .Match(
-                    Some: head => new ValueHistory(
-                        (head.Diff.Then(diff) switch {
-                            { Changes.IsEmpty: true } => Done.Tail,
-                            var folded => new HistoryEntry(head.Serial, folded, at).Cons(Done.Tail),
-                        }).Take(limits.Capacity),
-                        Undone,
-                        Next),
-                    None: () => new ValueHistory(new HistoryEntry(Next, diff, at).Cons(Done).Take(limits.Capacity), Seq<HistoryEntry>(), Next + 1));
+        diff.Changes.IsEmpty ? this : Done.Head
+            .Filter(head => Undone.IsEmpty && toHashSet(head.Diff.Changes.Keys) == toHashSet(diff.Changes.Keys)
+                && at >= head.At && at - head.At < Duration.FromSeconds(limits.Window))
+            .Match(
+                Some: head => new ValueHistory(
+                    (head.Diff.Then(diff) switch {
+                        { Changes.IsEmpty: true } => Done.Tail,
+                        var merged => new HistoryEntry(head.Serial, merged, at).Cons(Done.Tail),
+                    }).Take(limits.Capacity), Undone, Next),
+                None: () => new ValueHistory(new HistoryEntry(Next, diff, at).Cons(Done).Take(limits.Capacity), [], Next + BigInteger.One));
 
-    public ValueHistory Undo(uint serial) =>
-        Done.Head.Filter(head => head.Serial == serial).Match(Some: head => new ValueHistory(Done.Tail, head.Cons(Undone), Next), None: () => this);
-
-    public ValueHistory Redo(uint serial) =>
-        Undone.Head.Filter(head => head.Serial == serial).Match(Some: head => new ValueHistory(head.Cons(Done), Undone.Tail, Next), None: () => this);
+    public ValueHistory Step(BigInteger serial, StepDirection direction) =>
+        direction.Map(undo: Done, redo: Undone).Head.Filter(entry => entry.Serial == serial).Match(
+            Some: entry => direction.Switch((History: this, Entry: entry),
+                undo: static state => new ValueHistory(state.History.Done.Tail, state.Entry.Cons(state.History.Undone), state.History.Next),
+                redo: static state => new ValueHistory(state.Entry.Cons(state.History.Done), state.History.Undone.Tail, state.History.Next)),
+            None: () => this);
 
     public ValueHistory Followed(ValueDiff taken) =>
-        (Undone.Head.Filter(entry => entry.Diff == taken).Map(entry => Redo(entry.Serial))
-            | Done.Head.Filter(entry => entry.Diff == taken.Inverse()).Map(entry => Undo(entry.Serial)))
-        .IfNone(this);
+        (Undone.Head.Filter(entry => entry.Diff == taken).Map(entry => Step(entry.Serial, StepDirection.Redo))
+            | Done.Head.Filter(entry => entry.Diff == taken.Inverse()).Map(entry => Step(entry.Serial, StepDirection.Undo))).IfNone(this);
 
-    public Option<HistoryEntry> Latest(EntryKey key) =>
-        Done.Find(entry => entry.Diff.Changes.ContainsKey(key));
-
-    public Option<ValueSet> Toward(uint serial) =>
+    public Option<ValueSet> Toward(BigInteger serial) =>
         Done.Find(entry => entry.Serial == serial)
             .Map(_ => Done.TakeWhile(entry => entry.Serial >= serial).Fold(ValueDiff.Empty, static (later, entry) => entry.Diff.Then(later)).Inverse().After());
 
     // --- [ARCHIVE]
-    private static Fin<ArchivableDictionary> Encoded(HashMap<Guid, ValueHistory> histories) =>
-        ArchivableDictionaries.Nested(toSeq(histories.AsIterable()).Map(static pair => (StoredText.Format(pair.Key), Encoded(pair.Value))));
+    private const string DoneKey = "Done", UndoneKey = "Undone", BeforeKey = "Before", AfterKey = "After", AtKey = "At";
 
-    private static Fin<ArchivableDictionary> Encoded(ValueHistory history) =>
-        ArchivableDictionaries.Nested(Seq(("Done", Encoded(history.Done)), ("Undone", Encoded(history.Undone))));
+    private static Fin<ArchivableDictionary> Encoded(HashMap<Guid, ValueHistory> histories) =>
+        ArchivableDictionaries.Nested(toSeq(histories.AsIterable()).Map(static pair => (StoredText.Format(pair.Key),
+            ArchivableDictionaries.Nested(Seq((DoneKey, Encoded(pair.Value.Done)), (UndoneKey, Encoded(pair.Value.Undone)))))));
 
     private static Fin<ArchivableDictionary> Encoded(Seq<HistoryEntry> entries) =>
         ArchivableDictionaries.Nested(entries.Map(static entry => (StoredText.Format(entry.Serial), Encoded(entry))));
 
     private static Fin<ArchivableDictionary> Encoded(HistoryEntry entry) =>
-        from target in ArchivableDictionaries.Nested(Seq(("Before", ValueSet.Codec.ToDictionary(entry.Diff.Inverse().After())), ("After", ValueSet.Codec.ToDictionary(entry.Diff.After()))))
-        from at in ArchivableDictionaries.Set(target, "At", entry.At.ToUnixTimeTicks())
+        from target in ArchivableDictionaries.Nested(Seq((BeforeKey, ValueSet.Codec.ToDictionary(entry.Diff.Inverse().After())), (AfterKey, ValueSet.Codec.ToDictionary(entry.Diff.After()))))
+        from at in ArchivableDictionaries.Set(target, AtKey, entry.At.ToUnixTimeTicks())
         select target;
 
     private static Fin<HashMap<Guid, ValueHistory>> Histories(ArchivableDictionary source) =>
-        ArchivableDictionaries.Children(source)
-            .Bind(static rows => Callbacks.Each(rows, static (row, _) =>
-                from id in StoredText.Parse<Guid>(row.Key)
-                from history in History(row.Value)
-                select (id, history)))
-            .Map(static pairs => toHashMap(pairs));
+        from rows in ArchivableDictionaries.Children(source)
+        from pairs in Callbacks.Each(rows, static (row, _) =>
+            (StoredText.Parse<Guid>(row.Key).ToValidation(), History(row.Value).ToValidation())
+                .Apply(static (id, history) => (id, history)).As().ToFin())
+        select toHashMap(pairs);
 
     private static Fin<ValueHistory> History(ArchivableDictionary source) =>
-        (ArchivableDictionaries.Required<ArchivableDictionary>(source, "Done").Bind(Entries).ToValidation(),
-         ArchivableDictionaries.Required<ArchivableDictionary>(source, "Undone").Bind(Entries).ToValidation())
+        (ArchivableDictionaries.Required<ArchivableDictionary>(source, DoneKey).Bind(Entries).ToValidation(),
+         ArchivableDictionaries.Required<ArchivableDictionary>(source, UndoneKey).Bind(Entries).ToValidation())
             .Apply(static (done, undone) => new ValueHistory(
-                toSeq(done.OrderByDescending(static entry => entry.Serial)),
-                toSeq(undone.OrderBy(static entry => entry.Serial)),
-                done.Concat(undone).Fold(0u, static (next, entry) => uint.Max(next, entry.Serial + 1))))
-            .As()
-            .ToFin();
+                toSeq(done.OrderByDescending(static entry => entry.Serial)), toSeq(undone.OrderBy(static entry => entry.Serial)),
+                done.Concat(undone).Fold(BigInteger.Zero, static (next, entry) => BigInteger.Max(next, entry.Serial + BigInteger.One))))
+            .As().ToFin();
 
     private static Fin<Seq<HistoryEntry>> Entries(ArchivableDictionary source) =>
-        ArchivableDictionaries.Children(source)
-            .Bind(static rows => Callbacks.Each(rows, static (row, _) => StoredText.Parse<uint>(row.Key).Bind(serial => Entry(serial, row.Value))));
-
-    private static Fin<HistoryEntry> Entry(uint serial, ArchivableDictionary source) =>
-        (ArchivableDictionaries.Required<long>(source, "At").ToValidation(),
-         ArchivableDictionaries.Required<ArchivableDictionary>(source, "Before").Bind(ValueSet.Codec.FromDictionary).ToValidation(),
-         ArchivableDictionaries.Required<ArchivableDictionary>(source, "After").Bind(ValueSet.Codec.FromDictionary).ToValidation())
-            .Apply((at, before, after) => new HistoryEntry(serial, before.Diff(after), Instant.FromUnixTimeTicks(at)))
-            .As()
-            .ToFin();
+        from rows in ArchivableDictionaries.Children(source)
+        from entries in Callbacks.Each(rows, static (row, _) =>
+            ((from serial in StoredText.Parse<BigInteger>(row.Key)
+              from accepted in serial >= BigInteger.Zero ? Fin.Succ(serial) : Fin.Fail<BigInteger>(new UnreadText(row.Key, typeof(BigInteger)))
+              select accepted).ToValidation(),
+             ArchivableDictionaries.Required<long>(row.Value, AtKey).ToValidation(),
+             ArchivableDictionaries.Required<ArchivableDictionary>(row.Value, BeforeKey).Bind(ValueSet.Codec.FromDictionary).ToValidation(),
+             ArchivableDictionaries.Required<ArchivableDictionary>(row.Value, AfterKey).Bind(ValueSet.Codec.FromDictionary).ToValidation())
+                .Apply(static (serial, at, before, after) => new HistoryEntry(serial, before.Diff(after), Instant.FromUnixTimeTicks(at))).As().ToFin())
+        select entries;
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record HistoryScope {
     public IO<AtomHashMap<Guid, ValueHistory>> Histories =>
-        Switch(
-            applicationScope: static scope => IO.pure(scope.Registry),
-            documentScope: static scope => Of(scope.Doc));
+        Switch(applicationScope: static scope => IO.pure(scope.Registry), documentScope: static scope => Of(scope.Doc));
 
     public static IO<AtomHashMap<Guid, ValueHistory>> Of(RhinoDoc doc) =>
         IO.lift(() => doc.RuntimeData.GetValue(typeof(ValueHistory), static _ => AtomHashMap<Guid, ValueHistory>()));
 
     public sealed record ApplicationScope(AtomHashMap<Guid, ValueHistory> Registry) : HistoryScope;
-
     public sealed record DocumentScope(RhinoDoc Doc, RedrawPolicy Redraw, CallbackSite Site) : HistoryScope;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group, HistoryScope Scope, IO<HistoryLimits> Limits, TimeProvider Clock) {
     // --- [READS]
-    public IO<ValueHistory> History =>
-        Scope.Histories.Map(histories => histories.Find(Id).IfNone(ValueHistory.Empty));
+    public IO<ValueHistory> History => Scope.Histories.Map(histories => histories.Find(Id).IfNone(ValueHistory.Empty));
 
     // --- [WRITES]
-    public IO<ValueDiff> Commit(ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
-        Written(incoming, locks).Bind(Recorded);
-
-    public IO<ValueDiff> Commit(ValueSet incoming, ValueSet from) =>
-        Recorded(from.Diff(incoming));
-
+    public IO<ValueDiff> Commit(ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) => Written(incoming, locks).Bind(Recorded);
+    public IO<ValueDiff> Commit(ValueSet incoming, ValueSet from) => Recorded(from.Diff(incoming));
     public IO<Unit> Clear =>
-        Scope.Histories.Bind(histories => IO.lift(() => histories.Remove(Id)));
+        from histories in Scope.Histories
+        from cleared in IO.lift(() => histories.Remove(Id))
+        select cleared;
 
     private IO<ValueDiff> Written(ValueSet target, LanguageExt.HashSet<EntryKey> locks) =>
-        Scope.Switch(
-            (Binding: this, Target: target, Locks: locks),
+        Scope.Switch((Binding: this, Target: target, Locks: locks),
             applicationScope: static (state, _) => state.Binding.Group.Apply(state.Target, state.Locks),
             documentScope: static (state, scope) =>
                 Commits.Commit(scope.Doc, state.Binding.Caption, scope.Redraw,
@@ -179,8 +161,7 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
                         from recording in IO.lift(() => scope.Doc.UndoRecordingIsActive)
                         from registered in when(recording && !diff.Changes.IsEmpty,
                             TableOps.Register(scope.Doc, new CustomUndo(state.Binding.Caption, state.Binding.Followed(diff.Inverse()), state.Binding.Followed(diff), scope.Site))).As()
-                        select diff)
-                    .Map(static committed => committed.Value));
+                        select diff).Map(static committed => committed.Value));
 
     private IO<ValueDiff> Recorded(ValueDiff diff) =>
         from at in IO.lift(Clock.GetCurrentInstant)
@@ -189,33 +170,32 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
         select diff;
 
     private IO<Unit> Followed(ValueDiff taken) =>
-        Group.Apply(taken.After(), []).Bind(_ => Swapped(history => history.Followed(taken)));
+        from applied in Group.Apply(taken.After(), [])
+        from moved in Swapped(history => history.Followed(taken))
+        select moved;
 
     private IO<Unit> Swapped(Func<ValueHistory, ValueHistory> step) =>
-        Scope.Histories.Bind(histories => IO.lift(() => histories.SwapKey(Id, held => Some(step(held.IfNone(ValueHistory.Empty))))));
+        from histories in Scope.Histories
+        from swapped in IO.lift(() => histories.SwapKey(Id, held => Some(step(held.IfNone(ValueHistory.Empty)))))
+        select swapped;
 
     // --- [STEPS]
-    public IO<ValueDiff> Undo =>
-        History.Bind(history => history.Done.Head.Match(
-            Some: entry => Stepped(entry.Diff.Inverse().After(), held => held.Undo(entry.Serial)),
-            None: static () => IO.pure(ValueDiff.Empty)));
+    public IO<ValueDiff> Step(StepDirection direction) =>
+        (from history in OptionT.lift(History)
+         from entry in direction.Map(undo: history.Done, redo: history.Undone).Head
+         from diff in Written(direction.Switch(entry.Diff, undo: static taken => taken.Inverse(), redo: identity).After(), [])
+         from moved in Swapped(held => held.Step(entry.Serial, direction))
+         select diff).IfNone(ValueDiff.Empty).As();
 
-    public IO<ValueDiff> Redo =>
-        History.Bind(history => history.Undone.Head.Match(
-            Some: entry => Stepped(entry.Diff.After(), held => held.Redo(entry.Serial)),
-            None: static () => IO.pure(ValueDiff.Empty)));
-
-    public IO<ValueDiff> Restore(uint serial) =>
-        History.Bind(history => IO.lift(history.Toward(serial).ToFin(new Missing(nameof(Restore)))))
-            .Bind(target => Commit(target, []));
+    public IO<ValueDiff> Restore(BigInteger serial) =>
+        from history in History
+        from target in IO.lift(history.Toward(serial).ToFin(new Missing(nameof(Restore))))
+        from diff in Commit(target, [])
+        select diff;
 
     public IO<ValueDiff> Revert(EntryKey key) =>
-        History.Bind(history => history.Latest(key).Match(
-            Some: entry => Commit(entry.Diff.Inverse().After().Scoped(Some(IterableNE.singleton(key))), []),
-            None: static () => IO.pure(ValueDiff.Empty)));
-
-    private IO<ValueDiff> Stepped(ValueSet target, Func<ValueHistory, ValueHistory> step) =>
-        from diff in Written(target, [])
-        from moved in Swapped(step)
-        select diff;
+        (from history in OptionT.lift(History)
+         from entry in history.Done.Find(candidate => candidate.Diff.Changes.ContainsKey(key))
+         from diff in Commit(entry.Diff.Inverse().After().Scoped(Some(IterableNE.singleton(key))), [])
+         select diff).IfNone(ValueDiff.Empty).As();
 }

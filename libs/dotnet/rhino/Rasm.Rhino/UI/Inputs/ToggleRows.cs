@@ -19,9 +19,9 @@ public static class ToggleRows {
         from seeded in shown
         from held in DisposalOps.AcquireAll(
             Seq(Icons.Themed(sink, glyph, slot, icon => button.Image = icon),
-                Subscriptions.Attach<EventHandler<EventArgs>>(h => command.CheckedChanged += h, h => command.CheckedChanged -= h,
+                Subscriptions.Attach(h => command.CheckedChanged += h, h => command.CheckedChanged -= h,
                     Callbacks.Handler<EventArgs>(_ => shown, new CallbackSite(sink, typeof(CheckCommand), nameof(CheckCommand.CheckedChanged)))),
-                Subscriptions.Attach<EventHandler<EventArgs>>(h => button.CheckedChanged += h, h => button.CheckedChanged -= h,
+                Subscriptions.Attach(h => button.CheckedChanged += h, h => button.CheckedChanged -= h,
                     Callbacks.Handler<EventArgs>(_ => IO.lift(() => { command.Checked = button.Checked; }), site))),
             DisposalOps.Release)
         select (button, DisposalOps.Composite(held, site));
@@ -36,8 +36,7 @@ public static class ToggleRows {
                 from on in IO.lift(() => Optional(box.Checked))
                 from held in scope.Read(source)
                 from committed in on.Traverse(state => edit.Commit(lens.Set(state, held))).As()
-                select unit, site),
-            held => IO.lift(() => {
+IO.lift(() => {
                 (box.ThreeState, box.Checked) = held.Map(lens.Get).Match(Some: static on => (false, (bool?)on), None: static () => (true, (bool?)null));
             }),
             scope, site)

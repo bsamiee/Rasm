@@ -56,8 +56,8 @@ public sealed partial class WindowKind {
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class EngineScope {
-    public static readonly EngineScope Own = new(false, static plugIn => plugIn.Id);
-    public static readonly EngineScope Every = new(true, static _ => new Guid("99999999-9999-9999-9999-999999999999"));
+    public static readonly EngineScope Own = new(alwaysShow: false, static plugIn => plugIn.Id);
+    public static readonly EngineScope Every = new(alwaysShow: true, static _ => new Guid("99999999-9999-9999-9999-999999999999"));
 
     public bool AlwaysShow { get; }
 
@@ -194,7 +194,7 @@ public sealed record ViewCollection {
         views.Find(id).Bind(static view => Optional(view as TCase));
 
     public Seq<TCase> Listed<TCase>() where TCase : View =>
-        rows.Choose<View, TCase>(static view => Optional(view as TCase));
+        rows.Choose(static view => Optional(view as TCase));
 
     public static Seq<View> Tree(View view) =>
         view.Cons(view.Children.Bind(static child => child.Sections).Bind(static section => Tree(section)));
@@ -220,7 +220,7 @@ public sealed class ShownSubscription(IO<IDisposable> listen, CallbackSite site)
             Some: listener => shown ? unit : Unsubscribed(listener),
             None: () => shown ? Subscribed(Callbacks.Answer(listen.Map(static listener => Some(listener)), static () => Option<IDisposable>.None, site)) : unit);
 
-    public void Dispose() => _ = Shown(false);
+    public void Dispose() => _ = Shown(shown: false);
 
     private Unit Subscribed(Option<IDisposable> listener) => ignore(held.Swap(_ => listener));
 
@@ -254,7 +254,7 @@ public static class ViewOps {
             .Map(static sets => new ValueSet(toHashMap(sets.Bind(static set => toSeq(set.Entries.AsIterable())))));
 
     public static Fin<HistoryBinding> History(IPlugInViews owner, View view, ViewStore store, BindingGroup group, Option<RhinoDoc> document) =>
-        store.Switch<(IPlugInViews Owner, View View, Option<RhinoDoc> Document), Fin<HistoryScope>>(
+        store.Switch(
                 (Owner: owner, View: view, Document: document),
                 applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Owner.Histories),
                 documentStores: static (state, held) => state.Document
@@ -263,7 +263,7 @@ public static class ViewOps {
             .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, table: Some<object>(owner)).Local, group, scope, owner.Limits, owner.Clock));
 
     private static Seq<RowSource> Sources(View view) =>
-        view.Children.Bind(static child => child.Controls).Choose<ControlRow, RowSource>(static row => row.Bound).Distinct();
+        view.Children.Bind(static child => child.Controls).Choose(static row => row.Bound).Distinct();
 
     // --- [REALIZATION]
     public static IO<ViewBody> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope) =>
@@ -286,7 +286,7 @@ public static class ViewOps {
 
     private static IO<(ViewBody Body, bool Fill)> Part(IPlugInViews owner, Seq<Child> children, (Child Lead, Seq<Child> Run) run, RowScope scope) =>
         run.Lead.Switch(
-                (Owner: owner, Children: children, Run: run.Run, Scope: scope),
+                (Owner: owner, Children: children, run.Run, Scope: scope),
                 control: static (state, _) => RowGrid.Realize(state.Children.Bind(static child => child.Controls), state.Run.Map(static child => child.AsControl), state.Scope)
                     .Map(static grid => new ViewBody(grid, IO.lift(grid.Dispose))),
                 holder: static (state, holder) => SectionStack.Hold(state.Owner, holder, state.Scope),
@@ -308,10 +308,10 @@ public static class ViewOps {
         from attached in DisposalOps.AcquireAll(
             Seq(
                 IO.pure<IDisposable>(subscription),
-                Subscriptions.Attach<EventHandler<EventArgs>>(
-                    handler => control.Load += handler, handler => control.Load -= handler, Callbacks.Handler<EventArgs>(_ => IO.lift(() => subscription.Shown(true)), site)),
-                Subscriptions.Attach<EventHandler<EventArgs>>(
-                    handler => control.UnLoad += handler, handler => control.UnLoad -= handler, Callbacks.Handler<EventArgs>(_ => IO.lift(() => subscription.Shown(false)), site))),
+                Subscriptions.Attach(
+                    handler => control.Load += handler, handler => control.Load -= handler, Callbacks.Handler<EventArgs>(_ => IO.lift(() => subscription.Shown(shown: true)), site)),
+                Subscriptions.Attach(
+                    handler => control.UnLoad += handler, handler => control.UnLoad -= handler, Callbacks.Handler<EventArgs>(_ => IO.lift(() => subscription.Shown(shown: false)), site))),
             DisposalOps.Release)
         select DisposalOps.Composite(attached, site);
 }

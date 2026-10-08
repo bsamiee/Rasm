@@ -8,14 +8,10 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union]
-public abstract partial record ProjectionFrame {
-    public sealed record FromViewport(RhinoViewport Viewport) : ProjectionFrame;
+[Union<RhinoViewport, CameraPose>(MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class ProjectionFrame;
 
-    public sealed record FromPose(CameraPose Pose) : ProjectionFrame;
-}
-
-public sealed record DrawnCurve(SilhouetteType SilhouetteType, Option<int> ClippingPlaneIndex, ComponentIndex SourceObjectComponentIndex, Option<object> Tag);
+public sealed record DrawnCurve(SilhouetteType SilhouetteType, Option<int> ClippingPlaneIndex, ComponentIndex SourceObjectComponentIndex, Option<object> Tag, Option<double> OriginalDomainStart);
 
 public sealed record DrawnSegment(
     Curve Curve,
@@ -28,21 +24,11 @@ public sealed record DrawnPoint(Point3d Location, HiddenLineDrawingPoint.Visibil
 
 public sealed record LineDrawing(Seq<DrawnSegment> Segments, Seq<DrawnPoint> Points, Transform WorldToHiddenLine);
 
-[Union]
-public abstract partial record SilhouetteFrame {
+[Union<Point3d, Vector3d, ViewportInfo>(MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class SilhouetteFrame {
     public static SilhouetteFrame Of(CameraPose pose) =>
-        pose.Lens.Switch<CameraPose, SilhouetteFrame>(
-            pose,
-            parallel: static (posed, _) => new Along(-posed.Frame.ZAxis),
-            perspective: static (posed, _) => new Eye(posed.Frame.Origin),
-            twoPoint: static (posed, _) => new Eye(posed.Frame.Origin));
-
-    public sealed record Eye(Point3d Location) : SilhouetteFrame;
-
-    public sealed record Along(Vector3d Direction) : SilhouetteFrame;
+        pose.Lens is CameraLens.Parallel ? new(-pose.Frame.ZAxis) : new(pose.Frame.Origin);
 }
-
-public sealed record SilhouetteCurve(Curve Curve, SilhouetteType SilhouetteType, ComponentIndex GeometryComponentIndex);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
@@ -55,60 +41,64 @@ public static partial class Drawings {
                 : Seq(cut),
         };
 
-    private static IO<ViewportInfo> Projection(ProjectionFrame frame, BoundingBox bounds) =>
-        frame.Switch(
-            bounds,
-            fromViewport: static (box, of) => IO.lift(() => new ViewportInfo(of.Viewport)).Post().Bind(viewport => DisposalOps.OnFailure(
-                IO.lift(() => Refused.Unless(viewport.SetFrustumNearFar(box), viewport, nameof(ViewportInfo.SetFrustumNearFar))),
-                IO.lift(viewport.Dispose))),
-            fromPose: static (box, of) => Cameras.ToViewportInfo(of.Pose, box));
-
     // --- [HIDDEN_LINE]
     public static IO<LineDrawing> Draw(
         ProjectionFrame frame, BoundingBox bounds, Seq<Plane> clips, Tolerances tolerances, Func<HiddenLineDrawingParameters, Fin<Unit>> subjects,
         bool multipleThreads, bool rejoin, Option<IProgress<double>> progress) =>
-        from parameters in IO.lift(() =>
-            Callbacks.Unique(clips, identity, nameof(HiddenLineDrawingParameters.AddClippingPlane)).ToFin()
-                .Bind(unique => Parameters(unique, tolerances, subjects)))
-        from _ in use(Projection(frame, bounds)).Bind(viewport => IO.lift(() => parameters.SetViewport(viewport))).Bracket()
-        from drawn in use(Computed(parameters, multipleThreads, progress)).Bind(drawing => Drawn(drawing, rejoin)).Bracket()
+        from unique in IO.lift(() => Callbacks.Unique(clips, identity, nameof(HiddenLineDrawingParameters.AddClippingPlane)).ToFin())
+        let parameters = Parameters(tolerances.Absolute)
+        from configured in IO.lift(() => {
+            _ = unique.Iter(parameters.AddClippingPlane);
+            return subjects(parameters);
+        })
+        from projected in (
+            from viewport in use(frame.Switch(
+                bounds,
+                rhinoViewport: static (box, live) => Copies.Owned(
+                    IO.lift(() => new ViewportInfo(live)).Post(),
+                    camera => Refused.Unless(camera.SetFrustumNearFar(box), camera, nameof(ViewportInfo.SetFrustumNearFar))),
+                cameraPose: static (box, pose) => Cameras.ToViewportInfo(pose, box)))
+            from assigned in IO.lift(() => parameters.SetViewport(viewport))
+            select assigned).Bracket()
+        from drawn in (
+            from drawing in use(Computed(parameters, multipleThreads, progress))
+            from result in Drawn(drawing, rejoin)
+            select result).Bracket()
         select drawn;
 
-    private static Fin<HiddenLineDrawingParameters> Parameters(Seq<Plane> clips, Tolerances tolerances, Func<HiddenLineDrawingParameters, Fin<Unit>> subjects) {
-        HiddenLineDrawingParameters parameters = new() { AbsoluteTolerance = tolerances.Absolute };
-        _ = clips.Iter(parameters.AddClippingPlane);
-        return subjects(parameters).Map(_ => parameters);
-    }
+    [MapPropertyFromSource(nameof(HiddenLineDrawingParameters.AbsoluteTolerance))]
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    private static partial HiddenLineDrawingParameters Parameters(double tolerance);
 
     private static IO<HiddenLineDrawing> Computed(HiddenLineDrawingParameters parameters, bool multipleThreads, Option<IProgress<double>> progress) =>
         from token in cancelToken
-        from drawing in IO.lift(() =>
+        from computed in IO.lift(() =>
             Callbacks.Thrown<ArgumentException, HiddenLineDrawing?>(
-                    () => HiddenLineDrawing.Compute(parameters, multipleThreads, progress.ValueUnsafe(), token),
-                    nameof(HiddenLineDrawing.Compute))
-                .Bind(computed => Optional(computed).ToFin(token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(HiddenLineDrawing.Compute)))))
+                () => HiddenLineDrawing.Compute(parameters, multipleThreads, progress.ValueUnsafe(), token),
+                nameof(HiddenLineDrawing.Compute)))
+        from drawing in IO.lift(() => Optional(computed).ToFin(token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(HiddenLineDrawing.Compute))))
         select drawing;
 
     private static IO<LineDrawing> Drawn(HiddenLineDrawing drawing, bool rejoin) =>
         from rejoined in when(rejoin, IO.lift(drawing.RejoinCompatibleVisible)).As()
+        let points = Conversions.Rows(drawing.Points).Map(ToDrawnPoint).Strict()
+        let worldToHiddenLine = drawing.WorldToHiddenLine
         from segments in DisposalOps.AcquireAll(
             Conversions.Rows(drawing.Segments).Map(Segment),
             static drawn => DisposalOps.Release(drawn.Map(static segment => segment.Curve)))
-        select new LineDrawing(
-            segments,
-            Conversions.Rows(drawing.Points).Map(ToDrawnPoint).Strict(),
-            drawing.WorldToHiddenLine);
+        select new LineDrawing(segments, points, worldToHiddenLine);
 
     private static IO<DrawnSegment> Segment(HiddenLineDrawingSegment segment) =>
-        Copies.Duplicate(segment.CurveGeometry).Map(curve => new DrawnSegment(
-            curve,
+        from metadata in IO.lift(() => (
             segment.SegmentVisibility,
             segment.IsSceneSilhouette,
-            segment.CurveSideFills switch {
+            Fills: segment.CurveSideFills switch {
                 [var left, var right] => Some((Left: left, Right: right)),
                 _ => None,
             },
-            Optional(segment.ParentCurve).Map(ToDrawnCurve)));
+            Parent: Optional(segment.ParentCurve).Map(ToDrawnCurve)))
+        from curve in Copies.Duplicate(segment.CurveGeometry)
+        select new DrawnSegment(curve, metadata.SegmentVisibility, metadata.IsSceneSilhouette, metadata.Fills, metadata.Parent);
 
     [MapProperty(nameof(HiddenLineDrawingObjectCurve.SourceObject), nameof(DrawnCurve.Tag), Use = nameof(Tag))]
     [MapPropertyFromSource(nameof(DrawnCurve.ClippingPlaneIndex), Use = nameof(SectionCutIndex))]
@@ -124,25 +114,26 @@ public static partial class Drawings {
         Optional(source).Bind(static found => Optional(found.Tag));
 
     // --- [SILHOUETTES]
-    public static IO<Seq<SilhouetteCurve>> Silhouettes(GeometryBase subject, SilhouetteType silhouetteType, SilhouetteFrame frame, Seq<Plane> clips, Tolerances tolerances) =>
+    public static IO<Seq<Silhouette>> Silhouettes(GeometryBase subject, SilhouetteType silhouetteType, SilhouetteFrame frame, Seq<Plane> clips, Tolerances tolerances) =>
         Acquired(
             token => frame.Switch(
                 (Subject: subject, Type: silhouetteType, Clips: clips, Tolerances: tolerances, Token: token),
-                eye: static (state, eye) => Silhouette.Compute(state.Subject, state.Type, eye.Location, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token),
-                along: static (state, along) => Silhouette.Compute(state.Subject, state.Type, along.Direction, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token)),
+                point3d: static (state, eye) => Silhouette.Compute(state.Subject, state.Type, eye, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token),
+                vector3d: static (state, direction) => Silhouette.Compute(state.Subject, state.Type, direction, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token),
+                viewportInfo: static (state, viewport) => Silhouette.Compute(state.Subject, state.Type, viewport, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token)),
             nameof(Silhouette.Compute));
 
-    public static IO<Seq<SilhouetteCurve>> DraftCurves(GeometryBase subject, double draftAngle, Vector3d pullDirection, Tolerances tolerances) =>
+    public static IO<Seq<Silhouette>> DraftCurves(GeometryBase subject, double draftAngle, Vector3d pullDirection, Tolerances tolerances) =>
         Acquired(
             token => Silhouette.ComputeDraftCurve(subject, draftAngle, pullDirection, tolerances.Absolute, tolerances.Angle, token),
             nameof(Silhouette.ComputeDraftCurve));
 
-    private static IO<Seq<SilhouetteCurve>> Acquired(Func<CancellationToken, Silhouette[]> compute, string member) =>
+    private static IO<Seq<Silhouette>> Acquired(Func<CancellationToken, Silhouette[]> compute, string member) =>
         from token in cancelToken
         from pairs in Copies.Acquire<Curve, Silhouette>(
             () => compute(token) switch {
                 var rows => (Array.ConvertAll(rows, static row => row.Curve), rows),
             },
             member)
-        select pairs.Map(static pair => new SilhouetteCurve(pair.Result, pair.Row.SilhouetteType, pair.Row.GeometryComponentIndex)).Strict();
+        select pairs.Map(static pair => pair.Row).Strict();
 }

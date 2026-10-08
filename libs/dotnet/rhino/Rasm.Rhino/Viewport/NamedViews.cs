@@ -50,17 +50,29 @@ public static class NamedViews {
 
     // --- [RESTORE]
     public static IO<Seq<bool>> Restore(RhinoDoc doc, ViewportSet viewports, string name, RestorePacing pacing, RedrawPolicy redraw) =>
-        Find(doc, name).Bind(index => Navigation.ApplyToViewports(doc, viewports, viewport => {
-            string held = viewport.Name;
-            Fin<Unit> restored = pacing.Switch(
-                (Table: doc.NamedViews, Index: index, Viewport: viewport),
-                immediate: static (at, _) => Refused.Unless(at.Table.Restore(at.Index, at.Viewport), nameof(NamedViewTable.Restore)),
-                matchAspect: static (at, _) => Refused.Unless(!OperatingSystem.IsMacOS() && at.Table.RestoreWithAspectRatio(at.Index, at.Viewport), nameof(NamedViewTable.RestoreWithAspectRatio)),
-                constantSpeed: static (at, speed) => Conversions.Whole(speed.Delay, Duration.FromMilliseconds(1)).Bind(delay => Refused.Unless(at.Table.RestoreAnimatedConstantSpeed(at.Index, at.Viewport, speed.UnitsPerFrame, delay), nameof(NamedViewTable.RestoreAnimatedConstantSpeed))),
-                constantTime: static (at, time) => Conversions.Whole(time.Delay, Duration.FromMilliseconds(1)).Bind(delay => Refused.Unless(at.Table.RestoreAnimatedConstantTime(at.Index, at.Viewport, time.Frames, delay), nameof(NamedViewTable.RestoreAnimatedConstantTime))));
-            viewport.Name = held;
-            return restored;
-        }, redraw));
+        from index in Find(doc, name)
+        from restored in Navigation.ApplyToViewports(
+            doc,
+            viewports,
+            viewport => IO.lift(() => viewport.Name).Bracket(
+                Use: _ => IO.lift(() => Restored(doc.NamedViews, index, viewport, pacing)),
+                Fin: held => IO.lift(() => { viewport.Name = held; })),
+            redraw)
+        select restored;
+
+    private static Fin<Unit> Restored(NamedViewTable table, int index, RhinoViewport viewport, RestorePacing pacing) =>
+        pacing.Switch(
+            (Table: table, Index: index, Viewport: viewport),
+            immediate: static (at, _) => Refused.Unless(at.Table.Restore(at.Index, at.Viewport), nameof(NamedViewTable.Restore)),
+            matchAspect: static (at, _) => Refused.Unless(!OperatingSystem.IsMacOS() && at.Table.RestoreWithAspectRatio(at.Index, at.Viewport), nameof(NamedViewTable.RestoreWithAspectRatio)),
+            constantSpeed: static (at, speed) =>
+                from delay in Conversions.Whole(speed.Delay, Duration.FromMilliseconds(1))
+                from restored in Refused.Unless(at.Table.RestoreAnimatedConstantSpeed(at.Index, at.Viewport, speed.UnitsPerFrame, delay), nameof(NamedViewTable.RestoreAnimatedConstantSpeed))
+                select restored,
+            constantTime: static (at, time) =>
+                from delay in Conversions.Whole(time.Delay, Duration.FromMilliseconds(1))
+                from restored in Refused.Unless(at.Table.RestoreAnimatedConstantTime(at.Index, at.Viewport, time.Frames, delay), nameof(NamedViewTable.RestoreAnimatedConstantTime))
+                select restored);
 
     // --- [STORED]
     public static IO<TValue> Read<TValue>(RhinoDoc doc, string name, Func<ViewInfo, IO<TValue>> read) =>

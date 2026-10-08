@@ -53,7 +53,7 @@ public sealed partial class IconMaster {
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class IconSlot {
     public static readonly IconSlot PanelTab = Drawn(IconMaster.Row);
-    public static readonly IconSlot PanelButton = new(IconMaster.Row, static () => Accessors.Scoped(nameof(Accessors.PanelButtonSize), IO.lift(static () => Accessors.PanelButtonSize(Accessors.ToolbarButtons))));
+    public static readonly IconSlot PanelButton = new(IconMaster.Row, static () => Accessors.Scoped(nameof(Accessors.Get), IO.lift(static () => Accessors.Get(Accessors.PrivatePanelButtonSize(Accessors.ToolbarButtons)))));
     public static readonly IconSlot PickButton = Drawn(IconMaster.Row);
     public static readonly IconSlot ListCell = Drawn(IconMaster.Row);
     public static readonly IconSlot DropDownItem = new(IconMaster.Row, static () => IO.pure(HostUtils.RunningOnOSX ? 14 : 16));

@@ -24,11 +24,11 @@ package = {m.bl_info["name"]: m.__name__ for m in addon_utils.modules()}["Blende
 geo = importlib.import_module(f"{package}.geoscene").GeoScene(scene)
 sun = scene.sun_pos_properties
 azimuth, elevation = sun_calc.get_sun_coordinates(sun.time, sun.latitude, sun.longitude, -(sun.UTC_zone + sun.use_daylight_savings), sun.month, sun.day, sun.year)
-scratch = bpy.data.scenes.new("scratch")
-scratch.vi_params["viparams"] = {}
-with bpy.context.temp_override(scene=scratch):
+solar = bpy.data.scenes.new("solar")
+solar.vi_params["viparams"] = {}
+with bpy.context.temp_override(scene=solar):
     altitude, south_azimuth, *_ = solarPosition(date(sun.year, sun.month, sun.day).timetuple().tm_yday, sun.time - sun.use_daylight_savings, sun.latitude, sun.longitude)
-bpy.data.scenes.remove(scratch)
+bpy.data.scenes.remove(solar)
 result = {
     "georeference": [geo.crs, geo.lon, geo.lat, geo.crsx, geo.crsy, geo.isBroken],
     "moment": [sun.year, sun.month, sun.day, sun.time, sun.UTC_zone, sun.use_daylight_savings, math.degrees(sun.north_offset)],

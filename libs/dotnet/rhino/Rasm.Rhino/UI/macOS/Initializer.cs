@@ -14,7 +14,6 @@ using Rasm.Rhino.UI.Components;
 using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.Viewport;
-using Transfer = Rasm.Imaging.ColorManagement.Transfer;
 
 [assembly: ExportInitializer(typeof(Rasm.Rhino.UI.macOS.AppKitInitializer), PlatformID = "macOS")]
 
@@ -83,7 +82,7 @@ public sealed class AppKitInitializer : IPlatformInitializer {
     public void Initialize(Platform platform) {
         platform.Add<Func<Control, IPlugInSink, Func<Sink<FrameTick>, IO<IDisposable>>>>(static () => DisplayLinks.Of);
         platform.Add<IThemeHandler>(static () => new WorkspaceTheme());
-        platform.Add<Func<IPlugInSink, Control, PixelFrame, Transfer, IO<Bitmap>>>(static () => static (_, view, frame, encoding) => DrawnViews.Raster(view, frame, encoding));
+        platform.Add<Func<IPlugInSink, Control, PixelFrame, Imaging.ColorManagement.Transfer, IO<Bitmap>>>(static () => static (_, view, frame, encoding) => DrawnViews.Raster(view, frame, encoding));
         platform.Add<Func<IPlugInSink, Control, IO<float>>>(static () => static (_, view) => DrawnViews.Headroom(view));
         platform.Add<Func<IPlugInSink, MouseEventArgs, PointF, float>>(static () => static (_, _, _) => Optional(NSApplication.SharedApplication.CurrentEvent).Map(static current => (float)current.DeltaX).IfNone(0f));
         Style.Add<DrawableHandler>(ComponentControl.HandlerStyle, DrawnViews.Attach);

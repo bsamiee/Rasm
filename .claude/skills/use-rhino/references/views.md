@@ -116,7 +116,7 @@ Named views, positions, and layer states record state a task restores:
 Window captures show a document window as drawn, chrome and panels included, without activating Rhino:
 1. `show(doc, ...)` sets the view, `view.ScreenRectangle` and `NSScreen.MainScreen.BackingScaleFactor` read in the same call
 2. One more listener call lets the window draw its new frame
-3. Window ids come from the window list, the document's front tab alone holding pixels, and a titled document in a back tab comes front through `close(doc)` and `open -g` of its file:
+3. Window ids come from the window list, the document's front tab alone holding pixels:
 
 ```bash
 # Rhino windows: window id, title, on screen, and origin in points
@@ -126,6 +126,6 @@ screencapture -x -o -l <window id> <dir>/<name>.png
 
 4. `magick <dir>/<name>.png -crop <w>x<h>+<x>+<y> +repage -resize '1000000@>' <root>/.artifacts/rhino/<name>.png` cuts the view
 - Crop sizes and origins come from the rectangle in device pixels, origins less the window origin in points times the scale
-- Panels capture through a temporary Eto form hosting a new instance of the panel's control, captured by its window id and closed by title
+- Panels capture through an Eto form hosting a new instance of the panel's control, captured by its window id and closed by title
 - Rendering panel captures as its docked instance, a frame capture by window id cropped to the panel with `magick`
 - Grasshopper 2's editor is a child window of its opening frame, and `Editor.Instance.Visible = False` leaves the preview in a frame capture

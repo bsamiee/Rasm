@@ -15,6 +15,7 @@ public sealed partial class RowShape {
     public static readonly RowShape Unlabeled = new(labeled: false, spans: false, fills: false);
     public static readonly RowShape Block = new(labeled: true, spans: true, fills: false);
     public static readonly RowShape Filled = new(labeled: true, spans: true, fills: true);
+    public static readonly RowShape Nested = new(labeled: false, spans: true, fills: false);
 
     public bool Labeled { get; }
     public bool Spans { get; }
@@ -124,7 +125,7 @@ public sealed class RowGrid : Panel {
                 Subscriptions.Host<EventArgs>(typeof(ImageButton), h => row.Button.Click += h, h => row.Button.Click -= h, nameof(ImageButton.Click))
                     .Inline(_ => scope.Lock(toSeq(keys), !row.Command.Checked), scope.Sink))),
             DisposalOps.Release)
-        select (new RowTrail(keys, reset, restore, copy, paste, padlock), held);
+        select(new RowTrail(keys, reset, restore, copy, paste, padlock), held);
 
     private static IO<ImageButton> Sized(IPlugInSink sink, GlyphRole glyph, ImageButton button) =>
         Icons.Frames(sink, glyph, IconSlot.PanelButton).Bind(icon => IO.lift(() => {
@@ -192,10 +193,10 @@ public sealed class RowGrid : Panel {
             + Fixed(line.Trail.Map(static trail => (Control)trail.Reset), metrics.Reset.Filter(_ => line.Trailing))
             + Fixed(line.Trail.Bind(static trail => trail.Lock).Map(static held => (Control)held.Button), metrics.Lock.Filter(_ => line.Trailing)),
             line.Fills) switch {
-            var table => line.Caption.Filter(_ => line.Columned && !beside).Match(
-                Some: caption => (Control)Stacked(Seq(new StackLayoutItem(caption, HorizontalAlignment.Left), new StackLayoutItem(table))),
-                None: () => table),
-        };
+                var table => line.Caption.Filter(_ => line.Columned && !beside).Match(
+                    Some: caption => (Control)Stacked(Seq(new StackLayoutItem(caption, HorizontalAlignment.Left), new StackLayoutItem(table))),
+                    None: () => table),
+            };
 
     private static Seq<TableCell> Fixed(Option<Control> control, Option<float> width) =>
         width.Map(held => new TableCell(new Panel { Width = (int)MathF.Ceiling(held), Content = control.ValueUnsafe() })).ToSeq();
@@ -248,8 +249,8 @@ public sealed class RowGrid : Panel {
     private IO<bool> Restated(RowPlace place) =>
         from enabled in place.Row.Rules.Enables(scope)
         from shown in place.Row.Rules.Shows(scope)
-        from modified in place.Cells.Edit.Match(Some: static edit => edit.Modified, None: static () => IO.pure(false))
-        from locked in place.Trail.Match(Some: trail => scope.Locked.Map(held => trail.Keys.ForAll(held.Contains)), None: static () => IO.pure(false))
+        from modified in place.Cells.Edit.Match(Some: static edit => edit.Modified, None: static () => IO.pure(value: false))
+        from locked in place.Trail.Match(Some: trail => scope.Locked.Map(held => trail.Keys.ForAll(held.Contains)), None: static () => IO.pure(value: false))
         let ink = (enabled, modified) switch {
             (false, _) => PaintSlot.ContentTextDisabled,
             (true, true) => PaintSlot.ContentHighlight,
@@ -300,6 +301,6 @@ public sealed class RowGrid : Panel {
     }
 
     private sealed record RowForm(bool Beside, LanguageExt.HashSet<RowPlace> Hidden) {
-        public static RowForm Stacked { get; } = new(Beside: false, LanguageExt.HashSet<RowPlace>.Empty);
+        public static RowForm Stacked { get; } = new(Beside: false, []);
     }
 }

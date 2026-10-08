@@ -55,13 +55,13 @@ public abstract record SplitAnchor {
     public abstract IO<Unit> Keep(SettingsNode plugIn, double position);
 }
 
-public sealed record SplitAnchor<TValue> : SplitAnchor where TValue : notnull {
+internal sealed record SplitAnchor<TValue> : SplitAnchor where TValue : notnull {
     private const string Positions = "splitter-positions";
 
     internal SplitAnchor(ValueKey<TValue, double, InvalidRhinoValue> key, SplitterFixedPanel fixedPanel) : base(fixedPanel) =>
         Row = new(key, SettingType.Double, Applied.Live, Seq<string>(), Hidden: false);
 
-    public PlugInSetting<TValue, double, InvalidRhinoValue> Row { get; }
+    private PlugInSetting<TValue, double, InvalidRhinoValue> Row { get; }
 
     public override string Name => Row.Value.Name;
 
@@ -163,12 +163,12 @@ public static class Containers {
     // --- [TILES]
     private static IO<ViewBody> Tiles(ContainerRow.Tiles tiles, RowScope scope) =>
         from cells in DisposalOps.AcquireAll(
-            toSeq(tiles.Cells).Map(verb => Tile(verb, scope)),
+            toSeq(tiles.Cells).Map(command => Tile(command, scope)),
             static held => DisposalOps.Release(held.Bind(static cell => cell.Release)))
         let owned = cells.Bind(static cell => cell.Release)
         let refresh = cells.TraverseM(static cell => cell.Refresh).As().Map(static _ => unit)
         from signals in DisposalOps.OnFailure(
-            toSeq(tiles.Cells).Bind(static verb => verb.Enabled.ToSeq()).Bind(static rule => rule.Sources).Distinct().TraverseM(source => source.Signals(scope)).As(),
+            toSeq(tiles.Cells).Bind(static command => command.Enabled.ToSeq()).Bind(static rule => rule.Sources).Distinct().TraverseM(source => source.Signals(scope)).As(),
             DisposalOps.Release(owned))
         from heard in DisposalOps.OnFailure(
             DisposalOps.AcquireAll(scope.Listen(_ => refresh).Cons(signals.Flatten().Map(signal => signal.Inline(_ => refresh, scope.Sink))), DisposalOps.Release),
@@ -183,8 +183,8 @@ public static class Containers {
         from shown in DisposalOps.OnFailure(refresh, release)
         select new ViewBody(row, release);
 
-    private static IO<(Seq<ImageButton> Buttons, IO<Unit> Refresh, Seq<IDisposable> Release)> Tile(CommandRow verb, RowScope scope) =>
-        from realized in verb.Switch(
+    private static IO<(Seq<ImageButton> Buttons, IO<Unit> Refresh, Seq<IDisposable> Release)> Tile(CommandRow command, RowScope scope) =>
+        from realized in command.Switch(
             scope,
             run: static (held, run) => run.Realize(held).Map(done =>
                 new Realized<Seq<(Command Command, CommandFace Face)>>(Seq<(Command Command, CommandFace Face)>((done.Commands, run.Face)), done.Refresh, done.Release)),

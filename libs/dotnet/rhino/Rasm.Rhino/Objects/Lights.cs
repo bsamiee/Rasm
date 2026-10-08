@@ -23,12 +23,11 @@ public readonly partial struct LightIntensity : System.Numerics.IMinMaxValue<Lig
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
 
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Default", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct LightPower : System.Numerics.IMinMaxValue<LightPower> {
     public static LightPower MinValue { get; } = new(0d);
     public static LightPower MaxValue { get; } = new(double.MaxValue);
-    public static LightPower Default { get; } = new(0d);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
@@ -92,7 +91,9 @@ public sealed partial class ColorFilter {
     public double Green { get; }
     public double Blue { get; }
 
-    public Unicolour Unicolour => new(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, Red, Green, Blue);
+    public Unicolour Unicolour => Math.Max(Red, Math.Max(Green, Blue)) switch {
+        var peak => new(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, Red / peak, Green / peak, Blue / peak),
+    };
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double red, ref double green, ref double blue) =>
         validationError = Math.Min(red, Math.Min(green, blue)) >= 0d && Math.Max(red, Math.Max(green, blue)) is > 0d and < double.PositiveInfinity
@@ -100,7 +101,7 @@ public sealed partial class ColorFilter {
             : new InvalidRhinoValue();
 }
 
-[SmartEnum<string>]
+[SmartEnum<string>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -114,31 +115,20 @@ public sealed partial class LightKey {
 
 [Union]
 public abstract partial record LightShape {
-    public abstract LightStyle LightStyle { get; }
+    public LightStyle LightStyle => Switch(
+        pointLight: static point => point.CameraRelative ? LightStyle.CameraPoint : LightStyle.WorldPoint,
+        spotLight: static spot => spot.CameraRelative ? LightStyle.CameraSpot : LightStyle.WorldSpot,
+        directionalLight: static directional => directional.CameraRelative ? LightStyle.CameraDirectional : LightStyle.WorldDirectional,
+        linearLight: static _ => LightStyle.WorldLinear,
+        rectangularLight: static _ => LightStyle.WorldRectangular,
+        ambientLight: static _ => LightStyle.Ambient);
 
-    public sealed record PointLight(Point3d Location, EmitterRadius Radius, bool CameraRelative) : LightShape {
-        public override LightStyle LightStyle => CameraRelative ? LightStyle.CameraPoint : LightStyle.WorldPoint;
-    }
-
-    public sealed record SpotLight(Point3d Location, Vector3d Direction, SpotAngle Angle, HotSpot HotSpot, EmitterRadius Radius, bool CameraRelative) : LightShape {
-        public override LightStyle LightStyle => CameraRelative ? LightStyle.CameraSpot : LightStyle.WorldSpot;
-    }
-
-    public sealed record DirectionalLight(Point3d Location, Vector3d Direction, SunAngle Angle, bool CameraRelative) : LightShape {
-        public override LightStyle LightStyle => CameraRelative ? LightStyle.CameraDirectional : LightStyle.WorldDirectional;
-    }
-
-    public sealed record LinearLight(Point3d Location, Vector3d Length, Vector3d Width) : LightShape {
-        public override LightStyle LightStyle => LightStyle.WorldLinear;
-    }
-
-    public sealed record RectangularLight(Point3d Location, Vector3d Length, Vector3d Width, Vector3d Direction) : LightShape {
-        public override LightStyle LightStyle => LightStyle.WorldRectangular;
-    }
-
-    public sealed record AmbientLight() : LightShape {
-        public override LightStyle LightStyle => LightStyle.Ambient;
-    }
+    public sealed record PointLight(Point3d Location, EmitterRadius Radius, bool CameraRelative) : LightShape;
+    public sealed record SpotLight(Point3d Location, Vector3d Direction, SpotAngle Angle, HotSpot HotSpot, EmitterRadius Radius, bool CameraRelative) : LightShape;
+    public sealed record DirectionalLight(Point3d Location, Vector3d Direction, SunAngle Angle, bool CameraRelative) : LightShape;
+    public sealed record LinearLight(Point3d Location, Vector3d Length, Vector3d Width) : LightShape;
+    public sealed record RectangularLight(Point3d Location, Vector3d Length, Vector3d Width, Vector3d Direction) : LightShape;
+    public sealed record AmbientLight() : LightShape;
 }
 
 [Union]
@@ -180,14 +170,14 @@ public abstract partial record LightOp {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source, EnabledConversions = MappingConversionType.ImplicitCast)]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
 internal static partial class LightMapper {
+    // --- [MEMBERS]
     [MapProperty(nameof(LightSpec.Enabled), nameof(Light.IsEnabled))]
-    [MapProperty(nameof(LightSpec.Intensity), nameof(Light.Intensity), Use = nameof(Gained))]
     [MapProperty(nameof(LightSpec.Watts), nameof(Light.PowerWatts))]
     [MapperIgnoreSource(nameof(LightSpec.Shape), Justification = "Each shape case writes its own members")]
-    [MapperIgnoreSource(nameof(LightSpec.Color), Justification = "The emitted diffuse and gain carry the color")]
-    internal static partial void Update(LightSpec spec, Light light, Color diffuse, double gain);
+    [MapperIgnoreSource(nameof(LightSpec.Color), Justification = "Written supplies the emitted diffuse and scaled intensity")]
+    internal static partial void Update(LightSpec spec, Light light, Color diffuse);
 
     [MapperIgnoreSource(nameof(LightShape.PointLight.CameraRelative), Justification = "LightStyle carries the frame")]
     internal static partial void Update([MappingTarget] Light light, LightShape.PointLight point);
@@ -206,8 +196,20 @@ internal static partial class LightMapper {
 
     internal static partial void Update([MappingTarget] Light light, LightShape.AmbientLight ambient);
 
-    private static double Gained(LightIntensity intensity, double gain) => intensity * gain;
-
+    // --- [QUANTITIES]
+    [UserMapping]
+    private static double Scalar(LightIntensity intensity) => intensity;
+    [UserMapping]
+    private static double Scalar(LightPower watts) => watts;
+    [UserMapping]
+    private static double Scalar(ShadowIntensity shadow) => shadow;
+    [UserMapping]
+    private static double Scalar(EmitterRadius radius) => radius;
+    [UserMapping]
+    private static double Scalar(SpotAngle angle) => angle;
+    [UserMapping]
+    private static double Scalar(HotSpot hotSpot) => hotSpot;
+    [UserMapping]
     private static double Degrees(SunAngle angle) => RhinoMath.ToDegrees(angle);
 }
 
@@ -226,9 +228,9 @@ public static class Lights {
         Span<System.Numerics.Vector4> light = [new((float)(color.RgbLinear.R / peak), (float)(color.RgbLinear.G / peak), (float)(color.RgbLinear.B / peak), 1f)];
         transfer.Encode(light, Nits.ReferenceWhite);
         return (Color.FromArgb(Lane(light[0].X), Lane(light[0].Y), Lane(light[0].Z)), peak / color.Xyz.Y);
-    }
 
-    private static int Lane(float encoded) => (int)MathF.Round(255f * encoded, MidpointRounding.ToEven);
+        static int Lane(float encoded) => (int)MathF.Round(byte.MaxValue * encoded, MidpointRounding.ToEven);
+    }
 
     private static Validation<Error, (LightColor Color, LightIntensity Intensity)> Emission(Light light, Transfer transfer) =>
         Conversions.Present(light.GetUserString(LightKey.Kelvin.Key))
@@ -239,17 +241,18 @@ public static class Lights {
             .Match(
                 Some: static held => ((LightColor)held.Kelvin, held.Emitted.Gain),
                 None: () => ((LightColor)light.Diffuse, 1d)) switch {
-            var (color, gain) => Conversions.Validated<LightIntensity, double, InvalidRhinoValue>(light.Intensity / gain).ToValidation().Map(intensity => (color, intensity)),
-        };
+                    var (color, gain) => Conversions.Validated<LightIntensity, double, InvalidRhinoValue>(light.Intensity / gain).ToValidation().Map(intensity => (color, intensity)),
+                };
 
     // --- [ADDRESSES]
     public static IO<LightObject> Find(RhinoDoc doc, ComponentRef<LightObject> address, bool includeDeleted) =>
-        IO.lift(() => address.Switch<(LightTable Lights, bool Deleted), Fin<Option<int>>>(
-                (Lights: doc.Lights, Deleted: includeDeleted),
-                byId: static (state, byId) => Conversions.Present(state.Lights.Find(byId.Id, ignoreDeleted: !state.Deleted)),
-                byIndex: static (state, byIndex) => Some(byIndex.Index).Filter(index => index >= 0 && index < state.Lights.Count),
-                byName: static (state, _) => new NonUniqueName(state.Lights.ComponentType))
-            .Bind(found => found.Map(index => doc.Lights[index]).Filter(row => includeDeleted || !row.IsDeleted).ToFin(new MissingComponent<LightObject>(address))));
+        from found in IO.lift(() => address.Switch<(LightTable Lights, bool Deleted), Fin<Option<LightObject>>>(
+                (doc.Lights, Deleted: includeDeleted),
+                byId: static (state, byId) => Conversions.Present(state.Lights.Find(byId.Id, ignoreDeleted: !state.Deleted)).Map(index => state.Lights[index]),
+                byIndex: static (state, byIndex) => Conversions.Rows(state.Lights).Find(row => row.Index == byIndex.Index && (state.Deleted || !row.IsDeleted)),
+                byName: static (state, _) => new NonUniqueName(state.Lights.ComponentType)))
+        from row in IO.lift(found.ToFin(new MissingComponent<LightObject>(address)))
+        select row;
 
     // --- [READS]
     public static IO<LightState> Read(RhinoDoc doc, ComponentRef<LightObject> address) =>
@@ -260,18 +263,14 @@ public static class Lights {
 
     public static IO<(Seq<Error> Fails, Seq<LightState> Succs)> States(RhinoDoc doc) =>
         from transfer in Gamma(doc)
-        from rows in IO.lift(() => toSeq(doc.Lights).Filter(static row => !row.IsDeleted).Strict())
+        from rows in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Strict())
         select rows.Map(row => State(row.LightGeometry, transfer)).Partition();
 
     public static IO<(Seq<Error> Fails, Seq<ManagedLight> Succs)> Managed(RhinoDoc doc) =>
-        from transfer in Gamma(doc)
-        from managed in (from client in use(() => new LightManagerSupportClient(doc.RuntimeSerialNumber))
-                         from read in IO.lift(() => toSeq(doc.Lights).Filter(static row => !row.IsDeleted)
-                             .Map(row => State(row.LightGeometry, transfer).Map(state => new ManagedLight(state, client.GetLightSolo(row.LightGeometry), client.LightDescription(row.LightGeometry))))
-                             .Strict()
-                             .Partition())
-                         select read).Bracket()
-        select managed;
+        (from transfer in Gamma(doc)
+         from client in use(() => new LightManagerSupportClient(doc.RuntimeSerialNumber))
+         from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict())
+         select lights.Map(light => State(light, transfer).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition()).Bracket();
 
     internal static Fin<LightState> State(Light light, Transfer transfer) =>
         (Shape(light), Emission(light, transfer),
@@ -297,9 +296,9 @@ public static class Lights {
             LightStyle.CameraDirectional or LightStyle.WorldDirectional =>
                 Conversions.Validated<SunAngle, double, InvalidRhinoValue>(RhinoMath.ToRadians(light.Radius)).ToValidation()
                     .Map(angle => (LightShape)new LightShape.DirectionalLight(light.Location, light.Direction, angle, light.LightStyle == LightStyle.CameraDirectional)),
-            LightStyle.WorldLinear => (LightShape)new LightShape.LinearLight(light.Location, light.Length, light.Width),
-            LightStyle.WorldRectangular => (LightShape)new LightShape.RectangularLight(light.Location, light.Length, light.Width, light.Direction),
-            LightStyle.Ambient => (LightShape)new LightShape.AmbientLight(),
+            LightStyle.WorldLinear => new LightShape.LinearLight(light.Location, light.Length, light.Width),
+            LightStyle.WorldRectangular => new LightShape.RectangularLight(light.Location, light.Length, light.Width, light.Direction),
+            LightStyle.Ambient => new LightShape.AmbientLight(),
             LightStyle.None => new InvalidAnswer(nameof(Light.LightStyle)),
         };
 
@@ -307,43 +306,33 @@ public static class Lights {
     public static IO<Seq<Guid>> Apply(RhinoDoc doc, LightOp op) =>
         op.Switch(
             doc,
-            add: static (document, add) =>
-                from transfer in Gamma(document)
-                from index in (from staged in use(static () => new Light())
-                               from written in Written(staged, add.Spec, transfer)
-                               from landed in IO.lift(() => Conversions.Required(document.Lights.Add(staged, add.Attributes.ValueUnsafe()), nameof(LightTable.Add)))
-                               select landed).Bracket()
-                select Seq(document.Lights[index].Id),
-            modify: static (document, modify) =>
-                from row in Find(document, modify.Address, includeDeleted: false)
-                from transfer in Gamma(document)
-                from landed in (from staged in use(() => row.DuplicateLightGeometry())
-                                from written in Written(staged, modify.Spec, transfer)
-                                from accepted in IO.lift(() => Refused.Unless(document.Lights.Modify(row.Index, staged), nameof(LightTable.Modify)))
-                                select accepted).Bracket()
-                select Seq(row.Id),
-            delete: static (document, delete) =>
-                from row in Find(document, delete.Address, includeDeleted: false)
-                from deleted in IO.lift(() => Refused.Unless(document.Lights.Delete(row.Index, delete.Quiet), Seq(row.Id), nameof(LightTable.Delete)))
-                select deleted,
-            undelete: static (document, undelete) =>
-                from row in Find(document, undelete.Address, includeDeleted: true)
-                from restored in IO.lift(() => Refused.Unless(document.Lights.Undelete(row.Index), Seq(row.Id), nameof(LightTable.Undelete)))
-                select restored,
-            solo: static (document, solo) =>
-                from rows in solo.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
-                from set in (from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
-                             from each in IO.lift(() => Callbacks.Each(rows, row => client.SetLightSolo(row.LightGeometry, solo.On), nameof(LightManagerSupportClient.SetLightSolo)))
-                             select each).Bracket()
-                select rows.Map(static row => row.Id).Strict(),
-            grouping: static (document, grouping) =>
-                from rows in grouping.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
-                from grouped in (from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
-                                 from lights in use(static () => new LightArray())
-                                 from appended in IO.lift(() => rows.Iter(row => lights.Append(row.LightGeometry)))
-                                 from joined in IO.lift(() => (grouping.On ? (Action<LightArray>)client.GroupLights : client.UnGroup)(lights))
-                                 select joined).Bracket()
-                select rows.Map(static row => row.Id).Strict());
+            add: static (document, add) => (from transfer in Gamma(document)
+                                            from staged in use(static () => new Light())
+                                            from written in Written(staged, add.Spec, transfer)
+                                            from index in IO.lift(() => Conversions.Required(document.Lights.Add(staged, add.Attributes.ValueUnsafe()), nameof(LightTable.Add)))
+                                            select Seq(document.Lights[index].Id)).Bracket(),
+            modify: static (document, modify) => (from row in Find(document, modify.Address, includeDeleted: false)
+                                                  from transfer in Gamma(document)
+                                                  from staged in use(row.DuplicateLightGeometry)
+                                                  from written in Written(staged, modify.Spec, transfer)
+                                                  from accepted in IO.lift(() => Refused.Unless(document.Lights.Modify(row.Index, staged), nameof(LightTable.Modify)))
+                                                  select Seq(row.Id)).Bracket(),
+            delete: static (document, delete) => from row in Find(document, delete.Address, includeDeleted: false)
+                                                 from deleted in IO.lift(() => Refused.Unless(document.Lights.Delete(row.Index, delete.Quiet), Seq(row.Id), nameof(LightTable.Delete)))
+                                                 select deleted,
+            undelete: static (document, undelete) => from row in Find(document, undelete.Address, includeDeleted: true)
+                                                     from restored in IO.lift(() => Refused.Unless(document.Lights.Undelete(row.Index), Seq(row.Id), nameof(LightTable.Undelete)))
+                                                     select restored,
+            solo: static (document, solo) => (from rows in solo.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
+                                              from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
+                                              from each in IO.lift(() => Callbacks.Each(rows, row => client.SetLightSolo(row.LightGeometry, solo.On), nameof(LightManagerSupportClient.SetLightSolo)))
+                                              select rows.Map(static row => row.Id).Strict()).Bracket(),
+            grouping: static (document, grouping) => (from rows in grouping.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
+                                                      from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
+                                                      from lights in use(static () => new LightArray())
+                                                      from appended in IO.lift(() => rows.Iter(row => lights.Append(row.LightGeometry)))
+                                                      from joined in IO.lift(() => (grouping.On ? (Action<LightArray>)client.GroupLights : client.UnGroup)(lights))
+                                                      select rows.Map(static row => row.Id).Strict()).Bracket());
 
     internal static IO<Unit> Written(Light staged, LightSpec spec, Transfer transfer) =>
         from emitted in IO.lift(() => spec.Color.Switch<Transfer, (Color Diffuse, double Gain, Option<string> Kelvin)>(
@@ -355,7 +344,8 @@ public static class Lights {
             linear: static (curve, linear) => Emitted(linear.Filter.Unicolour, curve) switch {
                 var (diffuse, gain) => (diffuse, gain, None),
             }))
-        from members in IO.lift(() => LightMapper.Update(spec, staged, emitted.Diffuse, emitted.Gain))
+        from intensity in IO.lift(Conversions.Validated<LightIntensity, double, InvalidRhinoValue>(spec.Intensity * emitted.Gain))
+        from members in IO.lift(() => LightMapper.Update(spec with { Intensity = intensity }, staged, emitted.Diffuse))
         from shaped in IO.lift(() => spec.Shape.Switch(
             staged,
             pointLight: LightMapper.Update,

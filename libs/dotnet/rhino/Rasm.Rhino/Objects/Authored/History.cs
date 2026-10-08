@@ -9,6 +9,7 @@ using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Objects.Authored;
 
@@ -18,27 +19,14 @@ public sealed record HistoryInput(int Id, Func<RhinoDoc, HistoryRecord, IO<Unit>
 public sealed class HistoryKey<T>(int id, Func<RhinoDoc, HistoryRecord, int, T, IO<Unit>> write, Func<ReplayHistoryData, int, IO<T>> read) where T : notnull {
     public HistoryInput Input(T value) => new(id, (doc, record) => write(doc, record, id, value));
 
-    public IO<T> Read(ReplayHistoryData data) => read(data, id);
+    public Func<ReplayHistoryData, IO<T>> Read { get; } = lpar(read, id);
 }
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record HistoryOutput {
     public sealed record Kept(ReplayHistoryResult Existing) : HistoryOutput;
 
-    public sealed record Replaced(ReplayHistoryResult Existing, Func<ReplayHistoryResult, Fin<Unit>> Update) : HistoryOutput;
-
-    public sealed record Added(Func<ReplayHistoryResult, Fin<Unit>> Update) : HistoryOutput;
-}
-
-public sealed record HistoryWeb(ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>> Graph) {
-    public ArrayBidirectionalGraph<AdjacencyGraph<Guid, SEquatableEdge<Guid>>, CondensedEdge<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>> Condensed =>
-        Graph.CondensateStronglyConnected<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>().ToArrayBidirectionalGraph();
-
-    public Seq<Guid> UpdateOrder =>
-        toSeq(Condensed.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward)).Bind(static group => toSeq(group.Vertices)).Strict();
-
-    public Seq<Seq<Guid>> CycleGroups =>
-        toSeq(Condensed.Vertices).Filter(static group => group.EdgeCount > 0).Map(static group => toSeq(group.Vertices).Strict()).Strict();
+    public sealed record Changed(Option<ReplayHistoryResult> Existing, Func<ReplayHistoryResult, Fin<Unit>> Update) : HistoryOutput;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -83,15 +71,12 @@ public static class Histories {
     public static HistoryKey<PickCapture> ObjRef(int id) =>
         new(id,
             static (doc, record, slot, target) => Referenced(doc, target, slot, nameof(HistoryRecord.SetObjRef), reference => record.SetObjRef(slot, reference)),
-            static (data, slot) => Captured(data, slot));
+            Captured);
 
     public static HistoryKey<(PickCapture Target, Point3d Point)> Point3dOnObject(int id) =>
         new(id,
             static (doc, record, slot, value) => Referenced(doc, value.Target, slot, nameof(HistoryRecord.SetPoint3dOnObject), reference => record.SetPoint3dOnObject(slot, reference, value.Point)),
-            static (data, slot) =>
-                from point in IO.lift(() => MissingHistoryInput.Unless(data.TryGetPoint3dOnObject(slot, out Point3d value), value, slot))
-                from target in Captured(data, slot)
-                select (target, point));
+            static (data, slot) => Captured(data, slot).Zip(IO.lift(() => MissingHistoryInput.Unless(data.TryGetPoint3dOnObject(slot, out Point3d point), point, slot))).As());
 
     private static HistoryKey<T> Plain<T>(int id, string member, Func<HistoryRecord, int, T, bool> write, Func<ReplayHistoryData, int, Fin<T>> read) where T : notnull =>
         new(id,
@@ -99,47 +84,52 @@ public static class Histories {
             (data, slot) => IO.lift(() => read(data, slot)));
 
     private static IO<Unit> Referenced(RhinoDoc doc, PickCapture target, int slot, string member, Func<ObjRef, bool> write) =>
-        use(() => new ObjRef(doc, target.ObjectId, Conversions.Unset(target.GeometryComponentIndex)))
-            .Bind(reference => IO.lift(() => RefusedElement.Unless(write(reference), member, slot)))
-            .Bracket();
+        (from reference in use(() => new ObjRef(doc, target.ObjectId, Conversions.Unset(target.GeometryComponentIndex)))
+         from written in IO.lift(() => RefusedElement.Unless(write(reference), member, slot))
+         select written).Bracket();
 
     private static IO<PickCapture> Captured(ReplayHistoryData data, int slot) =>
-        use(IO.lift(() => MissingHistoryInput.Unless(data.GetRhinoObjRef(slot), slot))).Bind(PickCapture.Of).Bracket();
+        use(IO.lift(() => Optional(data.GetRhinoObjRef(slot)).ToFin(new MissingHistoryInput(slot)))).Bind(PickCapture.Of).Bracket();
 
     // --- [RECORDS]
     public static IO<A> Record<A>(RhinoDoc doc, Command command, int version, bool copyOnReplace, Seq<HistoryInput> inputs, Func<HistoryRecord, IO<A>> body) =>
-        from unique in IO.lift(Callbacks.Unique(inputs, static input => input.Id, nameof(HistoryRecord)).ToFin())
-        from result in (from record in use(() => new HistoryRecord(command, version) { CopyOnReplaceObject = copyOnReplace })
-                        from written in unique.TraverseM(input => input.Write(doc, record)).As()
-                        from answer in body(record)
-                        select answer).Bracket()
-        select result;
+        (from unique in IO.lift(Callbacks.Unique(inputs, static input => input.Id, nameof(HistoryRecord)).ToFin())
+         from record in use(() => HistoryMapper.Create((command, version, copyOnReplace)))
+         from written in unique.TraverseM(input => input.Write(doc, record)).As()
+         from answer in body(record)
+         select answer).Bracket();
 
     // --- [REPLAY]
     public static IO<Unit> Replay(ReplayHistoryData data, int version, Func<Seq<ReplayHistoryResult>, IO<Seq<HistoryOutput>>> outputs) =>
-        from results in IO.lift(() => StaleHistory.Unless(data.HistoryVersion, version).Map(_ => toSeq(data.Results)))
+        from results in IO.lift(Fin<Seq<ReplayHistoryResult>> () => data.HistoryVersion switch {
+            var recorded when recorded == version => toSeq(data.Results),
+            var recorded => new StaleHistory(recorded, version),
+        })
         from rows in outputs(results)
-        let continued = rows.Map(static row => row.Switch<ReplayHistoryResult?>(kept: static kept => kept.Existing, replaced: static replaced => replaced.Existing, added: static _ => null))
-        from arranged in unless(continued.SequenceEqual(results), IO.lift(() => data.UpdateResultArray(continued))).As()
-        from updated in IO.lift(() => Callbacks.Each(
-            toSeq(data.Results).Zip(rows),
-            static (pair, _) => pair.Second.Switch(
-                pair.First,
-                kept: static (_, _) => unit,
-                replaced: static (result, row) => row.Update(result),
-                added: static (result, row) => row.Update(result))))
+        let continued = rows.Map(static row => row.Switch(kept: static kept => kept.Existing, changed: static changed => changed.Existing.ValueUnsafe()))
+        from arranged in IO.lift(() => data.UpdateResultArray(continued))
+        let changed = toSeq(data.Results).Zip(rows).Choose(static pair => pair.Second is HistoryOutput.Changed change ? Some((pair.First, change.Update)) : None)
+        from updated in IO.lift(() => Callbacks.Each(changed, static (pair, _) => pair.Update(pair.First)))
         select unit;
 
     // --- [TOPOLOGY]
-    public static IO<HistoryWeb> Web(RhinoDoc doc, Guid id) =>
-        IO.lift(() => Missing.Unless(doc.Objects.FindId(id), nameof(ObjectTable.FindId))).Map(origin => {
-            Seq<SEquatableEdge<Guid>> Linked(Guid vertex, Func<RhinoObject, Seq<Guid>> related) =>
-                Optional(doc.Objects.FindId(vertex)).ToSeq().Bind(related).Map(next => new SEquatableEdge<Guid>(vertex, next)).Strict();
-            Func<Guid, IEnumerable<SEquatableEdge<Guid>>> joined = vertex => Linked(vertex, static found => toSeq(found.HistoryParents()).Concat(toSeq(found.HistoryChildren())));
-            ImplicitDepthFirstSearchAlgorithm<Guid, SEquatableEdge<Guid>> reach = new(joined.ToDelegateIncidenceGraph());
-            reach.Compute(origin.Id);
-            return new HistoryWeb(reach.VerticesColors.Keys
-                .ToBidirectionalGraph(vertex => Linked(vertex, static found => toSeq(found.HistoryChildren())), allowParallelEdges: false)
-                .ToArrayBidirectionalGraph());
-        });
+    public static IO<ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>>> Web(RhinoDoc doc, Guid id) =>
+        from table in IO.lift(() => doc.Objects)
+        let links = memoUnsafe((Guid vertex) => Optional(table.FindId(vertex)).Map(static found => (Parents: toSeq(found.HistoryParents()).Strict(), Children: toSeq(found.HistoryChildren()).Strict())))
+        from origin in IO.lift(() => links(id).ToFin(new Missing(nameof(ObjectTable.FindId))))
+        let joined = IEnumerable<SEquatableEdge<Guid>> (Guid vertex) => links(vertex).ToSeq().Bind(static found => found.Parents.Concat(found.Children)).Map(next => new SEquatableEdge<Guid>(vertex, next))
+        let reach = new ImplicitDepthFirstSearchAlgorithm<Guid, SEquatableEdge<Guid>>(joined.ToDelegateIncidenceGraph())
+        from visited in IO.lift(() => reach.Compute(id))
+        select reach.VerticesColors.Keys.ToBidirectionalGraph(vertex => links(vertex).ToSeq().Bind(static found => found.Children).Map(child => new SEquatableEdge<Guid>(vertex, child)), allowParallelEdges: false).ToArrayBidirectionalGraph();
+
+    extension(IBidirectionalGraph<AdjacencyGraph<Guid, SEquatableEdge<Guid>>, CondensedEdge<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>> graph) {
+        public Seq<Guid> UpdateOrder => toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward)).Bind(static component => toSeq(component.Vertices)).Strict();
+
+        public Seq<Seq<Guid>> CycleGroups => toSeq(graph.Vertices).Filter(static component => component.EdgeCount > 0).Map(static component => toSeq(component.Vertices).Strict()).Strict();
+    }
+}
+
+[Mapper]
+internal static partial class HistoryMapper {
+    internal static partial HistoryRecord Create((Command Command, int Version, bool CopyOnReplaceObject) source);
 }

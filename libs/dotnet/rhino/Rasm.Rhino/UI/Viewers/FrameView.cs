@@ -17,7 +17,7 @@ namespace Rasm.Rhino.UI.Viewers;
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
-public readonly partial struct FrameZoom : System.Numerics.IMinMaxValue<FrameZoom> {
+public readonly partial struct FrameZoom : IMinMaxValue<FrameZoom> {
     public static FrameZoom MinValue { get; } = new(float.BitIncrement(0f));
     public static FrameZoom MaxValue { get; } = new(float.MaxValue);
     public static FrameZoom Actual { get; } = new(1f);
@@ -28,7 +28,7 @@ public readonly partial struct FrameZoom : System.Numerics.IMinMaxValue<FrameZoo
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
-public readonly partial struct OverlayOpacity : System.Numerics.IMinMaxValue<OverlayOpacity> {
+public readonly partial struct OverlayOpacity : IMinMaxValue<OverlayOpacity> {
     public static OverlayOpacity MinValue { get; } = new(0f);
     public static OverlayOpacity MaxValue { get; } = new(1f);
     public static OverlayOpacity Half { get; } = new(0.5f);
@@ -252,7 +252,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         view =>
             from frame in current.Feed.Read
             from side in reference
-            from other in side.Traverse(held => held.Feed.Read.Map(read => new FrameShown(held, read))).As()
+            from other in side.Traverse(static held => held.Feed.Read.Map(read => new FrameShown(held, read))).As()
             from target in Target(sink, view)
             select fun((FrameViewState held) => held with {
                 Current = new FrameShown(current, frame),
@@ -447,11 +447,11 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             areaPick: static pick => pick, maskSet: static _ => None, guideSet: static _ => None, quadCage: static _ => None));
 
     private static Seq<FrameMask> Masks(FrameViewState state) =>
-        Overlaid(state).ToSeq().Bind(static overlay => overlay.Switch<Seq<FrameMask>>(
+        Overlaid(state).ToSeq().Bind(static overlay => overlay.Switch(
             areaPick: static _ => [], maskSet: static set => set.Masks, guideSet: static _ => [], quadCage: static _ => []));
 
     private static Seq<FrameGuide> Guides(FrameViewState state) =>
-        Overlaid(state).ToSeq().Bind(static overlay => overlay.Switch<Seq<FrameGuide>>(
+        Overlaid(state).ToSeq().Bind(static overlay => overlay.Switch(
             areaPick: static _ => [], maskSet: static _ => [], guideSet: static set => set.Guides, quadCage: static _ => []));
 
     private static Option<(FrameOverlay.QuadCage Cage, FrameQuad Quad)> Caged(FrameViewState state) =>
@@ -517,7 +517,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             : Viewed(state with { Drag = None });
 
     protected override Option<Transition<FrameViewState, FrameEdit>> DoubleClicked(FrameViewState state, SizeF size, float scale, Option<FramePart> part, MouseEventArgs e) =>
-        part.Bind(key => key.Switch<FrameViewState, Option<Transition<FrameViewState, FrameEdit>>>(
+        part.Bind(key => key.Switch(
             state,
             ground: static (_, _) => None,
             rule: static (held, _) => Viewed(held with { Split = AxisFraction.Half, Drag = None }),
@@ -575,7 +575,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
                 .IfNone(() => Viewed(state with { Drag = Some<FrameDrag>(new FrameDrag.Panning(at.Center)) }));
 
     private static Option<Transition<FrameViewState, FrameEdit>> Claimed(FrameViewState state, FramePart key) =>
-        key.Switch<FrameViewState, Option<Transition<FrameViewState, FrameEdit>>>(
+        key.Switch(
             state,
             ground: static (_, _) => None,
             rule: static (_, _) => None,
@@ -622,8 +622,8 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
                 sizing.Start.Height)
             : (Edges(sizing.Start.Left, sizing.Start.Right, sizing.Handle.Anchor.X, delta.X, MinimumSide * at.Scale / at.Zoom / at.Extent.X),
                Edges(sizing.Start.Top, sizing.Start.Bottom, sizing.Handle.Anchor.Y, delta.Y, MinimumSide * at.Scale / at.Zoom / at.Extent.Y)) switch {
-                var (across, down) => RectangleF.FromSides(across.Low, down.Low, across.High, down.High),
-            };
+                   var (across, down) => RectangleF.FromSides(across.Low, down.Low, across.High, down.High),
+               };
         RectangleF edges = Picked(state).Bind(static pick => pick.Aspect).Match(Some: aspect => Aspected(stretched, sizing.Handle.Anchor, aspect, at.Extent), None: () => stretched);
         return (FrameRegion.Validate(edges, out FrameRegion? region) is null ? Optional(region) : None).Match(
             Some: area => new Transition<FrameViewState, FrameEdit>(state with { Area = area }, Some<Edit<FrameEdit>>(new Edit<FrameEdit>.Preview(new FrameEdit.AreaEdited(area)))),
@@ -649,7 +649,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         };
 
     private static Transition<FrameViewState, FrameEdit> Cornered(FrameViewState state, Placement at, FrameDrag.Cornering corner, PointF previous, MouseEventArgs e) =>
-        ((e.Modifiers & Keys.Alt) != Keys.None, (e.Modifiers & Keys.Shift) != Keys.None, Scale(e.Modifiers)) switch {
+        (e.Modifiers.HasFlag(Keys.Alt), e.Modifiers.HasFlag(Keys.Shift), Scale(e.Modifiers)) switch {
             (true, true, var fine) => Bent(
                 state, corner, Matrix3x2.CreateRotation((e.Location.X - previous.X) * at.Scale * Turn * fine, corner.Handle.Point.Get(corner.Raw)), other => other != corner.Handle),
             (var every, _, var fine) => Bent(

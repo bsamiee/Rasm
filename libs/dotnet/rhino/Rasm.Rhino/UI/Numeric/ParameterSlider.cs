@@ -93,7 +93,7 @@ public sealed class ParameterSlider<TValue, TKey, TError> : ParameterSlider
             None: () => held.Shown.Match(Some: shown => presentation.Track(shown.ToValue()), None: () => presentation.Soft));
 
     private int Position(ParameterSliderState<TValue, TKey> held) =>
-        held.Shown.Match(Some: shown => (int)Math.Round(presentation.Position(shown.ToValue(), Track(held)) * TrackSteps), None: static () => 0);
+        held.Shown.Match(Some: shown => (int)Math.Round(presentation.Position(shown.ToValue(), Track(held)) * TrackSteps, MidpointRounding.ToEven), None: static () => 0);
 
     private TKey Keyed(double position, (TKey Low, TKey High) track) =>
         NumericRows.Narrowed<TKey>(presentation.Key(position, track));
@@ -129,16 +129,16 @@ public sealed class ParameterSlider<TValue, TKey, TError> : ParameterSlider
         _ = Run(held => Claimed(
             HasFocus && e.Delta.Height != 0 ? Some(Stepping(held, (from, track) => Stepped(from, Math.Sign(e.Delta.Height), e.Modifiers, track))) : None,
             () => e.Handled = true));
-        if (!e.Handled) {
-            base.OnMouseWheel(e);
-        }
+        if (e.Handled) return;
+
+        base.OnMouseWheel(e);
     }
 
     protected override void OnKeyDown(KeyEventArgs e) {
         _ = Run(held => Claimed(Keying(held, e), () => e.Handled = true));
-        if (!e.Handled) {
-            base.OnKeyDown(e);
-        }
+        if (e.Handled) return;
+
+        base.OnKeyDown(e);
     }
 
     private IO<Unit> Changed(ParameterSliderState<TValue, TKey> held, double raw) =>

@@ -72,7 +72,7 @@ public static class Toolbars {
     // --- [MENUS]
     public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register(ToolbarFileRow row) =>
         (_, sink) =>
-            from live in IO.lift(static () => Atom(true))
+            from live in IO.lift(static () => Atom(value: true))
             let released = new Disposal<Atom<bool>>(live, static held => held.Swap(static _ => false))
             from registered in DisposalOps.OnFailure(
                 IO.lift(() => Callbacks.Each(

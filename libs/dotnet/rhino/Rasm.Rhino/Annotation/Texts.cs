@@ -9,7 +9,7 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Annotation;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record TextForm {
     private TextForm(string richText, Plane plane) => (RichText, Plane) = (richText, plane);
 
@@ -22,46 +22,7 @@ public abstract partial record TextForm {
     public sealed record Callout(string RichText, Plane Plane, Seq<Point3d> Points) : TextForm(RichText, Plane);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record RunEdit {
-    public sealed record RunReplace(string ReplaceString, int StartRunIndex, int StartRunPosition, int EndRunIndex, int EndRunPosition) : RunEdit;
-
-    public sealed record SetBold(bool On) : RunEdit;
-
-    public sealed record SetItalic(bool On) : RunEdit;
-
-    public sealed record SetUnderline(bool On) : RunEdit;
-
-    public sealed record SetFacename(Option<string> Facename) : RunEdit;
-
-    public sealed record WrapText(double FormatWidth) : RunEdit;
-
-    public sealed record SetRichText(string RichText) : RunEdit;
-
-    public Fin<Unit> Apply(AnnotationBase target) =>
-        Switch<AnnotationBase, Fin<Unit>>(
-            target,
-            runReplace: static (annotation, edit) => Refused.Unless(
-                annotation.RunReplace(edit.ReplaceString, edit.StartRunIndex, edit.StartRunPosition, edit.EndRunIndex, edit.EndRunPosition),
-                nameof(AnnotationBase.RunReplace)),
-            setBold: static (annotation, edit) => Refused.Unless(annotation.SetBold(edit.On), nameof(AnnotationBase.SetBold)),
-            setItalic: static (annotation, edit) => Refused.Unless(annotation.SetItalic(edit.On), nameof(AnnotationBase.SetItalic)),
-            setUnderline: static (annotation, edit) => Refused.Unless(annotation.SetUnderline(edit.On), nameof(AnnotationBase.SetUnderline)),
-            setFacename: static (annotation, edit) => Refused.Unless(
-                annotation.SetFacename(edit.Facename.IsSome, Conversions.Unset(edit.Facename)),
-                nameof(AnnotationBase.SetFacename)),
-            wrapText: static (annotation, edit) => {
-                annotation.TextIsWrapped = true;
-                annotation.FormatWidth = edit.FormatWidth;
-                return unit;
-            },
-            setRichText: static (annotation, edit) => {
-                annotation.RichText = edit.RichText;
-                return unit;
-            });
-}
-
-public sealed record TextMask(System.Drawing.Color MaskColor, DimensionStyle.MaskType MaskColorSource, DimensionStyle.MaskFrame MaskFrame, double MaskOffset);
+public sealed record TextMask(bool MaskEnabled, System.Drawing.Color MaskColor, DimensionStyle.MaskType MaskColorSource, DimensionStyle.MaskFrame MaskFrame, double MaskOffset);
 
 public sealed record TextState(
     AnnotationType AnnotationType,
@@ -73,8 +34,8 @@ public sealed record TextState(
     string DisplayText,
     bool TextHasRtfFormatting,
     bool HasMeasurableTextFields,
-    FontQuery.Quartet Font,
-    FontQuery.Quartet FirstCharFont,
+    Font Font,
+    Font FirstCharFont,
     bool IsAllBold,
     bool IsAllItalic,
     bool IsAllUnderlined,
@@ -107,45 +68,21 @@ public sealed record LeaderState(
 [Mapper]
 internal static partial class TextMapper {
     // --- [PROJECTIONS]
-    [MapProperty(nameof(AnnotationBase.PlainText), nameof(TextState.PlainText), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(AnnotationBase.PlainTextWithFields), nameof(TextState.PlainTextWithFields), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(AnnotationBase.RichText), nameof(TextState.RichText), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(AnnotationBase.Font), nameof(TextState.Font), SuppressNullMismatchDiagnostic = true)]
-    [MapProperty(nameof(AnnotationBase.FirstCharFont), nameof(TextState.FirstCharFont), SuppressNullMismatchDiagnostic = true)]
-    [MapPropertyFromSource(nameof(TextState.Bounds), Use = nameof(Bounds))]
-    [MapPropertyFromSource(nameof(TextState.IsAllBold), Use = nameof(IsAllBold))]
-    [MapPropertyFromSource(nameof(TextState.IsAllItalic), Use = nameof(IsAllItalic))]
-    [MapPropertyFromSource(nameof(TextState.IsAllUnderlined), Use = nameof(IsAllUnderlined))]
-    [MapPropertyFromSource(nameof(TextState.WrapWidth), Use = nameof(WrapWidth))]
-    [MapPropertyFromSource(nameof(TextState.Mask), Use = nameof(Mask))]
-    [MapPropertyFromSource(nameof(TextState.Overridden), Use = nameof(Overridden))]
-    internal static partial TextState ToState(AnnotationBase annotation, string displayText, bool hasMeasurableTextFields);
-
     [MapProperty(nameof(Leader.Points3D), nameof(LeaderState.Points3D), Use = nameof(@Conversions.Rows))]
     [MapPropertyFromSource(nameof(LeaderState.LeaderLanding), Use = nameof(LeaderLanding))]
     internal static partial LeaderState ToState(Leader leader);
 
-    private static partial TextMask ToMask(AnnotationBase annotation);
-
-    [UserMapping]
-    private static FontQuery.Quartet Face(Font font) => FontMapper.ToState(font);
-
-    // --- [COMPUTED]
-    private static BoundingBox Bounds(AnnotationBase annotation) => annotation.GetBoundingBox(accurate: true);
-
-    private static bool IsAllBold(AnnotationBase annotation) => annotation.IsAllBold();
-
-    private static bool IsAllItalic(AnnotationBase annotation) => annotation.IsAllItalic();
-
-    private static bool IsAllUnderlined(AnnotationBase annotation) => annotation.IsAllUnderlined();
-
-    private static Option<double> WrapWidth(AnnotationBase annotation) => Callbacks.Found(annotation.TextIsWrapped, annotation.FormatWidth);
-
-    private static Option<TextMask> Mask(AnnotationBase annotation) => annotation.MaskEnabled ? Some(ToMask(annotation)) : None;
-
-    private static Seq<DimensionStyle.Field> Overridden(AnnotationBase annotation) => DimensionStyles.Overrides(annotation.IsPropertyOverridden);
+    internal static partial TextMask Mask(AnnotationBase annotation);
 
     private static Option<double> LeaderLanding(Leader leader) => Callbacks.Found(leader.LeaderHasLanding, leader.LeaderLandingLength);
+
+    // --- [UPDATES]
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    internal static partial void Update((bool TextIsWrapped, double FormatWidth) source, AnnotationBase target);
+
+    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
+    [MapPropertyFromSource(nameof(Leader.Points3D))]
+    internal static partial void Update(Seq<Point3d> source, Leader target);
 }
 
 public static class Texts {
@@ -169,32 +106,68 @@ public static class Texts {
         select annotation;
 
     // --- [EDITS]
-    public static IO<Unit> Modify(RhinoDoc doc, Guid id, Seq<RunEdit> edits) =>
+    public static IO<Unit> Modify(RhinoDoc doc, Guid id, Seq<Func<AnnotationBase, IO<Unit>>> edits, Option<double> wrapWidth) =>
         DimensionStyles.Edit<AnnotationBase>(doc, id, annotation =>
-            IO.lift(() => edits.TraverseM(edit => edit.Apply(annotation)).As())
-                .Bind(_ => when(annotation.TextIsWrapped, IO.lift(annotation.WrapText)).As()));
+            edits.TraverseM(edit => edit(annotation)).Map(static _ => unit).As()
+                >> IO.lift(() => {
+                    foreach (double width in wrapWidth.AsEnumerable()) TextMapper.Update((TextIsWrapped: true, FormatWidth: width), annotation);
+                    if (!annotation.TextIsWrapped) return;
+
+                    annotation.WrapText();
+                }));
 
     public static IO<Unit> Repoint(RhinoDoc doc, Guid id, Seq<Point3d> points) =>
-        DimensionStyles.Edit<Leader>(doc, id, leader => IO.lift(() => { leader.Points3D = [.. points]; }));
+        DimensionStyles.Edit<Leader>(doc, id, leader => IO.lift(() => TextMapper.Update(points, leader)));
 
     // --- [READS]
     public static IO<TextState> State(AnnotationObjectBase owner, AnnotationBase annotation) =>
-        IO.lift(() => TextMapper.ToState(annotation, owner.DisplayText, owner.HasMeasurableTextFields));
+        IO.lift(() => new TextState(
+            annotation.AnnotationType,
+            annotation.Plane,
+            annotation.GetBoundingBox(accurate: true),
+            annotation.PlainText,
+            annotation.PlainTextWithFields,
+            annotation.RichText,
+            owner.DisplayText,
+            annotation.TextHasRtfFormatting,
+            owner.HasMeasurableTextFields,
+            annotation.Font,
+            annotation.FirstCharFont,
+            annotation.IsAllBold(),
+            annotation.IsAllItalic(),
+            annotation.IsAllUnderlined(),
+            annotation.TextHeight,
+            annotation.TextRotationRadians,
+            Callbacks.Found(annotation.TextIsWrapped, annotation.FormatWidth),
+            annotation.MaskEnabled || annotation.MaskFrame != DimensionStyle.MaskFrame.NoFrame ? Some(TextMapper.Mask(annotation)) : None,
+            annotation.DimensionStyleId,
+            DimensionStyles.Overrides(annotation.IsPropertyOverridden),
+            annotation.DecimalSeparator,
+            annotation.UseKerning,
+            annotation.DrawForward,
+            annotation.LineSpaceScale,
+            annotation.DimensionScale,
+            annotation.DimensionLengthDisplay,
+            annotation.AlternateDimensionLengthDisplay));
 
     public static IO<LeaderState> State(Leader leader) =>
         IO.lift(() => TextMapper.ToState(leader));
 
     public static IO<(string PlainText, Seq<(int Run, int Start, int Length)> Runs)> RunMap(AnnotationBase annotation) =>
         IO.lift(() => {
+            const int valuesPerRun = 3;
             int[] map = [];
             string plainText = annotation.GetPlainTextWithRunMap(ref map);
-            return (PlainText: plainText, Runs: toSeq(map.Chunk(3)).Map(static run => (Run: run[0], Start: run[1], Length: run[2])).Strict());
+            return (PlainText: plainText, Runs: toSeq(map.Chunk(valuesPerRun)).Map(static run => (Run: run[0], Start: run[1], Length: run[2])).Strict());
         });
 
     // --- [FRAMES]
     public static IO<Transform> GetTextTransform(TextEntity text, DimensionStyle style, double scale, Option<RhinoViewport> viewport) =>
         viewport.Match(
-            Some: view => use(() => new ViewportInfo(view)).Bind(info => IO.lift(() => text.GetTextTransform(info, scale, style))).Bracket(),
+            Some: view =>
+                (from info in use(() => new ViewportInfo(view))
+                 from transform in IO.lift(() => text.GetTextTransform(info, scale, style))
+                 select transform).Bracket(),
             None: () => IO.lift(() => text.GetTextTransform(scale, style)));
 
     public static IO<Seq<Point3d>> GetTextCorners(TextObject text, RhinoViewport viewport) =>
@@ -208,5 +181,8 @@ public static class Texts {
         Copies.Acquire(() => leader.Explode(), nameof(Leader.Explode)).Bracket(Use: body, Fin: DisposalOps.Release);
 
     public static IO<A> LeaderCurve<A>(Leader leader, Func<NurbsCurve, IO<A>> body) =>
-        IO.lift(() => Missing.Unless(leader.Curve, nameof(Leader.Curve))).Bind(curve => use(Copies.DuplicateShallow(curve)).Bind(body).Bracket());
+        (from curve in IO.lift(() => Missing.Unless(leader.Curve, nameof(Leader.Curve)))
+         from owned in use(Copies.DuplicateShallow(curve))
+         from value in body(owned)
+         select value).Bracket();
 }

@@ -1,11 +1,11 @@
 # [SETUP]
 
-Sequences recover a listener, call one directly, release prompts and dialogs, read exits, and relaunch the Rhino process every session shares.
+Sequences recover a listener, call one directly, release prompts and dialogs, and read exits of the Rhino process every session shares.
 
 ## [01]-[LISTENERS]
 
 Pids `pgrep -x Rhinoceros` lists with no `list_slots` row hold no listener this router reads:
-1. `lsof -nP -a -p <pid> -iTCP -sTCP:LISTEN` listing ports marks another RhinoAI build's listener, the relaunch sequence loading the router's build
+1. `lsof -nP -a -p <pid> -iTCP -sTCP:LISTEN` listing ports marks another RhinoAI build's listener
 2. No port with `rhinocode list --json` reading `activeViewport` `null` marks a Rhino at its startup window, `open -g` of a file listening on 10500
 3. No port beside a document marks no listener, `rhinocode --rhino <pipeId> script <file>.py` running `RhinoApp.RunScript("_MCPStart _Enter", False)`
 4. `list_slots` adopts the new listener, and every document Rhino opens after it starts one
@@ -62,19 +62,5 @@ fd -t f 'Rhinoceros-' ~/Library/Logs/DiagnosticReports --changed-within 10m -x j
 - Edits since the last macOS autosave die with a crashed process, `file3dm.py` shows what a titled file holds
 - Untitled documents of a crashed process return at relaunch from `~/Library/Autosave Information/`
 - Crashed processes restart within seconds, `list_slots` then names adopted documents anew and a router's own rows under their names
-- Crashed processes return under launchd's environment, and quit and relaunch from a shell give Rhino the shell's environment
+- Crashed processes return under launchd's environment
 - `ps -o stat,%cpu -p <pid>` at a steady 100% while every `tools/call` times out marks a UI thread spinning, `sample <pid> 1` names its native frame
-- Spinning UI threads take `kill -KILL <pid>` then `open -g -b com.mcneel.rhinoceros.9 <file>...` in place of the quit sequence
-
-## [04]-[QUIT_AND_RELAUNCH]
-
-Quitting takes every session's slots, and files Rhino reads at launch take their edits between the quit and the relaunch:
-1. `save(doc)` saves each titled document with `modified` reading `True`
-2. One call sets `Modified = False` on untitled documents and runs `Unmodify()` on untitled Grasshopper 2 ones and `PlugIn.FlushSettingsSavedQueue()`
-3. `close_slot` closes each row the session's router owns, a Rhino exit brings those rows back through a relaunch
-4. `osascript -e 'tell application id "com.mcneel.rhinoceros.9" to quit'` returns before the exit
-5. `caffeinate -t <deadline> -w <pid>` in the background returns at the exit, `kill -KILL <pid>` ends a Rhino `ps -p <pid>` lists past the deadline
-6. Settings XML, `containers.xml`, `default.rui`, and macOS defaults take their edits
-7. `open -g -b com.mcneel.rhinoceros.9 <file>...` reopens every saved file once `lsappinfo find bundleid=com.mcneel.rhinoceros.9` prints nothing
-
-`Modified = False` holds from a call that edits nothing, a call's own edit marks the document modified again at its end.

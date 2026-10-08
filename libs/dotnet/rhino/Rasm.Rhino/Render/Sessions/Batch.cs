@@ -2,7 +2,6 @@ using System.Drawing;
 using System.Runtime.CompilerServices;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
@@ -48,7 +47,7 @@ internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
 
     public IPlugInSink Sink { get; } = sink;
 
-    public IO<bool> Start(global::Rhino.Render.RenderWindow window, RenderWork work, LocalizeStringPair caption) =>
+    public IO<bool> Start(RenderWindow window, RenderWork work, LocalizeStringPair caption) =>
         from control in IO.lift(() => work.Ready.Map(ready => new ExecutionControl(ready, Sink)).Do(window.RegisterPostEffectExecutionControl))
         from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
         select started;
@@ -65,14 +64,14 @@ internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
         base.Dispose(isDisposing);
     }
 
-    private void Rendered(global::Rhino.Render.RenderWindow window, IO<Unit> render, Option<ExecutionControl> control, string caption) {
+    private void Rendered(RenderWindow window, IO<Unit> render, Option<ExecutionControl> control, string caption) {
         using EnvIO environment = EnvIO.New(token: cancellation.Token);
         window.EndAsyncRender(Callbacks.Answer(
             IO.lift(() => Try.lift(() => render.Run(environment)).Run())
                 .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))
                 .Bind(_ => IO.lift(fun(() => window.SetProgress(caption, ProgressFraction.MaxValue))))
-                .Map(static _ => global::Rhino.Render.RenderWindow.RenderSuccessCode.Completed),
-            static () => global::Rhino.Render.RenderWindow.RenderSuccessCode.Failed,
+                .Map(static _ => RenderWindow.RenderSuccessCode.Completed),
+            static () => RenderWindow.RenderSuccessCode.Failed,
             new CallbackSite(Sink, typeof(AsyncContext), nameof(StartRenderThread))));
         _ = control.Iter(GC.KeepAlive);
     }
@@ -124,7 +123,7 @@ internal sealed class BatchPipeline : RenderPipeline {
             from world in start.Switch(
                 (Pipeline: this, Window: window, Member: member),
                 full: static (state, _) => use(() => new RenderSourceView(state.Pipeline.document))
-                    .Bind(source => IO.lift(() => Missing.Unless(source.GetViewInfo(), nameof(RenderSourceView.GetViewInfo))))
+                    .Bind(static source => IO.lift(() => Missing.Unless(source.GetViewInfo(), nameof(RenderSourceView.GetViewInfo))))
                     .Bind(view => state.Pipeline.Scene(state.Window, view, state.Member))
                     .Bracket(),
                 region: static (state, region) => use(() => new ViewInfo(region.View.ActiveViewport))
@@ -136,17 +135,14 @@ internal sealed class BatchPipeline : RenderPipeline {
             static () => false,
             new CallbackSite(context.Sink, GetType(), member));
 
-    private IO<SceneBatch> Scene(global::Rhino.Render.RenderWindow window, ViewInfo view, string member) =>
+    private IO<SceneBatch> Scene(RenderWindow window, ViewInfo view, string member) =>
         from size in IO.lift(window.Size)
         from extent in IO.lift(RenderWindows.Extent(size.Width, size.Height))
-        from lens in IO.lift(() => Cameras.Focus(view, document.ModelUnits))
-            .Catch(static error => error.IsType<InvalidPixelValue>(), error => IO.lift(fun(() => context.Sink.Report(error, GetType(), member))).Map(static _ => Option<LensFocus>.None))
-        from camera in IO.lift(Cameras.ToCamera(view, document.ModelUnits, extent, lens))
-        from lights in Cameras.ToLights(document)
-        from _ in RenderRuns.Framed(RenderSessionId, RenderRun.Framing(camera, lights, document.ModelUnits, None))
+        from framing in RenderRuns.Framing(document, view, extent, None, new CallbackSite(context.Sink, GetType(), member))
+        from _ in RenderRuns.Framed(RenderSessionId, framing)
         from __ in when(engine.HostWireframe, RenderWindows.AddWireframe(
             window,
-            new WireframeRegion(document, view.Viewport, start.Switch(size, full: static (whole, _) => new Rectangle(Point.Empty, whole), region: static (_, region) => region.Rectangle)),
+            new WireframeRegion(document, view.Viewport, start.Switch(size, full: static (whole, _) => new Rectangle(System.Drawing.Point.Empty, whole), region: static (_, region) => region.Rectangle)),
             size)).As()
         from ___ in RenderWindows.AddRequested(window)
         from world in (from queue in use(DefinedChangeQueue.Of(PlugIn, document, view, None, QueuePolicy.Render, None))

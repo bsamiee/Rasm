@@ -74,7 +74,7 @@ Processes enabling packages resync `<EXTENSIONS>/.local` to their enabled set, i
 | :-----: | :------------------------------------------------ | :------------------------------------------------------------------ |
 |  [01]   | Install and registration read, headless           | `headless.py run` on any file                                       |
 |  [02]   | Saved records loaded at start (enable, reinstall) | `BLENDER_USER_RESOURCES` on an existing `<tree>` folder, background |
-|  [03]   | Keymap items, GPU shaders, panels drawn           | GUI on `<tree>` with `TMPDIR` on an existing `<tree>/tmp`           |
+|  [03]   | Keymap items, GPU shaders, panels drawn           | GUI on `<tree>`                                                     |
 
 ```bash
 # Built zip installed, enabled, called, and uninstalled in the run tree
@@ -93,7 +93,7 @@ PY
 env BLENDER_USER_RESOURCES=<tree> blender --background --python <script>
 
 # GUI on the tree running <script> on <file>, open returning at its quit
-env BLENDER_USER_RESOURCES=<tree> TMPDIR=<tree>/tmp /usr/bin/open -n -g -W -a Blender --stdout <tree>/gui.log --stderr <tree>/gui.err --args --no-window-focus <file> --python <script>
+env BLENDER_USER_RESOURCES=<tree> /usr/bin/open -n -g -W -a Blender --stdout <tree>/gui.log --stderr <tree>/gui.err --args --no-window-focus <file> --python <script>
 ```
 
 - Installs and uninstalls print `STATUS Installed "<id>"` and `STATUS Removed "<id>"` on `stdout`
@@ -117,7 +117,7 @@ env BLENDER_USER_RESOURCES=<tree> blender --online-mode -c extension install --s
 ```
 
 ```python
-# [EXECUTE_BLENDER_CODE] Built zip, platform package, and bl_info zip installed and enabled, preferences saved
+# [EXECUTE_BLENDER_CODE] Built zip, platform package, and bl_info zip installed and enabled
 import addon_utils
 import bpy
 
@@ -129,7 +129,6 @@ bpy.ops.extensions.repo_sync_all()
 bpy.ops.extensions.package_install(repo_directory=repo.directory, pkg_id="<id>", enable_on_install=True)
 bpy.ops.preferences.addon_install(filepath="<bl_info zip>")
 bpy.ops.preferences.addon_enable(module="<top folder>")
-bpy.ops.wm.save_userpref()
 result = {name: addon_utils.check(name) for name in ("bl_ext.user_default.<id>", "bl_ext.blender_org.<id>", "<top folder>")}
 ```
 
@@ -148,7 +147,7 @@ Reinstalls over an enabled copy load the new modules in the running process:
 - `package_install` on an installed id takes the newest compatible version of the synced index
 - `-c extension update --sync` upgrades every package
 - `nx run rasm:interface -- upgrade blender` stages the newest build of every `packages.toml` row for the next apply
-- Renamed packages take `preferences.addon_disable(module=<old module>)`, the install under the new id, an enable, and `wm.save_userpref()`
+- Renamed packages take `preferences.addon_disable(module=<old module>)`, the install under the new id, and an enable
 - `bl_info` reinstalls take the snippet, the disable and `sys.modules` pass loading the new submodules that `addon_install` alone keeps old
 
 ```python

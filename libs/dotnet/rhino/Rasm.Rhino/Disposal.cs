@@ -23,7 +23,7 @@ public static class DisposalOps {
         Callbacks.Each(held.Rev().Map(static item => IO.lift(item.Dispose))).Map(static _ => unit);
 
     public static IDisposable Composite(Seq<IDisposable> held, CallbackSite site) =>
-        new Disposal<Seq<IDisposable>>(held, items => Callbacks.Succeeded(Release(items), site));
+        new Disposal<Seq<IDisposable>>(held, items => Callbacks.Answer(Release(items), static () => unit, site));
 
     public static bool Present<T>(T? owned) where T : class, IDisposable => Optional(owned).Do(static copy => copy.Dispose()).IsSome;
 }

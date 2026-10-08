@@ -28,11 +28,20 @@ utils:
             inside:
                 kind: argument_list
                 inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?CountMismatch\s*\.\s*Unless$'}}
+    discarded:
+        any:
+            - inside: {kind: expression_statement}
+            - inside: {kind: assignment_expression, has: {field: left, regex: '^_$'}}
+    collection-result:
+        all:
+            - has: {field: function, has: {field: name, regex: '^RemoveRange$'}}
+            - not: {matches: discarded}
 rule:
     kind: invocation_expression
     all:
         - has: {field: function, matches: counted, has: {field: name, pattern: $MEMBER}}
         - has: {field: arguments, has: {kind: argument, has: {matches: sequence, pattern: $ITEMS}}}
         - not: {matches: compared}
+        - not: {matches: collection-result}
 message: '`$MEMBER` returns how many items of `$ITEMS` it deleted or added, and no comparison checks the count'
 note: Use `CountMismatch.Unless(<items>.Count, <call>, nameof(<host type>.<member>))`

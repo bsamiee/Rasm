@@ -7,33 +7,26 @@ using Rasm.Rhino.Objects;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record FontQuery {
-    public abstract IO<Font> Resolve();
+    // --- [CASES]
+    public sealed record Quartet(string QuartetName, bool Bold, bool Italic) : FontQuery;
+    public sealed record Properties(string FamilyName, Font.FontWeight Weight, Font.FontStyle Style, Font.FontStretch Stretch, bool Underlined, bool Strikethrough) : FontQuery;
+    public sealed record RichText(string RichTextFontName, bool Bold, bool Italic, bool Underlined, bool Strikethrough) : FontQuery;
 
-    public sealed record Quartet(string QuartetName, bool Bold, bool Italic) : FontQuery {
-        public override IO<Font> Resolve() =>
-            IO.lift(() => Missing.Unless(Font.FromQuartetProperties(QuartetName, Bold, Italic), nameof(Font.FromQuartetProperties)));
-    }
-
-    public sealed record Properties(string FamilyName, Font.FontWeight Weight, Font.FontStyle Style, Font.FontStretch Stretch, bool Underlined, bool Strikethrough) : FontQuery {
-        public override IO<Font> Resolve() =>
-            IO.lift(() => new Font(FamilyName, Weight, Style, Stretch, Underlined, Strikethrough));
-    }
-
-    public sealed record RichText(string RichTextFontName, bool Bold, bool Italic, bool Underlined, bool Strikethrough) : FontQuery {
-        public override IO<Font> Resolve() =>
-            IO.lift(() => Missing.Unless(
-                Font.FromRichTextProperties(RichTextFontName, Bold, Italic, Underlined, Strikethrough), nameof(Font.FromRichTextProperties)));
-    }
+    // --- [RESOLUTION]
+    public IO<Font> Resolve() => Switch(
+        quartet: static face => IO.lift(() => Missing.Unless(Font.FromQuartetProperties(face.QuartetName, face.Bold, face.Italic), nameof(Font.FromQuartetProperties))),
+        properties: static face => IO.lift(() => new Font(face.FamilyName, face.Weight, face.Style, face.Stretch, face.Underlined, face.Strikethrough)),
+        richText: static face => IO.lift(() => Missing.Unless(
+            Font.FromRichTextProperties(face.RichTextFontName, face.Bold, face.Italic, face.Underlined, face.Strikethrough), nameof(Font.FromRichTextProperties))));
 }
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record DimensionStyleSource {
     public sealed record BuiltIn(string Name) : DimensionStyleSource;
 
@@ -56,39 +49,33 @@ public sealed record DimensionStyleRow(
     HashMap<EqStringOrdinalIgnoreCase, string, string> UserStrings);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-public static partial class FontMapper {
-    [MapProperty(nameof(Font.QuartetName), nameof(FontQuery.Quartet.QuartetName), SuppressNullMismatchDiagnostic = true)]
-    public static partial FontQuery.Quartet ToState(Font font);
-}
-
 public static class DimensionStyles {
     // --- [FIELDS]
     private static readonly Seq<DimensionStyle.Field> Fields =
         toSeq(Enum.GetValues<DimensionStyle.Field>()).Filter(static field => field is not (DimensionStyle.Field.Unset or DimensionStyle.Field.Count)).Strict();
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetDouble")]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern double GetDouble(DimensionStyle style, DimensionStyle.Field field);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "SetDouble")]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern void SetDouble(DimensionStyle style, DimensionStyle.Field field, double value);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetInt")]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern int GetInt(DimensionStyle style, DimensionStyle.Field field);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "SetInt")]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern void SetInt(DimensionStyle style, DimensionStyle.Field field, int value);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetBool")]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern bool GetBool(DimensionStyle style, DimensionStyle.Field field);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetString")]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern string GetString(DimensionStyle style, DimensionStyle.Field field);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetColor")]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern System.Drawing.Color GetColor(DimensionStyle style, DimensionStyle.Field field);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetGuid")]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern Guid GetGuid(DimensionStyle style, DimensionStyle.Field field);
 
     internal static Seq<DimensionStyle.Field> Overrides(Func<DimensionStyle.Field, bool> marked) =>
@@ -98,27 +85,31 @@ public static class DimensionStyles {
         IO.lift(() =>
             string.Equals(live.Name, staged.Name, StringComparison.Ordinal)
             && live.ParentId == staged.ParentId
-            && FontMapper.ToState(live.Font) == FontMapper.ToState(staged.Font)
+            && SameFont(live.Font, staged.Font)
             && (live.DecimalSeparator, live.FitText, live.FitArrow) == (staged.DecimalSeparator, staged.FitText, staged.FitArrow)
             && UserStrings.Held(live.GetUserStrings()) == UserStrings.Held(staged.GetUserStrings())
             && Fields.ForAll(field =>
-                live.IsFieldOverriden(field) == staged.IsFieldOverriden(field)
+                (!staged.IsChild || live.IsFieldOverriden(field) == staged.IsFieldOverriden(field))
                 && GetDouble(live, field).Equals(GetDouble(staged, field))
                 && (GetInt(live, field), GetBool(live, field), GetString(live, field), GetGuid(live, field))
                     == (GetInt(staged, field), GetBool(staged, field), GetString(staged, field), GetGuid(staged, field))
                 && Conversions.Same(GetColor(live, field), GetColor(staged, field))));
 
+    private static bool SameFont(Font left, Font right) =>
+        (left.PostScriptName, left.RichTextFontName, left.Weight, left.Style, left.Stretch, left.Underlined, left.Strikeout, left.PointSize)
+            == (right.PostScriptName, right.RichTextFontName, right.Weight, right.Style, right.Stretch, right.Underlined, right.Strikeout, right.PointSize);
+
     // --- [EFFECTIVE]
     public static IO<DimensionStyle> Parent(RhinoDoc doc, AnnotationBase annotation) =>
         IO.lift(() => Missing.Unless(doc.DimStyles.Find(annotation.DimensionStyleId, ignoreDeleted: false), nameof(DimStyleTable.Find)));
 
-    public static IO<A> Effective<A>(RhinoDoc doc, AnnotationBase annotation, Option<DimensionStyle> parent, Func<DimensionStyle, IO<A>> read) =>
+    public static IO<DimensionStyle> Effective(RhinoDoc doc, AnnotationBase annotation, Option<DimensionStyle> parent) =>
         from held in parent.Match(Some: static style => IO.pure(style), None: () => Parent(doc, annotation))
-        from value in use(IO.lift(() => Missing.Unless(annotation.GetDimensionStyle(held), nameof(AnnotationBase.GetDimensionStyle)))).Bind(read).Bracket()
-        select value;
+        from effective in IO.lift(() => Missing.Unless(annotation.GetDimensionStyle(held), nameof(AnnotationBase.GetDimensionStyle)))
+        select effective;
 
     public static IO<Unit> Edit<T>(RhinoDoc doc, Guid id, Func<T, IO<Unit>> edit) where T : AnnotationBase =>
-        RhinoObjects.ReplaceGeometry<T>(doc, id, copy =>
+        RhinoObjects.ReplaceGeometry(doc, id, (T copy) =>
             from parent in Parent(doc, copy)
             from bound in IO.lift(() => { copy.ParentDimensionStyle = parent; })
             from edited in edit(copy)
@@ -133,17 +124,16 @@ public static class DimensionStyles {
             style.AlternateDimensionLengthDisplayUnit(doc.RuntimeSerialNumber),
             UserStrings.Held(style.GetUserStrings())));
 
-    public static IO<A> BuiltIns<A>(RhinoDoc doc, Func<Seq<DimensionStyle>, IO<A>> read) =>
-        IO.lift(() => Conversions.Rows(doc.DimStyles.BuiltInStyles)).Bracket(Use: read, Fin: DisposalOps.Release);
-
     // --- [AUTHORING]
     public static IO<Unit> Written(RhinoDoc doc, DimensionStyle staged, DimensionStyleSpec spec) =>
         from copied in spec.Source.Traverse(source => Copied(doc, staged, source)).As()
         from parented in spec.Parent.Traverse(parent =>
-            TableOps.Find(doc.DimStyles, parent, includeDeleted: false).Bind(found => IO.lift(() => { staged.ParentId = found.Id; }))).As()
+            from found in TableOps.Find(doc.DimStyles, parent, includeDeleted: false)
+            from assigned in IO.lift(() => { staged.ParentId = found.Id; })
+            select assigned).As()
         from lettered in spec.Lettering.Traverse(metrics => Lettered(doc, staged, metrics)).As()
         from font in spec.Font.Traverse(static query => query.Resolve()).As()
-        from faced in IO.lift(() => font.Filter(wanted => FontMapper.ToState(staged.Font) != FontMapper.ToState(wanted)).Iter(wanted => staged.Font = wanted))
+        from faced in IO.lift(() => font.Filter(wanted => !SameFont(staged.Font, wanted)).Iter(wanted => staged.Font = wanted))
         from held in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
         from strung in UserStrings.Write(held, staged.SetUserString, UserStrings.Replacing(held, spec.UserStrings))
         from edited in spec.Edit.Traverse(edit => edit(staged)).As()
@@ -152,10 +142,15 @@ public static class DimensionStyles {
     private static IO<Unit> Copied(RhinoDoc doc, DimensionStyle staged, DimensionStyleSource source) =>
         source.Switch(
             (Doc: doc, Staged: staged),
-            builtIn: static (state, builtIn) => BuiltIns(state.Doc, styles =>
-                IO.lift(styles.Find(style => TableOps.Names<DimensionStyle>().Equals(style.Name, builtIn.Name)).ToFin(new Missing(nameof(DimStyleTable.BuiltInStyles))))
-                    .Map(fun<DimensionStyle>(state.Staged.CopyFrom))),
-            row: static (state, row) => TableOps.Find(state.Doc.DimStyles, row.Address, includeDeleted: false).Map(fun<DimensionStyle>(state.Staged.CopyFrom)));
+            builtIn: static (state, builtIn) =>
+                (from styles in use(() => Conversions.Rows(state.Doc.DimStyles.BuiltInStyles), DisposalOps.Release)
+                 from found in IO.lift(styles.Find(style => TableOps.Names<DimensionStyle>().Equals(style.Name, builtIn.Name)).ToFin(new Missing(nameof(DimStyleTable.BuiltInStyles))))
+                 from copied in IO.lift(() => state.Staged.CopyFrom(found))
+                 select copied).Bracket(),
+            row: static (state, row) =>
+                from found in TableOps.Find(state.Doc.DimStyles, row.Address, includeDeleted: false)
+                from copied in IO.lift(() => state.Staged.CopyFrom(found))
+                select copied);
 
     private static IO<Unit> Lettered(RhinoDoc doc, DimensionStyle staged, StyleMetrics metrics) =>
         IO.lift(() => {
@@ -195,37 +190,32 @@ public static class DimensionStyles {
 
     // --- [OVERRIDES]
     public static IO<Unit> SetOverride(RhinoDoc doc, AnnotationBase annotation, Func<DimensionStyle, IO<Unit>> edit) =>
-        Effective(doc, annotation, None, effective =>
-            (from child in use(IO.lift(() => Callbacks.Thrown<InvalidOperationException, DimensionStyle>(
-                 () => effective.Duplicate("", Guid.Empty, annotation.DimensionStyleId), nameof(DimensionStyle.Duplicate))))
-             from edited in edit(child)
-             from applied in IO.lift(() => Refused.Unless(annotation.SetOverrideDimStyle(child), nameof(AnnotationBase.SetOverrideDimStyle)))
-             select applied).Bracket());
+        (from effective in use(Effective(doc, annotation, None))
+         from child in use(IO.lift(() => Callbacks.Thrown<InvalidOperationException, DimensionStyle>(
+             () => effective.Duplicate("", Guid.Empty, annotation.DimensionStyleId), nameof(DimensionStyle.Duplicate))))
+         from edited in edit(child)
+         from applied in IO.lift(() => Refused.Unless(annotation.SetOverrideDimStyle(child), nameof(AnnotationBase.SetOverrideDimStyle)))
+         select applied).Bracket();
 
     public static IO<Unit> ClearOverrides(AnnotationBase annotation) =>
         IO.lift(() => annotation.HasPropertyOverrides ? Refused.Unless(annotation.ClearPropertyOverrides(), nameof(AnnotationBase.ClearPropertyOverrides)) : unit);
 
-    public static IO<Unit> ModifyFromAnnotation(RhinoDoc doc, Guid annotationId) =>
-        from resolved in ObjectTarget.Resolve<RhinoObject, AnnotationBase>(doc, annotationId)
-        from modified in when(resolved.Geometry.HasPropertyOverrides,
-            TableOps.ModifyRow(doc, TableKinds.DimensionStyles, resolved.Geometry.DimensionStyleId, staged =>
-                Effective(doc, resolved.Geometry, None, effective => IO.lift(() => {
-                    Guid parent = staged.ParentId;
-                    staged.CopyFrom(effective);
-                    staged.ParentId = parent;
-                })))
-                .Bind(_ => Edit<AnnotationBase>(doc, annotationId, ClearOverrides))).As()
-        select modified;
-
-    public static IO<Unit> SaveOverrides(RhinoDoc doc, Guid annotationId) =>
+    public static IO<Unit> SaveOverrides(RhinoDoc doc, Guid annotationId, bool modifyParent) =>
         from resolved in ObjectTarget.Resolve<RhinoObject, AnnotationBase>(doc, annotationId)
         from saved in when(resolved.Geometry.HasPropertyOverrides,
-            Edit<AnnotationBase>(doc, annotationId, copy =>
-                Effective(doc, copy, None, effective => IO.lift(Fin<Unit> () =>
-                    doc.DimStyles.Modify(effective, copy) switch {
-                        ModifyType.Modify or ModifyType.Override => unit,
-                        ModifyType.NotSaved => new InvalidAnswer(nameof(DimStyleTable.Modify)),
-                    })))).As()
+            (from parent in Parent(doc, resolved.Geometry)
+             let modify = modifyParent || parent.IsChild
+             from effective in use(Effective(doc, resolved.Geometry, Some(parent)))
+             from staged in use(IO.lift(() => Callbacks.Thrown<InvalidOperationException, DimensionStyle>(
+                 () => effective.Duplicate(modify ? parent.Name : "", modify ? parent.Id : Guid.Empty, modify ? parent.ParentId : parent.Id), nameof(DimensionStyle.Duplicate))))
+             from index in IO.lift(() => modify
+                 ? Refused.Unless(doc.DimStyles.Modify(staged, parent.Index, quiet: true), parent.Index, nameof(DimStyleTable.Modify))
+                 : Conversions.Required(doc.DimStyles.Add(staged, reference: false), nameof(DimStyleTable.Add)))
+             from replaced in Edit<AnnotationBase>(doc, annotationId, copy =>
+                from bound in IO.lift(() => { copy.DimensionStyleId = doc.DimStyles[index].Id; })
+                from cleared in ClearOverrides(copy)
+                select cleared)
+             select replaced).Bracket()).As()
         select saved;
 
     public static IO<Unit> SetCurrent(RhinoDoc doc, ComponentRef<DimensionStyle> address) =>

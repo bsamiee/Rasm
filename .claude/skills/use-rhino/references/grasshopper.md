@@ -11,8 +11,7 @@ Each step is one `run_python` call on the task's slot unless it names a router t
 4. `build`, `wire`, `assign`, `arrange`, `cluster`, and `delete` change the definition, and the call ends with `definition.Solution.Start()`
 5. `graph(definition)` in the next call reads `phase` and every output, `image` shows the layout, then `Read` the PNG
 6. `bake(__rhino_doc__, definition, "<id>", "<A::B>")` writes the result, `document.capture` shows it
-7. `DocumentIO(definition, trackFiles=False, reportErrors=False).Save(definition.File.Path, FileContents.Small)` saves the file
-8. `canvas.close(definition)` drops the document with its autosave at task end, unsaved edits discarded
+7. `canvas.close(definition)` drops the document with its autosave at task end, unsaved edits discarded
 
 - `definition()` with no path returns the user's current canvas, a path the editor holds returns that editor document
 - Task documents record no Grasshopper undo step, stay out of the editor's recent files and session, and preview nothing in Rhino
@@ -149,16 +148,14 @@ Solves with zero errors pass value faults in silence:
 ## [08]-[FILES]
 
 - `FileContents.Small` is the form Save Small and autosave write, `All` adds undo records, the canvas thumbnail and projection, and a picture of `RhinoDoc.ActiveDoc`'s view
-- `SaveCopy(path, FileContents.Small, BackupMethod.NONE)` on the save step's `DocumentIO` writes a copy and keeps the document's own file
 - Edits autosave `<name>.ghautosave` beside the `.ghz`, a save or `close` deletes it
 - `definition(path)` returns a `PluginRequirement` fault per plugin no loaded library supplies, `value` its id, `accepted` its name and version
-- `definition(path)` opens the file once `plugins()` loads each missing library, a library Rhino holds in another build after a quit and relaunch
+- `definition(path)` opens the file once `plugins()` loads each missing library
 
 ## [09]-[LIBRARIES]
 
 - Libraries installed before Rhino launched load with the editor, their components answer `g2_search_components` by name
 - `plugins()` loads libraries installed since the editor started, listing third-party components by `chapter/section` and failed ones by `reason`
-- Package removals run between quit and relaunch, `plugins()` scanning every package folder the running Rhino registered
 - Rhino packages add components when they hold a Grasshopper 2 library
 
 Use `plugins.md` for finding and installing packages.

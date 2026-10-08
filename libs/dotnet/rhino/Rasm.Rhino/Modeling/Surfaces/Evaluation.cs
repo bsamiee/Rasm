@@ -5,30 +5,35 @@ namespace Rasm.Rhino.Modeling.Surfaces;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SurfaceJet(Point3d Point, Vector3d Normal, Seq<Seq<Vector3d>> Orders) {
-    public Option<Vector3d> Partial(int du, int dv) => Orders.At(du + dv - 1).Bind(order => order.At(dv));
+    public Option<Vector3d> Partial(int du, int dv) =>
+        du >= 0 && dv >= 0 && du <= Orders.Count - dv && du + dv is > 0 and var order ? Orders[order - 1].At(dv) : None;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SurfaceEvaluation {
     // --- [SAMPLES]
     public static IO<SurfaceJet> Jet(Surface surface, Point2d uv, int order) =>
-        IO.lift(() => InDomain(surface, uv, nameof(Surface.Evaluate)).ToFin().Map(_ => surface.NormalAt(uv.X, uv.Y)).Bind(normal => (
-                Refused.Unless(surface.Evaluate(uv.X, uv.Y, order, out Point3d point, out Vector3d[] derivatives), (Point: point, Partials: Conversions.Rows(derivatives)), nameof(Surface.Evaluate)).ToValidation(),
+        from admitted in IO.lift(() => InDomain(surface, uv, nameof(Surface.Evaluate)).ToFin())
+        from normal in IO.lift(() => surface.NormalAt(uv.X, uv.Y))
+        from jet in IO.lift(() => (
+                Refused.Unless(surface.Evaluate(uv.X, uv.Y, order, out Point3d point, out Vector3d[] derivatives), (Point: point, Partials: derivatives), nameof(Surface.Evaluate)).ToValidation(),
                 InvalidAnswer.Unless(normal != Vector3d.Zero, normal, nameof(Surface.NormalAt)).ToValidation())
             .Apply((sampled, unitNormal) => new SurfaceJet(
                 sampled.Point,
                 unitNormal,
-                toSeq(Range(1, order)).Map(k => sampled.Partials.Skip((k * (k + 1) / 2) - 1).Take(k + 1)).Strict()))
-            .As()
-            .ToFin()));
+                toSeq(Range(1, order)).Map(k => toSeq(sampled.Partials.Skip((int)((k * (k + 1L) / 2) - 1)).Take(k + 1))).Strict()))
+            .As().ToFin())
+        select jet;
 
     public static IO<SurfaceCurvature> Curvature(Surface surface, Point2d uv) =>
-        Copies.Owned(
-            IO.lift(() => InDomain(surface, uv, nameof(Surface.CurvatureAt)).ToFin().Bind(_ =>
+        from admitted in IO.lift(() => InDomain(surface, uv, nameof(Surface.CurvatureAt)).ToFin())
+        from curvature in Copies.Owned(
+            IO.lift(Fin<SurfaceCurvature> () =>
                 surface.IsAtSingularity(uv.X, uv.Y, exact: false)
                     ? new Degenerate(nameof(Surface.CurvatureAt))
-                    : Missing.Unless(surface.CurvatureAt(uv.X, uv.Y), nameof(Surface.CurvatureAt)))),
-            static curvature => InvalidAnswer.Unless(curvature.IsSet, curvature, nameof(Surface.CurvatureAt)));
+                    : Missing.Unless(surface.CurvatureAt(uv.X, uv.Y), nameof(Surface.CurvatureAt))),
+            static answer => InvalidAnswer.Unless(answer.IsSet, answer, nameof(Surface.CurvatureAt)))
+        select curvature;
 
     // --- [CURVES]
     public static IO<Seq<Curve>> IsoCurves(BrepFace face, SurfaceDirection constant, double parameter) =>
@@ -51,10 +56,10 @@ public static class SurfaceEvaluation {
             nameof(Surface.ShortPath));
 
     // --- [SCANS]
-    public static IO<Seq<double>> Discontinuities(Surface surface, SurfaceDirection direction, Continuity continuity) =>
+    public static IO<Seq<double>> Discontinuities(Surface surface, SurfaceDirection direction, Continuity continuity, double cosAngleTolerance, double curvatureTolerance) =>
         IO.lift(() => toSeq(LanguageExt.List.unfold(
                 surface.Domain((int)direction),
-                span => Callbacks.Found(surface.GetNextDiscontinuity((int)direction, continuity, span.T0, span.T1, out double at), (at, new Interval(at, span.T1)))))
+                span => Callbacks.Found(surface.GetNextDiscontinuity((int)direction, continuity, span.T0, span.T1, cosAngleTolerance, curvatureTolerance, out double at), (at, new Interval(at, span.T1)))))
             .Strict());
 
     // --- [DOMAIN]
@@ -63,9 +68,5 @@ public static class SurfaceEvaluation {
             .Apply(static (_, _) => unit)
             .As();
 
-    private static int Varying(SurfaceDirection constant) =>
-        constant switch {
-            SurfaceDirection.U => 1,
-            SurfaceDirection.V => 0,
-        };
+    private static int Varying(SurfaceDirection constant) => (int)SurfaceDirection.V - (int)constant;
 }

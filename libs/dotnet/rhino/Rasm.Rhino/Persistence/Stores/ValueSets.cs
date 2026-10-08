@@ -122,6 +122,14 @@ public sealed record ValueBinding(
     string Owner, Seq<NameText> Texts, IO<HashMap<Seq<string>, string>> Capture, Func<HashMap<Seq<string>, string>, Validation<Error, IO<Unit>>> Recall) {
     public Seq<Seq<string>> Paths() => Texts.Map(static text => text.Path);
 
+    public ValueBinding Under(Seq<string> prefix) =>
+        new(Owner,
+            Texts.Map(text => text with { Path = prefix + text.Path }),
+            Capture.Map(entries => toHashMap(entries.AsIterable().Map(entry => (prefix + entry.Key, entry.Value)))),
+            entries => Recall(toHashMap(entries.AsIterable()
+                .Filter(entry => entry.Key.Take(prefix.Count).Equals(prefix))
+                .Map(entry => (entry.Key.Skip(prefix.Count), entry.Value)))));
+
     public static ValueBinding Key<TValue, TRaw, TError>(string owner, ValueKey<TValue, TRaw, TError> key, ValueStore<TValue> store)
         where TValue : notnull
         where TRaw : notnull =>

@@ -6,8 +6,8 @@ using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Riok.Mapperly.Abstractions;
 using UnitsNet;
-using UnitSystem = Rhino.UnitSystem;
 
 namespace Rasm.Rhino.Annotation.Styles;
 
@@ -18,8 +18,6 @@ public sealed partial class LinetypePattern {
     public Seq<Length> Segments { get; }
 
     public Length PatternLength => Segments.Fold(Length.Zero, static (sum, segment) => sum + (segment < Length.Zero ? -segment : segment));
-
-    public Seq<double> Millimeters => Segments.Map(static segment => segment.Millimeters.ToDouble()).Strict();
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Seq<Length> segments) =>
         validationError = segments.ForAll(static segment => QuantityValue.IsFinite(segment.Value)) && segments switch {
@@ -44,14 +42,14 @@ public sealed partial class LinetypeTaper<TWidth> where TWidth : struct, ICompar
             && waist.ForAll(static point => point.Position is >= 0.0 and <= 1.0 && point.Width.CompareTo(default) >= 0) ? null : new InvalidRhinoValue();
 }
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record LinetypeWidth {
     public sealed record Pixels(double Width, Option<LinetypeTaper<double>> Taper) : LinetypeWidth;
 
     public sealed record Distance(Length Width, Option<LinetypeTaper<Length>> Taper) : LinetypeWidth;
 }
 
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record LinetypeShape {
     public sealed record FromCurve(Curve Curve, Length Offset) : LinetypeShape;
 
@@ -82,7 +80,8 @@ public sealed record LinetypeDefinition(LinetypeSettings Settings, Option<Linety
 public sealed record LinetypeTableState(LinetypeRef Current, ObjectLinetypeSource CurrentLinetypeSource, double LinetypeScale);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Linetypes {
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+public static partial class Linetypes {
     // --- [READS]
     public static IO<LinetypeDefinition> Definition(Linetype linetype) =>
         IO.lift(Fin<LinetypeDefinition> () => LinetypePattern.Validate(Segments(linetype), out LinetypePattern? pattern) is { } error
@@ -111,8 +110,8 @@ public static class Linetypes {
         }).Strict();
 
     private static Fin<LinetypeWidth> Width(Linetype linetype, Seq<Point2d> taper) =>
-        linetype.WidthUnits is UnitSystem.None
-            ? Taper(taper, static count => count).Map<LinetypeWidth>(profile => new LinetypeWidth.Pixels(linetype.Width, profile))
+        linetype.WidthUnits is global::Rhino.UnitSystem.None
+            ? Taper(taper, identity).Map<LinetypeWidth>(profile => new LinetypeWidth.Pixels(linetype.Width, profile))
             : Measured(linetype.Width, taper, LengthUnit.FromKnownUnitSystem(linetype.WidthUnits));
 
     private static Fin<LinetypeWidth> Measured(double width, Seq<Point2d> taper, LengthUnit widthUnit) =>
@@ -132,19 +131,24 @@ public static class Linetypes {
     public static IO<Unit> Written(Linetype staged, LinetypeDefinition definition) =>
         from held in IO.lift(() => Segments(staged))
         from patterned in unless(held == definition.Settings.Pattern.Segments, IO.lift(() =>
-            Refused.Unless(staged.SetSegments(definition.Settings.Pattern.Millimeters), nameof(Linetype.SetSegments)))).As()
-        from styled in IO.lift(() => {
-            staged.LineCapStyle = definition.Settings.LineCapStyle;
-            staged.LineJoinStyle = definition.Settings.LineJoinStyle;
-            staged.AlwaysModelDistances = definition.Settings.AlwaysModelDistances;
-        })
-        from widened in definition.Settings.Width.Switch(
-            staged,
-            pixels: static (row, pixels) => Stroked(row, pixels.Width, UnitSystem.None, pixels.Taper.Map(static taper => taper.Lowered(static count => count))),
-            distance: static (row, distance) => Stroked(
-                row, distance.Width.Millimeters.ToDouble(), UnitSystem.Millimeters, distance.Taper.Map(static taper => taper.Lowered(static length => length.Millimeters.ToDouble()))))
+            Refused.Unless(staged.SetSegments(definition.Settings.Pattern.Segments.Map(Millimeters)), nameof(Linetype.SetSegments)))).As()
+        let stroke = definition.Settings.Width.Switch(
+            pixels: static pixels => (pixels.Width, WidthUnits: global::Rhino.UnitSystem.None, Taper: pixels.Taper.Map(static taper => taper.Lowered(identity))),
+            distance: static distance => (Width: Millimeters(distance.Width), WidthUnits: global::Rhino.UnitSystem.Millimeters, Taper: distance.Taper.Map(static taper => taper.Lowered(Millimeters))))
+        from styled in IO.lift(() => Write((definition.Settings.LineCapStyle, definition.Settings.LineJoinStyle, definition.Settings.AlwaysModelDistances, stroke.Width, stroke.WidthUnits), staged))
+        from tapered in stroke.Taper.Match(
+            Some: taper => IO.lift(() => staged.SetTaper(taper.Start, taper.Waist.IfNone(Point2d.Unset), taper.End)),
+            None: () => IO.lift(() => staged.RemoveTaper()))
         from cleared in IO.lift(staged.RemoveAllShapes)
-        from shaped in definition.Shapes.Traverse(shapes => Shaped(staged, shapes)).As()
+        let additions = from shapes in definition.Shapes.ToSeq()
+                        from shape in toSeq(shapes.Items)
+                        select shape.Switch(staged,
+                            fromCurve: static (row, curve) => IO.lift(() => row.AddShape(curve.Curve, Millimeters(curve.Offset))),
+                            fromText: static (row, text) => IO.lift(() => row.AddShape(text.Text, Millimeters(text.Offset))))
+        from added in Callbacks.Each(additions.Map(static (effect, index) => effect
+            .Map(answer => RefusedElement.Unless(answer, nameof(Linetype.AddShape), index)).Bind(IO.lift)))
+        from laid in IO.lift(() => definition.Shapes.Iter(shapes => Write((shapes.Layout.ShapeSpacing, shapes.Layout.ShapeGap,
+            new Vector2d(Millimeters(shapes.Layout.ShapeLocalOffset.X), Millimeters(shapes.Layout.ShapeLocalOffset.Y))), staged)))
         from strings in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
         from stored in UserStrings.Write(strings, staged.SetUserString, UserStrings.Replacing(strings, definition.Settings.UserStrings))
         select unit;
@@ -156,31 +160,6 @@ public static class Linetypes {
          from index in IO.lift(() => Conversions.Required(doc.Linetypes.AddReferenceLinetype(staged), nameof(LinetypeTable.AddReferenceLinetype)))
          select index).Bracket();
 
-    private static IO<Unit> Stroked(Linetype staged, double width, UnitSystem units, Option<(double Start, Option<Point2d> Waist, double End)> taper) =>
-        IO.lift(() => {
-            (staged.Width, staged.WidthUnits) = (width, units);
-            taper.Match(
-                Some: profile => profile.Waist.Match(
-                    Some: waist => staged.SetTaper(profile.Start, waist, profile.End),
-                    None: () => staged.SetTaper(profile.Start, profile.End)),
-                None: staged.RemoveTaper);
-        });
-
-    private static IO<Unit> Shaped(Linetype staged, LinetypeShapes shapes) =>
-        from added in IO.lift(() => Callbacks.Each(
-            toSeq(shapes.Items),
-            shape => shape.Switch(
-                staged,
-                fromCurve: static (row, curve) => row.AddShape(curve.Curve, curve.Offset.Millimeters.ToDouble()),
-                fromText: static (row, text) => row.AddShape(text.Text, text.Offset.Millimeters.ToDouble())),
-            nameof(Linetype.AddShape)))
-        from laid in IO.lift(() => {
-            staged.ShapeSpacing = shapes.Layout.ShapeSpacing.Millimeters.ToDouble();
-            staged.ShapeGap = shapes.Layout.ShapeGap.Millimeters.ToDouble();
-            staged.ShapeLocalOffset = new Vector2d(shapes.Layout.ShapeLocalOffset.X.Millimeters.ToDouble(), shapes.Layout.ShapeLocalOffset.Y.Millimeters.ToDouble());
-        })
-        select laid;
-
     // --- [TABLE]
     public static IO<LinetypeTableState> ReadTable(RhinoDoc doc) =>
         IO.lift(() => LinetypeRef.FromHost(doc.Linetypes.CurrentLinetypeIndex)
@@ -191,40 +170,50 @@ public static class Linetypes {
         from index in state.Current.Resolve(doc)
         from current in IO.lift(() => Refused.Unless(
             doc.Linetypes.CurrentLinetypeIndex == index || doc.Linetypes.SetCurrentLinetypeIndex(index, quiet: true), nameof(LinetypeTable.SetCurrentLinetypeIndex)))
-        from source in IO.lift(() => {
-            doc.Linetypes.CurrentLinetypeSource = state.CurrentLinetypeSource;
-            doc.Linetypes.LinetypeScale = state.LinetypeScale;
-        })
+        from source in IO.lift(() => Write((state.CurrentLinetypeSource, state.LinetypeScale), doc.Linetypes))
         select source;
 
     public static IO<LinetypeRef> Effective(RhinoDoc doc, RhinoObject target) =>
         IO.lift(() => LinetypeRef.FromHost(doc.Linetypes.LinetypeIndexForObject(target)).ToFin(new InvalidAnswer(nameof(LinetypeTable.LinetypeIndexForObject))));
 
     public static IO<Unit> UndoModify(RhinoDoc doc, ComponentRef<Linetype> address) =>
-        TableOps.Find(doc.Linetypes, address, includeDeleted: false)
-            .Bind(row => IO.lift(() => Refused.Unless(doc.Linetypes.UndoModify(row.Index), nameof(LinetypeTable.UndoModify))));
+        from row in TableOps.Find(doc.Linetypes, address, includeDeleted: false)
+        from restored in IO.lift(() => Refused.Unless(doc.Linetypes.UndoModify(row.Index), nameof(LinetypeTable.UndoModify)))
+        select restored;
 
     public static IO<Unit> Undelete(RhinoDoc doc, ComponentRef<Linetype> address) =>
-        TableOps.Find(doc.Linetypes, address, includeDeleted: true)
-            .Bind(row => IO.lift(() => Refused.Unless(doc.Linetypes.Undelete(row.Index), nameof(LinetypeTable.Undelete))));
+        from row in TableOps.Find(doc.Linetypes, address, includeDeleted: true)
+        from restored in IO.lift(() => Refused.Unless(doc.Linetypes.Undelete(row.Index), nameof(LinetypeTable.Undelete)))
+        select restored;
 
     // --- [TEXT]
     public static IO<LinetypePattern> Parse(string text, bool millimeters) =>
-        use(IO.lift(() => Optional(Linetype.CreateFromPatternString(text, millimeters))
-                .ToFin(new UnparsedText(typeof(Linetype), nameof(Linetype.CreateFromPatternString), text))))
-            .Bind(static parsed => IO.lift(Fin<LinetypePattern> () => LinetypePattern.Validate(Segments(parsed), out LinetypePattern? pattern) is { } error ? error : pattern!))
-            .Bracket();
+        (from parsed in use(IO.lift(() => Optional(Linetype.CreateFromPatternString(text, millimeters))
+             .ToFin(new UnparsedText(typeof(Linetype), nameof(Linetype.CreateFromPatternString), text))))
+         from pattern in IO.lift(Fin<LinetypePattern> () => LinetypePattern.Validate(Segments(parsed), out LinetypePattern? value) is { } error ? error : value!)
+         select pattern).Bracket();
 
     public static IO<string> Text(LinetypePattern pattern, bool millimeters) =>
-        use(static () => new Linetype())
-            .Bind(scratch => IO.lift(() => Refused.Unless(scratch.SetSegments(pattern.Millimeters), nameof(Linetype.SetSegments)).Map(_ => scratch.PatternString(millimeters))))
-            .Bracket();
+        (from scratch in use(static () => new Linetype())
+         from written in IO.lift(() => Refused.Unless(scratch.SetSegments(pattern.Segments.Map(Millimeters)), nameof(Linetype.SetSegments)))
+         from text in IO.lift(() => scratch.PatternString(millimeters))
+         select text).Bracket();
 
     // --- [FILES]
     public static IO<Seq<(string Name, LinetypeDefinition Definition)>> ReadFile(string path) =>
         from existing in IO.lift(() => Exchange.ExistingPath(path))
         from rows in IO.lift(() => Conversions.Rows(Linetype.ReadFromFile(existing))).Bracket(
-            Use: static held => held.TraverseM(static row => Definition(row).Map(definition => (row.Name, Definition: definition))).As(),
+            Use: static held => held.TraverseM(static row => (IO.pure(row.Name), Definition(row)).Apply(ValueTuple.Create).As()).As(),
             Fin: DisposalOps.Release)
         select rows;
+
+    // --- [MAPPING]
+    private static partial void Write((LineCapStyle LineCapStyle, LineJoinStyle LineJoinStyle, bool AlwaysModelDistances, double Width, global::Rhino.UnitSystem WidthUnits) source, Linetype target);
+
+    private static partial void Write((Length ShapeSpacing, Length ShapeGap, Vector2d ShapeLocalOffset) source, Linetype target);
+
+    private static partial void Write((ObjectLinetypeSource CurrentLinetypeSource, double LinetypeScale) source, LinetypeTable target);
+
+    [UserMapping]
+    private static double Millimeters(Length value) => value.Millimeters.ToDouble();
 }

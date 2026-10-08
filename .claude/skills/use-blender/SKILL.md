@@ -68,6 +68,7 @@ Preserve scene, selection, mode, view, workspace, preferences, and file outside 
 - Other agents' calls run between a task's calls, each call reading the state it depends on
 - Live calls mark the file modified and delete the user's redo steps
 - Trial writes revert in the call's `finally`, longer trials running in a `headless.py start <copy> <name>` session on a copy
+- `headless.py run` on an existing file starts a `--background` factory Blender that exits with no save
 - Sessions take a name no other agent holds and stop at task end
 - Scripted GUI launches under `tools/interface` wait while another agent drives Blender, one apply at a time
 - Quits from code end a GUI the task launched alone, through `mcp-for-blender`

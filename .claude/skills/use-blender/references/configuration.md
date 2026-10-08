@@ -7,7 +7,6 @@ Preferences, add-on records, repositories, keymaps, themes, text styles, interfa
 Lasting values are `tools/interface/blender/` rows that `nx run rasm:interface -- blender` writes into `bpy.utils.user_resource("CONFIG")` files:
 1. `rg -n '<member>' tools/interface/blender` names the row declaring a member, an undeclared value joining its category's module as a new row
 2. Edit the row
-3. `nx run rasm:interface -- blender` quits the GUI, converges every row in a scripted GUI run, and reopens the titled file
 
 - Scripted runs end in `save_userpref` and `save_homefile`, `stores.py` then rewriting stored shelves and region widths
 - `userpref.blend` holds preferences, themes, text styles, add-on records with their groups, repositories, keymap diffs, and keyconfig preferences
@@ -20,30 +19,6 @@ Use `manage-repo` for interface rows and the apply.
 ## [02]-[READS]
 
 Preferences read live in the GUI, the one process holding window-bound values (`system.dpi`, `system.ui_scale`, `system.pixel_size`, filled keymaps):
-1. `headless.py run` of the section read writes the factory values as JSON
-2. One live call reads each member that differs, as `[factory, live]`
-
-```bash
-# Factory values of one preference section as JSON
-python .claude/skills/use-blender/scripts/headless.py run <dir>/configuration-factory.blend > <dir>/factory.json <<'PY'
-import bpy
-from rna import plain
-result = {"section": plain(bpy.context.preferences.view)}
-PY
-```
-
-```python
-# [EXECUTE_BLENDER_CODE] Live members of the section that differ from factory, each as [factory, live]
-import json
-from pathlib import Path
-
-import bpy
-from rna import plain
-
-factory = json.loads(Path("<dir>/factory.json").read_text(encoding="utf-8"))["result"]["section"]
-result = {key: [factory.get(key), value] for key, value in plain(bpy.context.preferences.view).items() if factory.get(key) != value}
-```
-
 - Dynamic enum placeholders are `NONE` (`view_transform`, `display_device`), `DEFAULT` (`length_unit`, `temperature_unit`), `None` (`audio_device`)
 - `bpy.types.UILayout.enum_item_name(<struct>, "<member>", "<identifier>")` returns `""` for an identifier outside a dynamic enum's current set
 

@@ -37,10 +37,10 @@ public abstract class RowEdit {
         from held in DisposalOps.AcquireAll(
             Seq(IO.pure<IDisposable>(timer),
                 edit.Attached,
-                Subscriptions.Attach<EventHandler>(
+                Subscriptions.Attach(
                     static h => RhinoApp.Idle += h, static h => RhinoApp.Idle -= h,
                     new EventHandler(Callbacks.Handler<EventArgs>(_ => edit.Flush, site).Invoke)),
-                Subscriptions.Attach<EventHandler<EventArgs>>(
+                Subscriptions.Attach(
                     h => timer.Elapsed += h, h => timer.Elapsed -= h,
                     Callbacks.Handler<EventArgs>(_ => edit.Elapsed, site)))
             + signals.Map(signal => signal.Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ => edit.Heard), site.Sink))

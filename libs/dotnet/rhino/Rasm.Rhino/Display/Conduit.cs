@@ -2,7 +2,7 @@ using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.PlugIns;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Display;
 
@@ -31,6 +31,7 @@ public abstract partial record ConduitChannel {
 [ComplexValueObject]
 [ValidationError<InvalidRhinoValue>]
 public sealed partial class ConduitFilter {
+    // --- [VALUES]
     public static ConduitFilter Unfiltered { get; } = new(Option<bool>.None, Seq<Guid>(), ObjectType.AnyObject, ActiveSpace.None);
 
     public Option<bool> SelectionFilter { get; }
@@ -41,6 +42,7 @@ public sealed partial class ConduitFilter {
 
     public ActiveSpace SpaceFilter { get; }
 
+    // --- [FACTORY]
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Option<bool> selectionFilter, ref Seq<Guid> objectIds, ref ObjectType geometryFilter, ref ActiveSpace spaceFilter) =>
         validationError = spaceFilter is ActiveSpace.None or ActiveSpace.ModelSpace or ActiveSpace.PageSpace ? null : new InvalidRhinoValue();
 }
@@ -74,68 +76,61 @@ public abstract partial record RenderState {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal abstract class ChannelConduit : DisplayConduit {
-    private readonly CallbackSite site;
-
-    protected ChannelConduit(ConduitFilter filter, IPlugInSink sink, string member) {
-        site = new CallbackSite(sink, GetType(), member);
-        GeometryFilter = filter.GeometryFilter;
-        SpaceFilter = filter.SpaceFilter;
-        SetSelectionFilter(filter.SelectionFilter.IsSome, filter.SelectionFilter.Exists(identity));
-        SetObjectIdFilter(filter.ObjectIds);
-    }
-
-    protected void Answer<T>(T args, Func<T, IO<Unit>> effect) where T : DrawEventArgs =>
-        _ = Callbacks.Answer(args, effect, static () => unit, site);
-}
-
-internal sealed class CalculateBoundingBoxConduit(Func<DrawEventArgs, IO<Option<BoundingBox>>> box, ConduitFilter filter, IPlugInSink sink)
-    : ChannelConduit(filter, sink, nameof(CalculateBoundingBox)) {
+internal sealed class CalculateBoundingBoxConduit(Func<DrawEventArgs, IO<Option<BoundingBox>>> box, IPlugInSink sink) : DisplayConduit {
     protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) =>
-        Answer(e, args => box(args).Bind(found => IO.lift(() => found.Iter(args.IncludeBoundingBox))));
+        _ = Callbacks.Answer(
+            from found in IO.pure(e).Bind(box)
+            from included in IO.lift(() => found.Iter(e.IncludeBoundingBox))
+            select included,
+            static () => unit, new(sink, GetType(), nameof(CalculateBoundingBox)));
 }
 
-internal sealed class CalculateBoundingBoxZoomExtentsConduit(Func<DrawEventArgs, IO<Option<BoundingBox>>> box, ConduitFilter filter, IPlugInSink sink)
-    : ChannelConduit(filter, sink, nameof(CalculateBoundingBoxZoomExtents)) {
+internal sealed class CalculateBoundingBoxZoomExtentsConduit(Func<DrawEventArgs, IO<Option<BoundingBox>>> box, IPlugInSink sink) : DisplayConduit {
     protected override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) =>
-        Answer(e, args => box(args).Bind(found => IO.lift(() => found.Iter(args.IncludeBoundingBox))));
+        _ = Callbacks.Answer(
+            from found in IO.pure(e).Bind(box)
+            from included in IO.lift(() => found.Iter(e.IncludeBoundingBox))
+            select included,
+            static () => unit, new(sink, GetType(), nameof(CalculateBoundingBoxZoomExtents)));
 }
 
-internal sealed class ObjectCullingConduit(Func<CullObjectEventArgs, bool> cullObject, ConduitFilter filter, IPlugInSink sink)
-    : ChannelConduit(filter, sink, nameof(ObjectCulling)) {
+internal sealed class ObjectCullingConduit(Func<CullObjectEventArgs, bool> cullObject, IPlugInSink sink) : DisplayConduit {
     protected override void ObjectCulling(CullObjectEventArgs e) =>
-        Answer(e, args => IO.lift(() => cullObject(args)).Bind(culled => when(culled, IO.lift(() => { args.CullObject = true; })).As()));
+        _ = Callbacks.Answer(IO.lift(() => { if (cullObject(e)) e.CullObject = true; }), static () => unit, new(sink, GetType(), nameof(ObjectCulling)));
 }
 
-internal sealed class PreDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, ConduitFilter filter, IPlugInSink sink)
-    : ChannelConduit(filter, sink, nameof(PreDrawObjects)) {
-    protected override void PreDrawObjects(DrawEventArgs e) => Answer(e, draw);
+internal sealed class PreDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
+    protected override void PreDrawObjects(DrawEventArgs e) =>
+        _ = Callbacks.Answer(e, draw, static () => unit, new(sink, GetType(), nameof(PreDrawObjects)));
 }
 
-internal sealed class PreDrawObjectConduit(Func<DrawObjectEventArgs, IO<bool>> drawObject, ConduitFilter filter, IPlugInSink sink)
-    : ChannelConduit(filter, sink, nameof(PreDrawObject)) {
+internal sealed class PreDrawObjectConduit(Func<DrawObjectEventArgs, IO<bool>> drawObject, IPlugInSink sink) : DisplayConduit {
     protected override void PreDrawObject(DrawObjectEventArgs e) =>
-        Answer(e, args => drawObject(args).Bind(drawn => unless(drawn, IO.lift(() => { args.DrawObject = false; })).As()));
+        _ = Callbacks.Answer(
+            from drawn in IO.pure(e).Bind(drawObject)
+            from suppressed in IO.lift(() => { if (!drawn) e.DrawObject = false; })
+            select suppressed,
+            static () => unit, new(sink, GetType(), nameof(PreDrawObject)));
 }
 
-internal sealed class PostDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, ConduitFilter filter, IPlugInSink sink)
-    : ChannelConduit(filter, sink, nameof(PostDrawObjects)) {
-    protected override void PostDrawObjects(DrawEventArgs e) => Answer(e, draw);
+internal sealed class PostDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
+    protected override void PostDrawObjects(DrawEventArgs e) =>
+        _ = Callbacks.Answer(e, draw, static () => unit, new(sink, GetType(), nameof(PostDrawObjects)));
 }
 
-internal sealed class DrawForegroundConduit(Func<DrawEventArgs, IO<Unit>> draw, ConduitFilter filter, IPlugInSink sink)
-    : ChannelConduit(filter, sink, nameof(DrawForeground)) {
-    protected override void DrawForeground(DrawEventArgs e) => Answer(e, draw);
+internal sealed class DrawForegroundConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
+    protected override void DrawForeground(DrawEventArgs e) =>
+        _ = Callbacks.Answer(e, draw, static () => unit, new(sink, GetType(), nameof(DrawForeground)));
 }
 
-internal sealed class DrawOverlayConduit(Func<DrawEventArgs, IO<Unit>> draw, ConduitFilter filter, IPlugInSink sink)
-    : ChannelConduit(filter, sink, nameof(DrawOverlay)) {
-    protected override void DrawOverlay(DrawEventArgs e) => Answer(e, draw);
+internal sealed class DrawOverlayConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
+    protected override void DrawOverlay(DrawEventArgs e) =>
+        _ = Callbacks.Answer(e, draw, static () => unit, new(sink, GetType(), nameof(DrawOverlay)));
 }
 
-internal sealed class PostProcessFrameBufferConduit(Func<PostProcessFrameBufferEventArgs, IO<Unit>> read, ConduitFilter filter, IPlugInSink sink)
-    : ChannelConduit(filter, sink, nameof(PostProcessFrameBuffer)) {
-    protected override void PostProcessFrameBuffer(PostProcessFrameBufferEventArgs e) => Answer(e, read);
+internal sealed class PostProcessFrameBufferConduit(Func<PostProcessFrameBufferEventArgs, IO<Unit>> read, IPlugInSink sink) : DisplayConduit {
+    protected override void PostProcessFrameBuffer(PostProcessFrameBufferEventArgs e) =>
+        _ = Callbacks.Answer(e, read, static () => unit, new(sink, GetType(), nameof(PostProcessFrameBuffer)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -148,52 +143,59 @@ public static class Conduits {
                 .AcquireAll(toSeq(bound.Sets).Map(set => Viewports.ResolveViewports(bound.Document, set)), static held => DisposalOps.Release(held.Flatten()))
                 .Map(static held => held.Flatten()))
         from conduits in DisposalOps.OnFailure(
-            DisposalOps.AcquireAll(toSeq(definition.Channels).Map(channel => IO.lift(() => Enabled(Built(channel, definition.Filter, sink), definition.Binding, rows))), DisposalOps.Release),
+            DisposalOps.AcquireAll(toSeq(definition.Channels).Map(channel => Enabled(channel, definition.Filter, definition.Binding, rows, sink)), DisposalOps.Release),
             DisposalOps.Release(rows))
         select DisposalOps.Composite(rows.Map(static row => (IDisposable)row) + conduits, new CallbackSite(sink, typeof(Conduits), nameof(Enable)));
 
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register(ConduitDefinition definition) =>
-        (_, sink) => Enable(definition, sink);
-
-    private static ChannelConduit Built(ConduitChannel channel, ConduitFilter filter, IPlugInSink sink) =>
-        channel.Switch<(ConduitFilter Filter, IPlugInSink Sink), ChannelConduit>(
-            (filter, sink),
-            calculateBoundingBox: static (held, bounds) => new CalculateBoundingBoxConduit(bounds.Box, held.Filter, held.Sink),
-            calculateBoundingBoxZoomExtents: static (held, bounds) => new CalculateBoundingBoxZoomExtentsConduit(bounds.Box, held.Filter, held.Sink),
-            objectCulling: static (held, culling) => new ObjectCullingConduit(culling.CullObject, held.Filter, held.Sink),
-            preDrawObjects: static (held, phase) => new PreDrawObjectsConduit(phase.Draw, held.Filter, held.Sink),
-            preDrawObject: static (held, phase) => new PreDrawObjectConduit(phase.DrawObject, held.Filter, held.Sink),
-            postDrawObjects: static (held, phase) => new PostDrawObjectsConduit(phase.Draw, held.Filter, held.Sink),
-            drawForeground: static (held, phase) => new DrawForegroundConduit(phase.Draw, held.Filter, held.Sink),
-            drawOverlay: static (held, phase) => new DrawOverlayConduit(phase.Draw, held.Filter, held.Sink),
-            postProcessFrameBuffer: static (held, frame) => new PostProcessFrameBufferConduit(frame.Read, held.Filter, held.Sink));
-
-    private static IDisposable Enabled(ChannelConduit conduit, ConduitBinding binding, Seq<ViewportRef> rows) {
-        Action<RhinoViewport> bind = binding.Switch<ChannelConduit, Action<RhinoViewport>>(
-            conduit,
-            everywhere: static (held, _) => held.Bind,
-            bound: static (held, bound) => bound.Exclusive ? held.ExclusiveBind : held.Bind);
-        _ = rows.Iter(row => bind(row.Viewport));
-        conduit.Enabled = true;
-        return new Disposal<ChannelConduit>(conduit, static held => held.Enabled = false);
-    }
+    private static IO<IDisposable> Enabled(ConduitChannel channel, ConduitFilter filter, ConduitBinding binding, Seq<ViewportRef> rows, IPlugInSink sink) =>
+        from conduit in IO.lift(() => channel.Switch<IPlugInSink, DisplayConduit>(
+            sink,
+            calculateBoundingBox: static (held, bounds) => new CalculateBoundingBoxConduit(bounds.Box, held),
+            calculateBoundingBoxZoomExtents: static (held, bounds) => new CalculateBoundingBoxZoomExtentsConduit(bounds.Box, held),
+            objectCulling: static (held, culling) => new ObjectCullingConduit(culling.CullObject, held),
+            preDrawObjects: static (held, phase) => new PreDrawObjectsConduit(phase.Draw, held),
+            preDrawObject: static (held, phase) => new PreDrawObjectConduit(phase.DrawObject, held),
+            postDrawObjects: static (held, phase) => new PostDrawObjectsConduit(phase.Draw, held),
+            drawForeground: static (held, phase) => new DrawForegroundConduit(phase.Draw, held),
+            drawOverlay: static (held, phase) => new DrawOverlayConduit(phase.Draw, held),
+            postProcessFrameBuffer: static (held, frame) => new PostProcessFrameBufferConduit(frame.Read, held)))
+        let release = new Disposal<DisplayConduit>(conduit, static held => held.Enabled = false)
+        from enabled in DisposalOps.OnFailure(IO.lift(IDisposable () => {
+            ConduitMapper.Update((filter.GeometryFilter, filter.SpaceFilter), conduit);
+            conduit.SetSelectionFilter(filter.SelectionFilter.IsSome, filter.SelectionFilter.Exists(identity));
+            conduit.SetObjectIdFilter(filter.ObjectIds);
+            Action<RhinoViewport> bind = binding.Switch<DisplayConduit, Action<RhinoViewport>>(
+                conduit, everywhere: static (held, _) => held.Bind,
+                bound: static (held, bound) => bound.Exclusive ? held.ExclusiveBind : held.Bind);
+            _ = rows.Iter(row => bind(row.Viewport));
+            conduit.Enabled = true;
+            return release;
+        }), IO.lift(release.Dispose))
+        select enabled;
 
     // --- [PIPELINE]
     public static IO<TValue> WithState<TValue>(DisplayPipeline pipeline, Seq<RenderState> state, IO<TValue> draw) =>
-        state.FoldBack(draw, (inner, render) => render.Switch(
-            (Pipeline: pipeline, Draw: inner),
-            depthTest: static (scope, depth) => IO.lift(() => scope.Pipeline.PushDepthTesting(depth.Enabled)).Bracket(Use: _ => scope.Draw, Fin: _ => IO.lift(scope.Pipeline.PopDepthTesting)),
-            depthWrite: static (scope, depth) => IO.lift(() => scope.Pipeline.PushDepthWriting(depth.Enabled)).Bracket(Use: _ => scope.Draw, Fin: _ => IO.lift(scope.Pipeline.PopDepthWriting)),
-            cullFace: static (scope, cull) => IO.lift(() => scope.Pipeline.PushCullFaceMode(cull.Mode)).Bracket(Use: _ => scope.Draw, Fin: _ => IO.lift(scope.Pipeline.PopCullFaceMode)),
-            model: static (scope, model) => IO.lift(() => scope.Pipeline.PushModelTransform(model.Xform)).Bracket(Use: _ => scope.Draw, Fin: _ => IO.lift(scope.Pipeline.PopModelTransform)),
-            projection2d: static (scope, _) => IO.lift(scope.Pipeline.Push2dProjection).Bracket(Use: _ => scope.Draw, Fin: _ => IO.lift(scope.Pipeline.PopProjection)),
-            depth: static (scope, depth) => IO.lift(() => scope.Pipeline.DepthMode).Bracket(
-                Use: _ => IO.lift(() => { scope.Pipeline.DepthMode = depth.Mode; }).Bind(_ => scope.Draw),
-                Fin: prior => IO.lift(() => { scope.Pipeline.DepthMode = prior; })),
-            zBias: static (scope, bias) => IO.lift(() => scope.Pipeline.ZBiasMode).Bracket(
-                Use: _ => IO.lift(() => { scope.Pipeline.ZBiasMode = bias.Mode; }).Bind(_ => scope.Draw),
-                Fin: prior => IO.lift(() => { scope.Pipeline.ZBiasMode = prior; })),
-            clippingPlane: static (scope, plane) => IO.lift(() => scope.Pipeline.AddClippingPlane(plane.Point, plane.Normal)).Bracket(
-                Use: _ => scope.Draw,
-                Fin: index => IO.lift(() => scope.Pipeline.RemoveClippingPlane(index)))));
+        state.Map(render => render.Switch(
+            pipeline,
+            depthTest: static (host, depth) => IO.lift(() => host.PushDepthTesting(depth.Enabled)).Map(_ => IO.lift(host.PopDepthTesting)),
+            depthWrite: static (host, depth) => IO.lift(() => host.PushDepthWriting(depth.Enabled)).Map(_ => IO.lift(host.PopDepthWriting)),
+            cullFace: static (host, cull) => IO.lift(() => host.PushCullFaceMode(cull.Mode)).Map(_ => IO.lift(host.PopCullFaceMode)),
+            model: static (host, model) => IO.lift(() => host.PushModelTransform(model.Xform)).Map(_ => IO.lift(host.PopModelTransform)),
+            projection2d: static (host, _) => IO.lift(host.Push2dProjection).Map(_ => IO.lift(host.PopProjection)),
+            depth: static (host, depth) => from prior in IO.lift(() => host.DepthMode)
+                                           let restore = IO.lift(() => { host.DepthMode = prior; })
+                                           from written in DisposalOps.OnFailure(IO.lift(() => { host.DepthMode = depth.Mode; }), restore)
+                                           select restore,
+            zBias: static (host, bias) => from prior in IO.lift(() => host.ZBiasMode)
+                                          let restore = IO.lift(() => { host.ZBiasMode = prior; })
+                                          from written in DisposalOps.OnFailure(IO.lift(() => { host.ZBiasMode = bias.Mode; }), restore)
+                                          select restore,
+            clippingPlane: static (host, plane) => from index in IO.lift(() => host.AddClippingPlane(plane.Point, plane.Normal))
+                                                   select IO.lift(() => host.RemoveClippingPlane(index))))
+        .FoldBack(draw, static (inner, acquire) => use(acquire, identity).Action(inner).As().Bracket());
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+internal static partial class ConduitMapper {
+    internal static partial void Update((ObjectType GeometryFilter, ActiveSpace SpaceFilter) filter, DisplayConduit conduit);
 }

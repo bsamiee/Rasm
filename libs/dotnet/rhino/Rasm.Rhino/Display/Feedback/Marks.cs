@@ -50,17 +50,11 @@ public sealed partial class PrimitiveSolid;
 
 public sealed record GradientFill(Seq<ColorStop> Stops, Point3d Start, Point3d End, bool Linear, float Repeat);
 
-[Union]
-public abstract partial record ArrowHeadSize {
-    public sealed record Screen(double Pixels) : ArrowHeadSize;
-    public sealed record World(double Units) : ArrowHeadSize;
-}
+[Union<double, double>(T1Name = "Screen", T2Name = "World", MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class ArrowHeadSize;
 
-[Union]
-public abstract partial record TextPlacement {
-    public sealed record Scaled(double Scale) : TextPlacement;
-    public sealed record Transformed(Transform Xform) : TextPlacement;
-}
+[Union<double, Transform>(T1Name = "Scaled", T2Name = "Transformed", MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class TextPlacement;
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class AnalysisPreview {
@@ -156,8 +150,8 @@ public abstract partial record WorldMark {
     public sealed record LightMark(Light Light, Ink Wireframe) : WorldMark;
     public sealed record ConstructionPlaneMark(ConstructionPlane Plane) : WorldMark;
     public sealed record HatchMark(Hatch Hatch, Ink Fill, Ink Boundary) : WorldMark;
-    public sealed record StrokedHatch(Hatch Hatch, Ink Fill, Stroke Boundary, Ink Background) : WorldMark;
-    public sealed record GradientHatch(Hatch Hatch, GradientFill Fill, Stroke Boundary, Ink Background) : WorldMark;
+    public sealed record StrokedHatch(Hatch Hatch, Ink Fill, Option<Stroke> Boundary, Ink Background) : WorldMark;
+    public sealed record GradientHatch(Hatch Hatch, GradientFill Fill, Option<Stroke> Boundary, Ink Background) : WorldMark;
     public sealed record TextMark(TextEntity Text, Ink Ink, Option<TextPlacement> Placement) : WorldMark;
     public sealed record AnnotationMark(AnnotationBase Annotation, Option<RhinoObject> Parent, Ink Ink) : WorldMark;
     public sealed record AnnotationArrowhead(Arrowhead Arrowhead, Transform Xform, Ink Ink) : WorldMark;
@@ -179,26 +173,22 @@ public sealed record SpriteMark(Bitmap Source, Option<BlendFunction> Blend, Spri
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class SpriteCache(IPlugInSink sink) : IDisposable {
-    private readonly Disposal<AtomHashMap<(Bitmap Source, Option<BlendFunction> Blend), DisplayBitmap>> bitmaps =
-        new(AtomHashMap<(Bitmap Source, Option<BlendFunction> Blend), DisplayBitmap>(),
-            held => Callbacks.Answer(
-                DisposalOps.Release(held.ToSeq().Map(static entry => entry.Value)),
-                static () => unit,
-                new CallbackSite(sink, typeof(SpriteCache), nameof(Dispose))));
+    private AtomHashMap<(Bitmap Source, Option<BlendFunction> Blend), DisplayBitmap>? bitmaps =
+        AtomHashMap<(Bitmap Source, Option<BlendFunction> Blend), DisplayBitmap>();
 
-    public IO<Option<DisplayBitmap>> Get(Bitmap source, Option<BlendFunction> blend) =>
-        IO.lift(() => bitmaps.Held.Map(held => held.Find((source, blend)).IfNone(() => Registered(held, (source, blend)))));
+    internal IO<Option<DisplayBitmap>> Get(Bitmap source, Option<BlendFunction> blend) =>
+        IO.lift(() => bitmaps is { } held
+            ? Some(held.FindOrAdd((source, blend), () => {
+                DisplayBitmap bitmap = new(source);
+                if (blend.Case is BlendFunction selected)
+                    bitmap.SetBlendFunction(selected.Source, selected.Destination);
+                return bitmap;
+            }))
+            : None);
 
-    public void Dispose() => bitmaps.Dispose();
-
-    private static DisplayBitmap Registered(AtomHashMap<(Bitmap Source, Option<BlendFunction> Blend), DisplayBitmap> held, (Bitmap Source, Option<BlendFunction> Blend) key) {
-        DisplayBitmap built = new(key.Source);
-        _ = key.Blend.Iter(blend => built.SetBlendFunction(blend.Source, blend.Destination));
-        DisplayBitmap registered = held.FindOrAdd(key, built);
-        if (!ReferenceEquals(registered, built))
-            built.Dispose();
-        return registered;
-    }
+    public void Dispose() =>
+        Optional(Interlocked.Exchange(ref bitmaps, value: null)).Iter(held => Callbacks.Answer(
+            DisposalOps.Release(held.Values.ToSeq()), static () => unit, new CallbackSite(sink, typeof(SpriteCache), nameof(Dispose))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -231,8 +221,8 @@ public static class Marks {
             lineArrow: static (target, arrow) => IO.lift(() => target.DrawLineArrow(arrow.Line, arrow.Ink.Drawn, arrow.Thickness, arrow.TipSize)),
             arrowHead: static (target, head) => IO.lift(() => head.Size.Switch(
                 (Pipeline: target, Head: head),
-                screen: static (state, size) => state.Pipeline.DrawArrowHead(state.Head.Tip, state.Head.Direction, state.Head.Ink.Drawn, size.Pixels, 0),
-                world: static (state, size) => state.Pipeline.DrawArrowHead(state.Head.Tip, state.Head.Direction, state.Head.Ink.Drawn, 0, size.Units))),
+                screen: static (state, pixels) => state.Pipeline.DrawArrowHead(state.Head.Tip, state.Head.Direction, state.Head.Ink.Drawn, pixels, 0),
+                world: static (state, units) => state.Pipeline.DrawArrowHead(state.Head.Tip, state.Head.Direction, state.Head.Ink.Drawn, 0, units))),
             directionArrow: static (target, arrow) => IO.lift(() => target.DrawDirectionArrow(arrow.At, arrow.Direction, arrow.Ink.Drawn)),
             marker: static (target, marker) => IO.lift(() => marker.Shape.Match(
                 Some: shape => target.DrawMarker(marker.Tip, marker.Direction, marker.Ink.Drawn, shape.Thickness, shape.Size, shape.Rotation),
@@ -246,23 +236,23 @@ public static class Marks {
             pointCloudMark: static (target, cloud) => IO.lift(() => cloud.Ink.Match(
                 Some: ink => target.DrawPointCloud(cloud.Cloud, cloud.Size, ink.Drawn),
                 None: () => target.DrawPointCloud(cloud.Cloud, cloud.Size))),
-            wires: static (target, wires) => IO.lift(() => wires.Solid.Switch(
+            wires: static (target, wires) => wires.Solid.Switch(
                 (Pipeline: target, Wires: wires),
-                box: static (state, box) => state.Wires.Thickness.Match(
-                    Some: thickness => state.Pipeline.DrawBox(box, state.Wires.Ink.Drawn, thickness),
-                    None: () => state.Pipeline.DrawBox(box, state.Wires.Ink.Drawn)),
-                sphere: static (state, sphere) => state.Wires.Thickness.Match(
-                    Some: thickness => state.Pipeline.DrawSphere(sphere, state.Wires.Ink.Drawn, thickness),
-                    None: () => state.Pipeline.DrawSphere(sphere, state.Wires.Ink.Drawn)),
-                torus: static (state, torus) => state.Wires.Thickness.Match(
-                    Some: thickness => state.Pipeline.DrawTorus(torus, state.Wires.Ink.Drawn, thickness),
-                    None: () => state.Pipeline.DrawTorus(torus, state.Wires.Ink.Drawn)),
-                cylinder: static (state, cylinder) => state.Wires.Thickness.Match(
-                    Some: thickness => state.Pipeline.DrawCylinder(cylinder, state.Wires.Ink.Drawn, thickness),
-                    None: () => state.Pipeline.DrawCylinder(cylinder, state.Wires.Ink.Drawn)),
-                cone: static (state, cone) => state.Wires.Thickness.Match(
-                    Some: thickness => state.Pipeline.DrawCone(cone, state.Wires.Ink.Drawn, thickness),
-                    None: () => state.Pipeline.DrawCone(cone, state.Wires.Ink.Drawn)))),
+                box: static (state, box) => state.Wires.Thickness.Case is int thickness
+                    ? IO.lift(() => state.Pipeline.DrawBox(box, state.Wires.Ink.Drawn, thickness))
+                    : IO.lift(() => state.Pipeline.DrawBox(box, state.Wires.Ink.Drawn)),
+                sphere: static (state, sphere) => state.Wires.Thickness.Case is int thickness
+                    ? IO.lift(() => state.Pipeline.DrawSphere(sphere, state.Wires.Ink.Drawn, thickness))
+                    : IO.lift(() => state.Pipeline.DrawSphere(sphere, state.Wires.Ink.Drawn)),
+                torus: static (state, torus) => state.Wires.Thickness.Case is int thickness
+                    ? IO.lift(() => state.Pipeline.DrawTorus(torus, state.Wires.Ink.Drawn, thickness))
+                    : IO.lift(() => state.Pipeline.DrawTorus(torus, state.Wires.Ink.Drawn)),
+                cylinder: static (state, cylinder) => state.Wires.Thickness.Case is int thickness
+                    ? IO.lift(() => state.Pipeline.DrawCylinder(cylinder, state.Wires.Ink.Drawn, thickness))
+                    : IO.lift(() => state.Pipeline.DrawCylinder(cylinder, state.Wires.Ink.Drawn)),
+                cone: static (state, cone) => state.Wires.Thickness.Case is int thickness
+                    ? IO.lift(() => state.Pipeline.DrawCone(cone, state.Wires.Ink.Drawn, thickness))
+                    : IO.lift(() => state.Pipeline.DrawCone(cone, state.Wires.Ink.Drawn))),
             boxCorners: static (target, corners) => IO.lift(() => corners.Shape.Match(
                 Some: shape => target.DrawBoxCorners(corners.Box, corners.Ink.Drawn, shape.Size, shape.Thickness),
                 None: () => target.DrawBoxCorners(corners.Box, corners.Ink.Drawn))),
@@ -271,23 +261,23 @@ public static class Marks {
                 None: () => target.DrawCurvatureGraph(graph.Curve, graph.Ink.Drawn))),
             meshMark: static (target, mesh) => mesh.Look.Switch(
                 (Pipeline: target, mesh.Mesh),
-                shaded: static (state, shaded) => Strokes.Use(shaded.Material, material => shaded.Faces.Match(
-                    Some: faces => state.Pipeline.DrawMeshShaded(state.Mesh, material, faces),
-                    None: () => state.Pipeline.DrawMeshShaded(state.Mesh, material))),
+                shaded: static (state, shaded) => shaded.Faces.Case is Seq<int> faces
+                    ? Strokes.Use(shaded.Material, material => state.Pipeline.DrawMeshShaded(state.Mesh, material, faces))
+                    : Strokes.Use(shaded.Material, material => state.Pipeline.DrawMeshShaded(state.Mesh, material)),
                 banded: static (state, banded) => IO.lift(() => state.Pipeline.DrawMeshShaded(state.Mesh, banded.Diffuse.Drawn, banded.Banding.Map(Effect).ValueUnsafe())),
                 falseColors: static (state, _) => IO.lift(() => state.Pipeline.DrawMeshFalseColors(state.Mesh)),
                 gradient: static (state, gradient) => IO.lift(() => state.Pipeline.DrawGradientMesh(state.Mesh, gradient.Fill.Stops, gradient.Fill.Start, gradient.Fill.End, gradient.Fill.Linear, gradient.Fill.Repeat)),
-                wires: static (state, wires) => IO.lift(() => wires.Thickness.Match(
-                    Some: thickness => state.Pipeline.DrawMeshWires(state.Mesh, wires.Ink.Drawn, thickness),
-                    None: () => state.Pipeline.DrawMeshWires(state.Mesh, wires.Ink.Drawn))),
+                wires: static (state, wires) => wires.Thickness.Case is int thickness
+                    ? IO.lift(() => state.Pipeline.DrawMeshWires(state.Mesh, wires.Ink.Drawn, thickness))
+                    : IO.lift(() => state.Pipeline.DrawMeshWires(state.Mesh, wires.Ink.Drawn)),
                 vertices: static (state, vertices) => IO.lift(() => state.Pipeline.DrawMeshVertices(state.Mesh, vertices.Ink.Drawn)),
                 preview: static (state, preview) => IO.lift(() => preview.Analysis.DrawMesh(state.Pipeline, state.Mesh, preview.Ink.Drawn))),
             brepMark: static (target, brep) => brep.Look.Switch(
                 (Pipeline: target, brep.Brep),
                 shaded: static (state, shaded) => Strokes.Use(shaded.Material, material => state.Pipeline.DrawBrepShaded(state.Brep, material)),
-                wires: static (state, wires) => IO.lift(() => wires.Density.Match(
-                    Some: density => state.Pipeline.DrawBrepWires(state.Brep, wires.Ink.Drawn, density),
-                    None: () => state.Pipeline.DrawBrepWires(state.Brep, wires.Ink.Drawn))),
+                wires: static (state, wires) => wires.Density.Case is int density
+                    ? IO.lift(() => state.Pipeline.DrawBrepWires(state.Brep, wires.Ink.Drawn, density))
+                    : IO.lift(() => state.Pipeline.DrawBrepWires(state.Brep, wires.Ink.Drawn)),
                 preview: static (state, preview) => IO.lift(() => preview.Analysis.DrawBrep(state.Pipeline, state.Brep, preview.Ink.Drawn))),
             subDMark: static (target, subd) => subd.Look.Switch(
                 (Pipeline: target, subd.SubD),
@@ -303,13 +293,13 @@ public static class Marks {
                 Some: density => target.DrawExtrusionWires(wires.Extrusion, wires.Ink.Drawn, density),
                 None: () => target.DrawExtrusionWires(wires.Extrusion, wires.Ink.Drawn))),
             surfaceMark: static (target, surface) => IO.lift(() => target.DrawSurface(surface.Surface, surface.Ink.Drawn, surface.Density)),
-            block: static (target, block) => block.Material.Match(
-                Some: material => Strokes.Use(material, shaded => block.Xform.Match(
+            block: static (target, block) => block.Material.Case is ShadedMaterial material
+                ? Strokes.Use(material, shaded => block.Xform.Match(
                     Some: xform => target.DrawInstanceDefinitionShaded(block.Definition, shaded, xform),
-                    None: () => target.DrawInstanceDefinitionShaded(block.Definition, shaded))),
-                None: () => IO.lift(() => block.Xform.Match(
+                    None: () => target.DrawInstanceDefinitionShaded(block.Definition, shaded)))
+                : IO.lift(() => block.Xform.Match(
                     Some: xform => target.DrawInstanceDefinition(block.Definition, xform),
-                    None: () => target.DrawInstanceDefinition(block.Definition)))),
+                    None: () => target.DrawInstanceDefinition(block.Definition))),
             objectMark: static (target, drawn) => IO.lift(() => drawn.Xform.Match(
                 Some: xform => target.DrawObject(drawn.Object, xform),
                 None: () => target.DrawObject(drawn.Object))),
@@ -317,15 +307,15 @@ public static class Marks {
             lightMark: static (target, light) => IO.lift(() => target.DrawLight(light.Light, light.Wireframe.Drawn)),
             constructionPlaneMark: static (target, plane) => IO.lift(() => target.DrawConstructionPlane(plane.Plane)),
             hatchMark: static (target, hatch) => IO.lift(() => target.DrawHatch(hatch.Hatch, hatch.Fill.Drawn, hatch.Boundary.Drawn)),
-            strokedHatch: static (target, hatch) => IO.lift(() => target.DrawHatch(hatch.Hatch, hatch.Fill.Drawn, Strokes.Pen(hatch.Boundary), hatch.Background.Drawn)),
+            strokedHatch: static (target, hatch) => IO.lift(() => target.DrawHatch(hatch.Hatch, hatch.Fill.Drawn, hatch.Boundary.Map(Strokes.Pen).ValueUnsafe(), hatch.Background.Drawn)),
             gradientHatch: static (target, hatch) => IO.lift(() => target.DrawGradientHatch(
-                hatch.Hatch, hatch.Fill.Stops, hatch.Fill.Start, hatch.Fill.End, hatch.Fill.Linear, hatch.Fill.Repeat, Strokes.Pen(hatch.Boundary), hatch.Background.Drawn)),
-            textMark: static (target, text) => IO.lift(() => text.Placement.Match(
-                Some: placement => placement.Switch(
+                hatch.Hatch, hatch.Fill.Stops, hatch.Fill.Start, hatch.Fill.End, hatch.Fill.Linear, hatch.Fill.Repeat, hatch.Boundary.Map(Strokes.Pen).ValueUnsafe(), hatch.Background.Drawn)),
+            textMark: static (target, text) => text.Placement.Case is TextPlacement placement
+                ? placement.Switch(
                     (Pipeline: target, Text: text),
-                    scaled: static (state, scaled) => state.Pipeline.DrawText(state.Text.Text, state.Text.Ink.Drawn, scaled.Scale),
-                    transformed: static (state, transformed) => state.Pipeline.DrawText(state.Text.Text, state.Text.Ink.Drawn, transformed.Xform)),
-                None: () => target.DrawText(text.Text, text.Ink.Drawn))),
+                    scaled: static (state, scale) => IO.lift(() => state.Pipeline.DrawText(state.Text.Text, state.Text.Ink.Drawn, scale)),
+                    transformed: static (state, xform) => IO.lift(() => state.Pipeline.DrawText(state.Text.Text, state.Text.Ink.Drawn, xform)))
+                : IO.lift(() => target.DrawText(text.Text, text.Ink.Drawn)),
             annotationMark: static (target, annotation) => IO.lift(() => annotation.Parent.Match(
                 Some: parent => target.DrawAnnotation(annotation.Annotation, parent, annotation.Ink.Drawn),
                 None: () => target.DrawAnnotation(annotation.Annotation, annotation.Ink.Drawn))),
@@ -352,7 +342,7 @@ public static class Marks {
                 None: () => target.DrawPoints(points.Locations, target.DisplayPipelineAttributes.PointStyle, target.DisplayPipelineAttributes.PointRadius, points.Ink.Drawn)),
             vectorMark: static (target, vector) => {
                 Color color = vector.Ink.Drawn;
-                target.DrawArrow(new Line(vector.Point, vector.Point + vector.Vector), color);
+                target.DrawArrow(new Line(vector.Point, vector.Vector), color);
                 if (vector.DrawPoint)
                     target.DrawPoint(vector.Point, color);
             },
@@ -362,35 +352,34 @@ public static class Marks {
     private static IsoDrawEffect Effect(IsoBanding banding) {
         IsoDrawEffect effect = new();
         BandingMapper.Update(banding, effect);
-        _ = banding.Bands.Colors.Map((color, index) => effect.SetBandColor(index, color)).Strict();
+        _ = banding.Bands.Colors.Iter((index, color) => effect.SetBandColor(index, color));
         return effect;
     }
 
     // --- [SPRITES]
     public static IO<Unit> Draw(DisplayPipeline pipeline, SpriteCache sprites, Seq<SpriteMark> marks) =>
-        marks.TraverseM(mark =>
-            from bitmap in sprites.Get(mark.Source, mark.Blend)
-            from drawn in IO.lift(() => bitmap.Iter(held => Draw(pipeline, held, mark.Anchor)))
-            select drawn).As().Map(static _ => unit);
+        marks.TraverseM(mark => Draw(pipeline, sprites, mark)).As().Map(static _ => unit);
 
-    private static void Draw(DisplayPipeline pipeline, DisplayBitmap bitmap, SpriteAnchor anchor) =>
-        anchor.Switch(
-            (Pipeline: pipeline, Bitmap: bitmap),
-            screen: static (state, screen) => state.Pipeline.DrawSprite(state.Bitmap, screen.At, screen.Width, screen.Height),
-            screenSized: static (state, sized) => sized.Tint.Match(
+    private static IO<Unit> Draw(DisplayPipeline pipeline, SpriteCache sprites, SpriteMark mark) =>
+        from bitmap in sprites.Get(mark.Source, mark.Blend)
+        from drawn in bitmap.Case is DisplayBitmap held ? mark.Anchor.Switch(
+            (Pipeline: pipeline, Bitmap: held),
+            screen: static (state, screen) => IO.lift(() => state.Pipeline.DrawSprite(state.Bitmap, screen.At, screen.Width, screen.Height)),
+            screenSized: static (state, sized) => IO.lift(() => sized.Tint.Match(
                 Some: tint => state.Pipeline.DrawSprite(state.Bitmap, sized.At, sized.Size, tint.Drawn),
-                None: () => state.Pipeline.DrawSprite(state.Bitmap, sized.At, sized.Size)),
-            world: static (state, world) => world.Tint.Match(
+                None: () => state.Pipeline.DrawSprite(state.Bitmap, sized.At, sized.Size))),
+            world: static (state, world) => IO.lift(() => world.Tint.Match(
                 Some: tint => state.Pipeline.DrawSprite(state.Bitmap, world.At, world.Size, tint.Drawn, world.SizeInWorldSpace),
-                None: () => state.Pipeline.DrawSprite(state.Bitmap, world.At, world.Size, world.SizeInWorldSpace)),
-            cloud: static (state, cloud) => {
+                None: () => state.Pipeline.DrawSprite(state.Bitmap, world.At, world.Size, world.SizeInWorldSpace))),
+            cloud: static (state, cloud) => IO.lift(() => {
                 DisplayBitmapDrawList list = new();
                 list.SetPoints(cloud.Points.Map(static point => point.At), cloud.Points.Map(static point => point.Tint.Drawn));
                 _ = cloud.Translation.Match(
                     Some: translation => state.Pipeline.DrawSprites(state.Bitmap, list, cloud.Size, translation, cloud.SizeInWorldSpace),
                     None: () => state.Pipeline.DrawSprites(state.Bitmap, list, cloud.Size, cloud.SizeInWorldSpace));
-            },
-            particles: static (state, particles) => state.Pipeline.DrawParticles(particles.System, state.Bitmap));
+            }),
+            particles: static (state, particles) => IO.lift(() => state.Pipeline.DrawParticles(particles.System, state.Bitmap))) : IO.pure(unit)
+        select drawn;
 
     // --- [RETAINED]
     public static IO<Unit> Retain(CustomDisplay display, Seq<RetainedMark> marks) =>

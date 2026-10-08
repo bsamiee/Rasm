@@ -11,11 +11,9 @@ namespace Rasm.Rhino.Blocks;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MemberReference(Guid Container, Guid Member, Guid Definition);
 
-public sealed record DefinitionGraph(
-    ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>> Nesting,
-    HashMap<Guid, Seq<Guid>> Placements,
-    HashMap<Guid, string> Opaque,
-    Seq<MemberReference> Dangling) {
+public sealed record DefinitionGraph(ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>> Nesting, HashMap<Guid, Seq<Guid>> Placements,
+    HashMap<Guid, string> Opaque, Seq<MemberReference> Dangling) {
+    // --- [ORDER]
     public Seq<Guid> BakeOrder => toSeq(Nesting.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward)).Strict();
 
     public Seq<Guid> Removable(LanguageExt.HashSet<Guid> stale) =>
@@ -26,49 +24,43 @@ public sealed record DefinitionGraph(
                     : removable).Contains),
         };
 
+    // --- [SOURCES]
     public static IO<DefinitionGraph> Read(RhinoDoc doc) =>
-        IO.lift(() => Conversions.Rows(doc.InstanceDefinitions.GetList(ignoreDeleted: true)).Map(static definition => (
-                definition.Id,
-                Members: Conversions.Rows(definition.GetObjects())
-                    .Choose(member => Optional(member.Geometry as InstanceReferenceGeometry).Map(placed => new MemberReference(definition.Id, member.Id, placed.ParentIdefId)))
-                    .Strict(),
-                Placed: Conversions.Rows(definition.GetReferences((int)ReferenceScope.TopLevel)).Map(static instance => instance.Id).Strict(),
-                Opaque: Some(definition).Filter(static held => held.IsLinkedType && held.ObjectCount == 0).Bind(static held => Conversions.Present(held.SourceArchive))))
-            .Strict())
-        .Map(static rows => toHashSet(rows.Map(static row => row.Id)) switch {
-            var known => Of(
-                rows.Map(static row => row.Id),
-                rows.Bind(static row => row.Members).Filter(member => known.Contains(member.Definition)),
-                toHashMap(rows.Filter(static row => !row.Placed.IsEmpty).Map(static row => (row.Id, row.Placed))),
-                toHashMap(rows.Choose(static row => row.Opaque.Map(path => (row.Id, path)))),
-                rows.Bind(static row => row.Members).Filter(member => !known.Contains(member.Definition))),
-        });
+        from definitions in IO.lift(() => Conversions.Rows(doc.InstanceDefinitions.GetList(ignoreDeleted: true)))
+        let ids = definitions.Map(static definition => definition.Id).Strict()
+        let known = toHashSet(ids)
+        let members = (from definition in definitions
+                       from member in Conversions.Rows(definition.GetObjects())
+                       from placed in Optional(member.Geometry as InstanceReferenceGeometry).ToSeq()
+                       select new MemberReference(definition.Id, member.Id, placed.ParentIdefId)).ToLookup(member => known.Contains(member.Definition))
+        select Of(ids, toSeq(members[true]),
+            toHashMap(definitions.Map(static definition => (definition.Id,
+                Placed: Conversions.Rows(definition.GetReferences((int)ReferenceScope.TopLevel)).Map(static instance => instance.Id).Strict())).Filter(static row => !row.Placed.IsEmpty)),
+            toHashMap(definitions.Filter(static definition => definition.IsLinkedType && definition.ObjectCount == 0)
+                .Choose(static definition => Conversions.Present(definition.SourceArchive).Map(path => (definition.Id, path)))), toSeq(members[false]));
 
     public static DefinitionGraph Of(ArchiveGraph archive) =>
-        toSeq(archive.Components.Edges).Filter(static edge => edge.Kind == RelationKind.InstanceOf).Map(edge => (Edge: edge, Container: Container(archive, edge.Source))).Strict() switch {
-            var instances => Of(
-                toSeq(archive.Components.Vertices).Filter(static vertex => vertex.Type == ModelComponentType.InstanceDefinition).Map(static vertex => vertex.Id).Strict(),
-                instances.Choose(static row => row.Container.Map(container => new MemberReference(container, row.Edge.Source.Id, row.Edge.Target.Id))),
-                instances.Filter(static row => row.Container.IsNone).Fold(
-                    HashMap<Guid, Seq<Guid>>(),
-                    static (placed, row) => placed.AddOrUpdate(row.Edge.Target.Id, held => held.Add(row.Edge.Source.Id), Seq(row.Edge.Source.Id))),
-                archive.Sources.Filter((id, _) => !toSeq(archive.Components.InEdges(new ComponentIdentity(id, ModelComponentType.InstanceDefinition)))
-                    .Exists(static edge => edge.Kind == RelationKind.MemberOf)),
-                archive.Dangling.Filter(static link => link.Kind == RelationKind.InstanceOf).Choose(link =>
-                    from container in Container(archive, new ComponentIdentity(link.Source, ModelComponentType.ModelGeometry))
-                    from definition in link.Reference.ToOption()
-                    select new MemberReference(container, link.Source, definition))),
-        };
+        (Instances: archive.Components.Edges.Where(static edge => edge.Kind == RelationKind.InstanceOf),
+         Containers: archive.Components.Edges.Where(static edge => edge.Kind == RelationKind.MemberOf).ToLookup(static edge => edge.Source.Id, static edge => edge.Target.Id)) switch {
+             var relations => Of(
+                 toSeq(archive.Components.Vertices).Filter(static vertex => vertex.Type == ModelComponentType.InstanceDefinition).Map(static vertex => vertex.Id).Strict(),
+                 toSeq(from instance in relations.Instances
+                       from container in relations.Containers[instance.Source.Id]
+                       select new MemberReference(container, instance.Source.Id, instance.Target.Id)),
+                 toHashMap(relations.Instances.Where(instance => !relations.Containers.Contains(instance.Source.Id))
+                     .GroupBy(static instance => instance.Target.Id, static instance => instance.Source.Id).Select(static placed => (placed.Key, toSeq(placed).Strict()))),
+                 archive.Sources.Filter((id, _) => archive.Components.InEdges(new ComponentIdentity(id, ModelComponentType.InstanceDefinition)).All(static edge => edge.Kind != RelationKind.MemberOf)),
+                 from link in archive.Dangling
+                 where link.Kind == RelationKind.InstanceOf
+                 from container in toSeq(relations.Containers[link.Source])
+                 from definition in link.Reference.ToOption().ToSeq()
+                 select new MemberReference(container, link.Source, definition)),
+         };
 
+    // --- [CONSTRUCTION]
     private static DefinitionGraph Of(Seq<Guid> definitions, Seq<MemberReference> nested, HashMap<Guid, Seq<Guid>> placements, HashMap<Guid, string> opaque, Seq<MemberReference> dangling) =>
         nested.ToLookup(static member => member.Definition, static member => new SEquatableEdge<Guid>(member.Definition, member.Container)) switch {
-            var outEdges => new(
-                definitions.ToBidirectionalGraph(vertex => outEdges[vertex], allowParallelEdges: false).ToArrayBidirectionalGraph(),
-                placements,
-                opaque,
-                dangling),
+            var outEdges => new(definitions.ToBidirectionalGraph(vertex => outEdges[vertex], allowParallelEdges: false).ToArrayBidirectionalGraph(),
+                placements, opaque, dangling.Strict()),
         };
-
-    private static Option<Guid> Container(ArchiveGraph archive, ComponentIdentity member) =>
-        toSeq(archive.Components.OutEdges(member)).Find(static edge => edge.Kind == RelationKind.MemberOf).Map(static edge => edge.Target.Id);
 }

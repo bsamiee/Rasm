@@ -258,7 +258,7 @@ public static class Motions {
 
     private static IO<Reduced<Unit>> Show(Pacing pacing, Leg leg, Reduced<double> sample) =>
         from pose in IO.lift(Interpolated(leg.From, leg.To, sample.Value))
-        from written in Navigation.ApplyToViewports(pacing.Document, pacing.Move.Viewports, port => Cameras.WritePose(port, pose), pacing.Move.Redraw)
+        from written in Navigation.ApplyToViewports(pacing.Document, pacing.Move.Viewports, port => IO.lift(() => Cameras.WritePose(port, pose)), pacing.Move.Redraw)
         from shown in pacing.Course.SwapIO(course => course with { Shown = pose })
         select sample.Map(static _ => unit);
 }

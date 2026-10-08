@@ -28,14 +28,14 @@ public sealed class AngleDial<TValue, TKey, TError>(IPlugInSink sink, NumberText
 
     private static double Pointed(PlotPlane.Polar plane, PointF point) => (Math.PI / 2d) - plane.Value(point).First;
 
-    private static double Signed(double delta) => delta - (Math.Tau * Math.Round(delta / Math.Tau));
+    private static double Signed(double delta) => delta - (Math.Tau * Math.Round(delta / Math.Tau, MidpointRounding.ToEven));
 
     private static TKey Wrapped(double angle) =>
         double.CreateSaturating(TValue.MinValue.ToValue()) switch {
             var low => NumericRows.Narrowed<TKey>(angle - (Math.Tau * Math.Floor((angle - low) / Math.Tau))),
         };
 
-    private static TKey Placed(double held, Keys modifiers) => Wrapped(Snaps(modifiers) ? Math.Round(held / AngleSnap) * AngleSnap : held);
+    private static TKey Placed(double held, Keys modifiers) => Wrapped(Snaps(modifiers) ? Math.Round(held / AngleSnap, MidpointRounding.ToEven) * AngleSnap : held);
 
     protected override Seq<PlotMark<Unit>> Layout(AngleDialState<TValue> state, SizeF size, float scale) =>
         (Plane(size), float.Min(size.Width, size.Height)) switch {

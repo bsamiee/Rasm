@@ -153,9 +153,9 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
                 select raised));
 
     // --- [VALUES]
-    private string Showing(Option<TValue> value) => value.Match(Some: held => text.Shown(Some(held.ToValue())), None: static () => string.Empty);
+    private string Showing(Option<TValue> value) => value.Match(Some: held => text.Shown(Some(held.ToValue())), None: static () => "");
 
-    private string Entering(Option<TValue> value) => value.Match(Some: held => text.Entry(held.ToValue()), None: static () => string.Empty);
+    private string Entering(Option<TValue> value) => value.Match(Some: held => text.Entry(held.ToValue()), None: static () => "");
 
     private IO<Unit> Typed(FieldState<TValue>.Editing editing, string entry) =>
         text.Read(entry)
@@ -193,9 +193,9 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
             pressed: static (_, _) => IO.pure(unit),
             scrubbing: static (s, _) => when(s.Args.Buttons == MouseButtons.Alternate, Claimed(() => s.Args.Handled = true, s.Field.Interrupted)).As(),
             editing: static (_, _) => IO.pure(unit))));
-        if (!e.Handled) {
-            base.OnMouseDown(e);
-        }
+        if (e.Handled) return;
+
+        base.OnMouseDown(e);
     }
 
     protected override void OnMouseMove(MouseEventArgs e) {
@@ -233,9 +233,9 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
             scrubbing: static (_, _) => IO.pure(unit),
             editing: static (s, editing) => Claimed(() => s.Args.Handled = true,
                 s.Field.Stepping(editing, Math.Sign(s.Args.Delta.Height), s.Args.Modifiers).IfNone(IO.pure(unit))))));
-        if (!e.Handled) {
-            base.OnMouseWheel(e);
-        }
+        if (e.Handled) return;
+
+        base.OnMouseWheel(e);
     }
 
     protected override void OnKeyDown(KeyEventArgs e) {
@@ -253,9 +253,9 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
                     s.Field.Become(editing with { Typed = None }, None).Bind(_ => s.Field.Raised(new Edit<TValue>.Cancel()))),
                 _ => IO.pure(unit),
             })));
-        if (!e.Handled) {
-            base.OnKeyDown(e);
-        }
+        if (e.Handled) return;
+
+        base.OnKeyDown(e);
     }
 
     protected override void OnTextChanging(TextChangingEventArgs e) {

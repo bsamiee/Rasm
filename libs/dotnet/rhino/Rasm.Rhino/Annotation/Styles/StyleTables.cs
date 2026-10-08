@@ -37,82 +37,62 @@ public sealed record ReconciledStyles(StyleRows Written, LanguageExt.HashSet<Com
 public static class StyleTables {
     // --- [ORDER]
     private static Seq<TableUpsert<DimensionStyle, DimensionStyleSpec>> WriteOrder(Seq<TableUpsert<DimensionStyle, DimensionStyleSpec>> upserts) =>
-        toHashMap(upserts.Map(static upsert => (upsert.Name, upsert))) switch {
-            var rows => toSeq(upserts
-                    .Map(static upsert => upsert.Name)
-                    .ToBidirectionalGraph<string, SEquatableEdge<string>>(
-                        name => upserts
-                            .Filter(dependent => dependent.Name != name && Addresses(dependent.Spec).Exists(address => Names(rows[name], address)))
-                            .Map(dependent => new SEquatableEdge<string>(name, dependent.Name)),
-                        allowParallelEdges: false)
-                    .SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward))
-                .Map(name => rows[name])
-                .Strict(),
+        (from dependent in upserts
+         from address in dependent.Spec.Parent.ToSeq() + dependent.Spec.Source.Bind(static source => source.Switch(
+             builtIn: static _ => Option<ComponentRef<DimensionStyle>>.None,
+             row: static row => Some(row.Address))).ToSeq()
+         from dependency in upserts
+         where dependency != dependent && address.Switch(
+             dependency,
+             byId: static (row, byId) => row.Existing.Exists(live => live.Id == byId.Id),
+             byIndex: static (row, byIndex) => row.Existing.Exists(live => live.Index == byIndex.Index),
+             byName: static (row, byName) => TableOps.Names<DimensionStyle>().Equals(row.Name, byName.Name))
+         select new SEquatableEdge<TableUpsert<DimensionStyle, DimensionStyleSpec>>(dependency, dependent))
+        .ToLookup(static edge => edge.Source) switch {
+            var edges => toSeq(upserts.ToBidirectionalGraph(row => edges[row], allowParallelEdges: false)
+                .SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward)),
         };
-
-    private static Seq<ComponentRef<DimensionStyle>> Addresses(DimensionStyleSpec spec) =>
-        spec.Parent.ToSeq()
-        + spec.Source.Bind(static source => source.Switch(builtIn: static _ => Option<ComponentRef<DimensionStyle>>.None, row: static row => Some(row.Address))).ToSeq();
-
-    private static bool Names(TableUpsert<DimensionStyle, DimensionStyleSpec> row, ComponentRef<DimensionStyle> address) =>
-        address.Switch(
-            (row.Name, Id: row.Existing.Map(static live => live.Id), Index: row.Existing.Map(static live => live.Index)),
-            byId: static (held, byId) => held.Id == Some(byId.Id),
-            byIndex: static (held, byIndex) => held.Index == Some(byIndex.Index),
-            byName: static (held, byName) => TableOps.Names<DimensionStyle>().Equals(held.Name, byName.Name));
 
     // --- [GRAPH]
     public static IO<ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>>> Graph(RhinoDoc doc) =>
-        IO.lift(() => (
-                    from style in toSeq(doc.SectionStyles)
-                    where !style.IsDeleted
-                    from reference in Seq((Type: ModelComponentType.HatchPattern, Index: style.HatchIndex), (Type: ModelComponentType.LinePattern, Index: style.BoundaryLinetypeIndex))
-                    from index in Conversions.Present(reference.Index).ToSeq()
-                    from held in Optional(doc.Manifest.FindIndex(index, reference.Type)).ToSeq()
-                    where !held.IsDeleted
-                    select Edge(held, style))
-                .Concat(
-                    from style in toSeq(doc.DimStyles)
-                    where !style.IsDeleted
-                    from id in Conversions.Present(style.ParentId).ToSeq()
-                    from parent in Optional(doc.Manifest.FindId(id, ModelComponentType.DimStyle)).ToSeq()
+        from rows in IO.lift(() => Seq<IEnumerable<ModelComponent>>(doc.HatchPatterns, doc.Linetypes, doc.SectionStyles, doc.DimStyles)
+            .Bind(static table => Conversions.Rows(table)).Filter(static row => !row.IsDeleted).Strict())
+        let edges = (from style in rows.OfType<SectionStyle>()
+                     from reference in Seq((Type: ModelComponentType.HatchPattern, Index: style.HatchIndex), (Type: ModelComponentType.LinePattern, Index: style.BoundaryLinetypeIndex))
+                     join dependency in rows on reference equals (dependency.ComponentType, dependency.Index)
+                     select Edge(dependency, style))
+            .Concat(from style in rows.OfType<DimensionStyle>()
+                    join parent in rows on new ComponentIdentity(style.ParentId, ModelComponentType.DimStyle) equals new ComponentIdentity(parent.Id, parent.ComponentType)
                     select Edge(parent, style))
-                .ToLookup(static edge => edge.Source) switch {
-                    var outEdges => Seq<IEnumerable<ModelComponent>>(doc.HatchPatterns, doc.Linetypes, doc.SectionStyles, doc.DimStyles)
-                        .Bind(static table => toSeq(table))
-                        .Filter(static row => !row.IsDeleted)
-                        .Map(static row => new ComponentIdentity(row.Id, row.ComponentType))
-                        .ToBidirectionalGraph(row => outEdges[row], allowParallelEdges: false)
-                        .ToArrayBidirectionalGraph(),
-                });
+            .ToLookup(static edge => edge.Source)
+        select rows.Map(static row => new ComponentIdentity(row.Id, row.ComponentType))
+            .ToBidirectionalGraph(row => edges[row], allowParallelEdges: false).ToArrayBidirectionalGraph();
 
     private static SEquatableEdge<ComponentIdentity> Edge(ModelComponent dependency, ModelComponent dependent) =>
         new(new ComponentIdentity(dependency.Id, dependency.ComponentType), new ComponentIdentity(dependent.Id, dependent.ComponentType));
 
     // --- [PRUNE]
-    private sealed record Candidate(ComponentIdentity Row, IO<bool> Held, IO<Unit> Delete);
-
-    private static Seq<Candidate> Candidates<T>(RhinoDocCommonTable<T> table, Seq<T> rows, Func<T, bool> held) where T : ModelComponent =>
-        rows.Map(row => new Candidate(
+    private static Seq<(ComponentIdentity Row, IO<bool> Delete)> Candidates<T>(RhinoDocCommonTable<T> table, Seq<T> rows, Func<T, bool> held) where T : ModelComponent =>
+        rows.Map(row => (
             new ComponentIdentity(row.Id, row.ComponentType),
-            IO.lift(() => held(row)),
-            IO.lift(() => RefusedElement.Unless(table.Delete(row), nameof(RhinoDocCommonTable<>.Delete), row.Index))));
+            IO.lift(() => held(row) ? Fin.Succ(value: false) : RefusedElement.Unless(table.Delete(row), value: true, nameof(RhinoDocCommonTable<>.Delete), row.Index))));
 
-    private static IO<LanguageExt.HashSet<ComponentIdentity>> Pruned(ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>> graph, Seq<Candidate> candidates) =>
+    private static IO<LanguageExt.HashSet<ComponentIdentity>> Pruned(ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>> graph, Seq<(ComponentIdentity Row, IO<bool> Delete)> candidates) =>
         toHashMap(candidates.Map(static candidate => (candidate.Row, candidate))) switch {
             var byRow => toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward))
-                .Choose(row => byRow.Find(row))
+                .Choose(byRow.Find)
                 .FoldBackM(LanguageExt.HashSet<ComponentIdentity>.Empty, (removed, candidate) =>
-                    from held in toSeq(graph.OutEdges(candidate.Row)).ForAll(edge => removed.Contains(edge.Target)) ? candidate.Held : IO.pure(true)
-                    from deleted in unless(held, candidate.Delete).As()
-                    select held ? removed : removed.Add(candidate.Row))
+                    graph.OutEdges(candidate.Row).All(edge => removed.Contains(edge.Target))
+                        ? candidate.Delete.Map(deleted => deleted ? removed.Add(candidate.Row) : removed)
+                        : IO.pure(removed))
                 .As(),
         };
 
     // --- [PROGRAM]
     public static IO<StylePlan> Plan(RhinoDoc doc, StyleSpec spec) =>
-        from rows in (TableOps.Rows(doc.HatchPatterns), TableOps.Rows(doc.Linetypes), TableOps.Rows(doc.SectionStyles), TableOps.Rows(doc.DimStyles))
-            .Apply(static (hatchPatterns, linetypes, sectionStyles, dimensionStyles) => (hatchPatterns, linetypes, sectionStyles, dimensionStyles))
+        from rows in ApplicativeExtensions.Apply(
+            (TableOps.Rows(doc.HatchPatterns), TableOps.Rows(doc.Linetypes), TableOps.Rows(doc.SectionStyles), TableOps.Rows(doc.DimStyles)),
+            static (hatchPatterns, linetypes, sectionStyles, dimensionStyles) => (hatchPatterns, linetypes, sectionStyles, dimensionStyles))
             .As()
         from plan in IO.lift(
             (TableOps.Plan(rows.hatchPatterns, spec.HatchPatterns), TableOps.Plan(rows.linetypes, spec.Linetypes),
@@ -124,7 +104,8 @@ public static class StyleTables {
         select plan;
 
     public static IO<Committed<ReconciledStyles>> Reconcile(RhinoDoc doc, StyleSpec spec, Func<StyleRows, IO<Unit>> reassign, string name, RedrawPolicy redraw, IPlugInSink sink) =>
-        Plan(doc, spec).Bind(plan => Commits.Commit(doc, RowText.Localize(name, table: Some<object>(sink)), redraw,
+        from plan in Plan(doc, spec)
+        from committed in Commits.Commit(doc, RowText.Localize(name, table: Some<object>(sink)).Local, redraw,
             from hatchPatterns in TableOps.Upsert(doc, TableKinds.HatchPatterns, plan.HatchPatterns.Upserts, HatchPatterns.Written, HatchPatterns.Unchanged)
             from linetypes in TableOps.Upsert(doc, TableKinds.Linetypes, plan.Linetypes.Upserts, Linetypes.Written, Linetypes.Unchanged)
             from sectionStyles in TableOps.Upsert(doc, TableKinds.SectionStyles, plan.SectionStyles.Upserts, (staged, definition) => SectionStyles.Written(doc, staged, definition), SectionStyles.Unchanged)
@@ -141,5 +122,6 @@ public static class StyleTables {
                 + Candidates(doc.Linetypes, plan.Linetypes.Prunes, row => row.InUse || row.Index == doc.Linetypes.CurrentLinetypeIndex)
                 + Candidates(doc.SectionStyles, plan.SectionStyles.Prunes, static row => row.InUse)
                 + Candidates(doc.DimStyles, plan.DimensionStyles.Prunes, row => row.Index == doc.DimStyles.CurrentIndex))
-            select new ReconciledStyles(written, removed)));
+            select new ReconciledStyles(written, removed))
+        select committed;
 }

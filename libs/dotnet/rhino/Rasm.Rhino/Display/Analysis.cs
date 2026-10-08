@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence.Settings;
@@ -9,14 +8,11 @@ using Rhino.ApplicationSettings;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry.Collections;
-using Rhino.PlugIns;
 using Rhino.UI;
+using Riok.Mapperly.Abstractions;
 using Wacton.Unicolour;
 
 namespace Rasm.Rhino.Display;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-public delegate double VertexMeasure(RhinoObject obj, int face, Mesh mesh, int vertex);
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FalseColorScale(Interval Range, RampTable Ramp) {
@@ -24,92 +20,71 @@ public sealed record FalseColorScale(Interval Range, RampTable Ramp) {
 
     public static Color Displayed(Vector4 linear) =>
         new Unicolour(Configuration.Default, ColourSpace.RgbLinear, linear.X, linear.Y, linear.Z, linear.W).MapToRgbGamut() switch {
-            var mapped => Color.FromArgb(mapped.Alpha.A255, mapped.Rgb.Byte255.R, mapped.Rgb.Byte255.G, mapped.Rgb.Byte255.B),
+            var mapped => mapped.Rgb.Byte255 switch {
+                var rgb => Color.FromArgb(mapped.Alpha.A255, rgb.R, rgb.G, rgb.B),
+            },
         };
 }
 
 [Union]
-public abstract partial record AnalysisLook {
-    public abstract VisualAnalysisMode.AnalysisStyle Style { get; }
+public abstract partial record AnalysisDefinition {
+    // --- [DEFINITION]
+    private AnalysisDefinition(LocalizeStringPair name) => Name = name;
 
-    public abstract IO<Unit> SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes);
-
-    public abstract IO<Unit> UpdateVertexColors(RhinoObject obj, Mesh[] meshes);
-
-    public sealed record FalseColor(VertexMeasure Measure, IO<FalseColorScale> Scale) : AnalysisLook {
-        public override VisualAnalysisMode.AnalysisStyle Style => VisualAnalysisMode.AnalysisStyle.FalseColor;
-
-        public override IO<Unit> SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) =>
-            IO.lift(() => { attributes.ShadeVertexColors = true; });
-
-        public override IO<Unit> UpdateVertexColors(RhinoObject obj, Mesh[] meshes) =>
-            from scale in Scale
-            from painted in IO.lift(() => Callbacks.Each(
-                toSeq(meshes).Map(static (mesh, face) => (Mesh: Optional(mesh), Face: face)),
-                entry => entry.Mesh.ForAll(mesh => mesh.VertexColors.SetColors(
-                    [.. Enumerable.Range(0, mesh.Vertices.Count).Select(vertex => scale.ColorAt(Measure(obj, entry.Face, mesh, vertex)))])),
-                nameof(MeshVertexColorList.SetColors)))
-            select painted;
-    }
-
-    public sealed record Texture(Func<RhinoObject, DisplayPipelineAttributes, IO<Unit>> SetUp) : AnalysisLook {
-        public override VisualAnalysisMode.AnalysisStyle Style => VisualAnalysisMode.AnalysisStyle.Texture;
-
-        public override IO<Unit> SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) => SetUp(obj, attributes);
-
-        public override IO<Unit> UpdateVertexColors(RhinoObject obj, Mesh[] meshes) => IO.pure(unit);
-    }
-
-    public sealed record Wireframe() : AnalysisLook {
-        public override VisualAnalysisMode.AnalysisStyle Style => VisualAnalysisMode.AnalysisStyle.Wireframe;
-
-        public override IO<Unit> SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) => IO.pure(unit);
-
-        public override IO<Unit> UpdateVertexColors(RhinoObject obj, Mesh[] meshes) => IO.pure(unit);
-    }
-}
-
-public sealed record AnalysisDefinition(LocalizeStringPair Name, AnalysisLook Look) {
+    public LocalizeStringPair Name { get; }
     public Option<Func<RhinoObject, bool>> Supports { get; init; }
-
-    public IO<bool> ShowIsoCurves { get; init; } = IO.pure(value: false);
-
+    public Option<IO<bool>> ShowIsoCurves { get; init; }
     public Option<Func<bool, IO<Unit>>> UserInterface { get; init; }
-
     public Option<Func<RhinoObject, DisplayPipeline, IO<Unit>>> DrawObject { get; init; }
-
     public Option<Func<RhinoObject, GeometryBase, DisplayPipeline, IO<Unit>>> DrawGeometry { get; init; }
+
+    // --- [STYLES]
+    public sealed record FalseColor(LocalizeStringPair Name, Func<RhinoObject, int, Mesh, int, double> Measure, IO<FalseColorScale> Scale) : AnalysisDefinition(Name) {
+        internal IO<Unit> Paint(RhinoObject obj, Mesh[] meshes) =>
+            from scale in Scale
+            let colors = toSeq(
+                from entry in meshes.Select(static (mesh, face) => (Mesh: mesh, Face: face))
+                from mesh in Optional(entry.Mesh).ToSeq()
+                select (Mesh: mesh, entry.Face, Colors: Enumerable.Range(0, mesh.Vertices.Count).Select(vertex => scale.ColorAt(Measure(obj, entry.Face, mesh, vertex))).ToArray()))
+            from painted in IO.lift(() => Callbacks.Each(colors, static (entry, _) =>
+                RefusedElement.Unless(entry.Mesh.VertexColors.SetColors(entry.Colors), nameof(MeshVertexColorList.SetColors), entry.Face)))
+            select unit;
+    }
+
+    public sealed record Texture(LocalizeStringPair Name, Func<RhinoObject, DisplayPipelineAttributes, IO<Unit>> SetUp) : AnalysisDefinition(Name);
+    public sealed record Wireframe(LocalizeStringPair Name) : AnalysisDefinition(Name);
 }
 
-[SmartEnum]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class CurvatureFit {
+    // --- [FITS]
     public static readonly CurvatureFit Auto = new(
-        static (meshes, state) => Refused.Unless(CurvatureAnalysisSettings.CalculateCurvatureAutoRange(meshes, ref state), state, nameof(CurvatureAnalysisSettings.CalculateCurvatureAutoRange)),
-        VisualAnalysisMode.CurvatureColorAutoRange);
+        IO.lift(static () => VisualAnalysisMode.CurvatureColorAutoRange()),
+        static (meshes, state) => Refused.Unless(CurvatureAnalysisSettings.CalculateCurvatureAutoRange(meshes, ref state), state, nameof(CurvatureAnalysisSettings.CalculateCurvatureAutoRange)));
 
     public static readonly CurvatureFit Max = new(
-        static (meshes, state) => Refused.Unless(CurvatureAnalysisSettings.CalculateCurvatureMaxRange(meshes, state), state, nameof(CurvatureAnalysisSettings.CalculateCurvatureMaxRange)),
-        VisualAnalysisMode.CurvatureColorMaxRange);
+        IO.lift(static () => VisualAnalysisMode.CurvatureColorMaxRange()),
+        static (meshes, state) => Refused.Unless(CurvatureAnalysisSettings.CalculateCurvatureMaxRange(meshes, state), state, nameof(CurvatureAnalysisSettings.CalculateCurvatureMaxRange)));
 
-    public IO<CurvatureAnalysisSettingsState> Fit(Seq<Mesh> meshes) =>
-        AppSettings.CurvatureAnalysis.Current.Bind(state => IO.lift(() => Calculate(meshes, state)));
+    // --- [RANGES]
+    public IO<Unit> Adjust { get; }
 
-    public IO<Unit> Adjust() => IO.lift(AdjustAnalyzed);
+    public IO<CurvatureAnalysisSettingsState> Fit(Seq<Mesh> meshes, Option<CurvatureAnalysisSettings.CurvatureStyle> style = default) =>
+        from state in AppSettings.CurvatureAnalysis.Current
+        from selected in IO.lift(() => style.Iter(value => AnalysisMapper.Update(value, state)))
+        from fitted in IO.lift(() => Calculate(meshes, state))
+        select fitted;
 
     [UseDelegateFromConstructor]
     private partial Fin<CurvatureAnalysisSettingsState> Calculate(IEnumerable<Mesh> meshes, CurvatureAnalysisSettingsState state);
-
-    [UseDelegateFromConstructor]
-    private partial void AdjustAnalyzed();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : VisualAnalysisMode {
+    // --- [DEFINITION]
     public sealed override string Name => definition.Name.Local;
-
-    public sealed override AnalysisStyle Style => definition.Look.Style;
-
-    public sealed override bool ShowIsoCurves => Callbacks.Answer(definition.ShowIsoCurves, static () => false, CallbackSite.Of(this));
+    public sealed override AnalysisStyle Style => definition.Map(falseColor: AnalysisStyle.FalseColor, texture: AnalysisStyle.Texture, wireframe: AnalysisStyle.Wireframe);
+    public sealed override bool ShowIsoCurves => Callbacks.Answer(definition.ShowIsoCurves, () => base.ShowIsoCurves, static () => false, CallbackSite.Of(this));
 
     public sealed override void EnableUserInterface(bool on) =>
         _ = definition.UserInterface.Iter(show => Callbacks.Answer(on, show, static () => unit, CallbackSite.Of(this)));
@@ -117,61 +92,66 @@ public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : Visua
     public sealed override bool ObjectSupportsAnalysisMode(RhinoObject obj) =>
         Callbacks.Answer(definition.Supports.Map(supports => IO.lift(() => supports(obj))), () => base.ObjectSupportsAnalysisMode(obj), static () => false, CallbackSite.Of(this));
 
+    // --- [APPEARANCE]
     protected sealed override void SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) =>
-        _ = Callbacks.Answer(
-            (definition.Look, Object: obj, Attributes: attributes),
-            static args => args.Look.SetUpDisplayAttributes(args.Object, args.Attributes),
-            static () => unit,
-            CallbackSite.Of(this));
+        _ = definition.Switch(
+            (Object: obj, Attributes: attributes, Site: CallbackSite.Of(this)),
+            falseColor: static (args, _) => Callbacks.Answer(IO.lift(() => AnalysisMapper.Update(shadeVertexColors: true, args.Attributes)), static () => unit, args.Site),
+            texture: static (args, texture) => Callbacks.Answer(args, input => texture.SetUp(input.Object, input.Attributes), static () => unit, args.Site),
+            wireframe: static (_, _) => unit);
 
     protected sealed override void UpdateVertexColors(RhinoObject obj, Mesh[] meshes) =>
-        _ = Callbacks.Answer(
-            (definition.Look, Object: obj, Meshes: meshes),
-            static args => args.Look.UpdateVertexColors(args.Object, args.Meshes),
-            static () => unit,
-            CallbackSite.Of(this));
+        _ = definition.Switch(
+            (Object: obj, Meshes: meshes, Site: CallbackSite.Of(this)),
+            falseColor: static (args, color) => Callbacks.Answer((Color: color, args.Object, args.Meshes), static input => input.Color.Paint(input.Object, input.Meshes), static () => unit, args.Site),
+            texture: static (_, _) => unit,
+            wireframe: static (_, _) => unit);
 
-    protected sealed override void DrawBrepObject(BrepObject brep, DisplayPipeline pipeline) => Draw(brep, pipeline);
+    // --- [DRAWING]
+    protected sealed override void DrawBrepObject(BrepObject brep, DisplayPipeline pipeline) =>
+        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: brep, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
 
-    protected sealed override void DrawExtrusionObject(ExtrusionObject extrusion, DisplayPipeline pipeline) => Draw(extrusion, pipeline);
+    protected sealed override void DrawExtrusionObject(ExtrusionObject extrusion, DisplayPipeline pipeline) =>
+        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: extrusion, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
 
-    protected sealed override void DrawMeshObject(MeshObject mesh, DisplayPipeline pipeline) => Draw(mesh, pipeline);
+    protected sealed override void DrawMeshObject(MeshObject mesh, DisplayPipeline pipeline) =>
+        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: mesh, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
 
-    protected sealed override void DrawSubDObject(SubDObject subd, DisplayPipeline pipeline) => Draw(subd, pipeline);
+    protected sealed override void DrawSubDObject(SubDObject subd, DisplayPipeline pipeline) =>
+        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: subd, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
 
-    protected sealed override void DrawPointObject(PointObject point, DisplayPipeline pipeline) => Draw(point, pipeline);
+    protected sealed override void DrawPointObject(PointObject point, DisplayPipeline pipeline) =>
+        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: point, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
 
-    protected sealed override void DrawPointCloudObject(PointCloudObject pointCloud, DisplayPipeline pipeline) => Draw(pointCloud, pipeline);
+    protected sealed override void DrawPointCloudObject(PointCloudObject pointCloud, DisplayPipeline pipeline) =>
+        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: pointCloud, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
 
-    protected sealed override void DrawMesh(RhinoObject obj, Mesh mesh, DisplayPipeline pipeline) => Draw(obj, mesh, pipeline);
+    protected sealed override void DrawMesh(RhinoObject obj, Mesh mesh, DisplayPipeline pipeline) =>
+        _ = definition.DrawGeometry.Iter(draw => Callbacks.Answer((Object: obj, Geometry: mesh, Pipeline: pipeline), args => draw(args.Object, args.Geometry, args.Pipeline), static () => unit, CallbackSite.Of(this)));
 
-    protected sealed override void DrawNurbsCurve(RhinoObject obj, NurbsCurve curve, DisplayPipeline pipeline) => Draw(obj, curve, pipeline);
+    protected sealed override void DrawNurbsCurve(RhinoObject obj, NurbsCurve curve, DisplayPipeline pipeline) =>
+        _ = definition.DrawGeometry.Iter(draw => Callbacks.Answer((Object: obj, Geometry: curve, Pipeline: pipeline), args => draw(args.Object, args.Geometry, args.Pipeline), static () => unit, CallbackSite.Of(this)));
 
-    protected sealed override void DrawNurbsSurface(RhinoObject obj, NurbsSurface surface, DisplayPipeline pipeline) => Draw(obj, surface, pipeline);
-
-    private void Draw(RhinoObject obj, DisplayPipeline pipeline, [CallerMemberName] string member = "") =>
-        _ = definition.DrawObject.Iter(draw => Callbacks.Answer(
-            (Draw: draw, Object: obj, Pipeline: pipeline),
-            static args => args.Draw(args.Object, args.Pipeline),
-            static () => unit,
-            CallbackSite.Of(this, member)));
-
-    private void Draw(RhinoObject obj, GeometryBase geometry, DisplayPipeline pipeline, [CallerMemberName] string member = "") =>
-        _ = definition.DrawGeometry.Iter(draw => Callbacks.Answer(
-            (Draw: draw, Object: obj, Geometry: geometry, Pipeline: pipeline),
-            static args => args.Draw(args.Object, args.Geometry, args.Pipeline),
-            static () => unit,
-            CallbackSite.Of(this, member)));
+    protected sealed override void DrawNurbsSurface(RhinoObject obj, NurbsSurface surface, DisplayPipeline pipeline) =>
+        _ = definition.DrawGeometry.Iter(draw => Callbacks.Answer((Object: obj, Geometry: surface, Pipeline: pipeline), args => draw(args.Object, args.Geometry, args.Pipeline), static () => unit, CallbackSite.Of(this)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AnalysisModes {
     // --- [REGISTRATION]
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register<TMode>() where TMode : DefinedAnalysisMode, new() =>
-        static (_, _) => IO.lift(static () => MissingGuid.Unless(typeof(TMode)).Map(static _ => VisualAnalysisMode.Register(typeof(TMode))))
-            .Map(static _ => Thinktecture.Empty.Disposable());
+    public static IO<VisualAnalysisMode> Register<TMode>() where TMode : DefinedAnalysisMode, new() =>
+        IO.lift(static () => MissingGuid.Unless(typeof(TMode)).Map(static _ => VisualAnalysisMode.Register(typeof(TMode))));
 
     // --- [OBJECTS]
     public static IO<Unit> Enable(RhinoDoc doc, Seq<RhinoObject> objects, VisualAnalysisMode mode, bool enabled, RedrawPolicy redraw) =>
         Commits.WithinRedraw(doc, redraw, IO.lift(() => Callbacks.Each(objects, obj => obj.EnableVisualAnalysisMode(mode, enabled), nameof(RhinoObject.EnableVisualAnalysisMode))));
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+internal static partial class AnalysisMapper {
+    [MapPropertyFromSource(nameof(DisplayPipelineAttributes.ShadeVertexColors))]
+    internal static partial void Update(bool shadeVertexColors, DisplayPipelineAttributes attributes);
+
+    [MapPropertyFromSource(nameof(CurvatureAnalysisSettingsState.Style))]
+    internal static partial void Update(CurvatureAnalysisSettings.CurvatureStyle style, CurvatureAnalysisSettingsState state);
 }

@@ -25,7 +25,7 @@ internal static class NativeControls {
 
     internal static void Rows(RowGrid grid) =>
         _ = Callbacks.Answer(
-            IO.lift(() => grid.Styles.Add<object>(null, target =>
+            IO.lift(() => grid.Styles.Add<object>(style: null, target =>
                 _ = Callbacks.Answer(
                     Optional(target as IMacViewHandler).Map(handler => Sized(grid, handler)),
                     static () => unit,
@@ -69,7 +69,7 @@ internal static class NativeControls {
             NSSliderCell cell = (NSSliderCell)native.Cell;
             CGRect bar = cell.BarRectFlipped(native.IsFlipped);
             CGRect knob = cell.KnobRectFlipped(native.IsFlipped);
-            int columns = (int)Math.Round(native.ConvertRectToBacking(bar).Width);
+            int columns = (int)Math.Round(native.ConvertRectToBacking(bar).Width, MidpointRounding.ToEven);
             using CGColorSpace space = paint.Space;
             using CGImage? image = columns > 0
                 ? Image(Columns(slider, bar, knob, columns, new Vector4((float)paint.Accent.RedComponent, (float)paint.Accent.GreenComponent, (float)paint.Accent.BlueComponent, 1f), native.Enabled ? 1f : (float)paint.Disabled.AlphaComponent), space)
@@ -87,7 +87,7 @@ internal static class NativeControls {
         return new CGImage(
             row.Length, 1, 32, 128, row.Length * 16, space,
             CGBitmapFlags.Last | CGBitmapFlags.FloatComponents | CGBitmapFlags.ByteOrder32Little,
-            pixels, null, false, CGColorRenderingIntent.Default);
+            pixels, decode: null, shouldInterpolate: false, CGColorRenderingIntent.Default);
     }
 
     private static Vector4[] Columns(ParameterSlider slider, CGRect bar, CGRect knob, int columns, Vector4 tint, float alpha) {
@@ -96,7 +96,7 @@ internal static class NativeControls {
         Seq<double> xs = toSeq(Range(0, columns)).Map(index => bar.X + ((index + 0.5) * bar.Width / columns));
         Option<(double From, double To)> span = slider.Origin.Map(origin => low + (origin * travel)).Map(start => (double.Min(start, knob.GetMidX()), double.Max(start, knob.GetMidX())));
         Vector4[] row = xs.Traverse(x => slider.Fill(double.Clamp((x - low) / travel, 0d, 1d))).As().Match(
-            Some: samples => {
+            Some: static samples => {
                 Vector4[] light = [.. samples];
                 TransferCurve.Srgb.Encode(light, Nits.ReferenceWhite);
                 return light;
@@ -112,7 +112,7 @@ internal static class NativeControls {
             let site = new CallbackSite(field.Sink, typeof(NumberField), nameof(Scrubbed))
             from attached in IO.lift(() => {
                 field.Scrub += Callbacks.Handler<bool>(scrubbing => scrubbing ? Held(handler, held, site) : Freed(held), site);
-                field.LoadComplete += Callbacks.Handler<EventArgs>(_ => IO.lift(() => { field.Font = Themes.Digits(field.Font); }), site);
+                field.LoadComplete += Callbacks.Handler<EventArgs>(_ => IO.lift(() => field.Font = Themes.Digits(field.Font)), site);
                 handler.Control.AccessibilityCustomActions = Steps(field.Adjust);
             })
             select unit,
@@ -125,7 +125,7 @@ internal static class NativeControls {
             nameof(NSEvent.AddLocalMonitorForEventsMatchingMask)))
         from stored in held.SwapIO(_ => (Some(monitor), Option<NSObject>.None))
         from hidden in IO.lift(NSCursor.Hide)
-        from detached in IO.lift(static () => Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(false) == 0, nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition)))
+        from detached in IO.lift(static () => Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: false) == 0, nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition)))
         select unit;
 
     private static IO<Unit> Freed(Atom<(Option<NSObject> Held, Option<NSObject> Taken)> held) =>
@@ -134,7 +134,7 @@ internal static class NativeControls {
             Some: static token =>
                 from removed in IO.lift(() => NSEvent.RemoveMonitor(token))
                 from shown in IO.lift(NSCursor.Unhide)
-                from attached in IO.lift(static () => Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(true) == 0, nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition)))
+                from attached in IO.lift(static () => Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: true) == 0, nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition)))
                 select unit,
             None: static () => IO.pure(unit))
         select unit;

@@ -4,10 +4,9 @@ using Rasm.Rhino.Document.Shapes;
 namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union]
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record PipeRadii {
     public sealed record SingleWall(IterableNE<(double NormalizedParameter, double Radius)> Stations) : PipeRadii;
-
     public sealed record DoubleWall(IterableNE<(double NormalizedParameter, double Radius0, double Radius1)> Stations) : PipeRadii;
 }
 
@@ -22,14 +21,12 @@ public static class Shells {
                 Offsets: Brep.CreateOffsetBrep(brep, distance, solid, extend, shrink, tolerances.Absolute, out Brep[]? blends, out Brep[]? walls),
                 Blends: blends,
                 Walls: walls)),
-            static made => Refused.Unless(made.Blends is not null, nameof(Brep.CreateOffsetBrep)).Bind(_ =>
-                (
-                    Measurements.Valid(toSeq<Brep?>(made.Offsets), nameof(Brep.CreateOffsetBrep)).ToValidation(),
-                    Measurements.Valid(toSeq<Brep?>(made.Blends), nameof(OffsetResult.Blends)).ToValidation(),
-                    Measurements.Valid(toSeq<Brep?>(made.Walls), nameof(OffsetResult.Walls)).ToValidation())
-                .Apply(static (offsets, blends, walls) => new OffsetResult(offsets, blends, walls))
-                .As()
-                .ToFin()),
+            static Fin<OffsetResult> (made) => made.Blends is null
+                ? new Refused(nameof(Brep.CreateOffsetBrep))
+                : (Measurements.Valid(toSeq<Brep?>(made.Offsets), nameof(Brep.CreateOffsetBrep)).ToValidation(),
+                   Measurements.Valid(toSeq<Brep?>(made.Blends), nameof(OffsetResult.Blends)).ToValidation(),
+                   Measurements.Valid(toSeq<Brep?>(made.Walls), nameof(OffsetResult.Walls)).ToValidation())
+                    .Apply(static (offsets, blends, walls) => new OffsetResult(offsets, blends, walls)).As().ToFin(),
             static made => DisposalOps.Release(Conversions.Rows(made.Offsets) + Conversions.Rows(made.Blends) + Conversions.Rows(made.Walls)));
 
     // --- [PIPES]
@@ -37,26 +34,16 @@ public static class Shells {
         radii.Switch(
             (Rail: rail, LocalBlending: localBlending, Cap: cap, FitRail: fitRail, Tolerances: tolerances),
             singleWall: static (pipe, wall) => Copies.AcquireNonEmpty(
-                () => Brep.CreatePipe(
-                    pipe.Rail,
-                    wall.Stations.Map(static station => station.NormalizedParameter),
-                    wall.Stations.Map(static station => station.Radius),
-                    pipe.LocalBlending,
-                    pipe.Cap,
-                    pipe.FitRail,
-                    pipe.Tolerances.Absolute,
-                    pipe.Tolerances.Angle),
+                () => Brep.CreatePipe(pipe.Rail,
+                    from station in wall.Stations select station.NormalizedParameter,
+                    from station in wall.Stations select station.Radius,
+                    pipe.LocalBlending, pipe.Cap, pipe.FitRail, pipe.Tolerances.Absolute, pipe.Tolerances.Angle),
                 nameof(Brep.CreatePipe)),
             doubleWall: static (pipe, wall) => Copies.AcquireNonEmpty(
-                () => Brep.CreateThickPipe(
-                    pipe.Rail,
-                    wall.Stations.Map(static station => station.NormalizedParameter),
-                    wall.Stations.Map(static station => station.Radius0),
-                    wall.Stations.Map(static station => station.Radius1),
-                    pipe.LocalBlending,
-                    pipe.Cap,
-                    pipe.FitRail,
-                    pipe.Tolerances.Absolute,
-                    pipe.Tolerances.Angle),
+                () => Brep.CreateThickPipe(pipe.Rail,
+                    from station in wall.Stations select station.NormalizedParameter,
+                    from station in wall.Stations select station.Radius0,
+                    from station in wall.Stations select station.Radius1,
+                    pipe.LocalBlending, pipe.Cap, pipe.FitRail, pipe.Tolerances.Absolute, pipe.Tolerances.Angle),
                 nameof(Brep.CreateThickPipe)));
 }

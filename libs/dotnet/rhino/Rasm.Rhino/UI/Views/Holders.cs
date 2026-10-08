@@ -29,12 +29,10 @@ internal sealed record HeaderButton(GlyphRole Glyph, string ToolTip, IO<Unit> Cl
 public sealed class SectionBody : IDisposable {
     // --- [STATE]
     private readonly View.Section row;
-    private readonly Seq<ControlRow> controls;
-    private readonly RowScope scope;
     private readonly RowRules rules;
     private readonly LanguageExt.HashSet<EntryKey> reads;
     private readonly IDisposable release;
-    private readonly Atom<bool> hidden = Atom(false);
+    private readonly Atom<bool> hidden = Atom(value: false);
     private readonly ShownSubscription listeners;
 
     private SectionBody(View.Section row, Seq<ControlRow> controls, Control content, RowScope scope, Option<IHeaderButtonHandler> header, IDisposable release, CallbackSite site) {
@@ -52,18 +50,13 @@ public sealed class SectionBody : IDisposable {
     // --- [REALIZATION]
     public static IO<SectionBody> Realize(IPlugInViews owner, View.Section row, RowScope enclosing) =>
         from history in row.Store.Traverse(store => IO.lift(ViewOps.Bindings(owner, row, enclosing).ToFin().Bind(group => ViewOps.History(owner, row, store, group, enclosing.Document)))).As()
-        let scope = enclosing.Nested(ViewOps.Settings(owner, row), history, ViewOps.Locks(row, enclosing.Document))
-        let controls = row.Children.Bind(static child => child.Controls)
-        let site = new CallbackSite(owner, row.Identity, nameof(Realize))
-        from realized in ViewOps.Realize(owner, row.Children, scope)
-        from header in DisposalOps.OnFailure(history.Traverse(held => Header(owner, row, controls, held, scope)).As(), realized.Release)
-        from section in IO.lift(() => new SectionBody(
+ViewOps.Realize header in DisposalOps.OnFailure(history.Traverse(held => Header(owner, row, controls, held, scope)).As(), realized.Release)
+IO.lift(() => new SectionBody(
             row, controls, realized.Content, scope,
             header.Map(static held => (IHeaderButtonHandler)held.Handler),
             DisposalOps.Composite(((IDisposable)new Disposal<IO<Unit>>(realized.Release, run => _ = Callbacks.Answer(run, static () => unit, site))).Cons(header.ToSeq().Bind(static held => held.Menus)), site),
             new CallbackSite(owner, row.Identity, nameof(DefinedSection.HolderVisible))))
-        from evaluated in DisposalOps.OnFailure(section.Evaluated, IO.lift(section.Dispose))
-        select section;
+DisposalOps.OnFailure(section.Evaluated, IO.lift(section.Dispose))
 
     // --- [EDGES]
     public Unit Shown(bool visible) => listeners.Shown(visible);
@@ -79,13 +72,13 @@ public sealed class SectionBody : IDisposable {
     private IO<Unit> Evaluated =>
         from shows in rules.Shows(scope)
         from enables in rules.Enables(scope)
-        from swapped in hidden.SwapIO(_ => !shows)
+        from swapped in hidden.SwapIO(static _ => !shows)
         from set in IO.lift(() => Content.Enabled = enables)
         select unit;
 
     private IO<IDisposable> Listening(CallbackSite site) =>
         from signals in toSeq(rules.Each.Bind(static rule => rule.Sources).Except(controls.Choose<ControlRow, RowSource>(static control => control.Bound)))
-            .TraverseM(source => source.Signals(scope))
+            .TraverseM(static source => source.Signals(scope))
             .As()
         from held in DisposalOps.AcquireAll(
             scope.Listen(keys => when(keys.Exists(reads.Contains), Evaluated).As())
@@ -95,18 +88,7 @@ public sealed class SectionBody : IDisposable {
         select DisposalOps.Composite(held, site);
 
     // --- [HEADER]
-    private static IO<(HeaderButtons Handler, Seq<IDisposable> Menus)> Header(IPlugInViews owner, View.Section row, Seq<ControlRow> controls, HistoryBinding history, RowScope scope) =>
-        DisposalOps.AcquireAll(
-                row.Presets.Map(listing => MenuButton(GlyphRole.Presets, "Presets", listing(scope), owner)).ToSeq()
-                    .Add(MenuButton(GlyphRole.Options, "Values", Listing(owner, controls, history, scope), owner)),
-                static held => DisposalOps.Release(held.Map(static menu => menu.Release)))
-            .Map(menus => (
-                new HeaderButtons(
-                    menus.Map(static menu => menu.Button).Add(new HeaderButton(
-                        GlyphRole.Reset, "Reset to defaults", ViewOps.Defaults(row).Bind(defaults => scope.Commit(history.Group, defaults)).Map(static _ => unit))),
-                    owner, row.Identity),
-                menus.Map(static menu => menu.Release)));
-
+    
     private static IO<(HeaderButton Button, IDisposable Release)> MenuButton(GlyphRole glyph, string toolTip, IO<Seq<MenuPick>> listing, IPlugInSink sink) =>
         ChoiceRows.Menu(Seq<Seq<MenuEntry>>(), Seq<IO<Unit>>(), Some(listing), sink)
             .Map(built => (new HeaderButton(glyph, toolTip, IO.lift(() => built.Menu.Show())), built.Release));
@@ -118,8 +100,8 @@ public sealed class SectionBody : IDisposable {
         from zone in IO.lift(() => owner.Clock.ToZonedClock().Zone)
         let stamp = LocalDateTimePattern.Create("g", RowText.Culture)
         select Seq(
-                held.Done.Head.Map(entry => Pick(RowText.Localize("Undo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Undo, scope))),
-                held.Undone.Head.Map(entry => Pick(RowText.Localize("Redo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Redo, scope))),
+                held.Done.Head.Map(entry => Pick(RowText.Localize("Undo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Step(StepDirection.Undo), scope))),
+                held.Undone.Head.Map(entry => Pick(RowText.Localize("Redo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Step(StepDirection.Redo), scope))),
                 Some(Pick(RowText.Localize("Copy values").Local, Transfer.Copy(history.Group, None, scope))),
                 Some(Pick(RowText.Localize("Paste values").Local, Transfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
                 Some(Pick(RowText.Localize("Clear history").Local, history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty)),
@@ -197,9 +179,9 @@ public sealed class SectionStack : EtoCollapsibleSectionHolder2 {
         DisposalOps.AcquireAll(rows.Map(row => Section(owner, row, scope)), DisposalOps.Release);
 
     // --- [EDGES]
-    public static Unit Shown(Control content, bool visible) =>
+    public static new Unit Shown(Control content, bool visible) =>
         content.Cons(Optional(content as Container).ToSeq().Bind(static container => toSeq(container.Children)))
-            .Choose<Control, SectionStack>(static control => Optional(control as SectionStack))
+            .Choose(static control => Optional(control as SectionStack))
             .Iter(stack => stack.sections.Iter(section => section.HolderVisible(visible)));
 
     protected override void OnPreLoad(EventArgs e) {

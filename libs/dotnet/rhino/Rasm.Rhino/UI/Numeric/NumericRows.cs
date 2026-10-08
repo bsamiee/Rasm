@@ -26,13 +26,33 @@ internal sealed record NumericPart<TValue>(
     TableCell Cell, bool Square, Func<Option<TValue>, IO<Unit>> Receive, Action<EventHandler<Edit<TValue>>> Add, Action<EventHandler<Edit<TValue>>> Remove)
     where TValue : notnull;
 
-internal sealed record NumericCell<TValue>(Control Value, FieldFit Fit, Option<NumericPart<TValue>> Track, NumericPart<TValue> Field) where TValue : notnull {
+internal sealed record NumericCell<TValue, TKey>(Control Value, FieldFit Fit, Option<NumericPart<TValue>> Track, NumericPart<TValue> Field, NumberText<TKey> Text)
+    where TValue : notnull, IMinMaxValue<TValue>, IConvertible<TKey>
+    where TKey : notnull {
     public Seq<NumericPart<TValue>> Parts => Track.ToSeq().Add(Field);
 
     public IO<Unit> Show(Option<TValue> value) => Parts.TraverseM(part => part.Receive(value)).As().Map(static _ => unit);
 
     public IO<Seq<IDisposable>> Edits(EventHandler<Edit<TValue>> handler) =>
         DisposalOps.AcquireAll(Parts.Map(part => Subscriptions.Attach(part.Add, part.Remove, handler)), DisposalOps.Release);
+
+    public IO<IDisposable> Attached(IO<Unit> reset, CallbackSite site) =>
+        DisposalOps.AcquireAll(
+            Track.Map(part => Subscriptions.Attach(
+                handler => part.Cell.Control.MouseDoubleClick += handler, handler => part.Cell.Control.MouseDoubleClick -= handler,
+                Callbacks.Handler<MouseEventArgs>(e => when(e.Buttons == MouseButtons.Primary, IO.lift(() => { e.Handled = true; }).Bind(_ => reset)).As(),
+                    site with { Member = nameof(Control.MouseDoubleClick) }))).ToSeq()
+            + Track.Filter(static part => part.Square).Map(part => Subscriptions.Attach(
+                handler => Field.Cell.Control.SizeChanged += handler, handler => Field.Cell.Control.SizeChanged -= handler,
+                Callbacks.Handler<EventArgs>(_ => IO.lift(() => { part.Cell.Control.Width = Field.Cell.Control.Height; }),
+                    site with { Member = nameof(Control.SizeChanged) }))).ToSeq(),
+            DisposalOps.Release)
+        .Map(held => DisposalOps.Composite(held, site));
+
+    public RowCells Cells<TRecord>(Option<Control> gate, Option<TValue> initial, RowEdit<TRecord> edit, Seq<IDisposable> held, CallbackSite site) where TRecord : notnull =>
+        new(Value, gate, None, Some(Fit), [], [],
+            new RowHelp(Some((Text.Shown(Some(TValue.MinValue.ToValue())), Text.Shown(Some(TValue.MaxValue.ToValue())))), initial.Map(value => Text.Shown(Some(value.ToValue())))),
+            edit.Shown, Some<RowEdit>(edit), Some(ChoiceRows.Context(Value, [], [], site.Sink)), DisposalOps.Composite(held, site));
 }
 
 internal sealed record AxisCell<TRecord>(Label Letter, FieldFit Fit, Func<Option<TRecord>, IO<Unit>> Show, Action<RowEdit<TRecord>> Add, Action<RowEdit<TRecord>> Remove)
@@ -40,11 +60,12 @@ internal sealed record AxisCell<TRecord>(Label Letter, FieldFit Fit, Func<Option
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class NumericRows {
+    // --- [METRICS]
     internal const float FieldInset = 5f;
 
     // --- [CROSSINGS]
     public static TKey Narrowed<TKey>(double key) where TKey : struct, INumber<TKey> =>
-        TKey.CreateSaturating(TKey.IsInteger(TKey.CreateSaturating(0.5)) ? double.Round(key) : key);
+        TKey.CreateSaturating(TKey.IsInteger(TKey.CreateSaturating(0.5)) ? double.Round(key, MidpointRounding.ToEven) : key);
 
     // --- [ROWS]
     public static ControlRow Bounded<TRecord, TValue, TKey, TError>(
@@ -54,18 +75,10 @@ public static class NumericRows {
         where TKey : struct, INumber<TKey>
         where TError : Error, IValidationError<TError> =>
         ControlRow.Of(source, field, RowShape.Inline, scope =>
-            NumberText.Scalar(presentation, RowEdit.Varies) switch {
-                var text =>
-                    from cell in Cell<TValue, TKey, TError>(presentation, text, Wording.English.Shown(field.Caption, scope.Sink), scope.Sink)
-                    let site = new CallbackSite(scope.Sink, typeof(NumericRows), nameof(Bounded))
-                    from bound in RowEdit.Bind<TRecord, EventHandler<Edit<TValue>>>(source, IterableNE.create(field),
-                        handler => cell.Parts.Iter(part => part.Add(handler)), handler => cell.Parts.Iter(part => part.Remove(handler)),
-                        Handled(lens, site), held => cell.Show(held.Map(lens.Get)), scope, site)
-                    from attached in DisposalOps.OnFailure(Attached(cell, bound.Edit.Reset, site), IO.lift(bound.Release.Dispose))
-                    select new RowCells(
-                        cell.Value, None, None, Some(cell.Fit), [], [], Help(text, Some(lens.Get(source.Default))), bound.Edit.Shown, Some<RowEdit>(bound.Edit),
-                        Some(ChoiceRows.Context(cell.Value, [], [], scope.Sink)), DisposalOps.Composite(Seq(bound.Release, attached), site)),
-            }, rules);
+            from cell in Cell<TValue, TKey, TError>(presentation, Wording.English.Shown(field.Caption, scope.Sink), scope.Sink)
+            let site = new CallbackSite(scope.Sink, typeof(NumericRows), nameof(Bounded))
+            from cells in Bound(source, field, lens, cell, (edit, _) => cell.Attached(edit.Reset, site), scope, site)
+            select cells, rules);
 
     public static ControlRow OptionalBounded<TRecord, TValue, TKey, TError>(
         RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Gated<TValue>> lens, Presentation<TValue, TKey> presentation, RowRules rules)
@@ -109,10 +122,10 @@ public static class NumericRows {
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
         where TKey : struct, INumber<TKey>
         where TError : Error, IValidationError<TError> =>
-        from cell in Cell<TValue, TKey, TError>(presentation, NumberText.Scalar(presentation, RowEdit.Varies), Wording.English.Shown(field.Caption, sink), sink)
+        from cell in Cell<TValue, TKey, TError>(presentation, Wording.English.Shown(field.Caption, sink), sink)
         let site = new CallbackSite(sink, typeof(NumericRows), nameof(Line))
         from edits in cell.Edits(Handled(lens, site)(edit))
-        from attached in DisposalOps.OnFailure(Attached(cell, edit.Take(new Edit<TValue>.Commit(lens.Get(source.Default)), Into(lens)), site), DisposalOps.Release(edits))
+        from attached in DisposalOps.OnFailure(cell.Attached(edit.Take(new Edit<TValue>.Commit(lens.Get(source.Default)), Into(lens)), site), DisposalOps.Release(edits))
         select (new RowLine(Some(field.Caption), cell.Value, pick, Some(cell.Fit)), (Func<Option<TRecord>, IO<Unit>>)(held => cell.Show(held.Map(lens.Get))),
             DisposalOps.Composite(edits.Add(attached), site));
 
@@ -124,15 +137,12 @@ public static class NumericRows {
         where TValue : notnull =>
         edit => Callbacks.Handler<Edit<TValue>>(change => edit.Take(change, Into(lens)), site);
 
-    private static RowHelp Help<TValue, TKey>(NumberText<TKey> text, Option<TValue> initial) where TValue : IMinMaxValue<TValue>, IConvertible<TKey> where TKey : notnull =>
-        new(Some((text.Shown(Some(TValue.MinValue.ToValue())), text.Shown(Some(TValue.MaxValue.ToValue())))), initial.Map(value => text.Shown(Some(value.ToValue()))));
-
     private static IO<(NumericPart<TValue> Part, FieldFit Fit)> Typed<TValue, TKey, TError>(NumberText<TKey> text, IPlugInSink sink)
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
         where TKey : notnull, IComparable<TKey>
         where TError : Error, IValidationError<TError> =>
         IO.lift(() => new NumberField<TValue, TKey, TError>(text, sink)).Map(field => (
-            new NumericPart<TValue>(new TableCell(field), false, field.Receive, handler => field.Edited += handler, handler => field.Edited -= handler),
+            new NumericPart<TValue>(new TableCell(field), Square: false, field.Receive, handler => field.Edited += handler, handler => field.Edited -= handler),
             new FieldFit(field, text.TextWidth(field.Font) + (2f * FieldInset))));
 
     private static IO<Option<NumericPart<TValue>>> Track<TValue, TKey, TError>(Presentation<TValue, TKey> presentation, NumberText<TKey> text, string caption, IPlugInSink sink)
@@ -141,33 +151,49 @@ public static class NumericRows {
         where TError : Error, IValidationError<TError> =>
         Quantities.Scalar(presentation).Turn
             ? IO.lift(() => new AngleDial<TValue, TKey, TError>(sink, text, caption))
-                .Map(static dial => Some(new NumericPart<TValue>(new TableCell(dial), true, dial.Receive, handler => dial.Edited += handler, handler => dial.Edited -= handler)))
+                .Map(static dial => Some(new NumericPart<TValue>(new TableCell(dial), Square: true, dial.Receive, handler => dial.Edited += handler, handler => dial.Edited -= handler)))
             : presentation.Form.Map(
                 track: IO.lift(() => new ParameterSlider<TValue, TKey, TError>(presentation, text, sink))
-                    .Map(static slider => Some(new NumericPart<TValue>(new TableCell(slider, true), false, slider.Receive, handler => slider.Edited += handler, handler => slider.Edited -= handler))),
+                    .Map(static slider => Some(new NumericPart<TValue>(new TableCell(slider, scaleWidth: true), Square: false, slider.Receive, handler => slider.Edited += handler, handler => slider.Edited -= handler))),
                 field: IO.pure(Option<NumericPart<TValue>>.None));
 
-    private static IO<NumericCell<TValue>> Cell<TValue, TKey, TError>(Presentation<TValue, TKey> presentation, NumberText<TKey> text, string caption, IPlugInSink sink)
+    private static IO<NumericCell<TValue, TKey>> Cell<TValue, TKey, TError>(Presentation<TValue, TKey> presentation, string caption, IPlugInSink sink)
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
         where TKey : struct, INumber<TKey>
         where TError : Error, IValidationError<TError> =>
-        from typed in Typed<TValue, TKey, TError>(text, sink)
-        from track in Track<TValue, TKey, TError>(presentation, text, caption, sink)
-        from value in IO.lift(() => new TableLayout(new TableRow(track.Map(static part => part.Cell).ToSeq().Add(typed.Part.Cell))) { Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) })
-        select new NumericCell<TValue>(value, typed.Fit, track, typed.Part);
+        NumberText.Scalar(presentation, RowEdit.Varies) switch {
+            var text =>
+                from typed in Typed<TValue, TKey, TError>(text, sink)
+                from track in Track<TValue, TKey, TError>(presentation, text, caption, sink)
+                from value in IO.lift(() => new TableLayout(new TableRow(track.Map(static part => part.Cell).ToSeq().Add(typed.Part.Cell))) { Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) })
+                select new NumericCell<TValue, TKey>(value, typed.Fit, track, typed.Part, text),
+        };
 
-    private static IO<IDisposable> Attached<TValue>(NumericCell<TValue> cell, IO<Unit> reset, CallbackSite site) where TValue : notnull =>
-        DisposalOps.AcquireAll(
-            cell.Track.Map(part => Subscriptions.Attach<EventHandler<MouseEventArgs>>(
-                handler => part.Cell.Control.MouseDoubleClick += handler, handler => part.Cell.Control.MouseDoubleClick -= handler,
-                Callbacks.Handler<MouseEventArgs>(e => when(e.Buttons == MouseButtons.Primary, IO.lift(() => { e.Handled = true; }).Bind(_ => reset)).As(),
-                    site with { Member = nameof(Control.MouseDoubleClick) }))).ToSeq()
-            + cell.Track.Filter(static part => part.Square).Map(part => Subscriptions.Attach<EventHandler<EventArgs>>(
-                handler => cell.Field.Cell.Control.SizeChanged += handler, handler => cell.Field.Cell.Control.SizeChanged -= handler,
-                Callbacks.Handler<EventArgs>(_ => IO.lift(() => { part.Cell.Control.Width = cell.Field.Cell.Control.Height; }),
-                    site with { Member = nameof(Control.SizeChanged) }))).ToSeq(),
-            DisposalOps.Release)
-        .Map(held => DisposalOps.Composite(held, site));
+    private static IO<(NumericPart<TValue> Part, Func<NumericPart<TValue>, IO<Unit>> Swap)> Swappable<TValue>(NumericPart<TValue> first) where TValue : notnull =>
+        from panel in IO.lift(() => new Panel { Content = first.Cell.Control })
+        from held in IO.lift(() => Atom((Before: first, After: first)))
+        select (new NumericPart<TValue>(new TableCell(panel), Square: false,
+                    value => held.ValueIO.Bind(state => state.After.Receive(value)), handler => held.Value.After.Add(handler), handler => held.Value.After.Remove(handler)),
+                (Func<NumericPart<TValue>, IO<Unit>>)(next => held.SwapIO(state => (state.After, next)).Bind(moved => IO.lift(() => {
+                    panel.Content = moved.After.Cell.Control;
+                    moved.Before.Cell.Control.Dispose();
+                }))));
+
+    private static IO<NumberText<Length>> Measure(RhinoDoc doc, (Length Low, Length High) soft, bool modelUnits) =>
+        DistanceDisplay.Read(doc, modelUnits).Map(display => NumberText.Distance(modelUnits ? doc.ModelUnits : doc.PageUnits, display, soft, RowEdit.Varies));
+
+    private static IO<RowCells> Bound<TRecord, TValue, TKey>(
+        RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, NumericCell<TValue, TKey> cell,
+        Func<RowEdit<TRecord>, EventHandler<Edit<TValue>>, IO<IDisposable>> follow, RowScope scope, CallbackSite site)
+        where TRecord : notnull
+        where TValue : notnull, IMinMaxValue<TValue>, IConvertible<TKey>
+        where TKey : notnull =>
+        from handled in IO.pure(memo(Handled(lens, site)))
+        from bound in RowEdit.Bind(source, IterableNE.create(field),
+            handler => cell.Parts.Iter(part => part.Add(handler)), handler => cell.Parts.Iter(part => part.Remove(handler)),
+            handled, held => cell.Show(held.Map(lens.Get)), scope, site)
+        from followed in DisposalOps.OnFailure(follow(bound.Edit, handled(bound.Edit)), IO.lift(bound.Release.Dispose))
+        select cell.Cells(None, Some(lens.Get(source.Default)), bound.Edit, Seq(bound.Release, followed), site);
 
     private static IO<RowCells> Toggled<TRecord, TValue, TKey, TError>(
         RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Gated<TValue>> lens, Presentation<TValue, TKey> presentation, RowScope scope)
@@ -175,32 +201,24 @@ public static class NumericRows {
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
         where TKey : struct, INumber<TKey>
         where TError : Error, IValidationError<TError> =>
-        NumberText.Scalar(presentation, RowEdit.Varies) switch {
-            var text =>
-                from cell in Cell<TValue, TKey, TError>(presentation, text, Wording.English.Shown(field.Caption, scope.Sink), scope.Sink)
-                from gate in IO.lift(static () => new CheckBox())
-                let site = new CallbackSite(scope.Sink, typeof(NumericRows), nameof(OptionalBounded))
-                let enabled = Prelude.lens(lens, Gated<TValue>.EnabledEntry.Lens)
-                from bound in RowEdit.Bind<TRecord, EventHandler<EventArgs>>(source, IterableNE.create(field),
-                    handler => gate.CheckedChanged += handler, handler => gate.CheckedChanged -= handler,
-                    edit => Callbacks.Handler<EventArgs>(_ => IO.lift(() => Optional(gate.Checked)).Bind(state => state.Match(
-                        Some: state => edit.Take(new Edit<bool>.Commit(state), Into(enabled)),
-                        None: static () => IO.pure(unit))), site),
-                    held => held.Map(lens.Get) switch {
-                        var gated => IO.lift(() => {
-                            (gate.ThreeState, gate.Checked) = (gated.IsNone, gated.Map(static state => state.Enabled).ToNullable());
-                            cell.Value.Enabled = gate.Enabled && gated.ForAll(static state => state.Enabled);
-                        }).Bind(_ => cell.Show(gated.Map(static state => state.Value))),
-                    }, scope, site)
-                from edits in DisposalOps.OnFailure(cell.Edits(Handled(Prelude.lens(lens, Gated<TValue>.ValueEntry.Lens), site)(bound.Edit)), IO.lift(bound.Release.Dispose))
-                from attached in DisposalOps.OnFailure(Attached(cell, bound.Edit.Reset, site), DisposalOps.Release(bound.Release.Cons(edits)))
-                select new RowCells(
-                    cell.Value, Some<Control>(gate), None, Some(cell.Fit), [], [], Help(text, lens.Get(source.Default).Active), bound.Edit.Shown, Some<RowEdit>(bound.Edit),
-                    Some(ChoiceRows.Context(cell.Value, [], [], scope.Sink)), DisposalOps.Composite(bound.Release.Cons(edits).Add(attached), site)),
-        };
-
-    private static IO<NumberText<Length>> Measure(RhinoDoc doc, (Length Low, Length High) soft, bool modelUnits) =>
-        DistanceDisplay.Read(doc, modelUnits).Map(display => NumberText.Distance(modelUnits ? doc.ModelUnits : doc.PageUnits, display, soft, RowEdit.Varies));
+        from cell in Cell<TValue, TKey, TError>(presentation, Wording.English.Shown(field.Caption, scope.Sink), scope.Sink)
+        from gate in IO.lift(static () => new CheckBox())
+        let site = new CallbackSite(scope.Sink, typeof(NumericRows), nameof(OptionalBounded))
+        let enabled = Prelude.lens(lens, Gated<TValue>.EnabledEntry.Lens)
+        from bound in RowEdit.Bind(source, IterableNE.create(field),
+            handler => gate.CheckedChanged += handler, handler => gate.CheckedChanged -= handler,
+            edit => Callbacks.Handler<EventArgs>(_ => Optional(gate.Checked).Match(
+                Some: state => edit.Take(new Edit<bool>.Commit(state), Into(enabled)),
+                None: static () => IO.pure(unit)), site),
+            held => held.Map(lens.Get) switch {
+                var gated => IO.lift(() => {
+                    (gate.ThreeState, gate.Checked) = (gated.IsNone, gated.Map(static state => state.Enabled).ToNullable());
+                    cell.Value.Enabled = gate.Enabled && gated.ForAll(static state => state.Enabled);
+                }).Bind(_ => cell.Show(gated.Map(static state => state.Value))),
+            }, scope, site)
+        from edits in DisposalOps.OnFailure(cell.Edits(Handled(Prelude.lens(lens, Gated<TValue>.ValueEntry.Lens), site)(bound.Edit)), IO.lift(bound.Release.Dispose))
+        from attached in DisposalOps.OnFailure(cell.Attached(bound.Edit.Reset, site), DisposalOps.Release(bound.Release.Cons(edits)))
+        select cell.Cells(Some<Control>(gate), lens.Get(source.Default).Active, bound.Edit, bound.Release.Cons(edits).Add(attached), site);
 
     private static IO<RowCells> Measured<TRecord, TValue, TError>(
         RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, (Length Low, Length High) soft, bool modelUnits, RowScope scope)
@@ -210,27 +228,15 @@ public static class NumericRows {
         from doc in IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
         from text in Measure(doc, soft, modelUnits)
         from typed in Typed<TValue, Length, TError>(text, scope.Sink)
-        from panel in IO.lift(() => new Panel { Content = typed.Part.Cell.Control })
-        from held in IO.lift(() => Atom(typed.Part))
-        let site = new CallbackSite(scope.Sink, typeof(NumericRows), nameof(Distance))
-        let handled = memo(Handled(lens, site))
-        let add = (EventHandler<Edit<TValue>> handler) => held.Value.Add(handler)
-        let remove = (EventHandler<Edit<TValue>> handler) => held.Value.Remove(handler)
-        from bound in RowEdit.Bind<TRecord, EventHandler<Edit<TValue>>>(source, IterableNE.create(field), add, remove, handled,
-            value => held.ValueIO.Bind(part => part.Receive(value.Map(lens.Get))), scope, site)
-        from swaps in DisposalOps.OnFailure(
-            EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Inline(_ =>
-                Subscriptions.Detached(add, remove, handled(bound.Edit),
-                    from next in Measure(doc, soft, modelUnits)
-                    from swapped in Typed<TValue, Length, TError>(next, scope.Sink)
-                    from placed in IO.lift(() => { panel.Content = swapped.Part.Cell.Control; })
-                    from kept in held.SwapIO(_ => swapped.Part)
-                    select unit)
-                .Bind(_ => bound.Edit.Shown), scope.Sink),
-            IO.lift(bound.Release.Dispose))
-        select new RowCells(
-            panel, None, None, Some(typed.Fit with { Field = panel }), [], [], Help(text, Some(lens.Get(source.Default))), bound.Edit.Shown, Some<RowEdit>(bound.Edit),
-            Some(ChoiceRows.Context(panel, [], [], scope.Sink)), DisposalOps.Composite(Seq(bound.Release, swaps), site));
+        from slot in Swappable(typed.Part)
+        let cell = new NumericCell<TValue, Length>(slot.Part.Cell.Control, typed.Fit with { Field = slot.Part.Cell.Control }, None, slot.Part, text)
+        from cells in Bound(source, field, lens, cell,
+            (edit, handler) => EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Inline(changed =>
+                Subscriptions.Detached(slot.Part.Add, slot.Part.Remove, handler,
+                        Measure(doc, soft, modelUnits).Bind(next => Typed<TValue, Length, TError>(next, scope.Sink)).Bind(next => slot.Swap(next.Part)))
+                    .Bind(_ => edit.Shown), scope.Sink),
+            scope, new CallbackSite(scope.Sink, typeof(NumericRows), nameof(Distance)))
+        select cells;
 
     private static IO<RowCells> Vectored<TRecord>(RowSource<TRecord> source, IterableNE<VectorAxis<TRecord>> axes, Option<PositionPick<TRecord>> pick, RowScope scope)
         where TRecord : notnull =>
@@ -239,7 +245,8 @@ public static class NumericRows {
             Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table),
         })
         let site = new CallbackSite(scope.Sink, typeof(NumericRows), nameof(Vector))
-        let fit = cells.Fold(Option<FieldFit>.None, static (widest, cell) => widest.Filter(held => held.Width >= cell.Fit.Width) | Some(cell.Fit))
+        let fit = Optional(cells.Map(static cell => cell.Fit).MaxBy(static fit => fit.Width))
+        let widen = fun((Control widest) => IO.lift(() => cells.Iter(cell => cell.Fit.Field.Width = widest.Width)))
         from bound in RowEdit.Bind<TRecord, Func<RowEdit<TRecord>>>(source, axes.Map(static axis => axis.Field),
             handler => cells.Iter(cell => cell.Add(handler())), handler => cells.Iter(cell => cell.Remove(handler())),
             static edit => () => edit, held => cells.TraverseM(cell => cell.Show(held)).As().Map(static _ => unit), scope, site)
@@ -249,9 +256,9 @@ public static class NumericRows {
             IO.lift(bound.Release.Dispose))
         let taken = bound.Release.Cons(placed.Map(static held => held.Release).ToSeq())
         from followed in DisposalOps.OnFailure(
-            fit.Traverse(widest => Subscriptions.Attach<EventHandler<EventArgs>>(
+            fit.Traverse(widest => Subscriptions.Attach(
                 handler => widest.Field.SizeChanged += handler, handler => widest.Field.SizeChanged -= handler,
-                Callbacks.Handler<EventArgs>(_ => IO.lift(() => cells.Iter(cell => cell.Fit.Field.Width = widest.Field.Width)), site with { Member = nameof(Control.SizeChanged) }))).As(),
+                Callbacks.Handler<EventArgs>(_ => widen(widest.Field), site with { Member = nameof(Control.SizeChanged) }))).As(),
             DisposalOps.Release(taken))
         select new RowCells(
             value, None, placed.Map(static held => (Control)held.Control), fit, [], [], new RowHelp(None, None), bound.Edit.Shown, Some<RowEdit>(bound.Edit),

@@ -2,6 +2,7 @@ using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Objects;
 
@@ -17,16 +18,22 @@ public sealed record DocumentStatistics(
     LayerTree LayerTree,
     DefinitionGraph DefinitionGraph,
     Option<long> FileLength) {
+    // --- [MEASURES]
     public int ObjectCount => Kinds.Values.Fold(0, static (sum, count) => sum + count);
 
     public int LayerLevelCount => LayerTree.Depths.Values.Fold(0, static (levels, depth) => int.Max(levels, depth + 1));
 
     public int PlacementCount => DefinitionGraph.Placements.Values.Fold(0, static (sum, placed) => sum + placed.Count);
 
+    // --- [READS]
     public static IO<DocumentStatistics> Read(RhinoDoc doc) =>
-        (new ObjectTarget.Lookup(static table => table.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IdefObjects = true, ReferenceObjects = true, IncludeLights = true }))
+        (new ObjectTarget.Lookup(static table => table.GetObjectList(StatisticsMapper.Settings(include: true)))
              .Objects(doc)
-             .Map(objects => objects.Map(found => Row.Of(doc, found)).Strict()),
+             .Map(objects => objects.Map(found => (
+                 Kind: found.ObjectType, found.Attributes.Space, found.Attributes.Mode,
+                 Layer: doc.Layers[found.Attributes.LayerIndex].Id,
+                 Material: Optional(found.GetRenderMaterial(frontMaterial: true)?.Id),
+                 found.Attributes.MaterialSource, Memory: found.MemoryEstimate())).Strict()),
          Layers.Read(doc, Seq<Guid>()),
          DefinitionGraph.Read(doc),
          IO.lift(() => Conversions.Present(doc.Path).Map(static path => new FileInfo(path)).Filter(static file => file.Exists).Map(static file => file.Length)))
@@ -42,10 +49,14 @@ public sealed record DocumentStatistics(
             graph,
             length))
         .As();
+}
 
-    private readonly record struct Row(ObjectType Kind, ActiveSpace Space, ObjectMode Mode, Guid Layer, Option<Guid> Material, ObjectMaterialSource MaterialSource, uint Memory) {
-        public static Row Of(RhinoDoc doc, RhinoObject found) =>
-            new(found.ObjectType, found.Attributes.Space, found.Attributes.Mode, doc.Layers[found.Attributes.LayerIndex].Id,
-                Optional(found.GetRenderMaterial(frontMaterial: true)).Map(static material => material.Id), found.Attributes.MaterialSource, found.MemoryEstimate());
-    }
+// --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+internal static partial class StatisticsMapper {
+    [MapPropertyFromSource(nameof(ObjectEnumeratorSettings.HiddenObjects))]
+    [MapPropertyFromSource(nameof(ObjectEnumeratorSettings.IdefObjects))]
+    [MapPropertyFromSource(nameof(ObjectEnumeratorSettings.ReferenceObjects))]
+    [MapPropertyFromSource(nameof(ObjectEnumeratorSettings.IncludeLights))]
+    internal static partial ObjectEnumeratorSettings Settings(bool include);
 }

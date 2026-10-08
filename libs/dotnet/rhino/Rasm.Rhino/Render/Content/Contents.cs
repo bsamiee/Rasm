@@ -185,12 +185,12 @@ public static class Contents {
         Option<string> presetCategory, Seq<string> categories, Seq<Guid> types) =>
         IO.lift(() => Utilities.ShowContentNewExistingBrowser(
                 doc, Conversions.Unset(defaultType), Conversions.Unset(defaultInstance), kinds, flags, Conversions.Unset(presetCategory), categories, types, out Guid[] contents) switch {
-            Utilities.ContentNewExistingResults.None => Fin.Fail<ContentChoice>(Errors.Cancelled),
-            Utilities.ContentNewExistingResults.New => new ContentChoice.New(toSeq(contents)),
-            Utilities.ContentNewExistingResults.Copy => new ContentChoice.Copy(toSeq(contents)),
-            Utilities.ContentNewExistingResults.Instance => new ContentChoice.Instance(toSeq(contents)),
-            Utilities.ContentNewExistingResults.Reference => new ContentChoice.Reference(toSeq(contents)),
-        });
+                    Utilities.ContentNewExistingResults.None => Fin.Fail<ContentChoice>(Errors.Cancelled),
+                    Utilities.ContentNewExistingResults.New => new ContentChoice.New(toSeq(contents)),
+                    Utilities.ContentNewExistingResults.Copy => new ContentChoice.Copy(toSeq(contents)),
+                    Utilities.ContentNewExistingResults.Instance => new ContentChoice.Instance(toSeq(contents)),
+                    Utilities.ContentNewExistingResults.Reference => new ContentChoice.Reference(toSeq(contents)),
+                });
 
     // --- [READS]
     public static IO<uint> Hash(RenderContent content, CrcRenderHashFlags flags, Seq<string> excluded, Option<LinearWorkflow> workflow) =>

@@ -96,14 +96,6 @@ for row in keyboard.rows():
 - Each module's `rows` takes the arguments `main` in `script/__init__.py` passes it, a `str` it yields being a report line printed as is
 - `containers.rows` restores the window layout as it yields, the layout converges through the apply
 
-File rows (`stores.py` children and toolbars) converge through `nx run rasm:interface -- rhino`:
-1. `documents()` shows every untitled document as the task's own, the apply discarding untitled documents at its quit
-2. `save(doc)` saves each titled document with `modified` reading `True`, the apply fails on one holding unsaved edits
-3. `nx run rasm:interface -- rhino` quits every Rhino, converges the live rows in a fresh Rhino, quits it, edits the files, and reopens titled files
-4. Its JSON outcome lists each change as label, held value, and target, a rerun that lists none shows every write held
-
-Use `setup.md` for a one-off file edit between quit and relaunch.
-
 ## [04]-[ALIASES_AND_SHORTCUTS]
 
 - `CommandAliasList.GetMacro("<name>")` reads an alias, `None` for none, `ToDictionary()` the set and `GetDefaults()` the factory set
@@ -126,27 +118,11 @@ Panel calls act on `RhinoDoc.ActiveDoc`'s window, a trial's call reads `RhinoDoc
 - `containers.called(doc, "<callback>", "documentSerialNumber", factoryId=<id>)` runs a callback with the document's serial and answers its `result`
 - `window.Container` and `window.RETURNS` declare each container's tabs and each panel's return container, the apply restores and keeps them
 - `RhinoApp.ToolbarFiles` reads toolbar groups and toolbars by name
-- Tab icon and toolbar image size trials show after a relaunch, internal `ToolbarSettings.Instance.Buttons` trials at the next layout
+- Internal `ToolbarSettings.Instance.Buttons` trials show at the next layout
 
 ## [06]-[TEMPLATE]
 
 - `FileSettings.TemplateFile` names the file new documents open from, `file3dm.py <file>` reads its tables without Rhino
-- Template trials edit a copy of the file in one call, here a layer with channels `red`, `green`, and `blue`:
-
-```python
-# Edit a template copy through a headless document
-from Rhino import FileIO, RhinoDoc
-from System.Drawing import Color
-
-doc = RhinoDoc.CreateHeadless("</abs/copy.3dm>")
-try:
-    doc.Layers.Add("<name>", Color.FromArgb(red, green, blue))
-    print(doc.WriteFile("</abs/copy.3dm>", FileIO.FileWriteOptions()))
-finally:
-    doc.Dispose()
-```
-
-- `open -g -b com.mcneel.rhinoceros.9 <copy>` opens the edited copy for a capture
 
 ## [07]-[COLORS_AND_FONTS]
 

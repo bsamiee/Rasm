@@ -10,7 +10,7 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Annotation;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record DimensionTypeState {
     public sealed record Linear() : DimensionTypeState;
 
@@ -27,22 +27,11 @@ public abstract partial record DimensionTypeState {
 }
 
 public sealed record DimensionState(
-    AnnotationType AnnotationType,
-    string DisplayText,
-    bool HasMeasurableTextFields,
-    double NumericValue,
-    Option<string> PlainUserText,
-    Option<string> TextFormula,
-    Point2d TextPosition,
-    double TextRotation,
-    bool UseDefaultTextPoint,
-    Option<Guid> DetailMeasured,
-    double DistanceScale,
-    double DimensionScale,
-    Guid DimensionStyleId,
-    DimensionTypeState TypeState);
+    AnnotationType AnnotationType, string DisplayText, bool HasMeasurableTextFields, double NumericValue,
+    Option<string> PlainUserText, Option<string> TextFormula, Point2d TextPosition, double TextRotation, bool UseDefaultTextPoint,
+    Option<Guid> DetailMeasured, double DistanceScale, double DimensionScale, Guid DimensionStyleId, DimensionTypeState TypeState);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record DimensionDisplayGeometry {
     private DimensionDisplayGeometry(Seq<Line> lines, Seq<Point3d> textRectangle) => (Lines, TextRectangle) = (lines, textRectangle);
 
@@ -69,9 +58,24 @@ public abstract partial record DimensionDisplayGeometry {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
-internal static partial class DimensionMapper {
+public static partial class Dimensions {
+    // --- [CREATION]
+    public static IO<T> Create<T>(
+        RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Func<DimensionStyle, T?> create, string member)
+        where T : Dimension =>
+        from parent in style.Match(
+            Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
+            None: () => IO.lift(() => doc.DimStyles.Current))
+        from dimension in Copies.Acquire(() => create(parent), member)
+        from overridden in DisposalOps.OnFailure(overrides.Traverse(edit => DimensionStyles.SetOverride(doc, dimension, edit)).As(), IO.lift(dimension.Dispose))
+        select dimension;
+
+    // --- [READS]
+    public static IO<DimensionState> State(DimensionObject owner, Dimension dimension) =>
+        IO.lift(() => ToState(dimension, owner.DisplayText, owner.HasMeasurableTextFields));
+
     [MapPropertyFromSource(nameof(DimensionState.TypeState), Use = nameof(TypeState))]
-    internal static partial DimensionState ToState(Dimension dimension, string displayText, bool hasMeasurableTextFields);
+    private static partial DimensionState ToState(Dimension dimension, string displayText, bool hasMeasurableTextFields);
 
     private static partial DimensionTypeState.Angular ToState(AngularDimension angular);
 
@@ -90,27 +94,12 @@ internal static partial class DimensionMapper {
             Centermark centermark => ToState(centermark),
             _ => throw new UnreachableException(),
         };
-}
-
-public static class Dimensions {
-    // --- [CREATION]
-    public static IO<T> Create<T>(
-        RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Func<DimensionStyle, T?> create, string member)
-        where T : Dimension =>
-        from parent in style.Match(
-            Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
-            None: () => IO.lift(() => doc.DimStyles.Current))
-        from dimension in Copies.Acquire(() => create(parent), member)
-        from overridden in DisposalOps.OnFailure(overrides.Traverse(edit => DimensionStyles.SetOverride(doc, dimension, edit)).As(), IO.lift(dimension.Dispose))
-        select dimension;
-
-    // --- [READS]
-    public static IO<DimensionState> State(DimensionObject owner, Dimension dimension) =>
-        IO.lift(() => DimensionMapper.ToState(dimension, owner.DisplayText, owner.HasMeasurableTextFields));
 
     // --- [TEXT]
     public static IO<Unit> UpdateDimensionText(RhinoDoc doc, Dimension dimension, LengthUnit units) =>
-        DimensionStyles.Effective(doc, dimension, None, style => IO.lift(() => dimension.UpdateDimensionText(style, units)));
+        (from style in use(DimensionStyles.Effective(doc, dimension, None))
+         from updated in IO.lift(() => dimension.UpdateDimensionText(style, units))
+         select updated).Bracket();
 
     public static IO<string> ValueText(Dimension dimension, DimensionStyle style, LengthUnit units) =>
         IO.lift(Fin<string> () => dimension switch {
@@ -123,44 +112,41 @@ public static class Dimensions {
         });
 
     public static IO<Transform> GetTextTransform(Dimension dimension, DimensionStyle style, RhinoViewport viewport, double textScale) =>
-        use(() => new ViewportInfo(viewport)).Bind(info => IO.lift(() => dimension.GetTextTransform(info, style, textScale, drawForward: false))).Bracket();
+        (from info in use(() => new ViewportInfo(viewport))
+         select dimension.GetTextTransform(info, style, textScale, drawForward: false)).Bracket();
 
     // --- [DISPLAY]
     public static IO<DimensionDisplayGeometry> DisplayGeometry(Dimension dimension, DimensionStyle style, double scale) =>
         IO.lift(Fin<DimensionDisplayGeometry> () => dimension switch {
-            LinearDimension linear => Framed(
-                    linear.Get3dPoints(out Point3d extension1, out Point3d extension2, out Point3d arrow1, out Point3d arrow2, out Point3d dimensionLine, out Point3d text),
-                    linear.GetTextRectangle(out Point3d[] corners),
-                    linear.GetDisplayLines(style, scale, out IEnumerable<Line> lines))
-                .Map<DimensionDisplayGeometry>(_ => new DimensionDisplayGeometry.Linear(extension1, extension2, arrow1, arrow2, dimensionLine, text, toSeq(lines), toSeq(corners))),
-            AngularDimension angular => Framed(
-                    angular.Get3dPoints(out Point3d center, out Point3d definition1, out Point3d definition2, out Point3d arrow1, out Point3d arrow2, out Point3d dimensionLine, out Point3d text),
-                    angular.GetTextRectangle(out Point3d[] corners),
-                    angular.GetDisplayLines(style, scale, out Line[] lines, out Arc[] arcs))
-                .Map<DimensionDisplayGeometry>(_ => new DimensionDisplayGeometry.Angular(
+            LinearDimension linear =>
+                !linear.Get3dPoints(out Point3d extension1, out Point3d extension2, out Point3d arrow1, out Point3d arrow2, out Point3d dimensionLine, out Point3d text)
+                    ? new Refused(nameof(LinearDimension.Get3dPoints))
+                : !linear.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(LinearDimension.GetTextRectangle))
+                : !linear.GetDisplayLines(style, scale, out IEnumerable<Line> lines) ? new Refused(nameof(LinearDimension.GetDisplayLines))
+                : new DimensionDisplayGeometry.Linear(extension1, extension2, arrow1, arrow2, dimensionLine, text, toSeq(lines), toSeq(corners)),
+            AngularDimension angular =>
+                !angular.Get3dPoints(out Point3d center, out Point3d definition1, out Point3d definition2, out Point3d arrow1, out Point3d arrow2, out Point3d dimensionLine, out Point3d text)
+                    ? new Refused(nameof(AngularDimension.Get3dPoints))
+                : !angular.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(AngularDimension.GetTextRectangle))
+                : !angular.GetDisplayLines(style, scale, out Line[] lines, out Arc[] arcs) ? new Refused(nameof(AngularDimension.GetDisplayLines))
+                : new DimensionDisplayGeometry.Angular(
                     center, definition1, definition2, arrow1, arrow2, dimensionLine, text,
-                    toSeq(arcs).Filter(static arc => arc.IsValid), toSeq(lines).Filter(static line => line.IsValid), toSeq(corners))),
-            RadialDimension radial => Framed(
-                    radial.Get3dPoints(out Point3d center, out Point3d radiusPoint, out Point3d dimensionLine, out Point3d knee),
-                    radial.GetTextRectangle(out Point3d[] corners),
-                    radial.GetDisplayLines(style, scale, out IEnumerable<Line> lines))
-                .Map<DimensionDisplayGeometry>(_ => new DimensionDisplayGeometry.Radial(center, radiusPoint, dimensionLine, knee, toSeq(lines), toSeq(corners))),
-            OrdinateDimension ordinate => Framed(
-                    ordinate.Get3dPoints(out Point3d basePoint, out Point3d definition, out Point3d leader, out Point3d kink1, out Point3d kink2),
-                    ordinate.GetTextRectangle(out Point3d[] corners),
-                    ordinate.GetDisplayLines(style, scale, out IEnumerable<Line> lines))
-                .Map<DimensionDisplayGeometry>(_ => new DimensionDisplayGeometry.Ordinate(basePoint, definition, leader, kink1, kink2, toSeq(lines), toSeq(corners))),
+                    toSeq(arcs).Filter(static arc => arc.IsValid).Strict(), toSeq(lines).Filter(static line => line.IsValid).Strict(), toSeq(corners)),
+            RadialDimension radial =>
+                !radial.Get3dPoints(out Point3d center, out Point3d radiusPoint, out Point3d dimensionLine, out Point3d knee) ? new Refused(nameof(RadialDimension.Get3dPoints))
+                : !radial.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(RadialDimension.GetTextRectangle))
+                : !radial.GetDisplayLines(style, scale, out IEnumerable<Line> lines) ? new Refused(nameof(RadialDimension.GetDisplayLines))
+                : new DimensionDisplayGeometry.Radial(center, radiusPoint, dimensionLine, knee, toSeq(lines), toSeq(corners)),
+            OrdinateDimension ordinate =>
+                !ordinate.Get3dPoints(out Point3d basePoint, out Point3d definition, out Point3d leader, out Point3d kink1, out Point3d kink2) ? new Refused(nameof(OrdinateDimension.Get3dPoints))
+                : !ordinate.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(OrdinateDimension.GetTextRectangle))
+                : !ordinate.GetDisplayLines(style, scale, out IEnumerable<Line> lines) ? new Refused(nameof(OrdinateDimension.GetDisplayLines))
+                : new DimensionDisplayGeometry.Ordinate(basePoint, definition, leader, kink1, kink2, toSeq(lines), toSeq(corners)),
             Centermark => new MissingMember(typeof(Centermark), nameof(LinearDimension.GetDisplayLines)),
             _ => throw new UnreachableException(),
         });
 
-    private static Fin<Unit> Framed(bool pointed, bool framed, bool drawn) =>
-        from points in Refused.Unless(pointed, nameof(LinearDimension.Get3dPoints))
-        from rectangle in Refused.Unless(framed, nameof(LinearDimension.GetTextRectangle))
-        from lines in Refused.Unless(drawn, nameof(LinearDimension.GetDisplayLines))
-        select unit;
-
     // --- [PIECES]
     public static IO<A> Explode<A>(Dimension dimension, Func<Seq<GeometryBase>, IO<A>> body) =>
-        Copies.AcquireNonEmpty(() => dimension.Explode(), nameof(Dimension.Explode)).Bracket(Use: body, Fin: DisposalOps.Release);
+        Copies.AcquireNonEmpty(dimension.Explode, nameof(Dimension.Explode)).Bracket(Use: pieces => IO.pure(pieces).Bind(body), Fin: DisposalOps.Release);
 }

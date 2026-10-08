@@ -10,8 +10,6 @@ using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
-using DataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
-using ProviderIds = Rhino.UI.Controls.DataSource.ProviderIds;
 
 namespace Rasm.Rhino.UI.Views;
 
@@ -51,7 +49,7 @@ internal sealed class RealizedView : Panel {
         select view;
 
     // --- [EDGES]
-    public Unit Shown(bool visible) {
+    public new Unit Shown(bool visible) {
         _ = SectionStack.Shown(this, visible);
         _ = listeners.Shown(visible);
         return visible ? Callbacks.Answer(Scope.Changed(Keys(row)).Bind(_ => Evaluated), static () => unit, site) : unit;
@@ -120,7 +118,7 @@ public abstract class ViewPanel : Panel {
     private protected Option<RealizedView> Realized { get; }
 
     // --- [EDGES]
-    private protected Unit Shown(bool visible) => Realized.Iter(view => view.Shown(visible));
+    private protected new Unit Shown(bool visible) => Realized.Iter(view => view.Shown(visible));
 }
 
 public abstract class DefinedPanel(RhinoDoc? document, View.Panel row) : ViewPanel(row, Optional(document)), IPanel, IHelp {
@@ -128,11 +126,11 @@ public abstract class DefinedPanel(RhinoDoc? document, View.Panel row) : ViewPan
     public string HelpUrl => Row.HelpUrl;
 
     // --- [EDGES]
-    public void PanelShown(uint documentSerialNumber, ShowPanelReason reason) => _ = Shown(true);
+    public void PanelShown(uint documentSerialNumber, ShowPanelReason reason) => _ = Shown(visible: true);
 
-    public void PanelHidden(uint documentSerialNumber, ShowPanelReason reason) => _ = Shown(false);
+    public void PanelHidden(uint documentSerialNumber, ShowPanelReason reason) => _ = Shown(visible: false);
 
-    public void PanelClosing(uint documentSerialNumber, bool onCloseDocument) => _ = Shown(false);
+    public void PanelClosing(uint documentSerialNumber, bool onCloseDocument) => _ = Shown(visible: false);
 }
 
 public abstract class DefinedSection(View.Section row) : EtoCollapsibleSection3 {
@@ -206,7 +204,7 @@ public abstract class DefinedContentSection : EtoContentUISection3 {
 
     public override IHeaderButtonHandler NewHeaderButtonHandler() => realized.Bind(static held => held.Body.Header).IfNone(base.NewHeaderButtonHandler);
 
-    private Seq<RenderContent> Selected => toSeq<RenderContent>(GetSelection()).Strict();
+    private Seq<RenderContent> Selected => toSeq(GetSelection()).Strict();
 
     // --- [EDGES]
     public override void HolderVisible(bool visible) {
@@ -224,10 +222,10 @@ public abstract class DefinedContentSection : EtoContentUISection3 {
                 .Bind(selected => rows.Changed(toSeq(changed.Filter(selected.Contains).Keys)))), sink);
 
     private IO<IDisposable> SelectionChanges(SectionBody body, IPlugInSink sink) =>
-        Subscriptions.Attach<EventHandler<DataSourceEventArgs>>(
+        Subscriptions.Attach(
             handler => DataChanged += handler,
             handler => DataChanged -= handler,
-            Callbacks.Handler<DataSourceEventArgs>(args => when(args.DataType == ProviderIds.ContentSelection, body.Reread).As(), new CallbackSite(sink, GetType(), nameof(DataChanged))));
+            Callbacks.Handler<global::Rhino.UI.Controls.DataSource.EventArgs>(args => when(args.DataType == global::Rhino.UI.Controls.DataSource.ProviderIds.ContentSelection, body.Reread).As(), new CallbackSite(sink, GetType(), nameof(DataChanged))));
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
@@ -307,7 +305,7 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
     private Option<(RealizedView View, Control Frame)> Realized =>
         page.Value || Callbacks.Answer(
             from held in document.ValueIO
-            from view in RealizedView.Open((IPlugInViews)IPlugInSink.Of(this), row, held, commit, Some<Func<RealizedView, IO<IDisposable>>>(Marking))
+            from view in RealizedView.Open((IPlugInViews)IPlugInSink.Of(this), row, held, commit, Some(Marking))
             from frame in DisposalOps.OnFailure(
                 IO.lift(() => {
                     RhinoScrollableDialogPanel framed = new() { Content = view };
@@ -358,7 +356,7 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
     public override bool ShouldDisplay(ObjectPropertiesPageEventArgs e) =>
         Callbacks.Answer(
             from included in IO.lift(() => ViewPage ? e.View is not null : base.ShouldDisplay(e))
-            from shown in included && row.Visible.IsSome ? Realized.Match(Some: static view => view.Shows, None: static () => IO.pure(false)) : IO.pure(included)
+            from shown in included && row.Visible.IsSome ? Realized.Match(Some: static view => view.Shows, None: static () => IO.pure(value: false)) : IO.pure(included)
             select shown,
             static () => false,
             CallbackSite.Of(this));

@@ -96,7 +96,7 @@ internal static class DrawnViews {
             select bitmap);
 
     private static (PixelFrame Frame, NSString Space) Samples(PixelFrame frame, Transfer encoding) =>
-        encoding.Switch<Option<NSString>>(
+        encoding.Switch(
                 standard: static transfer => transfer.Curve.Map<Option<NSString>>(
                     linear: CGColorSpaceNames.ExtendedLinearSrgb,
                     srgb: CGColorSpaceNames.ExtendedSrgb,
@@ -118,7 +118,7 @@ internal static class DrawnViews {
             using CGImage image = new(
                 frame.Size.Width, frame.Size.Height, sizeof(float) * 8, pixel * 8, frame.Size.Width * pixel, owned,
                 CGBitmapFlags.Last | CGBitmapFlags.FloatComponents | CGBitmapFlags.ByteOrder32Little,
-                provider, null, true, CGColorRenderingIntent.Default);
+                provider, decode: null, shouldInterpolate: true, CGColorRenderingIntent.Default);
             layer.WantsExtendedDynamicRangeContent = true;
             return new Bitmap(new BitmapHandler(new NSImage(image, new CGSize(frame.Size.Width, frame.Size.Height))));
         });

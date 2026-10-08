@@ -170,7 +170,7 @@ public abstract record RowSource {
         where TError : Error, IValidationError<TError> =>
         Named(owner, name, caption, help, new Gated<TValue>(Enabled: false, @default),
             new StateParameter<Gated<TValue>>.OptionalBounded<TValue, TKey, TError>(Lens.identity<Gated<TValue>>(), presentation),
-            scope => Lifted<TValue, Gated<TValue>>(store(scope), static value => new Gated<TValue>(Enabled: true, value), static gate => gate.Active));
+            scope => Lifted(store(scope), static value => new Gated<TValue>(Enabled: true, value), static gate => gate.Active));
 
     public static (RowSource<Option<TValue>> Source, RowField<Option<TValue>> Field) OptionalChoice<TValue, TError>(
         string owner, string name, string caption, string help, Func<RowScope, ValueStore<TValue>> store)
@@ -211,7 +211,7 @@ public abstract record RowSource {
 
     // --- [STORES]
     internal static ValueStore<Option<TValue>> Absent<TValue>(ValueStore<TValue> store) where TValue : notnull =>
-        Lifted<TValue, Option<TValue>>(store, static value => Some(value), static held => held);
+        Lifted(store, static value => Some(value), static held => held);
 
     private static ValueStore<TRecord> Lifted<TValue, TRecord>(ValueStore<TValue> store, Func<TValue, TRecord> held, Func<TRecord, Option<TValue>> value)
         where TValue : notnull
@@ -247,8 +247,25 @@ public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
 
     public Func<ValueStore<TRecord>, ValueBinding> Binding { get; }
 
+    public Seq<string> Path { get; private init; }
+
     public Seq<EntryKey> Keys(IStateParameter<TRecord> parameter) =>
-        FieldTexts.Of(parameter).Map(text => new EntryKey(Owner, text.Path));
+        FieldTexts.Of(parameter).Map(text => new EntryKey(Owner, Path + text.Path));
+
+    public RowSource<TNested> Within<TNested>(Seq<string> path, Lens<TRecord, TNested> lens, Seq<(IStateParameter<TNested> Parameter, string Caption)> fields)
+        where TNested : notnull =>
+        (Prefix: Path + path, Default: lens.Get(Default)) switch {
+            var nested => new RowSource<TNested>(
+                Owner,
+                scope => Stores(scope).Map(stores => stores.Map(store => new ValueStore<TNested>(
+                    store.Read.Map(held => held.Map(lens.Get)),
+                    next => store.Read.Bind(held => store.Put(Some(lens.Set(next.IfNone(nested.Default), held.IfNone(Default))))),
+                    EqualityComparer<TNested>.Default.Equals,
+                    store.Applied,
+                    store.Changed))),
+                nested.Default,
+                held => ValueBinding.Fields(Owner, held, nested.Default, fields).Under(nested.Prefix)) { Path = nested.Prefix },
+        };
 
     public override ValueBinding Values(RowScope scope) => Binding(scope.Store(this));
 
@@ -256,7 +273,6 @@ public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
         from memory in RowScope.Held(Some(Default))
         from group in IO.lift(BindingGroup.Of(Seq(Binding(memory))).ToFin())
         from captured in group.Capture
-        select captured;
 
     public override IO<Seq<HostEvent<Unit>>> Signals(RowScope scope) =>
         Stores(scope).Map(static stores => stores.Choose(static store => store.Changed));
@@ -339,7 +355,7 @@ public abstract partial record ControlRow {
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RowScope {
     // --- [STATE]
-    private static readonly LanguageExt.HashSet<EntryKey> Unlocked = LanguageExt.HashSet<EntryKey>.Empty;
+    private static readonly LanguageExt.HashSet<EntryKey> Unlocked = [];
 
     private readonly Atom<CommitMode> mode;
     private readonly Atom<LanguageExt.HashSet<Func<Seq<EntryKey>, IO<Unit>>>> listeners;
@@ -365,7 +381,7 @@ public sealed class RowScope {
     public IO<CommitMode> Mode => mode.ValueIO;
 
     internal static IO<ValueStore<T>> Held<T>(Option<T> value) where T : notnull =>
-        IO.lift(() => Atom(value)).Map(Cell<T>);
+        IO.lift(() => Atom(value)).Map(Cell);
 
     internal static ValueStore<T> Cell<T>(Atom<Option<T>> cell) where T : notnull =>
         ValueStore.Of(cell.ValueIO, next => cell.SwapIO(_ => next).Map(static _ => unit), Applied.Live, None);
@@ -388,7 +404,7 @@ public sealed class RowScope {
         Selected(targets => Optional(new ObjectPropertiesPageEventArgs(targets.Page).Viewport).ToSeq().Map(store).Strict(), static _ => Seq<ValueStore<T>>());
 
     public IO<Seq<ValueStore<T>>> Contents<T>(Func<RenderContent, ValueStore<T>> store) where T : notnull =>
-        Selected(static _ => Seq<ValueStore<T>>(), contents => toSeq<RenderContent>(contents.Section.GetSelection()).Map(store).Strict());
+        Selected(static _ => Seq<ValueStore<T>>(), contents => toSeq(contents.Section.GetSelection()).Map(store).Strict());
 
     public ValueStore<TRecord> Store<TRecord>(RowSource<TRecord> source) where TRecord : notnull =>
         new(source.Stores(this).Bind(static stores => stores.Head.Match(Some: static store => store.Read, None: static () => IO.pure(Option<TRecord>.None))),
@@ -440,8 +456,7 @@ public sealed class RowScope {
         from diff in held.Map(immediate: false, revertible: false, deferred: true, targets: false, contents: false)
             ? Drafted(group, incoming, locks)
             : Within(Written(group, incoming, locks))
-        from changed in Changed(toSeq(diff.Changes.Keys))
-        select diff;
+Changed(toSeq(diff.Changes.Keys))
 
     public IO<ValueSet> Shown(BindingGroup group) =>
         from captured in group.Capture
@@ -526,7 +541,7 @@ public sealed class RowScope {
         let target = incoming.Over(shown, locks)
         let keys = group.Keys()
         from recalled in IO.lift(group.Bindings.Traverse(binding => binding.Recall(Named(target, binding))).As().ToFin())
-        from swapped in Swapped(new CommitMode.Deferred(new ValueSet(
+Swapped(new CommitMode.Deferred(new ValueSet(
             edits.Entries.Filter((key, _) => !keys.Exists(held => held == key))
                 .Union(target.Entries.Filter((key, text) => !before.Entries.Find(key).Exists(held => held == text))))))
         select shown.Diff(target);
@@ -536,17 +551,18 @@ public sealed class RowScope {
             Read =
                 from held in store.Read
                 from edits in Edits
-                let owned = toHashMap(edits.Entries.AsIterable().Filter(entry => entry.Key.Owner == source.Owner).Map(static entry => (entry.Key.Path, entry.Value)))
+                let owned = toHashMap(edits.Entries.AsIterable().Filter(entry => string.Equals(entry.Key.Owner, source.Owner, StringComparison.Ordinal)).Map(static entry => (entry.Key.Path, entry.Value)))
                 from shown in owned.IsEmpty ? IO.pure(held) : Recalled(source, held.IfNone(source.Default), owned).Map(static record => Some(record))
                 select shown,
             Put = value =>
                 from texts in Held(Some(value.IfNone(source.Default))).Bind(memory => source.Binding(memory).Capture)
                 from stored in source.Binding(store).Capture
                 from edits in Edits
+                let owned = toHashSet(source.Binding(store).Paths().Map(path => new EntryKey(source.Owner, path)))
                 from swapped in Swapped(new CommitMode.Deferred(new ValueSet(
-                    edits.Entries.Filter((key, _) => key.Owner != source.Owner)
+                    edits.Entries.Filter((key, _) => !owned.Contains(key))
                         .Union(toHashMap(texts.AsIterable()
-                            .Filter(entry => !stored.Find(entry.Key).Exists(held => held == entry.Value))
+                            .Filter(entry => !stored.Find(entry.Key).Exists(held => string.Equals(held, entry.Value, StringComparison.Ordinal)))
                             .Map(entry => (new EntryKey(source.Owner, entry.Key), entry.Value)))))))
                 select unit,
             Applied = Applied.Live,

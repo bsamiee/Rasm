@@ -11,16 +11,12 @@ public static class Macros {
 
     // --- [PROXY_COMMANDS]
     public static IO<Unit> RunProxyCommand(IO<Unit> body) =>
-        IO.lift(static () => Command.InCommand())
-            .Bind(running => running ? body : Callbacks.Captured<Unit>(capture => Proxied(body, capture), nameof(Command.RunProxyCommand)));
-
-    private static IO<Unit> Proxied(IO<Unit> body, Action<Fin<Unit>> capture) =>
-        IO.lift(() => Command.RunProxyCommand(
+        from running in IO.lift(Command.InCommand)
+        from answer in running ? body : Callbacks.Captured<Unit>(capture => IO.lift(() => Command.RunProxyCommand(
             (_, _, _) => {
-                Fin<Unit> ran = Try.lift(body.Run).Run();
-                capture(ran);
-                return Conversions.ToResult(IO.lift(ran)).IfFail(Result.Failure);
-            },
-            doc: null,
-            data: null));
+                Fin<Unit> result = Try.lift(body.Run).Run();
+                capture(result);
+                return Conversions.ToResult(IO.lift(result)).IfFail(Result.Failure);
+            }, doc: null, data: null)), nameof(Command.RunProxyCommand))
+        select answer;
 }

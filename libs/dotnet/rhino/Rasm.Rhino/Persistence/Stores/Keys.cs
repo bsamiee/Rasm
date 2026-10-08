@@ -8,22 +8,17 @@ public sealed record ValueKey<TValue, TRaw, TError> where TRaw : notnull {
         (Name, Caption, Help, Default, From, ToRaw, Read) = (name, caption, help, @default, from, toRaw, read);
 
     public string Name { get; }
-
     public string Caption { get; }
-
     public string Help { get; }
-
     public TValue Default { get; }
-
     public Func<TRaw, Fin<TValue>> From { get; }
-
     public Func<TValue, TRaw> ToRaw { get; }
-
     public Func<string, Fin<TValue>> Read { get; }
 
     public string Text(TValue value) => StoredText.Format(ToRaw(value));
 }
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ValueKey {
     public static ValueKey<TValue, TRaw, TError> Of<TValue, TRaw, TError>(string name, string caption, string help, TValue @default)
         where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
@@ -45,7 +40,6 @@ public static class ValueKey {
         };
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StoredText {
     public static string Format<TRaw>(TRaw raw) where TRaw : notnull =>
 $"{raw}";
@@ -54,7 +48,7 @@ $"{raw}";
         TRaw.TryParse(text, CultureInfo.InvariantCulture, out TRaw? raw) ? raw : new UnreadText(text, typeof(TRaw));
 
     public static Fin<TEnum> Member<TEnum>(string text) where TEnum : struct, Enum =>
-        Enum.TryParse(text, out TEnum member) && string.Equals(Enum.GetName(member), text, StringComparison.Ordinal) ? member : new UnreadText(text, typeof(TEnum));
+        Enum.GetNames<TEnum>().Contains(text, StringComparer.Ordinal) ? Enum.Parse<TEnum>(text) : new UnreadText(text, typeof(TEnum));
 
     public static string Capture<TValue, TRaw>(TValue value)
         where TValue : IConvertible<TRaw>

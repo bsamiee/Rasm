@@ -75,13 +75,13 @@ public sealed record SafeFrameState(
         RowRule.When(source, static state => state.Enabled, SafeFrameParameter.Enabled) switch {
             var on => (on & RowRule.When(source, static state => state.ActionFrameOn, SafeFrameParameter.ActionFrameOn),
                        on & RowRule.When(source, static state => state.TitleFrameOn, SafeFrameParameter.TitleFrameOn)) switch {
-                var (action, title) => new RowRules(parameter.Map<Option<RowRule>>(
-                    enabled: None, perspectiveOnly: on, fieldsOn: on, liveFrameOn: on,
-                    actionFrameOn: on, actionFrameLinked: action, actionFrameXScale: action,
-                    actionFrameYScale: action & RowRule.When(source, static state => !state.ActionFrameLinked, SafeFrameParameter.ActionFrameLinked),
-                    titleFrameOn: on, titleFrameLinked: title, titleFrameXScale: title,
-                    titleFrameYScale: title & RowRule.When(source, static state => !state.TitleFrameLinked, SafeFrameParameter.TitleFrameLinked)), None),
-            },
+                           var (action, title) => new RowRules(parameter.Map<Option<RowRule>>(
+                               enabled: None, perspectiveOnly: on, fieldsOn: on, liveFrameOn: on,
+                               actionFrameOn: on, actionFrameLinked: action, actionFrameXScale: action,
+                               actionFrameYScale: action & RowRule.When(source, static state => !state.ActionFrameLinked, SafeFrameParameter.ActionFrameLinked),
+                               titleFrameOn: on, titleFrameLinked: title, titleFrameXScale: title,
+                               titleFrameYScale: title & RowRule.When(source, static state => !state.TitleFrameLinked, SafeFrameParameter.TitleFrameLinked)), None),
+                       },
         };
 
     public Option<Rectangle> Action(PixelExtent frame) =>

@@ -11,14 +11,16 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class MeshModifier {
+    // --- [KINDS]
     public static readonly MeshModifier Displacement = new(static modifiers => modifiers.Displacement is not null);
     public static readonly MeshModifier EdgeSoftening = new(static modifiers => modifiers.EdgeSoftening is not null);
     public static readonly MeshModifier Thickening = new(static modifiers => modifiers.Thickening is not null);
     public static readonly MeshModifier CurvePiping = new(static modifiers => modifiers.CurvePiping is not null);
     public static readonly MeshModifier ShutLining = new(static modifiers => modifiers.ShutLining is not null);
 
+    // --- [PRESENCE]
     [UseDelegateFromConstructor]
     public partial bool IsAttached(File3dmMeshModifiers modifiers);
 }
@@ -26,11 +28,13 @@ public sealed partial class MeshModifier {
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct WireDensity : System.Numerics.IMinMaxValue<WireDensity> {
+    // --- [LIMITS]
     public static WireDensity MinValue { get; } = new(-1);
     public static WireDensity MaxValue { get; } = new(int.MaxValue);
 
+    // --- [FACTORY]
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+        validationError = value.CompareTo(MinValue._value) >= 0 ? null : new InvalidRhinoValue();
 }
 
 public sealed record DecalState(
@@ -57,9 +61,24 @@ public sealed record AttributeState(
     Option<Plane> ObjectFrame, bool HasCustomMeshing, bool EnableCustomMeshingParameters, Seq<MeshModifier> MeshModifiers, bool HasMapping,
     Seq<DecalState> Decals, Seq<MaterialRefState> MaterialRefs, HashMap<EqStringOrdinalIgnoreCase, string, string> UserStrings);
 
+public sealed record AttributePatch(
+    Option<Option<string>> Name = default, Option<Option<string>> Url = default,
+    Option<ObjectColorSource> ColorSource = default, Option<Color> ObjectColor = default,
+    Option<ObjectPlotColorSource> PlotColorSource = default, Option<Color> PlotColor = default,
+    Option<ObjectPlotWeightSource> PlotWeightSource = default, Option<PlotWeight> PlotWeight = default,
+    Option<ObjectLinetypeSource> LinetypeSource = default, Option<double> LinetypePatternScale = default,
+    Option<ObjectMaterialSource> MaterialSource = default, Option<ObjectSectionAttributesSource> SectionAttributesSource = default,
+    Option<SectionLabelStyle> ClippingPlaneLabelStyle = default, Option<bool> CastsShadows = default, Option<bool> ReceivesShadows = default,
+    Option<WireDensity> WireDensity = default, Option<int> DisplayOrder = default, Option<ObjectDecoration> ObjectDecoration = default,
+    Option<ActiveSpace> Space = default, Option<Option<Guid>> ViewportId = default, Option<bool> DetailBackgroundVisible = default,
+    Option<Color> HatchBackgroundFillColor = default, Option<Color> HatchBackgroundFillPrintColor = default,
+    Option<bool> HatchBoundaryVisible = default, Option<Color> HatchBoundaryColor = default, Option<Color> HatchBoundaryPlotColor = default,
+    Option<ItemColorSource> HatchBoundaryColorSource = default, Option<ItemColorSource> HatchBoundaryPlotColorSource = default,
+    Option<Option<PlotWeight>> HatchBoundaryPlotWeight = default, Option<bool> EnableCustomMeshingParameters = default);
+
 public sealed record EffectiveDisplay(Color DrawColor, Color ComputedPlotColor, PlotWeight ComputedPlotWeight, Option<Guid> DisplayModeOverride, Option<bool> ActiveInViewport);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record RowsEdit<TRow, TKey> {
     public sealed record Replace(Seq<TRow> Rows) : RowsEdit<TRow, TKey>;
 
@@ -71,6 +90,7 @@ public abstract partial record RowsEdit<TRow, TKey> {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 internal static partial class AttributeMapper {
+    // --- [SNAPSHOTS]
     [MapProperty(nameof(ObjectAttributes.ObjectId), nameof(AttributeState.Id))]
     [MapProperty(nameof(ObjectAttributes.LinetypeIndex), nameof(AttributeState.Linetype), Use = nameof(@LinetypeRef.FromHost))]
     [MapProperty(nameof(ObjectAttributes.PlotWeight), nameof(AttributeState.PlotWeight), Use = nameof(@PlotWeight.FromHost))]
@@ -94,12 +114,14 @@ internal static partial class AttributeMapper {
 
     internal static partial MaterialRefState ToState(MaterialRef row);
 
+    // --- [MATERIALS]
     [MapProperty(nameof(MaterialRefState.FrontFaceMaterialId), nameof(MaterialRefCreateParams.BackFaceMaterialId))]
     [MapProperty(nameof(MaterialRefState.BackFaceMaterialId), nameof(MaterialRefCreateParams.FrontFaceMaterialId))]
     [MapProperty(nameof(MaterialRefState.FrontFaceMaterialIndex), nameof(MaterialRefCreateParams.BackFaceMaterialIndex))]
     [MapProperty(nameof(MaterialRefState.BackFaceMaterialIndex), nameof(MaterialRefCreateParams.FrontFaceMaterialIndex))]
     internal static partial MaterialRefCreateParams ToParams(MaterialRefState row);
 
+    // --- [ATTRIBUTES]
     [UserMapping(Default = false)]
     private static bool HasCustomLinetype(ObjectAttributes attributes) => DisposalOps.Present(attributes.GetCustomLinetype());
 
@@ -130,6 +152,7 @@ internal static partial class AttributeMapper {
     private static Seq<MaterialRefState> MaterialRefs(ObjectAttributes attributes) =>
         Conversions.Rows(attributes.MaterialRefs.Values).Map(static row => ToState(row)).Strict();
 
+    // --- [DECALS]
     [UserMapping(Default = false)]
     private static (double Start, double End) HorzSweep(Decal decal) {
         decal.HorzSweep(out double start, out double end);
@@ -149,99 +172,103 @@ internal static partial class AttributeMapper {
     }
 }
 
-public static class AttributeEdits {
-    // --- [NAMING]
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> Name(Option<string> value) => Assigned(staged => staged.Name = Conversions.Unset(value));
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source, AllowNullPropertyAssignment = false, AutoUserMappings = false)]
+public static partial class AttributeEdits {
+    // --- [PROPERTIES]
+    [MapProperty(nameof(AttributePatch.HatchBoundaryPlotWeight), nameof(ObjectAttributes.HatchBoundaryPlotWeightMillimeters))]
+    private static partial void UpdateFields(AttributePatch patch, ObjectAttributes staged);
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> Url(Option<string> value) => Assigned(staged => staged.Url = Conversions.Unset(value));
+    public static IO<Unit> Update(ObjectAttributes staged, AttributePatch patch, bool clearRendering = false) =>
+        IO.lift(() => {
+            if (clearRendering)
+                staged.ClearRenderingAttributes();
+            UpdateFields(patch, staged);
+        });
 
+    [UserMapping(Default = true)]
+    private static int Integer(Option<int> value, [MappingTargetOriginalValue] int original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    private static double Scalar(Option<double> value, [MappingTargetOriginalValue] double original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    private static Color Tint(Option<Color> value, [MappingTargetOriginalValue] Color original) => value.IfNone(original);
+
+    [UserMapping]
+    private static T Retained<T>(Option<T> value, [MappingTargetOriginalValue] T original) => value.IfNone(original);
+
+    [UserMapping]
+    private static string Text(Option<Option<string>> value, [MappingTargetOriginalValue] string original) => value.Map(Conversions.Unset).IfNone(original);
+
+    [UserMapping]
+    private static Guid Viewport(Option<Option<Guid>> value, [MappingTargetOriginalValue] Guid original) => value.Map(Conversions.Unset).IfNone(original);
+
+    [UserMapping]
+    private static int Density(Option<WireDensity> value, [MappingTargetOriginalValue] int original) => value.Map(static density => density.ToValue()).IfNone(original);
+
+    [UserMapping]
+    private static double Weight(Option<PlotWeight> value, [MappingTargetOriginalValue] double original) => value.Map(static weight => weight.ToHost()).IfNone(original);
+
+    [UserMapping]
+    private static double InheritedWeight(Option<Option<PlotWeight>> value, [MappingTargetOriginalValue] double original) => value.Map(PlotWeight.ToInheritable).IfNone(original);
+
+    // --- [REFERENCES]
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> LayerIndex(LayerRef address) =>
-        (doc, staged) => Layers.Resolve(doc, address).Bind(layer => IO.lift(() => { staged.LayerIndex = layer.Index; }));
+        (doc, staged) => from layer in Layers.Resolve(doc, address)
+                         from written in IO.lift(() => Indices((layer.Index, null, null, null), staged))
+                         select written;
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> SetUserStrings(HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
-        (_, staged) => IO.lift(() => UserStrings.Held(staged.GetUserStrings())).Bind(held => UserStrings.Write(held, staged.SetUserString, edits));
-
-    // --- [AXES]
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> ColorSource(ObjectColorSource value) => Assigned(staged => staged.ColorSource = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> ObjectColor(Color value) => Assigned(staged => staged.ObjectColor = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> PlotColorSource(ObjectPlotColorSource value) => Assigned(staged => staged.PlotColorSource = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> PlotColor(Color value) => Assigned(staged => staged.PlotColor = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> PlotWeightSource(ObjectPlotWeightSource value) => Assigned(staged => staged.PlotWeightSource = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> PlotWeight(PlotWeight value) => Assigned(staged => staged.PlotWeight = value.ToHost());
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> LinetypeSource(ObjectLinetypeSource value) => Assigned(staged => staged.LinetypeSource = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> LinetypeIndex(LinetypeRef value) =>
-        (doc, staged) => value.Resolve(doc).Bind(index => IO.lift(() => { staged.LinetypeIndex = index; }));
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> LinetypePatternScale(double value) => Assigned(staged => staged.LinetypePatternScale = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> MaterialSource(ObjectMaterialSource value) => Assigned(staged => staged.MaterialSource = value);
+    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> LinetypeIndex(LinetypeRef address) =>
+        (doc, staged) => from index in address.Resolve(doc)
+                         from written in IO.lift(() => Indices((null, index, null, null), staged))
+                         select written;
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> MaterialIndex(Option<ComponentRef<Material>> address) =>
-        (doc, staged) => TableOps.Index(doc.Materials, address).Bind(index => IO.lift(() => { staged.MaterialIndex = index; }));
-
-    // --- [SECTIONS]
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> SectionAttributesSource(ObjectSectionAttributesSource value) => Assigned(staged => staged.SectionAttributesSource = value);
+        (doc, staged) => from index in TableOps.Index(doc.Materials, address)
+                         from written in IO.lift(() => Indices((null, null, index, null), staged))
+                         select written;
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> SectionStyleIndex(Option<ComponentRef<SectionStyle>> address) =>
-        (doc, staged) => TableOps.Index(doc.SectionStyles, address).Bind(index => IO.lift(() => { staged.SectionStyleIndex = index; }));
+        (doc, staged) => from index in TableOps.Index(doc.SectionStyles, address)
+                         from written in IO.lift(() => Indices((null, null, null, index), staged))
+                         select written;
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> ClippingPlaneLabelStyle(SectionLabelStyle value) => Assigned(staged => staged.ClippingPlaneLabelStyle = value);
+    private static partial void Indices((int? LayerIndex, int? LinetypeIndex, int? MaterialIndex, int? SectionStyleIndex) indices, ObjectAttributes staged);
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> CustomLinetype(Option<Linetype> value) => Assigned(staged => staged.SetCustomLinetype(value.ValueUnsafe()));
+    public static IO<Unit> CustomLinetype(ObjectAttributes staged, Option<Linetype> value) => IO.lift(() => staged.SetCustomLinetype(value.ValueUnsafe()));
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> CustomSectionStyle(Option<SectionStyle> value) => Assigned(staged => staged.SetCustomSectionStyle(value.ValueUnsafe()));
+    public static IO<Unit> CustomSectionStyle(ObjectAttributes staged, Option<SectionStyle> value) => IO.lift(() => staged.SetCustomSectionStyle(value.ValueUnsafe()));
 
-    // --- [DISPLAY]
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> CastsShadows(bool value) => Assigned(staged => staged.CastsShadows = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> ReceivesShadows(bool value) => Assigned(staged => staged.ReceivesShadows = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> WireDensity(WireDensity value) => Assigned(staged => staged.WireDensity = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> DisplayOrder(int value) => Assigned(staged => staged.DisplayOrder = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> ObjectDecoration(ObjectDecoration value) => Assigned(staged => staged.ObjectDecoration = value);
-
-    // --- [PLACEMENT]
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> Space(ActiveSpace value) => Assigned(staged => staged.Space = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> ViewportId(Option<Guid> value) => Assigned(staged => staged.ViewportId = Conversions.Unset(value));
+    // --- [METADATA]
+    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> SetUserStrings(HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
+        (_, staged) => from held in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
+                       from written in UserStrings.Write(held, staged.SetUserString, edits)
+                       select written;
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> Groups(RowsEdit<ComponentRef<Group>, ComponentRef<Group>> edit) =>
-        (doc, staged) => Edited(
-            edit,
-            IO.lift(staged.RemoveFromAllGroups),
-            Membership(doc, staged.AddToGroup),
-            keys => keys.TraverseM(Membership(doc, staged.RemoveFromGroup)).As().Map(static _ => unit));
+        (doc, staged) => Edited(edit, IO.lift(() => staged.RemoveFromAllGroups()),
+            Membership(doc, staged.AddToGroup), keys => keys.TraverseM(Membership(doc, staged.RemoveFromGroup)).As().Map(static _ => unit))
+            .Map(static _ => unit);
+
+    private static Func<ComponentRef<Group>, IO<Unit>> Membership(RhinoDoc doc, Action<int> write) =>
+        address => from found in TableOps.Find(doc.Groups, address, includeDeleted: false)
+                   from written in IO.lift(() => write(found.Index))
+                   select written;
 
     // --- [OVERRIDES]
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> DisplayModeOverride(Guid viewport, Option<Guid> mode) =>
-        (_, staged) => mode.Match(
+    public static IO<Unit> DisplayModeOverride(ObjectAttributes staged, Guid viewport, Option<Guid> mode) =>
+        mode.Match(
             Some: id => Viewports.WithMode(id, description => IO.lift(() => Refused.Unless(staged.SetDisplayModeOverride(description, viewport), nameof(ObjectAttributes.SetDisplayModeOverride)))),
             None: () => IO.lift(() => staged.RemoveDisplayModeOverride(viewport)));
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> ActiveInViewport(RowsEdit<Guid, Guid> edit, bool active) =>
-        (_, staged) => IO.lift(() => edit.Switch(
-            (Staged: staged, Active: active),
-            replace: static (state, replace) => Refused.Unless(state.Staged.SetActiveInViewportOverrides([.. replace.Rows], state.Active), nameof(ObjectAttributes.SetActiveInViewportOverrides)),
-            add: static (state, add) => Callbacks.Each(
-                add.Rows.Filter(id => !state.Staged.HasActiveInViewportOverride(id, out _)).Strict(),
-                id => state.Staged.AddActiveInViewportOverride(id, state.Active),
-                nameof(ObjectAttributes.AddActiveInViewportOverride)),
-            remove: static (state, remove) => Callbacks.Each(
-                remove.Keys.Choose(id => Callbacks.Found(state.Staged.HasActiveInViewportOverride(id, out bool stored), (Id: id, Stored: stored))).Strict(),
-                held => state.Staged.RemoveActiveInViewportOverride(held.Id, held.Stored),
-                nameof(ObjectAttributes.RemoveActiveInViewportOverride))));
+    public static IO<Unit> ActiveInViewport(ObjectAttributes staged, RowsEdit<Guid, Guid> edit, bool active) =>
+        IO.lift(() => edit.Switch(
+state: (staged, active), replace: static (state, replace) => Refused.Unless(state.staged.SetActiveInViewportOverrides([.. replace.Rows], state.active), nameof(ObjectAttributes.SetActiveInViewportOverrides)), add: static (state, add) => Callbacks.Each(add.Rows, Fin<Unit> (id, index) => state.staged.HasActiveInViewportOverride(id, out _)
+                ? unit : RefusedElement.Unless(state.staged.AddActiveInViewportOverride(id, state.active), nameof(ObjectAttributes.AddActiveInViewportOverride), index)).Map(static _ => unit), remove: static (state, remove) => Callbacks.Each(remove.Keys, Fin<Unit> (id, index) => state.staged.HasActiveInViewportOverride(id, out bool stored)
+                ? RefusedElement.Unless(state.staged.RemoveActiveInViewportOverride(id, stored), nameof(ObjectAttributes.RemoveActiveInViewportOverride), index) : unit).Map(static _ => unit)));
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> HideInDetail(RowsEdit<Guid, Guid> edit) =>
-        (_, staged) => IO.lift(() => edit.Switch(
+    public static IO<Unit> HideInDetail(ObjectAttributes staged, RowsEdit<Guid, Guid> edit) =>
+        IO.lift(() => edit.Switch(
                 toSet(staged.GetHideInDetailOverrides()),
                 replace: static (held, replace) => (Hide: toSeq(toSet(replace.Rows).Except(held)), Show: toSeq(held.Except(replace.Rows))),
                 add: static (held, add) => (Hide: toSeq(toSet(add.Rows).Except(held)), Show: Seq<Guid>()),
@@ -253,81 +280,55 @@ public static class AttributeEdits {
                         .Apply(static (_, _) => unit).As().ToFin(),
             });
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> DetailBackgroundVisible(bool value) => Assigned(staged => staged.DetailBackgroundVisible = value);
-
-    // --- [HATCH]
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> HatchBackgroundFillColor(Color value) => Assigned(staged => staged.HatchBackgroundFillColor = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> HatchBackgroundFillPrintColor(Color value) => Assigned(staged => staged.HatchBackgroundFillPrintColor = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> HatchBoundaryVisible(bool value) => Assigned(staged => staged.HatchBoundaryVisible = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> HatchBoundaryColor(Color value) => Assigned(staged => staged.HatchBoundaryColor = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> HatchBoundaryPlotColor(Color value) => Assigned(staged => staged.HatchBoundaryPlotColor = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> HatchBoundaryColorSource(ItemColorSource value) => Assigned(staged => staged.HatchBoundaryColorSource = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> HatchBoundaryPlotColorSource(ItemColorSource value) => Assigned(staged => staged.HatchBoundaryPlotColorSource = value);
-
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> HatchBoundaryPlotWeight(Option<PlotWeight> value) =>
-        Assigned(staged => staged.HatchBoundaryPlotWeightMillimeters = Document.Tables.PlotWeight.ToInheritable(value));
-
     // --- [FRAME]
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> ObjectFrame(Plane frame) =>
-        (_, staged) => IO.lift(InvalidPlane.Unless(frame, nameof(ObjectAttributes.SetObjectFrame))).Bind(valid => IO.lift(() => staged.SetObjectFrame(valid)));
+    public static IO<Unit> ObjectFrame(ObjectAttributes staged, Plane frame) =>
+        from valid in IO.lift(Fin<Plane> () => frame.IsValid ? frame : new InvalidPlane(nameof(ObjectAttributes.SetObjectFrame)))
+        from written in IO.lift(() => staged.SetObjectFrame(valid))
+        select written;
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> Transform(Transform xform) =>
-        (_, staged) => IO.lift(() => Refused.Unless(staged.Transform(xform), nameof(ObjectAttributes.Transform)));
+    public static IO<Unit> Transform(ObjectAttributes staged, Transform xform) =>
+        IO.lift(() => Refused.Unless(staged.Transform(xform), nameof(ObjectAttributes.Transform)));
 
     // --- [RENDERING]
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> CustomMeshingParameters(Option<MeshingParameters> value) => Assigned(staged => staged.CustomMeshingParameters = value.ValueUnsafe());
+    [MapPropertyFromSource(nameof(ObjectAttributes.CustomMeshingParameters), Use = nameof(Meshing))]
+    private static partial void SetMeshing(Option<MeshingParameters> value, ObjectAttributes staged);
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> EnableCustomMeshingParameters(bool value) => Assigned(staged => staged.EnableCustomMeshingParameters = value);
+    public static IO<Unit> CustomMeshingParameters(ObjectAttributes staged, Option<MeshingParameters> value) =>
+        IO.lift(() => SetMeshing(value, staged));
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> ClearRenderingAttributes { get; } = Assigned(static staged => staged.ClearRenderingAttributes());
+    [UserMapping]
+    private static MeshingParameters? Meshing(Option<MeshingParameters> value) => value.ValueUnsafe();
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> Decals(RowsEdit<DecalCreateParams, int> edit) =>
-        (_, staged) => Edited(
-            edit,
-            IO.lift(() => staged.Decals.RemoveAllDecals()),
-            row => use(IO.lift(() => Missing.Unless(Decal.Create(row), nameof(Decal.Create))))
-                .Bind(decal => IO.lift(() => Conversions.Required(staged.Decals.Add(decal), nameof(staged.Decals.Add))))
-                .Bracket(),
-            keys => IO.lift(() => Conversions.Rows(staged.Decals)).Bracket(
-                Use: held => IO.lift(() => Callbacks.Each(held.Filter(Matching(toHashSet(keys))).Strict(), staged.Decals.Remove, nameof(staged.Decals.Remove))),
-                Fin: DisposalOps.Release));
+    public static IO<Seq<uint>> Decals(ObjectAttributes staged, RowsEdit<DecalCreateParams, int> edit) =>
+        Edited(edit, IO.lift(staged.Decals.RemoveAllDecals),
+            row => (from decal in use(IO.lift(() => Missing.Unless(Decal.Create(row), nameof(Decal.Create))))
+                    from crc in IO.lift(() => Conversions.Required(staged.Decals.Add(decal), nameof(staged.Decals.Add)))
+                    select crc).Bracket(),
+            keys => (from held in use(IO.lift(() => Conversions.Rows(staged.Decals)), DisposalOps.Release)
+                     let crcs = toHashSet(keys)
+                     from removed in IO.lift(() => Callbacks.Each(held.Filter(decal => crcs.Contains(decal.CRC)).Strict(), staged.Decals.Remove, nameof(staged.Decals.Remove)))
+                     select removed).Bracket());
 
-    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> MaterialRefs(RowsEdit<MaterialRefState, Guid> edit) =>
-        (_, staged) => Edited(
-            edit,
-            IO.lift(() => staged.MaterialRefs.Clear()),
-            row => use(IO.lift(() => Callbacks.Thrown<ArgumentException, MaterialRef>(() => staged.MaterialRefs.Create(AttributeMapper.ToParams(row)), nameof(staged.MaterialRefs.Create))))
-                .Bind(created => IO.lift(() => staged.MaterialRefs.Add(row.PlugInId, created)))
-                .Bracket(),
-            keys => IO.lift(() => keys.Iter(key => staged.MaterialRefs.Remove(key))));
+    public static IO<Unit> MaterialRefs(ObjectAttributes staged, RowsEdit<MaterialRefState, Guid> edit) =>
+        Edited(edit, IO.lift(staged.MaterialRefs.Clear),
+            row => (from created in use(IO.lift(() => Callbacks.Thrown<ArgumentException, MaterialRef>(() => staged.MaterialRefs.Create(AttributeMapper.ToParams(row)), nameof(staged.MaterialRefs.Create))))
+                    from added in IO.lift(() => staged.MaterialRefs.Add(row.PlugInId, created))
+                    select added).Bracket(),
+            keys => IO.lift(() => keys.Iter(key => staged.MaterialRefs.Remove(key))))
+            .Map(static _ => unit);
 
-    // --- [WRITES]
-    private static Func<RhinoDoc, ObjectAttributes, IO<Unit>> Assigned(Action<ObjectAttributes> write) => (_, staged) => IO.lift(() => write(staged));
-
-    private static IO<Unit> Edited<TRow, TKey, TAdded>(RowsEdit<TRow, TKey> edit, IO<Unit> clear, Func<TRow, IO<TAdded>> add, Func<Seq<TKey>, IO<Unit>> remove) =>
+    private static IO<Seq<TAdded>> Edited<TRow, TKey, TAdded>(RowsEdit<TRow, TKey> edit, IO<Unit> clear, Func<TRow, IO<TAdded>> add, Func<Seq<TKey>, IO<Unit>> remove) =>
         edit.Switch(
-            (Clear: clear, Add: add, Remove: remove),
-            replace: static (moves, replace) => moves.Clear.Bind(_ => replace.Rows.TraverseM(moves.Add).As()).Map(static _ => unit),
-            add: static (moves, added) => added.Rows.TraverseM(moves.Add).As().Map(static _ => unit),
-            remove: static (moves, removed) => moves.Remove(removed.Keys));
-
-    private static Func<ComponentRef<Group>, IO<Unit>> Membership(RhinoDoc doc, Action<int> write) =>
-        address => TableOps.Find(doc.Groups, address, includeDeleted: false).Bind(group => IO.lift(() => write(group.Index)));
-
-    private static Func<Decal, bool> Matching(LanguageExt.HashSet<int> crcs) => decal => crcs.Contains(decal.CRC);
+state: (clear, add, remove), replace: static (state, replace) => from cleared in state.clear
+                                                                 from added in replace.Rows.TraverseM(state.add).As()
+                                select added, add: static (state, added) => added.Rows.TraverseM(state.add).As(), remove: static (state, removed) => state.remove(removed.Keys).Map(static _ => Seq<TAdded>()));
 }
 
 public static class AttributeOps {
     // --- [READS]
     public static IO<AttributeState> Read(ObjectAttributes attributes) =>
         IO.lift(() => Conversions.Rows(attributes.Decals)).Bracket(
-            Use: decals => IO.lift(() => AttributeMapper.ToState(attributes, UserStrings.Held(attributes.GetUserStrings()), decals.Map(static decal => AttributeMapper.ToState(decal)).Strict())),
+            Use: decals => IO.lift(() => AttributeMapper.ToState(attributes, UserStrings.Held(attributes.GetUserStrings()), decals.Map(AttributeMapper.ToState).Strict())),
             Fin: DisposalOps.Release);
 
     public static IO<EffectiveDisplay> ReadEffective(ObjectAttributes attributes, RhinoDoc doc, Guid viewport) =>

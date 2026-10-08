@@ -22,12 +22,15 @@ public static class SolidConstruction {
 
     // --- [EXTRUSIONS]
     public static IO<Extrusion> ProfiledExtrusion(Line path, Vector3d up, Curve outerProfile, Seq<Curve> innerProfiles, bool cap) =>
-        Copies.Owned(
-            IO.lift(static () => new Extrusion()),
-            made => Refused.Unless(made.SetPathAndUp(path.From, path.To, up), nameof(Extrusion.SetPathAndUp))
-                .Bind(_ => Refused.Unless(made.SetOuterProfile(outerProfile, cap), nameof(Extrusion.SetOuterProfile)))
-                .Bind(_ => Callbacks.Each(innerProfiles, made.AddInnerProfile, nameof(Extrusion.AddInnerProfile)))
-                .Bind(_ => Measurements.Valid(made, nameof(Extrusion.SetOuterProfile))));
+        from made in IO.lift(static () => new Extrusion())
+        from kept in DisposalOps.OnFailure(
+            from pathSet in IO.lift(() => Refused.Unless(made.SetPathAndUp(path.From, path.To, up), nameof(Extrusion.SetPathAndUp)))
+            from outerSet in IO.lift(() => Refused.Unless(made.SetOuterProfile(outerProfile, cap), nameof(Extrusion.SetOuterProfile)))
+            from innerSet in IO.lift(() => Callbacks.Each(innerProfiles, made.AddInnerProfile, nameof(Extrusion.AddInnerProfile)))
+            from valid in IO.lift(() => Measurements.Valid(made, nameof(Extrusion.SetOuterProfile)))
+            select valid,
+            IO.lift(made.Dispose))
+        select kept;
 
     public static IO<Mesh> GetMesh(Extrusion extrusion, MeshType meshType) =>
         IO.lift(() => Missing.Unless(extrusion.GetMesh(meshType), nameof(Extrusion.GetMesh))).Bind(Copies.Duplicate);

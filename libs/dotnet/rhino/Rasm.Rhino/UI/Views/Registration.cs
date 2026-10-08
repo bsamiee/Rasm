@@ -130,11 +130,11 @@ public static class ViewRegistration {
             .Map(static _ => Thinktecture.Empty.Disposable());
 
     private static Result Executed(ContentMenuRow row, RenderContentCollection collection, CallbackSite site) =>
-        Callbacks.Answer(Conversions.ToResult(IO.lift(() => Conversions.Rows<RenderContent>(collection)).Bind(row.Run)), static () => Result.Failure, site);
+        Callbacks.Answer(Conversions.ToResult(IO.lift(() => Conversions.Rows(collection)).Bind(row.Run)), static () => Result.Failure, site);
 
     private static bool Enabled(ContentMenuRow row, RenderContentCollection collection, RenderContentMenu.Context context, CallbackSite site) =>
         Callbacks.Answer(
-            IO.lift(() => row.Contexts.Contains(context) && Conversions.Rows<RenderContent>(collection) is { IsEmpty: false } selected && selected.ForAll(row.Scope.Covers)),
+            IO.lift(() => row.Contexts.Contains(context) && Conversions.Rows(collection) is { IsEmpty: false } selected && selected.ForAll(row.Scope.Covers)),
             static () => false,
             site);
 }

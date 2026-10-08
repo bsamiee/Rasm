@@ -18,7 +18,6 @@ using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using Rhino.UI.Forms;
-using Point = Eto.Drawing.Point;
 
 namespace Rasm.Rhino.UI.Views;
 
@@ -36,6 +35,11 @@ public sealed partial class PageDialog {
 
     [UseDelegateFromConstructor]
     public partial Window? WindowForPage(OptionsDialogPage page);
+
+    public static bool operator <(PageDialog left, PageDialog right) => Comparer<PageDialog>.Default.Compare(left, right) < 0;
+    public static bool operator <=(PageDialog left, PageDialog right) => Comparer<PageDialog>.Default.Compare(left, right) <= 0;
+    public static bool operator >(PageDialog left, PageDialog right) => Comparer<PageDialog>.Default.Compare(left, right) > 0;
+    public static bool operator >=(PageDialog left, PageDialog right) => Comparer<PageDialog>.Default.Compare(left, right) >= 0;
 }
 
 public sealed record PageTarget(string EnglishTitle, PageDialog Dialog) {
@@ -76,28 +80,28 @@ public static class Showing {
                 window.Content = new RhinoScrollableDialogPanel { Content = view };
                 window.UseRhinoStyle();
                 window.ClientSize = Size.Ceiling(window.Content.GetPreferredSize());
-                _ = main.Iter(bounds => window.Location = Point.Round(bounds.ToEtoScreen().Center - (window.Size / 2f)));
+                _ = main.Iter(bounds => window.Location = Eto.Drawing.Point.Round(bounds.ToEtoScreen().Center - (window.Size / 2f)));
                 window.LocalizeAndRestore(window.Row.Identity);
                 window.Show(doc);
-                _ = view.Shown(true);
+                _ = view.Shown(visible: true);
             }),
             release)
-        from closed in Subscriptions.Attach<EventHandler<EventArgs>>(
+        from closed in Subscriptions.Attach(
             handler => window.Closed += handler,
             handler => window.Closed -= handler,
-            Callbacks.Handler<EventArgs>(_ => release, new CallbackSite(owner, window.GetType(), nameof(window.Closed))))
+            Callbacks.Handler<EventArgs>(static _ => release, new CallbackSite(owner, window.GetType(), nameof(window.Closed))))
         select window;
 
     private static IO<Unit> Released(RealizedView body) =>
         IO.lift(() => {
-            _ = body.Shown(false);
+            _ = body.Shown(visible: false);
             body.Dispose();
         });
 
     // --- [DIALOGS]
     public static IO<Suppressible<Unit>> ShowSemiModal(IPlugInViews owner, View.Dialog row, RhinoDoc doc) =>
         row.Suppression.Match(
-            Some: setting => HostDialogs.Suppressing<Unit>(owner.Settings, setting, box => Presented(owner, row, doc, Some(box))),
+            Some: setting => HostDialogs.Suppressing(owner.Settings, setting, box => Presented(owner, row, doc, Some(box))),
             None: () => Presented(owner, row, doc, None).Map<Suppressible<Unit>>(static answer => new Suppressible<Unit>.Shown(answer.Value)));
 
     private static IO<(Unit Value, bool Suppress)> Presented(IPlugInViews owner, View.Dialog row, RhinoDoc doc, Option<CheckBox> box) =>
@@ -119,7 +123,7 @@ public static class Showing {
              Use: body =>
                  from framed in IO.lift(() => {
                      dialog.Content = body;
-                     _ = body.Shown(true);
+                     _ = body.Shown(visible: true);
                      _ = box.Iter(held => dialog.ButtonOptions = held);
                      _ = row.DisplayMode.Iter(mode => dialog.DisplayMode = mode);
                      _ = row.Help.Iter(topic => dialog.HelpButtonClick += Callbacks.Handler<EventArgs>(_ => topic.Show, new CallbackSite(owner, row.Identity, nameof(CommandDialog.HelpButtonClick))));
@@ -205,26 +209,8 @@ public static class Showing {
                 readout: static _ => None,
                 command: static _ => None,
                 group: static _ => None))
-        let pass =
-            from shown in scope.Shown(bindings)
-            from ended in Getters.Choice(doc, new GetterRequest<GetOption, bool>(view.Caption, site) {
-                Accept = new() { Nothing = Some((Shown: Option<string>.None, Then: IO.pure(true))) },
-                Options =
-                    from field in fields
-                    let text = shown.Entries.Find(field.Key)
-                    select OptionSpec.Plain(
-                        field.Caption,
-                        text.Bind(static held => Conversions.Present(held)),
-                        hidden: false,
-                        Getters.Text(
-                            doc,
-                            new EntryRequest<GetString, string, bool>(field.Caption, site) { Default = text },
-                            literal: true,
-                            entered => scope.Commit(bindings, new ValueSet(HashMap((field.Key, entered.Value)))).Map(static _ => false))),
-            })
-            select ended
-        from ended in pass.RepeatUntil(static ended => ended)
-        select unit;
+        static from ended in pass.RepeatUntil(static ended => ended)
+        static select unit;
 
     // --- [RENDERING]
     public static IO<Option<TBody>> TabFromRenderSessionId<TBody>(Guid renderSessionId) where TBody : DefinedTab =>
@@ -264,7 +250,7 @@ public static class Showing {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class PanelCommand(IPlugInSink sink, Guid id, View.Panel panel) : HostCommand(sink, id, RhinoGet.StringToCommandOptionName(panel.Caption), None) {
-    protected sealed override string CommandContextHelpUrl => panel.HelpUrl;
+    protected override string CommandContextHelpUrl => panel.HelpUrl;
 
-    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) => Showing.Toggle(panel, doc);
+    protected override IO<Unit> RunAsync(RhinoDoc doc, RunMode mode, CallbackSite site) => Showing.Toggle(panel, doc);
 }

@@ -26,7 +26,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
 
     private static IO<Preflight> Read(QueueContext context, RhinoDoc doc, QueuePlan plan, Reach reach) =>
         (DocumentStatistics.Read(doc),
-         Links.Closure(doc),
+         Links.Closure(doc.RuntimeSerialNumber),
          Links.Style(doc).Read,
          NamedSnapshots.Names(doc).Map(names => plan.Entries.Map((entry, index) => Entered(doc, names, entry, index)).Flatten().Strict()),
          Sources.Read(new SceneSource.Document(doc), RenderChannelsState.Read).Map(QueueEstimate.Channels),
@@ -98,7 +98,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
             (plan.Entries.IsEmpty ? Seq<Error>(new QueueEmpty()) : Seq<Error>())
             + entered
             + disk.Output.Match(Succ: static held => held.ToSeq().Bind(static volume => volume.Refusals(None)), Fail: static error => Seq(error))
-            + links.Broken.Map(static broken => (Error)new LinkBroken(broken.Link.Name, broken.Link.Target.Path, broken.Error))
+            + links.Broken.Choose(static broken => Stored(broken.Link.Target).Map(file => (Error)new LinkBroken(broken.Link.Name, file, broken.Error)))
             + (reach.Local ? host.Refusals : Seq<Error>())
             + run.Bind(static state => state.Switch(
                 absent: static _ => Option<Error>.None,
@@ -108,15 +108,18 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
             + (reach.Quits ? host.Untitled.Map(static serial => (Error)new UntitledEdits(serial)) : Seq<Error>())
             + (reach.Package.IsSome && style.IsNone ? Seq<Error>(new LinkUpdatePrompts()) : Seq<Error>())
             + disk.Package.ToSeq().Bind(volume => volume.Match(Succ: held => held.Refusals(statistics.FileLength), Fail: static error => Seq(error))),
-            links.Stale.Map(static link => (Error)new LinkStale(link.Name, link.Target.Path))
-            + links.Cycles.Map(static files => (Error)new LinkCycle(files.Choose(static model => model.Switch(opened: static _ => Option<string>.None, stored: static stored => Some(stored.Path)))))
-            + links.Mismatched.Map(static row => (Error)new LinkUnitsDiffer(row.Link.Name, row.Link.Target.Path, row.Link.Units, row.FileUnits))
+            links.Stale.Choose(static link => Stored(link.Target).Map(file => (Error)new LinkStale(link.Name, file)))
+            + links.Cycles.Map(static files => (Error)new LinkCycle(files.Choose(Stored)))
+            + links.Mismatched.Choose(static row => Stored(row.Link.Target).Map(file => (Error)new LinkUnitsDiffer(row.Link.Name, file, row.Link.Units, row.FileUnits)))
             + textures.Absent.Map(static path => (Error)new TextureMissing(path))
             + (reach.Local
                 ? (host.SafeMode && host.Renderer == CyclesSetting.PlugInId ? Seq<Error>(new RenderOnCpu()) : Seq<Error>())
-                : (textures.Unpacked + toSeq(links.Graph.Edges).Map(static link => link.Target.Path)).Distinct().Map(static path => (Error)new FileOutsideCopy(path))),
+                : (textures.Unpacked + toSeq(links.Graph.Edges).Choose(static link => Stored(link.Target))).Distinct().Map(static path => (Error)new FileOutsideCopy(path))),
             statistics,
             toMap(plan.Entries.Map((entry, index) => entry.Rendered.ToOption().Map(rendered => (index, QueueEstimate.Memory(statistics, rendered, channels)))).Somes()));
+
+    private static Option<string> Stored(LinkedModel model) =>
+        model.Switch(opened: static _ => Option<string>.None, stored: static stored => Some(stored.Path));
 
     private readonly record struct Reach(bool Local, bool Quits, Option<Destination> Package);
 

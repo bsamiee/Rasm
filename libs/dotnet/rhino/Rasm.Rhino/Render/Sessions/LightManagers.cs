@@ -62,7 +62,7 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
     private IO<bool> Filled(RhinoDoc doc, Guid id, Light target) =>
         Held(doc, id).Bind(held => held.Match(
             Some: engine => Lights.Gamma(doc).Bind(transfer => Staged(target, engine.Light, transfer)).Map(static _ => true),
-            None: static () => IO.pure(false)));
+            None: static () => IO.pure(value: false)));
 
     private IO<Option<EngineLight>> Held(RhinoDoc doc, Guid id) =>
         Read(doc).Map(held => held.Find(engine => engine.Light.Id == id));
@@ -86,10 +86,10 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
         Callbacks.Succeeded(Requested(light_array, Edit.Map(edit => par(edit, doc))), static () => false, CallbackSite.Of(this));
 
     public sealed override void GroupLights(RhinoDoc doc, ref LightArray light_array) =>
-        _ = Callbacks.Answer(Requested(light_array, Group.Map(group => par(group, doc, true))), static () => unit, static () => unit, CallbackSite.Of(this));
+        _ = Callbacks.Answer(Requested(light_array, Group.Map(group => par(group, doc, b: true))), static () => unit, static () => unit, CallbackSite.Of(this));
 
     public sealed override void UnGroup(RhinoDoc doc, ref LightArray light_array) =>
-        _ = Callbacks.Answer(Requested(light_array, Group.Map(group => par(group, doc, false))), static () => unit, static () => unit, CallbackSite.Of(this));
+        _ = Callbacks.Answer(Requested(light_array, Group.Map(group => par(group, doc, b: false))), static () => unit, static () => unit, CallbackSite.Of(this));
 
     private IO<Unit> Modified(RhinoDoc doc, Light light) =>
         from transfer in Lights.Gamma(doc)
@@ -123,6 +123,6 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
 public static class LightManagers {
     public static IO<Unit> Changed<TManager>(RhinoDoc doc, LightMangerSupportCustomEvent change)
         where TManager : DefinedLightManager<TManager>, new() =>
-        IO.lift(() => DefinedLightManager<TManager>.Registered.Value.ToFin(new Missing(nameof(LightManagerSupport.RegisterLightManager))))
+        IO.lift(static () => DefinedLightManager<TManager>.Registered.Value.ToFin(new Missing(nameof(LightManagerSupport.RegisterLightManager))))
             .Bind(manager => manager.Notified(doc, change));
 }

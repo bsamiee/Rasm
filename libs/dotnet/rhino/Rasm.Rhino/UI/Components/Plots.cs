@@ -49,7 +49,7 @@ public abstract partial record Axis {
         Plots.Nice(least).Map(step => Stepped(0f, step, value, steps)).IfNone(value);
 
     private static float Stepped(float origin, float step, float value, int steps) =>
-        origin + ((MathF.Round((value - origin) / step) + steps) * step);
+        origin + ((MathF.Round((value - origin) / step, MidpointRounding.ToEven) + steps) * step);
 
     public sealed record Linear(AxisRange Range) : Axis(Range) {
         public override float Unit(float value) => (value - Range.Low) / Range.Span;
@@ -173,13 +173,13 @@ public abstract partial record MarkShape {
     protected abstract void AddTo(IGraphicsPath path);
 
     private static float Snap(float coordinate, float scale, float device) =>
-        (MathF.Round((coordinate * scale) - (device / 2f)) + (device / 2f)) / scale;
+        (MathF.Round((coordinate * scale) - (device / 2f), MidpointRounding.ToEven) + (device / 2f)) / scale;
 
     public sealed record Rule(PointF Start, PointF End) : MarkShape {
         public override bool Closed => false;
 
         public override MarkShape Snapped(float scale, float stroke) =>
-            (Start.X == End.X, Start.Y == End.Y, MathF.Round(stroke * scale)) switch {
+            (Start.X == End.X, Start.Y == End.Y, MathF.Round(stroke * scale, MidpointRounding.ToEven)) switch {
                 (true, _, var device) => this with { Start = Start with { X = Snap(Start.X, scale, device) }, End = End with { X = Snap(End.X, scale, device) } },
                 (_, true, var device) => this with { Start = Start with { Y = Snap(Start.Y, scale, device) }, End = End with { Y = Snap(End.Y, scale, device) } },
                 _ => this,
@@ -207,7 +207,7 @@ public abstract partial record MarkShape {
         public override bool Closed => true;
 
         public override MarkShape Snapped(float scale, float stroke) =>
-            MathF.Round(stroke * scale) switch {
+            MathF.Round(stroke * scale, MidpointRounding.ToEven) switch {
                 var device => new Band(RectangleF.FromSides(Snap(Bounds.Left, scale, device), Snap(Bounds.Top, scale, device), Snap(Bounds.Right, scale, device), Snap(Bounds.Bottom, scale, device))),
             };
 
@@ -302,7 +302,7 @@ public static class Plots {
         new MarkShape.Polygon([.. Columns(plane, scale, function), new(plane.Plot.Right, plane.Plot.Bottom), new(plane.Plot.Left, plane.Plot.Bottom)]);
 
     private static Seq<PointF> Columns(PlotPlane.Cartesian plane, float scale, Func<float, float> function) =>
-        toSeq(Prelude.Range(0, (int)MathF.Ceiling(plane.Plot.Width * scale)))
+        toSeq(Range(0, (int)MathF.Ceiling(plane.Plot.Width * scale)))
             .Map(column => plane.X.Value((column + 0.5f) / (plane.Plot.Width * scale)))
             .Map(input => plane.Point(input, function(input)));
 
@@ -327,7 +327,7 @@ public static class Plots {
         new(canvas.Enabled ? Ink(canvas, style.Paint) : canvas.Slots[PaintSlot.DisabledText],
             style.Switch(
                 canvas,
-                fill: static (_, fill) => (float?)fill.Alpha,
+                fill: static (_, fill) => fill.Alpha,
                 stroke: static (held, stroke) => held.Accessibility.IncreaseContrast ? null : (float?)stroke.Alpha));
 
     public static IO<Unit> Well(PlotCanvas canvas, RectangleF well) =>
@@ -344,7 +344,7 @@ public static class Plots {
 
     public static IO<Unit> Strip(PlotCanvas canvas, PlotPlane.Cartesian plane, Func<float, Color> color) =>
         IO.lift(Extent(new SizeF(plane.Plot.Width * canvas.Scale, 1f))).Bind(extent =>
-            use(() => Pixels(extent, toSeq(Prelude.Range(0, extent.Width)).Map(column => color(plane.X.Value((column + 0.5f) / extent.Width)).ToArgb())))
+            use(() => Pixels(extent, toSeq(Range(0, extent.Width)).Map(column => color(plane.X.Value((column + 0.5f) / extent.Width)).ToArgb())))
                 .Bind(bitmap => Raster(canvas, plane.Plot, bitmap))
                 .Bracket());
 
@@ -385,7 +385,7 @@ public static class Plots {
     }
 
     private static Seq<(PointF Tick, SizeF Size, string Text)> Shown(LabelSide side, Seq<(PointF Tick, SizeF Size, string Text)> labels) =>
-        toSeq(Prelude.Range(1, labels.Count))
+        toSeq(Range(1, labels.Count))
             .Filter(stride => stride < labels.Count && Nice(stride).Exists(step => step == stride))
             .Map(stride => labels.Map(static (label, index) => (Label: label, Index: index)).Filter(held => held.Index % stride == 0).Map(static held => held.Label))
             .Find(kept => kept.Zip(kept.Tail).ForAll(pair =>

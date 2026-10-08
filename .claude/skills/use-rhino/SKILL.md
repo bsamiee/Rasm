@@ -8,7 +8,7 @@ description: "Use when a task drives a Rhino document, a .3dm file, or a Grassho
 `rhino-mcp-platform` routes each call to a slot, one document of one Rhino process every session and the user share. The project hook runs each `run_python` script through `document.run` on its slot's `__rhino_doc__`, and scripts print records and `Faults` as results.
 
 [REFERENCES]:
-- [01]-[SETUP](references/setup.md): Listener recovery, direct listener calls, prompts and dialogs, exits, and relaunch
+- [01]-[SETUP](references/setup.md): Listener recovery, direct listener calls, prompts and dialogs, and exits
 - [02]-[FILES](references/files.md): `.3dm` reads on disk, saves, exports, conversions, imports, and headless documents
 - [03]-[OBJECTS](references/objects.md): Layers, objects, and selection
 - [04]-[VIEWS](references/views.md): Captures, display modes, saved states, and window captures
@@ -47,11 +47,12 @@ Each call leaves screen, pointer, keys, front application, other sessions' docum
 - Documents activate only while the user holds Rhino in front, a file `open -g` opens arriving active with Rhino behind
 - Prompt releases, saves, and closes run with Rhino behind
 - `capture`, `pdf`, `material`, `save`, `close`, and `Properties(material=)` return a `RhinoDoc` fault while no document is active
-- Temporary changes (color, setting, selection, `ViewportInfo(viewport)` camera, display mode) revert in their call's `finally`
+- Trial changes (color, setting, selection, `ViewportInfo(viewport)` camera, display mode) revert in their call's `finally`
 - Prompts and modal dialogs hold Rhino's UI thread for every call until the setup reference's release frees them
 - Trial table rows (hatch patterns, linetypes) go in a `RhinoDoc.CreateHeadless(None)` the same call disposes, user documents taking kept rows alone
 - Untitled documents of other sessions stay open and inactive, closing one destroys its session's work
 - Tasks close documents and canvases they opened, their working document last, and remove packages and files they added apart from their products
+- Host facts come from `docs/research/applications/rhino/` listings, a named fact or decompile, the installed assembly, then a `spawn_slot` document
 
 ## [02]-[START]
 
@@ -65,26 +66,27 @@ Tasks orient in order before any change:
 7. Record the working document's `serial`, `pid`, and `port`
 8. `describe(doc)` fields decide the next step:
 
-| [INDEX] | [FIELD]                           | [DECIDES]                                                                                     |
-| :-----: | :-------------------------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `units`, `tolerance`              | Every number in a script or macro is in model units                                           |
-|  [02]   | `active`                          | `command` and `render` refuse an inactive document, `close(doc)` and `open -g` reactivate one |
-|  [03]   | `prompt`                          | Command waiting in the process, released before any command                                   |
-|  [04]   | `layers`, `current_layer`         | Hierarchy new objects join                                                                    |
-|  [05]   | `selected`                        | Objects the user means by "this" or "these"                                                   |
-|  [06]   | `types`, `hidden`, `locked`       | Model-space counts, hidden objects answering `find(hidden=True)` alone                        |
-|  [07]   | `current_view`, `views`           | View the user looks at, names and cameras `capture` and `show` take, layout scales            |
-|  [08]   | `page_units`, `style`             | Paper units, and the annotation style new dimensions take                                     |
-|  [09]   | `named_views`, `named_cplanes`    | Views and construction planes a script restores by name                                       |
-|  [10]   | `named_positions`, `layer_states` | Placements `position` and layers `doc.NamedLayerStates.Restore` bring back                    |
-|  [11]   | `materials`                       | Physically based materials a `Properties(material=)` names                                    |
-|  [12]   | `path`, `modified`                | File `save(doc)` writes, `None` takes a path, `True` marks unsaved edits                      |
+| [INDEX] | [FIELD]                           | [DECIDES]                                                                          |
+| :-----: | :-------------------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `units`, `tolerance`              | Every number in a script or macro is in model units                                |
+|  [02]   | `active`                          | `command` and `render` refuse an inactive document                                 |
+|  [03]   | `prompt`                          | Command waiting in the process, released before any command                        |
+|  [04]   | `layers`, `current_layer`         | Hierarchy new objects join                                                         |
+|  [05]   | `selected`                        | Objects the user means by "this" or "these"                                        |
+|  [06]   | `types`, `hidden`, `locked`       | Model-space counts, hidden objects answering `find(hidden=True)` alone             |
+|  [07]   | `current_view`, `views`           | View the user looks at, names and cameras `capture` and `show` take, layout scales |
+|  [08]   | `page_units`, `style`             | Paper units, and the annotation style new dimensions take                          |
+|  [09]   | `named_views`, `named_cplanes`    | Views and construction planes a script restores by name                            |
+|  [10]   | `named_positions`, `layer_states` | Placements `position` and layers `doc.NamedLayerStates.Restore` bring back         |
+|  [11]   | `materials`                       | Physically based materials a `Properties(material=)` names                         |
+|  [12]   | `path`, `modified`                | File `save(doc)` writes, `None` takes a path, `True` marks unsaved edits           |
 
 Calls pass `slot`, a call without one running in the session's last-used slot, else in the user's first document:
 - `list_slots` before each writing step names the row on recorded `pid` and `port`, slot names and `adopted` changing over time
 - Ports a closed document frees pass to the next document while its row stays, `documents()` naming each port's listening serial
 - Scripts bind `RhinoDoc.FromRuntimeSerialNumber(<serial>)` in any slot, reaching documents with `port` `None` and reading `None` once one closed
-- `spawn_slot` gives an untitled scratch document in place of a template copy, launching Rhino 9 when none runs, and `close_slot` closes it
+- `spawn_slot` gives an untitled document in place of a template copy, launching Rhino 9 when none runs
+- `spawn_slot` documents close unsaved through a call that edits nothing setting `doc.Modified = False`, then `close_slot`
 - `Template Files/` sits in `~/Library/Application Support/McNeel/Rhinoceros/`
 - Template copies close unsaved from another slot through `doc.Modified = False` then `close(doc)` in one call
 

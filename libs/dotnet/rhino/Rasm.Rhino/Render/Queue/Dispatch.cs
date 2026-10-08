@@ -72,7 +72,7 @@ internal sealed partial class PackageFile {
         IO.lift(() => File.WriteAllBytes(paths[Job], JsonSerializer.SerializeToUtf8Bytes(JobMapper.ToJob(queue, paths[Copy]), JobContext.Default.QueueJob))));
 
     public static readonly PackageFile Schema = new(".json", Some("schema"), static (_, _, paths) =>
-        IO.lift(() => File.WriteAllText(paths[Schema], JsonSchemaExporter.GetJsonSchemaAsNode(JobContext.Default.QueueJob).ToJsonString(JobContext.Default.Options))));
+        IO.lift(() => File.WriteAllText(paths[Schema], JobContext.Default.QueueJob.GetJsonSchemaAsNode().ToJsonString(JobContext.Default.Options))));
 
     private readonly string _extension;
     private readonly Option<string> _part;
@@ -126,7 +126,7 @@ internal static class JobMapper {
 
     // --- [INBOUND]
     internal static IO<RenderQueue> FromJob(QueueJob job) =>
-        Callbacks.Each(toSeq(job.Entries).Map((entry, index) => Entry(entry).MapFail(error => new JobEntryRejected(index, error))))
+        Callbacks.Each(toSeq(job.Entries).Map(static (entry, index) => Entry(entry).MapFail(error => new JobEntryRejected(index, error))))
             .Map(static entries => new RenderQueue(entries));
 
     internal static Validation<Error, RenderRegion> Region(QueueJob.Region region) =>
@@ -224,7 +224,7 @@ public static class Dispatch {
     private static IO<HashMap<PackageFile, OutputPath>> Packed(RhinoDoc doc, QueuePlan plan, Option<QueueProgress> resumed, Destination package, LocalDateTime stamp) =>
         from queue in Queues.Resolve(doc, plan, resumed)
         from date in IO.lift(Conversions.Validated<NamePart, string, InvalidRhinoValue>(LocalDateTimePattern.ExtendedIso.Format(stamp.With(TimeAdjusters.TruncateToSecond))))
-        from names in IO.lift(toSeq(PackageFile.Items).Traverse(file => file.Name(date)).As().ToFin())
+        from names in IO.lift(toSeq(PackageFile.Items).Traverse(static file => file.Name(date)).As().ToFin())
         from placed in Destinations.Resolve(doc, package, names)
         let paths = toHashMap(toSeq(PackageFile.Items).Zip(placed, static (file, row) => (file, row.Path)))
         from written in toSeq(PackageFile.Items).TraverseM(file => file.Write(doc, queue, paths)).As()
@@ -249,11 +249,11 @@ public static class Dispatch {
                     "-g", "-b", string.Create(CultureInfo.InvariantCulture, $"com.mcneel.rhinoceros.{RhinoApp.ExeVersion}"),
                     "--env", $"{JobVariable}={job}", "--args", "-runscript=_NoEcho", $"_{command}",
                 },
-            }
+                UseShellExecute = false, }
             : Missing.Unless(Environment.ProcessPath, nameof(Environment.ProcessPath)).Map(path => new ProcessStartInfo(path) {
                 ArgumentList = { "/nosplash", $"/runscript=_NoEcho _{command}" },
                 Environment = { [JobVariable] = job },
-            });
+                UseShellExecute = false, });
 
     private static IO<Unit> Quit(QueueContext context) =>
         from flushed in IO.lift(PlugIn.FlushSettingsSavedQueue)
@@ -285,7 +285,7 @@ public static class Dispatch {
     private static IO<Unit> Run(QueueContext context, string path) =>
         from job in Read(path)
         from prior in QueueProgress.Read(context.Record)
-        from doc in Documents.WithDocument(new DocumentSource.Opened(job.Copy), IO.pure<RhinoDoc>).Post()
+        from doc in Documents.WithDocument(new DocumentSource.Opened(job.Copy), IO.pure).Post()
         from ran in Queues.Run(context, doc, job.Queue, Some(path), prior.Filter(record => record.Job == Some(path) && !record.Succeeded))
         select unit;
 
@@ -299,7 +299,7 @@ public static class Dispatch {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class QueueJobCommand(IPlugInSink sink, Guid id, string englishName) : HostCommand(sink, id, englishName, None) {
-    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
+    protected override IO<Unit> RunAsync(RhinoDoc doc, RunMode mode, CallbackSite site) =>
         IPlugInRendering.Served(((IPlugInRendering)PlugIn).QueueContext, nameof(IPlugInRendering.QueueContext))
             .Bind(Dispatch.Job)
             .Map(static _ => unit);

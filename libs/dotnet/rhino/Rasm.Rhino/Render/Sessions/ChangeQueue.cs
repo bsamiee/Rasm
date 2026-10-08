@@ -6,7 +6,6 @@ using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
-using ChangeQueue = Rhino.Render.ChangeQueue;
 
 namespace Rasm.Rhino.Render.Sessions;
 
@@ -68,14 +67,14 @@ public sealed record SceneClip(Guid Id, bool IsEnabled, Plane Plane, Seq<Guid> V
 
 public sealed record SceneDisplay(Guid Id, int RealtimeRenderPasses);
 
-public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChanges, bool OriginalObjects, Option<ChangeQueue.ChangeQueue.BakingFunctions> Bake) {
+public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChanges, bool OriginalObjects, Option<global::Rhino.Render.ChangeQueue.ChangeQueue.BakingFunctions> Bake) {
     public static QueuePolicy Viewport { get; } = new(RespectDisplayAttributes: true, NotifyChanges: true, OriginalObjects: false, Bake: None);
     public static QueuePolicy Capture { get; } = Viewport with { NotifyChanges = false };
     public static QueuePolicy Render { get; } = Capture with { RespectDisplayAttributes = false };
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class DefinedChangeQueue : ChangeQueue.ChangeQueue {
+public sealed class DefinedChangeQueue : global::Rhino.Render.ChangeQueue.ChangeQueue {
     // --- [ACQUISITION]
     private readonly IPlugInSink sink;
     private readonly QueuePolicy policy;
@@ -127,7 +126,7 @@ public sealed class DefinedChangeQueue : ChangeQueue.ChangeQueue {
     protected override void ApplyLinearWorkflowChanges(LinearWorkflow lw) =>
         Collect(IO.lift(() => new SceneBatch { Workflow = Some(new LinearWorkflow(lw)) }));
 
-    protected override void ApplyDynamicObjectTransforms(List<ChangeQueue.DynamicObjectTransform> dynamicObjectTransforms) =>
+    protected override void ApplyDynamicObjectTransforms(List<global::Rhino.Render.ChangeQueue.DynamicObjectTransform> dynamicObjectTransforms) =>
         Collect(IO.lift(() => new SceneBatch { Transforms = new(toSeq(dynamicObjectTransforms).Map(static moved => (moved.MeshInstanceId, moved.Transform)), tryAdd: false) }));
 
     protected override void ApplyDynamicLightChanges(List<Light> dynamicLightChanges) =>
@@ -142,13 +141,13 @@ public sealed class DefinedChangeQueue : ChangeQueue.ChangeQueue {
         Collect(IO.lift(() => new SceneBatch { Environments = [((RenderSettings.EnvironmentUsage)uint.TrailingZeroCount((uint)usage), EnvironmentIdForUsage(usage))] }));
 #pragma warning restore CS0618
 
-    protected override void ApplySkylightChanges(ChangeQueue.Skylight skylight) =>
+    protected override void ApplySkylightChanges(global::Rhino.Render.ChangeQueue.Skylight skylight) =>
         Collect(IO.lift(() => new SceneBatch { Skylight = Some(SceneMapper.ToSkylight(skylight)) }));
 
     protected override void ApplySunChanges(Light sun) =>
         Collect(Copies.Duplicate(sun).Map(static copy => new SceneBatch { Sun = Some(copy) }));
 
-    protected override void ApplyLightChanges(List<ChangeQueue.Light> lightChanges) =>
+    protected override void ApplyLightChanges(List<global::Rhino.Render.ChangeQueue.Light> lightChanges) =>
         Collect(
             from converted in IO.lift(() => Optional(GetQueueView())).Bracket(
                 Use: view => IO.lift(() => view.Iter(held => toSeq(lightChanges)
@@ -158,15 +157,15 @@ public sealed class DefinedChangeQueue : ChangeQueue.ChangeQueue {
             from rows in DisposalOps.AcquireAll(toSeq(lightChanges).Map(LightState), static rows => DisposalOps.Release(rows.Choose(static row => row.State.Map(static light => light.Data))))
             select new SceneBatch { Lights = new(rows, tryAdd: false) });
 
-    private static IO<(Guid Id, Option<SceneLight> State)> LightState(ChangeQueue.Light light) =>
-        light.ChangeType == ChangeQueue.Light.Event.Deleted
+    private static IO<(Guid Id, Option<SceneLight> State)> LightState(global::Rhino.Render.ChangeQueue.Light light) =>
+        light.ChangeType == global::Rhino.Render.ChangeQueue.Light.Event.Deleted
             ? IO.pure((light.Id, Option<SceneLight>.None))
             : Copies.Duplicate(light.Data).Map(copy => (light.Id, Some(SceneMapper.ToLight(light, copy))));
 
-    protected override void ApplyMaterialChanges(List<ChangeQueue.Material> mats) =>
+    protected override void ApplyMaterialChanges(List<global::Rhino.Render.ChangeQueue.Material> mats) =>
         Collect(IO.lift(() => new SceneBatch { Materials = new(toSeq(mats).Map(static material => (material.MeshInstanceId, material.Id)), tryAdd: false) }));
 
-    protected override void ApplyMeshChanges(Guid[] deleted, List<ChangeQueue.Mesh> added) =>
+    protected override void ApplyMeshChanges(Guid[] deleted, List<global::Rhino.Render.ChangeQueue.Mesh> added) =>
         Collect(DisposalOps.AcquireAll(
                 toSeq(added).Map(static mesh => Copies.Duplicate(mesh.SingleMesh).Map(copy => SceneMapper.ToMesh(mesh, mesh.Id(), copy))),
                 static meshes => DisposalOps.Release(meshes.Map(static held => held.Mesh)))
@@ -174,23 +173,23 @@ public sealed class DefinedChangeQueue : ChangeQueue.ChangeQueue {
                 Meshes = new(toSeq(deleted).Map(static id => (id, Option<SceneMesh>.None)).Concat(meshes.Map(static mesh => (mesh.Id, Some(mesh)))), tryAdd: false),
             }));
 
-    protected override void ApplyMeshInstanceChanges(List<uint> deleted, List<ChangeQueue.MeshInstance> addedOrChanged) =>
+    protected override void ApplyMeshInstanceChanges(List<uint> deleted, List<global::Rhino.Render.ChangeQueue.MeshInstance> addedOrChanged) =>
         Collect(toSeq(addedOrChanged).TraverseM(Instance).As().Map(instances => new SceneBatch {
             Instances = new(toSeq(deleted).Map(static id => (id, Option<SceneInstance>.None)).Concat(instances.Map(static instance => (instance.InstanceId, Some(instance)))), tryAdd: false),
         }));
 
-    private static IO<SceneInstance> Instance(ChangeQueue.MeshInstance instance) =>
+    private static IO<SceneInstance> Instance(global::Rhino.Render.ChangeQueue.MeshInstance instance) =>
         IO.lift(() => toSeq(instance.Ancestry)).Bracket(Use: _ => IO.lift(() => SceneMapper.ToInstance(instance)), Fin: DisposalOps.Release);
 
-    protected override void ApplyGroundPlaneChanges(ChangeQueue.GroundPlane gp) =>
+    protected override void ApplyGroundPlaneChanges(global::Rhino.Render.ChangeQueue.GroundPlane gp) =>
         Collect(IO.lift(() => new SceneBatch { Ground = Some(SceneMapper.ToGround(gp)) }));
 
-    protected override void ApplyClippingPlaneChanges(Guid[] deleted, List<ChangeQueue.ClippingPlane> addedOrModified) =>
+    protected override void ApplyClippingPlaneChanges(Guid[] deleted, List<global::Rhino.Render.ChangeQueue.ClippingPlane> addedOrModified) =>
         Collect(IO.lift(() => new SceneBatch {
             ClippingPlanes = new(toSeq(deleted).Map(static id => (id, Option<SceneClip>.None)).Concat(toSeq(addedOrModified).Map(SceneMapper.ToClip).Map(static clip => (clip.Id, Some(clip)))), tryAdd: false),
         }));
 
-    protected override void ApplyDynamicClippingPlaneChanges(List<ChangeQueue.ClippingPlane> changed) =>
+    protected override void ApplyDynamicClippingPlaneChanges(List<global::Rhino.Render.ChangeQueue.ClippingPlane> changed) =>
         Collect(IO.lift(() => new SceneBatch { ClippingPlanes = new(toSeq(changed).Map(SceneMapper.ToClip).Map(static clip => (clip.Id, Some(clip))), tryAdd: false) }));
 
     protected override void ApplyDisplayPipelineAttributesChanges(DisplayPipelineAttributes displayPipelineAttributes) =>
@@ -219,32 +218,32 @@ public sealed class DefinedChangeQueue : ChangeQueue.ChangeQueue {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 internal static partial class SceneMapper {
-    public static partial SceneLight ToLight(ChangeQueue.Light light, Light data);
+    public static partial SceneLight ToLight(global::Rhino.Render.ChangeQueue.Light light, Light data);
 
-    [MapProperty(nameof(ChangeQueue.Mesh.Object), nameof(SceneMesh.Original), Use = nameof(Original))]
-    public static partial SceneMesh ToMesh(ChangeQueue.Mesh source, Guid id, Mesh mesh);
+    [MapProperty(nameof(global::Rhino.Render.ChangeQueue.Mesh.Object), nameof(SceneMesh.Original), Use = nameof(Original))]
+    public static partial SceneMesh ToMesh(global::Rhino.Render.ChangeQueue.Mesh source, Guid id, Mesh mesh);
 
-    [MapProperty(nameof(ChangeQueue.MeshInstance.ObjectAttributes), nameof(SceneInstance.Attributes), Use = nameof(Owned))]
-    public static partial SceneInstance ToInstance(ChangeQueue.MeshInstance instance);
+    [MapProperty(nameof(global::Rhino.Render.ChangeQueue.MeshInstance.ObjectAttributes), nameof(SceneInstance.Attributes), Use = nameof(Owned))]
+    public static partial SceneInstance ToInstance(global::Rhino.Render.ChangeQueue.MeshInstance instance);
 
-    public static partial SceneGround ToGround(ChangeQueue.GroundPlane ground);
+    public static partial SceneGround ToGround(global::Rhino.Render.ChangeQueue.GroundPlane ground);
 
-    public static partial SceneSkylight ToSkylight(ChangeQueue.Skylight skylight);
+    public static partial SceneSkylight ToSkylight(global::Rhino.Render.ChangeQueue.Skylight skylight);
 
-    [MapProperty(nameof(ChangeQueue.ClippingPlane.ViewIds), nameof(SceneClip.ViewIds), Use = nameof(@Conversions.Rows))]
-    public static partial SceneClip ToClip(ChangeQueue.ClippingPlane plane);
+    [MapProperty(nameof(global::Rhino.Render.ChangeQueue.ClippingPlane.ViewIds), nameof(SceneClip.ViewIds), Use = nameof(@Conversions.Rows))]
+    public static partial SceneClip ToClip(global::Rhino.Render.ChangeQueue.ClippingPlane plane);
 
     public static partial SceneDisplay ToDisplay(DisplayPipelineAttributes attributes);
 
-    private static partial SceneMapping ToMapping(ChangeQueue.MappingChannel channel);
+    private static partial SceneMapping ToMapping(global::Rhino.Render.ChangeQueue.MappingChannel channel);
 
-    private static partial SceneAncestor ToAncestor(ChangeQueue.MeshInstance.AncestryRecord record);
-
-    [UserMapping]
-    private static Seq<SceneMapping> Mappings(ChangeQueue.MappingChannel?[]? channels) => Conversions.Rows(channels).Map(ToMapping).Strict();
+    private static partial SceneAncestor ToAncestor(global::Rhino.Render.ChangeQueue.MeshInstance.AncestryRecord record);
 
     [UserMapping]
-    private static Seq<SceneAncestor> Ancestors(ChangeQueue.MeshInstance.AncestryRecord?[]? records) => Conversions.Rows(records).Map(ToAncestor).Strict();
+    private static Seq<SceneMapping> Mappings(global::Rhino.Render.ChangeQueue.MappingChannel?[]? channels) => Conversions.Rows(channels).Map(ToMapping).Strict();
+
+    [UserMapping]
+    private static Seq<SceneAncestor> Ancestors(global::Rhino.Render.ChangeQueue.MeshInstance.AncestryRecord?[]? records) => Conversions.Rows(records).Map(ToAncestor).Strict();
 
     [UserMapping]
     private static Option<ObjectAttributes> Copied(ObjectAttributes? attributes) => Optional(attributes).Map(static held => held.Duplicate());

@@ -4,6 +4,7 @@ using Rasm.Rhino.Persistence.Stores;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Objects;
 
@@ -22,57 +23,45 @@ public sealed record ClipParticipation(Seq<Guid> ObjectIds, Seq<int> LayerIndice
 
 public sealed record ClipSettings(Override<ClipParticipation> Participation, Override<ClipDepth> Depth, Override<ComponentRef<DimensionStyle>> DimensionStyle) {
     public static ClipSettings Unchanged { get; } = new(new Override<ClipParticipation>.Keep(), new Override<ClipDepth>.Keep(), new Override<ComponentRef<DimensionStyle>>.Keep());
-
-    public bool Changes => Participation.Changes || Depth.Changes || DimensionStyle.Changes;
 }
 
-public sealed record ClipEdit(Seq<ViewportSet> Attach, Seq<ViewportSet> Detach, ClipSettings Settings) {
-    public bool Changes => !Attach.IsEmpty || !Detach.IsEmpty || Settings.Changes;
-}
+public sealed record ClipEdit(Seq<ViewportSet> Attach, Seq<ViewportSet> Detach, ClipSettings Settings);
 
 public sealed record ClipSpec(PlaneSurface Surface, ViewportSet Viewports, ClipSettings Settings, Option<ObjectAttributes> Attributes);
 
-public sealed record ClipState(Seq<Guid> ViewportIds, Option<ClipParticipation> Participation, Option<ClipDepth> Depth, Option<Guid> DimensionStyleId) {
-    public static Fin<ClipState> Of(ClippingPlaneSurface surface) {
-        surface.GetClipParticipation(out IEnumerable<Guid> objectIds, out IEnumerable<int> layerIndices, out bool isExclusionList);
-        return Callbacks.Found(surface.PlaneDepthEnabled, surface.PlaneDepth)
-            .Traverse(Conversions.Validated<ClipDepth, double, InvalidRhinoValue>)
-            .As()
-            .Map(depth => new ClipState(
-                toSeq(surface.ViewportIds()),
-                Callbacks.Found(surface.ParticipationListsEnabled, new ClipParticipation(toSeq(objectIds), toSeq(layerIndices), isExclusionList)),
-                depth,
-                Conversions.Present(surface.DimensionStyleId)));
-    }
-}
+public sealed record ClipState(Seq<Guid> ViewportIds, Option<ClipParticipation> Participation, Option<ClipDepth> Depth, Option<Guid> DimensionStyleId);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ClippingPlanes {
     // --- [CREATION]
     public static IO<Guid> Add(RhinoDoc doc, ClipSpec spec) =>
-        from style in Styled(doc, spec.Settings.DimensionStyle)
-        from id in Scoped(doc, Seq(spec.Viewports), rows =>
-            (from surface in use(() => new ClippingPlaneSurface(spec.Surface))
-             from staged in IO.lift(() => Staged(surface, rows, Seq<ViewportRef>(), spec.Settings, style))
-             from added in TableOps.Add(doc, new GeometryPair(surface, spec.Attributes), None, reference: false)
-             select added).Bracket())
-        select id;
+        (from style in Styled(doc, spec.Settings.DimensionStyle)
+         from rows in Acquire(doc, Seq(spec.Viewports))
+         from id in (from surface in use(() => new ClippingPlaneSurface(spec.Surface))
+                     from staged in IO.lift(() => Staged(surface, rows, Seq<ViewportRef>(), spec.Settings, style))
+                     from added in TableOps.Add(doc, new GeometryPair(surface, spec.Attributes), None, reference: false)
+                     select added).Bracket()
+         select id).Bracket();
 
     // --- [EDITS]
     public static IO<Seq<Guid>> Edit(RhinoDoc doc, ObjectTarget planes, ClipEdit edit) =>
-        edit.Changes
-            ? from style in Styled(doc, edit.Settings.DimensionStyle)
-              from found in planes.Objects(doc)
-              from edited in Scoped(doc, edit.Attach, attach => Scoped(doc, edit.Detach, detach => Apply(doc, found, attach, detach, edit.Settings, style)))
-              select edited
+        !edit.Attach.IsEmpty || !edit.Detach.IsEmpty || edit.Settings.Participation.Changes || edit.Settings.Depth.Changes || edit.Settings.DimensionStyle.Changes
+            ? (from style in Styled(doc, edit.Settings.DimensionStyle)
+               from found in planes.Objects(doc)
+               from attach in Acquire(doc, edit.Attach)
+               from edited in (from detach in Acquire(doc, edit.Detach)
+                               from committed in Apply(doc, found, attach, detach, edit.Settings, style)
+                               select committed).Bracket()
+               select edited).Bracket()
             : IO.pure(Seq<Guid>());
 
     public static IO<Seq<Guid>> Prune(RhinoDoc doc, Seq<ViewportSet> viewports) =>
-        Scoped(doc, viewports, rows =>
-            IO.lift(() => toSeq<RhinoObject>(rows.Bind(row => toSeq(doc.Objects.FindClippingPlanesForViewport(row.Viewport, includeHidden: true))).DistinctBy(static plane => plane.Id)).Strict())
-                .Bind(planes => Apply(doc, planes, Seq<ViewportRef>(), rows, ClipSettings.Unchanged, new Override<Guid>.Keep())));
+        (from rows in Acquire(doc, viewports)
+         from planes in IO.lift(() => toSeq(rows.Bind(row => toSeq(doc.Objects.FindClippingPlanesForViewport(row.Viewport, includeHidden: true))).DistinctBy(static plane => plane.Id)).Strict())
+         from pruned in Apply(doc, planes, Seq<ViewportRef>(), rows, ClipSettings.Unchanged, style: null)
+         select pruned).Bracket();
 
-    private static IO<Seq<Guid>> Apply(RhinoDoc doc, Seq<RhinoObject> found, Seq<ViewportRef> attach, Seq<ViewportRef> detach, ClipSettings settings, Override<Guid> style) =>
+    private static IO<Seq<Guid>> Apply<TObject>(RhinoDoc doc, Seq<TObject> found, Seq<ViewportRef> attach, Seq<ViewportRef> detach, ClipSettings settings, Guid? style) where TObject : RhinoObject =>
         found.Map(static (target, index) => (Target: target, Index: index)).TraverseM(row => Editable(doc, row.Target, row.Index,
             from plane in ObjectTarget.Resolve<ClippingPlaneObject, ClippingPlaneSurface>(doc, row.Target.Id)
             from staged in IO.lift(() => Staged(plane.Geometry, attach, detach, settings, style))
@@ -88,44 +77,46 @@ public static class ClippingPlanes {
             ObjectMode.Normal or ObjectMode.InstanceDefinitionObject => body,
         };
 
-    private static void Staged(ClippingPlaneSurface surface, Seq<ViewportRef> attach, Seq<ViewportRef> detach, ClipSettings settings, Override<Guid> style) {
+    private static void Staged(ClippingPlaneSurface surface, Seq<ViewportRef> attach, Seq<ViewportRef> detach, ClipSettings settings, Guid? style) {
         _ = attach.Iter(row => surface.AddClipViewportId(row.Viewport.Id));
         _ = detach.Iter(row => surface.RemoveClipViewportId(row.Viewport.Id));
-        settings.Participation.Switch(surface,
-            keep: static (_, _) => { },
-            set: static (target, set) => {
-                target.ParticipationListsEnabled = true;
-                target.SetClipParticipation(set.Value.ObjectIds, set.Value.LayerIndices, set.Value.IsExclusionList);
-            },
-            clear: static (target, _) => target.ParticipationListsEnabled = false);
-        settings.Depth.Switch(surface,
-            keep: static (_, _) => { },
-            set: static (target, set) => {
-                target.PlaneDepthEnabled = true;
-                target.PlaneDepth = set.Value;
-            },
-            clear: static (target, _) => target.PlaneDepthEnabled = false);
-        style.Switch(surface,
-            keep: static (_, _) => { },
-            set: static (target, set) => target.DimensionStyleId = set.Value,
-            clear: static (target, _) => target.DimensionStyleId = Guid.Empty);
+        ClipMapper.Update((
+            settings.Participation.Map<bool?>(keep: null, set: true, clear: false),
+            settings.Depth.Map<bool?>(keep: null, set: true, clear: false),
+            settings.Depth.Applied(None).Map(static depth => (double)depth).ToNullable(), style), surface);
+        _ = settings.Participation.Applied(None).Iter(value => surface.SetClipParticipation(value.ObjectIds, value.LayerIndices, value.IsExclusionList));
     }
 
     // --- [READS]
     public static IO<ClipState> Read(RhinoDoc doc, Guid planeId) =>
-        ObjectTarget.Resolve<ClippingPlaneObject, ClippingPlaneSurface>(doc, planeId).Bind(static plane => IO.lift(() => ClipState.Of(plane.Geometry)));
+        from plane in ObjectTarget.Resolve<ClippingPlaneObject, ClippingPlaneSurface>(doc, planeId)
+        from state in IO.lift(() => {
+            ClippingPlaneSurface surface = plane.Geometry;
+            surface.GetClipParticipation(out IEnumerable<Guid> objectIds, out IEnumerable<int> layerIndices, out bool isExclusionList);
+            return from depth in Callbacks.Found(surface.PlaneDepthEnabled, surface.PlaneDepth).Traverse(Conversions.Validated<ClipDepth, double, InvalidRhinoValue>).As()
+                   select new ClipState(toSeq(surface.ViewportIds()),
+                       Callbacks.Found(surface.ParticipationListsEnabled, new ClipParticipation(toSeq(objectIds), toSeq(layerIndices), isExclusionList)),
+                       depth, Conversions.Present(surface.DimensionStyleId));
+        })
+        select state;
 
     public static IO<Seq<ClippingPlaneObject>> Clipping(RhinoDoc doc, ViewportTarget target) =>
-        use(Viewports.ResolveViewport(doc, target)).Bind(row => IO.lift(() => toSeq(doc.Objects.FindClippingPlanesForViewport(row.Viewport, includeHidden: true)))).Bracket();
+        (from row in use(Viewports.ResolveViewport(doc, target))
+         from planes in IO.lift(() => toSeq(doc.Objects.FindClippingPlanesForViewport(row.Viewport, includeHidden: true)))
+         select planes).Bracket();
 
-    private static IO<A> Scoped<A>(RhinoDoc doc, Seq<ViewportSet> sets, Func<Seq<ViewportRef>, IO<A>> body) =>
-        DisposalOps.AcquireAll(sets.Map(set => Viewports.ResolveViewports(doc, set)), static held => DisposalOps.Release(held.Flatten()))
-            .Map(static held => held.Flatten())
-            .Bracket(Use: body, Fin: DisposalOps.Release);
+    private static IO<Seq<ViewportRef>> Acquire(RhinoDoc doc, Seq<ViewportSet> sets) =>
+        use(DisposalOps.AcquireAll(sets.Map(set => Viewports.ResolveViewports(doc, set)), static held => DisposalOps.Release(held.Flatten()))
+            .Map(static held => held.Flatten()), DisposalOps.Release);
 
-    private static IO<Override<Guid>> Styled(RhinoDoc doc, Override<ComponentRef<DimensionStyle>> style) =>
+    private static IO<Guid?> Styled(RhinoDoc doc, Override<ComponentRef<DimensionStyle>> style) =>
         style.Switch(doc,
-            keep: static (_, _) => IO.pure<Override<Guid>>(new Override<Guid>.Keep()),
-            set: static (document, set) => TableOps.Find(document.DimStyles, set.Value, includeDeleted: false).Map(static row => (Override<Guid>)new Override<Guid>.Set(row.Id)),
-            clear: static (_, _) => IO.pure<Override<Guid>>(new Override<Guid>.Clear()));
+            keep: static (_, _) => IO.pure<Guid?>(value: null),
+            set: static (document, set) => TableOps.Find(document.DimStyles, set.Value, includeDeleted: false).Map(static row => (Guid?)row.Id),
+            clear: static (_, _) => IO.pure<Guid?>(Guid.Empty));
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source, AllowNullPropertyAssignment = false)]
+internal static partial class ClipMapper {
+    internal static partial void Update((bool? ParticipationListsEnabled, bool? PlaneDepthEnabled, double? PlaneDepth, Guid? DimensionStyleId) settings, ClippingPlaneSurface surface);
 }

@@ -17,9 +17,9 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Viewers;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record StageInput(IO<Option<PixelFrame>> Read, Gamut Working, Rasm.Imaging.Tone.Formations.Display Display, OutputDepth Depth, Option<FramePicker> Pick);
+public sealed record StageInput(IO<Option<PixelFrame>> Read, Gamut Working, Imaging.Tone.Formations.Display Display, OutputDepth Depth, Option<FramePicker> Pick);
 
-public sealed record TileSource(IO<Option<PixelExtent>> Frame, Func<PixelExtent, IO<Option<PixelFrame>>> Read, Rasm.Imaging.ColorManagement.Transfer Encoding, IO<Option<string>> File);
+public sealed record TileSource(IO<Option<PixelExtent>> Frame, Func<PixelExtent, IO<Option<PixelFrame>>> Read, Imaging.ColorManagement.Transfer Encoding, IO<Option<string>> File);
 
 public sealed record FramePane(
     FrameSide Current,
@@ -67,13 +67,13 @@ public static partial class PreviewRows {
         let site = new CallbackSite(scope.Sink, typeof(PreviewRows), nameof(Tile))
         from acquired in DisposalOps.AcquireAll(
             Seq(IO.pure<IDisposable>(new Disposal<Atom<(TileState Before, TileState After)>>(held, cell => _ = Callbacks.Answer(DisposalOps.Release(cell.Value.After.Owned), static () => unit, site))),
-                Subscriptions.Attach<EventHandler<MouseEventArgs>>(
+                Subscriptions.Attach(
                     h => view.MouseDown += h, h => view.MouseDown -= h,
                     Callbacks.Handler<MouseEventArgs>(e => Swapped(held, state => state with { Press = Callbacks.Found(e.Buttons == MouseButtons.Primary, e.Location) }).Map(static _ => unit), site)),
-                Subscriptions.Attach<EventHandler<MouseEventArgs>>(
+                Subscriptions.Attach(
                     h => view.MouseMove += h, h => view.MouseMove -= h,
                     Callbacks.Handler<MouseEventArgs>(e => Dragged(view, source, held, e), site)),
-                Subscriptions.Attach<EventHandler<MouseEventArgs>>(
+                Subscriptions.Attach(
                     h => view.MouseUp += h, h => view.MouseUp -= h,
                     Callbacks.Handler<MouseEventArgs>(_ => Swapped(held, static state => state with { Press = None }).Map(static _ => unit), site)),
                 FrameClocks.Sample(view, Stepped(view, source, held), site)),
@@ -186,7 +186,7 @@ public static partial class PreviewRows {
                         from taken in when(on && Owned(next, take), edit.Take(next, Into(take, lens))).As()
                         select taken,
                     site),
-                held => show(held.Filter(shown).Map(record => (@case, value(lens.Get(record))))),
+                held => show(held.Filter(shown).Map(static record => (@case, value(lens.Get(record))))),
                 scope, site)
             .Map(static bound => (bound.Edit.Shown, bound.Release));
 
@@ -271,15 +271,15 @@ public static partial class PreviewRows {
 
     private static Seq<IO<IDisposable>> Picking(FramePicker picker, uint serial, FrameView view, CallbackSite site) =>
         Seq(picker.Hold(serial, view),
-            Subscriptions.Attach<EventHandler<Edit<FrameEdit>>>(
+            Subscriptions.Attach(
                 h => view.Edited += h, h => view.Edited -= h,
                 Callbacks.Handler<Edit<FrameEdit>>(edit => PickedPixel(edit).Map(pixel => picker.Picked(serial, pixel)).IfNone(IO.pure(unit)), site)));
 
     private static Option<System.Drawing.Point> PickedPixel(Edit<FrameEdit> edit) =>
-        edit.Switch<Option<System.Drawing.Point>>(
+        edit.Switch(
             preview: static _ => None,
             step: static _ => None,
-            commit: static commit => commit.Value.Switch<Option<System.Drawing.Point>>(
+            commit: static commit => commit.Value.Switch(
                 areaEdited: static _ => None, quadEdited: static _ => None, pixelPicked: static picked => Some(picked.Pixel)),
             cancel: static _ => None);
 
@@ -298,10 +298,10 @@ public static partial class PreviewRows {
             | Seq(own, linked).Find(static set => !set.IsEmpty).Map(static set => ((FrameOverlay)new FrameOverlay.MaskSet(set), Option<FrameEdit>.None))))
         from pointed in when(
             tick.After.Hovered != tick.Before.Hovered,
-            link.Match(Some: held => held.Pointer.SwapIO(_ => tick.After.Hovered).Map(static _ => unit), None: static () => IO.pure(unit))).As()
+            link.Match(Some: static held => held.Pointer.SwapIO(static _ => tick.After.Hovered).Map(static _ => unit), None: static () => IO.pure(unit))).As()
         from zoomed in when(
             tick.After.Zoom != tick.Before.Zoom,
-            IO.lift(() => readout.Text = tick.After.Zoom.Match(Some: static held => ((float)held).ToString("P0", RowText.Culture), None: static () => string.Empty)).Map(static _ => unit)).As()
+            IO.lift(() => readout.Text = tick.After.Zoom.Match(Some: static held => ((float)held).ToString("P0", RowText.Culture), None: static () => "")).Map(static _ => unit)).As()
         from overlaid in when(
             tick.After.Overlay != tick.Before.Overlay,
             view.Overlay(tick.After.Overlay.Map(static held => held.Case))

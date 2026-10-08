@@ -31,12 +31,12 @@ public sealed record OverrideScope(RhinoDoc Document, BindingGroup Group, PlugIn
 // --- [SERVICES] ------------------------------------------------------------------------
 [Guid("1E61FAC0-CB0C-4245-A299-03464E5F6EDC")]
 internal sealed class ClayMeshProvider(PlugIn plugIn, IPlugInSink sink, uint serial, RenderMaterial clay) : DefinedMeshProvider(plugIn, sink, "Clay") {
-    protected override IO<bool> Provides(MeshRequest request, RhinoDoc document, Guid objectId) =>
-        IO.lift(() => request.Display.IsNone && document.RuntimeSerialNumber == serial);
+    protected override IO<(bool Provides, Flags Flags)> Provides(MeshRequest request, RhinoDoc document, Guid objectId) =>
+        IO.lift(() => (request.Display.IsNone && document.RuntimeSerialNumber == serial, request.Flags));
 
     protected override IO<MeshBuild> Build(MeshRequest request, RhinoDoc document, Guid objectId, Seq<InstanceObject> ancestry, Seq<Instance> previous) =>
         IO.lift(() => previous.Iter(instance => (instance.Material, instance.IsForcedMaterial) = (clay, true)))
-            .Map(_ => new MeshBuild(previous, ContentKey.Of(KeyDomain.RenderMeshes, stream => stream.Integer(clay.RenderHash)), Incomplete: false));
+            .Map(_ => new MeshBuild(previous, ContentKey.Of(KeyDomain.RenderMeshes, stream => stream.Integer(clay.RenderHash)), Flags: request.Flags));
 }
 
 public static class RenderOverrides {

@@ -6,52 +6,52 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union]
-public abstract partial record PythonOp {
-    public sealed record ExecuteScript(string Script) : PythonOp;
-
-    public sealed record ExecuteFile(string Path) : PythonOp;
-
-    public sealed record ExecuteFileInScope(string Path) : PythonOp;
-
-    public sealed record Execute(PythonCompiledCode Code) : PythonOp;
-}
-
 public sealed record NodeResult(Seq<(string Name, Option<object> Value)> Outputs, Seq<string> Warnings);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
 public static class Scripts {
     // --- [PYTHON]
     public static IO<PythonScript> Engine(RhinoDoc doc, HashMap<string, object?> variables) =>
         from engine in IO.lift(static () => Missing.Unless(PythonScript.Create(), nameof(PythonScript.Create)))
-        from _ in IO.lift(() => engine.SetupScriptContext(doc))
-        from __ in IO.lift(() => variables.Iter(engine.SetVariable))
+        from mapped in IO.lift(() => Context(doc, engine))
+        from configured in IO.lift(() => engine.SetupScriptContext(doc))
+        from bound in IO.lift(() => variables.Iter(engine.SetVariable))
         select engine;
 
-    public static IO<Unit> Run(PythonScript engine, PythonOp op) =>
-        Raising(engine, IO.lift(() => op.Switch<PythonScript, Fin<Unit>>(
-            engine,
-            executeScript: static (scope, run) => Refused.Unless(scope.ExecuteScript(run.Script), nameof(PythonScript.ExecuteScript)),
-            executeFile: static (scope, run) => Exchange.ExistingPath(run.Path).Bind(path => Refused.Unless(scope.ExecuteFile(path), nameof(PythonScript.ExecuteFile))),
-            executeFileInScope: static (scope, run) =>
-                Exchange.ExistingPath(run.Path).Bind(path => Refused.Unless(scope.ExecuteFileInScope(path), nameof(PythonScript.ExecuteFileInScope))),
-            execute: static (scope, run) => fun<PythonScript>(run.Code.Execute)(scope))));
+    public static IO<Unit> Run(PythonScript engine, Either<string, PythonCompiledCode> source) =>
+        Raising(engine, source.Match(
+            Left: script => IO.lift(() => Refused.Unless(engine.ExecuteScript(script), nameof(PythonScript.ExecuteScript))),
+            Right: code => IO.lift(() => code.Execute(engine))));
+
+    public static IO<Unit> RunFile(PythonScript engine, string path, bool inScope) =>
+        Raising(engine,
+            from existing in IO.lift(() => Exchange.ExistingPath(path))
+            from ran in IO.lift(() => Refused.Unless(
+                inScope ? engine.ExecuteFileInScope(existing) : engine.ExecuteFile(existing),
+                inScope ? nameof(PythonScript.ExecuteFileInScope) : nameof(PythonScript.ExecuteFile)))
+            select ran);
 
     public static IO<Option<object>> EvaluateExpression(PythonScript engine, string statements, string expression) =>
-        Raising(engine, IO.lift(() => Optional(engine.EvaluateExpression(statements, expression))));
+        Raising(engine,
+            from configured in IO.lift(() => engine.SetupScriptContext(engine.ScriptContextDoc))
+            from answer in IO.lift(() => Optional(engine.EvaluateExpression(statements, expression)))
+            select answer);
 
     public static IO<PythonCompiledCode> Compile(PythonScript engine, string script) =>
         Raising(engine, IO.lift(() => Optional(engine.Compile(script)).ToFin(new Refused(nameof(PythonScript.Compile)))));
 
     public static IO<Option<object>> GetVariable(PythonScript engine, string name) =>
-        IO.lift(() => engine.ContainsVariable(name) ? Optional(engine.GetVariable(name)) : None);
+        IO.lift(() => Optional(engine.GetVariable(name)));
 
     private static IO<T> Raising<T>(PythonScript engine, IO<T> call) =>
         call | @catch(static error => error.IsExceptional, error => IO.fail<T>(new ScriptRaised(engine.GetStackTraceFromException(error.ToException()), error)));
 
     // --- [RHINOCODE]
     public static IO<Unit> RunFile(RhinoDoc doc, string path) =>
-        IO.lift(() => Exchange.ExistingPath(path)).Bind(existing => Documents.RunScript(doc, $"_-ScriptEditor _Run \"{existing}\"", echo: false, display: None));
+        from existing in IO.lift(() => Exchange.ExistingPath(path))
+        from ran in Documents.RunScript(doc, $"_-ScriptEditor _Run \"{existing}\"", echo: false, display: None)
+        select ran;
 
     // --- [NODES]
     public static IO<Seq<ComponentFunctionInfo>> NodeInCodeFunctions() =>
@@ -65,9 +65,9 @@ public static class Scripts {
                 static _ => IO.fail<ComponentFunctionInfo>(new Missing(nameof(Components.FindComponent))));
 
     public static IO<NodeResult> Evaluate(ComponentFunctionInfo node, Seq<Option<object>> inputs, bool keepTree) =>
-        IO.lift(() => Optional(node.Evaluate(inputs.Map(static input => input.ValueUnsafe()), keepTree, out string[] warnings))
-            .ToFin(new Refused(nameof(ComponentFunctionInfo.Evaluate)))
-            .Map(values => new NodeResult(
-                toSeq(node.OutputNames).Zip(toSeq(values)).Map(static output => (Name: output.First, Value: Optional(output.Second))),
-                Conversions.Rows(warnings))));
+        from answer in IO.lift(() => (Values: node.Evaluate(inputs.Map(static input => input.ValueUnsafe()), keepTree, out string[] warnings), Warnings: warnings))
+        from values in IO.lift(Optional(answer.Values).ToFin(new Refused(nameof(ComponentFunctionInfo.Evaluate))))
+        select new NodeResult(
+            toSeq(node.OutputNames).Zip(toSeq(values), static (name, value) => (Name: name, Value: Optional(value))),
+            Conversions.Rows(answer.Warnings));
 }

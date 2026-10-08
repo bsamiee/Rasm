@@ -4,9 +4,7 @@ using Rhino.Render;
 namespace Rasm.Rhino.Objects.Shading;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-internal enum Codes {
-    OcsChannelMismatch = 1,
-}
+internal enum Codes { OcsChannelMismatch = 1 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 public sealed record OcsChannelMismatch(int Channel, TextureMappingType Kind) : Expected("Channel {Channel} cannot hold a {Kind} mapping", (int)Codes.OcsChannelMismatch) {

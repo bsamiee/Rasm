@@ -134,8 +134,8 @@ public static class EffectStates {
             parts.Refused + mix.ToSeq().Bind(static read => read.Match(Succ: static _ => Seq<Error>(), Fail: static error => Seq(error))));
 
     // --- [BINDING]
-    public static ValueBinding Binding<TEffect, TState, TParameter, TError>(RhinoDoc doc, Option<Mix> amount, Func<TParameter, ParameterText> text)
-        where TEffect : DefinedEffect<TEffect, TState, TParameter, TError>
+    public static ValueBinding Binding<TEffect, TState, TParameter, TError>(RhinoDoc doc, Option<Mix> amount)
+        where TEffect : PostEffect, IEffectRows<TState, TParameter>
         where TState : IStateRecord<TState, TParameter, TError>
         where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
         where TError : Error, IValidationError<TError> =>
@@ -144,13 +144,12 @@ public static class EffectStates {
                 ValueBinding.Fields(
                     owner,
                     ValueStore.Of(
-                        Sources.Read(doc, static window => EffectCollection.State<TEffect, TState, TParameter, TError>(window.Settings)).Map(static record => Some(record)),
-                        record => Sources.Edit(doc, window => EffectCollection.Apply(window.Settings, Captured(record.IfNone(TState.Default))
-                            .Map<EffectRequest>(static entry => EffectRequest.Tuning.Of<TEffect, TState, TParameter, TError>(entry.Key, entry.Text)))).Map(static _ => unit),
+                        Sources.Read(doc, static window => EffectCollection.State<TEffect, TState>(window.Settings)).Map(static record => Some(record)),
+                        record => Sources.Edit(doc, window => EffectCollection.Apply(window.Settings, EffectRequest.Tuning.Of<TEffect, TState>(record.IfNone(TState.Default)))).Map(static _ => unit),
                         Applied.Live,
                         None),
                     TState.Default,
-                    ParameterText.Join<TState, TParameter, TError>(text).Map<(IStateParameter<TState> Parameter, string Caption)>(static pair => (pair.Parameter, pair.Text.Caption))),
+                    ParameterText.Join<TState, TParameter, TError>(TEffect.Text).Map<(IStateParameter<TState> Parameter, string Caption)>(static pair => (pair.Parameter, pair.Text.Caption))),
                 amount.Map(_ => ValueBinding.Key(owner, Amount, ValueStore.Of(
                     Sources.Read(doc, static window => EffectCollection.Amount<TEffect>(window.Settings)),
                     mix => Sources.Edit(doc, window => EffectCollection.Apply(window.Settings, [EffectRequest.Tuning.Amount<TEffect>(mix.IfNone(Amount.Default))])).Map(static _ => unit),

@@ -3,68 +3,55 @@ using Rasm.Rhino.Document.Shapes;
 using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Annotation;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union]
-public abstract partial record OutlineText {
-    public sealed record Entity(TextEntity Text) : OutlineText;
-
-    public sealed record Written(string Text, Plane Plane, Option<ComponentRef<DimensionStyle>> Style, FontQuery Face, double Height) : OutlineText;
-}
+public sealed record OutlineText(string Text, Plane Plane, Option<ComponentRef<DimensionStyle>> Style, FontQuery Face, double Height);
 
 public sealed record OutlineOptions(Option<double> SmallCapsScale, double Spacing, Option<Transform> Transform);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Outlines {
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+public static partial class Outlines {
     // --- [OUTLINES]
-    public static IO<Seq<Seq<Curve>>> Curves(RhinoDoc doc, OutlineText text, bool allowOpen, OutlineOptions options) =>
-        Outlined(doc, text, options, (entity, style, makeSmallCaps, smallCapsScale, spacing) => entity.CreateCurvesGrouped(style, allowOpen, makeSmallCaps, smallCapsScale, spacing), nameof(TextEntity.CreateCurvesGrouped));
+    public static IO<Seq<Seq<T>>> Create<T>(RhinoDoc doc, TextEntity text, OutlineOptions options, Func<TextEntity, DimensionStyle, bool, double, double, List<T[]>> create, string member) where T : GeometryBase =>
+        options.Transform.IsSome
+            ? (from copy in use(Copies.Duplicate(text))
+               from outlines in Generate(doc, copy, options, create, member)
+               select outlines).Bracket()
+            : Generate(doc, text, options, create, member);
 
-    public static IO<Seq<Seq<Brep>>> Surfaces(RhinoDoc doc, OutlineText text, OutlineOptions options) =>
-        Outlined(doc, text, options, static (entity, style, makeSmallCaps, smallCapsScale, spacing) => entity.CreateSurfacesGrouped(style, makeSmallCaps, smallCapsScale, spacing), nameof(TextEntity.CreateSurfacesGrouped));
+    public static IO<Seq<Seq<T>>> Create<T>(RhinoDoc doc, OutlineText text, OutlineOptions options, Func<TextEntity, DimensionStyle, bool, double, double, List<T[]>> create, string member) where T : GeometryBase =>
+        from parent in text.Style.Match(
+            Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
+            None: () => IO.lift(() => doc.DimStyles.Current))
+        from face in text.Face.Resolve()
+        from outlines in (
+            from entity in use(Copies.Acquire(() => TextEntity.Create(text.Text, text.Plane, parent, wrapped: false, rectWidth: 0.0, rotationRadians: 0.0), nameof(TextEntity.Create)))
+            from assigned in IO.lift(() => Update((face, text.Height), entity))
+            from generated in Generate(doc, entity, options, create, member)
+            select generated).Bracket()
+        select outlines;
 
-    public static IO<Seq<Seq<Brep>>> PolySurfaces(RhinoDoc doc, OutlineText text, double height, OutlineOptions options) =>
-        Outlined(doc, text, options, (entity, style, makeSmallCaps, smallCapsScale, spacing) => entity.CreatePolysurfacesGrouped(style, makeSmallCaps, smallCapsScale, height, spacing), nameof(TextEntity.CreatePolysurfacesGrouped));
+    private static IO<Seq<Seq<T>>> Generate<T>(RhinoDoc doc, TextEntity text, OutlineOptions options, Func<TextEntity, DimensionStyle, bool, double, double, List<T[]>> create, string member) where T : GeometryBase =>
+        from transformed in options.Transform.Traverse(xform => (
+            from style in use(DimensionStyles.Effective(doc, text, None))
+            from applied in IO.lift(() => Refused.Unless(text.Transform(xform, style), nameof(TextEntity.Transform)))
+            select applied).Bracket()).As()
+        from outlines in (
+            from style in use(DimensionStyles.Effective(doc, text, None))
+            from curves in Copies.Acquire(() => {
+                Update(source: false, style);
+                return create(text, style, options.SmallCapsScale.IsSome, options.SmallCapsScale.IfNone(1.0), options.Spacing);
+            }, member)
+            select curves).Bracket()
+        select outlines;
 
-    public static IO<Seq<Seq<Extrusion>>> Extrusions(RhinoDoc doc, OutlineText text, double height, OutlineOptions options) =>
-        Outlined(doc, text, options, (entity, style, makeSmallCaps, smallCapsScale, spacing) => entity.CreateExtrusionsGrouped(style, makeSmallCaps, smallCapsScale, height, spacing), nameof(TextEntity.CreateExtrusionsGrouped));
+    // --- [MAPPING]
+    private static partial void Update((Font Font, double TextHeight) source, TextEntity target);
 
-    private static IO<Seq<Seq<T>>> Outlined<T>(RhinoDoc doc, OutlineText text, OutlineOptions options, Func<TextEntity, DimensionStyle, bool, double, double, List<T[]>> create, string member) where T : GeometryBase =>
-        Sourced(doc, text, entity => Framed(doc, entity, options.Transform, (framed, style) =>
-            Copies.Acquire<T>(() => create(framed, style, options.SmallCapsScale.IsSome, options.SmallCapsScale.IfNone(1.0), options.Spacing), member)));
-
-    // --- [SOURCES]
-    private static IO<A> Sourced<A>(RhinoDoc doc, OutlineText text, Func<TextEntity, IO<A>> body) =>
-        text.Switch(
-            (Doc: doc, Body: body),
-            entity: static (state, entity) => state.Body(entity.Text),
-            written: static (state, written) =>
-                from parent in written.Style.Match(
-                    Some: address => TableOps.Find(state.Doc.DimStyles, address, includeDeleted: false),
-                    None: () => IO.lift(() => state.Doc.DimStyles.Current))
-                from face in written.Face.Resolve()
-                from outlined in (
-                    from created in use(Copies.Acquire(() => TextEntity.Create(written.Text, written.Plane, parent, wrapped: false, rectWidth: 0.0, rotationRadians: 0.0), nameof(TextEntity.Create)))
-                    from overridden in IO.lift(() => {
-                        created.Font = face;
-                        created.TextHeight = written.Height;
-                    })
-                    from value in state.Body(created)
-                    select value).Bracket()
-                select outlined);
-
-    // --- [FRAMES]
-    private static IO<A> Framed<A>(RhinoDoc doc, TextEntity text, Option<Transform> transform, Func<TextEntity, DimensionStyle, IO<A>> body) =>
-        transform.Match(
-            Some: xform => (
-                from copy in use(Copies.Duplicate(text))
-                from transformed in DimensionStyles.Effective(doc, copy, None, style => IO.lift(() => Refused.Unless(copy.Transform(xform, style), nameof(TextEntity.Transform))))
-                from value in Styled(doc, copy, body)
-                select value).Bracket(),
-            None: () => Styled(doc, text, body));
-
-    private static IO<A> Styled<A>(RhinoDoc doc, TextEntity text, Func<TextEntity, DimensionStyle, IO<A>> body) =>
-        DimensionStyles.Effective(doc, text, None, style => IO.lift(() => { style.DrawForward = false; }).Bind(_ => body(text, style)));
+    [MapPropertyFromSource(nameof(DimensionStyle.DrawForward))]
+    private static partial void Update(bool source, DimensionStyle target);
 }

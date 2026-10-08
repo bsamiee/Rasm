@@ -10,7 +10,7 @@ using Rhino.Runtime.InteropWrappers;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
+[ValueObject<string>(SkipIParsable = true, EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -19,56 +19,27 @@ public sealed partial class SnapshotName {
         validationError = value.Length > 0 && !value.AsSpan().ContainsAny('"', '\r', '\n') ? null : new InvalidRhinoValue();
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SnapshotChange {
-    private SnapshotChange(SnapshotName name) => Name = name;
+    public sealed record Save(SnapshotName Name) : SnapshotChange;
 
-    public SnapshotName Name { get; }
+    public sealed record Restore(SnapshotName Name) : SnapshotChange;
 
-    public abstract string Script { get; }
+    public sealed record Delete(SnapshotName Name) : SnapshotChange;
 
-    public abstract Seq<(SnapshotName Name, bool Present)> Before { get; }
+    public sealed record Rename(SnapshotName Name, SnapshotName NewName) : SnapshotChange;
 
-    public abstract Seq<(SnapshotName Name, bool Present)> After { get; }
-
-    public sealed record Save(SnapshotName Name) : SnapshotChange(Name) {
-        public override string Script => $"_-Snapshots _Save _Parameters=_All \"{Name}\" _Enter";
-
-        public override Seq<(SnapshotName Name, bool Present)> Before => [(Name, false)];
-
-        public override Seq<(SnapshotName Name, bool Present)> After => [(Name, true)];
-    }
-
-    public sealed record Restore(SnapshotName Name) : SnapshotChange(Name) {
-        public override string Script => $"_-Snapshots _Restore \"{Name}\" _Enter _Enter";
-
-        public override Seq<(SnapshotName Name, bool Present)> Before => [(Name, true)];
-
-        public override Seq<(SnapshotName Name, bool Present)> After => [];
-    }
-
-    public sealed record Delete(SnapshotName Name) : SnapshotChange(Name) {
-        public override string Script => $"_-Snapshots _Delete \"{Name}\" _Enter";
-
-        public override Seq<(SnapshotName Name, bool Present)> Before => [(Name, true)];
-
-        public override Seq<(SnapshotName Name, bool Present)> After => [(Name, false)];
-    }
-
-    public sealed record Rename(SnapshotName Name, SnapshotName NewName) : SnapshotChange(Name) {
-        public override string Script => $"_-Snapshots _Rename \"{Name}\" \"{NewName}\" _Enter";
-
-        public override Seq<(SnapshotName Name, bool Present)> Before => [(Name, true), (NewName, false)];
-
-        public override Seq<(SnapshotName Name, bool Present)> After => [(Name, false), (NewName, true)];
-    }
+    [Obsolete]
+    internal (string Script, Seq<(SnapshotName Name, bool Present)> Before) Request => Switch(
+        save: static change => ($"_-Snapshots _Save _Parameters=_All \"{change.Name}\" _Enter", Seq1((change.Name, false))),
+        restore: static change => ($"_-Snapshots _Restore \"{change.Name}\" _Enter _Enter", Seq1((change.Name, true))),
+        delete: static change => ($"_-Snapshots _Delete \"{change.Name}\" _Enter", Seq1((change.Name, true))),
+        rename: static change => ($"_-Snapshots _Rename \"{change.Name}\" \"{change.NewName}\" _Enter", Seq((change.Name, true), (change.NewName, false))));
 }
 
 public sealed record SnapshotObject(RhinoDoc Doc, RhinoObject Object, Transform Transform);
 
-public sealed record SnapshotTween<TState>(Func<TState, TState, double, TState> Between) {
-    public Option<Func<TState, BoundingBox>> Bounds { get; init; }
-}
+public sealed record SnapshotTween<TState>(Func<TState, TState, double, TState> Between, Option<Func<TState, BoundingBox>> Bounds = default);
 
 internal sealed record SnapshotFrames<TSubject>(Func<TSubject, double, IO<Unit>> Animate, Option<BoundingBox> Extent);
 
@@ -94,10 +65,14 @@ public sealed record SnapshotState<TSubject, TState>(
     internal override bool Animates => Tween.IsSome;
 
     internal override IO<Unit> Save(TSubject subject, BinaryArchiveWriter archive) =>
-        Read(subject).Bind(state => AttachedData.Write(archive, TypeCode, Codec, state));
+        from state in IO.lift(() => Read(subject)).Flatten()
+        from written in AttachedData.Write(archive, TypeCode, Codec, state)
+        select written;
 
     internal override IO<Unit> Restore(TSubject subject, BinaryArchiveReader archive) =>
-        Decoded(archive).Bind(state => Write(subject, state));
+        from state in Decoded(archive)
+        from written in Write(subject, state)
+        select written;
 
     internal override IO<bool> Held(BinaryArchiveReader current, Seq<BinaryArchiveReader> stored) =>
         from now in Decoded(current)
@@ -105,29 +80,26 @@ public sealed record SnapshotState<TSubject, TState>(
         select held.Exists(state => EqualityComparer<TState>.Default.Equals(state, now));
 
     internal override IO<Option<SnapshotFrames<TSubject>>> Prepare(BinaryArchiveReader start, BinaryArchiveReader stop) =>
-        Tween.Match(
-            Some: tween =>
-                from first in Decoded(start)
+        (from tween in Tween
+         select from first in Decoded(start)
                 from last in Decoded(stop)
                 select EqualityComparer<TState>.Default.Equals(first, last)
                     ? Option<SnapshotFrames<TSubject>>.None
                     : Some(new SnapshotFrames<TSubject>(
-                        (subject, position) => Write(subject, tween.Between(first, last, double.Clamp(position, 0d, 1d))),
-                        tween.Bounds.Map(bounds => BoundingBox.Union(bounds(first), bounds(last))))),
-            None: static () => IO.pure(Option<SnapshotFrames<TSubject>>.None));
+                        (subject, position) => IO.lift(() => Write(subject, tween.Between(first, last, position))).Flatten(),
+                        tween.Bounds.Map(bounds => BoundingBox.Union(bounds(first), bounds(last))))))
+        .Traverse(static effect => effect).As().Map(static frames => frames.Flatten());
 
     private IO<TState> Decoded(BinaryArchiveReader archive) =>
-        IO.lift(() => Refused.Unless(archive.SeekFromStart(0UL), nameof(BinaryArchiveReader.SeekFromStart)))
-            .Bind(_ => AttachedData.Read(archive, TypeCode, Codec));
+        from positioned in IO.lift(() => Refused.Unless(archive.SeekFromStart(0UL), nameof(BinaryArchiveReader.SeekFromStart)))
+        from state in AttachedData.Read(archive, TypeCode, Codec)
+        select state;
 }
 
-public sealed record SnapshotDefinition {
-    public Option<SnapshotState<RhinoDoc>> Document { get; init; }
-
-    public Option<(Func<RhinoObject, bool> Supports, SnapshotState<SnapshotObject> State)> Objects { get; init; }
-
-    public Option<Func<RhinoDoc, IO<Unit>>> Restored { get; init; }
-}
+public sealed record SnapshotDefinition(
+    Option<SnapshotState<RhinoDoc>> Document = default,
+    Option<(Func<RhinoObject, bool> Supports, SnapshotState<SnapshotObject> State)> Objects = default,
+    Option<Func<RhinoDoc, IO<Unit>>> Restored = default);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedSnapshotClient(SnapshotDefinition definition) : SnapShotsClient {
@@ -146,7 +118,7 @@ public abstract class DefinedSnapshotClient(SnapshotDefinition definition) : Sna
         Callbacks.Succeeded(definition.Document.Map(state => state.Restore(doc, archive)), static () => false, CallbackSite.Of(this));
 
     public sealed override void SnapshotRestored(RhinoDoc doc) =>
-        _ = Callbacks.Answer(definition.Restored.Map(restored => restored(doc)), static () => unit, static () => unit, CallbackSite.Of(this));
+        _ = Callbacks.Answer(definition.Restored.Map(restored => IO.lift(() => restored(doc)).Flatten()), static () => unit, static () => unit, CallbackSite.Of(this));
 
     public sealed override bool IsCurrentModelStateInAnySnapshot(
         RhinoDoc doc, BinaryArchiveReader archive, SimpleArrayBinaryArchiveReader archive_array, TextLog? text_log = null) =>
@@ -158,15 +130,15 @@ public abstract class DefinedSnapshotClient(SnapshotDefinition definition) : Sna
     public sealed override bool SupportsObject(RhinoObject doc_object) =>
         Callbacks.Answer(definition.Objects.Map(objects => IO.lift(() => objects.Supports(doc_object))), static () => false, static () => false, CallbackSite.Of(this));
 
-    public sealed override bool SaveObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveWriter archive) {
-        SnapshotObject subject = new(doc, doc_object, transform);
-        return Callbacks.Succeeded(definition.Objects.Map(objects => objects.State.Save(subject, archive)), static () => false, CallbackSite.Of(this));
-    }
+    public sealed override bool SaveObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveWriter archive) =>
+        new SnapshotObject(doc, doc_object, transform) switch {
+            var subject => Callbacks.Succeeded(definition.Objects.Map(objects => objects.State.Save(subject, archive)), static () => false, CallbackSite.Of(this)),
+        };
 
-    public sealed override bool RestoreObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive) {
-        SnapshotObject subject = new(doc, doc_object, transform);
-        return Callbacks.Succeeded(definition.Objects.Map(objects => objects.State.Restore(subject, archive)), static () => false, CallbackSite.Of(this));
-    }
+    public sealed override bool RestoreObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive) =>
+        new SnapshotObject(doc, doc_object, transform) switch {
+            var subject => Callbacks.Succeeded(definition.Objects.Map(objects => objects.State.Restore(subject, archive)), static () => false, CallbackSite.Of(this)),
+        };
 
     public sealed override bool ObjectTransformNotification(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive) => true;
 
@@ -186,10 +158,11 @@ public abstract class DefinedSnapshotClient(SnapshotDefinition definition) : Sna
 
     public sealed override bool PrepareForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
         Callbacks.Answer(
-            definition.Document.Map(state => state.Prepare(archive_start, archive_stop).Bind(frames => IO.lift(() => documentFrames.Swap(_ => frames).IsSome))),
-            static () => false,
-            static () => false,
-            CallbackSite.Of(this));
+            from state in definition.Document
+            select from frames in state.Prepare(archive_start, archive_stop)
+                   from stored in IO.lift(() => documentFrames.Swap(_ => frames))
+                   select frames.IsSome,
+            static () => false, static () => false, CallbackSite.Of(this));
 
     public sealed override void ExtendBoundingBoxForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop, ref BoundingBox bbox) =>
         bbox = Extended(bbox, documentFrames.Value.Bind(static frames => frames.Extent));
@@ -200,23 +173,21 @@ public abstract class DefinedSnapshotClient(SnapshotDefinition definition) : Sna
     public sealed override bool PrepareForObjectAnimation(
         RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
         Callbacks.Answer(
-            definition.Objects.Map(objects =>
-                from frames in objects.State.Prepare(archive_start, archive_stop)
-                from swapped in IO.lift(() => objectFrames.SwapKey(doc_object.Id, _ => frames))
-                select frames.IsSome),
-            static () => false,
-            static () => false,
-            CallbackSite.Of(this));
+            from objects in definition.Objects
+            select from frames in objects.State.Prepare(archive_start, archive_stop)
+                   from stored in IO.lift(() => objectFrames.SwapKey(doc_object.Id, _ => frames))
+                   select frames.IsSome,
+            static () => false, static () => false, CallbackSite.Of(this));
 
     public sealed override void ExtendBoundingBoxForObjectAnimation(
         RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop, ref BoundingBox bbox) =>
         bbox = Extended(bbox, objectFrames.Find(doc_object.Id).Bind(static frames => frames.Extent));
 
     public sealed override bool AnimateObject(
-        RhinoDoc doc, RhinoObject doc_object, ref Transform transform, double dPos, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) {
-        SnapshotObject subject = new(doc, doc_object, transform);
-        return Callbacks.Succeeded(objectFrames.Find(doc_object.Id).Map(frames => frames.Animate(subject, dPos)), static () => false, CallbackSite.Of(this));
-    }
+        RhinoDoc doc, RhinoObject doc_object, ref Transform transform, double dPos, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
+        new SnapshotObject(doc, doc_object, transform) switch {
+            var subject => Callbacks.Succeeded(objectFrames.Find(doc_object.Id).Map(frames => frames.Animate(subject, dPos)), static () => false, CallbackSite.Of(this)),
+        };
 
     public sealed override bool AnimationStop(RhinoDoc doc) =>
         Callbacks.Succeeded(
@@ -238,32 +209,6 @@ public static class NamedSnapshots {
     public static IO<Seq<string>> Names(RhinoDoc doc) =>
         IO.lift(() => Conversions.Rows(doc.Snapshots.Names));
 
-    // --- [TRANSITIONS]
-    public static IO<Unit> Save(RhinoDoc doc, SnapshotName name) =>
-        Names(doc).Bind(held => RunSnapshot(doc, Holds(held, (name, true))
-            ? Seq<SnapshotChange>(new SnapshotChange.Delete(name), new SnapshotChange.Save(name))
-            : Seq<SnapshotChange>(new SnapshotChange.Save(name))));
-
-    public static IO<Unit> Delete(RhinoDoc doc, SnapshotName name) =>
-        RunSnapshot(doc, new SnapshotChange.Delete(name));
-
-    public static IO<Unit> RunSnapshot(RhinoDoc doc, SnapshotChange change) =>
-        from before in Names(doc)
-        from expected in IO.lift(() => change.Before.Traverse(row => Expect(before, row)).As().ToFin())
-        from ran in Documents.RunScript(doc, change.Script, echo: false, display: None)
-        from after in Names(doc)
-        from applied in IO.lift(() => SnapshotNotApplied.Unless(change.After.ForAll(row => Holds(after, row)), change))
-        select applied;
-
-    public static IO<Unit> RunSnapshot(RhinoDoc doc, Seq<SnapshotChange> changes) =>
-        changes.TraverseM(change => RunSnapshot(doc, change)).As().Map(static _ => unit);
-
-    // --- [SCOPES]
-    public static IO<T> WithSnapshot<T>(RhinoDoc doc, SnapshotName held, Option<SnapshotName> target, IO<T> body) =>
-        RunSnapshot(doc, new SnapshotChange.Save(held)).Bracket(
-            Use: _ => target.Traverse(name => RunSnapshot(doc, new SnapshotChange.Restore(name))).As().Bind(_ => body),
-            Fin: _ => RunSnapshot(doc, new SnapshotChange.Restore(held)).Bind(_ => Delete(doc, held)));
-
     private static Validation<Error, Unit> Expect(Seq<string> names, (SnapshotName Name, bool Present) row) =>
         Holds(names, row) ? unit
         : row.Present ? new UnknownSnapshot(row.Name)
@@ -271,4 +216,35 @@ public static class NamedSnapshots {
 
     private static bool Holds(Seq<string> names, (SnapshotName Name, bool Present) row) =>
         names.Exists(stored => row.Name == stored) == row.Present;
+
+    // --- [TRANSITIONS]
+    public static IO<Unit> Save(RhinoDoc doc, SnapshotName name) =>
+        from held in Names(doc)
+        from saved in RunSnapshot(doc, Holds(held, (name, true))
+            ? [new SnapshotChange.Delete(name), new SnapshotChange.Save(name)]
+            : [new SnapshotChange.Save(name)])
+        select saved;
+
+    public static IO<Unit> RunSnapshot(RhinoDoc doc, SnapshotChange change) =>
+        from before in Names(doc)
+        let request = change.Request
+        from expected in IO.lift(() => request.Before.Traverse(row => Expect(before, row)).As().ToFin())
+        from ran in Documents.RunScript(doc, request.Script, echo: false, display: None)
+        from applied in change is SnapshotChange.Restore
+            ? IO.pure(unit)
+            : (from after in Names(doc)
+               from answer in IO.lift(() => SnapshotNotApplied.Unless(request.Before.ForAll(row => !Holds(after, row)), change))
+               select answer)
+        select applied;
+
+    public static IO<Unit> RunSnapshot(RhinoDoc doc, Seq<SnapshotChange> changes) =>
+        changes.TraverseM(change => RunSnapshot(doc, change)).As().Map(static _ => unit);
+
+    // --- [SCOPES]
+    public static IO<T> WithSnapshot<T>(RhinoDoc doc, SnapshotName held, Option<SnapshotName> target, IO<T> body) =>
+        from saved in RunSnapshot(doc, new SnapshotChange.Save(held))
+        from result in (from restored in target.Traverse(name => RunSnapshot(doc, new SnapshotChange.Restore(name))).As()
+                        from value in body
+                        select value).Finally(RunSnapshot(doc, [new SnapshotChange.Restore(held), new SnapshotChange.Delete(held)]))
+        select result;
 }
