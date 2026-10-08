@@ -75,7 +75,7 @@ public static class RenderRuns {
     public static IO<Unit> Framed(Guid rendering, RenderRun framing) =>
         IO.lift(() => Fill(rendering, run => run with { Camera = framing.Camera, Time = framing.Time, Lights = framing.Lights, Metres = framing.Metres })).Map(static _ => unit);
 
-    public static IO<A> Launched<A>(RenderRun framing, IO<A> launch) =>
+    public static IO<T> Launched<T>(RenderRun framing, IO<T> launch) =>
         seed.SwapIO(_ => Some(framing)).Bind(_ => launch).Finally(seed.SwapIO(static _ => None));
 
     public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register { get; } = static (_, sink) => EventKind.ImageFileSaved.Inline(args => Hosted(args, sink), sink);
@@ -141,7 +141,7 @@ public static class EffectPipeline {
     internal static IO<Unit> Put(RenderWindow.Channel cpu, PixelFrame frame) =>
         IO.lift(() => cpu.SetValues(frame.Window, frame.Window.Size, new PixelBuffer(frame.Address)));
 
-    internal static IO<A> Opened<A>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<A>> body) =>
+    internal static IO<T> Opened<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
         (from opened in use(IO.lift(() => Missing.Unless(open(channel), open.Method.Name)))
          from cpu in IO.lift(() => Missing.Unless(opened.CPU(), nameof(PostEffectChannel.CPU)))
          from answer in body(opened, cpu)
@@ -225,7 +225,7 @@ public static class EffectPipeline {
         IO.lift(() => kinds.Find(static kind => kind.State == typeof(TRecord))
                 .Bind(kind => toSeq(((IPostEffects)pipeline).GetPostEffects(kind.Stage)).Find(effect => effect.Id == kind.Id && runs(effect))))
             .Bind(static found => found
-                .Traverse(static effect => FieldTexts.Recalled<TRecord>(EntryKey.TypeOwner(effect.Id), path => Parameter(effect, EffectCollection.ParameterName(path))))
+                .Traverse(static effect => FieldTexts.Recalled<TRecord>(EntryKey.TypeOwner(effect.Id), path => Parameter(effect, EntryKey.Name(path))))
                 .As());
 
     private static IO<Transfer> Signal(PostEffectPipeline pipeline, Option<ToneMapping> formation) =>

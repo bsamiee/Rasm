@@ -63,7 +63,7 @@ public abstract partial record CommandRow {
             DisposalOps.Release)
         select new Realized<TCommand>(
             command,
-            RowRules.Holds(Enabled, scope).Bind(on => IO.lift(() => command.Enabled = on)).Bind(_ => refresh),
+            RowRules.Holds(Enabled, scope).Bind(enabled => IO.lift(() => command.Enabled = enabled)).Bind(_ => refresh),
             DisposalOps.Composite(held, new CallbackSite(scope.Sink, typeof(Command), Face.Name)));
 
     public sealed record Run(CommandFace Face, Option<RowRule> Enabled, Func<RowScope, IO<Unit>> Execute) : CommandRow(Face, Enabled) {
@@ -81,7 +81,7 @@ public abstract partial record CommandRow {
                 command,
                 Subscriptions.Host<EventArgs>(typeof(Command), h => command.CheckedChanged += h, h => command.CheckedChanged -= h, Face.Name),
                 IO.lift(() => command.Checked).Bind(on => Write(scope, on)),
-                Read(scope).Bind(on => IO.lift(() => command.Checked = on)));
+                Read(scope).Bind(on => IO.lift(() => { command.Checked = on; })));
     }
 
     public sealed record Radio(CommandFace Face, Option<RowRule> Enabled, Seq<Check> Members) : CommandRow(Face, Enabled) {

@@ -36,18 +36,17 @@ public sealed partial class MomentPart {
 [SmartEnum<int>]
 [ValidationError<InvalidRhinoValue>]
 public sealed partial class ClockFormat {
-    public static readonly ClockFormat HourMinute12 = new(0, "h:mm tt", static () => HourMinuteSecond12);
-    public static readonly ClockFormat HourMinuteSecond12 = new(1, "h:mm:ss tt", static () => HourMinute24);
-    public static readonly ClockFormat HourMinute24 = new(2, "HH:mm", static () => HourMinuteSecond24);
-    public static readonly ClockFormat HourMinuteSecond24 = new(3, "HH:mm:ss", static () => HourMinute12);
+    public static readonly ClockFormat HourMinute12 = new(0, "h:mm tt");
+    public static readonly ClockFormat HourMinuteSecond12 = new(1, "h:mm:ss tt");
+    public static readonly ClockFormat HourMinute24 = new(2, "HH:mm");
+    public static readonly ClockFormat HourMinuteSecond24 = new(3, "HH:mm:ss");
 
     [IgnoreMember]
     public static readonly ClockFormat Default = HourMinute24;
 
     public string Pattern { get; }
 
-    [UseDelegateFromConstructor]
-    public partial ClockFormat Next();
+    public ClockFormat Next() => Get((Key + 1) % Items.Count);
 }
 
 [SmartEnum]

@@ -145,11 +145,14 @@ public static class CustomGrips {
 
     // --- [ENABLING]
     public static IO<Unit> EnableGrips(RhinoObject owner, GripKind kind) =>
-        kind.Switch(
+        IO.lift(() => kind.Switch(
             owner,
-            controlPoints: static (target, enabled) => IO.lift(() => target.GripsOn = enabled),
-            registered: static (target, id) => IO.lift(() => Refused.Unless(target.EnableGrips(id), nameof(RhinoObject.EnableGrips))),
-            editPoints: static target => IO.lift(() => Refused.Unless(target.EnableEditPointGrips(), nameof(RhinoObject.EnableEditPointGrips))));
+            controlPoints: static (target, enabled) => {
+                target.GripsOn = enabled;
+                return Refused.Unless(target.GripsOn == enabled, nameof(RhinoObject.GripsOn));
+            },
+            registered: static (target, id) => Refused.Unless(target.EnableGrips(id), nameof(RhinoObject.EnableGrips)),
+            editPoints: static (target, _) => Refused.Unless(target.EnableEditPointGrips(), nameof(RhinoObject.EnableEditPointGrips))));
 
     public static IO<GripKind> EnabledGrips(RhinoObject owner) =>
         IO.lift(GripKind () =>
@@ -184,16 +187,15 @@ public static class CustomGrips {
     public static IO<int> Move(RhinoObject owner, Option<int> index, GripMove move) =>
         from available in IO.lift(() => Conversions.Rows(owner.GetGrips()))
         from chosen in IO.lift(Conversions.NonEmpty(available.Filter(grip => index.ForAll(wanted => grip.Index == wanted)).Strict(), nameof(RhinoObject.GetGrips)))
-        let apply = move.Switch(
-            toPoint: static Action<GripObject> (point) => target => target.Move(point),
-            byVector: static delta => target => target.Move(delta),
-            byXform: static xform => target => target.Move(xform),
-            undo: static () => static target => target.UndoMove())
-        from moved in IO.lift(() => chosen.Iter(apply))
+        from moved in IO.lift(() => chosen.Iter(grip => move.Switch(
+            grip,
+            toPoint: static (target, point) => target.Move(point),
+            byVector: static (target, delta) => target.Move(delta),
+            byXform: static (target, xform) => target.Move(xform),
+            undo: static (target, _) => target.UndoMove())))
         select chosen.Count;
 
     public static IO<RhinoObject> GripUpdate(RhinoObject owner, bool deleteOriginal) =>
-        from document in IO.lift(() => Missing.Unless(owner.Document, nameof(RhinoObject.Document)))
-        from updated in IO.lift(() => Missing.Unless(document.Objects.GripUpdate(owner, deleteOriginal), nameof(ObjectTable.GripUpdate)))
-        select updated;
+        IO.lift(() => Missing.Unless(owner.Document, nameof(RhinoObject.Document))
+            .Bind(document => Missing.Unless(document.Objects.GripUpdate(owner, deleteOriginal), nameof(ObjectTable.GripUpdate))));
 }

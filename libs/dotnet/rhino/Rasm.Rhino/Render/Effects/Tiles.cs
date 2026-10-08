@@ -5,6 +5,7 @@ using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.Render.Slots;
 using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Viewers;
 using Rasm.Rhino.UI.Views;
@@ -128,7 +129,7 @@ public sealed class PreviewTiles {
                 limits.Map(_ => SettingRoots.Saved(views.Settings).Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ => read), sink)).ToSeq()
                     .Add(tiles.Attach(site))
                     .Concat(readers(tiles).Map(row => row(plugIn, sink)))
-                    .Add(cell.SwapIO(_ => Some(tiles)).Map(_ => (IDisposable)new Disposal<Atom<Option<PreviewTiles>>>(cell, static filled => _ = filled.Swap(static _ => None)))),
+                    .Add(cell.SwapIO(_ => Some(tiles)).Map(_ => (IDisposable)new Disposal<Atom<Option<PreviewTiles>>>(cell, static filled => filled.Swap(static _ => None)))),
                 DisposalOps.Release)
             select DisposalOps.Composite(acquired, site);
 
@@ -153,7 +154,7 @@ public sealed class PreviewTiles {
             None: static () => IO.yieldFor(Tick.ToTimeSpan()).Map(static _ => Next.Loop<Unit, PixelFrame>(unit))))).As();
 
     public IO<Disposal<Thumbnail>> Thumbnail(Control view, TileRequest request, Size size) =>
-        from device in Themes.Device(size)
+        from device in HostTheme.Device(size)
         from extent in IO.lift(() => PixelExtent.Validate(device.Width, device.Height, out PixelExtent asked) is { } error ? Fin.Fail<PixelExtent>(error) : Fin.Succ(asked))
         from tile in Formed(request, extent)
         from pixels in FrameView.Raster(owner, view, tile, TransferCurve.Srgb)

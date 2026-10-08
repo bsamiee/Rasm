@@ -108,7 +108,7 @@ public sealed class RowGrid : Panel {
         select (new RowPlace(row, cells, label, laid, first), trail.ToSeq().Bind(static held => held.Held));
 
     private static IO<(RowTrail Trail, Seq<IDisposable> Held)> Trailed(RowSource source, IterableNE<EntryKey> keys, RowEdit edit, RowScope scope) =>
-        from group in IO.lift(BindingGroup.Of(Seq(source.Values(scope))).ToFin())
+        from bound in IO.lift(BindingGroup.Of(Seq(source.Values(scope))).ToFin())
         from restore in IO.lift(static () => new Command { MenuText = RowText.Localize("Reset").Local })
         from copy in IO.lift(static () => new Command { MenuText = RowText.Localize("Copy").Local })
         from paste in IO.lift(static () => new Command { MenuText = RowText.Localize("Paste").Local })
@@ -117,7 +117,7 @@ public sealed class RowGrid : Panel {
             .Traverse(_ => Sized(scope.Sink, GlyphRole.LockOpen, new ImageButton()).Map(static button => (Command: new CheckCommand { MenuText = RowText.Localize("Lock").Local }, Button: button)))
             .As()
         from held in DisposalOps.AcquireAll(
-            Seq((Command: restore, Run: edit.Reset), (Command: copy, Run: Transfer.Copy(group, Some(keys), scope)), (Command: paste, Run: Transfer.Paste(group, Some(keys), scope).Map(static _ => unit)))
+            Seq((Command: restore, Run: edit.Reset), (Command: copy, Run: Transfer.Copy(bound, Some(keys), scope)), (Command: paste, Run: Transfer.Paste(bound, Some(keys), scope).Map(static _ => unit)))
                 .Map(row => Subscriptions.Host<EventArgs>(typeof(Command), h => row.Command.Executed += h, h => row.Command.Executed -= h, nameof(Command.Executed)).Inline(_ => row.Run, scope.Sink))
             + padlock.ToSeq().Bind(row => Seq(
                 Subscriptions.Host<EventArgs>(typeof(CheckCommand), h => row.Command.CheckedChanged += h, h => row.Command.CheckedChanged -= h, nameof(CheckCommand.CheckedChanged))
@@ -125,7 +125,7 @@ public sealed class RowGrid : Panel {
                 Subscriptions.Host<EventArgs>(typeof(ImageButton), h => row.Button.Click += h, h => row.Button.Click -= h, nameof(ImageButton.Click))
                     .Inline(_ => scope.Lock(toSeq(keys), !row.Command.Checked), scope.Sink))),
             DisposalOps.Release)
-        select(new RowTrail(keys, reset, restore, copy, paste, padlock), held);
+        select (new RowTrail(keys, reset, restore, copy, paste, padlock), held);
 
     private static IO<ImageButton> Sized(IPlugInSink sink, GlyphRole glyph, ImageButton button) =>
         Icons.Frames(sink, glyph, IconSlot.PanelButton).Bind(icon => IO.lift(() => {
@@ -193,9 +193,9 @@ public sealed class RowGrid : Panel {
             + Fixed(line.Trail.Map(static trail => (Control)trail.Reset), metrics.Reset.Filter(_ => line.Trailing))
             + Fixed(line.Trail.Bind(static trail => trail.Lock).Map(static held => (Control)held.Button), metrics.Lock.Filter(_ => line.Trailing)),
             line.Fills) switch {
-                var table => line.Caption.Filter(_ => line.Columned && !beside).Match(
-                    Some: caption => (Control)Stacked(Seq(new StackLayoutItem(caption, HorizontalAlignment.Left), new StackLayoutItem(table))),
-                    None: () => table),
+                var table => line.Caption.Filter(_ => line.Columned && !beside).Case is Label caption
+                    ? Stacked(Seq(new StackLayoutItem(caption, HorizontalAlignment.Left), new StackLayoutItem(table)))
+                    : table,
             };
 
     private static Seq<TableCell> Fixed(Option<Control> control, Option<float> width) =>
@@ -224,7 +224,7 @@ public sealed class RowGrid : Panel {
 
     private Seq<IO<IDisposable>> Registrations =>
         Seq(scope.Listen(Refresh),
-            Themes.Changed.Inline(_ => Refreshed(places), Sink),
+            HostTheme.Changed.Inline(_ => Refreshed(places), Sink),
             Subscriptions.Host<EventArgs>(typeof(RowGrid), h => SizeChanged += h, h => SizeChanged -= h, nameof(SizeChanged)).Inline(_ => Formed, Sink))
         + places.Choose(place => place.Cells.Menu.Map(attach => attach(place.Label, place.Trail.Map(static trail => trail.Groups).IfNone(Seq<Seq<Command>>()), Refreshed(Seq(place)))))
         + places.Bind(static place => place.Sources).Distinct()

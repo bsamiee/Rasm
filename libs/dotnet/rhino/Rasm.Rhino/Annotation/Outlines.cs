@@ -43,7 +43,7 @@ public static partial class Outlines {
         from outlines in (
             from style in use(DimensionStyles.Effective(doc, text, None))
             from curves in Copies.Acquire(() => {
-                Update(source: false, style);
+                style.DrawForward = false;
                 return create(text, style, options.SmallCapsScale.IsSome, options.SmallCapsScale.IfNone(1.0), options.Spacing);
             }, member)
             select curves).Bracket()
@@ -51,7 +51,4 @@ public static partial class Outlines {
 
     // --- [MAPPING]
     private static partial void Update((Font Font, double TextHeight) source, TextEntity target);
-
-    [MapPropertyFromSource(nameof(DimensionStyle.DrawForward))]
-    private static partial void Update(bool source, DimensionStyle target);
 }

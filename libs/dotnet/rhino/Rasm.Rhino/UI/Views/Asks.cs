@@ -189,7 +189,7 @@ public static class HostDialogs {
         select folder;
 
     // --- [SUPPRESSION]
-    public static Seq<PlugInSetting<bool, bool, InvalidRhinoValue>> Suppressions(ViewCollection views) =>
+    public static Seq<PlugInSetting<bool, bool, InvalidRhinoValue>> Suppressions(ViewCatalog views) =>
         views.Listed<View.Dialog>().Choose(static dialog => dialog.Suppression);
 
     public static IO<Suppressible<T>> Suppressing<T>(SettingsNode node, PlugInSetting<bool, bool, InvalidRhinoValue> row, Func<CheckBox, IO<(T Value, bool Suppress)>> show) =>
@@ -202,6 +202,6 @@ public static class HostDialogs {
             : IO.pure<Suppressible<T>>(new Suppressible<T>.Suppressed())
         select asked;
 
-    public static IO<Unit> ResetMessageBoxes(ViewCollection views, SettingsNode node) =>
+    public static IO<Unit> ResetMessageBoxes(ViewCatalog views, SettingsNode node) =>
         ValueStore.Commit(Suppressions(views).Map(row => PlugInSettings.Store(node, row).Edit(None)));
 }

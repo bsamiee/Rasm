@@ -143,10 +143,12 @@ public static class DimensionStyles {
         source.Switch(
             (Doc: doc, Staged: staged),
             builtIn: static (state, builtIn) =>
-                (from styles in use(() => Conversions.Rows(state.Doc.DimStyles.BuiltInStyles), DisposalOps.Release)
-                 from found in IO.lift(styles.Find(style => TableOps.Names<DimensionStyle>().Equals(style.Name, builtIn.Name)).ToFin(new Missing(nameof(DimStyleTable.BuiltInStyles))))
-                 from copied in IO.lift(() => state.Staged.CopyFrom(found))
-                 select copied).Bracket(),
+                IO.lift(() => Conversions.Rows(state.Doc.DimStyles.BuiltInStyles)).Bracket(
+                    Use: styles =>
+                        from found in IO.lift(styles.Find(style => TableOps.Names<DimensionStyle>().Equals(style.Name, builtIn.Name)).ToFin(new Missing(nameof(DimStyleTable.BuiltInStyles))))
+                        from copied in IO.lift(() => state.Staged.CopyFrom(found))
+                        select copied,
+                    Fin: DisposalOps.Release),
             row: static (state, row) =>
                 from found in TableOps.Find(state.Doc.DimStyles, row.Address, includeDeleted: false)
                 from copied in IO.lift(() => state.Staged.CopyFrom(found))
@@ -183,9 +185,9 @@ public static class DimensionStyles {
                 (DimensionStyle.Field.DimensionLengthDisplay, (int)DimensionStyle.LengthDisplay.InchesFractional),
                 (DimensionStyle.Field.AlternateDimensionLengthDisplay, (int)DimensionStyle.LengthDisplay.Millmeters),
                 (DimensionStyle.Field.UnitSystem, (int)doc.PageUnitSystem)];
-            lengths.Filter(row => Quantities.From(GetDouble(staged, row.Field), row.Unit) != row.Value).Iter(row => SetDouble(staged, row.Field, Quantities.As(row.Value, row.Unit)));
-            ratios.Filter(row => !GetDouble(staged, row.Field).Equals(row.Value)).Iter(row => SetDouble(staged, row.Field, row.Value));
-            codes.Filter(row => GetInt(staged, row.Field) != row.Value).Iter(row => SetInt(staged, row.Field, row.Value));
+            _ = lengths.Filter(row => Quantities.From(GetDouble(staged, row.Field), row.Unit) != row.Value).Iter(row => SetDouble(staged, row.Field, Quantities.As(row.Value, row.Unit)));
+            _ = ratios.Filter(row => !GetDouble(staged, row.Field).Equals(row.Value)).Iter(row => SetDouble(staged, row.Field, row.Value));
+            _ = codes.Filter(row => GetInt(staged, row.Field) != row.Value).Iter(row => SetInt(staged, row.Field, row.Value));
         });
 
     // --- [OVERRIDES]

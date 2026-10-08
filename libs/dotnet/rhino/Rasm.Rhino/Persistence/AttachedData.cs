@@ -35,7 +35,7 @@ public abstract class DefinedUserData<TState>(uint typeCode, DictionaryCodec<TSt
 public static class AttachedData {
     // --- [FRAMES]
     private static IO<T> Faulted<T>(IO<T> call, string member) =>
-        call.Catch(static error => error.HasException<BinaryArchiveException>(), error => IO.fail<T>(new ArchiveFault(member, error)));
+        (call | @catch(static error => error.HasException<BinaryArchiveException>(), error => IO.fail<T>(new ArchiveFault(member, error)))).As();
 
     public static IO<Unit> Write<T>(BinaryArchiveWriter writer, uint typeCode, DictionaryCodec<T> codec, T payload) =>
         from dictionary in IO.lift(() => codec.ToDictionary(payload))

@@ -34,7 +34,7 @@ public sealed record GumballTransforms(Transform GumballTransform, Transform Pre
 [Mapper]
 public static partial class Gumballs {
     // --- [SCOPE]
-    public static IO<A> Placed<A>(GumballSource source, ActiveSpace space, Option<GumballAppearanceSettings> appearance, Func<GumballDisplayConduit, IO<A>> body) =>
+    public static IO<T> Placed<T>(GumballSource source, ActiveSpace space, Option<GumballAppearanceSettings> appearance, Func<GumballDisplayConduit, IO<T>> body) =>
         (from conduit in use(() => new GumballDisplayConduit(space), static conduit => {
             conduit.Enabled = false;
             conduit.Dispose();
@@ -54,7 +54,7 @@ public static partial class Gumballs {
                  fromExtrusion: static (target, extrusion) => (Accepted: target.SetFromExtrusion(extrusion.Extrusion), Member: nameof(GumballObject.SetFromExtrusion)),
                  fromLight: static (target, light) => (Accepted: target.SetFromLight(light.Light), Member: nameof(GumballObject.SetFromLight)),
                  fromHatch: static (target, hatch) => (Accepted: target.SetFromHatch(hatch.Hatch), Member: nameof(GumballObject.SetFromHatch))))
-             from admitted in IO.lift(Refused.Unless(initialized.Accepted, initialized.Member))
+             from accepted in IO.lift(Refused.Unless(initialized.Accepted, initialized.Member))
              from enabled in IO.lift(() => {
                  conduit.SetBaseGumball(gumball, appearance.ValueUnsafe());
                  conduit.Enabled = true;

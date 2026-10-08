@@ -41,7 +41,7 @@ public sealed record SafeFrameState(
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SafeFrameChanged;
 
     public static IO<SafeFrameState> Read(SceneWindow window) =>
-        Sources.SubOwner(window, static settings => settings.SafeFrame, static frame => IO.lift(() =>
+        SceneSources.SubOwner(window, static settings => settings.SafeFrame, static frame => IO.lift(() =>
             (Conversions.Validated<FrameFraction, double, InvalidRhinoValue>(frame.ActionFrameXScale).ToValidation(),
              Conversions.Validated<FrameFraction, double, InvalidRhinoValue>(frame.ActionFrameYScale).ToValidation(),
              Conversions.Validated<FrameFraction, double, InvalidRhinoValue>(frame.TitleFrameXScale).ToValidation(),
@@ -54,7 +54,7 @@ public sealed record SafeFrameState(
                 .ToFin()));
 
     public static IO<Unit> Write(SceneWindow window, SafeFrameState state) =>
-        Sources.SubOwner(window, static settings => settings.SafeFrame, frame => IO.lift(() => SafeFrameMapper.Update(state, frame)));
+        SceneSources.SubOwner(window, static settings => settings.SafeFrame, frame => IO.lift(() => SafeFrameMapper.Update(state, frame)));
 
     public static ParameterText Text(SafeFrameParameter parameter) =>
         parameter.Map(
@@ -135,11 +135,11 @@ public sealed partial class SafeFrameParameter : IStateParameter<SafeFrameState>
 public abstract partial record RenderSize {
     public abstract Fin<ImageOutputState> Applied(ImageOutputState held);
 
-    public sealed record Viewport(Size ScreenPort) : RenderSize {
+    public sealed record ViewportSize(Size ScreenPort) : RenderSize {
         public override Fin<ImageOutputState> Applied(ImageOutputState held) => Framing.Sized(held with { UseViewportSize = true }, ScreenPort);
     }
 
-    public sealed record Custom : RenderSize {
+    public sealed record CustomSize : RenderSize {
         public override Fin<ImageOutputState> Applied(ImageOutputState held) => held with { UseViewportSize = false };
     }
 
@@ -198,11 +198,13 @@ public readonly partial struct Overscan : System.Numerics.IMinMaxValue<Overscan>
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(EnabledConversions = MappingConversionType.Queryable | MappingConversionType.Enumerable | MappingConversionType.Dictionary
-    | MappingConversionType.Span | MappingConversionType.Memory | MappingConversionType.EnumToEnum | MappingConversionType.ImplicitCast)]
+[Mapper]
 internal static partial class SafeFrameMapper {
     [MapperRequiredMapping(RequiredMappingStrategy.Both)]
     internal static partial void Update(SafeFrameState state, SafeFrame frame);
+
+    [UserMapping]
+    private static double Scalar(FrameFraction fraction) => fraction;
 }
 
 public static class Framing {
@@ -230,11 +232,11 @@ public static class Framing {
 
     // --- [SIZES]
     public static Seq<RenderSize> Sizes(EditorState editor, Size screenPort) =>
-        [new RenderSize.Viewport(screenPort), new RenderSize.Custom(), .. editor.CustomRenderSizes.Map(static size => new RenderSize.Listed(size))];
+        [new RenderSize.ViewportSize(screenPort), new RenderSize.CustomSize(), .. editor.CustomRenderSizes.Map(static size => new RenderSize.Listed(size))];
 
     public static IO<Unit> Choose(SceneSource.Section section, RenderSize size) =>
-        from sized in Sources.Edit(section, window => ImageOutputState.Read(window).Bind(held => IO.lift(size.Applied(held))).Bind(next => ImageOutputState.Write(window, next)))
-        from preset in ViewModels.Write(section.Host, Provider.RhinoSettings, data => IO.lift(() => data.CustomImageSizeIsPreset = size.Map(viewport: false, custom: false, listed: true)))
+        from sized in SceneSources.Edit(section, window => ImageOutputState.Read(window).Bind(held => IO.lift(size.Applied(held))).Bind(next => ImageOutputState.Write(window, next)))
+        from preset in SectionModels.Write(section.Host, Provider.RhinoSettings, data => IO.lift(() => data.CustomImageSizeIsPreset = size.Map(viewportSize: false, customSize: false, listed: true)))
         select unit;
 
     // --- [ROUNDING]

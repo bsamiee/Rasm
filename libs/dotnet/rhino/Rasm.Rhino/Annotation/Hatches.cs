@@ -40,7 +40,7 @@ public sealed record HatchEdit(
     Option<Option<ColorGradient>> Gradient = default) {
     public IO<Unit> Apply(RhinoDoc doc, Hatch hatch) =>
         from patternIndex in Pattern.TraverseM(address => TableOps.Find(doc.HatchPatterns, address, includeDeleted: false).Map(static row => row.Index)).As()
-        from written in IO.lift(() => HatchMapper.Update((patternIndex.ToNullable(), PatternRotation.ToNullable(), PatternScale.ToNullable(), BasePoint.ToNullable(), Plane.ToNullable()), hatch))
+        from written in IO.lift(() => HatchMapper.Update((patternIndex, PatternRotation, PatternScale.Map(static scale => (double)scale), BasePoint, Plane), hatch))
         from rescaled in IO.lift(() => Rescale.Iter(hatch.ScalePattern))
         from filled in IO.lift(() => Gradient.Iter(fill => hatch.SetGradientFill(fill.ValueUnsafe())))
         select filled;
@@ -51,14 +51,23 @@ public sealed record HatchState(Option<int> PatternIndex, Plane Plane, Point3d B
 public sealed record HatchDisplay(Seq<Curve> Bounds, Seq<Line> Lines, Option<Brep> Solid);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(AllowNullPropertyAssignment = false, ThrowOnPropertyMappingNullMismatch = false)]
+[Mapper]
 internal static partial class HatchMapper {
     // --- [EDITS]
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial void Update((int? PatternIndex, double? PatternRotation, HatchScale? PatternScale, Point3d? BasePoint, Plane? Plane) edit, Hatch hatch);
+    internal static partial void Update((Option<int> PatternIndex, Option<double> PatternRotation, Option<double> PatternScale, Option<Point3d> BasePoint, Option<Plane> Plane) edit, Hatch hatch);
 
-    [UserMapping]
-    private static double Key(HatchScale scale) => scale.ToValue();
+    [UserMapping(Default = true)]
+    private static int Index(Option<int> value, [MappingTargetOriginalValue] int original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    private static double Scalar(Option<double> value, [MappingTargetOriginalValue] double original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    private static Point3d Point(Option<Point3d> value, [MappingTargetOriginalValue] Point3d original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    private static Plane Frame(Option<Plane> value, [MappingTargetOriginalValue] Plane original) => value.IfNone(original);
 
     // --- [READS]
     [MapPropertyFromSource(nameof(HatchState.Gradient), Use = nameof(Gradient))]
@@ -94,7 +103,7 @@ public static class Hatches {
         select HatchMapper.ToState(hatch, scale);
 
     // --- [DISPLAY]
-    public static IO<A> Display<A>(Hatch hatch, HatchPattern pattern, double patternScale, Func<HatchDisplay, IO<A>> body) =>
+    public static IO<T> Display<T>(Hatch hatch, HatchPattern pattern, double patternScale, Func<HatchDisplay, IO<T>> body) =>
         IO.lift(() => {
             hatch.CreateDisplayGeometry(pattern, patternScale, out Curve[] bounds, out Line[] lines, out Brep solid);
             return new HatchDisplay(Conversions.Rows(bounds), Conversions.Rows(lines), Optional(solid));

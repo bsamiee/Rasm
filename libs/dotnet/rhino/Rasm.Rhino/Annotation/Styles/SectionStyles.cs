@@ -71,10 +71,10 @@ internal static partial class SectionStyleMapper {
 
     // --- [VALUES]
     [UserMapping]
-    private static double Width(BoundaryWidthScale width) => width.ToValue();
+    private static double Width(BoundaryWidthScale width) => width;
 
     [UserMapping]
-    private static double Scale(HatchScale scale) => scale.ToValue();
+    private static double Scale(HatchScale scale) => scale;
 }
 
 public static class SectionStyles {
@@ -122,9 +122,11 @@ public static class SectionStyles {
             noFill: static _ => SectionBackgroundFillMode.None,
             viewportFill: static _ => SectionBackgroundFillMode.Viewport,
             solidFill: static _ => SectionBackgroundFillMode.SolidColor)), staged))
-        from filled in definition.Fill is SectionFill.SolidFill solid
-            ? IO.lift(() => SectionStyleMapper.Update((solid.Color, solid.PrintColor), staged))
-            : IO.pure(unit)
+        from filled in IO.lift(() => definition.Fill.Switch(
+            staged,
+            noFill: static (_, _) => { },
+            viewportFill: static (_, _) => { },
+            solidFill: static (target, solid) => SectionStyleMapper.Update((solid.Color, solid.PrintColor), target)))
         from bordered in definition.Boundary.Traverse(boundary => boundary.Written(doc, staged)).As()
         from hatched in IO.lift(() => definition.Hatch.Iter(hatch => SectionStyleMapper.Update((hatch.Scale, hatch.Rotation, hatch.Color, hatch.PrintColor, hatch.PrintWidth), staged)))
         select unit;

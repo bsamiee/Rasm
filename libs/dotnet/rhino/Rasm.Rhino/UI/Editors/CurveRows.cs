@@ -82,7 +82,7 @@ public static class CurveRows {
         from bound in DisposalOps.OnFailure(
             RowEdit.Bind(
                 source, lanes.Map(static lane => lane.Field), h => editor.Edited += h, h => editor.Edited -= h,
-                edit => Callbacks.Handler<Edit<PlottedCurve>>(change => edit.Take(change, (curve, held) => Fin.Succ(keyed[curve.Key].Write(curve, held))), site),
+                edit => Callbacks.Handler<EditEventArgs<PlottedCurve>>(args => edit.Take(args.Edit, (curve, held) => Fin.Succ(keyed[curve.Key].Write(curve, held))), site),
                 held => held.Match(
                     Some: record => toSeq(lanes).TraverseM(lane => editor.Receive(Some(lane.Curve(record)))).As().Map(static _ => unit),
                     None: () => editor.Receive(None)),
@@ -98,8 +98,8 @@ public static class CurveRows {
         from anchored in DisposalOps.OnFailure(
             Subscriptions.Attach(
                 h => editor.Anchored += h, h => editor.Anchored -= h,
-                Callbacks.Handler<Option<CurveAnchor>>(
-                    shown => anchor.SwapIO(_ => shown).Bind(_ => input.Show(shown)).Bind(_ => output.Show(shown)), site with { Member = nameof(CurveEditor.Anchored) })),
+                Callbacks.Handler<AnchorShownEventArgs>(
+                    shown => anchor.SwapIO(_ => shown.Anchor).Bind(_ => input.Show(shown.Anchor)).Bind(_ => output.Show(shown.Anchor)), site with { Member = nameof(CurveEditor.Anchored) })),
             DisposalOps.Release(lined))
         from stack in IO.lift(() => new StackLayout(new StackLayoutItem(strip.Control, HorizontalAlignment.Left), new StackLayoutItem(editor, HorizontalAlignment.Stretch)) {
             Orientation = Orientation.Vertical,
@@ -118,7 +118,7 @@ public static class CurveRows {
             .Map(axis => (axis, Field: new NumberField<CurveCoordinate, double, InvalidGrade>(Shown(axis), sink) { Enabled = false }))))
         from panel in IO.lift(() => new Panel { Content = fields[side.Plotted(lanes.Head.Curve(record))] })
         let site = new CallbackSite(sink, typeof(NumberField<CurveCoordinate, double, InvalidGrade>), nameof(NumberField<,,>.Edited))
-        let handler = Callbacks.Handler<Edit<CurveCoordinate>>(edit => Entered(edit, side.Coordinate, anchored, editor), site)
+        let handler = Callbacks.Handler<EditEventArgs<CurveCoordinate>>(args => Entered(args.Edit, side.Coordinate, anchored, editor), site)
         from held in DisposalOps.AcquireAll(
             toSeq(fields.Values).Map(field => Subscriptions.Attach(h => field.Edited += h, h => field.Edited -= h, handler)), DisposalOps.Release)
         let width = fields.AsIterable().Fold(0f, static (widest, pair) => float.Max(widest, Shown(pair.Key).TextWidth(pair.Value.Font)))
@@ -209,7 +209,7 @@ public static class CurveRows {
         let site = new CallbackSite(scope.Sink, typeof(ScopeView), nameof(ScopeView.Edited))
         from bound in RowEdit.Bind(
             source, IterableNE.create(points.Black, points.White), h => view.Edited += h, h => view.Edited -= h,
-            edit => Callbacks.Handler<Edit<ScopeEdit>>(change => edit.Take(change, Into), site),
+            edit => Callbacks.Handler<EditEventArgs<ScopeEdit>>(args => edit.Take(args.Edit, Into), site),
             held => view.Receive(held.Map(static levels => (ScopeEdit)new ScopeEdit.Points(levels))),
             scope, site)
         from black in DisposalOps.OnFailure(

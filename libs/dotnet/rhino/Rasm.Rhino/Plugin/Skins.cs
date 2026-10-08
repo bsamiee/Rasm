@@ -191,6 +191,6 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
 
     private static void Placed(Form window, Size client) {
         window.ClientSize = client;
-        window.Location = Eto.Drawing.Point.Round(Screen.PrimaryScreen.WorkingArea.Center - (window.Size / 2f));
+        window.Location = Eto.Drawing.Point.Round(Screen.PrimaryScreen.WorkingArea.Center - ((SizeF)window.Size / 2f));
     }
 }

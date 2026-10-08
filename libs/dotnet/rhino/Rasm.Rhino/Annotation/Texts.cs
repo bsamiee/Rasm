@@ -155,10 +155,9 @@ public static class Texts {
 
     public static IO<(string PlainText, Seq<(int Run, int Start, int Length)> Runs)> RunMap(AnnotationBase annotation) =>
         IO.lift(() => {
-            const int valuesPerRun = 3;
             int[] map = [];
             string plainText = annotation.GetPlainTextWithRunMap(ref map);
-            return (PlainText: plainText, Runs: toSeq(map.Chunk(valuesPerRun)).Map(static run => (Run: run[0], Start: run[1], Length: run[2])).Strict());
+            return (PlainText: plainText, Runs: toSeq(map.Chunk(size: 3)).Map(static run => (Run: run[0], Start: run[1], Length: run[2])).Strict());
         });
 
     // --- [FRAMES]
@@ -174,15 +173,14 @@ public static class Texts {
         IO.lift(() => Conversions.NonEmpty(toSeq(text.GetTextCorners(viewport)), nameof(TextObject.GetTextCorners)));
 
     // --- [PIECES]
-    public static IO<A> TextPieces<A>(TextEntity text, Func<Seq<Curve>, IO<A>> body) =>
+    public static IO<T> TextPieces<T>(TextEntity text, Func<Seq<Curve>, IO<T>> body) =>
         Copies.Acquire(() => text.Explode(), nameof(TextEntity.Explode)).Bracket(Use: body, Fin: DisposalOps.Release);
 
-    public static IO<A> LeaderPieces<A>(Leader leader, Func<Seq<GeometryBase>, IO<A>> body) =>
+    public static IO<T> LeaderPieces<T>(Leader leader, Func<Seq<GeometryBase>, IO<T>> body) =>
         Copies.Acquire(() => leader.Explode(), nameof(Leader.Explode)).Bracket(Use: body, Fin: DisposalOps.Release);
 
-    public static IO<A> LeaderCurve<A>(Leader leader, Func<NurbsCurve, IO<A>> body) =>
-        (from curve in IO.lift(() => Missing.Unless(leader.Curve, nameof(Leader.Curve)))
-         from owned in use(Copies.DuplicateShallow(curve))
-         from value in body(owned)
-         select value).Bracket();
+    public static IO<T> LeaderCurve<T>(Leader leader, Func<NurbsCurve, IO<T>> body) =>
+        from curve in IO.lift(() => Missing.Unless(leader.Curve, nameof(Leader.Curve)))
+        from value in use(Copies.DuplicateShallow(curve)).Bind(body).Bracket()
+        select value;
 }

@@ -14,8 +14,11 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record CellGlyph<TItem>(Seq<IGlyph> Glyphs, Func<TItem, IGlyph> Read) where TItem : notnull {
-    public static CellGlyph<TItem> Of<TGlyph, TError>(Func<TItem, TGlyph> read)
+public sealed record CellGlyph<TItem>(Seq<IGlyph> Glyphs, Func<TItem, IGlyph> Read) where TItem : notnull;
+
+public static class CellGlyph {
+    public static CellGlyph<TItem> Of<TItem, TGlyph, TError>(Func<TItem, TGlyph> read)
+        where TItem : notnull
         where TGlyph : class, IGlyph, ISmartEnum<string, TGlyph, TError>
         where TError : Error, IValidationError<TError> =>
         new(toSeq(TGlyph.Items).Map(static glyph => (IGlyph)glyph), item => read(item));
@@ -27,37 +30,20 @@ public abstract partial record ListColumn<TItem> where TItem : notnull {
 
     public Option<string> Caption { get; }
 
-    public bool Renames => Switch(text: static text => text.Rename.IsSome, check: static _ => false, glyph: static _ => false, progress: static _ => false);
+    public bool Renames => Switch(label: static label => label.Rename.IsSome, check: static _ => false, glyph: static _ => false, progress: static _ => false);
 
-    public bool Edits => Switch(text: static text => text.Rename.IsSome, check: static _ => true, glyph: static _ => false, progress: static _ => false);
+    public bool Edits => Switch(label: static label => label.Rename.IsSome, check: static _ => true, glyph: static _ => false, progress: static _ => false);
 
-    public bool Stretches => Map(text: true, check: false, glyph: false, progress: true);
+    public bool Stretches => Map(label: true, check: false, glyph: false, progress: true);
 
     public Seq<IGlyph> Glyphs =>
         Switch(
-            text: static text => text.Icon.ToSeq().Bind(static icon => icon.Glyphs),
+            label: static label => label.Icon.ToSeq().Bind(static icon => icon.Glyphs),
             check: static _ => Seq<IGlyph>(),
             glyph: static glyph => glyph.Icon.Glyphs,
             progress: static _ => Seq<IGlyph>());
 
-    public static ListColumn<TItem> Named<TValue, TRaw, TError>(Option<string> caption, Lens<TItem, TValue> name, Option<CellGlyph<TItem>> icon)
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> =>
-        new Text(
-            caption,
-            item => StoredText.Capture<TValue, TRaw>(name.Get(item)),
-            icon,
-            Some<Func<TItem, string, Fin<TItem>>>((item, text) => StoredText.Recall<TValue, TRaw, TError>(text).Map(value => name.Set(value, item))));
-
-    public static ListColumn<TItem> Fraction<TValue, TKey>(Option<string> caption, Func<TItem, Option<TValue>> read)
-        where TValue : System.Numerics.IMinMaxValue<TValue>, IConvertible<TKey>
-        where TKey : System.Numerics.INumber<TKey> =>
-        new Progress(caption, item => read(item).Map(static value => float.CreateChecked(
-            (double.CreateChecked(value.ToValue()) - double.CreateChecked(TValue.MinValue.ToValue()))
-            / (double.CreateChecked(TValue.MaxValue.ToValue()) - double.CreateChecked(TValue.MinValue.ToValue())))));
-
-    public sealed record Text(Option<string> Caption, Func<TItem, string> Read, Option<CellGlyph<TItem>> Icon, Option<Func<TItem, string, Fin<TItem>>> Rename)
+    public sealed record Label(Option<string> Caption, Func<TItem, string> Read, Option<CellGlyph<TItem>> Icon, Option<Func<TItem, string, Fin<TItem>>> Rename)
         : ListColumn<TItem>(Caption);
 
     public sealed record Check(Option<string> Caption, Lens<TItem, bool> Value) : ListColumn<TItem>(Caption);
@@ -65,6 +51,27 @@ public abstract partial record ListColumn<TItem> where TItem : notnull {
     public sealed record Glyph(Option<string> Caption, CellGlyph<TItem> Icon) : ListColumn<TItem>(Caption);
 
     public sealed record Progress(Option<string> Caption, Func<TItem, Option<float>> Read) : ListColumn<TItem>(Caption);
+}
+
+public static class ListColumn {
+    public static ListColumn<TItem> Named<TItem, TValue, TRaw, TError>(Option<string> caption, Lens<TItem, TValue> name, Option<CellGlyph<TItem>> icon)
+        where TItem : notnull
+        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw>
+        where TError : Error, IValidationError<TError> =>
+        new ListColumn<TItem>.Label(
+            caption,
+            item => StoredText.Capture<TValue, TRaw>(name.Get(item)),
+            icon,
+            Some<Func<TItem, string, Fin<TItem>>>((item, text) => StoredText.Recall<TValue, TRaw, TError>(text).Map(value => name.Set(value, item))));
+
+    public static ListColumn<TItem> Fraction<TItem, TValue, TKey>(Option<string> caption, Func<TItem, Option<TValue>> read)
+        where TItem : notnull
+        where TValue : System.Numerics.IMinMaxValue<TValue>, IConvertible<TKey>
+        where TKey : System.Numerics.INumber<TKey> =>
+        new ListColumn<TItem>.Progress(caption, item => read(item).Map(static value => float.CreateChecked(
+            (double.CreateChecked(value.ToValue()) - double.CreateChecked(TValue.MinValue.ToValue()))
+            / (double.CreateChecked(TValue.MaxValue.ToValue()) - double.CreateChecked(TValue.MinValue.ToValue())))));
 }
 
 public sealed record ListSearch<TItem>(string Placeholder, Func<RowScope, TItem, string> Text, Option<RowSource<bool>> Shown) where TItem : notnull;
@@ -384,9 +391,9 @@ public static class ListRows {
     private static Cell CellFor<TItem>(ListColumn<TItem> column, IPlugInSink sink) where TItem : notnull =>
         column.Switch(
             sink,
-            text: static (held, text) => text.Icon.Match<Cell>(
-                Some: icon => new ImageTextCell { ImageBinding = Pictured(icon, held), TextBinding = Written(text) },
-                None: () => new TextBoxCell { Binding = Written(text) }),
+            label: static (held, label) => label.Icon.Match<Cell>(
+                Some: icon => new ImageTextCell { ImageBinding = Pictured(icon, held), TextBinding = Written(label) },
+                None: () => new TextBoxCell { Binding = Written(label) }),
             check: static (_, check) => new CheckBoxCell {
                 Binding = Binding.Delegate<RowItem<TItem>, bool?>(
                     node => check.Value.Get(node.Row),
@@ -400,10 +407,10 @@ public static class ListRows {
     private static IndirectBinding<Image> Pictured<TItem>(CellGlyph<TItem> icon, IPlugInSink sink) where TItem : notnull =>
         Binding.Delegate<RowItem<TItem>, Image>(node => Icons.Frame(sink, icon.Read(node.Row), IconSlot.ListCell));
 
-    private static IndirectBinding<string> Written<TItem>(ListColumn<TItem>.Text text) where TItem : notnull =>
+    private static IndirectBinding<string> Written<TItem>(ListColumn<TItem>.Label label) where TItem : notnull =>
         Binding.Delegate<RowItem<TItem>, string>(
-            node => text.Read(node.Row),
-            (node, value) => _ = text.Rename.Bind(rename => rename(node.Row, value).ToOption()).Iter(item => node.Row = item));
+            node => label.Read(node.Row),
+            (node, value) => _ = label.Rename.Bind(rename => rename(node.Row, value).ToOption()).Iter(item => node.Row = item));
 
     // --- [EXPANSION]
     private static IO<(Seq<EntryKey> Keys, IO<Unit> Shown, IDisposable Release)> Expansion<TItem, TKey>(
@@ -488,7 +495,7 @@ public static class ListRows {
 
     private static IO<Unit> Handled(KeyEventArgs args, Option<Action> action) =>
         IO.lift(fun(() => {
-            action.Iter(static run => run());
+            _ = action.Iter(static run => run());
             args.Handled = action.IsSome;
         }));
 
@@ -529,7 +536,7 @@ public static class ListRows {
         let menu = CommandRow.Menu(Seq(realized.Map(static command => command.Realized)), site)
         select (
             paired.Map(static held => held.Control),
-            (paired.Map(static held => held.Keys.Map(static key => key.Command)).ToSeq() + menu.Groups).Map(static group => group.Map(static command => (MenuEntry)command)),
+            (paired.Map(static held => held.Keys.Map(static key => key.Command)).ToSeq() + menu.Groups).Map(static cluster => cluster.Map(static command => (MenuEntry)command)),
             paired.ToSeq().Bind(static held => held.Keys) + realized.Bind(static command => command.Keys),
             paired.Map(static held => held.Refresh).ToSeq().Add(menu.Joined.Refresh).TraverseM(static refresh => refresh).As().Map(static _ => unit),
             DisposalOps.Composite(paired.Map(static held => held.Release).ToSeq().Add(menu.Joined.Release), site));
@@ -601,7 +608,7 @@ public static class ListRows {
         RowSource<BrowserLayout> layout, BrowserMode mode, ThumbnailBrowser<TItem, TKey> browser, RowScope scope)
         where TItem : notnull
         where TKey : notnull =>
-        from slider in IO.lift(static () => new Eto.Forms.Slider { MinValue = (int)TileSize.MinValue.ToValue(), MaxValue = (int)TileSize.MaxValue.ToValue(), TickFrequency = 0 })
+        from slider in IO.lift(static () => new Eto.Forms.Slider { MinValue = (int)(float)TileSize.MinValue, MaxValue = (int)(float)TileSize.MaxValue, TickFrequency = 0 })
         let keys = Named(layout, scope)
         let written = (Func<Func<BrowserLayout, BrowserLayout>, IO<Unit>>)(next =>
             from held in scope.Read(layout)
@@ -611,16 +618,16 @@ public static class ListRows {
         from modes in DisposalOps.OnFailure(
             ChoiceRows.Strip(
                 toSeq(BrowserMode.Items).Map(static item => new ChoiceItem<BrowserMode>(item, item.Caption, Some<IGlyph>(item.Glyph))),
-                static picked => written(held => held with { Mode = Some(picked) }), scope.Sink),
+                picked => written(held => held with { Mode = Some(picked) }), scope.Sink),
             IO.lift(fun(slider.Dispose)))
-        let add = (Action<EventHandler<EventArgs>>)(static h => slider.ValueChanged += h)
-        let remove = (Action<EventHandler<EventArgs>>)(static h => slider.ValueChanged -= h)
+        let add = (Action<EventHandler<EventArgs>>)(h => slider.ValueChanged += h)
+        let remove = (Action<EventHandler<EventArgs>>)(h => slider.ValueChanged -= h)
         let moved = Callbacks.Handler<EventArgs>(
-            static _ => IO.lift(static () => TileSize.Clamped(slider.Value)).Bind(static size => written(held => held with { Size = Some(size) })),
+            _ => IO.lift(() => TileSize.Clamped(slider.Value)).Bind(size => written(held => held with { Size = Some(size) })),
             new CallbackSite(scope.Sink, typeof(Eto.Forms.Slider), nameof(Eto.Forms.Slider.ValueChanged)))
         let widths = IO.lift(() => browser.ImageWidth)
-            .Bind(static width => Subscriptions.Detached(add, remove, moved, IO.lift(fun(() => slider.Value = (int)MathF.Round(width.ToValue())))))
-        let failed = Seq<IDisposable>(slider, modes.Release)
+            .Bind(width => Subscriptions.Detached(add, remove, moved, IO.lift(() => { slider.Value = (int)MathF.Round(width, MidpointRounding.ToEven); })))
+        let failed = Seq(slider, modes.Release)
         from watched in DisposalOps.OnFailure(
             Watched(layout, keys, held => held.Mode.IfNone(mode) switch {
                 var shown =>
@@ -636,11 +643,11 @@ public static class ListRows {
             DisposalOps.AcquireAll(
                 Seq(Subscriptions.Attach(add, remove, moved),
                     Subscriptions.Attach(h => browser.SizeChanged += h, h => browser.SizeChanged -= h,
-                        Callbacks.Handler<EventArgs>(static _ => widths, new CallbackSite(scope.Sink, typeof(ThumbnailBrowser<TItem, TKey>), nameof(Control.SizeChanged))))),
+                        Callbacks.Handler<EventArgs>(_ => widths, new CallbackSite(scope.Sink, typeof(ThumbnailBrowser<TItem, TKey>), nameof(Control.SizeChanged))))),
                 DisposalOps.Release),
             DisposalOps.Release(failed.Add(watched.Release)))
         select (
-            new RowLine(None, new TableLayout(new TableRow(new TableCell(slider, true), modes.Control)) { Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) }, None, None),
+            new RowLine(None, new TableLayout(new TableRow(new TableCell(slider, scaleWidth: true), modes.Control)) { Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) }, None, None),
             keys,
             watched.Shown,
             DisposalOps.Composite(Seq(modes.Release, watched.Release) + routes, new CallbackSite(scope.Sink, typeof(ListRows), nameof(Laid))));
@@ -665,7 +672,7 @@ public static class ListRows {
         where TKey : notnull =>
         RowEdit.Bind(items.Source, IterableNE.create(items.Field),
                 h => browser.Edited += h, h => browser.Edited -= h,
-                edit => Callbacks.Handler<Edit<BrowserEdit<TItem, TKey>>>(change => ToItems(row, change, edit), site),
+                edit => Callbacks.Handler<EditEventArgs<BrowserEdit<TItem, TKey>>>(args => ToItems(row, args.Edit, edit), site),
                 shown => browser.Items(Ordered(row.Ordered, shown.ToSeq().Flatten())), scope, site)
             .Map(static bound => (bound.Edit.Keys, bound.Edit.Shown, bound.Release));
 
@@ -675,7 +682,7 @@ public static class ListRows {
         where TKey : notnull =>
         RowEdit.Bind(current.Source, IterableNE.create(current.Field),
                 h => browser.Edited += h, h => browser.Edited -= h,
-                edit => Callbacks.Handler<Edit<BrowserEdit<TItem, TKey>>>(change => ToCurrent(change, edit), site),
+                edit => Callbacks.Handler<EditEventArgs<BrowserEdit<TItem, TKey>>>(args => ToCurrent(args.Edit, edit), site),
                 shown => browser.Receive(shown.Bind(static key => key).Map<BrowserEdit<TItem, TKey>>(static key => new BrowserEdit<TItem, TKey>.Applied(key))),
                 scope, site)
             .Map(static bound => (bound.Edit.Keys, bound.Edit.Shown, bound.Release));

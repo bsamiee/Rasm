@@ -61,9 +61,9 @@ public sealed partial class QuadSource {
     public sealed record FaceSelection(Mesh Mesh, Seq<int> FaceBlocks);
 }
 
-[Union<Seq<Mesh>, PointCloud, Geometry, Mesh>(T1Name = "Meshes", T2Name = "Cloud", MapMethods = SwitchMapMethodsGeneration.None)]
+[Union<Seq<Mesh>, PointCloud, Meshable, Mesh>(T1Name = "Meshes", T2Name = "Cloud", MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class ShrinkWrapSource {
-    public sealed record Geometry(Seq<GeometryBase> Items, MeshingParameters Meshing);
+    public sealed record Meshable(Seq<GeometryBase> Items, MeshingParameters Meshing);
 }
 
 [Union<Convex, Seq<Point3d>, PointCloud>(T2Name = "Points", T3Name = "Cloud", MapMethods = SwitchMapMethodsGeneration.None)]
@@ -111,7 +111,7 @@ public static class MeshConstruction {
                     (Parameters: parameters, Token: token),
                     meshes: static (state, meshes) => Mesh.ShrinkWrap(meshes, state.Parameters, state.Token),
                     cloud: static (state, cloud) => Mesh.ShrinkWrap(cloud, state.Parameters, state.Token),
-                    geometry: static (state, of) => Mesh.ShrinkWrap(of.Items, state.Parameters, of.Meshing, state.Token),
+                    meshable: static (state, of) => Mesh.ShrinkWrap(of.Items, state.Parameters, of.Meshing, state.Token),
                     mesh: static (state, mesh) => mesh.ShrinkWrap(state.Parameters, state.Token)))
                 .ToFin(token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(Mesh.ShrinkWrap))),
             nameof(Mesh.ShrinkWrap))
@@ -146,8 +146,10 @@ public static class MeshConstruction {
 
     public static IO<Mesh> CreateFromFilteredFaceList(Mesh mesh, Seq<int> faces) =>
         from count in IO.lift(() => mesh.Faces.Count)
-        from inside in IO.lift(Copies.InRange(faces, count, nameof(Mesh.CreateFromFilteredFaceList)))
-        from filtered in Copies.Acquire(() => Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, count)).Map(toHashSet(faces).Contains)), nameof(Mesh.CreateFromFilteredFaceList))
+        from filtered in Copies.Acquire(
+            () => Copies.InRange(faces, count, nameof(Mesh.CreateFromFilteredFaceList))
+                .Map(_ => Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, count)).Map(toHashSet(faces).Contains))),
+            nameof(Mesh.CreateFromFilteredFaceList))
         select filtered;
 
     public static IO<Mesh> Refine(Mesh mesh, Option<LoopFormula> loop, RefinementLevel level, CreaseEdges nakedEdgeMode) =>

@@ -59,8 +59,8 @@ public readonly partial struct AngularDiameter : System.Numerics.IMinMaxValue<An
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "AtKey", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct LightStops : System.Numerics.IMinMaxValue<LightStops> {
-    public static LightStops MinValue { get; } = new(Exposure.MinValue.ToValue());
-    public static LightStops MaxValue { get; } = new(Exposure.MaxValue.ToValue());
+    public static LightStops MinValue { get; } = new((float)Exposure.MinValue);
+    public static LightStops MaxValue { get; } = new((float)Exposure.MaxValue);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
@@ -216,24 +216,24 @@ public abstract partial record RigLayout {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RigPreset {
     public static readonly RigPreset ThreePoint = new("three-point", static () => Arranged(
-        new(LightRole.Key, new Vector3d(1.6, -1.6, 0.3), 0.6, 250d, 5500d),
-        new(LightRole.Fill, new Vector3d(-1.6, -1.2, -0.1), 1.5, 90d, 6500d),
-        new(LightRole.Rim, new Vector3d(0.5, 1.6, 0.8), 0.4, 400d, 5000d)));
+        new PresetLight(LightRole.Key, new Vector3d(1.6, -1.6, 0.3), 0.6, 250d, 5500d),
+        new PresetLight(LightRole.Fill, new Vector3d(-1.6, -1.2, -0.1), 1.5, 90d, 6500d),
+        new PresetLight(LightRole.Rim, new Vector3d(0.5, 1.6, 0.8), 0.4, 400d, 5000d)));
     public static readonly RigPreset HardLowKey = new("hard-low-key", static () => Arranged(
-        new(LightRole.Key, new Vector3d(2.0, -1.0, 0.4), 0.4, 450d, 4500d),
-        new(LightRole.Fill, new Vector3d(-1.5, -1.0, -0.2), 1.0, 25d, 7000d),
-        new(LightRole.Rim, new Vector3d(-0.4, 1.5, 0.8), 0.3, 200d, 4200d)));
+        new PresetLight(LightRole.Key, new Vector3d(2.0, -1.0, 0.4), 0.4, 450d, 4500d),
+        new PresetLight(LightRole.Fill, new Vector3d(-1.5, -1.0, -0.2), 1.0, 25d, 7000d),
+        new PresetLight(LightRole.Rim, new Vector3d(-0.4, 1.5, 0.8), 0.3, 200d, 4200d)));
     public static readonly RigPreset SideKey = new("side-key", static () => Arranged(
-        new(LightRole.Key, new Vector3d(2.4, -0.6, 1.0), 0.3, 550d, 4200d)));
+        new PresetLight(LightRole.Key, new Vector3d(2.4, -0.6, 1.0), 0.3, 550d, 4200d)));
     public static readonly RigPreset SoftHighKey = new("soft-high-key", static () => Arranged(
-        new(LightRole.Key, new Vector3d(1.2, -2.0, 0.5), 2.0, 300d, 5500d),
-        new(LightRole.Fill, new Vector3d(-1.2, -2.0, 0.5), 2.0, 250d, 5500d),
-        new(LightRole.Top, new Vector3d(0d, 0d, 2.2), 1.5, 180d, 5500d)));
+        new PresetLight(LightRole.Key, new Vector3d(1.2, -2.0, 0.5), 2.0, 300d, 5500d),
+        new PresetLight(LightRole.Fill, new Vector3d(-1.2, -2.0, 0.5), 2.0, 250d, 5500d),
+        new PresetLight(LightRole.Top, new Vector3d(0d, 0d, 2.2), 1.5, 180d, 5500d)));
     public static readonly RigPreset RimOnly = new("rim-only", static () => Arranged(
-        new(LightRole.Rim, new Vector3d(0d, 1.5, 1.2), 0.5, 600d, 5000d)));
+        new PresetLight(LightRole.Rim, new Vector3d(0d, 1.5, 1.2), 0.5, 600d, 5000d)));
     public static readonly RigPreset Glamour = new("glamour", static () => Arranged(
-        new(LightRole.Key, new Vector3d(0d, -1.6, 1.4), 0.7, 350d, 5500d),
-        new(LightRole.Fill, new Vector3d(0d, -1.0, -0.4), 1.5, 80d, 6000d)));
+        new PresetLight(LightRole.Key, new Vector3d(0d, -1.6, 1.4), 0.7, 350d, 5500d),
+        new PresetLight(LightRole.Fill, new Vector3d(0d, -1.0, -0.4), 1.5, 80d, 6000d)));
     public static readonly RigPreset Auto = new("auto", static () => Matched(new RigEmitter.RectangularLight(), 1.0, None, Some(1.0), (1d, 1d, 1d), 0.85, 2.5));
     public static readonly RigPreset Portrait = new("portrait", static () => Matched(new RigEmitter.RectangularLight(), 1.1, None, Some(1.0), (1d, 0.97, 0.92), 0.85, 2.4));
     public static readonly RigPreset Rembrandt = new("rembrandt", static () => Matched(SpotKey, 0.9, Some(0.12), Some(0.8), (1d, 0.95, 0.85), 0.9, 2.4));
@@ -275,7 +275,7 @@ public sealed partial class RigPreset {
                 (Conversions.Validated<Azimuth, double, InvalidRhinoValue>(Math.Atan2(light.Offset.X, -light.Offset.Y)).ToValidation(),
                  Conversions.Validated<Elevation, double, InvalidRhinoValue>(Math.Atan2(light.Offset.Z, double.Hypot(light.Offset.X, light.Offset.Y))).ToValidation(),
                  Conversions.Validated<AngularDiameter, double, InvalidRhinoValue>(2d * Math.Atan(light.Side / (2d * light.Offset.Length))).ToValidation(),
-                 Conversions.Validated<LightStops, double, InvalidRhinoValue>(Math.Log2(light.Watts * reference.Offset.SquaredLength / (reference.Watts * light.Offset.SquaredLength))).ToValidation(),
+                 Conversions.Validated<LightStops, double, InvalidRhinoValue>(Math.Log2(light.Watts * reference.Offset.SquareLength / (reference.Watts * light.Offset.SquareLength))).ToValidation(),
                  Conversions.Validated<ColorTemperature, double, InvalidColor>(light.Kelvin).ToValidation())
                     .Apply((a, e, s, st, k) => new RigLight(light.Role, new RigEmitter.RectangularLight(), a, e, RadiusMultiple.Default, s, st, k, Light.Attenuation.InverseSquared))
                     .As())
@@ -445,9 +445,9 @@ public static class LightRigs {
                     var (members, released) =>
                         (from row in placed.Map((placement, slot) => (Placement: placement, Label: new RigLabel(rig.Id, slot, placement.Role, rig.Preset)))
                          let member = members.Find(row.Label.Slot)
-                         let labelled = member.Exists(light => RigLabel.Strings(Some(row.Label)).AsIterable().ForAll(entry => light.Strings.Find(entry.Key) == entry.Value))
+                         let labelled = member.Exists(light => RigLabel.Strings(Some(row.Label)).ForAll((key, value) => light.Strings.Find(key) == value))
                          select member.Match(
-                             Some: light => (RigChange)new RigChange.Place(light.Id, row.Placement, labelled ? None : Some(row.Label)),
+                             Some: light => (RigChange)new RigChange.Place(light.Id, row.Placement, Callbacks.Found(!labelled, row.Label)),
                              None: () => new RigChange.Create(row.Label, row.Placement, members.Min.Map(static lowest => lowest.Value.Id))))
                         + toSeq(members.Filter((slot, _) => slot >= placed.Count).Values).Map(static member => (RigChange)new RigChange.Remove(member.Id))
                         + released.Map(static light => (RigChange)new RigChange.Release(light.Id)),
@@ -496,7 +496,7 @@ public static class LightRigs {
         rig.Target is RigTarget.Subjects subjects
             ? from initial in Target(doc, rig.Target)
               from acquisition in IO.lift(() => {
-                  RigTarget.Fixed previous = initial;
+                  Atom<(RigTarget.Fixed Current, bool Changed)> previous = Atom((Current: initial, Changed: false));
                   LanguageExt.HashSet<Guid> ids = toHashSet(subjects.Ids);
                   uint serial = doc.RuntimeSerialNumber;
                   CallbackSite site = new(sink, typeof(LightRigs), nameof(Follow));
@@ -507,16 +507,14 @@ public static class LightRigs {
                       EventKind.TransformObjects.In(serial).Choose(args => Callbacks.Found(args.ObjectIds.Exists(ids.Contains) || args.GripOwnerIds.Exists(ids.Contains), (unit, unit))));
                   IO<Unit> Resync(HashMap<Unit, Unit> _) =>
                       from target in Target(doc, rig.Target)
-                      from changed in when(previous != target,
-                          from placed in Reconcile(doc, rig with { Target = target }, reading, commit, sink)
-                          from remembered in IO.lift(() => previous = target)
-                          select unit).As()
+                      from moved in IO.lift(() => previous.Swap(held => (target, held.Current != target)).Changed)
+                      from changed in when(moved, Reconcile(doc, rig with { Target = target }, reading, commit, sink).Map(static _ => unit)).As()
                       select unit;
                   return
-                      from mailbox in Subscriptions.Idle(Resync)(site)
+                      from mailbox in Subscriptions.Idle<Unit, Unit>(Resync)(site)
                       from watched in DisposalOps.OnFailure(
                           DisposalOps.AcquireAll(events.Map(row => row.Inline(mailbox.Post, sink)), DisposalOps.Release), IO.lift(mailbox.Release.Dispose))
-                      select DisposalOps.Composite(mailbox.Release.Cons(watched), site);
+                      select DisposalOps.Composite(Seq(mailbox.Release) + watched, site);
               })
               from followed in acquisition
               select Some(followed)

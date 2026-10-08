@@ -1,4 +1,5 @@
 using System.Net;
+using Rasm.Rhino.Document.Files;
 using Rhino;
 using Rhino.Render;
 
@@ -39,6 +40,22 @@ internal enum Codes {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
+public sealed record QueueActive(int ProcessId) : Expected("Render queue process {ProcessId} is rendering", (int)Codes.QueueActive);
+
+public sealed record FrameLost(SequenceNumber Frame) : Expected("Frame {Frame} ended without a saved rendering", (int)Codes.FrameLost);
+
+public sealed record FrameOutsideSequence(SequenceNumber Frame, int Moments) : Expected("Frame {Frame} lies past the {Moments} moments of the sun study", (int)Codes.FrameOutsideSequence);
+
+public sealed record ExcludedRenderSet(SetName Name) : Expected("Render set {Name} is excluded from render", (int)Codes.ExcludedRenderSet);
+
+public sealed record ProgressTextRefused(string Text) : Expected("Render queue record text {Text} is unreadable", (int)Codes.ProgressTextRefused);
+
+public sealed record ProgressUnreadable : Expected {
+    public ProgressUnreadable(string path, Error cause) : base("{Path} holds no readable render queue record", (int)Codes.ProgressUnreadable, cause) => Path = path;
+
+    public string Path { get; }
+}
+
 public sealed record JobUnset(string Variable) : Expected("{Variable} names no render queue job", (int)Codes.JobUnset);
 
 public sealed record JobUnreadable : Expected {

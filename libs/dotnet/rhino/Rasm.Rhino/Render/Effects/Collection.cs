@@ -67,7 +67,7 @@ public abstract partial record EffectRequest {
         public string Text { get; }
 
         public static Seq<EffectRequest> Of<TEffect, TState>(TState state) where TEffect : PostEffect where TState : IStateRecord<TState> =>
-            FieldTexts<TState>.Items.Choose(field => field.Capture(state).Map(text => (EffectRequest)new Tuning(typeof(TEffect).GUID, EffectCollection.ParameterName(field.Path), text)));
+            FieldTexts<TState>.Items.Choose(field => field.Capture(state).Map(text => (EffectRequest)new Tuning(typeof(TEffect).GUID, EntryKey.Name(field.Path), text)));
 
         public static Tuning Amount<TEffect>(Mix mix) where TEffect : PostEffect =>
             new(typeof(TEffect).GUID, EffectStates.Amount.Name, EffectStates.Amount.Text(mix));
@@ -94,7 +94,7 @@ internal static partial class EffectMapper {
     private static uint Crc(PostEffectData data) => data.DataCRC(0u);
 }
 
-public static class EffectCollection {
+public static class EffectRegistry {
     // --- [SCOPE]
     public static IO<Seq<EffectEntry>> Apply(RenderSettings settings, Seq<EffectRequest> requests) =>
         from effects in IO.lift(() => settings.PostEffects)
@@ -105,7 +105,7 @@ public static class EffectCollection {
         select entries;
 
     public static IO<TState> State<TEffect, TState>(RenderSettings settings) where TEffect : PostEffect where TState : IStateRecord<TState> =>
-        Entry(settings, typeof(TEffect).GUID, static data => FieldTexts.Recalled<TState>(EntryKey.TypeOwner(typeof(TEffect).GUID), path => Stored(data, ParameterName(path))));
+        Entry(settings, typeof(TEffect).GUID, static data => FieldTexts.Recalled<TState>(EntryKey.TypeOwner(typeof(TEffect).GUID), path => Stored(data, EntryKey.Name(path))));
 
     public static IO<Option<Mix>> Amount<TEffect>(RenderSettings settings) where TEffect : PostEffect =>
         Entry(settings, typeof(TEffect).GUID, static data => IO.lift(() => Stored(data, EffectStates.Amount.Name)
@@ -119,8 +119,6 @@ public static class EffectCollection {
         held.Find(data => data.Id == id).ToFin(new UnknownEffect(id));
 
     // --- [PARAMETERS]
-    internal static string ParameterName(Seq<string> path) => string.Join('.', path);
-
     private static Option<string> Stored(PostEffectData data, string name) =>
         Optional(data.GetParameter(name)).Map(static variant => variant.ToString(CultureInfo.InvariantCulture));
 
@@ -149,7 +147,7 @@ public static class EffectCollection {
         Callbacks.Found(effects.GetSelectedPostEffect(ToneMappingNode, out Guid id), id).Bind(Conversions.Present).IfNone(static () => BuiltinEffect.Clamp.Id);
 
     // --- [ARRANGEMENT]
-    private static readonly Type Pending = typeof(EffectCollection);
+    private static readonly Type Pending = typeof(EffectRegistry);
 
     public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register(Seq<EffectKind> kinds) =>
         (_, sink) => DisposalOps.AcquireAll(
@@ -159,7 +157,7 @@ public static class EffectCollection {
                     EventKind.ImageFileSaved.Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ =>
                         Arrange(kinds, static () => toSeq(RhinoDoc.OpenDocuments()).Filter(static doc => doc.RuntimeData.ContainsKey(Pending)), Write)), sink)),
                 DisposalOps.Release)
-            .Map(held => DisposalOps.Composite(held, new CallbackSite(sink, typeof(EffectCollection), nameof(Register))));
+            .Map(held => DisposalOps.Composite(held, new CallbackSite(sink, typeof(EffectRegistry), nameof(Register))));
 
     private static IO<Unit> Arrange(Seq<EffectKind> kinds, Func<Seq<RhinoDoc>> documents, Func<RhinoDoc, Option<Seq<EffectRequest>>, IO<Unit>> step) =>
         from held in IO.lift(() => documents().Strict())
@@ -170,7 +168,7 @@ public static class EffectCollection {
         when(arranged.IsNone, IO.lift(() => { doc.RuntimeData[Pending] = unit; })).As();
 
     private static IO<Unit> Write(RhinoDoc doc, Option<Seq<EffectRequest>> arranged) =>
-        from released in when(arranged.IsSome, IO.lift(() => { doc.RuntimeData.Remove(Pending); })).As()
+        from released in when(arranged.IsSome, IO.lift(() => { _ = doc.RuntimeData.Remove(Pending); })).As()
         from written in arranged.Traverse(requests => Apply(doc.RenderSettings, requests)).As()
         select unit;
 

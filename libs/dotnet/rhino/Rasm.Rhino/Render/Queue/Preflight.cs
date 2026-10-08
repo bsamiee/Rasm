@@ -20,7 +20,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
     // --- [CHECK]
     public static IO<Preflight> Check(QueueContext context, RhinoDoc doc, QueuePlan plan, QueueTarget target) =>
         Read(context, doc, plan, target.Switch(
-            inProcess: static _ => new Reach(Local: true, Quits: false, Package: None),
+            local: static _ => new Reach(Local: true, Quits: false, Package: None),
             handoff: static handoff => new Reach(Local: true, Quits: true, Package: Some(handoff.Package)),
             jobFile: static file => new Reach(Local: false, Quits: false, Package: Some(file.Package))));
 
@@ -29,7 +29,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
          Links.Closure(doc.RuntimeSerialNumber),
          Links.Style(doc).Read,
          NamedSnapshots.Names(doc).Map(names => plan.Entries.Map((entry, index) => Entered(doc, names, entry, index)).Flatten().Strict()),
-         Sources.Read(new SceneSource.Document(doc), RenderChannelsState.Read).Map(QueueEstimate.Channels),
+         SceneSources.Read(new SceneSource.Live(doc), RenderChannelsState.Read).Map(QueueEstimate.Channels),
          reach.Local
              ? QueueProgress.Read(context.Record).Bind(prior => QueueProgress.State(prior, context.Record, context.Clock)).Map(static state => Some(state))
              : IO.pure(Option<RunState>.None),
@@ -45,7 +45,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
         + (entry.Overscan == Overscan.Off || entry.Source.RenderSource == RenderSettings.RenderingSources.ActiveViewport
             ? Seq<Error>()
             : Seq<Error>(new OverscanSourceRefused(index, entry.Source.RenderSource)))
-        + Seq(entry.Rendered.Map(static _ => unit), entry.Frames.Numbers.TraverseM(frame => entry.Moment(frame)).As().Map(static _ => unit))
+        + Seq(entry.Rendered.Map(static _ => unit), entry.Frames.Numbers.TraverseM(entry.Moment).As().Map(static _ => unit))
             .Partition()
             .Fails
             .Map(error => (Error)new EntryRefused(index, error));
@@ -146,7 +146,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
 
     private sealed record Disk(Fin<Option<Volume>> Output, Option<Fin<Volume>> Package);
 
-    private readonly record struct Volume(string Folder, bool Writable, Option<long> Free) {
+    private sealed record Volume(string Folder, bool Writable, Option<long> Free) {
         private const long Floor = 256L << 20;
 
         public Seq<Error> Refusals(Option<long> copy) =>

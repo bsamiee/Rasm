@@ -29,11 +29,11 @@ public static class Provider {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class ViewModels {
-    public static IO<A> Read<T, A>(ICollapsibleSection section, Provider<T> provider, Func<T, IO<A>> read) where T : class =>
+public static class SectionModels {
+    public static IO<TResult> Read<T, TResult>(ICollapsibleSection section, Provider<T> provider, Func<T, IO<TResult>> read) where T : class =>
         Model(section).Bind(model => GetData(model, provider, forWrite: false)).Bind(read);
 
-    public static IO<A> Write<T, A>(ICollapsibleSection section, Provider<T> provider, Func<T, IO<A>> edit) where T : class =>
+    public static IO<TResult> Write<T, TResult>(ICollapsibleSection section, Provider<T> provider, Func<T, IO<TResult>> edit) where T : class =>
         Model(section).Bind(model => DisposalOps.OnFailure(
             from data in GetData(model, provider, forWrite: true)
             from edited in edit(data)
@@ -41,7 +41,7 @@ public static class ViewModels {
             select edited,
             IO.lift(() => model.Discard(provider.Id))));
 
-    public static IO<A> UndoRecord<A>(ICollapsibleSection section, string description, IO<A> body) =>
+    public static IO<T> UndoRecord<T>(ICollapsibleSection section, string description, IO<T> body) =>
         Model(section).Bind(model => use(() => new UndoRecord(description, model)).Bind(_ => body).Bracket());
 
     private static IO<IRdkViewModel> Model(ICollapsibleSection section) =>

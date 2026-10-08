@@ -53,7 +53,7 @@ public sealed partial class WaveformLayout {
     [UseDelegateFromConstructor]
     public partial IterableNE<(TraceChannel Channel, RectangleF Column)> Columns(RectangleF plot);
 
-    public Fin<ScopePlan> Plan(ScopeFrames frames, RectangleF plot, float scale, ChromaZoom zoom) =>
+    public Fin<ScopePlan> Plan(ScopeFrames frames, RectangleF plot, float scale) =>
         Plots.Device(ScopeKind.Unit(Columns(plot).Head.Column), scale).Map(extent =>
             (ScopePlan)new ScopePlan.Waveform(frames.Frame, new ScopeRequest.Waveform(frames.Gamut, extent), this, frames.Levels.Map(static levels => levels.MaxCode)));
 }
@@ -123,9 +123,9 @@ public sealed partial class ScopeKind {
         new ScopePlan.Histogram(
             frames.Frame, new ScopeRequest.Histogram(frames.Gamut, frames.Levels.Map(static levels => levels.Clipping)),
             frames.Scene.Map(static scene => (scene.Frame, new ScopeRequest.Histogram(scene.Gamut, None)))));
-    public static readonly ScopeKind WaveformLuma = new("waveform-luma", WellShape.Banded, WaveformLayout.Luma.Plan);
-    public static readonly ScopeKind WaveformRgb = new("waveform-rgb", WellShape.Banded, WaveformLayout.Overlay.Plan);
-    public static readonly ScopeKind Parade = new("parade", WellShape.Banded, WaveformLayout.Parade.Plan);
+    public static readonly ScopeKind WaveformLuma = new("waveform-luma", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Luma.Plan(frames, plot, scale));
+    public static readonly ScopeKind WaveformRgb = new("waveform-rgb", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Overlay.Plan(frames, plot, scale));
+    public static readonly ScopeKind Parade = new("parade", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Parade.Plan(frames, plot, scale));
     public static readonly ScopeKind Vectorscope = new("vectorscope", WellShape.Square, static (frames, plot, scale, zoom) =>
         Plots.Device(Unit(plot), scale).Map(extent => (ScopePlan)new ScopePlan.Vectorscope(frames.Frame, new ScopeRequest.Vectorscope(frames.Gamut, extent, zoom))));
     public static readonly ScopeKind Chromaticity = new("chromaticity", WellShape.Diagram, static (frames, plot, scale, _) =>
@@ -224,8 +224,8 @@ public abstract partial record ScopePart {
     public sealed record Plot(RectangleF Bounds) : ScopePart;
     public sealed record Clip(ClipEnd End) : ScopePart;
     public sealed record Grip(RectangleF Well) : ScopePart;
-    public sealed record Strip(RectangleF Plot) : ScopePart;
-    public sealed record Level(LevelsParameter Handle, RectangleF Plot) : ScopePart;
+    public sealed record Strip(RectangleF Bounds) : ScopePart;
+    public sealed record Level(LevelsParameter Handle, RectangleF Bounds) : ScopePart;
 }
 
 public sealed record ScopeMarks(Option<(int Bin, ScopeReading.Histogram Reading)> Hovered, Option<BinRange> Selection, Option<ClipEnd> Clips);
@@ -276,8 +276,8 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     // --- [RUN]
     private sealed record Run(ScopeKind Kind, ScopePlan Requested, Option<ScopeTraces> Shown);
 
-    private static IO<Func<ScopeViewState, ScopeViewState>> Sampled(Atom<Option<Run>> run) =>
-        run.ValueIO.Map(static held => (Func<ScopeViewState, ScopeViewState>)(state =>
+    private static Func<Control, IO<Func<ScopeViewState, ScopeViewState>>> Sampled(Atom<Option<Run>> run) =>
+        _ => run.ValueIO.Map(static held => (Func<ScopeViewState, ScopeViewState>)(state =>
             state with { Traces = held.Filter(answered => answered.Kind == state.Value.Chosen.Kind).Bind(static answered => answered.Shown) }));
 
     protected override IO<Unit> Reconcile(ScopeViewState before, ScopeViewState after, Interaction<ScopePart> was, Interaction<ScopePart> now) =>
@@ -381,10 +381,10 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             handle.Map(black: HandleFill, white: Outlined),
             new MarkPart<ScopePart>(new ScopePart.Level(handle, plot), Plots.Reach));
 
-    private static MarkShape Triangle(RectangleF box) =>
-        new MarkShape.Polygon([new PointF(box.Left, box.Bottom), new PointF(box.Left + (box.Width / 2f), box.Top), new PointF(box.Right, box.Bottom)]);
+    private static MarkShape.Polygon Triangle(RectangleF box) =>
+        new([new PointF(box.Left, box.Bottom), new PointF(box.Left + (box.Width / 2f), box.Top), new PointF(box.Right, box.Bottom)]);
 
-    private static MarkStyle Lit(ChannelCounts counts, bool shown) =>
+    private static MarkStyle.Fill Lit(ChannelCounts counts, bool shown) =>
         new Vector3(int.Sign(counts.Red), int.Sign(counts.Green), int.Sign(counts.Blue)) switch {
             var lit when lit == Vector3.Zero => new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.DisabledText), ClipDimmed),
             var lit => new MarkStyle.Fill(new MarkColor.Fixed(Shade(lit)), shown ? 1f : ClipDimmed),
@@ -401,8 +401,8 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             plot: static (held, plot) => HistogramOf(held.State).Map(_ => Binned(held.State, plot.Bounds, held.At.X)),
             clip: static (_, _) => Option<int>.None,
             grip: static (_, _) => Option<int>.None,
-            strip: static (held, strip) => Some(Binned(held.State, strip.Plot, held.At.X)),
-            level: static (held, level) => Some(Binned(held.State, level.Plot, held.At.X)));
+            strip: static (held, strip) => Some(Binned(held.State, strip.Bounds, held.At.X)),
+            level: static (held, level) => Some(Binned(held.State, level.Bounds, held.At.X)));
 
     private static int Binned(ScopeViewState state, RectangleF plot, float x) =>
         state.Value.Chosen.Range.Bins switch {
@@ -434,7 +434,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             strip: static (held, strip) =>
                 from pair in held.State.Value.Pair
                 from bin in Bin(held.State, held.Key, held.At)
-                from handle in Nearer(held.State, strip.Plot, held.At.X, pair)
+                from handle in Nearer(held.State, strip.Bounds, held.At.X, pair)
                 select Moved(held.State with { Held = handle }, handle, bin, AsPreview),
             level: static (held, level) => Some(new Transition<ScopeViewState, ScopeEdit>(held.State with { Held = level.Handle }, None))));
 
@@ -641,8 +641,8 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             .Map(fill => new PlotMark<ScopePart>(Outline(plot, fill.Heights), new MarkStyle.Stroke(new MarkColor.Trace(fill.Channel), 1f, 1f), None))
             .Concat(scene.Map(heights => new PlotMark<ScopePart>(Outline(plot, heights), Outlined, None)).ToSeq());
 
-    private static MarkShape Outline(RectangleF plot, float[] heights) =>
-        new MarkShape.Polyline([.. heights.Select((height, column) => new PointF(plot.Left + ((column + 0.5f) * plot.Width / heights.Length), plot.Bottom - (height * plot.Height)))]);
+    private static MarkShape.Polyline Outline(RectangleF plot, float[] heights) =>
+        new([.. heights.Select((height, column) => new PointF(plot.Left + ((column + 0.5f) * plot.Width / heights.Length), plot.Bottom - (height * plot.Height)))]);
 
     private static float[] Heights(ReadOnlyMemory<int> counts, int columns, Axis axis) =>
         [.. Enumerable.Range(0, columns).Select(column => (column * counts.Length / columns) switch {
@@ -728,14 +728,14 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                 select unit,
         };
 
-    private static Seq<(VectorTarget Target, PointF At, MarkShape Box)> Aimed(PlotPlane.Polar polar, ChromaAxes axes) =>
+    private static Seq<(VectorTarget Target, PointF At, MarkShape.Polygon Box)> Aimed(PlotPlane.Polar polar, ChromaAxes axes) =>
         toSeq(VectorTarget.Items).Map(target => Vector4.Transform(new Vector4(target.Drive, 1f), axes.Forward) switch {
             var ycc => (Angle: MathF.Atan2(ycc.Z, ycc.Y), Chroma: new Vector2(ycc.Y, ycc.Z).Length()) switch {
                 var (angle, chroma) => (Target: target, At: polar.Point(angle, chroma), Box: Box(polar, angle, chroma)),
             },
         });
 
-    private static MarkShape Box(PlotPlane.Polar polar, float angle, float chroma) =>
+    private static MarkShape.Polygon Box(PlotPlane.Polar polar, float angle, float chroma) =>
         float.DegreesToRadians(TargetDegrees) switch {
             var spread => new MarkShape.Polygon([
                 polar.Point(angle - spread, chroma - TargetChroma), polar.Point(angle + spread, chroma - TargetChroma),

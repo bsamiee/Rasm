@@ -67,10 +67,13 @@ public abstract class NumberField : TextBox {
     }
 
     public IPlugInSink Sink { get; }
-    public event EventHandler<bool>? Scrub;
+    public event EventHandler<EventArgs>? ScrubStarted;
+    public event EventHandler<EventArgs>? ScrubEnded;
     public abstract bool Adjust(int steps);
 
-    protected IO<Unit> Scrubbed(bool started) => IO.lift(() => Scrub?.Invoke(this, started));
+    protected IO<Unit> Started => IO.lift(() => ScrubStarted?.Invoke(this, EventArgs.Empty));
+
+    protected IO<Unit> Ended => IO.lift(() => ScrubEnded?.Invoke(this, EventArgs.Empty));
 
     protected float Travel(MouseEventArgs move, PointF last) =>
         Optional(Platform.Instance.Find<Func<IPlugInSink, MouseEventArgs, PointF, float>>()).Match(Some: create => create()(Sink, move, last), None: () => move.Location.X - last.X);
@@ -87,7 +90,7 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
     public NumberField(NumberText<TKey> text, IPlugInSink sink) : base(sink) =>
         (this.text, PlaceholderText, TextAlignment, Cursor) = (text, text.Shown(None), TextAlignment.Right, Cursors.VerticalSplit);
 
-    public event EventHandler<Edit<TValue>>? Edited;
+    public event EventHandler<EditEventArgs<TValue>>? Edited;
 
     public IO<Unit> Receive(Option<TValue> value) =>
         Current.Bind(held => held.Switch(
@@ -127,7 +130,7 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
 
     private IO<Unit> Unscrubbed(Option<TValue> shown, IO<Unit> raised) =>
         from released in Released(shown)
-        from ended in Scrubbed(started: false)
+        from ended in Ended
         from edited in raised
         select edited;
 
@@ -135,8 +138,8 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
         Current.Bind(held => held.Switch(
             this,
             resting: static (_, _) => IO.pure(unit),
-            pressed: static (field, pressed) => field.Released(Some(pressed.Shown)),
-            scrubbing: static (field, scrubbing) => field.Unscrubbed(Some(scrubbing.Shown), field.Raised(new Edit<TValue>.Cancel())),
+            pressed: static (owner, pressed) => owner.Released(Some(pressed.Shown)),
+            scrubbing: static (owner, scrubbing) => owner.Unscrubbed(Some(scrubbing.Shown), owner.Raised(new Edit<TValue>.Cancel())),
             editing: static (_, _) => IO.pure(unit)));
 
     private Option<IO<Unit>> Stepping(FieldState<TValue> held, double steps, Keys modifiers) =>
@@ -180,7 +183,7 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
 
     private IO<Unit> Committed(Option<TValue> value) => Raised(value.Map<Edit<TValue>>(static held => new Edit<TValue>.Commit(held)));
 
-    private IO<Unit> Raised(Option<Edit<TValue>> edit) => IO.lift(() => edit.Iter(held => Edited?.Invoke(this, held)));
+    private IO<Unit> Raised(Option<Edit<TValue>> edit) => IO.lift(() => edit.Iter(held => Edited?.Invoke(this, new EditEventArgs<TValue>(held))));
 
     private static IO<Unit> Claimed(Action claim, IO<Unit> effect) => IO.lift(claim).Bind(_ => effect);
 
@@ -204,7 +207,7 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
             resting: static (_, _) => IO.pure(unit),
             pressed: static (s, pressed) => when(
                 PointF.Distance(pressed.At, s.Args.Location) > ComponentControl.DragThreshold,
-                s.Field.Become(new FieldState<TValue>.Scrubbing(pressed.Shown, s.Field.Travel(s.Args, pressed.At), s.Args.Location, None), None).Bind(_ => s.Field.Scrubbed(started: true))).As(),
+                s.Field.Become(new FieldState<TValue>.Scrubbing(pressed.Shown, s.Field.Travel(s.Args, pressed.At), s.Args.Location, None), None).Bind(_ => s.Field.Started)).As(),
             scrubbing: static (s, scrubbing) =>
                 from travel in IO.pure(scrubbing.Travel + s.Field.Travel(s.Args, scrubbing.Last))
                 let moved = s.Field.Stepped(scrubbing.Shown, float.Truncate(travel), s.Args.Modifiers).ToOption().Filter(value => scrubbing.Moved != Some(value))

@@ -24,7 +24,7 @@ public static class FrameClocks {
             .Bind(found => found.Match(Some: link => link()(view, sink), None: static () => Motions.Idle)(ticks));
 
     public static Func<Sink<FrameTick>, IO<IDisposable>> Paced(Control view, IPlugInSink sink) =>
-        ticks => IO.lift(static () => Themes.Accessibility.ReduceMotion)
+        ticks => IO.lift(static () => HostTheme.Accessibility.ReduceMotion)
             .Bind(reduced => (reduced ? Motions.Final : Frames(view, sink))(ticks));
 
     // --- [SAMPLING]

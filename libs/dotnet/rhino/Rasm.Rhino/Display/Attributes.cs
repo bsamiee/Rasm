@@ -43,9 +43,9 @@ public sealed record ObjectEffects(Color FadeColor, ObjectEffectAmount FadeAmoun
     }
 
     public void Write(DisplayPipelineAttributes attributes) {
-        attributes.SetColorFadeEffect(FadeColor, FadeAmount.ToValue());
-        attributes.SetDitherTransparencyEffect(DitherTransparency.ToValue());
-        attributes.SetDiagonalHatchEffect(HatchStrength.ToValue(), HatchWidth.ToValue());
+        attributes.SetColorFadeEffect(FadeColor, (float)FadeAmount);
+        attributes.SetDitherTransparencyEffect((float)DitherTransparency);
+        attributes.SetDiagonalHatchEffect((float)HatchStrength, (float)HatchWidth);
     }
 }
 

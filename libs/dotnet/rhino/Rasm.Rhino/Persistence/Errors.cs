@@ -25,7 +25,11 @@ public sealed record UnstorableKind(string Key, Type Kind) : Expected("Archivabl
 
 public sealed record UnreadableRecord(string Name, int Version, int Supported) : Expected("Record {Name} has version {Version}, newer than version {Supported}", (int)Codes.UnreadableRecord);
 
-public sealed record ArchiveRejected(string Member, string Log) : Expected("{Member} rejected the archive: {Log}", (int)Codes.ArchiveRejected);
+public sealed record ArchiveRejected(string Member, string Log) : Expected("{Member} rejected the archive: {Log}", (int)Codes.ArchiveRejected) {
+    public static Fin<Unit> Unless(bool accepted, string member, string log) => accepted ? unit : new ArchiveRejected(member, log);
+
+    public static Fin<T> Unless<T>(T? value, string member, string log) where T : class => value is { } found ? found : new ArchiveRejected(member, log);
+}
 
 public sealed record ArchiveFault : Expected {
     public ArchiveFault(string member, Error cause) : base("{Member} threw BinaryArchiveException", (int)Codes.ArchiveFault, cause) => Member = member;

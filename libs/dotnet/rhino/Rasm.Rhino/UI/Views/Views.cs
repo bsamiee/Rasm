@@ -16,7 +16,7 @@ namespace Rasm.Rhino.UI.Views;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IPlugInViews : IPlugInSink {
-    public ViewCollection Views { get; }
+    public ViewCatalog Views { get; }
 
     public TimeProvider Clock { get; }
 
@@ -30,19 +30,15 @@ public interface IPlugInViews : IPlugInSink {
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError<InvalidRhinoValue>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class HelpTopic {
     public IO<Unit> Show => IO.lift(() => Refused.Unless(RhinoHelp.Show(_value), nameof(RhinoHelp.Show)));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) {
-        string? trimmed = value.TrimOrNullify();
-        if (trimmed is null) {
-            validationError = new InvalidRhinoValue();
-            return;
-        }
-        value = trimmed.ToLowerInvariant();
-    }
+    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) =>
+        (value, validationError) = value.TrimOrNullify() is { } trimmed
+            ? (trimmed, default(InvalidRhinoValue))
+            : (value, new InvalidRhinoValue());
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -78,7 +74,7 @@ public abstract partial record View {
     public Option<ViewStore> Store { get; init; }
     public Seq<Child> Children { get; init; }
 
-    public string HelpUrl => Conversions.Unset(Help.Map(static string (topic) => topic));
+    public string HelpReference => Conversions.Unset(Help.Map(static string (topic) => topic));
 
     public abstract RhinoLayout.SpacingType Spacing { get; }
 
@@ -180,15 +176,15 @@ public sealed partial class Child {
 
 public sealed record ViewBody(Control Content, IO<Unit> Release);
 
-public sealed record ViewCollection {
+public sealed record ViewCatalog {
     private readonly Seq<View> rows;
     private readonly HashMap<Guid, View> views;
 
-    private ViewCollection(Seq<View> rows, HashMap<Guid, View> views) => (this.rows, this.views) = (rows, views);
+    private ViewCatalog(Seq<View> rows, HashMap<Guid, View> views) => (this.rows, this.views) = (rows, views);
 
-    public static ViewCollection Empty { get; } = new(Seq<View>(), HashMap<Guid, View>());
+    public static ViewCatalog Empty { get; } = new(Seq<View>(), HashMap<Guid, View>());
 
-    public static Validation<Error, ViewCollection> Of(Seq<View> rows) => Indexed(rows, rows.Bind(static view => Tree(view)).Strict());
+    public static Validation<Error, ViewCatalog> Of(Seq<View> rows) => Indexed(rows, rows.Bind(static view => Tree(view)).Strict());
 
     public Option<TCase> Find<TCase>(Guid id) where TCase : View =>
         views.Find(id).Bind(static view => Optional(view as TCase));
@@ -199,10 +195,10 @@ public sealed record ViewCollection {
     public static Seq<View> Tree(View view) =>
         view.Cons(view.Children.Bind(static child => child.Sections).Bind(static section => Tree(section)));
 
-    private static Validation<Error, ViewCollection> Indexed(Seq<View> rows, Seq<View> tree) =>
-        (Callbacks.Unique(tree, static view => view.Identity.GUID, nameof(ViewCollection)),
+    private static Validation<Error, ViewCatalog> Indexed(Seq<View> rows, Seq<View> tree) =>
+        (Callbacks.Unique(tree, static view => view.Identity.GUID, nameof(ViewCatalog)),
          tree.Bind(static view => Hideable(view)).Traverse(static section => Validation.Fail<Error, Unit>(new UnsupportedView(section.Identity, None))).As())
-            .Apply((listed, _) => new ViewCollection(rows, toHashMap(listed.Map(static view => (view.Identity.GUID, view)))))
+            .Apply((listed, _) => new ViewCatalog(rows, toHashMap(listed.Map(static view => (view.Identity.GUID, view)))))
             .As();
 
     private static Seq<View.Section> Hideable(View view) =>
@@ -253,14 +249,14 @@ public static class ViewOps {
         Sources(view).TraverseM(static source => source.Defaults).As()
             .Map(static sets => new ValueSet(toHashMap(sets.Bind(static set => toSeq(set.Entries.AsIterable())))));
 
-    public static Fin<HistoryBinding> History(IPlugInViews owner, View view, ViewStore store, BindingGroup group, Option<RhinoDoc> document) =>
+    public static Fin<HistoryBinding> History(IPlugInViews owner, View view, ViewStore store, BindingGroup bound, Option<RhinoDoc> document) =>
         store.Switch(
                 (Owner: owner, View: view, Document: document),
                 applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Owner.Histories),
                 documentStores: static (state, held) => state.Document
                     .Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw, new CallbackSite(state.Owner, state.View.Identity, nameof(History))))
                     .ToFin(new UnsupportedView(state.View.Identity, None)))
-            .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, table: Some<object>(owner)).Local, group, scope, owner.Limits, owner.Clock));
+            .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, table: Some<object>(owner)).Local, bound, scope, owner.Limits, owner.Clock));
 
     private static Seq<RowSource> Sources(View view) =>
         view.Children.Bind(static child => child.Controls).Choose(static row => row.Bound).Distinct();
@@ -270,7 +266,7 @@ public static class ViewOps {
         from parts in DisposalOps.AcquireAll(
             Runs(children).Map(run => Part(owner, children, run, scope)),
             static held => Released(held.Map(static part => part.Body)))
-        from body in DisposalOps.OnFailure(IO.lift(() => Stacked(owner, parts)), Released(parts.Map(static part => part.Body)))
+        from body in DisposalOps.OnFailure(IO.lift(() => Stacked(parts)), Released(parts.Map(static part => part.Body)))
         select body;
 
     internal static IO<Unit> Released(Seq<ViewBody> bodies) =>
@@ -289,17 +285,14 @@ public static class ViewOps {
                 (Owner: owner, Children: children, run.Run, Scope: scope),
                 control: static (state, _) => RowGrid.Realize(state.Children.Bind(static child => child.Controls), state.Run.Map(static child => child.AsControl), state.Scope)
                     .Map(static grid => new ViewBody(grid, IO.lift(grid.Dispose))),
-                holder: static (state, holder) => SectionStack.Hold(state.Owner, holder, state.Scope),
+                holder: static (state, holder) => SectionHolder.Hold(state.Owner, holder, state.Scope),
                 container: static (state, container) => Containers.Realize(state.Owner, container, state.Scope))
             .Map(body => (Body: body, Fill: run.Run.Exists(static child => child.Fill)));
 
-    private static ViewBody Stacked(IPlugInViews owner, Seq<(ViewBody Body, bool Fill)> parts) {
+    private static ViewBody Stacked(Seq<(ViewBody Body, bool Fill)> parts) {
         RhinoNestedStackLayout stack = new(Orientation.Vertical, RhinoLayout.SpacingType.Panel) { HorizontalContentAlignment = HorizontalAlignment.Stretch };
         _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body.Content, part.Fill)));
-        Disposal<Seq<ViewBody>> held = new(
-            parts.Map(static part => part.Body),
-            bodies => _ = Callbacks.Answer(Released(bodies), static () => unit, new CallbackSite(owner, typeof(ViewOps), nameof(Realize))));
-        return new ViewBody(stack, IO.lift(held.Dispose));
+        return new ViewBody(stack, Released(parts.Map(static part => part.Body)));
     }
 
     // --- [LISTENERS]

@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document.Shapes;
 using Rhino;
 using Rhino.Display;
@@ -40,7 +39,7 @@ public abstract partial class DefinedMeshProvider(PlugIn plugIn, IPlugInSink sin
     public sealed override string Name => RowText.Localize(name, table: Some<object>(sink)).Local;
 
     public sealed override Guid ProviderId =>
-        Unsafe.BitCast<UInt128, Guid>((UInt128)ContentKey.Of(KeyDomain.RenderMeshes, stream => stream.Id(plugIn.Id).Id(GetType().GUID)));
+        ContentKey.Of(KeyDomain.RenderMeshes, stream => stream.Id(plugIn.Id).Id(GetType().GUID)).Id;
 
     // --- [CALLBACKS]
     public sealed override List<Guid> NonObjectIds =>
@@ -49,10 +48,7 @@ public abstract partial class DefinedMeshProvider(PlugIn plugIn, IPlugInSink sin
     public sealed override bool HasCustomRenderMeshes(MeshType mt, ViewportInfo vp, RhinoDoc doc, Guid objectId, ref Flags flags, PlugIn plugin, DisplayPipelineAttributes attrs) {
         MeshRequest request = new(mt, vp, flags, Optional(plugin), Optional(attrs));
         (bool Provides, Flags Flags) answer = Callbacks.Answer(
-            from document in IO.lift(() => Missing.Unless(doc, nameof(RhinoDoc.FromRuntimeSerialNumber)))
-            from provided in Provides(request, document, objectId)
-            select provided,
-            () => (false, request.Flags), new(sink, GetType(), nameof(HasCustomRenderMeshes)));
+            Provides(request, doc, objectId), () => (false, request.Flags), new(sink, GetType(), nameof(HasCustomRenderMeshes)));
         flags = answer.Flags;
         return answer.Provides;
     }
@@ -60,11 +56,10 @@ public abstract partial class DefinedMeshProvider(PlugIn plugIn, IPlugInSink sin
     public sealed override RenderMeshes? RenderMeshes(MeshType mt, ViewportInfo vp, RhinoDoc doc, Guid objectId, List<InstanceObject> ancestry, ref Flags flags, RenderMeshes previousPrimitives, PlugIn plugin, DisplayPipelineAttributes attrs) {
         MeshRequest request = new(mt, vp, flags, Optional(plugin), Optional(attrs));
         (Option<RenderMeshes> Meshes, Flags Flags) answer = Callbacks.Answer(
-            from document in IO.lift(() => Missing.Unless(doc, nameof(RhinoDoc.FromRuntimeSerialNumber)))
-            from built in Build(request, document, objectId, Conversions.Rows(ancestry), Conversions.Rows(previousPrimitives))
+            from built in Build(request, doc, objectId, Conversions.Rows(ancestry), Conversions.Rows(previousPrimitives))
             let providerId = ProviderId
             let hash = uint.CreateTruncating((UInt128)ContentKey.Of(KeyDomain.RenderMeshes, stream => stream.Integer(previousPrimitives.Hash).Id(providerId).Integer((UInt128)built.Inputs)))
-            from meshes in IO.lift(() => new RenderMeshes(document, objectId, providerId, hash, (uint)built.Flags))
+            from meshes in IO.lift(() => new RenderMeshes(doc, objectId, providerId, hash, (uint)built.Flags))
             from added in DisposalOps.OnFailure(IO.lift(() => built.Instances.Iter(meshes.AddInstance)), IO.lift(meshes.Dispose))
             select (Some(meshes), built.Flags),
             () => (Option<RenderMeshes>.None, request.Flags), new(sink, GetType(), nameof(RenderMeshes)));
@@ -115,9 +110,7 @@ public static class Meshing {
                 rhinoObject.RenderMeshes(request.Type, request.Viewport, [.. ancestry], ref flags, request.Requester.ValueUnsafe(), request.Display.ValueUnsafe()),
                 nameof(RhinoObject.RenderMeshes)).Map(meshes => (Meshes: meshes, Flags: flags));
         })
-         from canceled in read.Flags.HasFlag(RenderMeshProvider.Flags.Canceled)
-             ? IO.lift(read.Meshes.Dispose).Bind(static _ => IO.fail<Unit>(Errors.Cancelled))
-             : IO.pure(Unit.Default)
+         from canceled in when(read.Flags.HasFlag(RenderMeshProvider.Flags.Canceled), IO.lift(read.Meshes.Dispose).Bind(static _ => IO.fail<Unit>(Errors.Cancelled))).As()
          from completed in read.Flags.HasFlag(RenderMeshProvider.Flags.Incomplete)
              ? IO.lift(read.Meshes.Dispose).Bind(static _ => IO.lift(static () => RhinoApp.Wait())).Map(_ => read)
              : IO.pure(read)

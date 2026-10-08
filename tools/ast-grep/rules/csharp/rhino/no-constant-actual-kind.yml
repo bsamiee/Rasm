@@ -6,7 +6,7 @@ utils:
     constant-kind:
         any:
             - kind: member_access_expression
-              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(GetResult|Result|RenderReturnCode|LoadPlugInResult)$'}
+              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(GetResult|Result|RenderReturnCode)$'}
             - kind: typeof_expression
             - kind: cast_expression
               has: {field: value, kind: 'integer_literal, prefix_unary_expression'}
@@ -79,15 +79,7 @@ utils:
     first-creation:
         matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}}}
     second-creation:
-        any:
-            - matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|LoadRefused)$', pattern: $RECORD}}}
-            - kind: invocation_expression
-              has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: expression, kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(WrongType|LoadRefused|UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}
-                    - has: {field: name, regex: '^Unless$'}
+        matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?WrongType$', pattern: $RECORD}}}
     positional:
         kind: argument
         not: {has: {field: name, pattern: $_}}
@@ -107,7 +99,7 @@ utils:
                     - inside: {kind: argument_list, inside: {matches: second-creation}}
 rule:
     any:
-        - kind: 'object_creation_expression, implicit_object_creation_expression, invocation_expression'
+        - kind: 'object_creation_expression, implicit_object_creation_expression'
           all:
             - any: [{matches: first-creation}, {matches: second-creation}]
             - has: {kind: argument_list, has: {matches: actual-argument}}

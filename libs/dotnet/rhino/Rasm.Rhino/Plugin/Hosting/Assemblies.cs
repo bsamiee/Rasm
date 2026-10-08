@@ -7,7 +7,7 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Plugin.Hosting;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public static class Assemblies {
+public static class AssemblyLoading {
     // --- [NATIVE_LIBRARIES]
     private static nint Library(string frameworks, string name) =>
         (from spy in use(static () => new RiskyAction(nameof(NativeLibrary.TryLoad)))
@@ -15,7 +15,7 @@ public static class Assemblies {
          select library).Bracket().Run();
 
     // --- [INITIALIZATION]
-    public static readonly Unit Initialized = Initialize(typeof(Assemblies).Assembly);
+    public static readonly Unit Initialized = Initialize(typeof(AssemblyLoading).Assembly);
 
     private static Unit Initialize(Assembly copy) {
         Platform.Instance.LoadAssembly(copy);

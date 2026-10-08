@@ -145,7 +145,7 @@ internal sealed class BatchPipeline : RenderPipeline {
             new WireframeRegion(document, view.Viewport, start.Switch(size, full: static (whole, _) => new Rectangle(System.Drawing.Point.Empty, whole), region: static (_, region) => region.Rectangle)),
             size)).As()
         from ___ in RenderWindows.AddRequested(window)
-        from world in (from queue in use(DefinedChangeQueue.Of(PlugIn, document, view, None, QueuePolicy.Render, None))
+        from world in (from queue in use(DefinedChangeFeed.Of(PlugIn, document, view, None, QueuePolicy.Render, None))
                        from ____ in queue.World
                        from taken in queue.Take
                        select taken).Bracket()

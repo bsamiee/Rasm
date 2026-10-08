@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NodaTime.Text;
@@ -92,7 +93,7 @@ public sealed record LightScene(
         from transfer in Lights.Gamma(doc)
         from read in Lights.States(doc)
         from _ in unless(read.Fails.IsEmpty, IO.fail<Unit>(Error.Many(read.Fails))).As()
-        from sun in Sources.Read(doc, window =>
+        from sun in SceneSources.Read(doc, window =>
             from state in SunState.Read(window)
             from angles in SunState.Angles(window)
             from moment in SunState.Moment(window, clock).Read
@@ -122,7 +123,7 @@ public sealed record LightScene(
     private static float[] Decoded(Color color, Transfer transfer) {
         Span<System.Numerics.Vector4> light = [new System.Numerics.Vector4(color.R, color.G, color.B, byte.MaxValue) / byte.MaxValue];
         transfer.Decode(light, Nits.ReferenceWhite);
-        return new float[] { light[0].X, light[0].Y, light[0].Z };
+        return MemoryMarshal.Cast<System.Numerics.Vector4, float>(light)[..3].ToArray();
     }
 
     // --- [DESCRIPTION]
@@ -140,30 +141,30 @@ public sealed record LightScene(
 
     private SceneFile.Body Body() =>
         new(
-            [.. Emitters.Map(light => Entry(light, Scale.ToValue(), LightTransfer))],
+            [.. Emitters.Map(light => Entry(light, (double)Scale, LightTransfer))],
             new SceneFile.Sun(
-                SunState.Enabled, SunState.Intensity.ToValue(), Decoded(SunColor, LightTransfer),
-                double.DegreesToRadians(SunAngles.Azimuth), double.DegreesToRadians(SunAngles.Altitude), double.DegreesToRadians(SunState.Site.North.ToValue()),
-                SunState.Site.Place.Latitude.ToValue(), SunState.Site.Place.Longitude.ToValue(),
+                SunState.Enabled, (double)SunState.Intensity, Decoded(SunColor, LightTransfer),
+                double.DegreesToRadians(SunAngles.Azimuth), double.DegreesToRadians(SunAngles.Altitude), double.DegreesToRadians((double)SunState.Site.North),
+                (double)SunState.Site.Place.Latitude, (double)SunState.Site.Place.Longitude,
                 OffsetPattern.GeneralInvariant.Format(SunState.Site.Standard.ToValue()), SunState.Site.Saving.Map(static saving => OffsetPattern.GeneralInvariant.Format(saving.ToValue())).ValueUnsafe(),
                 Moment.Map(static moment => moment.ToValue()).ValueUnsafe()),
-            Skylight.Map(static reference => new SceneFile.Skylight(reference.Environment, reference.RenderHash, reference.Gain.Map(static gain => gain.ToValue()).ToNullable())).ValueUnsafe());
+            Skylight.Map(static reference => new SceneFile.Skylight(reference.Environment, reference.RenderHash, reference.Gain.Map(static gain => (double)gain).ToNullable())).ValueUnsafe());
 
     private static SceneFile.Light Entry(LightState light, double scale, Transfer transfer) =>
         new(
             light.Id, light.Spec.Name.ValueUnsafe(), light.Spec.Enabled, Shape(light.Spec.Shape, scale), Emission(light.Spec.Color, transfer),
-            light.Spec.Watts.ToValue() > 0d ? new SceneFile.Power.Watts(light.Spec.Watts.ToValue()) : new SceneFile.Power.Scale(light.Spec.Intensity.ToValue()),
-            light.Spec.ShadowIntensity.ToValue(),
+            (double)light.Spec.Watts > 0d ? new SceneFile.Power.Watts((double)light.Spec.Watts) : new SceneFile.Power.Scale((double)light.Spec.Intensity),
+            (double)light.Spec.ShadowIntensity,
             [light.Spec.AttenuationVector.X, light.Spec.AttenuationVector.Y / scale, light.Spec.AttenuationVector.Z / scale / scale]);
 
     private static SceneFile.Shape Shape(LightShape shape, double scale) =>
         shape.Switch<double, SceneFile.Shape>(
             scale,
-            pointLight: static (s, point) => new SceneFile.Shape.PointLight(Metres((Vector3d)point.Location, s), point.Radius.ToValue() * s, point.CameraRelative),
+            pointLight: static (s, point) => new SceneFile.Shape.PointLight(Metres((Vector3d)point.Location, s), (double)point.Radius * s, point.CameraRelative),
             spotLight: static (s, spot) => new SceneFile.Shape.SpotLight(
-                Metres((Vector3d)spot.Location, s), Metres(spot.Direction, s), spot.Angle.ToValue(), spot.HotSpot.ToValue(), spot.Radius.ToValue() * s, spot.CameraRelative),
+                Metres((Vector3d)spot.Location, s), Metres(spot.Direction, s), (double)spot.Angle, (double)spot.HotSpot, (double)spot.Radius * s, spot.CameraRelative),
             directionalLight: static (s, directional) => new SceneFile.Shape.DirectionalLight(
-                Metres((Vector3d)directional.Location, s), Metres(directional.Direction, s), directional.Angle.ToValue(), directional.CameraRelative),
+                Metres((Vector3d)directional.Location, s), Metres(directional.Direction, s), (double)directional.Angle, directional.CameraRelative),
             linearLight: static (s, linear) => new SceneFile.Shape.LinearLight(Metres((Vector3d)linear.Location, s), Metres(linear.Length, s), Metres(linear.Width, s)),
             rectangularLight: static (s, rectangle) => new SceneFile.Shape.RectangularLight(
                 Metres((Vector3d)rectangle.Location, s), Metres(rectangle.Length, s), Metres(rectangle.Width, s), Metres(rectangle.Direction, s)),

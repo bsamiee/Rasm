@@ -48,7 +48,7 @@ public abstract record PlottedCurve {
         public override CurveAxis Input => TKind.Kind.Input.Axis;
         public override CurveAxis Output => TKind.Kind.Output;
         public override Seq<CurvePoint> Points => Value.Points;
-        public override PlottedCurve Identity => this with { Value = HueCurve<TKind>.Identity };
+        public override PlottedCurve Identity => this with { Value = HueCurves.Neutral<TKind>() };
         public override MarkColor Paint => PaintSlot.ControlText;
         public override Option<TraceChannel> Plane => Callbacks.Found(TKind.Kind.Input == InputAxis.Stops, TraceChannel.Luma);
         public override Func<double, double> Fit() => Value.Fit();
@@ -59,6 +59,10 @@ public abstract record PlottedCurve {
 }
 
 public sealed record CurveAnchor(CurvePoint Point, CurveAxis Input, CurveAxis Output);
+
+public sealed class AnchorShownEventArgs(Option<CurveAnchor> anchor) : EventArgs {
+    public Option<CurveAnchor> Anchor { get; } = anchor;
+}
 
 public sealed record CurveText(string Caption, Func<CurveKey, string> Curve, Func<CurveAxis, NumberText<double>> Axis);
 
@@ -90,14 +94,15 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
     private readonly CheckCommand inputHistogram;
 
     public CurveEditor(IPlugInSink sink, CurveEditorState initial, CurveText text, Option<IO<Option<Traces>>> histogram)
-        : base(sink, initial, histogram.Map(static read => read.Map(static traces => (Func<CurveEditorState, CurveEditorState>)(state => Sampled(state, traces))))) {
+        : base(sink, initial, histogram.Map(static read => (Func<Control, IO<Func<CurveEditorState, CurveEditorState>>>)(_ =>
+            read.Map(static traces => (Func<CurveEditorState, CurveEditorState>)(state => Sampled(state, traces)))))) {
         this.text = text;
         resetCurve = new Command(Callbacks.Handler<EventArgs>(_ => Advance(Reset), Site(nameof(Reset)))) { MenuText = RowText.Localize("Reset Curve").Local };
         inputHistogram = new CheckCommand(Callbacks.Handler<EventArgs>(_ => Advance(Toggled), Site(nameof(Toggled)))) { MenuText = RowText.Localize("Input Histogram").Local };
         _ = Commanded(initial);
     }
 
-    public event EventHandler<Option<CurveAnchor>>? Anchored;
+    public event EventHandler<AnchorShownEventArgs>? Anchored;
 
     public Seq<Command> Commands => Seq(resetCurve, inputHistogram);
 
@@ -137,7 +142,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
 
     protected override IO<Unit> Reconcile(CurveEditorState before, CurveEditorState after, Interaction<CurvePart> was, Interaction<CurvePart> now) =>
         from commands in IO.lift(() => Commanded(after))
-        from anchored in when(Anchor(before) != Anchor(after), IO.lift(fun(() => Anchored?.Invoke(this, Anchor(after))))).As()
+        from anchored in when(Anchor(before) != Anchor(after), IO.lift(fun(() => Anchored?.Invoke(this, new AnchorShownEventArgs(Anchor(after)))))).As()
         select unit;
 
     private Unit Commanded(CurveEditorState state) {

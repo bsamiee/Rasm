@@ -37,6 +37,10 @@ public abstract partial record Edit<TValue> where TValue : notnull {
     public sealed record Cancel : Edit<TValue>;
 }
 
+public sealed class EditEventArgs<TValue>(Edit<TValue> edit) : EventArgs where TValue : notnull {
+    public Edit<TValue> Edit { get; } = edit;
+}
+
 public readonly record struct Transition<TState, TValue>(TState State, Option<Edit<TValue>> Edit) where TState : notnull where TValue : notnull;
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -89,7 +93,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
         (TState before, Interaction<TPart> was) = (State, Cues);
         State = next.State;
         grip = grip.Map(held => next.Edit.Map(edit => Folded(held, edit)).IfNone(held));
-        _ = next.Edit.Iter(edit => Edited?.Invoke(this, edit));
+        _ = next.Edit.Iter(edit => Edited?.Invoke(this, new EditEventArgs<TValue>(edit)));
         return Refresh(before, was);
     }
 
@@ -265,13 +269,13 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     private IO<IDisposable> Gestured<TGesture>(Func<TGesture, float, Option<Transition<TState, TValue>>> transition) where TGesture : Gesture, new() =>
         IO.lift(static () => new TGesture())
             .Bind(gesture => DisposalOps.AcquireAll(
-                Seq(IO.lift(() => Added(gesture)),
+                Seq(IO.lift(() => (IDisposable)Added(gesture)),
                     Subscriptions.Host<EventArgs>(typeof(TGesture), handler => gesture.Activated += handler, handler => gesture.Activated -= handler, nameof(Gesture.Activated))
                         .Inline(_ => IO.lift(() => Apply(transition(gesture, ParentWindow.LogicalPixelSize))), Sink)),
                 DisposalOps.Release))
             .Map(held => DisposalOps.Composite(held, Site(nameof(OnUnLoad))));
 
-    private IDisposable Added(Gesture gesture) {
+    private Disposal<Gesture> Added(Gesture gesture) {
         Gestures.Add(gesture);
         return new Disposal<Gesture>(gesture, held => {
             _ = Gestures.Remove(held);
@@ -316,7 +320,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
             .Bind(canvas => Draw(canvas, new RectangleF(size), State, Layout(State, size, canvas.Scale), cues));
 
     // --- [EDITS]
-    public event EventHandler<Edit<TValue>>? Edited;
+    public event EventHandler<EditEventArgs<TValue>>? Edited;
 
     // --- [LIFETIME]
     protected override void OnLoad(EventArgs e) {
@@ -333,7 +337,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
 
     private IO<IDisposable> Held =>
         DisposalOps.AcquireAll(
-                Seq(Themes.Changed.Inline(_ => IO.lift(() => Invalidate()), Sink),
+                Seq(HostTheme.Changed.Inline(_ => IO.lift(() => Invalidate()), Sink),
                     Gestured<MagnificationGesture>((gesture, scale) => Magnified(State, Size, scale, hovered, Pointer, gesture.Magnification)),
                     Gestured<RotationGesture>((gesture, scale) => Rotated(State, Size, scale, hovered, Pointer, float.DegreesToRadians(-gesture.Rotation))))
                     .Concat(sampled.Map(read => FrameClocks.Sample(this, read(this).Bind(fold => Advance(held => new(fold(held), None))), Site(nameof(FrameClocks.Sample)))).ToSeq()),

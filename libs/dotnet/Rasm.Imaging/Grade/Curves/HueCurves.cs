@@ -50,8 +50,6 @@ public sealed partial class HueCurve<TKind> : IConvertible<string> where TKind :
 
     public Seq<CurvePoint> Points { get; }
 
-    public static HueCurve<TKind> Identity { get; } = new(TKind.Kind.Neutral);
-
     public Func<double, double> Fit() => Fits(this);
 
     public string ToValue() => CurvePoint.Format(Points);
@@ -76,8 +74,10 @@ public sealed record HueCurves(
     HueCurve<SatSatKind> SatSat, HueCurve<LumLumKind> LumLum, HueCurve<SatLumKind> SatLum)
     : IStateRecord<HueCurves, HueCurveKind, InvalidGrade>, IPixelStage<HueCurves> {
     public static HueCurves Default { get; } = new(
-        HueCurve<HueHueKind>.Identity, HueCurve<HueSatKind>.Identity, HueCurve<HueLumKind>.Identity, HueCurve<LumSatKind>.Identity,
-        HueCurve<SatSatKind>.Identity, HueCurve<LumLumKind>.Identity, HueCurve<SatLumKind>.Identity);
+        Neutral<HueHueKind>(), Neutral<HueSatKind>(), Neutral<HueLumKind>(), Neutral<LumSatKind>(),
+        Neutral<SatSatKind>(), Neutral<LumLumKind>(), Neutral<SatLumKind>());
+
+    public static HueCurve<TKind> Neutral<TKind>() where TKind : IHueCurveKind => HueCurve<TKind>.Create(TKind.Kind.Neutral);
 
     public double Read(HueCurveKind kind, Hsy hsy) =>
         kind == HueCurveKind.SatLum

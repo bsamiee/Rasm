@@ -76,11 +76,11 @@ public static partial class PreviewRows {
                 Subscriptions.Attach(
                     h => view.MouseUp += h, h => view.MouseUp -= h,
                     Callbacks.Handler<MouseEventArgs>(_ => Swapped(held, static state => state with { Press = None }).Map(static _ => unit), site)),
-                FrameClocks.Sample(view, Stepped(view, source, held), site)),
+                FrameClocks.Sample(view, Stepped(scope.Sink, view, source, held), site)),
             DisposalOps.Release)
-        select new RowCells(view, None, None, None, [], [], new RowHelp(None, None), Restaged(view, source, held), None, None, DisposalOps.Composite(acquired, site));
+        select new RowCells(view, None, None, None, [], [], new RowHelp(None, None), Restaged(scope.Sink, view, source, held), None, None, DisposalOps.Composite(acquired, site));
 
-    private static IO<Unit> Stepped(ImageView view, TileSource source, Atom<(TileState Before, TileState After)> held) =>
+    private static IO<Unit> Stepped(IPlugInSink sink, ImageView view, TileSource source, Atom<(TileState Before, TileState After)> held) =>
         from frame in source.Frame
         from window in IO.lift(() => Optional(view.ParentWindow).Map(window => (Scale: window.LogicalPixelSize, view.Width)))
         let asked =
@@ -94,7 +94,7 @@ public static partial class PreviewRows {
         from state in held.ValueIO
         from shown in read
             .Filter(next => !state.After.Shown.Exists(prior => ReferenceEquals(prior.Tile, next.Tile)))
-            .Match(Some: next => Showing(view, source, held, next.Tile, next.Scale), None: static () => IO.pure(unit))
+            .Match(Some: next => Showing(sink, view, source, held, next.Tile, next.Scale), None: static () => IO.pure(unit))
         select shown;
 
     private static IO<Option<(float Scale, PixelFrame Tile)>> Failed(Atom<(TileState Before, TileState After)> held, Error error) =>
@@ -102,22 +102,22 @@ public static partial class PreviewRows {
         from raised in when(swapped.Before.Read != swapped.After.Read, IO.fail<Unit>(error)).As()
         select Option<(float Scale, PixelFrame Tile)>.None;
 
-    private static IO<Unit> Restaged(ImageView view, TileSource source, Atom<(TileState Before, TileState After)> held) =>
+    private static IO<Unit> Restaged(IPlugInSink sink, ImageView view, TileSource source, Atom<(TileState Before, TileState After)> held) =>
         from state in held.ValueIO
         from scale in IO.lift(() => Optional(view.ParentWindow).Map(static window => window.LogicalPixelSize))
-        from shown in (from prior in state.After.Shown from at in scale select Showing(view, source, held, prior.Tile, at)).IfNone(IO.pure(unit))
+        from shown in (from prior in state.After.Shown from at in scale select Showing(sink, view, source, held, prior.Tile, at)).IfNone(IO.pure(unit))
         select shown;
 
     private static IO<Unit> Showing(
-        ImageView view, TileSource source, Atom<(TileState Before, TileState After)> held, PixelFrame tile, float scale) =>
-        from staged in Staged(view, source, tile, scale)
+        IPlugInSink sink, ImageView view, TileSource source, Atom<(TileState Before, TileState After)> held, PixelFrame tile, float scale) =>
+        from staged in Staged(sink, view, source, tile, scale)
         from swapped in Swapped(held, state => state with { Shown = Some(staged), Read = new TileRead.Formed() })
         from shown in IO.lift(() => view.Image = staged.Icon)
         from released in DisposalOps.Release(swapped.Before.Owned)
         select released;
 
-    private static IO<(PixelFrame Tile, Bitmap Staged, Icon Icon)> Staged(ImageView view, TileSource source, PixelFrame tile, float scale) =>
-        (from raster in use(FrameView.Raster(view, tile, source.Encoding))
+    private static IO<(PixelFrame Tile, Bitmap Staged, Icon Icon)> Staged(IPlugInSink sink, ImageView view, TileSource source, PixelFrame tile, float scale) =>
+        (from raster in use(FrameView.Raster(sink, view, tile, source.Encoding))
          from staged in IO.lift(() => new Bitmap(tile.Size.Width, tile.Size.Height, PixelFormat.Format32bppRgba))
          from icon in DisposalOps.OnFailure(
              (from graphics in use(() => new Graphics(staged))
@@ -177,16 +177,16 @@ public static partial class PreviewRows {
         RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, Func<TRecord, bool> shown, FrameOverlay @case, Func<TValue, FrameEdit> value,
         Func<FrameEdit, Option<TValue>> take, FrameView view, RowScope scope, CallbackSite site, Func<Option<(FrameOverlay Case, FrameEdit Value)>, IO<Unit>> show, IO<bool> current)
         where TRecord : notnull =>
-        RowEdit.Bind<TRecord, EventHandler<Edit<FrameEdit>>>(
+        RowEdit.Bind(
                 source, IterableNE.create(field),
                 handler => view.Edited += handler, handler => view.Edited -= handler,
-                edit => Callbacks.Handler<Edit<FrameEdit>>(
-                    next =>
-                        from on in current
-                        from taken in when(on && Owned(next, take), edit.Take(next, Into(take, lens))).As()
+                edit => Callbacks.Handler<EditEventArgs<FrameEdit>>(
+                    args =>
+                        from active in current
+                        from taken in when(active && Owned(args.Edit, take), edit.Take(args.Edit, Into(take, lens))).As()
                         select taken,
                     site),
-                held => show(held.Filter(shown).Map(static record => (@case, value(lens.Get(record))))),
+                held => show(held.Filter(shown).Map(record => (@case, value(lens.Get(record))))),
                 scope, site)
             .Map(static bound => (bound.Edit.Shown, bound.Release));
 
@@ -203,7 +203,7 @@ public static partial class PreviewRows {
 
     private static IO<RowCells> Framed(FramePane pane, RowScope scope) =>
         from view in IO.lift(() => new FrameView(scope.Sink, pane.Current, pane.Reference(scope)))
-        from readout in IO.lift(static () => new Label { Font = Themes.Digits(EtoFonts.SmallFont), TextAlignment = TextAlignment.Right })
+        from readout in IO.lift(static () => new Label { Font = HostTheme.Digits(EtoFonts.SmallFont), TextAlignment = TextAlignment.Right })
         from cells in IO.lift(() => Atom(toList(pane.Targets.Map(static _ => Option<(FrameOverlay Case, FrameEdit Value)>.None))))
         from ticks in IO.lift(static () => Atom((Before: PaneTick.Initial, After: PaneTick.Initial)))
         let site = new CallbackSite(scope.Sink, typeof(PreviewRows), nameof(Frame))
@@ -273,7 +273,7 @@ public static partial class PreviewRows {
         Seq(picker.Hold(serial, view),
             Subscriptions.Attach(
                 h => view.Edited += h, h => view.Edited -= h,
-                Callbacks.Handler<Edit<FrameEdit>>(edit => PickedPixel(edit).Map(pixel => picker.Picked(serial, pixel)).IfNone(IO.pure(unit)), site)));
+                Callbacks.Handler<EditEventArgs<FrameEdit>>(args => PickedPixel(args.Edit).Map(pixel => picker.Picked(serial, pixel)).IfNone(IO.pure(unit)), site)));
 
     private static Option<System.Drawing.Point> PickedPixel(Edit<FrameEdit> edit) =>
         edit.Switch(
@@ -294,11 +294,11 @@ public static partial class PreviewRows {
         from tick in Swapped(ticks, _ => new PaneTick(
             hovered,
             zoom,
-            toSeq(shown).Somes().Head.Map(static cell => (cell.Case, Some(cell.Value)))
-            | Seq(own, linked).Find(static set => !set.IsEmpty).Map(static set => ((FrameOverlay)new FrameOverlay.MaskSet(set), Option<FrameEdit>.None))))
+            toSeq(shown).Somes().Head.Map(static cell => (cell.Case, Value: Some(cell.Value)))
+            | Seq(own, linked).Find(static set => !set.IsEmpty).Map(static set => (Case: (FrameOverlay)new FrameOverlay.MaskSet(set), Value: Option<FrameEdit>.None))))
         from pointed in when(
             tick.After.Hovered != tick.Before.Hovered,
-            link.Match(Some: static held => held.Pointer.SwapIO(static _ => tick.After.Hovered).Map(static _ => unit), None: static () => IO.pure(unit))).As()
+            link.Match(Some: held => held.Pointer.SwapIO(_ => tick.After.Hovered).Map(static _ => unit), None: static () => IO.pure(unit))).As()
         from zoomed in when(
             tick.After.Zoom != tick.Before.Zoom,
             IO.lift(() => readout.Text = tick.After.Zoom.Match(Some: static held => ((float)held).ToString("P0", RowText.Culture), None: static () => "")).Map(static _ => unit)).As()

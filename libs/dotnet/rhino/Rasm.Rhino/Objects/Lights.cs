@@ -172,7 +172,7 @@ public abstract partial record LightOp {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
 internal static partial class LightMapper {
-    // --- [MEMBERS]
+    // --- [UPDATES]
     [MapProperty(nameof(LightSpec.Enabled), nameof(Light.IsEnabled))]
     [MapProperty(nameof(LightSpec.Watts), nameof(Light.PowerWatts))]
     [MapperIgnoreSource(nameof(LightSpec.Shape), Justification = "Each shape case writes its own members")]

@@ -12,15 +12,16 @@ public static class Transfer {
     public static IO<Unit> Copy(ValueSet values) =>
         IO.lift(() => Clipboard.Instance.Text = values.Text()).Map(static _ => unit);
 
-    public static IO<Unit> Copy(BindingGroup group, Option<IterableNE<EntryKey>> keys, RowScope scope) =>
-        scope.Shown(group).Bind(values => Copy(values.Scoped(keys)));
+    public static IO<Unit> Copy(BindingGroup bound, Option<IterableNE<EntryKey>> keys, RowScope scope) =>
+        scope.Shown(bound).Bind(values => Copy(values.Scoped(keys)));
 
-    public static IO<ValueDiff> Paste(BindingGroup group, Option<IterableNE<EntryKey>> keys, RowScope scope) =>
+    public static IO<ValueDiff> Paste(BindingGroup bound, Option<IterableNE<EntryKey>> keys, RowScope scope) =>
         from text in IO.lift(static () => Missing.Unless(Clipboard.Instance.Text, nameof(Clipboard.Text)))
         from read in IO.lift(ValueSet.Read(text))
         let scoped = read.Scoped(keys)
-        from matched in IO.lift(UnmatchedValues.Unless(group.Keys().Exists(scoped.Entries.ContainsKey), read.Entries.Count))
-scope.Commit diff;
+        from matched in IO.lift(UnmatchedValues.Unless(bound.Keys().Exists(scoped.Entries.ContainsKey), read.Entries.Count))
+        from diff in scope.Commit(bound, scoped)
+        select diff;
 
     // --- [DRAGS]
     public static IO<Unit> Drag(Control source, Seq<string> files, Option<Image> image) =>
@@ -33,7 +34,7 @@ scope.Commit diff;
 
     // --- [DROPS]
     public static IO<IDisposable> Drops(Control target, Seq<FileTypeRow> accepted, Func<string, IO<Unit>> commit, IPlugInSink sink) =>
-        fun((DragEventArgs args) => IO.lift(() => args.Effects = Accepted(args.Data, accepted).Match(Some: static _ => DragEffects.Copy, None: static () => DragEffects.None))) switch {
+        fun((DragEventArgs args) => IO.lift(() => { args.Effects = Accepted(args.Data, accepted).Match(Some: static _ => DragEffects.Copy, None: static () => DragEffects.None); })) switch {
             var gate => DisposalOps.AcquireAll(
                     Seq(IO.lift(() => target.AllowDrop = true).Map<IDisposable>(_ => new Disposal<Control>(target, static held => held.AllowDrop = false)),
                         Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragEnter += h, h => target.DragEnter -= h, nameof(Control.DragEnter)).Inline(gate, sink),

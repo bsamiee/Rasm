@@ -147,6 +147,6 @@ public static partial class Dimensions {
         });
 
     // --- [PIECES]
-    public static IO<A> Explode<A>(Dimension dimension, Func<Seq<GeometryBase>, IO<A>> body) =>
+    public static IO<T> Explode<T>(Dimension dimension, Func<Seq<GeometryBase>, IO<T>> body) =>
         Copies.AcquireNonEmpty(dimension.Explode, nameof(Dimension.Explode)).Bracket(Use: pieces => IO.pure(pieces).Bind(body), Fin: DisposalOps.Release);
 }

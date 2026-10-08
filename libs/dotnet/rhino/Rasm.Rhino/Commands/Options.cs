@@ -32,7 +32,7 @@ public static class OptionType {
         from added in Held(IO.lift(() => new OptionToggle(initial, offName, onName)), holder => getter.AddOptionToggle(name, ref holder), nameof(GetBaseClass.AddOptionToggle), static holder => Fin.Succ(holder.CurrentValue))
         select added;
 
-    public static IO<AddedOption<TValue>> Number<TValue, TRaw, TError>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink plugIn, TValue initial)
+    public static IO<AddedOption<TValue>> Number<TValue, TRaw, TError>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial)
         where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
         where TRaw : struct, System.Numerics.IFloatingPointIeee754<TRaw>
         where TError : Error, IValidationError<TError> =>
@@ -40,7 +40,7 @@ public static class OptionType {
             holder => getter.AddOptionDouble(name, ref holder), nameof(GetBaseClass.AddOptionDouble),
             static holder => Conversions.Validated<TValue, TRaw, TError>(TRaw.CreateChecked(holder.CurrentValue)));
 
-    public static IO<AddedOption<TValue>> Integer<TValue, TRaw, TError>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink plugIn, TValue initial)
+    public static IO<AddedOption<TValue>> Integer<TValue, TRaw, TError>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial)
         where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
         where TRaw : struct, System.Numerics.IBinaryInteger<TRaw>
         where TError : Error, IValidationError<TError> =>
@@ -49,14 +49,14 @@ public static class OptionType {
             holder => getter.AddOptionInteger(name, ref holder), nameof(GetBaseClass.AddOptionInteger),
             static holder => Conversions.Validated<TValue, TRaw, TError>(TRaw.CreateChecked(holder.CurrentValue)));
 
-    public static IO<AddedOption<TValue>> Distance<TValue, TError>(LengthUnit spaceUnit, GetBaseClass getter, LocalizeStringPair name, IPlugInSink plugIn, TValue initial)
+    public static IO<AddedOption<TValue>> Distance<TValue, TError>(LengthUnit spaceUnit, GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial)
         where TValue : IObjectFactory<TValue, Length, TError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue>
         where TError : Error, IValidationError<TError> =>
         Held(IO.lift(() => new OptionDouble(Quantities.As(initial.ToValue(), spaceUnit), Quantities.As(TValue.MinValue.ToValue(), spaceUnit), Quantities.As(TValue.MaxValue.ToValue(), spaceUnit))),
             holder => getter.AddOptionDouble(name, ref holder), nameof(GetBaseClass.AddOptionDouble),
             holder => Conversions.Validated<TValue, Length, TError>(Quantities.From(holder.CurrentValue, spaceUnit)));
 
-    public static IO<AddedOption<TValue>> Text<TValue, TError>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink plugIn, TValue initial)
+    public static IO<AddedOption<TValue>> Text<TValue, TError>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial)
         where TValue : IObjectFactory<TValue, string, TError>, IConvertible<string>
         where TError : Error, IValidationError<TError> =>
         Held(IO.lift(() => new OptionString(initial.ToValue(), allowEmptyString: Conversions.Validated<TValue, string, TError>("").IsSucc)),

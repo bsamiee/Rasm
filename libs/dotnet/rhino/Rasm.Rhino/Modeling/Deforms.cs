@@ -180,10 +180,10 @@ public static class Deforms {
                  List<GeometryBase> flatMarks = [];
                  return (Flat: squish(squisher, marks, flatMarks), Marks: flatMarks.ToArray());
              }),
-             made => (made.Flat is { } product ? Measurements.Valid(product, member) : Fin<T>.Fail(new Missing(member)))
+             made => (made.Flat is { } product ? Measurements.Valid(product, member) : Fin.Fail<T>(new Missing(member)))
                  .Map(flat => (Flat: flat, made.Marks)),
              static made => DisposalOps.Release(Conversions.Rows([made.Flat, .. made.Marks])))
-         from flatMarks in DisposalOps.OnFailure(Copies.AcquireSparse(static () => squished.Marks, member), DisposalOps.Release(Seq(squished.Flat)))
+         from flatMarks in DisposalOps.OnFailure(Copies.AcquireSparse(() => squished.Marks, member), DisposalOps.Release(Seq<GeometryBase>(squished.Flat)))
          from mesh2d in DisposalOps.OnFailure(Copies.Acquire(squisher.Get2dMesh, nameof(Squisher.Get2dMesh)), DisposalOps.Release([squished.Flat, .. flatMarks.Somes()]))
          from mesh3d in DisposalOps.OnFailure(Copies.Acquire(squisher.Get3dMesh, nameof(Squisher.Get3dMesh)), DisposalOps.Release([squished.Flat, .. flatMarks.Somes(), mesh2d]))
          select new SquishResult<T>(

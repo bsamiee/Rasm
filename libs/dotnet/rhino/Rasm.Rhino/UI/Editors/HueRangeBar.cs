@@ -25,25 +25,25 @@ public sealed partial class RangeHandle {
     public static readonly RangeHandle LowerSoftness = new(PartRole.Handle, CursorType.VerticalSplit, "{0} lower softness", -1, None, TipStyle, Plots.Reach,
         static band => -((band.Width / 2f) + band.Softness),
         static band => band.Softness,
-        static (band, key) => (band.Center, band.Width, Fraction(key)),
+        static (band, key) => (band.Center, band.Width, key),
         static texts => texts.Softness,
         static (_, ramp, x) => Tip(ramp, x));
     public static readonly RangeHandle UpperSoftness = new(PartRole.Handle, CursorType.VerticalSplit, "{0} upper softness", 1, None, TipStyle, Plots.Reach,
         static band => (band.Width / 2f) + band.Softness,
         static band => band.Softness,
-        static (band, key) => (band.Center, band.Width, Fraction(key)),
+        static (band, key) => (band.Center, band.Width, key),
         static texts => texts.Softness,
         static (_, ramp, x) => Tip(ramp, x));
     public static readonly RangeHandle LowerEdge = new(PartRole.Handle, CursorType.VerticalSplit, "{0} lower edge", -1, Some(LowerSoftness), EdgeStyle, Plots.Reach,
         static band => band.Width / -2f,
         static band => band.Width,
-        static (band, key) => Edge(band, Fraction(key), -1f),
+        static (band, key) => Edge(band, key, -1f),
         static texts => texts.Width,
         static (_, ramp, x) => Rule(ramp, x));
     public static readonly RangeHandle UpperEdge = new(PartRole.Handle, CursorType.VerticalSplit, "{0} upper edge", 1, Some(UpperSoftness), EdgeStyle, Plots.Reach,
         static band => band.Width / 2f,
         static band => band.Width,
-        static (band, key) => Edge(band, Fraction(key), 1f),
+        static (band, key) => Edge(band, key, 1f),
         static texts => texts.Width,
         static (_, ramp, x) => Rule(ramp, x));
 
@@ -72,22 +72,17 @@ public sealed partial class RangeHandle {
 
     public RangeHandle Under(Keys modifiers) => modifiers.HasFlag(Keys.Alt) ? Alternate.IfNone(this) : this;
 
-    internal static float Fraction(float key) =>
-        key.CompareTo(AxisFraction.MinValue.ToValue()) < 0 ? AxisFraction.MinValue.ToValue()
-        : key.CompareTo(AxisFraction.MaxValue.ToValue()) > 0 ? AxisFraction.MaxValue.ToValue()
-        : key;
-
     private static (float Center, float Width, float Softness) Edge(RangeBand start, float width, float side) =>
         (start.Center + (side * (width - start.Width) / 2f), width, start.Softness);
 
-    private static MarkShape Tip(float ramp, float x) =>
-        new MarkShape.Polygon([
+    private static MarkShape.Polygon Tip(float ramp, float x) =>
+        new([
             new PointF(x, ramp + (1.5f * Plots.Inset)),
             new PointF(x + Plots.Inset, ramp + (3f * Plots.Inset)),
             new PointF(x - Plots.Inset, ramp + (3f * Plots.Inset)),
         ]);
 
-    private static MarkShape Rule(float ramp, float x) => new MarkShape.Rule(new PointF(x, 0f), new PointF(x, ramp + (2f * Plots.Inset)));
+    private static MarkShape.Rule Rule(float ramp, float x) => new(new PointF(x, 0f), new PointF(x, ramp + (2f * Plots.Inset)));
 }
 
 public sealed record BandTexts(NumberText<float> Center, NumberText<float> Width, NumberText<float> Softness);
@@ -182,7 +177,7 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
     private Transition<HueRangeBarState, HueRange> Moved(HueRangeBarState state, HueRange range, RangeHandle handle, RangeBand start, float key, Func<HueRange, Edit<HueRange>> edit) =>
         (handle.Placed(start, key) switch {
             var (center, width, softness) => (
-                Conversions.Validated<AxisFraction, float, InvalidGrade>(RangeHandle.Fraction(along.Unit(along.Value(center)))),
+                Conversions.Validated<AxisFraction, float, InvalidGrade>(along.Unit(along.Value(center))),
                 Conversions.Validated<AxisFraction, float, InvalidGrade>(width),
                 Conversions.Validated<AxisFraction, float, InvalidGrade>(softness)),
         }).Apply((c, w, s) => axis.Band.Set(new RangeBand(c, w, s), range)).As().Match(

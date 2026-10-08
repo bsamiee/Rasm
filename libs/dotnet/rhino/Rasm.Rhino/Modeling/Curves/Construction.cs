@@ -61,7 +61,7 @@ public static class CurveConstruction {
     public static IO<CatenaryCurve> CreateCatenaryCurve(Point3d start, Point3d end, Vector3d axis, CatenaryForm form, bool smooth, CatenaryPointCount pointCount) =>
         Copies.Owned(
             IO.lift(() => form.Switch(
-                (Start: start, End: end, Axis: axis, Smooth: smooth, Count: pointCount.ToValue()),
+                (Start: start, End: end, Axis: axis, Smooth: smooth, Count: (int)pointCount),
                 throughPoint: static (state, through) => (
                     Curve: Curve.CreateCatenaryCurveThroughPoint(state.Start, state.End, state.Axis, through, state.Smooth, state.Count, out Point3d apex, out double parameter, out double length, out double deviation),
                     Apex: apex, Parameter: parameter, Length: length, Deviation: deviation, Member: nameof(Curve.CreateCatenaryCurveThroughPoint)),

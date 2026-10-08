@@ -80,7 +80,7 @@ public static class Showing {
                 window.Content = new RhinoScrollableDialogPanel { Content = view };
                 window.UseRhinoStyle();
                 window.ClientSize = Size.Ceiling(window.Content.GetPreferredSize());
-                _ = main.Iter(bounds => window.Location = Eto.Drawing.Point.Round(bounds.ToEtoScreen().Center - (window.Size / 2f)));
+                _ = main.Iter(bounds => window.Location = Eto.Drawing.Point.Round(bounds.ToEtoScreen().Center - ((SizeF)window.Size / 2f)));
                 window.LocalizeAndRestore(window.Row.Identity);
                 window.Show(doc);
                 _ = view.Shown(visible: true);
@@ -89,7 +89,7 @@ public static class Showing {
         from closed in Subscriptions.Attach(
             handler => window.Closed += handler,
             handler => window.Closed -= handler,
-            Callbacks.Handler<EventArgs>(static _ => release, new CallbackSite(owner, window.GetType(), nameof(window.Closed))))
+            Callbacks.Handler<EventArgs>(_ => release, new CallbackSite(owner, window.GetType(), nameof(window.Closed))))
         select window;
 
     private static IO<Unit> Released(RealizedView body) =>
@@ -196,21 +196,39 @@ public static class Showing {
 
     // --- [SCRIPTS]
     public static IO<Unit> RunScript(IPlugInViews owner, View view, RowScope scope, RhinoDoc doc) =>
-        from bindings in IO.lift(ViewCollection.Tree(view).Traverse(held => ViewOps.Bindings(owner, held, scope)).As()
+        from bindings in IO.lift(ViewCatalog.Tree(view).Traverse(held => ViewOps.Bindings(owner, held, scope)).As()
             .Map(static groups => groups.Bind(static bound => bound.Bindings))
             .Bind(BindingGroup.Of)
             .ToFin())
         let site = new CallbackSite(owner, view.Identity, nameof(RunScript))
-        let fields = ViewCollection.Tree(view)
+        let fields = ViewCatalog.Tree(view)
             .Bind(static held => held.Children)
             .Bind(static child => child.Controls)
             .Choose(static row => row.Switch<Option<(string Caption, EntryKey Key)>>(
                 field: static field => field.Keys is [var key] ? (field.Caption, key) : None,
                 readout: static _ => None,
                 command: static _ => None,
-                group: static _ => None))
-        static from ended in pass.RepeatUntil(static ended => ended)
-        static select unit;
+                @group: static _ => None))
+        let pass =
+            from shown in scope.Shown(bindings)
+            from ended in Getters.Choice(doc, new GetterRequest<GetOption, bool>(view.Caption, site) {
+                Accept = new() { Nothing = Some((Shown: Option<string>.None, Then: IO.pure(value: true))) },
+                Options =
+                    from field in fields
+                    let text = shown.Entries.Find(field.Key)
+                    select OptionSpec.Plain(
+                        field.Caption,
+                        text.Bind(static held => Conversions.Present(held)),
+                        hidden: false,
+                        _ => Getters.Text(
+                            doc,
+                            new EntryRequest<GetString, string, bool>(field.Caption, site) { Default = text },
+                            literal: true,
+                            entered => scope.Commit(bindings, new ValueSet(HashMap((field.Key, entered.Value)))).Map(static _ => false))),
+            })
+            select ended
+        from ended in pass.RepeatUntil(static ended => ended)
+        select unit;
 
     // --- [RENDERING]
     public static IO<Option<TBody>> TabFromRenderSessionId<TBody>(Guid renderSessionId) where TBody : DefinedTab =>
@@ -240,9 +258,9 @@ public static class Showing {
     private static extern object PanelObject([UnsafeAccessorType("Rhino.UI.PanelInstance, RhinoCommon")] object instance);
 
     // --- [PICKS]
-    public static IO<A> PushPickButton<A>(Window window, IO<A> pick) => Picked(window.PushPickButton, pick);
+    public static IO<T> PushPickButton<T>(Window window, IO<T> pick) => Picked(window.PushPickButton, pick);
 
-    public static IO<A> PushPickButton<A>(Panel panel, IO<A> pick) => Picked(panel.PushPickButton, pick);
+    public static IO<T> PushPickButton<T>(Panel panel, IO<T> pick) => Picked(panel.PushPickButton, pick);
 
     private static IO<A> Picked<A>(Action<EventHandler<EventArgs>> push, IO<A> pick) =>
         Callbacks.Captured<A>(answer => IO.lift(() => push((_, _) => answer(Try.lift(pick.Run).Run()))), nameof(EtoExtensions.PushPickButton));
@@ -250,7 +268,7 @@ public static class Showing {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class PanelCommand(IPlugInSink sink, Guid id, View.Panel panel) : HostCommand(sink, id, RhinoGet.StringToCommandOptionName(panel.Caption), None) {
-    protected override string CommandContextHelpUrl => panel.HelpUrl;
+    protected override string CommandContextHelpUrl => panel.HelpReference;
 
-    protected override IO<Unit> RunAsync(RhinoDoc doc, RunMode mode, CallbackSite site) => Showing.Toggle(panel, doc);
+    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) => Showing.Toggle(panel, doc);
 }

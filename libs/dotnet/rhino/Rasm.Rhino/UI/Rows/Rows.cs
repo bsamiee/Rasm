@@ -120,7 +120,7 @@ public abstract record RowSource {
     // --- [RECORDS]
     public static RowSource<TRecord> Fields<TRecord>(
         string owner, Seq<(IStateParameter<TRecord> Parameter, string Caption)> fields, Func<RowScope, ValueStore<TRecord>> store) where TRecord : IStateRecord<TRecord> =>
-        Fields(owner, fields, (RowScope scope) => IO.pure(Seq(store(scope))));
+        Fields(owner, fields, scope => IO.pure(Seq(store(scope))));
 
     public static RowSource<TRecord> Fields<TRecord>(
         string owner, Seq<(IStateParameter<TRecord> Parameter, string Caption)> fields, Func<RowScope, IO<Seq<ValueStore<TRecord>>>> stores) where TRecord : IStateRecord<TRecord> =>
@@ -257,12 +257,14 @@ public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
         (Prefix: Path + path, Default: lens.Get(Default)) switch {
             var nested => new RowSource<TNested>(
                 Owner,
-                scope => Stores(scope).Map(stores => stores.Map(store => new ValueStore<TNested>(
-                    store.Read.Map(held => held.Map(lens.Get)),
-                    next => store.Read.Bind(held => store.Put(Some(lens.Set(next.IfNone(nested.Default), held.IfNone(Default))))),
-                    EqualityComparer<TNested>.Default.Equals,
-                    store.Applied,
-                    store.Changed))),
+                scope =>
+                    from stores in Stores(scope)
+                    select stores.Map(store => new ValueStore<TNested>(
+                        store.Read.Map(held => held.Map(lens.Get)),
+                        next => store.Read.Bind(held => store.Put(Some(lens.Set(next.IfNone(nested.Default), held.IfNone(Default))))),
+                        EqualityComparer<TNested>.Default.Equals,
+                        store.Applied,
+                        store.Changed)),
                 nested.Default,
                 held => ValueBinding.Fields(Owner, held, nested.Default, fields).Under(nested.Prefix)) { Path = nested.Prefix },
         };
@@ -271,8 +273,9 @@ public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
 
     public override IO<ValueSet> Defaults =>
         from memory in RowScope.Held(Some(Default))
-        from group in IO.lift(BindingGroup.Of(Seq(Binding(memory))).ToFin())
-        from captured in group.Capture
+        from bound in IO.lift(BindingGroup.Of(Seq(Binding(memory))).ToFin())
+        from captured in bound.Capture
+        select captured;
 
     public override IO<Seq<HostEvent<Unit>>> Signals(RowScope scope) =>
         Stores(scope).Map(static stores => stores.Choose(static store => store.Changed));
@@ -304,14 +307,14 @@ public abstract partial record ControlRow {
 
     public Option<RowSource> Bound =>
         Switch(
-            field: static field => Some(field.Source),
+            field: static row => Some(row.Source),
             readout: static _ => Option<RowSource>.None,
             command: static _ => Option<RowSource>.None,
             group: static _ => Option<RowSource>.None);
 
     public Option<RowShape> Layout =>
         Switch(
-            field: static field => Some(field.Shape),
+            field: static row => Some(row.Shape),
             readout: static readout => Some(readout.Shape),
             command: static command => Some(command.Shape),
             group: static _ => Option<RowShape>.None);
@@ -450,16 +453,17 @@ public sealed class RowScope {
                 select unit,
             None: static () => IO.pure(unit));
 
-    public IO<ValueDiff> Commit(BindingGroup group, ValueSet incoming) =>
+    public IO<ValueDiff> Commit(BindingGroup bound, ValueSet incoming) =>
         from locks in Locked
         from held in mode.ValueIO
         from diff in held.Map(immediate: false, revertible: false, deferred: true, targets: false, contents: false)
-            ? Drafted(group, incoming, locks)
-            : Within(Written(group, incoming, locks))
-Changed(toSeq(diff.Changes.Keys))
+            ? Drafted(bound, incoming, locks)
+            : Within(Written(bound, incoming, locks))
+        from changed in Changed(toSeq(diff.Changes.Keys))
+        select diff;
 
-    public IO<ValueSet> Shown(BindingGroup group) =>
-        from captured in group.Capture
+    public IO<ValueSet> Shown(BindingGroup bound) =>
+        from captured in bound.Capture
         from edits in Edits
         select edits.Over(captured, Unlocked);
 
@@ -484,24 +488,24 @@ Changed(toSeq(diff.Changes.Keys))
         from selected in IO.lift(() => Refused.Unless(contents.Section.SetSelection(contents.Section.GetSelection()), nameof(EtoContentUISection3.SetSelection)))
         select written;
 
-    private IO<ValueDiff> Written(BindingGroup group, ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
-        History.Match(Some: history => (history with { Group = group }).Commit(incoming, locks), None: () => group.Apply(incoming, locks));
+    private IO<ValueDiff> Written(BindingGroup bound, ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
+        History.Match(Some: history => (history with { Group = bound }).Commit(incoming, locks), None: () => bound.Apply(incoming, locks));
 
     // --- [PAGES]
     public IO<bool> Pending => Edits.Map(static edits => !edits.Entries.IsEmpty);
 
-    public IO<Unit> Opened(BindingGroup group) =>
+    public IO<Unit> Opened(BindingGroup bound) =>
         mode.ValueIO.Bind(held => held.Switch(
-            (Scope: this, Group: group),
+            (Scope: this, Group: bound),
             immediate: static (_, _) => IO.pure(unit),
             revertible: static (state, _) => state.Group.Capture.Bind(opening => state.Scope.Swapped(new CommitMode.Revertible(opening))),
             deferred: static (state, _) => state.Scope.Swapped(new CommitMode.Deferred(ValueSet.Empty)),
             targets: static (_, _) => IO.pure(unit),
             contents: static (_, _) => IO.pure(unit)));
 
-    public IO<Unit> Apply(BindingGroup group) =>
+    public IO<Unit> Apply(BindingGroup bound) =>
         mode.ValueIO.Bind(held => held.Switch(
-            (Scope: this, Group: group),
+            (Scope: this, Group: bound),
             immediate: static (_, _) => IO.pure(unit),
             revertible: static (state, _) => state.Scope.Opened(state.Group),
             deferred: static (state, deferred) =>
@@ -512,9 +516,9 @@ Changed(toSeq(diff.Changes.Keys))
             targets: static (_, _) => IO.pure(unit),
             contents: static (_, _) => IO.pure(unit)));
 
-    public IO<Unit> Revert(BindingGroup group) =>
+    public IO<Unit> Revert(BindingGroup bound) =>
         mode.ValueIO.Bind(held => held.Switch(
-            (Scope: this, Group: group),
+            (Scope: this, Group: bound),
             immediate: static (_, _) => IO.pure(unit),
             revertible: static (state, revertible) =>
                 state.Scope.Written(state.Group, revertible.Opening, Unlocked).Bind(diff => state.Scope.Changed(toSeq(diff.Changes.Keys))),
@@ -534,16 +538,16 @@ Changed(toSeq(diff.Changes.Keys))
 
     private IO<Unit> Swapped(CommitMode next) => mode.SwapIO(_ => next).Map(static _ => unit);
 
-    private IO<ValueDiff> Drafted(BindingGroup group, ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
-        from before in group.Capture
+    private IO<ValueDiff> Drafted(BindingGroup bound, ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
+        from before in bound.Capture
         from edits in Edits
         let shown = edits.Over(before, Unlocked)
         let target = incoming.Over(shown, locks)
-        let keys = group.Keys()
-        from recalled in IO.lift(group.Bindings.Traverse(binding => binding.Recall(Named(target, binding))).As().ToFin())
-Swapped(new CommitMode.Deferred(new ValueSet(
+        let keys = bound.Keys()
+        from recalled in IO.lift(bound.Bindings.Traverse(binding => binding.Recall(Named(target, binding))).As().ToFin())
+        from swapped in Swapped(new CommitMode.Deferred(new ValueSet(
             edits.Entries.Filter((key, _) => !keys.Exists(held => held == key))
-                .Union(target.Entries.Filter((key, text) => !before.Entries.Find(key).Exists(held => held == text))))))
+                .Union(target.Entries.Filter((key, text) => !before.Entries.Find(key).Exists(held => string.Equals(held, text, StringComparison.Ordinal)))))))
         select shown.Diff(target);
 
     private ValueStore<TRecord> Drafted<TRecord>(RowSource<TRecord> source, ValueStore<TRecord> store) where TRecord : notnull =>

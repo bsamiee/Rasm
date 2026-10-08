@@ -11,6 +11,8 @@ namespace Rasm.Rhino.Render.Sessions;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IRealtimeProduct {
+    public const bool DrawsOpenGl = false;
+
     public static abstract string Product { get; }
 }
 
@@ -32,15 +34,15 @@ public sealed record RealtimeTarget(PixelExtent Extent, bool ForCapture, RenderW
 public sealed record RealtimeStart(RealtimeTarget Target, RhinoDoc Document, ViewInfo View, ViewportInfo Viewport, IO<SceneBatch> Take);
 
 public sealed record RealtimeSession(
-    RealtimeTarget Target, Disposal<DefinedChangeQueue> Scene, Instant Started, PassCount Pass, Option<PassCount> Limit,
+    RealtimeTarget Target, Disposal<DefinedChangeFeed> Scene, Instant Started, PassCount Pass, Option<PassCount> Limit,
     Option<uint> Frame, Option<string> Status, Option<Instant> PausedAt, bool Locked) {
-    public static RealtimeSession Of(RealtimeTarget target, Disposal<DefinedChangeQueue> scene, Instant now) =>
+    public static RealtimeSession Of(RealtimeTarget target, Disposal<DefinedChangeFeed> scene, Instant now) =>
         new(target, scene, now, PassCount.Zero, None, None, None, None, Locked: false);
 
     public bool Completed => !Locked && Frame.IsSome && (Target.ForCapture || Limit.Exists(limit => Pass >= limit));
 
     public Option<Fin<ProgressFraction>> Progress =>
-        Limit.Map(limit => Pass >= limit ? ProgressFraction.MaxValue : Conversions.Validated<ProgressFraction, float, InvalidRhinoValue>((float)Pass.ToValue() / limit.ToValue()));
+        Limit.Map(limit => Pass >= limit ? ProgressFraction.MaxValue : Conversions.Validated<ProgressFraction, float, InvalidRhinoValue>((float)Pass / limit));
 
     public RealtimeSession Restarted(Instant now) => this with { Started = now, Pass = PassCount.Zero, Frame = None };
 
@@ -118,8 +120,6 @@ public abstract partial record HudEvent {
 public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     where TEngine : DefinedRealtimeEngine<TEngine>, IRealtimeProduct, new() {
     // --- [STATE]
-    public const bool DrawsOpenGl = false;
-
     private readonly Atom<(Option<RealtimeSession> Held, Option<RealtimeSession> Taken)> sessions =
         Atom((Held: Option<RealtimeSession>.None, Taken: Option<RealtimeSession>.None));
     private readonly Atom<Option<DisplayPipelineAttributes>> attributes = Atom(Option<DisplayPipelineAttributes>.None);
@@ -169,7 +169,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         (width, height) = Session.Map(static session => (session.Target.Extent.Width, session.Target.Extent.Height)).IfNone((0, 0));
 
     private void Subscribe() {
-        SetUseDrawOpenGl(DrawsOpenGl);
+        SetUseDrawOpenGl(IRealtimeProduct.DrawsOpenGl);
         _ = toSeq(HudControl.Items).Iter(Attach);
         MaxPassesChanged += Callbacks.Handler<HudMaxPassesChangedEventArgs>(args => Edited(args.MaxPasses), CallbackSite.Of(this, nameof(MaxPassesChanged)));
         _ = Framebuffer.Iter(draw => OnInitFramebuffer += Callbacks.Handler<InitFramebufferEventArgs>(args => draw(args.Pipeline), CallbackSite.Of(this, nameof(OnInitFramebuffer))));
@@ -180,8 +180,8 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         from sized in IO.lift(() => target.Window.SetSize(new Size(target.Extent.Width, target.Extent.Height)))
         from added in RenderWindows.AddRequested(target.Window)
         from now in IO.lift(views.Clock.GetCurrentInstant)
-        from queue in DefinedChangeQueue.Of((PlugIn)views, doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake)
-        let scene = new Disposal<DefinedChangeQueue>(queue, static owned => owned.Dispose())
+        from queue in DefinedChangeFeed.Of((PlugIn)views, doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake)
+        let scene = new Disposal<DefinedChangeFeed>(queue, static owned => owned.Dispose())
         from opened in sessions.SwapIO(_ => (Some(RealtimeSession.Of(target, scene, now)), Option<RealtimeSession>.None))
         from world in DisposalOps.OnFailure(queue.World, Closed)
         from started in DisposalOps.OnFailure(Start(new RealtimeStart(target, doc, view, viewport, queue.Take)), Closed)
@@ -206,11 +206,11 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     public sealed override bool IsCompleted() => Session.Exists(static session => session.Completed);
 
     public sealed override int LastRenderedPass() =>
-        Session.Map(static session => session.Pass.ToValue()).IfNone(base.LastRenderedPass());
+        Session.Map(static session => (int)session.Pass).IfNone(base.LastRenderedPass());
 
     public sealed override double CaptureProgress() =>
         Callbacks.Answer(
-            Session.Bind(static session => session.Progress).Map(static progress => IO.lift(progress.Map(static fraction => (double)fraction.ToValue()))),
+            Session.Bind(static session => session.Progress).Map(static progress => IO.lift(progress.Map(static fraction => (double)fraction))),
             base.CaptureProgress,
             base.CaptureProgress,
             CallbackSite.Of(this));
@@ -223,12 +223,12 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     public sealed override bool HudShowCustomStatusText() => Session.Exists(static session => session.Status.IsSome);
 
     public sealed override int HudLastRenderedPass() =>
-        Session.Map(static session => session.Pass.ToValue()).IfNone(base.HudLastRenderedPass());
+        Session.Map(static session => (int)session.Pass).IfNone(base.HudLastRenderedPass());
 
     public sealed override bool HudShowPasses() => Session.IsSome;
 
     public sealed override int HudMaximumPasses() =>
-        Session.Bind(static session => session.Limit).Map(static limit => limit.ToValue()).IfNone(base.HudMaximumPasses());
+        Session.Bind(static session => session.Limit).Map(static limit => (int)limit).IfNone(base.HudMaximumPasses());
 
     public sealed override bool HudShowMaxPasses() => Session.Exists(static session => session.Limit.IsSome);
 
@@ -288,6 +288,6 @@ public abstract class DefinedRealtimeEngineInfo<TEngine> : RealtimeDisplayModeCl
     where TEngine : DefinedRealtimeEngine<TEngine>, IRealtimeProduct, new() {
     public sealed override string Name => RowText.Localize(TEngine.Product, table: Some<object>(IPlugInSink.Of(this))).Local;
     public sealed override Guid GUID => RealtimeDisplayModeType.GUID;
-    public sealed override bool DrawOpenGl => DefinedRealtimeEngine<TEngine>.DrawsOpenGl;
+    public sealed override bool DrawOpenGl => IRealtimeProduct.DrawsOpenGl;
     public sealed override Type RealtimeDisplayModeType => typeof(TEngine);
 }

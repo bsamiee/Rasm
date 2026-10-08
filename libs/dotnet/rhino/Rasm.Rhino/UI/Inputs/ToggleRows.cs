@@ -30,14 +30,15 @@ public static class ToggleRows {
     private static IO<RowCells> Boxed<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, bool> lens, RowScope scope) where TRecord : notnull =>
         from box in IO.lift(static () => new CheckBox())
         let site = new CallbackSite(scope.Sink, typeof(CheckBox), nameof(CheckBox.CheckedChanged))
-        from bound in RowEdit.Bind<TRecord, EventHandler<EventArgs>>(source, IterableNE.create(field),
+        from bound in RowEdit.Bind(source, IterableNE.create(field),
             h => box.CheckedChanged += h, h => box.CheckedChanged -= h,
             edit => Callbacks.Handler<EventArgs>(_ =>
-                from on in IO.lift(() => Optional(box.Checked))
+                from ticked in IO.lift(() => Optional(box.Checked))
                 from held in scope.Read(source)
-                from committed in on.Traverse(state => edit.Commit(lens.Set(state, held))).As()
-IO.lift(() => {
-                (box.ThreeState, box.Checked) = held.Map(lens.Get).Match(Some: static on => (false, (bool?)on), None: static () => (true, (bool?)null));
+                from committed in ticked.Traverse(state => edit.Commit(lens.Set(state, held))).As()
+                select unit, site),
+            value => IO.lift(() => {
+                (box.ThreeState, box.Checked) = (value.IsNone, value.Map(lens.Get).ToNullable());
             }),
             scope, site)
         select new RowCells(

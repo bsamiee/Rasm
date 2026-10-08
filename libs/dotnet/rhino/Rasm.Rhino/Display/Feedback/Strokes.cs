@@ -68,17 +68,16 @@ public static partial class Strokes {
         (DisplayPen? pen, Option<Stroke.Drawn> details, Option<(Ink Color, DrawSize Thickness)> halo) = stroke.Switch(
             drawn: static drawn => (Map((drawn.Color, drawn.ThicknessSpace, drawn.Cap, drawn.Join)), Some(drawn), drawn.Halo),
             fromLinetype: static linetype => (DisplayPen.FromLinetype(linetype.Linetype, linetype.Color.Drawn, linetype.Scale), Option<Stroke.Drawn>.None, linetype.Halo));
-        foreach (Stroke.Drawn drawn in details) {
+        _ = details.Iter(drawn => {
             drawn.Width.Switch((Pen: pen, AbsentWaist: absentWaist),
                 drawSize: static (state, size) => Map(size, state.Pen),
                 tapered: static (state, tapered) => state.Pen.SetTaper(tapered.Start, tapered.End, tapered.Waist.Map(Map).IfNone(state.AbsentWaist)));
-            foreach (DashPattern pattern in drawn.Pattern) {
+            _ = drawn.Pattern.Iter(pattern => {
                 pen.SetPattern(pattern.Lengths.Map(Scalar));
                 Map((pattern.Offset, pattern.Scale, pattern.BySegment, pattern.Autoscale, pattern.LengthInWorldUnits), pen);
-            }
-        }
-        foreach (var outline in halo)
-            Map(outline, pen);
+            });
+        });
+        _ = halo.Iter(outline => Map(outline, pen));
         return pen;
     }
 
@@ -92,17 +91,16 @@ public static partial class Strokes {
 
     // --- [MATERIALS]
     public static IO<Unit> Use(ShadedMaterial material, Action<DisplayMaterial> draw) =>
-        (from held in use(() => material.Switch(
-            material: static source => (Material: new DisplayMaterial(source), Faces: Option<ShadedMaterial.Faces>.None),
-            faces: static faces => (Material: new DisplayMaterial(), Faces: Some(faces))), static held => held.Material.Dispose())
-         from completed in IO.lift(() => {
-             foreach (ShadedMaterial.Faces faces in held.Faces)
-                 Map(faces.Front, held.Material);
-             foreach (ShadedFace back in held.Faces.Bind(static faces => faces.Back))
-                 Map((back, true), held.Material);
-             draw(held.Material);
-         })
-         select completed).Bracket();
+        IO.lift(() => material.Switch(
+                material: static source => (Material: new DisplayMaterial(source), Faces: Option<ShadedMaterial.Faces>.None),
+                faces: static faces => (Material: new DisplayMaterial(), Faces: Some(faces))))
+            .Bracket(
+                Use: held => IO.lift(() => {
+                    _ = held.Faces.Iter(faces => Map(faces.Front, held.Material));
+                    _ = held.Faces.Bind(static faces => faces.Back).Iter(back => Map((back, true), held.Material));
+                    draw(held.Material);
+                }),
+                Fin: static held => IO.lift(held.Material.Dispose));
 
     private static partial void Map(ShadedFace source, DisplayMaterial target);
     private static partial void Map((ShadedFace Back, bool IsTwoSided) source, DisplayMaterial target);
@@ -112,8 +110,8 @@ public static partial class Strokes {
     private static Color Drawn(Ink source) => source.Drawn;
 
     [UserMapping]
-    private static float Scalar(DrawSize source) => source.ToValue();
+    private static float Scalar(DrawSize source) => source;
 
     [UserMapping]
-    private static double Scalar(MaterialFactor source) => source.ToValue();
+    private static double Scalar(MaterialFactor source) => source;
 }

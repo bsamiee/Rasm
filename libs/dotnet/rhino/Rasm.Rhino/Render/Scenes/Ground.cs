@@ -50,7 +50,7 @@ public sealed record GroundPlaneState(
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.GroundPlaneChanged;
 
     public static IO<GroundPlaneState> Read(SceneWindow window) =>
-        Sources.SubOwner(window, static settings => settings.GroundPlane, plane => IO.lift(() =>
+        SceneSources.SubOwner(window, static settings => settings.GroundPlane, plane => IO.lift(() =>
             (Callbacks.Found(!plane.AutoAltitude, plane.Altitude).Traverse(height => Measured<GroundLength>(height, window.Units)).As(),
              Measured<GroundLength>(plane.TextureOffset.X, window.Units), Measured<GroundLength>(plane.TextureOffset.Y, window.Units),
              Measured<TextureSpan>(plane.TextureSize.X, window.Units), Measured<TextureSpan>(plane.TextureSize.Y, window.Units),
@@ -62,7 +62,7 @@ public sealed record GroundPlaneState(
                 .ToFin()));
 
     public static IO<Unit> Write(SceneWindow window, GroundPlaneState state) =>
-        Sources.SubOwner(window, static settings => settings.GroundPlane, plane => IO.lift(() => {
+        SceneSources.SubOwner(window, static settings => settings.GroundPlane, plane => IO.lift(() => {
             GroundMapper.Update(state, plane);
             (plane.TextureOffset, plane.TextureSize) =
                 (new Vector2d(Model(state.TextureOffsetX, window.Units), Model(state.TextureOffsetY, window.Units)),

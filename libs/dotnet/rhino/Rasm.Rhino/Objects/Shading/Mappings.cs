@@ -5,7 +5,7 @@ using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Objects.Shading;
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record MappingPrimitive {
     public sealed record SurfaceParameter : MappingPrimitive;
@@ -31,7 +31,7 @@ public sealed record MappingEntry(int Channel, TextureMapping Mapping, Transform
 
 public sealed record MappingDecomposition(Vector3d Position, Vector3d Scale, Vector3d Rotation, Vector3d UvwOffset, Vector3d UvwRepeat, Vector3d UvwRotation);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 public static partial class Mappings {
     // --- [MAPPINGS]

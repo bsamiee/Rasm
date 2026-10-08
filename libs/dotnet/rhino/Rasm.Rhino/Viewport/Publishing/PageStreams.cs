@@ -15,7 +15,7 @@ namespace Rasm.Rhino.Viewport.Publishing;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record PageSource {
-    public sealed record Views(ViewportSet Set, CaptureRequest Request) : PageSource;
+    public sealed record ViewSet(ViewportSet Set, CaptureRequest Request) : PageSource;
 
     public sealed record PageDetails(ViewportSet Pages, CaptureRequest Request) : PageSource;
 
@@ -65,7 +65,7 @@ public static class PageStreams {
     private static IO<(PageSource Source, Seq<ViewportRef> Rows)> Held(RhinoDoc doc, PageSource source) =>
         source.Switch(
             doc,
-            views: static (document, views) => Viewports.ResolveViewports(document, views.Set),
+            viewSet: static (document, views) => Viewports.ResolveViewports(document, views.Set),
             pageDetails: static (document, details) => Viewports.ResolveViewports(document, details.Pages).Bracket(
                 Use: static pages => IO.lift(Conversions.NonEmpty(
                     (from page in pages.Filter(static row => row.Detail.IsNone).Choose(static row => Optional(row.View as RhinoPageView))
@@ -111,7 +111,7 @@ public static class PageStreams {
     private static IO<Seq<CapturedPage>> Planned(RhinoDoc doc, PageSource source, Seq<ViewportRef> rows) =>
         source.Switch(
             (Doc: doc, Rows: rows),
-            views: static (held, views) => Requested(held.Doc, held.Rows, views.Request),
+            viewSet: static (held, views) => Requested(held.Doc, held.Rows, views.Request),
             pageDetails: static (held, details) => Requested(held.Doc, held.Rows, details.Request),
             named: static (held, named) => IO.pure(
                 from row in held.Rows

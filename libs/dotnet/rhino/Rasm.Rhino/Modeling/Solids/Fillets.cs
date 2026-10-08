@@ -1,6 +1,5 @@
 using Rasm.Rhino.Document.Notation;
 using Rasm.Rhino.Document.Shapes;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Modeling.Solids;
 
@@ -72,7 +71,7 @@ public static class Fillets {
     public static IO<FilletResult> CreateFilletSurface(BrepFace face0, Point2d uv0, BrepFace face1, Point2d uv1, FilletProfile profile, bool trim, bool extend, bool continueAcrossTangentFaces, Tolerances tolerances) =>
         Filleted(IO.lift(() => {
             Brep.FilletSurfaceSettings settings = Settings(profile, trim, extend, tolerances);
-            FilletMapper.Update(continueAcrossTangentFaces, settings);
+            settings.ContinueAcrossTangentFaces = continueAcrossTangentFaces;
             return (nameof(Brep.CreateFilletSurface), Brep.CreateFilletSurface(face0, uv0, face1, uv1, settings, out Brep.FilletSurfaceResults? results),
                 toSeq<Brep?>(results?.Fillets), toSeq<Brep?>(results?.OutBreps0), toSeq<Brep?>(results?.OutBreps1));
         }));
@@ -107,7 +106,7 @@ public static class Fillets {
                 List<Brep> fillets = [];
                 (int degree, double tanSlider, double innerSlider) = arc.Map(static value => value.Arguments).IfNone((2, ArcSlider.Neutral, ArcSlider.Neutral));
                 return (Accepted: curve.FilletSurfaceToCurve(face, t, uv.X, uv.Y, radius, alignToCurve, railDegree, degree, [tanSlider, innerSlider], bezierSurfaces, tolerances.Absolute, fillets, out double[] fitResults),
-                    Fillets: toSeq<Brep?>(fillets), FitResults: toSeq(fitResults));
+                    Fillets: toSeq<Brep?>(fillets.AsEnumerable()), FitResults: toSeq(fitResults));
             }),
             static Fin<(Seq<Brep> Fillets, Seq<double> FitResults)> (made) => made.Accepted
                 ? Measurements.Valid(made.Fillets, nameof(Curve.FilletSurfaceToCurve)).Map(fillets => (Fillets: fillets, made.FitResults))
@@ -140,10 +139,4 @@ public static class Fillets {
                     .Apply(static (fillets, trimmed0, trimmed1) => new FilletResult(fillets, trimmed0, trimmed1)).As().ToFin()
                 : new Refused(made.Member),
             static made => DisposalOps.Release(Conversions.Rows([.. made.Fillets, .. made.Trimmed0, .. made.Trimmed1])));
-}
-
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-internal static partial class FilletMapper {
-    [MapPropertyFromSource(nameof(Brep.FilletSurfaceSettings.ContinueAcrossTangentFaces))]
-    internal static partial void Update(bool continueAcrossTangentFaces, Brep.FilletSurfaceSettings settings);
 }

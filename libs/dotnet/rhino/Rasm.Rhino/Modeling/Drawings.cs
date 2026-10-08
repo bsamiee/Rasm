@@ -130,9 +130,9 @@ public static partial class Drawings {
 
     private static IO<Seq<Silhouette>> Acquired(Func<CancellationToken, Silhouette[]> compute, string member) =>
         from token in cancelToken
-        from pairs in Copies.Acquire<Curve, Silhouette>(
+        from pairs in Copies.Acquire(
             () => compute(token) switch {
-                var rows => (Array.ConvertAll(rows, static row => row.Curve), rows),
+                var rows => ((Curve?[]?)[.. rows.Select(static row => row.Curve)], rows),
             },
             member)
         select pairs.Map(static pair => pair.Row).Strict();

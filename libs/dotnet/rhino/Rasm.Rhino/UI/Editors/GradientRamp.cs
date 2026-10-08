@@ -27,11 +27,15 @@ public abstract partial record GradientRampState {
     public sealed record Key(Option<AgXLook> Look) : GradientRampState;
 }
 
+public sealed class StopSelectedEventArgs(Option<int> index) : EventArgs {
+    public Option<int> Index { get; } = index;
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampState initial)
     : ComponentControl<GradientRampState, RampPart, Ramp>(sink, initial, None) {
     // --- [SHOW]
-    public event EventHandler<Option<int>>? Selected;
+    public event EventHandler<StopSelectedEventArgs>? Selected;
 
     public IO<Unit> Select(Option<int> index) =>
         Advance(state => new(state.Switch<Option<int>, GradientRampState>(index,
@@ -44,7 +48,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
             key: static (_, legend) => legend);
 
     protected override IO<Unit> Reconcile(GradientRampState before, GradientRampState after, Interaction<RampPart> was, Interaction<RampPart> now) =>
-        when(Selection(before) != Selection(after), IO.lift(fun(() => Selected?.Invoke(this, Selection(after))))).As();
+        when(Selection(before) != Selection(after), IO.lift(fun(() => Selected?.Invoke(this, new StopSelectedEventArgs(Selection(after)))))).As();
 
     private static Option<int> Within(Option<int> index, Option<Ramp> shown) => index.Filter(at => shown.Exists(ramp => at < ramp.Stops.Count));
 
@@ -91,8 +95,8 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
                     Some(new MarkPart<RampPart>(new RampPart.Knot(knot.Index), Plots.Reach)))),
             };
 
-    private static MarkShape Triangle(float x, float top) =>
-        new MarkShape.Polygon([new PointF(x, top), new PointF(x + (KnotWidth / 2f), top + KnotHeight), new PointF(x - (KnotWidth / 2f), top + KnotHeight)]);
+    private static MarkShape.Polygon Triangle(float x, float top) =>
+        new([new PointF(x, top), new PointF(x + (KnotWidth / 2f), top + KnotHeight), new PointF(x - (KnotWidth / 2f), top + KnotHeight)]);
 
     // --- [PAINT]
     private const float Opaque = 0.25f;
@@ -133,7 +137,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
         };
 
     private static IO<Unit> Veiled(PlotCanvas canvas, RectangleF bar) =>
-        IO.lift(() => Themes.Veil(canvas.Slots, canvas.Slots[PaintSlot.ControlBackground])
+        IO.lift(() => HostTheme.Veil(canvas.Slots, canvas.Slots[PaintSlot.ControlBackground])
             .Filter(_ => !canvas.Enabled)
             .Iter(alpha => canvas.Graphics.FillRectangle(new Color(canvas.Slots[PaintSlot.ControlBackground], alpha), bar)));
 
@@ -168,10 +172,10 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
                 : (Fin<(Ramp Ramp, int Index)>)(added!, at),
         };
 
-    private static Fin<(GradientRampState.Editor Editor, Ramp Rest)> Dropped(GradientRampState.Editor editor, Ramp ramp, int index) =>
+    private static Fin<(GradientRampState.Editor Editor, Ramp Remaining)> Dropped(GradientRampState.Editor editor, Ramp ramp, int index) =>
         Ramp.Validate(ramp.Stops.Take(index).Concat(ramp.Stops.Skip(index + 1)), ramp.Interpolation, out Ramp? rest) is { } error
             ? error
-            : (Fin<(GradientRampState.Editor Editor, Ramp Rest)>)(editor with { Shown = rest!, Selected = int.Max(index - 1, 0) }, rest!);
+            : (Fin<(GradientRampState.Editor Editor, Ramp Remaining)>)(editor with { Shown = rest!, Selected = int.Max(index - 1, 0) }, rest!);
 
     private static Option<Transition<GradientRampState, Ramp>> Stepping(GradientRampState.Editor editor, Ramp ramp, int index, double steps) =>
         Located(editor.Position.Moved(ramp.Stops[index].Position, steps)).Map(position => ramp.Moved(index, position) switch {
@@ -224,7 +228,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
                   new Edit<Ramp>.Preview(placed.Ramp))
             : from index in grip.Index
               from dropped in Dropped(editor, ramp, index).ToOption()
-              select new Transition<GradientRampState, Ramp>(dropped.Editor with { Grip = grip with { Index = None } }, new Edit<Ramp>.Preview(dropped.Rest)))
+              select new Transition<GradientRampState, Ramp>(dropped.Editor with { Grip = grip with { Index = None } }, new Edit<Ramp>.Preview(dropped.Remaining)))
         .IfNone(new Transition<GradientRampState, Ramp>(editor with { Grip = grip }, None));
 
     // --- [KEYS]
@@ -236,7 +240,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
             Keys.Left => Stepping(editor, ramp, index, -Scale(e.Modifiers)),
             Keys.Right => Stepping(editor, ramp, index, Scale(e.Modifiers)),
             Keys.Delete or Keys.Backspace => Some(Dropped(editor, ramp, index).Match(
-                Succ: static dropped => new Transition<GradientRampState, Ramp>(dropped.Editor, new Edit<Ramp>.Step(dropped.Rest)),
+                Succ: static dropped => new Transition<GradientRampState, Ramp>(dropped.Editor, new Edit<Ramp>.Step(dropped.Remaining)),
                 Fail: _ => new Transition<GradientRampState, Ramp>(editor, None))),
             _ => None,
         }

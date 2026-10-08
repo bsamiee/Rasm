@@ -122,12 +122,13 @@ public abstract partial record DefinitionEdit {
 
     public sealed record ModifySourceArchive(SourceReference Source, InstanceDefinitionUpdateType UpdateType, InstanceDefinitionLayerStyle LayerStyle) : DefinitionEdit {
         internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
-            (from path in IO.lift(() => Exchange.ExistingPath(Source.FullPath))
-             from reference in use(IO.lift(() => Missing.Unless(
-                 FileReference.CreateFromFullAndRelativePaths(path, Source.RelativePath.ValueUnsafe()), nameof(FileReference.CreateFromFullAndRelativePaths))))
-             from modified in IO.lift(() => Refused.Unless(
-                 doc.InstanceDefinitions.ModifySourceArchive(definition.Index, reference, UpdateType, LayerStyle, quiet: true), nameof(InstanceDefinitionTable.ModifySourceArchive)))
-             select modified).Bracket();
+            from path in IO.lift(() => Exchange.ExistingPath(Source.FullPath))
+            from modified in use(IO.lift(() => Missing.Unless(
+                    FileReference.CreateFromFullAndRelativePaths(path, Source.RelativePath.ValueUnsafe()), nameof(FileReference.CreateFromFullAndRelativePaths))))
+                .Bind(reference => IO.lift(() => Refused.Unless(
+                    doc.InstanceDefinitions.ModifySourceArchive(definition.Index, reference, UpdateType, LayerStyle, quiet: true), nameof(InstanceDefinitionTable.ModifySourceArchive))))
+                .Bracket()
+            select modified;
     }
 
     public sealed record DestroySourceArchive : DefinitionEdit {
@@ -235,17 +236,18 @@ public static class Definitions {
 
     // --- [PREVIEW]
     public static IO<TValue> Preview<TValue>(RhinoDoc doc, ComponentRef<InstanceDefinition> address, PreviewMethod method, Size pixels, Func<Bitmap, IO<TValue>> body) =>
-        (from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
-         from bitmap in use(IO.lift(() => Missing.Unless(
-                    method.Switch(
-                        (Definition: definition, Pixels: pixels),
-                        byMode: static (target, mode) =>
-                            target.Definition.CreatePreviewBitmap(Conversions.Unset(mode.Selected), mode.Projection, mode.DisplayMode, target.Pixels, mode.ApplyDpiScaling),
-                        byCamera: static (target, camera) =>
-                            target.Definition.CreatePreviewBitmap(camera.DisplayModeId, camera.Projection, camera.Camera, camera.DrawDecorations, target.Pixels, camera.ApplyDpiScaling)),
-                    nameof(InstanceDefinition.CreatePreviewBitmap))))
-         from result in body(bitmap)
-         select result).Bracket();
+        from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
+        from result in use(IO.lift(() => Missing.Unless(
+                method.Switch(
+                    (Definition: definition, Pixels: pixels),
+                    byMode: static (target, mode) =>
+                        target.Definition.CreatePreviewBitmap(Conversions.Unset(mode.Selected), mode.Projection, mode.DisplayMode, target.Pixels, mode.ApplyDpiScaling),
+                    byCamera: static (target, camera) =>
+                        target.Definition.CreatePreviewBitmap(camera.DisplayModeId, camera.Projection, camera.Camera, camera.DrawDecorations, target.Pixels, camera.ApplyDpiScaling)),
+                nameof(InstanceDefinition.CreatePreviewBitmap))))
+            .Bind(body)
+            .Bracket()
+        select result;
 
     // --- [WRITES]
     public static IO<Committed<Seq<int>>> Commit(RhinoDoc doc, string name, RedrawPolicy redraw, Seq<DefinitionOp> ops) =>

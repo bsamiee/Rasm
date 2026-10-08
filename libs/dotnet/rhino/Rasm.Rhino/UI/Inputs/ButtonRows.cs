@@ -68,11 +68,11 @@ public static class ButtonRows {
             DisposalOps.AcquireAll(
                 modes.Map(mode => Subscriptions.Attach(
                         h => mode.Command.CheckedChanged += h, h => mode.Command.CheckedChanged -= h, Callbacks.Handler<EventArgs>(_ => shown, site)))
-                    .Add(Themes.Changed.Inline(_ => shown, sink)),
+                    .Add(HostTheme.Changed.Inline(_ => shown, sink)),
                 DisposalOps.Release),
             DisposalOps.Release(held))
         from painted in DisposalOps.OnFailure(shown, DisposalOps.Release(held + heard))
-        from button in IO.lift(static () => new SegmentedButton {
+        from button in IO.lift(() => new SegmentedButton {
             SelectionMode = SegmentedSelectionMode.Multiple,
             Items = { pressed, new MenuSegmentedItem { CanSelect = false, Menu = menu.Menu } },
         })
@@ -100,10 +100,11 @@ public static class ButtonRows {
     public static IO<RhinoButtonRow> Strip(Seq<Control> actions, Seq<Control> toggles, Option<Control> modes) =>
         from strip in IO.lift(static () => new RhinoButtonRow())
         from added in IO.lift(() => Seq(actions, toggles, modes.ToSeq())
-            .Filter(static group => !group.IsEmpty)
-            .Fold(Seq<StackLayoutItem>(), static (items, group) =>
-                (items.IsEmpty ? items : items.Add(new StackLayoutItem(new Divider(), VerticalAlignment.Stretch))) + group.Map(static control => new StackLayoutItem(control)))
+            .Filter(static cluster => !cluster.IsEmpty)
+            .Fold(Seq<StackLayoutItem>(), static (items, cluster) =>
+                (items.IsEmpty ? items : items.Add(new StackLayoutItem(new Divider(), VerticalAlignment.Stretch))) + cluster.Map(static control => new StackLayoutItem(control)))
             .Iter(strip.Items.Add))
+        select strip;
 
     // --- [MENUS]
     public static IO<(SegmentedButton Control, IDisposable Release)> Menu(ContextMenu menu, IGlyph glyph, IconSlot slot, string toolTip, IPlugInSink sink) =>

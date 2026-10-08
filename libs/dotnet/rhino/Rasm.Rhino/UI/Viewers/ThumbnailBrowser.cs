@@ -624,6 +624,14 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         base.OnUnLoad(e);
     }
 
+    protected override void Dispose(bool disposing) {
+        if (disposing) {
+            editor.Dispose();
+            overlay.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+
     private IO<IDisposable> Acquired =>
         DisposalOps.AcquireAll(
                 scroll.ToSeq()

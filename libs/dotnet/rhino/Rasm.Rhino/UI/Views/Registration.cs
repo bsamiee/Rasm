@@ -56,10 +56,10 @@ public static class ViewRegistration {
             .Map(static _ => Thinktecture.Empty.Disposable());
 
     // --- [PAGES]
-    public static IO<Unit> OptionsDialogPages(IPlugInViews plugIn, List<OptionsDialogPage> pages) =>
+    public static IO<Unit> OptionsDialogPages(IPlugInViews plugIn, ICollection<OptionsDialogPage> pages) =>
         Each<View.OptionsPage>(plugIn, row => Tree(plugIn, row, static held => held.SubPages, None).Bind(page => IO.lift(() => page.Iter(pages.Add))));
 
-    public static IO<Unit> DocumentPropertiesDialogPages(IPlugInViews plugIn, RhinoDoc document, List<OptionsDialogPage> pages) =>
+    public static IO<Unit> DocumentPropertiesDialogPages(IPlugInViews plugIn, RhinoDoc document, ICollection<OptionsDialogPage> pages) =>
         Each<View.DocumentPage>(plugIn, row => Tree(plugIn, row, static held => held.SubPages, Some(document)).Bind(page => IO.lift(() => page.Iter(pages.Add))));
 
     public static IO<Option<OptionsDialogPage>> RenderOptionsDialogPage(IPlugInViews plugIn, View.DocumentPage row, RhinoDoc document) =>
@@ -93,10 +93,10 @@ public static class ViewRegistration {
             plugIn, RenderPanelType.RenderWindow, row.Identity, plugIn.Id, RowText.Localize(row.Caption, table: Some<object>(plugIn)).Local, row.Scope.AlwaysShow, row.InitialShow)));
 
     // --- [CUSTOM_SECTIONS]
-    public static IO<Unit> CustomSections(IPlugInViews plugIn, Seq<View.Section> rows, List<ICollapsibleSection> sections) =>
+    public static IO<Unit> CustomSections(IPlugInViews plugIn, Seq<View.Section> rows, ICollection<ICollapsibleSection> sections) =>
         Documents.WithDocument(new DocumentSource.Active(), document =>
             from scope in RowScope.Open(plugIn, Some(document), new CommitMode.Immediate())
-            from _ in Callbacks.Each(rows.Map(row => SectionStack.Section(plugIn, row, scope).Bind(section => IO.lift(() => sections.Add(section)))))
+            from _ in Callbacks.Each(rows.Map(row => SectionHolder.Section(plugIn, row, scope).Bind(section => IO.lift(() => sections.Add(section)))))
             select unit);
 
     // --- [CONTENT_SECTIONS]
@@ -110,7 +110,7 @@ public static class ViewRegistration {
             sink);
 
     public static EntryKey FieldKey(RenderContent content, string field) =>
-        new(EntryKey.TypeOwner(content.TypeId), Seq(field));
+        EntryKey.Named(EntryKey.TypeOwner(content.TypeId), field);
 
     // --- [CONTENT_MENUS]
     public static Func<PlugIn, IPlugInSink, IO<IDisposable>> AddMenuItem(Seq<ContentMenuRow> rows) =>

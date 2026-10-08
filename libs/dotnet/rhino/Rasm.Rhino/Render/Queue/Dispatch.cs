@@ -22,7 +22,7 @@ namespace Rasm.Rhino.Render.Queue;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record QueueTarget {
-    public sealed record InProcess : QueueTarget;
+    public sealed record Local : QueueTarget;
     public sealed record Handoff(Destination Package) : QueueTarget;
     public sealed record JobFile(Destination Package) : QueueTarget;
 }
@@ -65,20 +65,20 @@ internal sealed partial class JobContext : JsonSerializerContext;
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 internal sealed partial class PackageFile {
-    public static readonly PackageFile Copy = new(".3dm", None, static (doc, _, paths) =>
-        Exchange.WriteFile(doc, paths[Copy], static options => (options.IncludeBitmapTable, options.IncludeRenderMeshes) = (true, true)));
+    public static readonly PackageFile Copy = new(".3dm", None, static (doc, _, path, _) =>
+        Exchange.WriteFile(doc, path, static options => (options.IncludeBitmapTable, options.IncludeRenderMeshes) = (true, true)));
 
-    public static readonly PackageFile Job = new(".json", None, static (_, queue, paths) =>
-        IO.lift(() => File.WriteAllBytes(paths[Job], JsonSerializer.SerializeToUtf8Bytes(JobMapper.ToJob(queue, paths[Copy]), JobContext.Default.QueueJob))));
+    public static readonly PackageFile Job = new(".json", None, static (_, queue, path, copy) =>
+        IO.lift(() => File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(JobMapper.ToJob(queue, copy), JobContext.Default.QueueJob))));
 
-    public static readonly PackageFile Schema = new(".json", Some("schema"), static (_, _, paths) =>
-        IO.lift(() => File.WriteAllText(paths[Schema], JobContext.Default.QueueJob.GetJsonSchemaAsNode().ToJsonString(JobContext.Default.Options))));
+    public static readonly PackageFile Schema = new(".json", Some("schema"), static (_, _, path, _) =>
+        IO.lift(() => File.WriteAllText(path, JobContext.Default.QueueJob.GetJsonSchemaAsNode().ToJsonString(JobContext.Default.Options))));
 
     private readonly string _extension;
     private readonly Option<string> _part;
 
     [UseDelegateFromConstructor]
-    public partial IO<Unit> Write(RhinoDoc doc, RenderQueue queue, HashMap<PackageFile, OutputPath> paths);
+    public partial IO<Unit> Write(RhinoDoc doc, RenderBatch queue, OutputPath path, OutputPath copy);
 
     public Validation<Error, OutputName> Name(NamePart stamp) =>
         (_part.Traverse(static part => Conversions.Validated<NamePart, string, InvalidRhinoValue>(part).ToValidation()).As(),
@@ -92,7 +92,7 @@ internal static class JobMapper {
     // --- [OUTBOUND]
     private const string TargetOwner = nameof(QueueOutput.Target);
 
-    internal static QueueJob ToJob(RenderQueue queue, string copy) =>
+    internal static QueueJob ToJob(RenderBatch queue, string copy) =>
         new(RhinoApp.ExeVersion, copy, [.. queue.Entries.Map(static entry => new QueueJob.Entry(
             entry.Scene.Name, entry.Scene.Values, entry.Scene.Clay.Map(static clay => (float)clay).ToNullable(),
             entry.Source.RenderSource, entry.Source.SpecificViewport.ValueUnsafe(), entry.Source.NamedView.ValueUnsafe(), entry.Source.Snapshot.ValueUnsafe(),
@@ -117,17 +117,14 @@ internal static class JobMapper {
             output.Frame,
             new ValueSet(toHashMap(FieldTexts<OutputTarget>.Items.Choose(item => item.Capture(output.Target).Map(text => (new EntryKey(TargetOwner, item.Path), text))))),
             [.. output.Name.Scope.Map(static part => (string)part)],
-            output.Name.Version
-                .Switch(unversioned: static _ => Option<OutputVersion>.None, pinned: static pinned => Some(pinned.Version), nextFree: static _ => Option<OutputVersion>.None)
-                .Map(static version => (int)version)
-                .ToNullable(),
+            output.Name.Version.Taken.Map(static version => (int)version).ToNullable(),
             [.. output.Name.Parts.Map(static part => (string)part)],
             output.Path);
 
     // --- [INBOUND]
-    internal static IO<RenderQueue> FromJob(QueueJob job) =>
+    internal static IO<RenderBatch> FromJob(QueueJob job) =>
         Callbacks.Each(toSeq(job.Entries).Map(static (entry, index) => Entry(entry).MapFail(error => new JobEntryRejected(index, error))))
-            .Map(static entries => new RenderQueue(entries));
+            .Map(static entries => new RenderBatch(entries));
 
     internal static Validation<Error, RenderRegion> Region(QueueJob.Region region) =>
         (Fraction(region.Left), Fraction(region.Top), Fraction(region.Right), Fraction(region.Bottom))
@@ -153,8 +150,7 @@ internal static class JobMapper {
     private static IO<QueueEntry<QueueOutput>> Entry(QueueJob.Entry entry) =>
         from columns in IO.lift((
                 Optional(entry.Clay).Traverse(static clay => Conversions.Validated<Albedo, float, InvalidRhinoValue>(clay).ToValidation()).As(),
-                (Number(entry.First), Number(entry.Last)).Apply(static (first, last) => (First: first, Last: last)).As()
-                    .Bind(static span => (FrameSpan.Validate(span.First, span.Last, out FrameSpan? spanned) is { } error ? Fin.Fail<FrameSpan>(error) : Fin.Succ(spanned!)).ToValidation()),
+                FrameSpan.Of(entry.First, entry.Last).ToValidation(),
                 (PixelExtent.Validate(entry.Width, entry.Height, out PixelExtent sized) is { } refused ? Fin.Fail<PixelExtent>(refused) : Fin.Succ(sized)).ToValidation(),
                 Conversions.Validated<Overscan, double, InvalidRhinoValue>(entry.Overscan).ToValidation(),
                 Optional(entry.Region).Traverse(Region).As(),
@@ -201,7 +197,7 @@ public static class Dispatch {
     public static IO<Unit> Send(QueueContext context, RhinoDoc doc, QueuePlan plan, QueueTarget target, LocalDateTime stamp, Option<QueueProgress> resumed) =>
         target.Switch(
             (Context: context, Doc: doc, Plan: plan, Stamp: stamp, Resumed: resumed),
-            inProcess: static (state, _) =>
+            local: static (state, _) =>
                 from queue in Queues.Resolve(state.Doc, state.Plan, state.Resumed)
                 from forked in Reported(state.Context, nameof(Send), Queues.Run(state.Context, state.Doc, queue, None, state.Resumed)).Fork()
                 select unit,
@@ -224,10 +220,10 @@ public static class Dispatch {
     private static IO<HashMap<PackageFile, OutputPath>> Packed(RhinoDoc doc, QueuePlan plan, Option<QueueProgress> resumed, Destination package, LocalDateTime stamp) =>
         from queue in Queues.Resolve(doc, plan, resumed)
         from date in IO.lift(Conversions.Validated<NamePart, string, InvalidRhinoValue>(LocalDateTimePattern.ExtendedIso.Format(stamp.With(TimeAdjusters.TruncateToSecond))))
-        from names in IO.lift(toSeq(PackageFile.Items).Traverse(static file => file.Name(date)).As().ToFin())
+        from names in IO.lift(toSeq(PackageFile.Items).Traverse(file => file.Name(date)).As().ToFin())
         from placed in Destinations.Resolve(doc, package, names)
         let paths = toHashMap(toSeq(PackageFile.Items).Zip(placed, static (file, row) => (file, row.Path)))
-        from written in toSeq(PackageFile.Items).TraverseM(file => file.Write(doc, queue, paths)).As()
+        from written in toSeq(PackageFile.Items).TraverseM(file => file.Write(doc, queue, paths[file], paths[PackageFile.Copy])).As()
         select paths;
 
     // --- [HANDOFF]
@@ -289,7 +285,7 @@ public static class Dispatch {
         from ran in Queues.Run(context, doc, job.Queue, Some(path), prior.Filter(record => record.Job == Some(path) && !record.Succeeded))
         select unit;
 
-    private static IO<(string Copy, RenderQueue Queue)> Read(string path) =>
+    private static IO<(string Copy, RenderBatch Queue)> Read(string path) =>
         from existing in IO.lift(() => Exchange.ExistingPath(path))
         from job in IO.lift(() => Missing.Unless(JsonSerializer.Deserialize(File.ReadAllBytes(existing), JobContext.Default.QueueJob), nameof(JsonSerializer.Deserialize)))
             .Catch(static error => error.HasException<JsonException>(), error => IO.fail<QueueJob>(new JobUnreadable(existing, error)))
@@ -299,7 +295,7 @@ public static class Dispatch {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class QueueJobCommand(IPlugInSink sink, Guid id, string englishName) : HostCommand(sink, id, englishName, None) {
-    protected override IO<Unit> RunAsync(RhinoDoc doc, RunMode mode, CallbackSite site) =>
+    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
         IPlugInRendering.Served(((IPlugInRendering)PlugIn).QueueContext, nameof(IPlugInRendering.QueueContext))
             .Bind(Dispatch.Job)
             .Map(static _ => unit);

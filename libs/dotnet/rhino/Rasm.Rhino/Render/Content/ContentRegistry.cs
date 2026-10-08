@@ -28,7 +28,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
     private readonly IPlugInSink sink;
 
     private DefinedContentSerializer(SerializerRow row, IPlugInSink sink)
-        : base(row.FileExtension.ToValue()[1..], row.ContentKind, row.Read.IsSome, row.Write.IsSome) =>
+        : base(((string)row.FileExtension)[1..], row.ContentKind, row.Read.IsSome, row.Write.IsSome) =>
         (this.row, this.sink) = (row, sink);
 
     public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register(SerializerRow row) =>
@@ -78,7 +78,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
                 select unit,
         };
 
-    private static IO<A> OnFile<A>(string path, Func<string, IO<A>> run) =>
+    private static IO<T> OnFile<T>(string path, Func<string, IO<T>> run) =>
         IO.pure(path).Bind(run).MapFail(error => new ContentFileFailed(path, error));
 }
 

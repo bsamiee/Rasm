@@ -42,20 +42,16 @@ public static class CustomObjects {
 
     // --- [CALLBACKS]
     public static IEnumerable<ObjRef> Pick(Func<IEnumerable<ObjRef>?> candidates, Func<ObjRef, bool> keep, CallbackSite site) {
-        List<ObjRef> offered = [];
-        try {
-            Seq<ObjRef> picked = Callbacks.Answer(
-                from acquired in IO.lift(() => Optional(candidates())).Bracket(
-                    Use: source => IO.lift(() => source.Iter(offered.AddRange)),
-                    Fin: static source => IO.lift(() => (source.ValueUnsafe() as IDisposable)?.Dispose()))
-                let rows = toSeq(offered)
-                select Callbacks.Answer(IO.lift(() => rows.Filter(keep).Strict()), () => rows, site),
-                static () => Seq<ObjRef>(), site);
-            foreach (ObjRef reference in picked)
-                yield return reference;
-        } finally {
-            _ = Callbacks.Answer(DisposalOps.Release(toSeq(offered)), static () => unit, site);
-        }
+        using Disposal<Seq<ObjRef>> offered = new(
+            Callbacks.Answer(
+                IO.lift(() => Optional(candidates())).Bracket(
+                    Use: static source => IO.lift(() => source.ToSeq().Bind(static rows => toSeq(rows)).Strict()),
+                    Fin: static source => IO.lift(() => (source.ValueUnsafe() as IDisposable)?.Dispose())),
+                static () => Seq<ObjRef>(),
+                site),
+            held => Callbacks.Answer(DisposalOps.Release(held), static () => unit, site));
+        foreach (ObjRef reference in offered.Held.ToSeq().Bind(rows => Callbacks.Answer(IO.lift(() => rows.Filter(keep).Strict()), () => rows, site)))
+            yield return reference;
     }
 
     public static IO<Seq<PickCapture>> Picks(IEnumerable<ObjRef> pickedItems) =>
@@ -64,6 +60,6 @@ public static class CustomObjects {
          from captures in toSeq(picked).TraverseM(PickCapture.Of).As()
          select captures).Bracket();
 
-    public static bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform, Func<Transform, IO<BoundingBox>> box, CallbackSite site) =>
-        (tightBox = BoundingBox.Union(growBox ? tightBox : BoundingBox.Empty, Callbacks.Answer(xform, box, static () => BoundingBox.Empty, site))).IsValid;
+    public static BoundingBox TightBoundingBox(BoundingBox tightBox, bool growBox, Transform xform, Func<Transform, IO<BoundingBox>> box, CallbackSite site) =>
+        BoundingBox.Union(growBox ? tightBox : BoundingBox.Empty, Callbacks.Answer(xform, box, static () => BoundingBox.Empty, site));
 }

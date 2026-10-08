@@ -44,7 +44,7 @@ public abstract class RowEdit {
                     h => timer.Elapsed += h, h => timer.Elapsed -= h,
                     Callbacks.Handler<EventArgs>(_ => edit.Elapsed, site)))
             + signals.Map(signal => signal.Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ => edit.Heard), site.Sink))
-            + Seq(IO.lift<IDisposable>(() => new Disposal<RowEdit<TRecord>>(edit, closing => _ = Callbacks.Answer(closing.Released, static () => unit, site)))),
+            + Seq(IO.lift(() => (IDisposable)new Disposal<RowEdit<TRecord>>(edit, closing => _ = Callbacks.Answer(closing.Released, static () => unit, site)))),
             DisposalOps.Release)
         select (edit, DisposalOps.Composite(held, site));
 }
@@ -65,7 +65,7 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
         (Attached, show) = controls(this);
     }
 
-    public Seq<EntryKey> Keys => fields.Bind(field => source.Keys(field.Parameter));
+    public Seq<EntryKey> Keys => fields.Bind(row => source.Keys(row.Parameter));
 
     // --- [BRACKET]
     public IO<Unit> Take<TValue>(Edit<TValue> edit, Func<TValue, TRecord, Fin<TRecord>> into) where TValue : notnull =>

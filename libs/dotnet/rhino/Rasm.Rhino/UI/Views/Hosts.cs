@@ -50,12 +50,12 @@ internal sealed class RealizedView : Panel {
 
     // --- [EDGES]
     public new Unit Shown(bool visible) {
-        _ = SectionStack.Shown(this, visible);
+        _ = SectionHolder.Shown(this, visible);
         _ = listeners.Shown(visible);
         return visible ? Callbacks.Answer(Scope.Changed(Keys(row)).Bind(_ => Evaluated), static () => unit, site) : unit;
     }
 
-    public IO<Unit> Reread => Scope.Changed(ViewCollection.Tree(row).Bind(Keys)).Bind(_ => Evaluated);
+    public IO<Unit> Reread => Scope.Changed(ViewCatalog.Tree(row).Bind(Keys)).Bind(_ => Evaluated);
 
     // --- [RULES]
     public IO<bool> Shows => rules.Shows(Scope);
@@ -91,11 +91,11 @@ public abstract class DefinedWindow(View.Window row) : Form(row.Kind.Handler()) 
     // --- [EDGES]
     protected override void OnLoad(EventArgs e) {
         base.OnLoad(e);
-        _ = SectionStack.Shown(Content, visible: true);
+        _ = SectionHolder.Shown(Content, visible: true);
     }
 
     protected override void OnUnLoad(EventArgs e) {
-        _ = SectionStack.Shown(Content, visible: false);
+        _ = SectionHolder.Shown(Content, visible: false);
         base.OnUnLoad(e);
     }
 }
@@ -123,7 +123,7 @@ public abstract class ViewPanel : Panel {
 
 public abstract class DefinedPanel(RhinoDoc? document, View.Panel row) : ViewPanel(row, Optional(document)), IPanel, IHelp {
     // --- [IDENTITY]
-    public string HelpUrl => Row.HelpUrl;
+    public string HelpUrl => Row.HelpReference;
 
     // --- [EDGES]
     public void PanelShown(uint documentSerialNumber, ShowPanelReason reason) => _ = Shown(visible: true);
@@ -421,7 +421,7 @@ public abstract class DefinedTab(View.Tab row) : ViewPanel(row, Optional(RhinoDo
 
 public abstract class DefinedPane(View.Pane row) : ViewPanel(row, Optional(RhinoDoc.ActiveDoc)), IHelp {
     // --- [IDENTITY]
-    public string HelpUrl => Row.HelpUrl;
+    public string HelpUrl => Row.HelpReference;
 
     // --- [EDGES]
     public void OnVisibilityChanged(bool visible) => _ = Shown(visible);

@@ -43,7 +43,7 @@ public sealed record SunState(bool Enabled, SunIntensity Intensity, bool ManualC
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SunChanged;
 
     public static IO<SunState> Read(SceneWindow window) =>
-        Sources.SubOwner(window, static settings => settings.Sun, static sun => IO.lift(() =>
+        SceneSources.SubOwner(window, static settings => settings.Sun, static sun => IO.lift(() =>
             (Conversions.Validated<SunIntensity, double, InvalidRhinoValue>(sun.Intensity).ToValidation(),
              sun.ManualControlOn ? Conversions.Validated<NorthAngle, double, InvalidRhinoValue>(sun.Azimuth).ToValidation() : Default.Azimuth,
              sun.ManualControlOn ? Conversions.Validated<SunAltitude, double, InvalidRhinoValue>(sun.Altitude).ToValidation() : Default.Altitude,
@@ -53,7 +53,7 @@ public sealed record SunState(bool Enabled, SunIntensity Intensity, bool ManualC
                 .ToFin()));
 
     public static IO<Unit> Write(SceneWindow window, SunState state) =>
-        Sources.SubOwner(window, static settings => settings.Sun, sun => IO.lift(() => {
+        SceneSources.SubOwner(window, static settings => settings.Sun, sun => IO.lift(() => {
             SunMapper.Update(state, sun);
             SunSiteMapper.Update(state.Site, sun);
             if (state.ManualControlOn)
@@ -83,17 +83,17 @@ public sealed record SunState(bool Enabled, SunIntensity Intensity, bool ManualC
         };
 
     public static IO<SunAngles> Angles(SceneSource source) =>
-        Sources.Read(source, static window => Sources.SubOwner(window, static settings => settings.Sun, static sun =>
+        SceneSources.Read(source, static window => SceneSources.SubOwner(window, static settings => settings.Sun, static sun =>
             IO.lift(() => { sun.Accuracy = Sun.Accuracies.Maximum; }).Map(_ => SunSiteMapper.ToAngles(sun))));
 
     public static ValueStore<SunMoment> Moment(SceneSource source, TimeProvider clock) =>
         ValueStore.Of(
-            Sources.Read(source, static window => Sources.SubOwner(window, static settings => settings.Sun, static sun => IO.lift(() => SunMoment.Read(sun).Map(static moment => Some(moment))))),
+            SceneSources.Read(source, static window => SceneSources.SubOwner(window, static settings => settings.Sun, static sun => IO.lift(() => SunMoment.Read(sun).Map(static moment => Some(moment))))),
             moment => moment.Match(
-                Some: held => Sources.Edit(source, window => Sources.SubOwner(window, static settings => settings.Sun, sun => IO.lift(held.Write(sun, clock)))),
+                Some: held => SceneSources.Edit(source, window => SceneSources.SubOwner(window, static settings => settings.Sun, sun => IO.lift(held.Write(sun, clock)))),
                 None: static () => IO.pure(unit)),
             Applied.Live,
-            Sources.Signal(source, EventKind.SunChanged));
+            SceneSources.Signal(source, EventKind.SunChanged));
 
     public static (RowSource<Option<SunMoment>> Source, RowField<Option<SunMoment>> Field) MomentRow(SceneSource source, TimeProvider clock) =>
         RowSource.OptionalKeyed<SunMoment, string, InvalidRhinoValue>(Owner, "moment", "Date and time", "Local date and time the sun is placed at", _ => Moment(source, clock));

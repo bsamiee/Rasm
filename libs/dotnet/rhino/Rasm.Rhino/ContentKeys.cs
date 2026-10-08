@@ -22,6 +22,14 @@ public enum KeyDomain {
 public readonly partial struct ContentKey {
     public static ContentKey Of(KeyDomain domain, Func<XxHash128, XxHash128> fields) =>
         new(fields(new XxHash128().Integer((int)domain)).GetCurrentHashAsUInt128());
+
+    public Guid Id {
+        get {
+            Span<byte> bytes = stackalloc byte[16];
+            BinaryPrimitives.WriteUInt128BigEndian(bytes, _value);
+            return new Guid(bytes, bigEndian: true);
+        }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -67,5 +67,8 @@ public static class Instances {
                from moved in Transformations.Transformed(copy, piece.Xform)
                from id in TableOps.Add(doc, new GeometryPair(moved, Some(piece.Attributes)), None, reference: false)
                select id).Bracket())
-        .MapFail(error => Error.Many(error.FoldM(cause => Seq(cause is Refused refused ? new RefusedElement(refused.Member, index) : cause)).As()));
+        .MapFail(error => Indexed(error, index));
+
+    private static Error Indexed(Error error, int index) =>
+        Error.Many(error.FoldM(cause => Seq(cause is Refused refused ? new RefusedElement(refused.Member, index) : cause)).As());
 }

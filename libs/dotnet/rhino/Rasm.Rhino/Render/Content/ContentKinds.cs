@@ -227,7 +227,7 @@ public static class ContentKinds {
         });
 
     // --- [SAMPLING]
-    public static IO<A> WithEvaluator<A>(RenderTexture texture, RenderTexture.TextureEvaluatorFlags flags, Func<TextureEvaluator, IO<A>> body) =>
+    public static IO<T> WithEvaluator<T>(RenderTexture texture, RenderTexture.TextureEvaluatorFlags flags, Func<TextureEvaluator, IO<T>> body) =>
         (from evaluator in use(IO.lift(() => Missing.Unless(texture.CreateEvaluator(flags), nameof(RenderTexture.CreateEvaluator))))
          from _ in IO.lift(() => Refused.Unless(evaluator.Initialize(), nameof(TextureEvaluator.Initialize)))
          from value in body(evaluator)

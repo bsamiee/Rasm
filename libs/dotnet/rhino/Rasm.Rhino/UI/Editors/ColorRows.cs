@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Globalization;
 using System.Numerics;
 using Eto.Drawing;
 using Eto.Forms;
@@ -30,7 +29,7 @@ public abstract partial record SwatchEncoding {
     public abstract Color4f Shown(Vector4 stored);
     public abstract Vector4 Stored(Color4f shown);
 
-    public sealed record Display : SwatchEncoding {
+    public sealed record DisplayReferred : SwatchEncoding {
         public override bool Alpha => false;
         public override Color4f Shown(Vector4 stored) => new(stored.X, stored.Y, stored.Z, 1f);
         public override Vector4 Stored(Color4f shown) => new(shown.R, shown.G, shown.B, 1f);
@@ -78,22 +77,23 @@ public static class ColorRows {
     private static IO<RowCells> Swatched<TRecord>(
         RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Swatch> swatch, Option<Lens<TRecord, bool>> gate, Option<StageInput> stage, RowScope scope)
         where TRecord : notnull =>
-        from welled in Welled(new SwatchEncoding.Display(), new Size(-1, SwatchSide), IO.pure(unit), scope.Sink)
+        from welled in Welled(new SwatchEncoding.DisplayReferred(), new Size(-1, SwatchSide), IO.pure(unit), scope.Sink)
         from box in DisposalOps.OnFailure(gate.Traverse(static _ => IO.lift(static () => new CheckBox())).As(), IO.lift(welled.Release.Dispose))
         let gated = from member in gate from shown in box select (Lens: member, Box: shown)
         let site = new CallbackSite(scope.Sink, typeof(ColorRows), nameof(SwatchColor))
-        let into = Written(swatch)
-        static from bound in DisposalOps.OnFailure(
-            RowEdit.Bind<TRecord, EventHandler<EventArgs>>(source, IterableNE.create(field), h => welled.Well.Dialog.Executed += h, h => welled.Well.Dialog.Executed -= h,
-                edit => Opened(welled.Well, edit, into, scope, site), value => Shown(welled.Well, swatch, gated, value), scope, site),
+        let write = Written(swatch)
+        from bound in DisposalOps.OnFailure(
+            RowEdit.Bind(source, IterableNE.create(field), h => welled.Well.Dialog.Executed += h, h => welled.Well.Dialog.Executed -= h,
+                edit => Opened(welled.Well, edit, write, scope, site), value => Shown(welled.Well, swatch, gated, value), scope, site),
             IO.lift(welled.Release.Dispose))
-        static let held = Seq(welled.Release, bound.Release)
-        static from gating in DisposalOps.OnFailure(gated.Traverse(pair => Gating(source, bound.Edit, pair.Lens, pair.Box, scope, site)).As(), DisposalOps.Release(held))
-DisposalOps.OnFailure(stage.Traverse(input => Pick(input, bound.Edit, into, scope)).As(), DisposalOps.Release(kept))
+        let held = Seq(welled.Release, bound.Release)
+        from gating in DisposalOps.OnFailure(gated.Traverse(pair => Gating(source, bound.Edit, pair.Lens, pair.Box, scope, site)).As(), DisposalOps.Release(held))
+        let kept = held + gating.ToSeq()
+        from pick in DisposalOps.OnFailure(stage.Traverse(input => Pick(input, bound.Edit, write, scope)).As(), DisposalOps.Release(kept))
         select new RowCells(
             welled.Well.Button, box.Map(static shown => (Control)shown), pick.Map(static button => (Control)button.Control), None, [], [],
             new RowHelp(None, Some(Hex(swatch.Get(source.Default)))), bound.Edit.Shown, Some<RowEdit>(bound.Edit),
-            Some(ChoiceRows.Context(welled.Well.Button, Menu(welled.Well, bound.Edit, into), [], scope.Sink)),
+            Some(ChoiceRows.Context(welled.Well.Button, Menu(welled.Well, bound.Edit, write), [], scope.Sink)),
             DisposalOps.Composite(kept + pick.Map(static button => button.Release).ToSeq(), site));
 
     private static Func<Vector4, TRecord, Fin<TRecord>> Written<TRecord>(Lens<TRecord, Swatch> swatch) where TRecord : notnull =>
@@ -111,15 +111,19 @@ DisposalOps.OnFailure(stage.Traverse(input => Pick(input, bound.Edit, into, scop
             }).Bind(_ => Restyled(well, value.Map(record => swatch.Get(record).Display), PaintSlot.FrameEdge)),
         };
 
-    private static IO<Unit> Toggled<TRecord>(RowSource<TRecord> source, RowEdit<TRecord> edit, Lens<TRecord, bool> gate, CheckBox box, RowScope scope) where TRecord : notnull =>
-        from on in IO.lift(() => Optional(box.Checked))
-        from held in scope.Read(source)
-        from committed in on.Filter(state => state != gate.Get(held)).Traverse(state => edit.Commit(gate.Set(state, held))).As()
-        static select unit;
-
-    private static IO<(Button Control, IDisposable Release)> Pick<TRecord>(StageInput stage, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> into, RowScope scope)
+    private static IO<IDisposable> Gating<TRecord>(RowSource<TRecord> source, RowEdit<TRecord> edit, Lens<TRecord, bool> gate, CheckBox box, RowScope scope, CallbackSite site)
         where TRecord : notnull =>
-        ButtonRows.Pick(stage, PickCaption, mean => edit.Take(new Edit<Vector4>.Commit(mean), into), scope);
+        Subscriptions.Attach(h => box.CheckedChanged += h, h => box.CheckedChanged -= h, Callbacks.Handler<EventArgs>(_ => Toggled(source, edit, gate, box, scope), site));
+
+    private static IO<Unit> Toggled<TRecord>(RowSource<TRecord> source, RowEdit<TRecord> edit, Lens<TRecord, bool> gate, CheckBox box, RowScope scope) where TRecord : notnull =>
+        from ticked in IO.lift(() => Optional(box.Checked))
+        from held in scope.Read(source)
+        from committed in ticked.Filter(state => state != gate.Get(held)).Traverse(state => edit.Commit(gate.Set(state, held))).As()
+        select unit;
+
+    private static IO<(Button Control, IDisposable Release)> Pick<TRecord>(StageInput stage, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, RowScope scope)
+        where TRecord : notnull =>
+        ButtonRows.Pick(stage, PickCaption, mean => edit.Take(new Edit<Vector4>.Commit(mean), write), scope);
 
     private static IO<RowCells> Stripped<TRecord, TValue, TError>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, Option<StageInput> stage, RowScope scope)
         where TRecord : notnull
@@ -136,7 +140,7 @@ DisposalOps.OnFailure(stage.Traverse(input => Pick(input, bound.Edit, into, scop
             panel, pair.Control, add, remove, state, wells, scope.Read(source),
             record => lens.Get(record).ToValue(), (record, change) => Revised<TRecord, TValue, TError>(lens, record, change), edit, scope, site))
         from bound in DisposalOps.OnFailure(
-            RowEdit.Bind<TRecord, EventHandler<EventArgs>>(source, IterableNE.create(field), h => add.Executed += h, h => add.Executed -= h,
+            RowEdit.Bind(source, IterableNE.create(field), h => add.Executed += h, h => add.Executed -= h,
                 edit => Callbacks.Handler<EventArgs>(_ => Added(made(edit)), site), value => state.SwapIO(held => held with { Shown = value }).Map(static _ => unit), scope, site),
             IO.lift(pair.Release.Dispose))
         let strip = made(bound.Edit)
@@ -144,15 +148,15 @@ DisposalOps.OnFailure(stage.Traverse(input => Pick(input, bound.Edit, into, scop
         from held in DisposalOps.OnFailure(
             DisposalOps.AcquireAll(
                 Seq(IO.pure<IDisposable>(new Disposal<Atom<(Seq<(Well Well, IDisposable Release)> Before, Seq<(Well Well, IDisposable Release)> After)>>(
-                        wells, static cell => _ = Callbacks.Answer(DisposalOps.Release(cell.Value.After.Map(static well => well.Release)), static () => unit, site))),
-                    Subscriptions.Attach<EventHandler<EventArgs>>(static h => remove.Executed += h, static h => remove.Executed -= h, Callbacks.Handler<EventArgs>(static _ => Removed(strip), site)),
-                    Subscriptions.Attach<EventHandler<EventArgs>>(static h => panel.SizeChanged += h, static h => panel.SizeChanged -= h, Callbacks.Handler<EventArgs>(static _ => Resized(strip), site))),
+                        wells, cell => _ = Callbacks.Answer(DisposalOps.Release(cell.Value.After.Map(static well => well.Release)), static () => unit, site))),
+                    Subscriptions.Attach(h => remove.Executed += h, h => remove.Executed -= h, Callbacks.Handler<EventArgs>(_ => Removed(strip), site)),
+                    Subscriptions.Attach(h => panel.SizeChanged += h, h => panel.SizeChanged -= h, Callbacks.Handler<EventArgs>(_ => Resized(strip), site))),
                 DisposalOps.Release),
             DisposalOps.Release(taken))
-        from pick in DisposalOps.OnFailure(stage.Traverse(input => ButtonRows.Pick(input, PickCaption, static mean => Picked(strip, mean), scope)).As(), DisposalOps.Release(taken + held))
+        from pick in DisposalOps.OnFailure(stage.Traverse(input => ButtonRows.Pick(input, PickCaption, mean => Picked(strip, mean), scope)).As(), DisposalOps.Release(taken + held))
         select new RowCells(
             panel, None, pick.Map(static button => (Control)button.Control), None, [], [],
-            new RowHelp(None, Some(string.Join(' ', lens.Get(source.Default).ToValue().Map(Hex)))), bound.Edit.Shown.Bind(static _ => Laid(strip)), Some<RowEdit>(bound.Edit),
+            new RowHelp(None, Some(string.Join(' ', lens.Get(source.Default).ToValue().Map(Hex)))), bound.Edit.Shown.Bind(_ => Laid(strip)), Some<RowEdit>(bound.Edit),
             Some(ChoiceRows.Context(panel, [], [], scope.Sink)),
             DisposalOps.Composite(taken + held + pick.Map(static button => button.Release).ToSeq(), site));
 
@@ -237,7 +241,7 @@ DisposalOps.OnFailure(stage.Traverse(input => Pick(input, bound.Edit, into, scop
     private static PaintSlot Frame(Option<int> selected, int index) => selected.Exists(at => at == index) ? PaintSlot.Selection : PaintSlot.FrameEdge;
 
     private static IO<(Well Well, IDisposable Release)> Placed<TRecord>(Strip<TRecord> strip, Option<Swatch> entry, int index) where TRecord : notnull =>
-        from welled in Welled(new SwatchEncoding.Display(), new Size(SwatchSide, SwatchSide), Selected(strip, Some(index)), strip.Scope.Sink)
+        from welled in Welled(new SwatchEncoding.DisplayReferred(), new Size(SwatchSide, SwatchSide), Selected(strip, Some(index)), strip.Scope.Sink)
         from sessions in DisposalOps.OnFailure(
             DisposalOps.AcquireAll(entry.ToSeq().Bind(_ => Session(welled.Well, strip.Edit, Indexed(strip, index), strip.Scope, strip.Site)), DisposalOps.Release),
             IO.lift(welled.Release.Dispose))
@@ -250,10 +254,10 @@ DisposalOps.OnFailure(stage.Traverse(input => Pick(input, bound.Edit, into, scop
     private static Seq<Swatch> Replaced(Seq<Swatch> list, int index, Swatch swatch) =>
         list.Map((held, at) => at == index ? swatch : held);
 
-    private static Seq<IO<IDisposable>> Session<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> into, RowScope scope, CallbackSite site)
+    private static Seq<IO<IDisposable>> Session<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, RowScope scope, CallbackSite site)
         where TRecord : notnull =>
-        Seq(Subscriptions.Attach(h => well.Dialog.Executed += h, h => well.Dialog.Executed -= h, Opened(well, edit, into, scope, site)),
-            ChoiceRows.Context(well.Button, Menu(well, edit, into), [], scope.Sink)(None, [], IO.pure(unit)));
+        Seq(Subscriptions.Attach(h => well.Dialog.Executed += h, h => well.Dialog.Executed -= h, Opened(well, edit, write, scope, site)),
+            ChoiceRows.Context(well.Button, Menu(well, edit, write), [], scope.Sink)(None, [], IO.pure(unit)));
 
     private static IO<(Well Well, IDisposable Release)> Welled(SwatchEncoding encoding, Size size, IO<Unit> touched, IPlugInSink sink) =>
         from dialog in IO.lift(static () => RowText.Localize("Color Picker…").Local switch {
@@ -267,7 +271,7 @@ DisposalOps.OnFailure(stage.Traverse(input => Pick(input, bound.Edit, into, scop
         from held in DisposalOps.AcquireAll(
             Seq(IO.pure<IDisposable>(new Disposal<Well>(well, static owned => Released(owned))),
                 Subscriptions.Attach(h => button.SizeChanged += h, h => button.SizeChanged -= h, Callbacks.Handler<EventArgs>(_ => Painted(well), site)),
-                Themes.Changed.Inline(_ => Painted(well), sink)),
+                HostTheme.Changed.Inline(_ => Painted(well), sink)),
             DisposalOps.Release)
         select (well, DisposalOps.Composite(held, site));
 
@@ -282,37 +286,38 @@ DisposalOps.OnFailure(stage.Traverse(input => Pick(input, bound.Edit, into, scop
             held.Pixels.Dispose();
         });
 
-    private static EventHandler<EventArgs> Opened<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> into, RowScope scope, CallbackSite site)
+    private static EventHandler<EventArgs> Opened<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, RowScope scope, CallbackSite site)
         where TRecord : notnull =>
-        Callbacks.Handler<EventArgs>(_ => Dialog(well, edit, into, scope, site), site);
+        Callbacks.Handler<EventArgs>(_ => Dialog(well, edit, write, scope, site), site);
 
-    private static IO<Unit> Dialog<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> into, RowScope scope, CallbackSite site) where TRecord : notnull =>
-        from touched in well.Touched
-        from document in IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
-        from look in well.Look.ValueIO
-        from chosen in HostDialogs.ShowColorDialog(
-            document, well.Encoding.Shown(look.Stored.IfNone(Vector4.One)), well.Encoding.Alpha, None, Some((Previewed(well, edit, into, site)))
-edit.Take(new Edit<Vector4>.Commit(well.Encoding.Stored(chosen)), into)
-Catch(static error => error.Is(Errors.Cancelled), _ => edit.Take(new Edit<Vector4>.Cancel(), into));
+    private static IO<Unit> Dialog<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, RowScope scope, CallbackSite site) where TRecord : notnull =>
+        (from touched in well.Touched
+         from document in IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
+         from look in well.Look.ValueIO
+         from chosen in HostDialogs.ShowColorDialog(
+             document, well.Encoding.Shown(look.Stored.IfNone(Vector4.One)), well.Encoding.Alpha, None, Some((Previewed(well, edit, write), site)))
+         from taken in edit.Take(new Edit<Vector4>.Commit(well.Encoding.Stored(chosen)), write)
+         select taken)
+        .Catch(static error => error.Is(Errors.Cancelled), _ => edit.Take(new Edit<Vector4>.Cancel(), write));
 
-    private static Func<Color4f, IO<Unit>> Previewed<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> into) where TRecord : notnull =>
-        color => edit.Take(new Edit<Vector4>.Preview(well.Encoding.Stored(color)), into);
+    private static Func<Color4f, IO<Unit>> Previewed<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write) where TRecord : notnull =>
+        color => edit.Take(new Edit<Vector4>.Preview(well.Encoding.Stored(color)), write);
 
-    private static Seq<Seq<MenuEntry>> Menu<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> into) where TRecord : notnull =>
-        Seq(Seq<MenuEntry>(well.Dialog, new MenuEntry.Listed(RowText.Localize("Named Colors").Local, well.Look.ValueIO.Map(look => Named(well, edit, into, look.Stored)))));
+    private static Seq<Seq<MenuEntry>> Menu<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write) where TRecord : notnull =>
+        Seq(Seq<MenuEntry>(well.Dialog, new MenuEntry.Listed(RowText.Localize("Named Colors").Local, well.Look.ValueIO.Map(look => Named(well, edit, write, look.Stored)))));
 
-    private static Seq<MenuPick> Named<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> into, Option<Vector4> stored) where TRecord : notnull =>
+    private static Seq<MenuPick> Named<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, Option<Vector4> stored) where TRecord : notnull =>
         toSeq(NamedColorList.Default).Map<MenuPick>(named => new MenuPick.Item(
             named.Name,
             stored.Exists(held => well.Encoding.Shown(held).AsSystemColor().ToArgb() == named.Color.ToArgb()),
-            well.Touched.Bind(_ => edit.Take(new Edit<Vector4>.Commit(well.Encoding.Stored(new Color4f(named.Color))), into))));
+            well.Touched.Bind(_ => edit.Take(new Edit<Vector4>.Commit(well.Encoding.Stored(new Color4f(named.Color))), write))));
 
     private static IO<Unit> Restyled(Well well, Option<Vector4> stored, PaintSlot frame) =>
         well.Look.SwapIO(_ => (stored, frame)).Bind(_ => Painted(well));
 
     private static IO<Unit> Painted(Well well) =>
         from look in well.Look.ValueIO
-        from scale in Themes.Scale
+        from scale in HostTheme.Scale
         from size in IO.lift(() => well.Button.Size)
         from painted in when(size.Width > 0 && size.Height > 0, Imaged(well, look, new RectangleF(size), scale)).As()
         select painted;
@@ -446,7 +451,7 @@ Catch(static error => error.Is(Errors.Cancelled), _ => edit.Take(new Edit<Vector
     public static ControlRow Wheels(
         RowSource<WheelsState> source, Func<ToneWheel, (RowField<WheelsState> Hue, RowField<WheelsState> Strength, RowField<WheelsState> Luma)> fields,
         string caption, string help, Func<ToneWheel, string> range, Gamut working, RowRules rules) =>
-        IterableNE.createRange(ToneWheel.Items).Bind(wheel => fields(wheel) switch { var (hue, strength, luma) => IterableNE.create(hue, strength, luma) }) switch {
+        IterableNE.create(ToneWheel.Items[0], ToneWheel.Items.Skip(1)).Bind(wheel => fields(wheel) switch { var (hue, strength, luma) => IterableNE.create(hue, strength, luma) }) switch {
             var members => ControlRow.Of(source, members, caption, help, RowShape.Block, scope => Wheeled(source, members, fields, range, working, scope), rules),
         };
 
@@ -461,7 +466,7 @@ Catch(static error => error.Is(Errors.Cancelled), _ => edit.Take(new Edit<Vector
         from wheel in IO.lift(() => new GradingWheel(scope.Sink, faced(current())))
         let site = new CallbackSite(scope.Sink, typeof(GradingWheel), nameof(GradingWheel.Edited))
         from bound in RowEdit.Bind(source, members, h => wheel.Edited += h, h => wheel.Edited -= h,
-            edit => Callbacks.Handler<Edit<WheelOffset>>(change => edit.Take(change, (offset, held) => Fin.Succ(current().Lens.Set(offset, held))), site),
+            edit => Callbacks.Handler<EditEventArgs<WheelOffset>>(args => edit.Take(args.Edit, (offset, held) => Fin.Succ(current().Lens.Set(offset, held))), site),
             value => IO.lift(current).Bind(chosen => wheel.Receive(value.Map(chosen.Lens.Get))), scope, site)
         from hue in DisposalOps.OnFailure(
             NumericRows.Line<WheelsState, WheelHue, float, InvalidGrade>(source, fields(current()).Hue, Followed(current, static tone => tone.Hue), WheelsParameter.Hue, bound.Edit, None, scope.Sink),
@@ -506,7 +511,7 @@ Catch(static error => error.Is(Errors.Cancelled), _ => edit.Take(new Edit<Vector
         from text in IO.pure(NumberText.Scalar(new Presentation<MixerWeight, float> { Soft = (lane.Get(bounds.Low), lane.Get(bounds.High)) }, RowEdit.Varies))
         from field in IO.lift(() => new NumberField<MixerWeight, float, InvalidGrade>(text, sink))
         from edited in Subscriptions.Attach(h => field.Edited += h, h => field.Edited -= h,
-            Callbacks.Handler<Edit<MixerWeight>>(change => edit.Take(change, (value, held) => Crossed(current(), lane, working, value, held)), new CallbackSite(sink, typeof(ColorRows), nameof(Wheels))))
+            Callbacks.Handler<EditEventArgs<MixerWeight>>(args => edit.Take(args.Edit, (value, held) => Crossed(current(), lane, working, value, held)), new CallbackSite(sink, typeof(ColorRows), nameof(Wheels))))
         select (
             new RowLine(Some(channel.Map(luma: "Luma", red: "Red", green: "Green", blue: "Blue")), field, None,
                 Some(new FieldFit(field, text.TextWidth(field.Font) + (2f * NumericRows.FieldInset)))),
@@ -564,7 +569,7 @@ Catch(static error => error.Is(Errors.Cancelled), _ => edit.Take(new Edit<Vector
         from stop in IO.lift(static () => Atom((Ramp: Option<Ramp>.None, Selected: Option<int>.None)))
         let site = new CallbackSite(scope.Sink, typeof(GradientRamp), nameof(GradientRamp.Edited))
         from bound in RowEdit.Bind(source, IterableNE.create(field), h => bar.Edited += h, h => bar.Edited -= h,
-            edit => Callbacks.Handler<Edit<Ramp>>(change => Dragged(edit, stop, lens, change), site), value => bar.Receive(value.Map(lens.Get)), scope, site)
+            edit => Callbacks.Handler<EditEventArgs<Ramp>>(args => Dragged(edit, stop, lens, args.Edit), site), value => bar.Receive(value.Map(lens.Get)), scope, site)
         from popup in DisposalOps.OnFailure(
             ChoiceRows.Popup(
                 ChoiceRows.Items<RampInterpolation, InvalidPixelValue>(caption, None, scope.Sink),
@@ -574,17 +579,17 @@ Catch(static error => error.Is(Errors.Cancelled), _ => edit.Take(new Edit<Vector
         from welled in DisposalOps.OnFailure(Welled(new SwatchEncoding.SceneLinear(working), new Size(-1, SwatchSide), IO.pure(unit), scope.Sink), DisposalOps.Release(opened))
         let held = opened.Add(welled.Release)
         from position in IO.lift(() => new NumberField<RampPosition, double, InvalidPixelValue>(text, scope.Sink))
-        from line in IO.lift(static () => new TableLayout(new TableRow(new TableCell(welled.Well.Button, scaleWidth: true), new TableCell(position))) {
+        from line in IO.lift(() => new TableLayout(new TableRow(new TableCell(welled.Well.Button, scaleWidth: true), new TableCell(position))) {
             Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table),
         })
         let stopped = Stopped(stop.ValueIO, welled.Well, position)
         from attached in DisposalOps.OnFailure(
             DisposalOps.AcquireAll(
                 Session(welled.Well, bound.Edit, (color, record) => Recolored(lens, stop.Value.Selected, color, record), scope, site)
-                + Seq(Subscriptions.Attach<EventHandler<Option<int>>>(static h => bar.Selected += h, static h => bar.Selected -= h,
-                          Callbacks.Handler<Option<int>>(static at => Chosen(stop, at).Bind(static _ => stopped), site with { Member = nameof(GradientRamp.Selected) })),
-                      Subscriptions.Attach<EventHandler<Edit<RampPosition>>>(static h => position.Edited += h, static h => position.Edited -= h,
-                          Callbacks.Handler<Edit<RampPosition>>(change => Positioned(bound.Edit, stop, bar, lens, change), site with { Member = nameof(NumberField<,,>.Edited) }))),
+                + Seq(Subscriptions.Attach(h => bar.Selected += h, h => bar.Selected -= h,
+                          Callbacks.Handler<StopSelectedEventArgs>(selected => Chosen(stop, selected.Index).Bind(_ => stopped), site with { Member = nameof(GradientRamp.Selected) })),
+                      Subscriptions.Attach(h => position.Edited += h, h => position.Edited -= h,
+                          Callbacks.Handler<EditEventArgs<RampPosition>>(args => Positioned(bound.Edit, stop, bar, lens, args.Edit), site with { Member = nameof(NumberField<,,>.Edited) }))),
                 DisposalOps.Release),
             DisposalOps.Release(held))
         select new RowCells(
@@ -666,7 +671,7 @@ Catch(static error => error.Is(Errors.Cancelled), _ => edit.Take(new Edit<Vector
         let site = new CallbackSite(scope.Sink, typeof(HueRangeBar), nameof(HueRangeBar.Edited))
         let lenses = axis.Members(range)
         from bound in RowEdit.Bind(source, members, h => bar.Edited += h, h => bar.Edited -= h,
-            edit => Callbacks.Handler<Edit<HueRange>>(change => edit.Take(change, (value, held) => Fin.Succ(range.Set(value, held))), site),
+            edit => Callbacks.Handler<EditEventArgs<HueRange>>(args => edit.Take(args.Edit, (value, held) => Fin.Succ(range.Set(value, held))), site),
             value => Banded(bar, range, grade, value), scope, site)
         from pick in DisposalOps.OnFailure(Pick(stage, bound.Edit, (color, held) => Centered(axis, lenses.Center, color, held), scope), IO.lift(bound.Release.Dispose))
         let opened = Seq(bound.Release, pick.Release)

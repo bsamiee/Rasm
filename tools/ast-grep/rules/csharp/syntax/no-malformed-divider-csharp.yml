@@ -4,16 +4,19 @@ language: csharp
 severity: error
 utils:
     misparsed:
-        inside: {kind: compilation_unit, stopBy: end, has: {kind: ERROR, stopBy: end}}
+        any:
+            - inside: {kind: compilation_unit, stopBy: end, has: {kind: ERROR, stopBy: end}}
+            - inside: {kind: ERROR, stopBy: end}
 rule:
     matches: csharp-divider-comment
     pattern: $DIVIDER
+    not: {matches: misparsed}
     any:
         - not: {matches: csharp-labeled-divider}
         - matches: csharp-labeled-divider
-          not: {any: [{matches: text-section-divider}, {matches: csharp-owner-level}, {matches: misparsed}]}
+          not: {any: [{matches: text-section-divider}, {matches: csharp-owner-level}]}
         - matches: text-section-divider
-          not: {any: [{matches: csharp-file-level}, {matches: csharp-owner-level}, {matches: misparsed}]}
+          not: {any: [{matches: csharp-file-level}, {matches: csharp-owner-level}]}
         - matches: csharp-section-divider
           not: {regex: '^.{90}$'}
 message: Divider `$DIVIDER` departs from both divider forms

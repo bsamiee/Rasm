@@ -314,6 +314,21 @@ public abstract partial record SunWindow {
 
     public Seq<LocalDateTime> Frames => toSeq(LanguageExt.List.unfold(Start, at => at <= End ? Some((at, at.Plus(Step))) : None));
 
+    public static Fin<Option<SunWindow>> Read(AnimationProperties properties) =>
+        properties.CaptureType switch {
+            AnimationProperties.CaptureTypes.DaySunStudy => Studied(properties, static (start, end, held) =>
+                Day.Create(start.Date, start.TimeOfDay, end.TimeOfDay, Period.FromMinutes(held.MinutesBetweenFrames)).Map(static day => (SunWindow)day)),
+            AnimationProperties.CaptureTypes.SeasonalSunStudy => Studied(properties, static (start, end, held) =>
+                Season.Create(start.Date, end.Date, start.TimeOfDay, Period.FromDays(held.DaysBetweenFrames)).Map(static season => (SunWindow)season)),
+            _ => Option<SunWindow>.None,
+        };
+
+    private static Fin<Option<SunWindow>> Studied(AnimationProperties properties, Func<LocalDateTime, LocalDateTime, AnimationProperties, Fin<SunWindow>> window) =>
+        window(
+            new LocalDateTime(properties.StartYear, properties.StartMonth, properties.StartDay, properties.StartHour, properties.StartMinutes, properties.StartSeconds),
+            new LocalDateTime(properties.EndYear, properties.EndMonth, properties.EndDay, properties.EndHour, properties.EndMinutes, properties.EndSeconds),
+            properties).Map(static held => Some(held));
+
     private static Fin<TWindow> Bounded<TWindow>(LocalDateTime start, LocalDateTime end, Period step, Duration grain, Func<LocalDateTime, LocalDateTime, int, TWindow> window) =>
         (Conversions.Validated<SunMoment, LocalDateTime, InvalidRhinoValue>(start).ToValidation(),
          Conversions.Validated<SunMoment, LocalDateTime, InvalidRhinoValue>(end).ToValidation(),

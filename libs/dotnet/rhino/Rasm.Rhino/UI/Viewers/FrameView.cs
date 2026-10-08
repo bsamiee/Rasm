@@ -53,7 +53,7 @@ public sealed partial class FrameRegion : IConvertible<string> {
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref AxisFraction left, ref AxisFraction top, ref AxisFraction right, ref AxisFraction bottom) =>
         validationError = left < right && top < bottom ? null : new InvalidRhinoValue();
 
-    public static InvalidRhinoValue? Validate(RectangleF edges, out FrameRegion? item) {
+    internal static InvalidRhinoValue? Validate(RectangleF edges, out FrameRegion? item) {
         item = null;
         return AxisFraction.Validate(edges.Left, CultureInfo.InvariantCulture, out AxisFraction left) is null
             && AxisFraction.Validate(edges.Top, CultureInfo.InvariantCulture, out AxisFraction top) is null
@@ -208,7 +208,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
                     .IfNone(state))),
                 (FlipHorizontal, static state => Flip(state, Orientation.Horizontal)),
                 (FlipVertical, static state => Flip(state, Orientation.Vertical)))
-            + Modes.Map(static pair => ((Command)pair.Command, Selected(pair.Mode)));
+            + Modes.Map(static pair => (Command: (Command)pair.Command, Act: Selected(pair.Mode)));
         _ = bindings.Iter(binding => binding.Command.Executed += Callbacks.Handler<EventArgs>(_ => Advance(binding.Act), Site(nameof(Command.Executed))));
         _ = Commanded(State);
     }
@@ -721,7 +721,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     private static PlotMark<FramePart> Grip(PointF centre, FramePart part) =>
         new(new MarkShape.Band(RectangleF.FromCenter(centre, new SizeF(GripSide, GripSide))), Some(Knob), Some(new MarkPart<FramePart>(part, Plots.Reach)));
 
-    private static MarkShape Ruler(Orientation along, float position, RectangleF bounds) =>
+    private static MarkShape.Rule Ruler(Orientation along, float position, RectangleF bounds) =>
         along == Orientation.Vertical
             ? new MarkShape.Rule(new PointF(position, bounds.Top), new PointF(position, bounds.Bottom))
             : new MarkShape.Rule(new PointF(bounds.Left, position), new PointF(bounds.Right, position));

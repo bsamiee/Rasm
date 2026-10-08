@@ -15,7 +15,7 @@ public sealed record CommandHistory(int Version, bool HistoryReplayOnObjectAttri
 public abstract partial record SelectionAnswer {
     public sealed record Whole : SelectionAnswer;
 
-    public sealed record Components(IterableNE<ComponentIndex> Indices) : SelectionAnswer;
+    public sealed record Subobjects(IterableNE<ComponentIndex> Indices) : SelectionAnswer;
 
     public sealed record Skipped : SelectionAnswer;
 }
@@ -51,14 +51,15 @@ public abstract class HostCommand(IPlugInSink sink, Guid id, string englishName,
     public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
 
     // --- [EXECUTION]
-    protected abstract IO<Unit> RunAsync(RhinoDoc doc, RunMode mode, CallbackSite site);
+    protected abstract IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site);
 
-    protected sealed override async Task<Result> RunCommandAsync(RhinoDoc doc, RunMode mode) =>
-        (new CallbackSite(sink, GetType(), nameof(RunCommandAsync)), history.Exists(static row => row.HistoryReplayOnObjectAttributeChange)) switch {
+    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
+        (new CallbackSite(sink, GetType(), nameof(RunCommand)), history.Exists(static row => row.HistoryReplayOnObjectAttributeChange)) switch {
             (var site, var replayOnAttributeChange) => Callbacks.Answer(
                 Conversions.ToResult(
                     from configured in IO.lift(() => { HistoryReplayOnObjectAttributeChange = replayOnAttributeChange; })
-                    from result in await RunAsync(doc, mode, site) select result),
+                    from result in Run(doc, mode, site)
+                    select result),
                 static () => Result.Failure,
                 site),
         };
@@ -82,15 +83,15 @@ public abstract class HostSelectionCommand(IPlugInSink sink, Guid id, string eng
     // --- [EXECUTION]
     protected abstract SelectionAnswer Select(RhinoObject candidate);
 
-    protected sealed override Result RunCommandAsync(RhinoDoc doc, RunMode mode) =>
+    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
         Callbacks.Answer(
             Conversions.ToResult(IO.lift(() => CommandMapper.Update((testLights, testGrips, beQuiet), this))),
             static () => Result.Failure,
-            new CallbackSite(sink, GetType(), nameof(RunCommandAsync)));
+            new CallbackSite(sink, GetType(), nameof(RunCommand)));
 
     protected sealed override bool SelFilter(RhinoObject rhObj) =>
         Callbacks.Answer(
-            IO.lift(() => Select(rhObj).Map(whole: true, components: false, skipped: false)),
+            IO.lift(() => Select(rhObj).Map(whole: true, subobjects: false, skipped: false)),
             static () => false,
             new CallbackSite(sink, GetType(), nameof(SelFilter)));
 
@@ -99,7 +100,7 @@ public abstract class HostSelectionCommand(IPlugInSink sink, Guid id, string eng
             IO.lift(() => Select(rhObj).Switch(
                 indicesToSelect,
                 whole: static (_, _) => false,
-                components: static (indices, answer) => {
+                subobjects: static (indices, answer) => {
                     indices.AddRange(answer.Indices);
                     return true;
                 },
@@ -119,8 +120,8 @@ public abstract class HostTransformCommand(IPlugInSink sink, Guid id, string eng
     // --- [EXECUTION]
     protected abstract IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site);
 
-    protected sealed override Result RunCommandAsync(RhinoDoc doc, RunMode mode) =>
-        new CallbackSite(sink, GetType(), nameof(RunCommandAsync)) switch {
+    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
+        new CallbackSite(sink, GetType(), nameof(RunCommand)) switch {
             var site => Callbacks.Answer(Conversions.ToResult(IO.lift(() => Run(doc, mode, site)).Flatten()), static () => Result.Failure, site),
         };
 }

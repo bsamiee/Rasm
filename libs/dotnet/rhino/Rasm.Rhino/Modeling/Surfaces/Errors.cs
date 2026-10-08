@@ -3,7 +3,7 @@ namespace Rasm.Rhino.Modeling.Surfaces;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes { NetworkSurfaceFailed = 1, Degenerate }
 
-public enum NetworkFailure { Sorting = 1, Initialization, Build, Validity }
+public enum NetworkFailure { None = 0, Sorting, Initialization, Build, Validity }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 public sealed record NetworkSurfaceFailed(NetworkFailure Failure) : Expected("Network surface failed: {Failure}", (int)Codes.NetworkSurfaceFailed);

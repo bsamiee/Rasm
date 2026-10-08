@@ -29,11 +29,10 @@ public abstract partial record SnapshotChange {
 
     public sealed record Rename(SnapshotName Name, SnapshotName NewName) : SnapshotChange;
 
-    [Obsolete]
     internal (string Script, Seq<(SnapshotName Name, bool Present)> Before) Request => Switch(
-        save: static change => ($"_-Snapshots _Save _Parameters=_All \"{change.Name}\" _Enter", Seq1((change.Name, false))),
-        restore: static change => ($"_-Snapshots _Restore \"{change.Name}\" _Enter _Enter", Seq1((change.Name, true))),
-        delete: static change => ($"_-Snapshots _Delete \"{change.Name}\" _Enter", Seq1((change.Name, true))),
+        save: static change => ($"_-Snapshots _Save _Parameters=_All \"{change.Name}\" _Enter", Seq((change.Name, false))),
+        restore: static change => ($"_-Snapshots _Restore \"{change.Name}\" _Enter _Enter", Seq((change.Name, true))),
+        delete: static change => ($"_-Snapshots _Delete \"{change.Name}\" _Enter", Seq((change.Name, true))),
         rename: static change => ($"_-Snapshots _Rename \"{change.Name}\" \"{change.NewName}\" _Enter", Seq((change.Name, true), (change.NewName, false))));
 }
 
@@ -230,11 +229,10 @@ public static class NamedSnapshots {
         let request = change.Request
         from expected in IO.lift(() => request.Before.Traverse(row => Expect(before, row)).As().ToFin())
         from ran in Documents.RunScript(doc, request.Script, echo: false, display: None)
-        from applied in change is SnapshotChange.Restore
-            ? IO.pure(unit)
-            : (from after in Names(doc)
-               from answer in IO.lift(() => SnapshotNotApplied.Unless(request.Before.ForAll(row => !Holds(after, row)), change))
-               select answer)
+        from applied in unless(change is SnapshotChange.Restore,
+            from after in Names(doc)
+            from answer in IO.lift(() => SnapshotNotApplied.Unless(request.Before.ForAll(row => !Holds(after, row)), change))
+            select answer).As()
         select applied;
 
     public static IO<Unit> RunSnapshot(RhinoDoc doc, Seq<SnapshotChange> changes) =>

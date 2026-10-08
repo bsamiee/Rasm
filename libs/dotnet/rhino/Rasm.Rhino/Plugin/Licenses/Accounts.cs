@@ -18,7 +18,7 @@ public abstract partial record Entitlement {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Accounts {
+public static class AccountOps {
     // --- [ACCOUNT]
     public static IO<Option<T>> LoggedInUser<T>(Func<string, Image, T> read) =>
         IO.lift(static () => Conversions.Present(RhinoApp.LoggedInUserName))

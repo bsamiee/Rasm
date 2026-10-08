@@ -75,11 +75,7 @@ public abstract partial record QueueEvent {
     }
 
     public sealed record Estimate(QueueEstimate Reading) : QueueEvent(NoticePriority.Default, "hourglass", "Render queue estimate", fresh: false) {
-        public override string Description(DateTimeZone zone) =>
-            (Reading.Remaining, Reading.Finish)
-                .Apply((left, at) => RowText.Localize("{0:-H:mm:ss} left, finishing {1:g}, {2} of {3} frames rendered", arguments: [left, at.InZone(zone).LocalDateTime, Reading.Landed, Reading.Total]))
-                .As()
-                .IfNone(() => RowText.Localize("{0} of {1} frames rendered", arguments: [Reading.Landed, Reading.Total]));
+        public override string Description(DateTimeZone zone) => Reading.Description(zone);
     }
 
     public sealed record Complete(int Frames, Duration Elapsed) : QueueEvent(NoticePriority.Default, "white_check_mark", "Render queue complete", fresh: false) {
@@ -125,7 +121,7 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
             let cell = ((IPlugInRendering)sink).Notices
             from published in cell.SwapIO(_ => Some(sender))
             select DisposalOps.Composite(
-                Seq<IDisposable>(sender, new Disposal<Atom<Option<NoticeSender>>>(cell, static filled => _ = filled.Swap(static _ => None))),
+                Seq<IDisposable>(sender, new Disposal<Atom<Option<NoticeSender>>>(cell, static filled => filled.Swap(static _ => None))),
                 new CallbackSite(sink, typeof(NoticeSender), nameof(Register)));
 
     // --- [DELIVERY]
@@ -141,7 +137,7 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
         from withdrawn in DisposalOps.Release(turn.Withdrawn.ToSeq())
         from cell in turn.Held.Match(
             Some: kept => Status.Revise(kept, notice).Map(_ => kept),
-            None: () => Status.Raise(notice, None, sink))
+            None: () => Status.Show(notice, None, sink))
         from swapped in raised.SwapIO(_ => (Some(cell), None))
         select unit;
 
@@ -152,20 +148,22 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
 
     private IO<Unit> Sent(NoticeServer server, NoticeTopic topic, QueueEvent queued, Notice notice) =>
         (from token in cancelToken
-         let message = new NtfyMessage(topic.ToValue(), notice.Title, notice.Description, queued.Priority.Key, [.. queued.Tag.ToSeq()])
+         let message = new NtfyMessage(topic, notice.Title, notice.Description, queued.Priority.Key, [.. queued.Tag.ToSeq()])
          from sent in use(() => JsonContent.Create(message, NtfyContext.Default.NtfyMessage))
              .Bind(content => use(IO.liftAsync(() => client.PostAsync(server.Address, content, token)))
                  .Bind(static response => unless(response.StatusCode == HttpStatusCode.OK, IO.fail<Unit>(new NoticeRefused(response.StatusCode))).As())
                  .Bracket())
              .Bracket()
          select sent)
-        .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(new NoticeUnreached(server.ToValue(), error)))
+        .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(new NoticeUnreached(server, error)))
         .Catch(static error => error.Is(Errors.Cancelled), static error => cancelToken.Bind(token => IO.fail<Unit>(token.IsCancellationRequested ? error : Errors.TimedOut)));
 
     // --- [RELEASE]
-    public void Dispose() =>
+    public void Dispose() {
         _ = Callbacks.Answer(
-            DisposalOps.Release(Seq<IDisposable>(client).Concat(raised.Value.Held.ToSeq().Map<IDisposable>(static cell => cell))),
+            DisposalOps.Release(raised.Value.Held.ToSeq()),
             static () => unit,
             new CallbackSite(sink, typeof(NoticeSender), nameof(Dispose)));
+        client.Dispose();
+    }
 }

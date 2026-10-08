@@ -109,7 +109,7 @@ public sealed class DefinitionThumbnails : IDisposable {
     // --- [READS]
     public IO<Thumbnail.Raster> Definition(RhinoDoc doc, ComponentRef<InstanceDefinition> address, PreviewMethod method, Size extent) =>
         from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
-        from pixels in Themes.Device(extent)
+        from pixels in HostTheme.Device(extent)
         let key = new Key(doc.RuntimeSerialNumber, definition.Index, method, pixels)
         from cached in held.ValueIO.Map(cache => cache.Entries.Find(key))
         from raster in cached.Match(Some: static found => IO.pure(found), None: () => Rendered(doc, address, key))
@@ -151,7 +151,7 @@ public static class Thumbnails {
     // --- [RASTERS]
     public static IO<Disposal<Thumbnail>> Meshes(RhinoDoc doc, Seq<(Mesh Mesh, Option<System.Drawing.Color> Color)> meshes, Size extent) =>
         from fallback in TableOps.WithAttributes(doc.CreateDefaultAttributes, None, attributes => IO.lift(() => attributes.DrawColor(doc)))
-        from pixels in Themes.Device(extent)
+        from pixels in HostTheme.Device(extent)
         from raster in Lent(IO.lift(() => Missing.Unless(
             DrawingUtilities.CreateMeshPreviewImage(doc, meshes.Map(static pair => pair.Mesh), meshes.Map(pair => pair.Color.IfNone(fallback)), pixels),
             nameof(DrawingUtilities.CreateMeshPreviewImage))))
@@ -159,7 +159,7 @@ public static class Thumbnails {
 
     public static IO<Disposal<Thumbnail>> Style(RhinoDoc doc, ComponentRef<DimensionStyle> address, Size extent, bool transparent) =>
         from style in TableOps.Find(doc.DimStyles, address, includeDeleted: false)
-        from pixels in Themes.Device(extent)
+        from pixels in HostTheme.Device(extent)
         from raster in Lent(IO.lift(() => Missing.Unless(style.CreatePreviewBitmap(pixels.Width, pixels.Height, transparent), nameof(DimensionStyle.CreatePreviewBitmap))))
         select raster;
 

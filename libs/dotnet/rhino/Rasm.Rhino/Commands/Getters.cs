@@ -108,9 +108,6 @@ public sealed record ObjectRequest<T>(string Prompt, CallbackSite Site) : Getter
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record StageStep<TStage, TValue> {
-    public static StageStep<TStage, TValue> Of<TNext>(Fin<TNext> value, Func<TNext, StageStep<TStage, TValue>> next) =>
-        value.Match(Succ: next, Fail: static rejection => new Retry(rejection));
-
     internal static IO<Next<(TStage Current, Seq<TStage> Earlier), TValue>> Transition(
         (TStage Current, Seq<TStage> Earlier) trail,
         Func<TStage, Accepts<StageStep<TStage, TValue>>, IO<StageStep<TStage, TValue>>> prompt) =>
@@ -187,7 +184,7 @@ public static partial class Getters {
                 GetResult.Nothing,
                 IO.lift(() => {
                     getter.AcceptNothing(enable: true);
-                    nothing.Shown.Iter(shown => getter.SetCommandPromptDefault(RowText.Localize(shown, table: Some<object>(request.Site.Sink)).Local));
+                    _ = nothing.Shown.Iter(shown => getter.SetCommandPromptDefault(RowText.Localize(shown, table: Some<object>(request.Site.Sink)).Local));
                 }),
                 nothing.Then)),
             request.Accept.Undo.Map(then => (GetResult.Undo, IO.lift(() => getter.AcceptUndo(enable: true)), then)),
@@ -196,7 +193,7 @@ public static partial class Getters {
                 GetResult.Color,
                 IO.lift(() => {
                     getter.AcceptColor(enable: true);
-                    color.Default.Iter(getter.SetDefaultColor);
+                    _ = color.Default.Iter(getter.SetDefaultColor);
                 }),
                 IO.lift(getter.Color).Bind(color.Then))),
             request.Accept.Number.Map(number => (GetResult.Number, IO.lift(() => getter.AcceptNumber(enable: true, number.Zero)), Numbered(getter, number, doc))),
@@ -217,11 +214,10 @@ public static partial class Getters {
             distance: static (at, distance) => IO.lift(() => Quantities.From(at.Getter.Number(), Space(Optional(at.Getter.View()), at.Doc))).Bind(distance.Then));
 
     private static IO<T> Posted<T>(GetBaseClass getter, Option<Func<object, IO<T>>> message) =>
-        from payload in IO.lift(() => Optional(getter.CustomMessage()))
-        from value in IO.lift(payload.ToFin(new UnexpectedGetResult(GetResult.CustomMessage)))
+        from value in IO.lift(() => Missing.Unless(getter.CustomMessage(), nameof(GetBaseClass.CustomMessage)))
         from answer in value switch {
             Error error => IO.fail<T>(error),
-            _ => message.Map(then => then(value)).IfNone(static () => IO.fail<T>(new UnexpectedGetResult(GetResult.CustomMessage))),
+            _ => message.Map(then => then(value)).IfNone(static () => IO.fail<T>(new Missing(nameof(Accepts<>.Message)))),
         }
         select answer;
 
@@ -263,8 +259,9 @@ public static partial class Getters {
                 .Bracket(
                     Use: _ => IO.lift(() => {
                         getter.AcceptCustomMessage(!request.Handlers.IsEmpty || request.Accept.Message.IsSome);
-                        SetFullFrame(getter.FullFrameRedrawDuringGet || (getter is GetTransform && request.FullFrame), getter);
-                        request.Default.Iter(getter.SetDefaultPoint);
+                        getter.FullFrameRedrawDuringGet |= getter is GetTransform && request.FullFrame;
+                        if (request.Default.Case is Point3d point)
+                            getter.SetDefaultPoint(point);
                         return get(getter);
                     }),
                     Fin: DisposalOps.Release),
@@ -296,8 +293,8 @@ public static partial class Getters {
         IO.lift(() => {
             getter.AcceptEnterWhenDone(request.End.Map(onEnter: true, atMinimum: false, atCount: false));
             return getter.GetMultiple(
-                request.Minimum.Map(static minimum => minimum.ToValue()).IfNone(0),
-                request.End.Switch(onEnter: static _ => 0, atMinimum: static _ => -1, atCount: static count => count.Maximum.ToValue()));
+                request.Minimum.Map(static minimum => (int)minimum).IfNone(0),
+                request.End.Switch(onEnter: static _ => 0, atMinimum: static _ => -1, atCount: static count => (int)count.Maximum));
         });
 
     // --- [ENTRY]
@@ -312,7 +309,7 @@ public static partial class Getters {
             getter => IO.lift(() => {
                 getter.SetLowerLimit(double.CreateChecked(TValue.MinValue.ToValue()), strictlyGreaterThan: false);
                 getter.SetUpperLimit(double.CreateChecked(TValue.MaxValue.ToValue()), strictlyLessThan: false);
-                request.Default.Iter(value => getter.SetDefaultNumber(double.CreateChecked(value.ToValue())));
+                _ = request.Default.Iter(value => getter.SetDefaultNumber(double.CreateChecked(value.ToValue())));
                 return getter.Get();
             }),
             getter => Seq((GetResult.Number,
@@ -332,7 +329,7 @@ public static partial class Getters {
             getter => IO.lift(() => {
                 getter.SetLowerLimit(values.Lower, strictlyGreaterThan: false);
                 getter.SetUpperLimit(values.Upper, strictlyLessThan: false);
-                values.Default.Iter(getter.SetDefaultInteger);
+                _ = values.Default.Iter(getter.SetDefaultInteger);
                 return getter.Get();
             }),
             getter => Seq((GetResult.Number,
@@ -350,7 +347,7 @@ public static partial class Getters {
             getter => IO.lift(() => {
                 getter.SetLowerLimit(Quantities.As(TValue.MinValue.ToValue(), space), strictlyGreaterThan: false);
                 getter.SetUpperLimit(Quantities.As(TValue.MaxValue.ToValue(), space), strictlyLessThan: false);
-                request.Default.Iter(value => getter.SetDefaultNumber(Quantities.As(value.ToValue(), space)));
+                _ = request.Default.Iter(value => getter.SetDefaultNumber(Quantities.As(value.ToValue(), space)));
                 return getter.Get();
             }),
             getter => Seq((GetResult.Number,
@@ -363,7 +360,7 @@ public static partial class Getters {
             request,
             doc,
             getter => IO.lift(() => {
-                request.Default.Iter(getter.SetDefaultString);
+                _ = request.Default.Iter(getter.SetDefaultString);
                 return literal ? getter.GetLiteralString() : getter.Get();
             }),
             getter => Seq((GetResult.String, IO.lift(() => new Entered<string>(getter.StringResult(), getter.GotDefault())).Bind(entered))));
@@ -405,24 +402,21 @@ public static partial class Getters {
             .As();
 
     // --- [AWAIT]
-    public static async Task<IO<A>> AwaitAsync<A>(RhinoDoc doc, string prompt, Option<string> progress, Func<IProgress<double>, IO<A>> work) =>
+    public static IO<T> Await<T>(RhinoDoc doc, string prompt, Option<string> progress, Func<IProgress<double>, IO<T>> work) =>
         (from getter in use(() => CreateWaiter((progress.IsSome, progress)))
          from shown in IO.lift(() => getter.SetCommandPrompt(prompt))
          from running in IO.lift(() => Task.Run(() => {
              using EnvIO environment = EnvIO.New(token: getter.Token);
              return Try.lift(() => work(getter.Progress).Run(environment)).Run();
-         }))
+         }, getter.Token))
          from waited in IO.lift(() => Conversions.FromResult(getter.Wait(running, doc), nameof(GetCancel.Wait)))
-         from value in await IO select value).Bracket();
+         from value in IO.liftAsync(() => running).Bind(IO.lift)
+         select value).Bracket();
 
     // --- [MAPPING]
     [MapPropertyFromSource(nameof(TransformObjectList.DisplayFeedbackEnabled))]
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     private static partial TransformObjectList CreateList(bool feedback);
-
-    [MapPropertyFromSource(nameof(GetPoint.FullFrameRedrawDuringGet))]
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    private static partial void SetFullFrame(bool enabled, GetPoint getter);
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     private static partial GetCancel CreateWaiter((bool ProgressReporting, Option<string> ProgressMessage) settings);

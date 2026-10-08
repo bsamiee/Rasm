@@ -99,7 +99,7 @@ public static class Icons {
     public static IO<IDisposable> Themed(IPlugInSink plugIn, IGlyph glyph, IconSlot slot, Action<Eto.Drawing.Icon> write) =>
         from written in IO.pure(Frames(plugIn, glyph, slot).Bind(icon => IO.lift(() => write(icon))))
         from _ in written
-        from subscription in Themes.Changed.Inline(__ => written, plugIn)
+        from subscription in HostTheme.Changed.Inline(__ => written, plugIn)
         select subscription;
 
     public static IO<Cursor> PickCursor(IPlugInSink plugIn) =>
@@ -108,7 +108,7 @@ public static class Icons {
     // --- [DRAWING]
     public static IO<System.Drawing.Bitmap> Raster(IPlugInSink plugIn, IGlyph glyph, IconSlot slot) =>
         from size in slot.Size()
-        from pixels in Themes.Device(new(size, size))
+        from pixels in HostTheme.Device(new(size, size))
         from bitmap in IO.lift(() => Rastered(plugIn, ResourceName(glyph, slot.Master), pixels))
         select bitmap;
 

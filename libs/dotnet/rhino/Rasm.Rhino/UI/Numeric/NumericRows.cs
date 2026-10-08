@@ -23,7 +23,7 @@ public sealed record VectorAxis<TRecord> where TRecord : notnull {
 public sealed record PositionPick<TRecord>(StageInput Stage, string Caption, Func<TRecord, System.Drawing.Point, PixelExtent, Fin<TRecord>> Placed) where TRecord : notnull;
 
 internal sealed record NumericPart<TValue>(
-    TableCell Cell, bool Square, Func<Option<TValue>, IO<Unit>> Receive, Action<EventHandler<Edit<TValue>>> Add, Action<EventHandler<Edit<TValue>>> Remove)
+    TableCell Cell, bool Square, Func<Option<TValue>, IO<Unit>> Receive, Action<EventHandler<EditEventArgs<TValue>>> Add, Action<EventHandler<EditEventArgs<TValue>>> Remove)
     where TValue : notnull;
 
 internal sealed record NumericCell<TValue, TKey>(Control Value, FieldFit Fit, Option<NumericPart<TValue>> Track, NumericPart<TValue> Field, NumberText<TKey> Text)
@@ -33,7 +33,7 @@ internal sealed record NumericCell<TValue, TKey>(Control Value, FieldFit Fit, Op
 
     public IO<Unit> Show(Option<TValue> value) => Parts.TraverseM(part => part.Receive(value)).As().Map(static _ => unit);
 
-    public IO<Seq<IDisposable>> Edits(EventHandler<Edit<TValue>> handler) =>
+    public IO<Seq<IDisposable>> Edits(EventHandler<EditEventArgs<TValue>> handler) =>
         DisposalOps.AcquireAll(Parts.Map(part => Subscriptions.Attach(part.Add, part.Remove, handler)), DisposalOps.Release);
 
     public IO<IDisposable> Attached(IO<Unit> reset, CallbackSite site) =>
@@ -132,10 +132,10 @@ public static class NumericRows {
     // --- [REALIZE]
     private static Func<TValue, TRecord, Fin<TRecord>> Into<TRecord, TValue>(Lens<TRecord, TValue> lens) => (value, held) => Fin.Succ(lens.Set(value, held));
 
-    private static Func<RowEdit<TRecord>, EventHandler<Edit<TValue>>> Handled<TRecord, TValue>(Lens<TRecord, TValue> lens, CallbackSite site)
+    private static Func<RowEdit<TRecord>, EventHandler<EditEventArgs<TValue>>> Handled<TRecord, TValue>(Lens<TRecord, TValue> lens, CallbackSite site)
         where TRecord : notnull
         where TValue : notnull =>
-        edit => Callbacks.Handler<Edit<TValue>>(change => edit.Take(change, Into(lens)), site);
+        edit => Callbacks.Handler<EditEventArgs<TValue>>(change => edit.Take(change.Edit, Into(lens)), site);
 
     private static IO<(NumericPart<TValue> Part, FieldFit Fit)> Typed<TValue, TKey, TError>(NumberText<TKey> text, IPlugInSink sink)
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
@@ -153,7 +153,7 @@ public static class NumericRows {
             ? IO.lift(() => new AngleDial<TValue, TKey, TError>(sink, text, caption))
                 .Map(static dial => Some(new NumericPart<TValue>(new TableCell(dial), Square: true, dial.Receive, handler => dial.Edited += handler, handler => dial.Edited -= handler)))
             : presentation.Form.Map(
-                track: IO.lift(() => new ParameterSlider<TValue, TKey, TError>(presentation, text, sink))
+                track: IO.lift(() => new ParameterSlider<TValue, TKey, TError>(sink, presentation, text, caption))
                     .Map(static slider => Some(new NumericPart<TValue>(new TableCell(slider, scaleWidth: true), Square: false, slider.Receive, handler => slider.Edited += handler, handler => slider.Edited -= handler))),
                 field: IO.pure(Option<NumericPart<TValue>>.None));
 
@@ -184,7 +184,7 @@ public static class NumericRows {
 
     private static IO<RowCells> Bound<TRecord, TValue, TKey>(
         RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, NumericCell<TValue, TKey> cell,
-        Func<RowEdit<TRecord>, EventHandler<Edit<TValue>>, IO<IDisposable>> follow, RowScope scope, CallbackSite site)
+        Func<RowEdit<TRecord>, EventHandler<EditEventArgs<TValue>>, IO<IDisposable>> follow, RowScope scope, CallbackSite site)
         where TRecord : notnull
         where TValue : notnull, IMinMaxValue<TValue>, IConvertible<TKey>
         where TKey : notnull =>
@@ -231,7 +231,7 @@ public static class NumericRows {
         from slot in Swappable(typed.Part)
         let cell = new NumericCell<TValue, Length>(slot.Part.Cell.Control, typed.Fit with { Field = slot.Part.Cell.Control }, None, slot.Part, text)
         from cells in Bound(source, field, lens, cell,
-            (edit, handler) => EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Inline(changed =>
+            (edit, handler) => EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Inline(_ =>
                 Subscriptions.Detached(slot.Part.Add, slot.Part.Remove, handler,
                         Measure(doc, soft, modelUnits).Bind(next => Typed<TValue, Length, TError>(next, scope.Sink)).Bind(next => slot.Swap(next.Part)))
                     .Bind(_ => edit.Shown), scope.Sink),

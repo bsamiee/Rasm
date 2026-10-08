@@ -19,7 +19,9 @@ public sealed record PlugInSetting<TValue, TRaw, TError>(
     where TRaw : notnull {
     internal override IO<Unit> Register(PersistentSettings settings) =>
         from registered in IO.lift(() => Kind.Register(settings, Value.Name, Value.ToRaw(Value.Default), LegacyNames))
-            | @catch(static error => error.HasException<NotSupportedException>(), error => IO.lift(() => Fin.Fail<TRaw>(new UnreadText(settings.GetString(Value.Name), typeof(TRaw), Some(error)))))
+            | @catch(static error => error.HasException<NotSupportedException>(), error => IO.lift(() => Fin.Fail<TRaw>(SettingType.String.TryGet(settings, Value.Name).Match(
+                Some: text => new UnreadText(text, typeof(TRaw), Some(error)),
+                None: () => error))))
         from hidden in when(Hidden, IO.lift(() => settings.HideSettingFromUserInterface(Value.Name))).As()
         let refused = fun((TRaw raw) => Value.From(raw).IsFail)
         from validated in IO.lift(() => Kind.Validator.Iter(validator => validator(settings, Value.Name, refused)))

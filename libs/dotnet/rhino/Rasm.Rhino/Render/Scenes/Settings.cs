@@ -276,12 +276,12 @@ public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProces
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
     public static IO<LinearWorkflowState> Read(SceneWindow window) =>
-        Sources.SubOwner(window, static settings => settings.LinearWorkflow, static workflow => IO.lift(() =>
+        SceneSources.SubOwner(window, static settings => settings.LinearWorkflow, static workflow => IO.lift(() =>
             Conversions.Validated<Gamma, float, InvalidRhinoValue>(workflow.PostProcessGamma)
                 .Map(gamma => new LinearWorkflowState(workflow.PreProcessColors, gamma, workflow.PostProcessGammaOn))));
 
     public static IO<Unit> Write(SceneWindow window, LinearWorkflowState state) =>
-        Sources.SubOwner(window, static settings => settings.LinearWorkflow, workflow => IO.lift(() => RenderSettingsMapper.Update(state, workflow)));
+        SceneSources.SubOwner(window, static settings => settings.LinearWorkflow, workflow => IO.lift(() => RenderSettingsMapper.Update(state, workflow)));
 
     public static ParameterText Text(LinearWorkflowParameter parameter) =>
         parameter.Map(
@@ -317,10 +317,10 @@ public sealed record DitheringState(bool Enabled, DitherMethod Method)
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
     public static IO<DitheringState> Read(SceneWindow window) =>
-        Sources.SubOwner(window, static settings => settings.Dithering, static dithering => IO.lift(() => RenderSettingsMapper.ToState(dithering)));
+        SceneSources.SubOwner(window, static settings => settings.Dithering, static dithering => IO.lift(() => RenderSettingsMapper.ToState(dithering)));
 
     public static IO<Unit> Write(SceneWindow window, DitheringState state) =>
-        Sources.SubOwner(window, static settings => settings.Dithering, dithering => IO.lift(() => RenderSettingsMapper.Update(state, dithering)));
+        SceneSources.SubOwner(window, static settings => settings.Dithering, dithering => IO.lift(() => RenderSettingsMapper.Update(state, dithering)));
 
     public static ParameterText Text(DitheringParameter parameter) =>
         parameter.Map(
@@ -354,10 +354,10 @@ public sealed record RenderChannelsState(RenderChannels.Modes Mode, Set<Guid> Cu
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.RenderChannelsChanged;
 
     public static IO<RenderChannelsState> Read(SceneWindow window) =>
-        Sources.SubOwner(window, static settings => settings.RenderChannels, static channels => IO.lift(() => RenderSettingsMapper.ToState(channels)));
+        SceneSources.SubOwner(window, static settings => settings.RenderChannels, static channels => IO.lift(() => RenderSettingsMapper.ToState(channels)));
 
     public static IO<Unit> Write(SceneWindow window, RenderChannelsState state) =>
-        Sources.SubOwner(window, static settings => settings.RenderChannels, channels => IO.lift(() => RenderSettingsMapper.Update(state, channels)));
+        SceneSources.SubOwner(window, static settings => settings.RenderChannels, channels => IO.lift(() => RenderSettingsMapper.Update(state, channels)));
 
     public static ParameterText Text(RenderChannelsParameter parameter) =>
         parameter.Map(
@@ -453,6 +453,9 @@ internal static partial class RenderSettingsMapper {
     private static Size ImageSize(ImageOutputState state) => new(state.ImageWidth, state.ImageHeight);
 
     [UserMapping]
+    private static float Scalar(Gamma gamma) => gamma;
+
+    [UserMapping]
     private static int Level(ShadowmapQuality quality) => quality.Level;
 
     [UserMapping]
@@ -462,5 +465,5 @@ internal static partial class RenderSettingsMapper {
     private static DitherMethod Method(Dithering.Methods method) => DitherMethod.ByHost.Value[method];
 
     [UserMapping]
-    private static Set<Guid> Ids(Guid[] ids) => toSet(ids);
+    private static Set<Guid> Ids(Guid[]? ids) => toSet(new ReadOnlySpan<Guid>(ids));
 }

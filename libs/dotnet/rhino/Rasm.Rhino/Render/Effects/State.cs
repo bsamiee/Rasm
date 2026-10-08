@@ -49,17 +49,17 @@ public sealed record ParameterText(
 public sealed record EffectValue<TState>(TState Record, Option<Mix> Amount);
 
 [Union]
-public abstract partial record EffectLook<TState, TParameter> where TParameter : class, IStateParameter<TState> {
-    public sealed record Whole(TState Record) : EffectLook<TState, TParameter>;
+public abstract partial record EffectLook<TRecord, TParameter> where TParameter : class, IStateParameter<TRecord> {
+    public sealed record Whole(TRecord Record) : EffectLook<TRecord, TParameter>;
 
-    public sealed record Partial(TState Record, Seq<TParameter> Keys) : EffectLook<TState, TParameter>;
+    public sealed record Partial(TRecord Record, Seq<TParameter> Keys) : EffectLook<TRecord, TParameter>;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class EffectState<TState>(Guid effect, Option<Mix> amount) where TState : IStateRecord<TState> {
     // --- [STATE]
     private static readonly HashMap<string, FieldText<TState>> Fields =
-        toHashMap(FieldTexts<TState>.Items.Map(static field => (EffectCollection.ParameterName(field.Path), field)));
+        toHashMap(FieldTexts<TState>.Items.Map(static field => (EntryKey.Name(field.Path), field)));
 
     private readonly Atom<EffectValue<TState>> held = Atom(new EffectValue<TState>(TState.Default, amount));
 
@@ -77,18 +77,18 @@ public sealed class EffectState<TState>(Guid effect, Option<Mix> amount) where T
         Fields.Find(key).Map(field =>
             from step in IO.lift(new EntryKey(Owner, field.Path).Read(text, field.Recall))
             from set in step
-            from _ in held.SwapIO(value => value with { Record = set(value.Record) })
+            from swapped in held.SwapIO(value => value with { Record = set(value.Record) })
             select unit)
         | Mixed(key).Map(_ =>
             from mix in IO.lift(new EntryKey(Owner, EffectStates.AmountPath).Read(text, EffectStates.Amount.Read))
-            from _ in held.SwapIO(value => value with { Amount = Some(mix) })
+            from swapped in held.SwapIO(value => value with { Amount = Some(mix) })
             select unit);
 
     private Option<Mix> Mixed(string key) => held.Value.Amount.Filter(_ => string.Equals(key, EffectStates.Amount.Name, StringComparison.Ordinal));
 
     // --- [PERSISTENCE]
     public IO<Unit> ReadState(PostEffectState store) =>
-        from read in EffectStates.Folded<TState>(Owner, path => Stored(store, EffectCollection.ParameterName(path)))
+        from read in EffectStates.Folded<TState>(Owner, path => Stored(store, EntryKey.Name(path)))
         from _ in held.SwapIO(value => new EffectValue<TState>(read.Record, value.Amount.Map(_ => read.Mix)))
         from __ in unless(read.Refused.IsEmpty, IO.fail<Unit>(Error.Many(read.Refused))).As()
         select unit;
@@ -117,7 +117,7 @@ public static class EffectStates {
 
     // --- [KEYS]
     public static Seq<(string Key, string Text)> Captured<TState>(TState record) where TState : IStateRecord<TState> =>
-        FieldTexts<TState>.Items.Choose(field => field.Capture(record).Map(text => (Key: EffectCollection.ParameterName(field.Path), Text: text)));
+        FieldTexts<TState>.Items.Choose(field => field.Capture(record).Map(text => (Key: EntryKey.Name(field.Path), Text: text)));
 
     // --- [RECALL]
     public static IO<EffectValue<TState>> Recalled<TState>(string owner, ValueSet set, Option<Mix> amount) where TState : IStateRecord<TState> =>
@@ -144,15 +144,15 @@ public static class EffectStates {
                 ValueBinding.Fields(
                     owner,
                     ValueStore.Of(
-                        Sources.Read(doc, static window => EffectCollection.State<TEffect, TState>(window.Settings)).Map(static record => Some(record)),
-                        record => Sources.Edit(doc, window => EffectCollection.Apply(window.Settings, EffectRequest.Tuning.Of<TEffect, TState>(record.IfNone(TState.Default)))).Map(static _ => unit),
+                        SceneSources.Read(doc, static window => EffectRegistry.State<TEffect, TState>(window.Settings)).Map(static record => Some(record)),
+                        record => SceneSources.Edit(doc, window => EffectRegistry.Apply(window.Settings, EffectRequest.Tuning.Of<TEffect, TState>(record.IfNone(TState.Default)))).Map(static _ => unit),
                         Applied.Live,
                         None),
                     TState.Default,
                     ParameterText.Join<TState, TParameter, TError>(TEffect.Text).Map<(IStateParameter<TState> Parameter, string Caption)>(static pair => (pair.Parameter, pair.Text.Caption))),
                 amount.Map(_ => ValueBinding.Key(owner, Amount, ValueStore.Of(
-                    Sources.Read(doc, static window => EffectCollection.Amount<TEffect>(window.Settings)),
-                    mix => Sources.Edit(doc, window => EffectCollection.Apply(window.Settings, [EffectRequest.Tuning.Amount<TEffect>(mix.IfNone(Amount.Default))])).Map(static _ => unit),
+                    SceneSources.Read(doc, static window => EffectRegistry.Amount<TEffect>(window.Settings)),
+                    mix => SceneSources.Edit(doc, window => EffectRegistry.Apply(window.Settings, [EffectRequest.Tuning.Amount<TEffect>(mix.IfNone(Amount.Default))])).Map(static _ => unit),
                     Applied.Live,
                     None)))),
         };

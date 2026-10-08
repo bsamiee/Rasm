@@ -204,7 +204,7 @@ public static partial class AttributeEdits {
     private static Guid Viewport(Option<Option<Guid>> value, [MappingTargetOriginalValue] Guid original) => value.Map(Conversions.Unset).IfNone(original);
 
     [UserMapping]
-    private static int Density(Option<WireDensity> value, [MappingTargetOriginalValue] int original) => value.Map(static density => density.ToValue()).IfNone(original);
+    private static int Density(Option<WireDensity> value, [MappingTargetOriginalValue] int original) => value.Map(static density => (int)density).IfNone(original);
 
     [UserMapping]
     private static double Weight(Option<PlotWeight> value, [MappingTargetOriginalValue] double original) => value.Map(static weight => weight.ToHost()).IfNone(original);
@@ -215,25 +215,25 @@ public static partial class AttributeEdits {
     // --- [REFERENCES]
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> LayerIndex(LayerRef address) =>
         (doc, staged) => from layer in Layers.Resolve(doc, address)
-                         from written in IO.lift(() => Indices((layer.Index, null, null, null), staged))
+                         from written in IO.lift(() => Indices((layer.Index, None, None, None), staged))
                          select written;
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> LinetypeIndex(LinetypeRef address) =>
         (doc, staged) => from index in address.Resolve(doc)
-                         from written in IO.lift(() => Indices((null, index, null, null), staged))
+                         from written in IO.lift(() => Indices((None, index, None, None), staged))
                          select written;
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> MaterialIndex(Option<ComponentRef<Material>> address) =>
         (doc, staged) => from index in TableOps.Index(doc.Materials, address)
-                         from written in IO.lift(() => Indices((null, null, index, null), staged))
+                         from written in IO.lift(() => Indices((None, None, index, None), staged))
                          select written;
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> SectionStyleIndex(Option<ComponentRef<SectionStyle>> address) =>
         (doc, staged) => from index in TableOps.Index(doc.SectionStyles, address)
-                         from written in IO.lift(() => Indices((null, null, null, index), staged))
+                         from written in IO.lift(() => Indices((None, None, None, index), staged))
                          select written;
 
-    private static partial void Indices((int? LayerIndex, int? LinetypeIndex, int? MaterialIndex, int? SectionStyleIndex) indices, ObjectAttributes staged);
+    private static partial void Indices((Option<int> LayerIndex, Option<int> LinetypeIndex, Option<int> MaterialIndex, Option<int> SectionStyleIndex) indices, ObjectAttributes staged);
 
     public static IO<Unit> CustomLinetype(ObjectAttributes staged, Option<Linetype> value) => IO.lift(() => staged.SetCustomLinetype(value.ValueUnsafe()));
 
@@ -304,10 +304,11 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
             row => (from decal in use(IO.lift(() => Missing.Unless(Decal.Create(row), nameof(Decal.Create))))
                     from crc in IO.lift(() => Conversions.Required(staged.Decals.Add(decal), nameof(staged.Decals.Add)))
                     select crc).Bracket(),
-            keys => (from held in use(IO.lift(() => Conversions.Rows(staged.Decals)), DisposalOps.Release)
-                     let crcs = toHashSet(keys)
-                     from removed in IO.lift(() => Callbacks.Each(held.Filter(decal => crcs.Contains(decal.CRC)).Strict(), staged.Decals.Remove, nameof(staged.Decals.Remove)))
-                     select removed).Bracket());
+            keys => toHashSet(keys) switch {
+                var crcs => IO.lift(() => Conversions.Rows(staged.Decals)).Bracket(
+                    Use: held => IO.lift(() => Callbacks.Each(held.Filter(decal => crcs.Contains(decal.CRC)).Strict(), staged.Decals.Remove, nameof(staged.Decals.Remove))),
+                    Fin: DisposalOps.Release),
+            });
 
     public static IO<Unit> MaterialRefs(ObjectAttributes staged, RowsEdit<MaterialRefState, Guid> edit) =>
         Edited(edit, IO.lift(staged.MaterialRefs.Clear),
@@ -319,9 +320,13 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
 
     private static IO<Seq<TAdded>> Edited<TRow, TKey, TAdded>(RowsEdit<TRow, TKey> edit, IO<Unit> clear, Func<TRow, IO<TAdded>> add, Func<Seq<TKey>, IO<Unit>> remove) =>
         edit.Switch(
-state: (clear, add, remove), replace: static (state, replace) => from cleared in state.clear
-                                                                 from added in replace.Rows.TraverseM(state.add).As()
-                                select added, add: static (state, added) => added.Rows.TraverseM(state.add).As(), remove: static (state, removed) => state.remove(removed.Keys).Map(static _ => Seq<TAdded>()));
+            state: (Clear: clear, Add: add, Remove: remove),
+            replace: static (state, replace) =>
+                from cleared in state.Clear
+                from added in replace.Rows.TraverseM(state.Add).As()
+                select added,
+            add: static (state, added) => added.Rows.TraverseM(state.Add).As(),
+            remove: static (state, removed) => state.Remove(removed.Keys).Map(static _ => Seq<TAdded>()));
 }
 
 public static class AttributeOps {
@@ -339,7 +344,7 @@ public static class AttributeOps {
             Conversions.Present(attributes.GetDisplayModeOverride(viewport)),
             Callbacks.Found(attributes.HasActiveInViewportOverride(viewport, out bool active), active)));
 
-    public static IO<A> WithComputedSectionStyle<A>(ObjectAttributes attributes, RhinoDoc doc, ObjectAttributes sectioner, bool computeColors, Guid viewport, Func<SectionStyle, IO<A>> body) =>
+    public static IO<T> WithComputedSectionStyle<T>(ObjectAttributes attributes, RhinoDoc doc, ObjectAttributes sectioner, bool computeColors, Guid viewport, Func<SectionStyle, IO<T>> body) =>
         use(IO.lift(() => Missing.Unless(attributes.ComputedSectionStyle(doc, sectioner, computeColors, viewport), nameof(ObjectAttributes.ComputedSectionStyle)))).Bind(body).Bracket();
 
     // --- [FOLD]

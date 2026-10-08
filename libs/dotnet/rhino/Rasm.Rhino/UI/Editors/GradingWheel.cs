@@ -145,7 +145,7 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
     private IO<Unit> Tinted(PlotCanvas canvas, RectangleF plot, PixelExtent extent) =>
         from image in IO.lift(() => Held(extent))
         from drawn in Plots.Raster(canvas, plot, image)
-        from veil in IO.lift(() => Themes.Veil(canvas.Slots, canvas.Slots[PaintSlot.ControlBackground])
+        from veil in IO.lift(() => HostTheme.Veil(canvas.Slots, canvas.Slots[PaintSlot.ControlBackground])
             .Filter(_ => !canvas.Enabled)
             .Iter(alpha => canvas.Graphics.FillEllipse(new Color(canvas.Slots[PaintSlot.ControlBackground], alpha), plot)))
         select unit;

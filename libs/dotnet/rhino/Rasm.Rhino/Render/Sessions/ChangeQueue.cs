@@ -74,25 +74,25 @@ public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChang
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class DefinedChangeQueue : global::Rhino.Render.ChangeQueue.ChangeQueue {
+public sealed class DefinedChangeFeed : global::Rhino.Render.ChangeQueue.ChangeQueue {
     // --- [ACQUISITION]
     private readonly IPlugInSink sink;
     private readonly QueuePolicy policy;
     private readonly Option<IO<Unit>> wake;
 
-    private DefinedChangeQueue(PlugIn plugIn, RhinoDoc document, ViewInfo view, Option<DisplayPipelineAttributes> attributes, QueuePolicy policy, Option<IO<Unit>> wake)
+    private DefinedChangeFeed(PlugIn plugIn, RhinoDoc document, ViewInfo view, Option<DisplayPipelineAttributes> attributes, QueuePolicy policy, Option<IO<Unit>> wake)
         : base(plugIn.Id, document.RuntimeSerialNumber, view, attributes.ValueUnsafe(), policy.RespectDisplayAttributes, policy.NotifyChanges) =>
         (sink, this.policy, this.wake) = (IPlugInSink.Of(plugIn), policy, wake);
 
-    private DefinedChangeQueue(PlugIn plugIn, CreatePreviewEventArgs preview, QueuePolicy policy, Option<IO<Unit>> wake)
+    private DefinedChangeFeed(PlugIn plugIn, CreatePreviewEventArgs preview, QueuePolicy policy, Option<IO<Unit>> wake)
         : base(plugIn.Id, preview) =>
         (sink, this.policy, this.wake) = (IPlugInSink.Of(plugIn), policy, wake);
 
-    public static IO<DefinedChangeQueue> Of(PlugIn plugIn, RhinoDoc document, ViewInfo view, Option<DisplayPipelineAttributes> attributes, QueuePolicy policy, Option<IO<Unit>> wake) =>
-        IO.lift(() => new DefinedChangeQueue(plugIn, document, view, attributes, policy, wake));
+    public static IO<DefinedChangeFeed> Of(PlugIn plugIn, RhinoDoc document, ViewInfo view, Option<DisplayPipelineAttributes> attributes, QueuePolicy policy, Option<IO<Unit>> wake) =>
+        IO.lift(() => new DefinedChangeFeed(plugIn, document, view, attributes, policy, wake));
 
-    public static IO<DefinedChangeQueue> Of(PlugIn plugIn, CreatePreviewEventArgs preview, QueuePolicy policy, Option<IO<Unit>> wake) =>
-        IO.lift(() => new DefinedChangeQueue(plugIn, preview, policy, wake));
+    public static IO<DefinedChangeFeed> Of(PlugIn plugIn, CreatePreviewEventArgs preview, QueuePolicy policy, Option<IO<Unit>> wake) =>
+        IO.lift(() => new DefinedChangeFeed(plugIn, preview, policy, wake));
 
     // --- [FEED]
     private readonly Atom<SceneFeed> feed = Atom(SceneFeed.Empty);

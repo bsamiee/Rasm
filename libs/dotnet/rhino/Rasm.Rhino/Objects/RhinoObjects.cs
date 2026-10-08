@@ -125,9 +125,10 @@ public static class RhinoObjects {
 
     // --- [REPLACEMENT]
     public static IO<TResult> ReplaceGeometry<T, TResult>(RhinoDoc doc, Guid id, Func<T, IO<TResult>> edit) where T : GeometryBase =>
-        (from resolved in ObjectTarget.Resolve<RhinoObject, T>(doc, id)
-         from copy in use(Copies.DuplicateShallow(resolved.Geometry))
-         from edited in edit(copy)
-         from landed in TableOps.Apply(doc, new TableOp.Replace(id, copy, IgnoreModes: false))
-         select edited).Bracket();
+        from resolved in ObjectTarget.Resolve<RhinoObject, T>(doc, id)
+        from result in (from copy in use(Copies.DuplicateShallow(resolved.Geometry))
+                        from edited in edit(copy)
+                        from landed in TableOps.Apply(doc, new TableOp.Replace(id, copy, IgnoreModes: false))
+                        select edited).Bracket()
+        select result;
 }

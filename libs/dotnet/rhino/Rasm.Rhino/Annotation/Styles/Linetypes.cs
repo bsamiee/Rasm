@@ -44,7 +44,7 @@ public sealed partial class LinetypeTaper<TWidth> where TWidth : struct, ICompar
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record LinetypeWidth {
-    public sealed record Pixels(double Width, Option<LinetypeTaper<double>> Taper) : LinetypeWidth;
+    public sealed record Screen(double Width, Option<LinetypeTaper<double>> Taper) : LinetypeWidth;
 
     public sealed record Distance(Length Width, Option<LinetypeTaper<Length>> Taper) : LinetypeWidth;
 }
@@ -111,7 +111,7 @@ public static partial class Linetypes {
 
     private static Fin<LinetypeWidth> Width(Linetype linetype, Seq<Point2d> taper) =>
         linetype.WidthUnits is global::Rhino.UnitSystem.None
-            ? Taper(taper, identity).Map<LinetypeWidth>(profile => new LinetypeWidth.Pixels(linetype.Width, profile))
+            ? Taper(taper, identity).Map<LinetypeWidth>(profile => new LinetypeWidth.Screen(linetype.Width, profile))
             : Measured(linetype.Width, taper, LengthUnit.FromKnownUnitSystem(linetype.WidthUnits));
 
     private static Fin<LinetypeWidth> Measured(double width, Seq<Point2d> taper, LengthUnit widthUnit) =>
@@ -121,10 +121,10 @@ public static partial class Linetypes {
         (from start in points.Head
          from end in points.Last
          select (Start: start, End: end))
-            .Traverse(Fin<LinetypeTaper<TWidth>> (ends) =>
+            .Traverse(K<Fin, LinetypeTaper<TWidth>> (ends) =>
                 LinetypeTaper<TWidth>.Validate(width(ends.Start.Y), points.Tail.Init.Head.Map(point => (point.X, width(point.Y))), width(ends.End.Y), out LinetypeTaper<TWidth>? taper) is { } error
-                    ? error
-                    : taper!)
+                    ? Fin.Fail<LinetypeTaper<TWidth>>(error)
+                    : Fin.Succ(taper!))
             .As();
 
     // --- [WRITES]
@@ -133,18 +133,18 @@ public static partial class Linetypes {
         from patterned in unless(held == definition.Settings.Pattern.Segments, IO.lift(() =>
             Refused.Unless(staged.SetSegments(definition.Settings.Pattern.Segments.Map(Millimeters)), nameof(Linetype.SetSegments)))).As()
         let stroke = definition.Settings.Width.Switch(
-            pixels: static pixels => (pixels.Width, WidthUnits: global::Rhino.UnitSystem.None, Taper: pixels.Taper.Map(static taper => taper.Lowered(identity))),
+            screen: static screen => (screen.Width, WidthUnits: global::Rhino.UnitSystem.None, Taper: screen.Taper.Map(static taper => taper.Lowered(identity))),
             distance: static distance => (Width: Millimeters(distance.Width), WidthUnits: global::Rhino.UnitSystem.Millimeters, Taper: distance.Taper.Map(static taper => taper.Lowered(Millimeters))))
         from styled in IO.lift(() => Write((definition.Settings.LineCapStyle, definition.Settings.LineJoinStyle, definition.Settings.AlwaysModelDistances, stroke.Width, stroke.WidthUnits), staged))
-        from tapered in stroke.Taper.Match(
-            Some: taper => IO.lift(() => staged.SetTaper(taper.Start, taper.Waist.IfNone(Point2d.Unset), taper.End)),
-            None: () => IO.lift(() => staged.RemoveTaper()))
+        from tapered in IO.lift(() => stroke.Taper.Match(
+            Some: taper => staged.SetTaper(taper.Start, taper.Waist.IfNone(Point2d.Unset), taper.End),
+            None: staged.RemoveTaper))
         from cleared in IO.lift(staged.RemoveAllShapes)
         let additions = from shapes in definition.Shapes.ToSeq()
                         from shape in toSeq(shapes.Items)
-                        select shape.Switch(staged,
-                            fromCurve: static (row, curve) => IO.lift(() => row.AddShape(curve.Curve, Millimeters(curve.Offset))),
-                            fromText: static (row, text) => IO.lift(() => row.AddShape(text.Text, Millimeters(text.Offset))))
+                        select IO.lift(() => shape.Switch(staged,
+                            fromCurve: static (row, curve) => row.AddShape(curve.Curve, Millimeters(curve.Offset)),
+                            fromText: static (row, text) => row.AddShape(text.Text, Millimeters(text.Offset))))
         from added in Callbacks.Each(additions.Map(static (effect, index) => effect
             .Map(answer => RefusedElement.Unless(answer, nameof(Linetype.AddShape), index)).Bind(IO.lift)))
         from laid in IO.lift(() => definition.Shapes.Iter(shapes => Write((shapes.Layout.ShapeSpacing, shapes.Layout.ShapeGap,

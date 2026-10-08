@@ -374,7 +374,7 @@ public static class Appearance {
         ValueStore.Of(
             from found in SettingRoots.TryGetChild(SettingsNode.Options)
             from raw in IO.lift(() => found.Traverse(static node => SettingType.Enumeration<CommandPromptStyle>().Read(node, StyleName)).As())
-            from style in IO.lift(() => raw.Flatten().Traverse(static Fin<CommandPromptStyle> (held) => Enum.IsDefined(held) ? held : new InvalidRhinoValue()).As())
+            from style in IO.lift(() => raw.Flatten().Traverse(static K<Fin, CommandPromptStyle> (held) => Enum.IsDefined(held) ? Fin.Succ(held) : Fin.Fail<CommandPromptStyle>(new InvalidRhinoValue())).As())
             select style,
             static style =>
                 from node in SettingRoots.AddChild(SettingsNode.Options)

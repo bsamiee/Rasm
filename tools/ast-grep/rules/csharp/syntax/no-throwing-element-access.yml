@@ -27,6 +27,13 @@ utils:
                 - all:
                     - has: {field: name, regex: '^(Map|Bind)$'}
                     - has: {field: expression, matches: sequence-receiver}
+    stream-lift:
+        kind: invocation_expression
+        has: {field: function, regex: '^((global::)?LanguageExt\.)?SourceT\s*\.\s*lift(\s*<.+>)?$'}
+    stream-receiver:
+        any:
+            - matches: stream-lift
+            - has: {stopBy: end, matches: stream-lift}
     sequence-constructor:
         kind: invocation_expression
         has:
@@ -271,7 +278,7 @@ rule:
             kind: member_access_expression
             all:
                 - has: {field: name, regex: '^(First|Last|Single|ElementAt)(OrDefault)?$', pattern: $NAME}
-                - has: {field: expression, matches: sequence-receiver}
+                - has: {field: expression, matches: sequence-receiver, not: {matches: stream-receiver}}
         - kind: invocation_expression
           has:
             field: function

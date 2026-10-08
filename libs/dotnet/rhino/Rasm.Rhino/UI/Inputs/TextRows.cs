@@ -38,12 +38,12 @@ public abstract partial record EntryForm {
 }
 
 [Union]
-public abstract partial record ReadoutSource<TState> where TState : notnull {
-    public sealed record Model(ReadModel<TState> Read) : ReadoutSource<TState>;
+public abstract partial record ReadoutSource<TValue> where TValue : notnull {
+    public sealed record Model(ReadModel<TValue> Read) : ReadoutSource<TValue>;
 
-    public sealed record Cell(Atom<TState> Held) : ReadoutSource<TState>;
+    public sealed record Cell(Atom<TValue> Held) : ReadoutSource<TValue>;
 
-    public sealed record Scoped(Func<RowScope, IO<TState>> Read) : ReadoutSource<TState>;
+    public sealed record Scoped(Func<RowScope, IO<TValue>> Read) : ReadoutSource<TValue>;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -120,7 +120,7 @@ public static class TextRows {
             from live in Live(source,
                 static _ =>
                     from label in IO.lift(static () => new Label { Wrap = WrapMode.None, TextAlignment = TextAlignment.Right })
-                    from digits in IO.lift(() => label.Font = Themes.Digits(label.Font))
+                    from digits in IO.lift(() => label.Font = HostTheme.Digits(label.Font))
                     select label,
                 (label, state) => Written(() => label.Text, text => label.Text = text, format(state)), scope)
             select new RowCells(live.Control, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None, live.Release),
@@ -225,13 +225,13 @@ public static class TextRows {
 
     private static Entry Area(TextLines visible) {
         TextArea area = new() { Wrap = true, AcceptsReturn = true, AcceptsTab = false, SpellCheck = false };
-        area.Height = (int)Math.Ceiling(visible.ToValue() * area.Font.LineHeight);
+        area.Height = (int)Math.Ceiling(visible * area.Font.LineHeight);
         return new(area, area, Application.Instance.CommonModifier | Keys.Enter, () => area.Text, text => area.Text = text, None, Some(""));
     }
 
     private static Entry Rich(TextLines visible) {
         RichTextAreaWithAlternateText rich = new() { HideAlternateTextWhenValueChanges = true, SelectAllOnGotFocus = false };
-        rich.Height = (int)Math.Ceiling(visible.ToValue() * rich.RichTextArea.Font.LineHeight);
+        rich.Height = (int)Math.Ceiling(visible * rich.RichTextArea.Font.LineHeight);
         return new(rich, rich.RichTextArea, Application.Instance.CommonModifier | Keys.Enter, () => rich.RichTextArea.Rtf, rtf => rich.RichTextArea.Rtf = rtf,
             Some<Action<bool>>(varied => (rich.AlternateText, rich.ShowAlternateText) = (RowEdit.Varies, varied)), None);
     }
@@ -303,11 +303,11 @@ public static class TextRows {
                 from value in DisposalOps.OnFailure(
                     IO.lift(watched.Held.Map(static live => live.Value).ToFin(new Missing(nameof(LiveModel<>.Value)))),
                     IO.lift(watched.Dispose))
-                select (IO.lift(static () => watched.Held.Map(static live => live.Value)), value, Some<IDisposable>(watched)),
+                select (IO.lift(() => watched.Held.Map(static live => live.Value)), value, Some<IDisposable>(watched)),
             cell: static (_, cell) =>
                 IO.lift(() => (IO.lift(() => Some(cell.Held.Value)), cell.Held.Value, Option<IDisposable>.None)),
-            scoped: static (held, scoped) =>
-                scoped.Read(held).Map(value => (scoped.Read(held).Map(static next => Some(next)), value, Option<IDisposable>.None)));
+            scoped: static (held, reading) =>
+                reading.Read(held).Map(value => (reading.Read(held).Map(static next => Some(next)), value, Option<IDisposable>.None)));
 
     private sealed record Entry(Control Shown, TextControl Field, Keys Commit, Func<string> Read, Action<string> Write, Option<Action<bool>> Varied, Option<string> Blank);
 }

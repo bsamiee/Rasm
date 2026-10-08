@@ -200,8 +200,12 @@ rule:
         - not:
             all:
                 - kind: property_declaration
-                - has: {kind: modifier, regex: '^sealed$'}
-                - has: {field: value, kind: arrow_expression_clause, has: {matches: held-read}}
+                - any:
+                    - has: {kind: modifier, regex: '^sealed$'}
+                    - inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: modifier, regex: '^sealed$'}}}
+                - any:
+                    - has: {field: value, kind: arrow_expression_clause, has: {matches: held-read}}
+                    - has: {field: accessors, kind: accessor_list, all: [{has: {kind: accessor_declaration, not: {has: {field: body, pattern: $_}}, has: {field: name, regex: '^get$'}}}, {not: {has: {kind: accessor_declaration, nthChild: 2}}}]}
         - any:
             - kind: property_declaration
               all:

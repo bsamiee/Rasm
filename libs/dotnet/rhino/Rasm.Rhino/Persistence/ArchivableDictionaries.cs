@@ -3,6 +3,7 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rhino.Collections;
 using Rhino.Runtime;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Persistence;
 
@@ -22,7 +23,7 @@ public sealed record DictionaryOwner(IO<ArchivableDictionary> Read, Func<Func<Ar
 public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<ArchivableDictionary>> Encode, Func<ArchivableDictionary, Fin<T>> Decode) {
     public Fin<ArchivableDictionary> ToDictionary(T value) =>
         Encode(value).Map(encoded => {
-            ArchivableDictionaries.Stamp((Name, Version), encoded);
+            DictionaryMapper.Stamp((Name, Version), encoded);
             return encoded;
         });
 
@@ -31,7 +32,11 @@ public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<Ar
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+internal static partial class DictionaryMapper {
+    internal static partial void Stamp((string Name, int Version) header, ArchivableDictionary target);
+}
+
 public static class ArchivableDictionaries {
     // --- [VALUES]
     public static Fin<Option<T>> Find<T>(ArchivableDictionary source, string key) where T : notnull =>
@@ -79,7 +84,6 @@ public static class ArchivableDictionaries {
         owner.Edit(target => Fin.Succ(ignore(target.ReplaceContentsWith(source.Clone()))));
 
     // --- [RECORDS]
-    
     public static IO<Option<T>> Read<T>(DictionaryOwner owner, DictionaryCodec<T> codec) =>
         from source in owner.Read
         from stored in IO.lift(() => Find<ArchivableDictionary>(source, codec.Name))

@@ -15,5 +15,5 @@ public sealed record OpenBoundary(string Member) : Expected("{Member} must join 
 public sealed record VariationalPatchFailed(string Reason) : Expected("Variational patch failed with reason {Reason}", (int)Codes.VariationalPatchFailed);
 
 public sealed record OutOfDomain(string Member, double Parameter) : Expected("{Member} parameter {Parameter} is outside the domain", (int)Codes.OutOfDomain) {
-    public static Fin<Unit> Unless(Interval domain, double parameter, string member) => domain.IncludesParameter(parameter) ? unit : new OutOfDomain(member, parameter);
+    public static Fin<double> Unless(Interval domain, double parameter, string member) => domain.IncludesParameter(parameter) ? parameter : new OutOfDomain(member, parameter);
 }

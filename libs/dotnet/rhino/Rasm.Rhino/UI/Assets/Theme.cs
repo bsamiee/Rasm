@@ -49,7 +49,7 @@ public sealed partial class PaintSlot {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Themes {
+public static class HostTheme {
     // --- [METRIC]
     public static IO<float> Scale => IO.lift(static () => Screen.Screens.Max(static screen => screen.LogicalPixelSize));
 
@@ -77,7 +77,7 @@ public static class Themes {
 
     // --- [CHANGE]
     public static readonly HostEvent<Unit> Changed = new(
-        typeof(Themes),
+        typeof(HostTheme),
         nameof(Changed),
         static (deliver, site) =>
             from handler in IO.lift(static () => Handler)

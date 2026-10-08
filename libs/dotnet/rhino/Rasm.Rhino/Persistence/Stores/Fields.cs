@@ -8,10 +8,12 @@ namespace Rasm.Rhino.Persistence.Stores;
 public sealed record FieldText<TRecord>(Seq<string> Path, Func<TRecord, Option<string>> Capture, Func<string, Fin<IO<Func<TRecord, TRecord>>>> Recall) {
     public Func<string, string> Shown { get; init; } = static text => text;
 
+    public Option<Func<string, Option<string>>> File { get; init; }
+
     internal FieldText<TRecord> Under(string key) => this with { Path = key.Cons(Path) };
 
     internal FieldText<TOuter> Within<TOuter>(Func<TOuter, Option<TRecord>> held, Func<TOuter, TRecord> chosen, Func<TOuter, TRecord, TOuter> set) =>
-        new(Path, outer => held(outer).Bind(Capture), text => Recall(text).Map(step => step.Map<Func<TOuter, TOuter>>(inner => outer => set(outer, inner(chosen(outer)))))) { Shown = Shown };
+        new(Path, outer => held(outer).Bind(Capture), text => Recall(text).Map(step => step.Map<Func<TOuter, TOuter>>(inner => outer => set(outer, inner(chosen(outer)))))) { Shown = Shown, File = File };
 }
 
 public sealed record KeyParameter<TValue>(string Key, StateParameter<TValue> Kind) : IStateParameter<TValue>;
@@ -133,7 +135,7 @@ public static class FieldTexts {
             where TError : Error, IValidationError<TError> =>
             [new([],
                 record => Some(lens.Get(record).Map(value => StoredText.Capture<TKey, TRaw>(key(value))).IfNone(Marker)),
-                text => Unmarked(text).Traverse(StoredText.Recall<TKey, TRaw, TError>).As().Map(found => found.Traverse(load).As().Bind(Put(lens))))];
+                text => Unmarked(text).Traverse(StoredText.Recall<TKey, TRaw, TError>).As().Map(found => found.Traverse(load).As().Bind(Put(lens)))) { File = Some(Unmarked) }];
 
         public Seq<FieldText<TRecord>> Opaque<TValue>(Lens<TRecord, TValue> lens) where TValue : notnull => [];
 

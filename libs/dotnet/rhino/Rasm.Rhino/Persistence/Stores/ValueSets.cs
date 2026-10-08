@@ -9,7 +9,13 @@ namespace Rasm.Rhino.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct EntryKey(string Owner, Seq<string> Path) : IComparable<EntryKey> {
+    private const char Separator = '.';
+
     public static string TypeOwner(Guid type) => type.ToString("D", CultureInfo.InvariantCulture);
+
+    public static string Name(Seq<string> path) => string.Join(Separator, path);
+
+    public static EntryKey Named(string owner, string name) => new(owner, toSeq(name.Split(Separator)));
 
     public int CompareTo(EntryKey other) =>
         string.CompareOrdinal(Owner, other.Owner) is var owner and not 0

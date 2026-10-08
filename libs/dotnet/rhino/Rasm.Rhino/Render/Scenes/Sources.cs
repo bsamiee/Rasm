@@ -34,7 +34,7 @@ public sealed record SceneWindow(RenderSettings Settings, LengthUnit Units);
 
 [Union]
 public abstract partial record SceneSource {
-    public sealed record Document(RhinoDoc Doc) : SceneSource;
+    public sealed record Live(RhinoDoc Doc) : SceneSource;
 
     public sealed record Section(RhinoDoc Doc, ICollapsibleSection Host) : SceneSource;
 
@@ -44,25 +44,25 @@ public abstract partial record SceneSource {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Sources {
+public static class SceneSources {
     // --- [WINDOWS]
-    public static IO<A> Read<A>(SceneSource source, Func<SceneWindow, IO<A>> read) =>
+    public static IO<T> Read<T>(SceneSource source, Func<SceneWindow, IO<T>> read) =>
         source.Switch(
             read,
-            document: static (body, held) => Opened(held.Doc, body),
+            live: static (body, held) => Opened(held.Doc, body),
             section: static (body, held) => Opened(held.Doc, body),
             archive: static (body, held) => IO.lift(() => new SceneWindow(held.File.Settings.RenderSettings, held.File.Settings.ModelUnits)).Bind(body),
             detached: static (body, held) => body(held.Window));
 
-    public static IO<A> Edit<A>(SceneSource source, Func<SceneWindow, IO<A>> edit) =>
+    public static IO<T> Edit<T>(SceneSource source, Func<SceneWindow, IO<T>> edit) =>
         source.Switch(
             edit,
-            document: static (body, held) => Opened(held.Doc, live =>
+            live: static (body, held) => Opened(held.Doc, live =>
                 (from staged in use(live.Settings.Duplicate)
                  from edited in body(live with { Settings = staged })
                  from committed in IO.lift(() => { held.Doc.RenderSettings = staged; })
                  select edited).Bracket()),
-            section: static (body, held) => ViewModels.Write(held.Host, Provider.RhinoSettings, data =>
+            section: static (body, held) => SectionModels.Write(held.Host, Provider.RhinoSettings, data =>
                 (from lent in use(IO.lift(() => Missing.Unless(data.GetRenderSettings(), nameof(RhinoSettings.GetRenderSettings))))
                  from edited in body(new SceneWindow(lent, held.Doc.ModelUnits))
                  from committed in IO.lift(() => data.SetRenderSettings(lent))
@@ -70,11 +70,11 @@ public static class Sources {
             archive: static (body, held) => Read(held, body),
             detached: static (body, held) => Read(held, body));
 
-    private static IO<A> Opened<A>(RhinoDoc doc, Func<SceneWindow, IO<A>> body) =>
+    private static IO<T> Opened<T>(RhinoDoc doc, Func<SceneWindow, IO<T>> body) =>
         use(() => doc.RenderSettings).Bind(settings => body(new SceneWindow(settings, doc.ModelUnits))).Bracket();
 
     // --- [SUB_OWNERS]
-    public static IO<A> SubOwner<THost, A>(SceneWindow window, Func<RenderSettings, THost> select, Func<THost, IO<A>> body) where THost : IDisposable =>
+    public static IO<T> SubOwner<THost, T>(SceneWindow window, Func<RenderSettings, THost> select, Func<THost, IO<T>> body) where THost : IDisposable =>
         use(() => select(window.Settings)).Bind(body).Bracket();
 
     // --- [STORES]
@@ -88,7 +88,7 @@ public static class Sources {
     public static Option<HostEvent<Unit>> Signal(SceneSource source, Option<DocumentEvent<RenderPropertyChangedEvent>> changed) =>
         from row in changed
         from serial in source.Switch(
-            document: static held => Some(held.Doc.RuntimeSerialNumber),
+            live: static held => Some(held.Doc.RuntimeSerialNumber),
             section: static held => Some(held.Doc.RuntimeSerialNumber),
             archive: static _ => Option<uint>.None,
             detached: static _ => Option<uint>.None)
@@ -114,10 +114,12 @@ public static class Sources {
         BindingGroup.Of(Rows(source).Map(static row => row.Binding));
 
     public static IO<ValueDiff> Copy(SceneSource source, SceneSource target) =>
-        from values in IO.lift(Bindings(source).ToFin()).Bind(static group => group.Capture)
-Edit(target, staged =>
-            from group in IO.lift(Bindings(staged).ToFin())
-group.Apply(values, toHashSet(group.Keys().Filter(static key => key.Owner == RenderSourceState.Owner)))
+        from values in IO.lift(Bindings(source).ToFin()).Bind(static captured => captured.Capture)
+        from diff in Edit(target, staged =>
+            from bindings in IO.lift(Bindings(staged).ToFin())
+            from applied in bindings.Apply(values, toHashSet(bindings.Keys().Filter(static key => string.Equals(key.Owner, RenderSourceState.Owner, StringComparison.Ordinal))))
+            select applied)
+        select diff;
 
     public static IO<Unit> Reset(SceneSource source) =>
         Edit(source, static staged => Rows(staged).TraverseM(static row => row.Reset).As().Map(static _ => unit));
@@ -146,7 +148,7 @@ group.Apply(values, toHashSet(group.Keys().Filter(static key => key.Owner == Ren
         where TRecord : ISceneRecord<TRecord, TParameter>
         where TParameter : class, IStateParameter<TRecord>, ISmartEnum<string, TParameter, InvalidRhinoValue> =>
         items.Map(static item => (Parameter: item, Text: TRecord.Text(item))).Strict() switch {
-            var texts => SectionRows.Source<TRecord, TParameter>(TRecord.Owner, texts, static scope => IO.pure(scope.Document.ToSeq().Map(static doc => Store<TRecord>(doc)))) switch {
+            var texts => SectionRows.Source(TRecord.Owner, texts, static scope => IO.pure(scope.Document.ToSeq().Map(static doc => Store<TRecord>(doc)))) switch {
                 var source => SectionRows.Of(source, texts, SectionRows.Unstaged, item => TRecord.Rules(source, item)),
             },
         };

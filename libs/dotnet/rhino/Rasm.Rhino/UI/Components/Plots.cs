@@ -270,7 +270,7 @@ public sealed record PlotCanvas {
     public HashMap<PaintSlot, Color> Slots { get; }
 
     public static IO<PlotCanvas> Of(Graphics graphics, float scale, Font font, bool enabled, bool focused) =>
-        IO.lift(() => new PlotCanvas(graphics, scale, font, enabled, focused, Themes.Accessibility, toHashMap(PaintSlot.Items.Select(static slot => (slot, slot.Read())))));
+        IO.lift(() => new PlotCanvas(graphics, scale, font, enabled, focused, HostTheme.Accessibility, toHashMap(PaintSlot.Items.Select(static slot => (slot, slot.Read())))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

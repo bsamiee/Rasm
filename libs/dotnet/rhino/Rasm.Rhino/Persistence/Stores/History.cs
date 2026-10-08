@@ -85,7 +85,11 @@ public sealed record ValueHistory {
             .Map(_ => Done.TakeWhile(entry => entry.Serial >= serial).Fold(ValueDiff.Empty, static (later, entry) => entry.Diff.Then(later)).Inverse().After());
 
     // --- [ARCHIVE]
-    private const string DoneKey = "Done", UndoneKey = "Undone", BeforeKey = "Before", AfterKey = "After", AtKey = "At";
+    private const string DoneKey = "Done";
+    private const string UndoneKey = "Undone";
+    private const string BeforeKey = "Before";
+    private const string AfterKey = "After";
+    private const string AtKey = "At";
 
     private static Fin<ArchivableDictionary> Encoded(HashMap<Guid, ValueHistory> histories) =>
         ArchivableDictionaries.Nested(toSeq(histories.AsIterable()).Map(static pair => (StoredText.Format(pair.Key),

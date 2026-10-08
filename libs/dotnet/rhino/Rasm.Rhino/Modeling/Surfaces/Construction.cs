@@ -34,7 +34,7 @@ public sealed partial class PointGrid {
         validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount == 0 ? null : new InvalidRhinoValue();
 }
 
-[Union<Cone, Cylinder, Sphere, Torus>(MapMethods = SwitchMapMethodsGeneration.None)]
+[Union<Cone, Cylinder, Sphere, Torus>(SkipEqualityComparison = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class AnalyticShape;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

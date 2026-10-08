@@ -105,13 +105,13 @@ public sealed record LightingState(bool SkylightEnabled, bool SkylightingOverrid
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SkylightChanged;
 
     public static IO<LightingState> Read(SceneWindow window) =>
-        Sources.SubOwner(window, static settings => settings.Skylight, skylight => IO.lift(() => new LightingState(
+        SceneSources.SubOwner(window, static settings => settings.Skylight, skylight => IO.lift(() => new LightingState(
             skylight.Enabled,
             window.Settings.RenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting),
             Conversions.Present(window.Settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, RenderSettings.EnvironmentPurpose.Standard)))));
 
     public static IO<Unit> Write(SceneWindow window, LightingState state) =>
-        Sources.SubOwner(window, static settings => settings.Skylight, skylight => IO.lift(() => {
+        SceneSources.SubOwner(window, static settings => settings.Skylight, skylight => IO.lift(() => {
             skylight.Enabled = state.SkylightEnabled;
             window.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting, state.SkylightingOverride);
             window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, Conversions.Unset(state.SkylightingEnvironment));
@@ -165,7 +165,7 @@ internal static partial class BackgroundMapper {
 public static class Environments {
     // --- [CURRENT]
     public static IO<Option<RenderEnvironment>> Current(RhinoDoc doc, RenderSettings.EnvironmentUsage usage) =>
-        Sources.Read(doc, window => IO.lift(() => Optional(window.Settings.RenderEnvironment(usage, RenderSettings.EnvironmentPurpose.ForRendering))));
+        SceneSources.Read(doc, window => IO.lift(() => Optional(window.Settings.RenderEnvironment(usage, RenderSettings.EnvironmentPurpose.ForRendering))));
 
     // --- [INTENSITY]
     public static IO<Option<SkylightIntensity>> Intensity(RenderEnvironment lighting) =>
@@ -186,7 +186,7 @@ public static class Environments {
 
     private static IO<Unit> Gain(RenderContent texture, SkylightIntensity intensity) =>
         from held in Held(texture).Bind(static found => IO.lift(found.ToFin(new Missing(nameof(RenderContent.GetParameter)))))
-        from written in ContentFields.SetParameter(texture, held.Parameter.Key, intensity.ToValue())
+        from written in ContentFields.SetParameter(texture, held.Parameter.Key, (double)intensity)
         select written;
 
     // --- [PHYSICAL_SKY]

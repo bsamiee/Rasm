@@ -41,14 +41,14 @@ internal sealed class ClayMeshProvider(PlugIn plugIn, IPlugInSink sink, uint ser
 
 public static class RenderOverrides {
     // --- [SCOPE]
-    public static IO<A> Around<A>(RenderOverride over, OverrideScope scope, IO<A> launch) =>
+    public static IO<T> Around<T>(RenderOverride over, OverrideScope scope, IO<T> launch) =>
         Acquired(over, scope).Bracket(Use: _ => IO.pure(unit).Bind(_ => launch), Fin: Release);
 
     public static Validation<Error, BindingGroup> Group(BindingGroup scene) =>
         CyclesSetting.Bindings.Bind(application => BindingGroup.Of(scene.Bindings + application.Bindings));
 
     public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register =>
-        static (_, sink) => IO.lift<IDisposable>(() => new Disposal<IPlugInSink>(
+        static (_, sink) => IO.lift(() => (IDisposable)new Disposal<IPlugInSink>(
             sink, static held => Callbacks.Succeeded(ReleasedAll, new CallbackSite(held, typeof(RenderOverrides), nameof(Register)))));
 
     // --- [CAPTURE]
@@ -94,7 +94,7 @@ public static class RenderOverrides {
     private static IO<Unit> Restored(uint serial, Capture capture) =>
         from released in DisposalOps.Release(capture.Clay.ToSeq())
         from document in IO.lift(() => Optional(RhinoDoc.FromRuntimeSerialNumber(serial)))
-        from restored in document.Traverse(open => capture.Group.Apply(capture.Values, LanguageExt.HashSet.empty<EntryKey>())).As()
+        from restored in document.Traverse(_ => capture.Group.Apply(capture.Values, LanguageExt.HashSet.empty<EntryKey>())).As()
         select unit;
 
     // --- [CLAY]
@@ -115,13 +115,13 @@ public static class RenderOverrides {
         from settings in IO.lift(() => document.RenderSettings)
         from workflow in IO.lift(() => settings.LinearWorkflow)
         from encoded in IO.pure<Seq<IDisposable>>([settings, workflow]).Bracket(
-            Use: held => IO.lift(() => MathF.Pow(albedo, workflow.PreProcessColors || workflow.PreProcessTextures ? 1f / workflow.PreProcessGamma : 1f)),
+            Use: _ => IO.lift(() => MathF.Pow(albedo, workflow.PreProcessColors || workflow.PreProcessTextures ? 1f / workflow.PreProcessGamma : 1f)),
             Fin: DisposalOps.Release)
         from written in IO.lift(() => material.BeginChange(RenderContent.ChangeContexts.Program)).Bracket(
-            Use: held => IO.lift(() => Callbacks.Each(
+            Use: _ => IO.lift(() => Callbacks.Each(
                 Seq<(string Name, object Value)>((PhysicallyBased.BaseColor, new Color4f(encoded, encoded, encoded, 1f)), (PhysicallyBased.Roughness, 0.5)),
                 parameter => material.SetParameter(parameter.Name, parameter.Value),
                 nameof(RenderContent.SetParameter))),
-            Fin: held => IO.lift(material.EndChange))
+            Fin: _ => IO.lift(material.EndChange))
         select written;
 }

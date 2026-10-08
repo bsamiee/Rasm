@@ -173,13 +173,13 @@ public static class SolidTopology {
             static made => DisposalOps.Release(Conversions.Rows(made.Pieces)));
 
     public static IO<Seq<Brep>> Split(Brep brep, IterableNE<Brep> cutters, Tolerances tolerances) =>
-        Copies.Acquire(() => brep.Split(cutters.AsEnumerable(), tolerances.Absolute), nameof(Brep.Split));
+        Copies.Acquire(() => brep.Split(cutters, tolerances.Absolute), nameof(Brep.Split));
 
     public static IO<Seq<Brep>> Split(Brep brep, IterableNE<Curve> cutters, Tolerances tolerances) =>
-        Copies.Acquire(() => brep.Split(cutters.AsEnumerable(), tolerances.Absolute), nameof(Brep.Split));
+        Copies.Acquire(() => brep.Split(cutters, tolerances.Absolute), nameof(Brep.Split));
 
     public static IO<Seq<Brep>> Split(Brep brep, IterableNE<GeometryBase> cutters, Vector3d normal, bool planView, Tolerances tolerances) =>
-        Copies.Acquire(() => brep.Split(cutters.AsEnumerable(), normal, planView, tolerances.Absolute), nameof(Brep.Split));
+        Copies.Acquire(() => brep.Split(cutters, normal, planView, tolerances.Absolute), nameof(Brep.Split));
 
     public static IO<(Seq<Brep> Kept, Seq<Brep> CutAway)> WireCut(Brep brep, Seq<Curve> closedCurves, Vector3d direction, Option<(double Depth, bool BothSides)> depth, bool splitKinkyFaces, Tolerances tolerances) =>
         Cut(() => (
@@ -205,7 +205,7 @@ public static class SolidTopology {
         Copies.Owned(
             IO.lift(wireCut),
             static made => made.Accepted ?
-                (Measurements.Valid(toSeq(made.Kept), nameof(Brep.WireCut)).ToValidation(), Measurements.Valid(toSeq(made.CutAway), nameof(Brep.WireCut)).ToValidation())
+                (Measurements.Valid(toSeq<Brep?>(made.Kept), nameof(Brep.WireCut)).ToValidation(), Measurements.Valid(toSeq<Brep?>(made.CutAway), nameof(Brep.WireCut)).ToValidation())
                     .Apply(static (kept, cutAway) => (Kept: kept, CutAway: cutAway))
                     .As().ToFin() : new Refused(nameof(Brep.WireCut)),
             static made => DisposalOps.Release(Conversions.Rows(made.Kept).Concat(Conversions.Rows(made.CutAway))));
@@ -260,7 +260,7 @@ public static class SolidTopology {
                     .As().Map(EditResult<int>.CreateCompleted()),
             splitEdgeAtParameters: static (edited, split) =>
                 (IO.lift(() => IndexOutOfRange.Unless(split.Edge, edited.Copy.Edges.Count, nameof(BrepEdgeList.SplitEdgeAtParameters)))
-                 >> IO.lift(() => edited.Copy.Edges.SplitEdgeAtParameters(split.Edge, split.Parameters.AsEnumerable())))
+                 >> IO.lift(() => edited.Copy.Edges.SplitEdgeAtParameters(split.Edge, split.Parameters)))
                     .As().Bind(static count => IO.lift(Refused.Unless(count > 0, count, nameof(BrepEdgeList.SplitEdgeAtParameters))))
                     .Map(EditResult<int>.CreateCount),
             splitClosedFaces: static (edited, split) => IO.lift(() => Refused.Unless(edited.Copy.Faces.SplitClosedFaces(split.MinimumDegree), nameof(BrepFaceList.SplitClosedFaces))).Map(EditResult<int>.CreateCompleted()),

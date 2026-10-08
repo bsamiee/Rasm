@@ -52,7 +52,7 @@ public static class PointerHooks {
         new(
             typeof(RhinoView),
             member,
-            (deliver, site) => IO.lift<IDisposable>(() => {
+            (deliver, site) => IO.lift(IDisposable () => {
                 MouseCallback callback = hook(deliver, site);
                 callback.Enabled = true;
                 return new Disposal<MouseCallback>(callback, static held => held.Enabled = false);

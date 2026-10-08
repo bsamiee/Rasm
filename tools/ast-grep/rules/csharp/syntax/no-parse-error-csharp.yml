@@ -31,11 +31,25 @@ utils:
         any:
             - matches: typed-slice-error
             - {regex: '^$', inside: {kind: list_pattern, has: {matches: typed-slice-error}}}
+    extension-block:
+        kind: constructor_declaration
+        has: {field: name, regex: '^extension$'}
+    extension-member:
+        any:
+            - inside: {matches: extension-block, stopBy: end}
+            - {kind: ERROR, regex: '^\}$', inside: {kind: compilation_unit}, follows: {stopBy: end, has: {stopBy: end, matches: extension-block}}}
+    ref-compound-assignment:
+        kind: ERROR
+        regex: '^=$'
+        inside: {kind: binary_expression, has: {field: left, kind: invocation_expression}}
+        follows: {regex: '^([-+*/%&|^]|<<|>>>?|\?\?)$'}
     unreported:
         any:
             - inside: {kind: ERROR, stopBy: end}
             - matches: lambda-with-modifiers
             - matches: typed-slice
+            - matches: extension-member
+            - matches: ref-compound-assignment
 rule:
     any:
         - kind: ERROR
@@ -46,4 +60,4 @@ labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
 note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-c-sharp grammar gaps are modifiers on implicitly typed lambda parameters (`(a, out b) =>`) and a declaration pattern in a slice pattern (`[.. T[] rest]`)
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-c-sharp grammar gaps are modifiers on implicitly typed lambda parameters (`(a, out b) =>`), a declaration pattern in a slice pattern (`[.. T[] rest]`), a compound assignment to a ref-returning call (`Field(owner) += handler`), and members of a C# 14 `extension(<receiver>)` block, which the grammar reads as a constructor named `extension`

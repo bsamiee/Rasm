@@ -26,7 +26,7 @@ internal static partial class HatchPatternMapper {
     internal static partial HatchPatternDefinition ToState(
         HatchPattern pattern, Seq<HatchLineDefinition> lines, HashMap<EqStringOrdinalIgnoreCase, string, string> userStrings);
 
-    [MapProperty(nameof(HatchLine.GetDashes), nameof(HatchLineDefinition.Dashes), Use = nameof(Conversions.Rows))]
+    [MapProperty(nameof(HatchLine.GetDashes), nameof(HatchLineDefinition.Dashes), Use = nameof(@Conversions.Rows))]
     internal static partial HatchLineDefinition ToState(HatchLine line);
 
     // --- [UPDATES]
@@ -56,19 +56,20 @@ public static class HatchPatterns {
         (Definition(live), Definition(staged)).Apply(static (held, wanted) => held == wanted).As();
 
     public static IO<Unit> Written(HatchPattern staged, HatchPatternDefinition definition) =>
-        (from lines in use(DisposalOps.AcquireAll(
-             definition.Lines.Map(static _ => IO.lift(static () => new HatchLine())), DisposalOps.Release), DisposalOps.Release)
-         from settings in IO.lift(() => HatchPatternMapper.Update(definition, staged))
-         from configured in IO.lift(() => lines.Zip(definition.Lines).Iter(static pair => {
-             HatchPatternMapper.Update(pair.Second, pair.First);
-             pair.First.SetDashes(pair.Second.Dashes);
-         }))
-         from lined in IO.lift(() => CountMismatch.Unless(lines.Count, staged.SetHatchLines(lines), nameof(HatchPattern.SetHatchLines)))
-         from held in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
-         from stored in UserStrings.Write(held, staged.SetUserString, UserStrings.Replacing(held, definition.UserStrings))
-         select unit).Bracket();
+        DisposalOps.AcquireAll(definition.Lines.Map(static _ => IO.lift(static () => new HatchLine())), DisposalOps.Release).Bracket(
+            Use: lines =>
+                from settings in IO.lift(() => HatchPatternMapper.Update(definition, staged))
+                from configured in IO.lift(() => lines.Zip(definition.Lines).Iter(static pair => {
+                    HatchPatternMapper.Update(pair.Second, pair.First);
+                    pair.First.SetDashes(pair.Second.Dashes);
+                }))
+                from lined in IO.lift(() => CountMismatch.Unless(lines.Count, staged.SetHatchLines(lines), nameof(HatchPattern.SetHatchLines)))
+                from held in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
+                from stored in UserStrings.Write(held, staged.SetUserString, UserStrings.Replacing(held, definition.UserStrings))
+                select unit,
+            Fin: DisposalOps.Release);
 
-    public static IO<A> Detached<A>(Seq<(string Name, HatchPatternDefinition Definition)> rows, Func<Seq<HatchPattern>, IO<A>> body) =>
+    public static IO<T> Detached<T>(Seq<(string Name, HatchPatternDefinition Definition)> rows, Func<Seq<HatchPattern>, IO<T>> body) =>
         DisposalOps.AcquireAll(rows.Map(static _ => IO.lift(static () => new HatchPattern())), DisposalOps.Release).Bracket(
             Use: patterns => from written in patterns.Zip(rows).TraverseM(static pair => from named in TableOps.Named(pair.First, Some(pair.Second.Name))
                                                                                          from definition in Written(pair.First, pair.Second.Definition)
@@ -81,10 +82,12 @@ public static class HatchPatterns {
     public static IO<int> FromDefaults(RhinoDoc doc, string name) =>
         TableOps.Find(doc.HatchPatterns, name, includeDeleted: false)
             .Map(static live => live.Index)
-            .Catch(static error => error.IsType<MissingComponent<HatchPattern>>(), error => (from defaults in use(static () => Conversions.Rows(HatchPattern.GetDefaultHatchPatterns()), DisposalOps.Release)
-                                                                                             from held in IO.lift(defaults.Find(row => TableOps.Names<HatchPattern>().Equals(row.Name, name)).ToFin(error))
-                                                                                             from index in IO.lift(() => Conversions.Required(TableKinds.HatchPatterns.Add(doc, held), nameof(TableKind<>.Add)))
-                                                                                             select index).Bracket());
+            .Catch(static error => error.IsType<MissingComponent<HatchPattern>>(), error => IO.lift(static () => Conversions.Rows(HatchPattern.GetDefaultHatchPatterns())).Bracket(
+                Use: defaults =>
+                    from held in IO.lift(defaults.Find(row => TableOps.Names<HatchPattern>().Equals(row.Name, name)).ToFin(error))
+                    from index in IO.lift(() => Conversions.Required(TableKinds.HatchPatterns.Add(doc, held), nameof(TableKind<>.Add)))
+                    select index,
+                Fin: DisposalOps.Release));
 
     // --- [CURRENT]
     public static IO<Unit> SetCurrent(RhinoDoc doc, ComponentRef<HatchPattern> address) =>
@@ -94,14 +97,16 @@ public static class HatchPatterns {
         select changed;
 
     // --- [TRANSFER]
-    [Obsolete]
     public static IO<Seq<(string Name, HatchPatternDefinition Definition)>> Read(Option<string> path = default) =>
-        (from existing in IO.lift(() => path.Traverse(Exchange.ExistingPath).As())
-         from patterns in use(IO.lift(() => existing.Match(
-             Some: static location => Missing.Unless(HatchPattern.ReadFromFile(location, quiet: true), nameof(HatchPattern.ReadFromFile)),
-             None: static () => FinSucc(HatchPattern.GetDefaultHatchPatterns()))).Map(Conversions.Rows), DisposalOps.Release)
-         from definitions in patterns.TraverseM(static pattern => Definition(pattern).Map(definition => (pattern.Name, Definition: definition))).As()
-         select definitions).Bracket();
+        from existing in IO.lift(() => path.Traverse(Exchange.ExistingPath).As())
+        from definitions in IO.lift(() => existing.Match(
+                Some: static location => Missing.Unless(HatchPattern.ReadFromFile(location, quiet: true), nameof(HatchPattern.ReadFromFile)),
+                None: static () => Fin.Succ(HatchPattern.GetDefaultHatchPatterns())))
+            .Map(Conversions.Rows)
+            .Bracket(
+                Use: static patterns => patterns.TraverseM(static pattern => Definition(pattern).Map(definition => (pattern.Name, Definition: definition))).As(),
+                Fin: DisposalOps.Release)
+        select definitions;
 
     public static IO<Unit> WriteFile(string path, Seq<(string Name, HatchPatternDefinition Definition)> rows) =>
         from qualified in IO.lift(Exchange.QualifiedPath(path))

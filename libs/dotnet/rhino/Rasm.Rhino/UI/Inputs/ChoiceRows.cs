@@ -142,10 +142,10 @@ public static class ChoiceRows {
             None: static () => IO.pure(Thinktecture.Empty.Disposable()));
 
     private static IO<IDisposable> Attached(Control control, Seq<Seq<MenuEntry>> own, Seq<IO<Unit>> refreshes, Seq<Seq<Command>> groups, IO<Unit> refresh, IPlugInSink sink) =>
-        from built in Menu(own + groups.Map(static group => group.Map(static command => (MenuEntry)command)), refreshes.Add(refresh), None, sink)
-DisposalOps.OnFailure(IO.lift(() => control.ContextMenu = built.Menu), IO.lift(built.Release.Dispose))
+        from built in Menu(own + groups.Map(static cluster => cluster.Map(static command => (MenuEntry)command)), refreshes.Add(refresh), None, sink)
+        from attached in DisposalOps.OnFailure(IO.lift(() => control.ContextMenu = built.Menu), IO.lift(built.Release.Dispose))
         select DisposalOps.Composite(
-            Seq<IDisposable>(built.Release, new Disposal<Control>(control, static held => held.ContextMenu = null)),
+            Seq(built.Release, new Disposal<Control>(control, static held => held.ContextMenu = null)),
             new CallbackSite(sink, control.GetType(), nameof(Control.ContextMenu)));
 
     // --- [SEARCH]

@@ -29,7 +29,7 @@ public readonly partial struct DevelopableDensity : System.Numerics.IMinMaxValue
 public abstract partial record CurveFit {
     public (SweepRebuild RebuildType, int RebuildPointCount, double RefitTolerance) Parameters => Switch(
         asIs: static _ => (SweepRebuild.None, 0, 0d),
-        rebuild: static rebuild => (SweepRebuild.Rebuild, rebuild.Count.ToValue(), 0d),
+        rebuild: static rebuild => (SweepRebuild.Rebuild, (int)rebuild.Count, 0d),
         refit: static refit => (SweepRebuild.Refit, 0, refit.Tolerance));
 
     public sealed record AsIs() : CurveFit;
@@ -83,7 +83,7 @@ public static class Lofts {
     public static IO<Seq<Brep>> SweepOne(Curve rail, Option<Vector3d> up, IterableNE<(Curve Shape, double Parameter)> stations, bool closed, SweepBlend blend, SweepMiter miter, CurveFit fit, Tolerances tolerances) =>
         from sweeper in IO.lift(() => SweepMapper.ToSweepOneRail(tolerances, closedSweep: closed, globalShapeBlending: blend == SweepBlend.Global, miterType: (int)miter))
         from configured in IO.lift(() => sweeper.SetRoadlikeUpDirection(Conversions.Unset(up)))
-        let rows = toSeq(stations.AsEnumerable().OrderBy(static row => row.Parameter))
+        let rows = toSeq(stations.OrderBy(static row => row.Parameter))
         from swept in fit.Switch(
             (Sweeper: sweeper, Rail: rail, Shapes: rows.Map(static row => row.Shape), Parameters: rows.Map(static row => row.Parameter)),
             asIs: static (sweep, _) => Copies.AcquireNonEmpty(
@@ -103,7 +103,7 @@ public static class Lofts {
 
     public static IO<Seq<Brep>> SweepTwo(Curve rail1, Curve rail2, IterableNE<(Curve Shape, double Rail1, double Rail2)> stations, bool closed, CurveFit fit, bool maintainHeight, Tolerances tolerances) =>
         from sweeper in IO.lift(() => SweepMapper.ToSweepTwoRail(tolerances, closedSweep: closed, maintainHeight: maintainHeight))
-        let rows = toSeq(stations.AsEnumerable())
+        let rows = toSeq(stations)
         from swept in fit.Switch(
             (Sweeper: sweeper, Rail1: rail1, Rail2: rail2, Shapes: rows.Map(static row => row.Shape), Parameters1: rows.Map(static row => row.Rail1), Parameters2: rows.Map(static row => row.Rail2)),
             asIs: static (sweep, _) => Copies.AcquireNonEmpty(
@@ -134,7 +134,7 @@ public static class Lofts {
 
     public static IO<Seq<Brep>> DevelopableLoft(Curve rail0, Curve rail1, bool reverse0, bool reverse1, Option<DevelopableDensity> density) =>
         Copies.AcquireNonEmpty(
-            () => Brep.CreateDevelopableLoft(rail0, rail1, reverse0, reverse1, density.Map(static count => count.ToValue()).IfNone(0)), nameof(Brep.CreateDevelopableLoft));
+            () => Brep.CreateDevelopableLoft(rail0, rail1, reverse0, reverse1, density.Map(static count => (int)count).IfNone(0)), nameof(Brep.CreateDevelopableLoft));
 
     // --- [PATCHES]
     public static IO<Brep> Patch(

@@ -9,12 +9,10 @@ namespace Rasm.Rhino.Commands;
 public sealed record NodeResult(Seq<(string Name, Option<object> Value)> Outputs, Seq<string> Warnings);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
 public static class Scripts {
     // --- [PYTHON]
     public static IO<PythonScript> Engine(RhinoDoc doc, HashMap<string, object?> variables) =>
         from engine in IO.lift(static () => Missing.Unless(PythonScript.Create(), nameof(PythonScript.Create)))
-        from mapped in IO.lift(() => Context(doc, engine))
         from configured in IO.lift(() => engine.SetupScriptContext(doc))
         from bound in IO.lift(() => variables.Iter(engine.SetVariable))
         select engine;

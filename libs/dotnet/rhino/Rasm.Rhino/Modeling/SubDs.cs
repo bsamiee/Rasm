@@ -68,7 +68,7 @@ public static class SubDs {
                 .Map(EditResult<uint>.CreateCompleted())
                 .MapFail(static error => error.HasException<ArgumentOutOfRangeException>() ? new Refused(nameof(SubDEdgeList.SetEdgeTags)) : error),
             setEdgeSharpness: static (state, of) => IO.lift(() => Callbacks.Each(
-                    of.Edges, (row, index) => state.Subd.Edges.Find(row.Edge) is { } edge ? Fin.Succ(edge) : new RefusedElement(nameof(SubDEdgeList.Find), index)))
+                    of.Edges, (row, index) => Optional(state.Subd.Edges.Find(row.Edge)).ToFin(new RefusedElement(nameof(SubDEdgeList.Find), index))))
                 .Map(edges => EditResult<uint>.CreateCount(state.Subd.SetEdgeSharpness(edges, of.Edges.Map(static row => row.Sharpness), of.PreserveSymmetry)))
                 .MapFail(static error => error.HasException<ArgumentException>() ? new Refused(nameof(SubD.SetEdgeSharpness)) : error),
             clearEdgeSharpness: static (state, _) => IO.lift(() => EditResult<uint>.CreateCount(state.Subd.ClearEdgeSharpness())),

@@ -5,6 +5,7 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Input.Custom;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Commands;
 
@@ -31,7 +32,7 @@ public static class Selections {
                                  rectanglePick: static (viewport, pick) => (Style: pick.Crossing ? PickStyle.CrossingPick : PickStyle.WindowPick,
                                      Transform: viewport.GetPickTransform(pick.Client), X: pick.Client.X + (pick.Client.Width / 2d), Y: pick.Client.Y + (pick.Client.Height / 2d))))
                              from line in IO.lift(() => Refused.Unless(row.Viewport.GetFrustumLine(frame.X, frame.Y, out Line worldLine), worldLine, nameof(RhinoViewport.GetFrustumLine)))
-                             from mapped in IO.lift(() => PickMapper.Update(request, context, row.View, frame.Style, line))
+                             from mapped in IO.lift(() => PickMapper.Update((row.View, PickStyle: frame.Style, PickLine: line, request.PickMode, request.PickGroupsEnabled, request.SubObjectSelectionEnabled), context))
                              from transformed in IO.lift(() => context.SetPickTransform(frame.Transform))
                              from clipped in IO.lift(context.UpdateClippingPlanes)
                              from value in body(context)
@@ -57,12 +58,12 @@ public static class Selections {
             .Bracket(Use: references => Capture(references, selection), Fin: DisposalOps.Release));
 
     private static IO<Seq<PickCapture>> Capture(Seq<ObjRef> references, Option<SelectionOptions> selection) =>
-        from selected in selection.TraverseM(options => IO.lift(() => Callbacks.Each(references, (reference, index) => Selected(reference, index, options)))).As()
+        from selected in selection.TraverseM(options => IO.lift(() => Callbacks.Each(references, Selected(options)))).As()
         from captures in references.TraverseM(PickCapture.Of).As()
         select captures;
 
-    private static Fin<Unit> Selected(ObjRef reference, int index, SelectionOptions options) =>
-        Conversions.Present(reference.GeometryComponentIndex).Match(
+    private static Func<ObjRef, int, Fin<Unit>> Selected(SelectionOptions options) =>
+        (reference, index) => Conversions.Present(reference.GeometryComponentIndex).Match(
             Some: component => RefusedElement.Unless(
                 reference.Object().SelectSubObject(component, select: true, options.SyncHighlight, options.Persistent) != 0, nameof(RhinoObject.SelectSubObject), index),
             None: () => RefusedElement.Unless(
@@ -70,6 +71,7 @@ public static class Selections {
                 nameof(RhinoObject.Select), index));
 }
 
-[Mapper]
-internal static class PickMapper {
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+internal static partial class PickMapper {
+    internal static partial void Update((RhinoView View, PickStyle PickStyle, Line PickLine, PickMode PickMode, bool PickGroupsEnabled, bool SubObjectSelectionEnabled) frame, PickContext context);
 }

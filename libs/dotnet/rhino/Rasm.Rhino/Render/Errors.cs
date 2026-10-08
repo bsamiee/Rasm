@@ -11,7 +11,7 @@ internal enum Codes {
 public sealed record UnknownPreset(PresetName Name) : Expected("No preset is named {Name}", (int)Codes.UnknownPreset);
 
 public sealed record MalformedPreset : Expected {
-    public MalformedPreset(string path, Error cause) : base("{Path} holds no preset", (int)Codes.MalformedPreset, cause) => Path = path;
+    public MalformedPreset(string path, Option<Error> cause) : base("{Path} holds no preset", (int)Codes.MalformedPreset, cause) => Path = path;
 
     public string Path { get; }
 }

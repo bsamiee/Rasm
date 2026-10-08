@@ -11,6 +11,8 @@ namespace Rasm.Rhino.Document.Files;
 public sealed partial class NamePart {
     internal static readonly SearchValues<char> Reserved = SearchValues.Create([.. "\"*/:<>?\\|", .. Enumerable.Range(0, 32).Select(static code => (char)code)]);
 
+    public static NamePart Ordinal(int position) => new(position.ToString(CultureInfo.InvariantCulture));
+
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) {
         ReadOnlySpan<char> trimmed = value.AsSpan().Trim();
         value = string.Create(trimmed.Length, trimmed, static (target, source) => source.ReplaceAny(target, Reserved, '_'));
@@ -47,6 +49,9 @@ public readonly partial struct SequenceNumber {
 
 [Union]
 public abstract partial record OutputVersioning {
+    public Option<OutputVersion> Taken =>
+        Switch(unversioned: static _ => Option<OutputVersion>.None, pinned: static pinned => Some(pinned.Version), nextFree: static _ => Option<OutputVersion>.None);
+
     public sealed record Unversioned : OutputVersioning;
     public sealed record Pinned(OutputVersion Version) : OutputVersioning;
     public sealed record NextFree : OutputVersioning;

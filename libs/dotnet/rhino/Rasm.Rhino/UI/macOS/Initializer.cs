@@ -86,7 +86,6 @@ public sealed class AppKitInitializer : IPlatformInitializer {
         platform.Add<Func<IPlugInSink, Control, IO<float>>>(static () => static (_, view) => DrawnViews.Headroom(view));
         platform.Add<Func<IPlugInSink, MouseEventArgs, PointF, float>>(static () => static (_, _, _) => Optional(NSApplication.SharedApplication.CurrentEvent).Map(static current => (float)current.DeltaX).IfNone(0f));
         Style.Add<DrawableHandler>(ComponentControl.HandlerStyle, DrawnViews.Attach);
-        Style.Add<SliderHandler>(ParameterSlider.HandlerStyle, NativeControls.Track);
         Style.Add<TextBoxHandler>(NumberField.HandlerStyle, NativeControls.Field);
         Style.Add<RowGrid>(RowGrid.HandlerStyle, NativeControls.Rows);
     }

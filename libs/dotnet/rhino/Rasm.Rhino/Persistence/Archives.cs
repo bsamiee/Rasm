@@ -14,15 +14,14 @@ public abstract partial record ArchiveSource {
     public sealed record Located(string Path, File3dm.TableTypeFilter Tables, File3dm.ObjectTypeFilter Objects) : ArchiveSource {
         internal override IO<ArchiveRead> Open() =>
             from path in IO.lift(() => Exchange.ExistingPath(Path))
-            from read in IO.lift(Fin<ArchiveRead> () => File3dm.ReadWithLog(path, Tables, Objects, out string log) is { } model
-                ? new ArchiveRead(model, Conversions.Present(log))
-                : new ArchiveRejected(nameof(File3dm.ReadWithLog), log))
+            from read in IO.lift(() => ArchiveRejected.Unless(File3dm.ReadWithLog(path, Tables, Objects, out string log), nameof(File3dm.ReadWithLog), log)
+                .Map(model => new ArchiveRead(model, Conversions.Present(log))))
             select read;
     }
 
-    public sealed record Buffered(byte[] Bytes) : ArchiveSource {
+    public sealed record Buffered(Arr<byte> Bytes) : ArchiveSource {
         internal override IO<ArchiveRead> Open() =>
-            IO.lift(() => Missing.Unless(File3dm.FromByteArray(Bytes), nameof(File3dm.FromByteArray)).Map(static model => new ArchiveRead(model, None)));
+            IO.lift(() => Missing.Unless(File3dm.FromByteArray([.. Bytes]), nameof(File3dm.FromByteArray)).Map(static model => new ArchiveRead(model, None)));
     }
 
     internal abstract IO<ArchiveRead> Open();
@@ -156,7 +155,7 @@ public static partial class Archives {
 
     public static IO<StepOutcome> Persist(File3dm archive, string path, File3dmWriteOptions options) =>
         from qualified in IO.lift(() => Exchange.QualifiedPath(path))
-        from outcome in StepOutcome.Land(qualified, target => IO.lift(Fin<Unit> () =>
-            archive.WriteWithLog(target, options, out string log) ? unit : new ArchiveRejected(nameof(File3dm.WriteWithLog), log)))
+        from outcome in StepOutcome.Land(qualified, target => IO.lift(() =>
+            ArchiveRejected.Unless(archive.WriteWithLog(target, options, out string log), nameof(File3dm.WriteWithLog), log)))
         select outcome;
 }

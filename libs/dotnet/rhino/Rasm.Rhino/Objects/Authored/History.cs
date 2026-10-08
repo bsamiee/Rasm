@@ -92,12 +92,13 @@ public static class Histories {
         use(IO.lift(() => Optional(data.GetRhinoObjRef(slot)).ToFin(new MissingHistoryInput(slot)))).Bind(PickCapture.Of).Bracket();
 
     // --- [RECORDS]
-    public static IO<A> Record<A>(RhinoDoc doc, Command command, int version, bool copyOnReplace, Seq<HistoryInput> inputs, Func<HistoryRecord, IO<A>> body) =>
-        (from unique in IO.lift(Callbacks.Unique(inputs, static input => input.Id, nameof(HistoryRecord)).ToFin())
-         from record in use(() => HistoryMapper.Create((command, version, copyOnReplace)))
-         from written in unique.TraverseM(input => input.Write(doc, record)).As()
-         from answer in body(record)
-         select answer).Bracket();
+    public static IO<T> Record<T>(RhinoDoc doc, Command command, int version, bool copyOnReplace, Seq<HistoryInput> inputs, Func<HistoryRecord, IO<T>> body) =>
+        from unique in IO.lift(Callbacks.Unique(inputs, static input => input.Id, nameof(HistoryRecord)).ToFin())
+        from result in (from record in use(() => HistoryMapper.Create((command, version, copyOnReplace)))
+                        from written in unique.TraverseM(input => input.Write(doc, record)).As()
+                        from answer in body(record)
+                        select answer).Bracket()
+        select result;
 
     // --- [REPLAY]
     public static IO<Unit> Replay(ReplayHistoryData data, int version, Func<Seq<ReplayHistoryResult>, IO<Seq<HistoryOutput>>> outputs) =>
@@ -117,7 +118,7 @@ public static class Histories {
         from table in IO.lift(() => doc.Objects)
         let links = memoUnsafe((Guid vertex) => Optional(table.FindId(vertex)).Map(static found => (Parents: toSeq(found.HistoryParents()).Strict(), Children: toSeq(found.HistoryChildren()).Strict())))
         from origin in IO.lift(() => links(id).ToFin(new Missing(nameof(ObjectTable.FindId))))
-        let joined = IEnumerable<SEquatableEdge<Guid>> (Guid vertex) => links(vertex).ToSeq().Bind(static found => found.Parents.Concat(found.Children)).Map(next => new SEquatableEdge<Guid>(vertex, next))
+        let joined = new Func<Guid, IEnumerable<SEquatableEdge<Guid>>>(vertex => links(vertex).ToSeq().Bind(static found => found.Parents.Concat(found.Children)).Map(next => new SEquatableEdge<Guid>(vertex, next)))
         let reach = new ImplicitDepthFirstSearchAlgorithm<Guid, SEquatableEdge<Guid>>(joined.ToDelegateIncidenceGraph())
         from visited in IO.lift(() => reach.Compute(id))
         select reach.VerticesColors.Keys.ToBidirectionalGraph(vertex => links(vertex).ToSeq().Bind(static found => found.Children).Map(child => new SEquatableEdge<Guid>(vertex, child)), allowParallelEdges: false).ToArrayBidirectionalGraph();

@@ -60,7 +60,7 @@ public abstract partial record ContentEdit {
 
 [Union]
 public abstract partial record ContentChoice {
-    public sealed record New(Seq<Guid> TypeIds) : ContentChoice;
+    public sealed record Created(Seq<Guid> TypeIds) : ContentChoice;
 
     public sealed record Copy(Seq<Guid> Instances) : ContentChoice;
 
@@ -145,10 +145,10 @@ public static class Contents {
             .As());
 
     // --- [CHANGES]
-    public static IO<A> WithinContentChange<A>(RenderContent content, RenderContent.ChangeContexts cc, IO<A> body) =>
+    public static IO<T> WithinContentChange<T>(RenderContent content, RenderContent.ChangeContexts cc, IO<T> body) =>
         IO.lift(() => content.BeginChange(cc)).Bracket(Use: _ => IO.pure(unit).Bind(_ => body), Fin: _ => IO.lift(content.EndChange));
 
-    public static IO<A> WithinTableChange<A>(RhinoDoc doc, RenderContent.ChangeContexts cc, IO<A> body) =>
+    public static IO<T> WithinTableChange<T>(RhinoDoc doc, RenderContent.ChangeContexts cc, IO<T> body) =>
         IO.lift(() => doc.RenderMaterials.BeginChange(cc)).Bracket(Use: _ => IO.pure(unit).Bind(_ => body), Fin: _ => IO.lift(doc.RenderMaterials.EndChange));
 
     public static IO<Unit> Apply(RhinoDoc doc, RenderContent target, RenderContent.ChangeContexts cc, Seq<ContentEdit> edits) =>
@@ -186,7 +186,7 @@ public static class Contents {
         IO.lift(() => Utilities.ShowContentNewExistingBrowser(
                 doc, Conversions.Unset(defaultType), Conversions.Unset(defaultInstance), kinds, flags, Conversions.Unset(presetCategory), categories, types, out Guid[] contents) switch {
                     Utilities.ContentNewExistingResults.None => Fin.Fail<ContentChoice>(Errors.Cancelled),
-                    Utilities.ContentNewExistingResults.New => new ContentChoice.New(toSeq(contents)),
+                    Utilities.ContentNewExistingResults.New => new ContentChoice.Created(toSeq(contents)),
                     Utilities.ContentNewExistingResults.Copy => new ContentChoice.Copy(toSeq(contents)),
                     Utilities.ContentNewExistingResults.Instance => new ContentChoice.Instance(toSeq(contents)),
                     Utilities.ContentNewExistingResults.Reference => new ContentChoice.Reference(toSeq(contents)),

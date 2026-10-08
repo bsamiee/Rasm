@@ -82,7 +82,7 @@ public static class CurveEvaluation {
     public static Fin<double> Resolve(Curve curve, CurveAddress at, string member) =>
         at.Switch(
             (Curve: curve, Member: member),
-            curveParameter: static (state, address) => OutOfDomain.Unless(state.Curve.Domain, address, state.Member).Map(_ => address),
+            curveParameter: static (state, address) => OutOfDomain.Unless(state.Curve.Domain, address, state.Member),
             lengthParameter: static (state, address) => Refused.Unless(state.Curve.LengthParameter(address, out double t), t, nameof(Curve.LengthParameter)),
             normalizedLengthParameter: static (state, address) => Refused.Unless(state.Curve.NormalizedLengthParameter(address, out double t), t, nameof(Curve.NormalizedLengthParameter)));
 
@@ -115,7 +115,7 @@ public static class CurveEvaluation {
     public static IO<Seq<Plane>> PerpendicularFrames(Curve curve, Seq<double> parameters) =>
         from frames in IO.lift(() => Missing.Unless(curve.GetPerpendicularFrames(parameters), nameof(Curve.GetPerpendicularFrames)))
             .Catch(
-                static error => error.Exception.Exists(static exception => exception.GetType() == typeof(InvalidOperationException)),
+                static error => error.HasException<InvalidOperationException>(),
                 static _ => IO.fail<Plane[]>(new UnorderedParameters()))
         from complete in IO.lift(CountMismatch.Unless(parameters.Count, frames.Length, nameof(Curve.GetPerpendicularFrames)))
         select toSeq(frames);

@@ -110,10 +110,10 @@ internal static class DrawnViews {
                 Some: space => (frame, space),
                 None: () => (encoding.Light(frame), CGColorSpaceNames.ExtendedLinearSrgb));
 
-    private static Fin<Bitmap> Drawn(PixelFrame frame, NSString name, CALayer layer) =>
-        Missing.Unless(CGColorSpace.CreateWithName(name), nameof(CGColorSpace.CreateWithName)).Map(space => {
+    private static Fin<Bitmap> Drawn(PixelFrame frame, NSString name, CALayer layer) {
+        using CGColorSpace? created = CGColorSpace.CreateWithName(name);
+        return Missing.Unless(created, nameof(CGColorSpace.CreateWithName)).Map(owned => {
             int pixel = Unsafe.SizeOf<Vector4>();
-            using CGColorSpace owned = space;
             using CGDataProvider provider = new(frame.Address, frame.Block.Length * sizeof(float), _ => GC.KeepAlive(frame));
             using CGImage image = new(
                 frame.Size.Width, frame.Size.Height, sizeof(float) * 8, pixel * 8, frame.Size.Width * pixel, owned,
@@ -122,6 +122,7 @@ internal static class DrawnViews {
             layer.WantsExtendedDynamicRangeContent = true;
             return new Bitmap(new BitmapHandler(new NSImage(image, new CGSize(frame.Size.Width, frame.Size.Height))));
         });
+    }
 
     internal static IO<float> Headroom(Control view) =>
         IO.lift(() =>

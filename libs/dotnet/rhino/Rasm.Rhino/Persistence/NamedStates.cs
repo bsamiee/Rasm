@@ -61,11 +61,11 @@ public sealed partial class NamedTable {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record NamedState {
     public (NamedTable Table, Option<string> Key) Address => Switch(
-        layerState: static state => (NamedTable.LayerStates, Some(state.Name.ToValue())),
-        view: static state => (NamedTable.Views, Some(state.Name.ToValue())),
+        layerState: static state => (NamedTable.LayerStates, Some((string)state.Name)),
+        view: static state => (NamedTable.Views, Some((string)state.Name)),
         constructionPlane: static state => (NamedTable.ConstructionPlanes, Conversions.Present(state.Value.Name)),
-        position: static state => (NamedTable.Positions, Some(state.Name.ToValue())),
-        snapshot: static state => (NamedTable.Snapshots, Some(state.Name.ToValue())));
+        position: static state => (NamedTable.Positions, Some((string)state.Name)),
+        snapshot: static state => (NamedTable.Snapshots, Some((string)state.Name)));
 
     public sealed record LayerState(StateName Name, Option<ViewportTarget> Viewport, Seq<LayerOp.Modify> Edits) : NamedState;
     public sealed record View(StateName Name, ViewportTarget Source, Option<CameraPose> Pose) : NamedState;
@@ -116,9 +116,9 @@ public abstract partial class LayerStateRestoreParameter : IStateParameter<Layer
     internal abstract IO<Option<IO<Unit>>> Edit(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner, Option<LayerStateRestore> value);
 
     private sealed class Field<TRaw>(KeyName key, Lens<LayerStateRestore, TRaw> lens, Func<Lens<LayerStateRestore, TRaw>, StateParameter<LayerStateRestore>> kind,
-        SettingType<TRaw> setting, string caption, string help) : LayerStateRestoreParameter(key.ToValue(), kind(lens)) where TRaw : notnull, ISpanParsable<TRaw> {
+        SettingType<TRaw> setting, string caption, string help) : LayerStateRestoreParameter((string)key, kind(lens)) where TRaw : notnull, ISpanParsable<TRaw> {
         private readonly PlugInSetting<TRaw, TRaw, InvalidRhinoValue> row = new(
-            ValueKey.Raw(key.ToValue(), caption, help, lens.Get(LayerStateRestore.Default)), setting, Applied.IdleSave, [], Hidden: false);
+            ValueKey.Raw((string)key, caption, help, lens.Get(LayerStateRestore.Default)), setting, Applied.IdleSave, [], Hidden: false);
 
         internal override IO<Func<LayerStateRestore, LayerStateRestore>> Read(RhinoDoc doc, (KeyName Section, SettingsNode Node) owner) =>
             from held in Store(Some(doc), owner).Read.Catch(static error => error.IsType<UnreadText>(), _ => IO.pure(Some(row.Value.Default)))
@@ -223,7 +223,9 @@ public static class NamedStates {
     // --- [PROGRAM]
     public static IO<Seq<(NamedTable Table, string Key)>> Entries(RhinoDoc doc) =>
         from tables in toSeq(NamedTable.Items).TraverseM(table => table.Names(doc).Map(keys => (Table: table, Keys: keys))).As()
-        select tables.Bind(static table => table.Keys.Map(key => (table.Table, key)));
+        select (from table in tables
+                from key in table.Keys
+                select (table.Table, Key: key));
 
     public static Fin<Seq<NamedChange>> Plan(Seq<(NamedTable Table, string Key)> held, Seq<NamedState> desired, LanguageExt.HashSet<NamedTable> prune) =>
         from addresses in Fin.Succ(desired.Map(static state => state.Address))
@@ -256,7 +258,7 @@ public static class NamedStates {
     private static IO<Unit> SaveView(RhinoDoc doc, NamedState.View view) =>
         (from row in use(Viewports.ResolveViewport(doc, view.Source))
          let added = from committed in IO.lift(row.CommitViewportChanges)
-                     from saved in NamedViews.Add(doc, row.Viewport, Some(view.Name.ToValue()))
+                     from saved in NamedViews.Add(doc, row.Viewport, Some((string)view.Name))
                      select saved
          from index in view.Pose.Match(Some: pose => Cameras.WithPose(row.Viewport, pose, added).Finally(IO.lift(row.CommitViewportChanges)), None: () => added)
          select unit).Bracket();

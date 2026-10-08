@@ -1,202 +1,155 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
+using Eto.Drawing;
 using Eto.Forms;
+using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Pixels;
+using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Components;
+using Rhino.Resources;
 
 namespace Rasm.Rhino.UI.Numeric;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal readonly record struct SliderGrip<TValue, TKey>(double Pressed, (TKey Low, TKey High) Track, Option<TValue> Open)
-    where TValue : notnull where TKey : struct, INumber<TKey>;
+public sealed record SliderGrip<TKey>(double Knob, double Pointer, (TKey Low, TKey High) Track) where TKey : struct, INumber<TKey>;
 
-internal readonly record struct ParameterSliderState<TValue, TKey>(Option<TValue> Shown, Option<SliderGrip<TValue, TKey>> Grip)
+public sealed record ParameterSliderState<TValue, TKey>(Option<TValue> Shown, Option<SliderGrip<TKey>> Grip)
     where TValue : notnull where TKey : struct, INumber<TKey>;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public abstract class ParameterSlider : Slider {
-    protected const int TrackSteps = 1_000_000;
-    protected const int TickIntervals = 10;
-
-    public static string HandlerStyle { get; } = ComponentControl.StyleName(typeof(ParameterSlider));
-
-    protected ParameterSlider(IPlugInSink sink) {
-        Sink = sink;
-        Style = HandlerStyle;
-        MaxValue = TrackSteps;
-        TickFrequency = TrackSteps / TickIntervals;
-    }
-
-    public IPlugInSink Sink { get; }
-    public abstract bool Mixed { get; }
-    public abstract Option<double> Origin { get; }
-    public abstract string ValueText { get; }
-    public abstract Option<Vector4> Fill(double position);
-    public abstract bool Adjust(int steps);
-}
-
-public sealed class ParameterSlider<TValue, TKey, TError> : ParameterSlider
+public sealed class ParameterSlider<TValue, TKey, TError>(IPlugInSink sink, Presentation<TValue, TKey> presentation, NumberText<TKey> text, string caption)
+    : ComponentControl<ParameterSliderState<TValue, TKey>, Unit, TValue>(sink, new ParameterSliderState<TValue, TKey>(None, None), None)
     where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
     where TKey : struct, INumber<TKey>
     where TError : Error, IValidationError<TError> {
-    // --- [STATE]
-    private readonly Presentation<TValue, TKey> presentation;
-    private readonly NumberText<TKey> text;
-    private ParameterSliderState<TValue, TKey> state = new(None, None);
+    // --- [METRICS]
+    private const int TickIntervals = 10;
 
-    public ParameterSlider(Presentation<TValue, TKey> presentation, NumberText<TKey> text, IPlugInSink sink) : base(sink) =>
-        (this.presentation, this.text) = (presentation, text);
+    private static readonly MarkStyle Groove = new MarkStyle.Fill(PaintSlot.ControlText, 0.22f);
+    private static readonly MarkStyle Span = new MarkStyle.Fill(PaintSlot.Highlight, 1f);
+    private static readonly MarkStyle Tick = new MarkStyle.Stroke(PaintSlot.ControlText, 0.4f, 1f);
+    private static readonly MarkStyle Face = new MarkStyle.Fill(PaintSlot.ControlBackground, 1f);
+    private static readonly MarkStyle Lifted = new MarkStyle.Stroke(PaintSlot.ControlText, 1f, 1f);
+    private static readonly MarkStyle Focused = new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 2f);
 
-    public IO<Unit> Receive(Option<TValue> value) => IO.lift(() => state).Bind(held => Placed(held with { Shown = value }));
+    private readonly float knob = EtoFonts.SmallFont.LineHeight;
 
-    private IO<Unit> Placed(ParameterSliderState<TValue, TKey> next) =>
-        IO.lift(() => {
-            state = next;
-            Value = Position(next);
-        });
+    private RectangleF Bar(SizeF size) => new(knob / 2f, (knob - Plots.Inset) / 2f, float.Max(size.Width - knob, 0f), Plots.Inset);
 
-    private IO<Unit> Moved(ParameterSliderState<TValue, TKey> held, TKey key, Func<TValue, Edit<TValue>> edit, Func<TValue, ParameterSliderState<TValue, TKey>> next) =>
-        held.Shown.Exists(shown => shown.ToValue() == key)
-            ? Placed(held)
-            : (from value in IO.lift(Conversions.Validated<TValue, TKey, TError>(key))
-               from _ in Placed(next(value))
-               from __ in Raised(edit(value))
-               select unit)
-                .Catch(static error => error.IsType<TError>(), _ => Placed(held));
+    private static PlotPlane.Cartesian Plane(RectangleF bar) => new(bar, new Axis.Linear(AxisRange.Unit), new Axis.Linear(AxisRange.Unit));
 
-    private IO<Unit> Previewed(ParameterSliderState<TValue, TKey> held, SliderGrip<TValue, TKey> grip, TKey key) =>
-        Moved(held with { Grip = grip }, key, static value => new Edit<TValue>.Preview(value), value => held with { Shown = value, Grip = grip with { Open = value } });
+    protected override Option<float> Fitted(ParameterSliderState<TValue, TKey> state, float width) => knob + Plots.Inset;
 
-    private IO<Unit> Stepping(ParameterSliderState<TValue, TKey> held, Func<TKey, (TKey Low, TKey High), TKey> next) =>
-        held.Shown.Match(
-            Some: shown => Moved(held, next(shown.ToValue(), Track(held)), static value => new Edit<TValue>.Step(value), value => held with { Shown = value }),
-            None: () => Placed(held));
+    // --- [LAYOUT]
+    protected override Seq<PlotMark<Unit>> Layout(ParameterSliderState<TValue, TKey> state, SizeF size, float scale) =>
+        (Plane(Bar(size)), Position(state)) switch {
+            var (plane, position) =>
+                Seq(new PlotMark<Unit>(new MarkShape.Band(new RectangleF(size)), None, Some(new MarkPart<Unit>(unit, 0f))))
+                    + Filled(state, plane, position)
+                    + toSeq(Range(0, TickIntervals + 1)).Map(index => plane.Point((float)index / TickIntervals, 0f).X switch {
+                        var x => new PlotMark<Unit>(new MarkShape.Rule(new PointF(x, knob), new PointF(x, knob + Plots.Inset)), Tick, None),
+                    })
+                    + Seq(new PlotMark<Unit>(new MarkShape.Disc(plane.Point((float)position, 0.5f), knob - 1f), Face, None),
+                        new PlotMark<Unit>(new MarkShape.Disc(plane.Point((float)position, 0.5f), knob - 1f), MarkStyle.Ring, None)),
+        };
 
-    private IO<Unit> Released(ParameterSliderState<TValue, TKey> held, Func<TValue, Edit<TValue>> close) =>
-        held.Grip.Match(
-            Some: grip => Placed(held with { Grip = None }).Bind(_ => grip.Open.Match(Some: open => Raised(close(open)), None: static () => IO.pure(unit))),
-            None: static () => IO.pure(unit));
-
-    // --- [EDITS]
-    public event EventHandler<Edit<TValue>>? Edited;
-
-    private IO<Unit> Raised(Edit<TValue> edit) => IO.lift(() => Edited?.Invoke(this, edit));
-
-    private static Edit<TValue> Cancelled(TValue _) => new Edit<TValue>.Cancel();
+    private Seq<PlotMark<Unit>> Filled(ParameterSliderState<TValue, TKey> state, PlotPlane.Cartesian plane, double position) =>
+        presentation.Stops.IsSome
+            ? Seq<PlotMark<Unit>>()
+            : new PlotMark<Unit>(new MarkShape.Band(plane.Plot), Groove, None).Cons(state.Shown.Map(_ => new PlotMark<Unit>(new MarkShape.Band(RectangleF.FromSides(
+                plane.Point((float)double.Min(Origin(state), position), 0f).X, plane.Plot.Top,
+                plane.Point((float)double.Max(Origin(state), position), 0f).X, plane.Plot.Bottom)), Span, None)).ToSeq());
 
     // --- [TRACK]
-    private double Native => (double)Value / TrackSteps;
-
-    private (TKey Low, TKey High) Track(ParameterSliderState<TValue, TKey> held) =>
-        held.Grip.Match(
+    private (TKey Low, TKey High) Track(ParameterSliderState<TValue, TKey> state) =>
+        state.Grip.Match(
             Some: static grip => grip.Track,
-            None: () => held.Shown.Match(Some: shown => presentation.Track(shown.ToValue()), None: () => presentation.Soft));
+            None: () => state.Shown.Match(Some: shown => presentation.Track(shown.ToValue()), None: () => presentation.Soft));
 
-    private int Position(ParameterSliderState<TValue, TKey> held) =>
-        held.Shown.Match(Some: shown => (int)Math.Round(presentation.Position(shown.ToValue(), Track(held)) * TrackSteps, MidpointRounding.ToEven), None: static () => 0);
+    private double Position(ParameterSliderState<TValue, TKey> state) =>
+        state.Shown.Match(Some: shown => presentation.Position(shown.ToValue(), Track(state)), None: static () => 0d);
+
+    private double Origin(ParameterSliderState<TValue, TKey> state) =>
+        presentation.Origin.Map(origin => presentation.Position(origin, Track(state))).IfNone(0d);
 
     private TKey Keyed(double position, (TKey Low, TKey High) track) =>
         NumericRows.Narrowed<TKey>(presentation.Key(position, track));
 
-    private TKey Dragged(SliderGrip<TValue, TKey> grip, double raw, Keys modifiers) =>
-        ComponentControl.Snaps(modifiers)
-            ? TKey.Clamp(text.Snapped(Keyed(raw, grip.Track)), grip.Track.Low, grip.Track.High)
-            : Keyed(grip.Pressed + ((raw - grip.Pressed) * ComponentControl.Scale(modifiers)), grip.Track);
-
     private TKey Stepped(TKey from, double steps, Keys modifiers, (TKey Low, TKey High) track) =>
-        TKey.Clamp(
-            ComponentControl.Snaps(modifiers) ? text.Snapped(text.Moved(from, steps)) : text.Moved(from, steps * ComponentControl.Scale(modifiers)),
-            track.Low,
-            track.High);
+        TKey.Clamp(Snaps(modifiers) ? text.Snapped(text.Moved(from, steps)) : text.Moved(from, steps * Scale(modifiers)), track.Low, track.High);
 
-    // --- [INPUT]
-    protected override void OnValueChanged(EventArgs e) {
-        _ = Run(held => unless(Value == Position(held), Changed(held, Native)).As());
-        base.OnValueChanged(e);
-    }
+    private double Pointed(SizeF size, PointF point) => Plane(Bar(size)).Value(point).First;
 
-    protected override void OnMouseDown(MouseEventArgs e) {
-        _ = Run(held => Pressing(held, e));
-        base.OnMouseDown(e);
-    }
+    // --- [TRANSITIONS]
+    protected override ParameterSliderState<TValue, TKey> Received(ParameterSliderState<TValue, TKey> state, Option<TValue> value) => state with { Shown = value };
 
-    protected override void OnMouseUp(MouseEventArgs e) {
-        _ = Run(held => Released(held, e.Buttons == MouseButtons.None ? Cancelled : static open => new Edit<TValue>.Commit(open)));
-        base.OnMouseUp(e);
-    }
+    private static Transition<ParameterSliderState<TValue, TKey>, TValue> Moved(ParameterSliderState<TValue, TKey> state, TKey key, Func<TValue, Edit<TValue>> edit) =>
+        state.Shown.Exists(shown => shown.ToValue() == key)
+            ? new(state, None)
+            : Conversions.Validated<TValue, TKey, TError>(key).Match(
+                Succ: value => new Transition<ParameterSliderState<TValue, TKey>, TValue>(state with { Shown = Some(value) }, Some(edit(value))),
+                Fail: _ => new Transition<ParameterSliderState<TValue, TKey>, TValue>(state, None));
 
-    protected override void OnMouseWheel(MouseEventArgs e) {
-        _ = Run(held => Claimed(
-            HasFocus && e.Delta.Height != 0 ? Some(Stepping(held, (from, track) => Stepped(from, Math.Sign(e.Delta.Height), e.Modifiers, track))) : None,
-            () => e.Handled = true));
-        if (e.Handled) return;
+    private Option<Transition<ParameterSliderState<TValue, TKey>, TValue>> Stepping(ParameterSliderState<TValue, TKey> state, Func<TKey, (TKey Low, TKey High), TKey> next) =>
+        state.Shown.Map(shown => Moved(state, next(shown.ToValue(), Track(state)), static value => new Edit<TValue>.Step(value)));
 
-        base.OnMouseWheel(e);
-    }
+    protected override Option<Transition<ParameterSliderState<TValue, TKey>, TValue>> Pressed(
+        ParameterSliderState<TValue, TKey> state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
+        part.Filter(_ => e.Buttons == MouseButtons.Primary).Map(_ => (Knob: Position(state), Pointer: double.Clamp(Pointed(size, e.Location), 0d, 1d)) switch {
+            var press when Math.Abs(press.Pointer - press.Knob) * Bar(size).Width <= DragThreshold =>
+                new Transition<ParameterSliderState<TValue, TKey>, TValue>(state with { Grip = new SliderGrip<TKey>(press.Knob, press.Pointer, Track(state)) }, None),
+            var press => new SliderGrip<TKey>(press.Pointer, press.Pointer, Track(state)) switch {
+                var grip => Moved(state with { Grip = grip }, Keyed(press.Pointer, grip.Track), static value => new Edit<TValue>.Preview(value)),
+            },
+        });
 
-    protected override void OnKeyDown(KeyEventArgs e) {
-        _ = Run(held => Claimed(Keying(held, e), () => e.Handled = true));
-        if (e.Handled) return;
+    protected override Transition<ParameterSliderState<TValue, TKey>, TValue> Dragged(
+        ParameterSliderState<TValue, TKey> state, SizeF size, float scale, Option<Unit> part, PointF origin, PointF previous, MouseEventArgs e) =>
+        state.Grip.Map(grip => (grip.Knob + ((Pointed(size, e.Location) - grip.Pointer) * Scale(e.Modifiers))) switch {
+            var raw => Moved(state, Snaps(e.Modifiers) ? TKey.Clamp(text.Snapped(Keyed(raw, grip.Track)), grip.Track.Low, grip.Track.High) : Keyed(raw, grip.Track),
+                static value => new Edit<TValue>.Preview(value)),
+        }).IfNone(new Transition<ParameterSliderState<TValue, TKey>, TValue>(state, None));
 
-        base.OnKeyDown(e);
-    }
+    protected override Transition<ParameterSliderState<TValue, TKey>, TValue> Released(
+        ParameterSliderState<TValue, TKey> state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
+        new(state with { Grip = None }, None);
 
-    private IO<Unit> Changed(ParameterSliderState<TValue, TKey> held, double raw) =>
-        held.Grip.Match(
-            Some: grip => grip.Open.IsNone && Math.Abs(raw - grip.Pressed) * Width <= ComponentControl.DragThreshold
-                ? Placed(held)
-                : Previewed(held, grip, Dragged(grip, raw, Keyboard.Modifiers)),
-            None: () => Stepping(held, (_, track) => Keyed(raw, track)));
-
-    private IO<Unit> Pressing(ParameterSliderState<TValue, TKey> held, MouseEventArgs e) =>
-        (held.Grip.IsSome, e.Buttons == MouseButtons.Primary) switch {
-            (false, true) => Gripped(held, Native, e.Location.X / Width),
-            (true, false) => Released(held, Cancelled),
-            _ => IO.pure(unit),
-        };
-
-    private IO<Unit> Gripped(ParameterSliderState<TValue, TKey> held, double knob, double press) =>
-        IO.lift(Focus).Bind(_ => Math.Abs(press - knob) * Width > ComponentControl.DragThreshold
-            ? new SliderGrip<TValue, TKey>(press, Track(held), None) switch { var grip => Previewed(held, grip, Keyed(press, grip.Track)) }
-            : Placed(held with { Grip = new SliderGrip<TValue, TKey>(knob, Track(held), None) }));
-
-    private Option<IO<Unit>> Keying(ParameterSliderState<TValue, TKey> held, KeyEventArgs e) =>
+    protected override Option<Transition<ParameterSliderState<TValue, TKey>, TValue>> KeyPressed(
+        ParameterSliderState<TValue, TKey> state, SizeF size, float scale, Option<Unit> part, KeyEventArgs e) =>
         e.Key switch {
-            Keys.Escape when held.Grip.Exists(static grip => grip.Open.IsSome) => Released(held, Cancelled),
-            Keys.Right or Keys.Up or Keys.Left or Keys.Down => Stepping(held, (from, track) => Stepped(from, e.Key is Keys.Right or Keys.Up ? 1 : -1, e.Modifiers, track)),
-            Keys.PageUp or Keys.PageDown => Stepping(held, (from, track) => Keyed(presentation.Position(from, track) + ((e.Key == Keys.PageUp ? 1d : -1d) / TickIntervals), track)),
-            Keys.Home or Keys.End => Stepping(held, (_, track) => e.Key == Keys.Home ? track.Low : track.High),
+            Keys.Right or Keys.Up or Keys.Left or Keys.Down =>
+                Stepping(state, (from, track) => Stepped(from, e.Key is Keys.Right or Keys.Up ? 1d : -1d, e.Modifiers, track)),
+            Keys.PageUp or Keys.PageDown =>
+                Stepping(state, (from, track) => Keyed(presentation.Position(from, track) + ((e.Key == Keys.PageUp ? 1d : -1d) / TickIntervals), track)),
+            Keys.Home or Keys.End => Stepping(state, (_, track) => e.Key == Keys.Home ? track.Low : track.High),
             _ => None,
         };
 
-    private static IO<Unit> Claimed(Option<IO<Unit>> answer, Action claim) =>
-        answer.Match(Some: step => IO.lift(claim).Bind(_ => step), None: static () => IO.pure(unit));
+    protected override Option<Transition<ParameterSliderState<TValue, TKey>, TValue>> Scrolled(
+        ParameterSliderState<TValue, TKey> state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
+        Stepping(state, (from, track) => Stepped(from, Math.Sign(e.Delta.Height), e.Modifiers, track));
 
-    // --- [PLATFORM]
-    public override bool Mixed => state.Shown.IsNone;
-    public override Option<double> Origin => presentation.Origin.Map(origin => presentation.Position(origin, Track(state)));
-    public override string ValueText => text.Shown(state.Shown.Map(static shown => shown.ToValue()));
-    public override Option<Vector4> Fill(double position) => presentation.Fill(presentation.Key(position, Track(state)));
+    protected override Option<Transition<ParameterSliderState<TValue, TKey>, TValue>> Stepped(
+        ParameterSliderState<TValue, TKey> state, SizeF size, float scale, Unit part, int steps) =>
+        Stepping(state, (from, track) => Stepped(from, steps, Keys.None, track));
 
-    public override bool Adjust(int steps) =>
-        !Mixed && Run(held => Stepping(held, (from, track) => Stepped(from, steps, Keys.None, track)));
+    // --- [ACCESSIBILITY]
+    protected override PartFacet Facet(ParameterSliderState<TValue, TKey> state, Unit key) =>
+        new(PartRole.Slider, Cursors.Default, caption, Some(text.Shown(state.Shown.Map(static shown => shown.ToValue()))), None);
 
-    // --- [LIFETIME]
-    protected override void OnLostFocus(EventArgs e) {
-        _ = Run(held => Released(held, Cancelled));
-        base.OnLostFocus(e);
-    }
+    // --- [PAINT]
+    protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, ParameterSliderState<TValue, TKey> state, Seq<PlotMark<Unit>> marks, Interaction<Unit> interaction) =>
+        Plane(Bar(bounds.Size)) switch {
+            var plane =>
+                from stops in when(presentation.Stops.IsSome, Plots.Strip(canvas, plane, position => presentation.Fill(presentation.Key(position, Track(state)))
+                    .Map(static light => Plots.Encoded(Gamut.StandardRgb, light.AsVector3()))
+                    .IfNone(Colors.Transparent))).As()
+                from veil in IO.lift(() => HostTheme.Veil(canvas.Slots, canvas.Slots[PaintSlot.ControlBackground])
+                    .Filter(_ => !canvas.Enabled)
+                    .Iter(alpha => canvas.Graphics.FillRectangle(new Color(canvas.Slots[PaintSlot.ControlBackground], alpha), plane.Plot)))
+                from painted in Plots.Paint(canvas, marks.Map(mark => mark.Style == Some(MarkStyle.Ring) ? mark with { Style = Ringed(canvas.Focused, interaction) } : mark))
+                select unit,
+        };
 
-    protected override void OnEnabledChanged(EventArgs e) {
-        _ = Run(held => unless(Enabled, Released(held, Cancelled)).As());
-        base.OnEnabledChanged(e);
-    }
-
-    protected override void OnUnLoad(EventArgs e) {
-        _ = Run(held => Released(held, Cancelled));
-        base.OnUnLoad(e);
-    }
-
-    private bool Run(Func<ParameterSliderState<TValue, TKey>, IO<Unit>> transition, [CallerMemberName] string member = "") =>
-        Callbacks.Succeeded(IO.lift(() => state).Bind(transition), new CallbackSite(Sink, GetType(), member));
+    private static MarkStyle Ringed(bool focused, Interaction<Unit> cues) =>
+        focused ? Focused : cues.Hovered.IsSome || cues.Pressed.IsSome ? Lifted : MarkStyle.Ring;
 }

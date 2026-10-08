@@ -56,13 +56,13 @@ internal static partial class NoticeMapper {
 
 public static class Status {
     // --- [PACING]
-    public static IO<A> Paced<A>(RhinoDoc doc, string label, int total, Func<IProgress<int>, IO<A>> work, IPlugInSink sink) =>
+    public static IO<T> Paced<T>(RhinoDoc doc, string label, int total, Func<IProgress<int>, IO<T>> work, IPlugInSink sink) =>
         from reading in IO.lift(static () => Atom<WorkState>(new WorkState.Indeterminate()))
         let progress = new WorkProgress(reading, total, new CallbackSite(sink, typeof(WorkProgress), nameof(WorkProgress.Report)))
         from forked in work(progress).Fork()
         from value in DisposalOps.AcquireAll(
                 Seq(
-                    IO.pure<IDisposable>(new Disposal<ForkIO<A>>(forked, static held => held.Cancel.Run())),
+                    IO.pure<IDisposable>(new Disposal<ForkIO<T>>(forked, static held => held.Cancel.Run())),
                     IO.pure<IDisposable>(progress),
                     Metered(doc, label, total, reading, sink),
                     EventKind.EscapeKeyPressed.Inline(_ => forked.Cancel, sink)),
@@ -96,7 +96,7 @@ public static class Status {
             counted: static (held, counted) => ignore(StatusBar.UpdateProgressMeter(held, counted.Work.Done, absolute: true))));
 
     // --- [NOTICES]
-    public static IO<Disposal<Notification>> Raise(Notice notice, Option<NoticeReplies> replies, IPlugInSink sink) =>
+    public static IO<Disposal<Notification>> Show(Notice notice, Option<NoticeReplies> replies, IPlugInSink sink) =>
         IO.lift(() => Notification.ExecuteAssemblyProtectedCode(() => Added(notice, replies, sink)));
 
     public static IO<Unit> Revise(Disposal<Notification> held, Notice notice) =>
@@ -105,14 +105,14 @@ public static class Status {
     private static Disposal<Notification> Added(Notice notice, Option<NoticeReplies> replies, IPlugInSink sink) {
         Notification raised = new([typeof(Status).Assembly]);
         NoticeMapper.Update(notice, raised);
-        replies.Iter(reply => Replied(raised, reply, sink));
-        NotificationCenter.Notifications.Add(raised);
-        return new Disposal<Notification>(raised, static held => _ = NotificationCenter.Notifications.Remove(held));
+        _ = replies.Iter(reply => Replied(raised, reply, sink));
+        global::Rhino.Runtime.Notifications.NotificationCenter.Notifications.Add(raised);
+        return new Disposal<Notification>(raised, static held => _ = global::Rhino.Runtime.Notifications.NotificationCenter.Notifications.Remove(held));
     }
 
     private static void Replied(Notification raised, NoticeReplies reply, IPlugInSink sink) {
         (raised.ConfirmButtonTitle, raised.AlternateButtonTitle) = (Conversions.Unset(reply.Confirm), Conversions.Unset(reply.Alternate));
         raised.ButtonClicked = button => _ = Callbacks.Answer(button, reply.Clicked, static () => unit, new CallbackSite(sink, typeof(Notification), nameof(Notification.ButtonClicked)));
-        reply.Cancel.Iter(title => raised.CancelButtonTitle = title);
+        _ = reply.Cancel.Iter(title => raised.CancelButtonTitle = title);
     }
 }

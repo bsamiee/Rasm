@@ -9,7 +9,6 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry.Collections;
 using Rhino.UI;
-using Riok.Mapperly.Abstractions;
 using Wacton.Unicolour;
 
 namespace Rasm.Rhino.Display;
@@ -71,7 +70,7 @@ public sealed partial class CurvatureFit {
 
     public IO<CurvatureAnalysisSettingsState> Fit(Seq<Mesh> meshes, Option<CurvatureAnalysisSettings.CurvatureStyle> style = default) =>
         from state in AppSettings.CurvatureAnalysis.Current
-        from selected in IO.lift(() => style.Iter(value => AnalysisMapper.Update(value, state)))
+        from selected in IO.lift(() => style.Iter(value => state.Style = value))
         from fitted in IO.lift(() => Calculate(meshes, state))
         select fitted;
 
@@ -96,7 +95,7 @@ public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : Visua
     protected sealed override void SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) =>
         _ = definition.Switch(
             (Object: obj, Attributes: attributes, Site: CallbackSite.Of(this)),
-            falseColor: static (args, _) => Callbacks.Answer(IO.lift(() => AnalysisMapper.Update(shadeVertexColors: true, args.Attributes)), static () => unit, args.Site),
+            falseColor: static (args, _) => Callbacks.Answer(IO.lift(() => { args.Attributes.ShadeVertexColors = true; }), static () => unit, args.Site),
             texture: static (args, texture) => Callbacks.Answer(args, input => texture.SetUp(input.Object, input.Attributes), static () => unit, args.Site),
             wireframe: static (_, _) => unit);
 
@@ -145,13 +144,4 @@ public static class AnalysisModes {
     // --- [OBJECTS]
     public static IO<Unit> Enable(RhinoDoc doc, Seq<RhinoObject> objects, VisualAnalysisMode mode, bool enabled, RedrawPolicy redraw) =>
         Commits.WithinRedraw(doc, redraw, IO.lift(() => Callbacks.Each(objects, obj => obj.EnableVisualAnalysisMode(mode, enabled), nameof(RhinoObject.EnableVisualAnalysisMode))));
-}
-
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-internal static partial class AnalysisMapper {
-    [MapPropertyFromSource(nameof(DisplayPipelineAttributes.ShadeVertexColors))]
-    internal static partial void Update(bool shadeVertexColors, DisplayPipelineAttributes attributes);
-
-    [MapPropertyFromSource(nameof(CurvatureAnalysisSettingsState.Style))]
-    internal static partial void Update(CurvatureAnalysisSettings.CurvatureStyle style, CurvatureAnalysisSettingsState state);
 }

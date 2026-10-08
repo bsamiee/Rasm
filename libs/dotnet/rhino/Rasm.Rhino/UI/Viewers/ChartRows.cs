@@ -72,18 +72,18 @@ public static class ChartRows {
         from held in IO.lift(() => Atom(new ScopeHeld(sources.Head, None, None)))
         from view in IO.lift(() => new ScopeView(
             scope.Sink, Wording.English.Shown(caption, scope.Sink), new ScopeEdit.Chart(source.Default.Options, source.Default.Aspect), held.ValueIO.Bind(static shown => shown.Source.Frames)))
-        from label in IO.lift(static () => new Label { Wrap = WrapMode.None, Font = Themes.Digits(EtoFonts.SmallFont) })
+        from label in IO.lift(static () => new Label { Wrap = Eto.Forms.WrapMode.None, Font = HostTheme.Digits(EtoFonts.SmallFont) })
         from popup in ChoiceRows.Popup(
-            toSeq(ScopeKind.Items).Map(static kind => new ChoiceItem<ScopeKind>(kind, ScopeView.Caption(kind), None)), static kind => Chosen(view, options => options with { Kind = kind }), scope.Sink)
+            toSeq(ScopeKind.Items).Map(static kind => new ChoiceItem<ScopeKind>(kind, ScopeView.Caption(kind), None)), kind => Chosen(view, options => options with { Kind = kind }), scope.Sink)
         let site = new CallbackSite(scope.Sink, typeof(ScopeView), nameof(ScopeView.Edited))
         from bound in DisposalOps.OnFailure(
-            RowEdit.Bind<ScopeState, EventHandler<Edit<ScopeEdit>>>(
-                source, fields, static h => view.Edited += h, static h => view.Edited -= h,
-                static edit => Callbacks.Handler<Edit<ScopeEdit>>(change => edit.Take(change, Into), site),
-                static value =>
+            RowEdit.Bind(
+                source, fields, h => view.Edited += h, h => view.Edited -= h,
+                edit => Callbacks.Handler<EditEventArgs<ScopeEdit>>(args => edit.Take(args.Edit, Into), site),
+                value =>
                     from received in view.Receive(value.Map(static state => (ScopeEdit)new ScopeEdit.Chart(state.Options, state.Aspect)))
                     from picked in popup.Show(value.Map(static state => state.Options.Kind))
-                    from inked in IO.lift(static () => label.TextColor = new Color(PaintSlot.ControlText.Read(), MarkStyle.Label.Alpha))
+                    from inked in IO.lift(() => label.TextColor = new Color(PaintSlot.ControlText.Read(), MarkStyle.Label.Alpha))
                     select unit,
                 scope, site),
             IO.lift(popup.Release.Dispose))
@@ -150,11 +150,11 @@ public static class ChartRows {
         from frozen in Subscriptions.Attach(
             h => command.CheckedChanged += h, h => command.CheckedChanged -= h,
             Callbacks.Handler<EventArgs>(_ =>
-                from on in IO.lift(() => command.Checked)
-                from swapped in held.SwapIO(static state => state with { Frozen = on? state.Pointed : None })
+                from ticked in IO.lift(() => command.Checked)
+                from swapped in held.SwapIO(state => state with { Frozen = ticked ? state.Pointed : None })
                 select unit, site))
         from toggle in DisposalOps.OnFailure(ToggleRows.Command(command, GlyphRole.LockClosed, IconSlot.PanelButton, sink), IO.lift(frozen.Dispose))
-        select(toggle.Control, command, DisposalOps.Composite(Seq(frozen, toggle.Release), site));
+        select (toggle.Control, command, DisposalOps.Composite(Seq(frozen, toggle.Release), site));
 
     private static IO<Unit> Ticked(
         ScopeView view, Label label, Option<CheckCommand> padlock, Option<FrameLink> link, Atom<ScopeHeld> held, RowSource<ScopeState> source, RowScope scope) =>
@@ -165,7 +165,7 @@ public static class ChartRows {
         from state in scope.Read(source)
         let text = Reading(marks, frames, shown.Frozen | pointer, state.Sample)
         from labelled in IO.lift(() => label.Text)
-        from written in when(labelled != text, IO.lift(() => { label.Text = text; })).As()
+        from written in when(!string.Equals(labelled, text, StringComparison.Ordinal), IO.lift(() => { label.Text = text; })).As()
         from enabled in IO.lift(() => padlock.Iter(command => command.Enabled = shown.Pointed.IsSome))
         from masked in link.Match(
             Some: linked => frames.Map(formed => Masks(marks, formed)).IfNone(Seq<FrameMask>()) switch {
@@ -174,48 +174,48 @@ public static class ChartRows {
             None: static () => IO.pure(unit))
         select unit;
 
-private static string Reading(ScopeMarks marks, Option<ScopeFrames> frames, Option<System.Drawing.Point> pixel, SampleSquare square) =>
-    marks.Hovered.Match(
-            Some: static hovered => Binned(hovered.Bin, hovered.Reading),
-            None: () => from shown in frames from at in pixel from text in Sampled(shown, at, square) select text)
-        .IfNone("");
+    private static string Reading(ScopeMarks marks, Option<ScopeFrames> frames, Option<System.Drawing.Point> pixel, SampleSquare square) =>
+        marks.Hovered.Match(
+                Some: static hovered => Binned(hovered.Bin, hovered.Reading),
+                None: () => from shown in frames from at in pixel from text in Sampled(shown, at, square) select text)
+            .IfNone("");
 
-private static Option<string> Binned(int bin, ScopeReading.Histogram reading) =>
-    toSeq(MemoryMarshal.ToEnumerable(reading.Bins.Luma.Counts))
-        .Map((count, at) => (Below: at <= bin ? count : 0L, Covered: (long)count))
-        .Fold((Below: 0L, Covered: 0L), static (sum, entry) => (sum.Below + entry.Below, sum.Covered + entry.Covered)) switch {
-            (_, 0L) => None,
-            var (below, covered) => Some(RowText.Localize(
-                    "{0:F3} · bin {1} · {2} · {3:F3} %", arguments: [HistogramAxis.LowerBound(bin), bin, reading.Bins.Luma.Row(0)[bin], 100d * below / covered]).Local),
-        };
+    private static Option<string> Binned(int bin, ScopeReading.Histogram reading) =>
+        toSeq(MemoryMarshal.ToEnumerable(reading.Bins.Luma.Counts))
+            .Map((count, at) => (Below: at <= bin ? count : 0L, Covered: (long)count))
+            .Fold((Below: 0L, Covered: 0L), static (sum, entry) => (sum.Below + entry.Below, sum.Covered + entry.Covered)) switch {
+                (_, 0L) => None,
+                var (below, covered) => Some(RowText.Localize(
+                        "{0:F3} · bin {1} · {2} · {3:F3} %", arguments: [HistogramAxis.LowerBound(bin), bin, reading.Bins.Luma.Row(0)[bin], 100d * below / covered]).Local),
+            };
 
-private static Option<string> Sampled(ScopeFrames frames, System.Drawing.Point pixel, SampleSquare square) =>
-    frames.Scene.Match(
-        Some: scene =>
-            from linear in square.Mean(scene.Frame, pixel)
-            from formed in square.Mean(frames.Frame, pixel)
-            select RowText.Localize(
-                "{0:F3} {1:F3} {2:F3} → {3:F3} {4:F3} {5:F3} · {6} × {6}", arguments: [linear.X, linear.Y, linear.Z, formed.X, formed.Y, formed.Z, square.Key]).Local,
-        None: () => square.Mean(frames.Frame, pixel).Map(formed =>
-            RowText.Localize("{0:F3} {1:F3} {2:F3} · {3} × {3}", arguments: [formed.X, formed.Y, formed.Z, square.Key]).Local));
+    private static Option<string> Sampled(ScopeFrames frames, System.Drawing.Point pixel, SampleSquare square) =>
+        frames.Scene.Match(
+            Some: scene =>
+                from linear in square.Mean(scene.Frame, pixel)
+                from formed in square.Mean(frames.Frame, pixel)
+                select RowText.Localize(
+                    "{0:F3} {1:F3} {2:F3} → {3:F3} {4:F3} {5:F3} · {6} × {6}", arguments: [linear.X, linear.Y, linear.Z, formed.X, formed.Y, formed.Z, square.Key]).Local,
+            None: () => square.Mean(frames.Frame, pixel).Map(formed =>
+                RowText.Localize("{0:F3} {1:F3} {2:F3} · {3} × {3}", arguments: [formed.X, formed.Y, formed.Z, square.Key]).Local));
 
-private static Seq<FrameMask> Masks(ScopeMarks marks, ScopeFrames frames) =>
-    marks.Selection.Map(range => new FrameMask(new Coverage.Luma(frames.Gamut, range), MarkStyle.Selection)).ToSeq()
-        .Concat(
-            from end in marks.Clips.ToSeq()
-            from levels in frames.Levels.Map(static quantizer => quantizer.Clipping).ToSeq()
-            from clip in Seq((Shown: end.Below, End: ClipEnd.Low, Channel: TraceChannel.Blue), (Shown: end.Above, End: ClipEnd.High, Channel: TraceChannel.Red))
-            where clip.Shown
-            select new FrameMask(new Coverage.Clipped(levels, clip.End), new MarkStyle.Fill(new MarkColor.Trace(clip.Channel), 1f)));
+    private static Seq<FrameMask> Masks(ScopeMarks marks, ScopeFrames frames) =>
+        marks.Selection.Map(range => new FrameMask(new Coverage.Luma(frames.Gamut, range), MarkStyle.Selection)).ToSeq()
+            .Concat(
+                from end in marks.Clips.ToSeq()
+                from levels in frames.Levels.Map(static quantizer => quantizer.Clipping).ToSeq()
+                from clip in Seq((Shown: end.Below, End: ClipEnd.Low, Channel: TraceChannel.Blue), (Shown: end.Above, End: ClipEnd.High, Channel: TraceChannel.Red))
+                where clip.Shown
+                select new FrameMask(new Coverage.Clipped(levels, clip.End), new MarkStyle.Fill(new MarkColor.Trace(clip.Channel), 1f)));
 
-// --- [RAMP_KEY]
-public static ControlRow RampKey(string caption, string help, Func<RowScope, IO<Option<AgXLook>>> look, RowRules rules) =>
-    new ControlRow.Readout(RowShape.Block, scope =>
-        from shown in look(scope)
-        from ramp in IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(caption, scope.Sink), new GradientRampState.Key(shown)))
-        select new RowCells(
-            ramp, None, None, None, [], [], new RowHelp(None, None),
-            look(scope).Bind(current => ramp.Advance(_ => new(new GradientRampState.Key(current), None))),
-            None, None, ramp),
-        caption, help, rules);
+    // --- [RAMP_KEY]
+    public static ControlRow RampKey(string caption, string help, Func<RowScope, IO<Option<AgXLook>>> look, RowRules rules) =>
+        new ControlRow.Readout(RowShape.Block, scope =>
+            from shown in look(scope)
+            from ramp in IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(caption, scope.Sink), new GradientRampState.Key(shown)))
+            select new RowCells(
+                ramp, None, None, None, [], [], new RowHelp(None, None),
+                look(scope).Bind(current => ramp.Advance(_ => new(new GradientRampState.Key(current), None))),
+                None, None, ramp),
+            caption, help, rules);
 }
