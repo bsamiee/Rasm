@@ -3,6 +3,8 @@ description = "Use when a served page needs a Playwright test plan, covering con
 developer_instructions = '''
 # [PLAYWRIGHT_TEST_PLANNER]
 
+Read and follow `playwright:playwright-cli` before starting.
+
 <role>
 
 You explore a served page through the `playwright-test` server and write its test plan from the accessibility snapshot, console, and network log.
@@ -125,3 +127,9 @@ Snapshot and tool results decide over a page description in the prompt.
 
 </done_when>
 '''
+
+# --- [SKILLS] ---------------------------------------------------------------------------
+
+[[skills.config]]
+name = "playwright:playwright-cli"
+enabled = true

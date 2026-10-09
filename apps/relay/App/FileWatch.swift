@@ -1,7 +1,15 @@
+import CoreServices
 import CryptoKit
 import Dispatch
 import Foundation
 import System
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+nonisolated enum FileWatchFailure: Error {
+    case creation
+    case registration
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -19,8 +27,27 @@ nonisolated enum FileWatch {
                 debounce: debounce,
                 continuation: continuation,
             )
-            continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stop() } }
             watcher.enqueue { watcher in watcher.start() }
+            continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stop() } }
+        }
+    }
+
+    private final class EventHandler: Sendable {
+        let receive: @Sendable ([FilePath]) -> Void
+
+        init(receive: @escaping @Sendable ([FilePath]) -> Void) {
+            self.receive = receive
+        }
+
+        static let callback: FSEventStreamCallback = { _, context, count, paths, _, _ in
+            _ = unsafe context.map { context in
+                let handler: EventHandler = unsafe Unmanaged<EventHandler>.fromOpaque(context).takeUnretainedValue()
+                let paths: [FilePath] = unsafe UnsafeBufferPointer(
+                    start: paths.assumingMemoryBound(to: UnsafePointer<CChar>.self),
+                    count: count,
+                ).map(unsafe FilePath.init(platformString:))
+                handler.receive(paths)
+            }
         }
     }
 
@@ -31,11 +58,9 @@ nonisolated enum FileWatch {
         private let debounce: Duration?
         private let continuation: AsyncThrowingStream<Value, any Error>.Continuation
         private let queue: DispatchSerialQueue = DispatchSerialQueue(label: "app.rasm.relay.filewatch")
-        private var directorySource: (any DispatchSourceFileSystemObject)?
-        private var fileSource: (any DispatchSourceFileSystemObject)?
+        private var stopStream: (() -> Void)?
         private var pending: Task<Void, Never>?
         private var value: Value?
-        private var stopped: Bool = false
 
         init(
             file: URL,
@@ -57,67 +82,67 @@ nonisolated enum FileWatch {
         }
 
         func start() {
-            value = read(file)
-            let directory: Result<any DispatchSourceFileSystemObject, any Error> = Result {
-                try source(path: file.deletingLastPathComponent().path, events: .write) { watcher in
-                    watcher.openFileSource()
-                    watcher.scheduleEmit()
+            let handler: EventHandler = EventHandler { [weak self] paths in
+                self?.assumeIsolated { watcher in
+                    let file: FilePath = FilePath(watcher.file.path)
+                    let resolved: FilePath = FilePath(watcher.file.resolvingSymlinksInPath().path)
+                    if paths.contains(where: { file.starts(with: $0) || resolved.starts(with: $0) }) {
+                        watcher.scheduleEmit()
+                    }
                 }
             }
-            switch directory {
-                case .success(let source):
-                    directorySource = source
-                    openFileSource()
-                case .failure(let error): continuation.finish(throwing: error)
+            var context: FSEventStreamContext = unsafe FSEventStreamContext(
+                version: 0,
+                info: Unmanaged.passUnretained(handler).toOpaque(),
+                retain: { context in
+                    unsafe context.map { context in
+                        unsafe UnsafeRawPointer(Unmanaged<EventHandler>.fromOpaque(context).retain().toOpaque())
+                    }
+                },
+                release: { context in
+                    _ = unsafe context.map { context in unsafe Unmanaged<EventHandler>.fromOpaque(context).release() }
+                },
+                copyDescription: nil,
+            )
+            let created: FSEventStreamRef? = unsafe withExtendedLifetime(handler) {
+                unsafe FSEventStreamCreate(
+                    nil,
+                    EventHandler.callback,
+                    &context,
+                    [NSOpenStepRootDirectory()] as CFArray,
+                    FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+                    0,
+                    FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents),
+                )
             }
+            guard let stream: FSEventStreamRef = unsafe created else {
+                continuation.finish(throwing: FileWatchFailure.creation)
+                return
+            }
+            unsafe FSEventStreamSetDispatchQueue(stream, queue)
+            guard unsafe FSEventStreamStart(stream) else {
+                unsafe FSEventStreamInvalidate(stream)
+                unsafe FSEventStreamRelease(stream)
+                continuation.finish(throwing: FileWatchFailure.registration)
+                return
+            }
+            stopStream = {
+                unsafe FSEventStreamStop(stream)
+                unsafe FSEventStreamInvalidate(stream)
+                unsafe FSEventStreamRelease(stream)
+            }
+            let current: Value = read(file)
+            value = .some(current)
+            continuation.yield(current)
         }
 
         func stop() {
-            stopped = true
             pending?.cancel()
-            directorySource?.cancel()
-            fileSource?.cancel()
-            directorySource = nil
-            fileSource = nil
+            stopStream?()
+            stopStream = nil
         }
 
         // --- [EVENTS]
-        private func openFileSource() {
-            guard !stopped, fileSource == nil else { return }
-            let opened: Result<(any DispatchSourceFileSystemObject)?, any Error> = ifPresent {
-                try source(path: file.path, events: [.write, .extend, .delete, .rename, .attrib]) { watcher in
-                    if let source: any DispatchSourceFileSystemObject = watcher.fileSource,
-                        !source.data.isDisjoint(with: [.delete, .rename])
-                    {
-                        source.cancel()
-                        watcher.fileSource = nil
-                    }
-                    watcher.scheduleEmit()
-                }
-            }
-            switch opened {
-                case .success(let source): fileSource = source
-                case .failure(let error): continuation.finish(throwing: error)
-            }
-        }
-
-        private func source(
-            path: String,
-            events: DispatchSource.FileSystemEvent,
-            handler: @escaping @Sendable (isolated Watcher) -> Void,
-        ) throws -> any DispatchSourceFileSystemObject {
-            let descriptor: FileDescriptor = try FileDescriptor.open(FilePath(path), .readOnly, options: .eventOnly)
-            let source: any DispatchSourceFileSystemObject = DispatchSource.makeFileSystemObjectSource(
-                fileDescriptor: descriptor.rawValue,
-                eventMask: events,
-                queue: queue,
-            )
-            source.setEventHandler { [weak self] in self?.assumeIsolated(handler) }
-            source.setCancelHandler { try? descriptor.close() }
-            source.activate()
-            return source
-        }
-
         private func scheduleEmit() {
             guard let debounce else {
                 emitIfChanged()
@@ -130,10 +155,9 @@ nonisolated enum FileWatch {
         }
 
         private func emitIfChanged() {
-            guard !stopped else { return }
             let current: Value = read(file)
-            guard current != value else { return }
-            value = current
+            guard .some(current) != value else { return }
+            value = .some(current)
             continuation.yield(current)
         }
     }

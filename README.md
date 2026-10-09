@@ -77,7 +77,7 @@ flowchart LR
 
     subgraph taskgraph ["Task graph"]
         direction TB
-        plugins["nx.json plugins"] --> projects["Project per project file: language and host tags, empty targets"]
+        plugins["nx.json plugins"] --> projects["Project per project file: language and host tags, targets"]
         target_defaults["nx.json targetDefaults by language and host tag"] --> bodies["Target body per language and host"]
         root_nx["package.json nx"] --> root_targets["Root targets rasm:*"]
     end
@@ -102,12 +102,12 @@ flowchart LR
 - `nx run <project>:build -- <switch>` forwards MSBuild switches to a .NET build beside the target's `-bl`
 - `--skip-nx-cache` runs a build in place of an Nx cache replay
 - `nx run <project>:install` installs built products, packing Rhino and Blender projects first
-- `nx run <project>:pack` builds a Rhino Yak package or one Blender extension ZIP under `.artifacts/<host>/<project>/`
+- `nx run <project>:pack` builds a Rhino Yak package or Blender `extension.zip` under `.artifacts/<host>/<project>/`
 - `nx run rasm:upgrade` moves catalogs, Swift package locks, and tool binaries to newest builds
-- `nx run rasm:clean` removes what tool runs leave behind
+- `nx run rasm:clean` removes declared outputs and tool residue, prunes unused installations and caches, and recovers stale macOS processes
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
-- Workspace plugin names each project's tags and empty targets by project file and Python edges by import, `@nx/dotnet` and `@nx/vitest` infer theirs
+- Workspace plugin names each project's tags and targets by project file and Python edges by import, `@nx/dotnet` and `@nx/vitest` infer theirs
 - File-based app directories are one project each, named by path, `build`, `format`, and `lint` run one `<target>:<file>` target per entry file
 - `nx run rasm:format` runs every app's `format` and `nx run rasm:lint:dotnet-format` every app's `lint`
 - Project `vite.config.ts` infers `build`, run from that project, and its `serve` configuration runs the Vite development server
@@ -135,7 +135,7 @@ flowchart LR
 |  [14]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
 |  [15]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
 |  [16]   | MCP tool a skill replaces      | `--hide <tool>` on server's `mise.toml` launchd agent row                                            |
-|  [17]   | Python version below 3.15      | `requires-python` in `pyproject.toml` at code root                                                   |
+|  [17]   | Python runtime version        | Root Ruff `per-file-target-version` for files, nested `requires-python` for host trees               |
 
 - Tool rows name a release where `latest` resolves a development build
 - Tool consumers are targets, MCP rows, skills, `.gitattributes` filters, and CLAUDE.md `[CLI_TOOLING]` rows
@@ -164,7 +164,8 @@ flowchart LR
 - Libraries group by language under `libs/<language>/`, with host-bound packages under a `<host>/` folder
 - Build and task graph take .NET hosts from the `<host>/` path folder, Blender hosts from `blender_manifest.toml`
 - `libs/` packages point down an acyclic graph, each .NET and TypeScript package consumable alone through declared dependencies
-- Python packages import siblings absolutely and build into the one `rasm` wheel
+- Python packages build into one `rasm` wheel
+- First-party Python imports use `from rasm.<module> import <member>` for private Blender extension relocation
 - Projects under a `rhino` folder compile against `RhinoCommon`, `RhinoHost` token `grasshopper` adds `Grasshopper2`
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files define projects, never `project.json`

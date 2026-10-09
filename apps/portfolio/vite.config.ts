@@ -1,4 +1,4 @@
-// biome-ignore lint/correctness/noNodejsModules: Vite evaluates its configuration in Node.js.
+// biome-ignore-all lint/correctness/noNodejsModules lint/style/noDefaultExport: Vite loads its default-exported configuration in Node.js
 import { fileURLToPath } from 'node:url';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import { sites } from '@openai/sites-vite-plugin';

@@ -8,8 +8,8 @@ import { readDocument, writeDocument } from './database.ts';
 const content = HttpApiBuilder.group(Api, 'content', (handlers) =>
     handlers.handleAll({
         draft: () => readDocument('draft').pipe(Effect.map(({ data, etag }) => HttpApiSchema.withHeaders({ body: data, headers: { 'draft-etag': etag } }))),
-        save: ({ payload, headers }) => writeDocument(payload, ['draft'], headers['if-match']).pipe(Effect.map((etag) => HttpApiSchema.withHeaders({ body: undefined, headers: { 'draft-etag': etag } }))),
-        publish: ({ payload, headers }) => writeDocument(payload, ['draft', 'published'], headers['if-match']).pipe(Effect.map((etag) => HttpApiSchema.withHeaders({ body: undefined, headers: { 'draft-etag': etag } }))),
+        save: ({ payload, headers }) => writeDocument(payload, false, headers['if-match']).pipe(Effect.map((etag) => HttpApiSchema.withHeaders({ body: undefined, headers: { 'draft-etag': etag } }))),
+        publish: ({ payload, headers }) => writeDocument(payload, true, headers['if-match']).pipe(Effect.map((etag) => HttpApiSchema.withHeaders({ body: undefined, headers: { 'draft-etag': etag } }))),
     }),
 );
 

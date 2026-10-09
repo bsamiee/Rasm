@@ -1,24 +1,19 @@
-import { bind, map, none, type Option, ok, type Result, rendered, some } from '../composition.ts';
-import { graph, graphPath, requests, taskCommands } from '../repository/nx.ts';
+import { none, type Option, rendered, some } from '../composition.ts';
 import { type Command, offset, parse, type Scanner, type Script } from './command.ts';
 import { basename, declared, firstOperand, type Invocation, known, type Operands, operands } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Refinement = (args: readonly string[], existing: readonly string[], reason: string) => readonly string[];
-type OptionPredicate = (given: (...names: readonly string[]) => boolean, rest: readonly string[]) => boolean;
 type GitCall = { readonly kind: 'aliased' } | GitSubcommand;
 type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'allow'; readonly rewrite: Option<Rewrite> };
 
 interface Host {
     readonly scan: Scanner;
-    readonly read: (path: string) => Promise<Result<string>>;
     readonly repo: () => Promise<Option<string>>;
-    readonly make: (folders: readonly string[]) => Promise<Result<unknown>>;
     readonly exists: (path: string) => Promise<boolean>;
     readonly real: (path: string) => Promise<Option<string>>;
     readonly home: () => Promise<Option<string>>;
-    readonly workspaceData: () => Promise<Option<string>>;
 }
 interface GitRow {
     readonly reason: string;
@@ -56,7 +51,6 @@ const _WORKTREE = 'creates a second checkout with its own metadata and sync cost
 const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
 const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
-const _DESCRIPTOR = /^\d+$/u;
 const _TRAILING = /\/$/u;
 const _BINLOG = /^(?:--?|\/)(?:bl|binarylogger)(?::|$)/iu;
 const _NX_ENTRY = /(?:^|\/)nx\/bin\/nx(?:\.js)?$/u;
@@ -289,65 +283,29 @@ const _walk = async (real: Host['real'], home: string, commands: readonly Comman
         : commands.flatMap((command) => (command.invocations.some((invocation) => _descends(invocation, cloud.value, places)) ? [`${command.words.join(' ')} descends into ~/${_CLOUD}. Dataless cloud placeholders there hang walkers on the file provider. Start outside ~/${_CLOUD} or exclude ${basename(_CLOUD)}`] : []));
 };
 
-// --- [QUEUE]
-
-const _queues = (commands: readonly Command[]): readonly string[] => {
-    const always: OptionPredicate = () => true;
-    const unfrozen: OptionPredicate = (given) => !given('--frozen');
-    const writes: OptionPredicate = (given) => given('-U', '--update-all', '-i', '--interactive') && !given('--stdin');
-    const families: readonly (readonly [string, readonly (readonly [readonly string[], OptionPredicate])[]])[] = [
-        [
-            '.cache/uv-resolver.lock',
-            [
-                [['uv', 'lock'], always],
-                [['uv', 'sync'], unfrozen],
-                [['uv', 'run'], (given): boolean => given('-w', '--with', '--with-editable', '--with-requirements') || !given('--frozen', '--no-sync', '--no-project')],
-                [['uv', 'add'], unfrozen],
-                [['uv', 'remove'], unfrozen],
-                [['uv', 'version'], (given, rest): boolean => !given('--frozen', '--dry-run') && (given('--bump') || rest.length > 0)],
-                [['uv', 'export'], unfrozen],
-                [['uv', 'tree'], unfrozen],
-                [['uv', 'check'], unfrozen],
-                [['uv', 'audit'], unfrozen],
-                [['uv', 'venv'], (given): boolean => given('--seed')],
-                [['uv', 'build'], always],
-                [['uv', 'tool', 'run'], always],
-                [['uv', 'tool', 'install'], always],
-                [['uv', 'tool', 'upgrade'], always],
-                [['uv', 'pip', 'install'], always],
-                [['uv', 'pip', 'sync'], always],
-                [['uv', 'pip', 'compile'], always],
-                [['uvx'], always],
-            ],
-        ],
-        [
-            '.cache/ast-grep-rewrite.lock',
-            [
-                [['ast-grep', 'scan'], writes],
-                [['sg', 'scan'], writes],
-            ],
-        ],
-    ];
-    const invocations = commands.flatMap((command) => command.invocations);
-    const calls = invocations.map((invocation) => {
-        const { inputs, options } = operands(invocation);
-        return { words: [invocation[0], ...inputs], given: (...names: readonly string[]): boolean => options.some((name) => names.includes(name)) };
-    });
-    const resolved = families.flatMap(([lock, resolvers]) => resolvers.map(([path, resolves]) => ({ lock, path, resolves }))).filter(({ path, resolves }) => calls.some(({ words, given }) => !given('-h', '--help') && path.every((word, index) => words[index] === word) && resolves(given, words.slice(path.length))));
-    return [...new Set(resolved.map(({ lock }) => lock))].filter((lock) => !invocations.some(([program, ...args]) => program === 'lockf' && args.slice(-1).some((file) => _DESCRIPTOR.test(file) || file.endsWith(lock))));
-};
-
-const _locks = async (host: Host, root: string, commands: readonly Command[]): Promise<Result<readonly string[]>> => {
-    const requested = requests(commands);
-    const lines = requested.length === 0 ? ok<readonly string[]>([]) : await bind(graphPath(await host.workspaceData()), async (path) => ((await host.exists(path)) ? map(await graph(host.read, path), (held) => taskCommands(held, requested)) : ok<readonly string[]>([])));
-    const targeted = await bind(lines, async (text) => (text.length === 0 ? ok([]) : map(await parse(host.scan, text.join('\n')), (script) => script.commands)));
-    const locks = map(targeted, (found) => _queues([...commands, ...found]).map((lock) => `${root}/${lock}`));
-    return bind(locks, async (paths) => (paths.length === 0 ? locks : map(await host.make(paths.map((lock) => lock.slice(0, lock.lastIndexOf('/')))), () => paths)));
-};
-
 // --- [REWRITE]
 
 const _quoted = (text: string): string => `'${text.replaceAll("'", "'\\''")}'`;
+
+const _sourceWrites = (commands: readonly Command[]): readonly Splice[] => {
+    const modes = ['-U', '--update-all', '-i', '--interactive'];
+    const calls = commands.flatMap((command) => command.invocations.map((invocation, index) => ({ command, invocation, at: offset(command, index), parsed: operands(invocation) })));
+    const writers = calls.filter(({ invocation, parsed }) => (invocation[0] === 'ast-grep' || invocation[0] === 'sg') && parsed.inputs[0] === 'scan' && parsed.options.some((option) => modes.includes(option)) && !parsed.options.includes('--stdin'));
+    const prefixes = writers.flatMap(({ command, at, parsed }) => {
+        const start = command.spans[at];
+        const scan = command.spans[at + 1];
+        const interactive = parsed.options.includes('-i') || parsed.options.includes('--interactive');
+        return start === undefined || scan === undefined ? [] : [{ start: start.start, end: scan.end, text: `mise exec -- nx run rasm:rewrite${interactive ? ' --args=-i' : ''} --` }];
+    });
+    const positions = writers.flatMap(({ command, at, parsed }) => parsed.positions.map(({ at: position, names }) => ({ span: command.spans[at + position], names })));
+    const flags = positions
+        .filter(({ names }) => names.some((name) => modes.includes(name)))
+        .flatMap(({ span, names }) => {
+            const remaining = names.filter((name) => !modes.includes(name));
+            return span === undefined ? [] : [{ start: span.start, end: span.end, text: remaining.length === 0 ? '' : `-${remaining.map((name) => name.slice(1)).join('')}` }];
+        });
+    return [...prefixes, ...flags];
+};
 
 const _sd = (command: Command): readonly (Splice & { readonly option: '-A' | '--' })[] =>
     command.nested
@@ -403,27 +361,28 @@ const _builds = (command: Command): readonly Build[] =>
               return subcommand.kind === 'none' || !['publish', 'pack', 'msbuild'].includes(subcommand.value) || invocation.slice(2).some((word) => _BINLOG.test(word)) || named === undefined ? [] : [{ at: named.end, subcommand: subcommand.value }];
           });
 
-const _rewrite = (commands: readonly Command[], text: string, held: readonly string[], root: Option<string>, id: string): Option<Rewrite> => {
+const _rewrite = (commands: readonly Command[], text: string, root: Option<string>, id: string): Option<Rewrite> => {
     const actions = { '-A': 'Pass -A on a find holding a line break', '--': 'Pass -- before a find opening with -' } as const;
     const sd = commands.flatMap(_sd);
     const added = [...new Set(sd.map(({ option }) => option))];
     const unmanaged = _nx(commands);
+    const writers = _sourceWrites(commands);
     const builds = root.kind === 'none' ? [] : commands.flatMap(_builds).map(({ at, subcommand }, index) => ({ at, path: `${root.value}/.artifacts/dotnet/binlog/${subcommand}-${id}-${index + 1}.binlog` }));
     const notes: readonly (readonly [notice: string, ...actions: string[]])[] = [
         ...(sd.length === 0 ? [] : [[`sd ran with ${added.join(' and ')} added`, ...added.map((option) => actions[option])] as const]),
         ...(unmanaged.length === 0 ? [] : [['nx ran under mise exec', 'Call nx as mise exec -- nx'] as const]),
         ...(builds.length === 0 ? [] : [['dotnet ran with -bl added', `Diagnose a failed build from ${builds.map(({ path }) => path).join(' and ')} with the dotnet-msbuild-diagnostics skill`] as const]),
-        ...(held.length === 0 ? [] : [[`command queued under lockf on ${held.map(basename).join(' and ')}`] as const]),
+        ...(writers.length === 0 ? [] : [['ast-grep writes run through rasm:rewrite', 'Nx owns rewrite execution and source exclusion'] as const]),
     ];
     const bytes = new TextEncoder().encode(text);
     const decoder = new TextDecoder();
-    const spliced = [...sd, ...unmanaged, ...builds.map(({ at, path }) => ({ start: at, end: at, text: ` -bl:${_quoted(path)}` }))]
+    const spliced = [...sd, ...unmanaged, ...writers, ...builds.map(({ at, path }) => ({ start: at, end: at, text: ` -bl:${_quoted(path)}` }))]
         .toSorted((left, right) => left.start - right.start)
         .reduce<{ readonly at: number; readonly pieces: readonly string[] }>((head, { start, end, text: inserted }) => ({ at: end, pieces: [...head.pieces, decoder.decode(bytes.subarray(head.at, start)), inserted] }), { at: 0, pieces: [] });
     return notes.length === 0
         ? none
         : some({
-              command: held.reduce((body, lock) => `{ lockf 9 && {\n${body}\n} 9>&-; } 9>>${_quoted(lock)}`, [...spliced.pieces, decoder.decode(bytes.subarray(spliced.at))].join('')),
+              command: [...spliced.pieces, decoder.decode(bytes.subarray(spliced.at))].join(''),
               notice: notes.map(([notice]) => notice).join(' · '),
               context: notes.flat().join('. '),
           });
@@ -442,9 +401,8 @@ const _refusal = async (host: Host, tool: 'Bash' | 'Monitor', script: Script, wa
 };
 
 const _allowed = async (host: Host, tool: 'Bash' | 'Monitor', commands: readonly Command[], text: string, id: string): Promise<Decision> => {
-    const root = tool === 'Bash' && (requests(commands).length > 0 || _queues(commands).length > 0 || commands.some((command) => _builds(command).length > 0)) ? await host.repo() : none;
-    const locks = root.kind === 'some' ? await _locks(host, root.value, commands) : ok<readonly string[]>([]);
-    return locks.kind === 'fault' ? { kind: 'deny', reason: `command not queued, ${rendered(locks.faults)}` } : { kind: 'allow', rewrite: _rewrite(commands, text, locks.value, root, id) };
+    const root = tool === 'Bash' && commands.some((command) => _builds(command).length > 0) ? await host.repo() : none;
+    return { kind: 'allow', rewrite: _rewrite(commands, text, root, id) };
 };
 
 const commandDecision = async (host: Host, tool: 'Bash' | 'Monitor', command: string, id: string, walkPolicy: boolean): Promise<Decision> => {

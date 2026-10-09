@@ -1,16 +1,17 @@
-import grammar from '@ast-grep/lang-python';
-import { type NapiConfig, parse as parseSource, registerDynamicLanguage } from '@ast-grep/napi';
-import { NodeServices } from '@effect/platform-node';
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, FileSystem, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, String, Trie } from 'effect';
+import type { NapiConfig } from '@ast-grep/napi';
+import { NodeFileSystem, NodePath } from '@effect/platform-node';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type ImplicitDependency, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
+import { globWithWorkspaceContext } from '@nx/devkit/internal';
+import { Array, Effect, FileSystem, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, String, Trie } from 'effect';
 import { parse } from 'smol-toml';
 import { parse as parseYaml } from 'yaml';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _DECLARATION = 'pyproject.toml';
-const _FLOOR = /^>=\s*(?<floor>\d+\.\d+)$/u;
-const _REGEX_SYNTAX = /[.*+?^${}()|[\]\\]/gu;
+const _PYTHON_LOWER_BOUND = /^>=\s*(?<version>\d+\.\d+)$/u;
+const _PYTHON_TARGET_VERSION = /^py(?<major>\d)(?<minor>\d+)$/u;
+const _PYTHON_FILE = /^(?!\.{1,2}\/)(?!.*\/\.{1,2}(?:\/|$))[\p{L}\p{N}_.][\p{L}\p{N}_.-]*(?:\/[\p{L}\p{N}_.-]+)+\.pyi?$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,10 +21,10 @@ const _Toml = Schema.String.pipe(
         encode: SchemaGetter.forbiddenEncoding,
     }),
 );
-const _Floor = Schema.String.pipe(
+const _PythonVersion = Schema.String.pipe(
     Schema.decodeTo(Schema.String, {
         decode: SchemaGetter.transformEffect((specifier: string, options) =>
-            Option.match(Option.fromNullishOr(_FLOOR.exec(specifier)?.groups?.floor), {
+            Option.match(Option.fromNullishOr(_PYTHON_LOWER_BOUND.exec(specifier)?.groups?.version), {
                 onNone: () => Effect.fail(new SchemaIssue.InvalidValue({ expected: 'a >=<major>.<minor> lower bound' }, specifier, options)),
                 onSome: Effect.succeed,
             }),
@@ -31,13 +32,20 @@ const _Floor = Schema.String.pipe(
         encode: SchemaGetter.forbiddenEncoding,
     }),
 );
-const _Declaration = _Toml.pipe(Schema.decodeTo(Schema.Struct({ project: Schema.Struct({ floor: _Floor }).pipe(Schema.encodeKeys({ floor: 'requires-python' })) })));
+const _Declaration = _Toml.pipe(Schema.decodeTo(Schema.Struct({ project: Schema.Struct({ version: _PythonVersion }).pipe(Schema.encodeKeys({ version: 'requires-python' })) })));
 const _Root = _Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
             tool: Schema.Struct({
-                uv: Schema.Struct({ buildBackend: Schema.Struct({ moduleRoot: Schema.String }).pipe(Schema.encodeKeys({ moduleRoot: 'module-root' })) }).pipe(Schema.encodeKeys({ buildBackend: 'build-backend' })),
+                uv: Schema.Struct({ buildBackend: Schema.Struct({ moduleRoot: Schema.String, moduleName: Schema.String }).pipe(Schema.encodeKeys({ moduleRoot: 'module-root', moduleName: 'module-name' })) }).pipe(Schema.encodeKeys({ buildBackend: 'build-backend' })),
                 pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files' })),
+                ruff: Schema.Struct({
+                    perFileTargetVersion: Schema.OptionFromOptionalKey(
+                        Schema.Record(Schema.String, Schema.String.check(Schema.isPattern(_PYTHON_TARGET_VERSION)).pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform(String.replace(_PYTHON_TARGET_VERSION, '$<major>.$<minor>')), encode: SchemaGetter.forbiddenEncoding }))).check(
+                            Schema.makeFilter((input) => Array.every(Record.keys(input), _PYTHON_FILE.test.bind(_PYTHON_FILE)), { expected: 'literal qualified workspace-relative Python file paths' }),
+                        ),
+                    ),
+                }).pipe(Schema.encodeKeys({ perFileTargetVersion: 'per-file-target-version' })),
             }),
         }),
     ),
@@ -47,21 +55,43 @@ const _Manifest = _Toml.pipe(Schema.decodeTo(Schema.Struct({ id: Schema.String }
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _host = (dir: string): readonly string[] => Array.map(Array.intersection(dir.split('/'), ['rhino', 'blender']), (host) => `host:${host}`);
-const _python = Effect.fnUntraced(function* (dir: string, workspace: string) {
+const _root = Effect.fnUntraced(function* (workspace: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const { tool } = yield* Effect.flatMap(fs.readFileString(path.join(workspace, 'pyproject.toml')), Schema.decodeEffect(_Root));
-    const tests = yield* Effect.validate(tool.pytest.pythonFiles, (pattern) => fs.glob(`**/${pattern}`, { root: path.join(workspace, dir) }), { concurrency: 'unbounded' });
-    return { moduleRoot: tool.uv.buildBackend.moduleRoot, targets: Array.some(tests, Array.isReadonlyArrayNonEmpty) ? { check: {}, test: {} } : {} };
+    const { tool } = yield* Effect.flatMap(fs.readFileString(path.join(workspace, _DECLARATION)), Schema.decodeEffect(_Root));
+    const { moduleRoot, moduleName } = tool.uv.buildBackend;
+    return { moduleRoot, sourceRoot: path.join(moduleRoot, ...moduleName.split('.')), pythonFiles: tool.pytest.pythonFiles, perFileTargetVersion: tool.ruff.perFileTargetVersion };
+});
+const _python = Effect.fnUntraced(function* (dir: string, workspace: string, root: ReturnType<typeof _root>) {
+    const { moduleRoot, sourceRoot, pythonFiles } = yield* root;
+    const tests = yield* Effect.tryPromise(() =>
+        globWithWorkspaceContext(
+            workspace,
+            Array.map(pythonFiles, (pattern) => `${dir}/**/${pattern}`),
+        ),
+    );
+    return { moduleRoot, sourceRoot, targets: Array.isReadonlyArrayNonEmpty(tests) ? { check: {}, test: {} } : {} };
 });
 
-const _PROJECTS: Record<string, (file: Path.Path.Parsed, workspace: string) => Effect.Effect<ProjectConfiguration, unknown, FileSystem.FileSystem | Path.Path>> = {
-    '*.csproj': ({ dir }) => {
+const _PROJECTS = {
+    '*.csproj': ({ dir, base }) => {
         const host = _host(dir);
         const plugin = dir.startsWith('apps/') && host.includes('host:rhino');
+        const projectFile = `${dir}/${base}`;
+        const outputPath = '.artifacts/rhino/{projectName}';
         return Effect.succeed({
             root: dir,
             tags: ['language:dotnet', ...host],
-            targets: { typecheck: {}, check: {}, ...(plugin ? { 'build:release': { defaultConfiguration: 'release' }, pack: {}, install: {} } : {}) },
+            targets: {
+                typecheck: {},
+                check: {},
+                ...(plugin
+                    ? {
+                          'build:release': { defaultConfiguration: 'release' },
+                          pack: { command: `dotnet publish "${projectFile}" --no-restore --output "${outputPath}"`, outputs: [`{workspaceRoot}/${outputPath}`] },
+                          install: { command: `dotnet msbuild "${projectFile}" -target:InstallYakPackage -property:PublishDir="${outputPath}"` },
+                      }
+                    : {}),
+            },
             ...(plugin ? { namedInputs: { icons: [`{workspaceRoot}/${dir.split('/', 2).join('/')}/icons/**/*.svg`, { runtime: 'resvg --version' }, { runtime: 'magick -version' }] } } : {}),
         });
     },
@@ -94,102 +124,154 @@ const _PROJECTS: Record<string, (file: Path.Path.Parsed, workspace: string) => E
         };
     }),
     '.swcrc': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:extendscript'], targets: { build: {} } }),
-    'blender_manifest.toml': Effect.fnUntraced(function* ({ dir, base }, workspace) {
+    'blender_manifest.toml': Effect.fnUntraced(function* ({ dir, base }, workspace, root) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const [{ id }, python] = yield* Effect.all([Effect.flatMap(fs.readFileString(path.join(workspace, dir, base)), Schema.decodeEffect(_Manifest)), _python(dir, workspace)], { concurrency: 'unbounded' });
-        return { root: dir, name: id, tags: ['language:python', 'host:blender'], targets: { pack: {}, install: {}, ...python.targets } };
+        const [{ id }, python] = yield* Effect.all([Effect.flatMap(fs.readFileString(path.join(workspace, dir, base)), Schema.decodeEffect(_Manifest)), _python(dir, workspace, root)], { concurrency: 'unbounded' });
+        const outputPath = '.artifacts/blender/{projectName}';
+        const archive = `${outputPath}/extension.zip`;
+        return {
+            root: dir,
+            name: id,
+            tags: ['language:python', 'host:blender'],
+            targets: {
+                pack: {
+                    command: `python -m eng.python.fitout pack "{projectRoot}" "${archive}"`,
+                    inputs: [`{workspaceRoot}/${python.sourceRoot}/**/*`, `{workspaceRoot}/${path.dirname(dir)}/icons/*.svg`],
+                    outputs: [`{workspaceRoot}/${outputPath}`],
+                },
+                install: { command: `python -m eng.python.fitout install "${archive}"` },
+                ...python.targets,
+            },
+        };
     }),
     'project.xcproj': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), name: path.parse(dir).name, tags: ['language:swift', 'host:macos'], targets: { build: {}, install: {}, upgrade: {}, lint: {}, format: {}, check: {} } })),
-    'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [path, python] = yield* Effect.all([Path.Path, _python(dir, workspace)]);
+    'py.typed': Effect.fnUntraced(function* ({ dir }, workspace, root) {
+        const [path, python] = yield* Effect.all([Path.Path, _python(dir, workspace, root)]);
         const parts = yield* Effect.fromOption(Option.liftPredicate(path.relative(python.moduleRoot, dir).split(path.sep), (relative) => !Array.contains(relative, '..')));
         return { root: dir, name: parts.join('.'), tags: ['language:python'], targets: python.targets };
     }),
     'tsconfig.json': ({ dir }) => Effect.succeed({ root: dir, tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
     'vite.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['bundler:vite'], targets: { build: {} } }),
     'uxp.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:uxp'], targets: { build: {} } }),
-};
+} as const satisfies Record<string, (file: Path.Path.Parsed, workspace: string, root: ReturnType<typeof _root>) => Effect.Effect<ProjectConfiguration, unknown, FileSystem.FileSystem | Path.Path>>;
 
-const _project = Effect.fnUntraced(function* (file: string, workspace: string) {
-    const project = (yield* Path.Path).parse(file);
-    const configuration = yield* pipe(
-        Array.findFirst([project.base, `*${project.ext}`], (key) => Record.get(_PROJECTS, key)),
-        Effect.fromOption,
-        Effect.flatMap((configure) => configure(project, workspace)),
-        Effect.catchNoSuchElement,
-    );
-    return Option.match(configuration, { onNone: () => ({}), onSome: (found) => ({ projects: { [found.root]: found } }) });
-});
-const _floors = Effect.fnUntraced(function* (files: readonly string[], workspace: string) {
+const _pythonVersions = Effect.fnUntraced(function* (declarations: readonly string[], workspace: string, configuration: ReturnType<typeof _root>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const declarations = Array.filter(files, (file) => path.basename(file) === _DECLARATION);
-    const floors = yield* Effect.forEach(
+    const directories = yield* Effect.validate(
         declarations,
         (file) =>
             pipe(
                 fs.readFileString(path.join(workspace, file)),
                 Effect.flatMap(Schema.decodeEffect(_Declaration)),
-                Effect.map(({ project }) => ({ floor: project.floor, root: path.dirname(file) })),
+                Effect.map(({ project }) => ({ version: project.version, root: `${path.dirname(file)}/` })),
             ),
         { concurrency: 'unbounded' },
     );
+    const { perFileTargetVersion } = yield* Effect.filterOrFail(
+        configuration,
+        (input) => Array.every(Array.flatMap(Option.toArray(input.perFileTargetVersion), Record.keys), (file) => !Array.some(directories, ({ root }) => file.startsWith(root))),
+        (input) => new SchemaIssue.InvalidValue({ expected: 'file runtime paths outside nested Python projects' }, input.perFileTargetVersion),
+    );
+    const versions = [...directories, ...Array.map(Array.flatMap(Option.toArray(perFileTargetVersion), Record.toEntries), ([file, version]) => ({ version, root: file }))];
     const targets: Record<string, TargetConfiguration> = {
         ...pipe(
-            Array.groupBy(floors, ({ floor }) => floor),
+            Array.groupBy(versions, ({ version }) => version),
             Record.toEntries,
-            Array.flatMap(([floor, members]) => {
+            Array.flatMap(([version, members]) => {
                 const roots = Array.map(members, ({ root }) => root).join(' ');
                 return [
-                    [`typecheck:ty-${floor}`, { command: `ty check --python-version ${floor} ${roots}` }],
-                    [`typecheck:mypy-${floor}`, { command: `mypy --python-version ${floor} ${roots}` }],
+                    [`typecheck:ty-${version}`, { command: `ty check --python-version ${version} ${roots}` }],
+                    [`typecheck:mypy-${version}`, { command: `mypy --python-version ${version} ${roots}` }],
                 ] as const;
             }),
             Record.fromEntries,
         ),
-        'typecheck:ty': { options: { args: Array.map(floors, ({ root }) => `--exclude ${root}/`).join(' ') } },
-        'typecheck:mypy': { options: { args: Array.map(floors, ({ root }) => `--exclude '^${root.replaceAll(_REGEX_SYNTAX, '\\$&')}/'`).join(' ') } },
+        'typecheck:ty': { options: { args: Array.map(versions, ({ root }) => `--exclude ${root}`).join(' ') } },
+        'typecheck:mypy': { options: { args: Array.map(versions, ({ root }) => `--exclude '^${RegExp.escape(root)}${root.endsWith('/') ? '' : '$'}'`).join(' ') } },
     };
-    return Array.match(declarations, { onEmpty: (): CreateNodesResultArray => [], onNonEmpty: ([file]): CreateNodesResultArray => [[file, { projects: { '.': { root: '.', targets } } }]] });
+    return { projects: { '.': { root: '.', targets } } };
 });
 const _dependencies = Effect.fnUntraced(function* ({ projects, fileMap, workspaceRoot }: CreateDependenciesContext) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const rule: NapiConfig = parseYaml(yield* fs.readFileString(path.join(workspaceRoot, 'tools/ast-grep/utils/python/python-static-imported-module.yml')));
-    const python = Record.keys(Record.filter(projects, ({ tags }) => Option.exists(Option.fromNullishOr(tags), Array.contains('language:python'))));
-    const modules = Trie.fromIterable(Array.map(python, (name) => [`${name}.`, name] as const));
-    const files = Array.flatMap(Record.toEntries(Record.filter(fileMap.projectFileMap, (_, source) => Array.contains(python, source))), ([source, data]) => Array.map(data, ({ file }) => ({ source, file })));
-    const sources = Array.filter(files, ({ file }) => path.extname(file) === '.py');
-    const texts = yield* Effect.validate(sources, ({ file }) => fs.readFileString(path.join(workspaceRoot, file)), { concurrency: 'unbounded' });
-    return Array.flatMap(Array.zip(sources, texts), ([{ source, file }, text]) =>
-        pipe(
-            parseSource('python', text).root().findAll(rule),
-            Array.flatMap((module) => [
-                [module],
-                ...Option.toArray(Option.fromNullishOr(module.getMatch('FROM')))
-                    .flatMap((statement) => statement.fieldChildren('name'))
-                    .flatMap((member) => member.findAll({ rule: { kind: 'dotted_name' } }))
-                    .map((member) => [module, member]),
-            ]),
-            Array.map(Array.flatMap((name) => name.namedChildren())),
-            Array.map((parts) => Trie.longestPrefixOf(modules, `${parts.map((part) => part.text()).join('.')}.`)),
-            Array.getSomes,
-            Array.map(([, target]) => target),
-            Array.filter((target) => target !== source),
-            Array.dedupe,
-            Array.map((target) => ({ source, target, sourceFile: file, type: DependencyType.static })),
+    const python = Record.filter(projects, ({ tags }) => Option.exists(Option.fromNullishOr(tags), Array.contains('language:python')));
+    const { sourceRoot } = yield* _root(workspaceRoot);
+    const bundled = Record.keys(Record.filter(python, ({ root }) => root === sourceRoot || root.startsWith(`${sourceRoot}/`)));
+    const assembly = Array.flatMap(Record.keys(Record.filter(python, ({ tags, targets }) => Option.exists(Option.fromNullishOr(tags), Array.contains('host:blender')) && Option.exists(Option.fromNullishOr(targets), Record.has('pack')))), (source) =>
+        Array.map(bundled, (target): ImplicitDependency => ({ source, target, type: DependencyType.implicit })),
+    );
+    const sources = Array.flatMap(Record.toEntries(Record.filter(fileMap.projectFileMap, (_, source) => Record.has(python, source))), ([source, data]) =>
+        Array.map(
+            Array.filter(data, ({ file }) => path.extname(file) === '.py'),
+            ({ file }) => ({ source, file }),
         ),
     );
+    if (Array.isReadonlyArrayEmpty(sources)) {
+        return assembly;
+    }
+    const modules = Trie.fromIterable(Array.map(Record.keys(python), (name) => [`${name}.`, name] as const));
+    const [, rule]: [Effect.Success<typeof _registerPython>, NapiConfig] = yield* Effect.all([_registerPython, Effect.map(fs.readFileString(path.join(workspaceRoot, 'tools/ast-grep/utils/python/python-static-imported-module.yml')), parseYaml)], { concurrency: 'unbounded' });
+    const dependencies = yield* Effect.validate(
+        sources,
+        Effect.fnUntraced(function* ({ source, file }) {
+            const text = yield* fs.readFileString(path.join(workspaceRoot, file));
+            return yield* Effect.tryPromise(async () => {
+                const { parseAsync } = await import('@ast-grep/napi');
+                const parsed = await parseAsync('python', text);
+                const imports = parsed.root().findAll(rule);
+                return pipe(
+                    imports,
+                    Array.flatMap((module) => Array.cartesian([module], Option.toArray(Option.fromNullishOr(module.getMatch('FROM'))))),
+                    Array.flatMap(([module, statement]) => Array.cartesian([module], statement.fieldChildren('name'))),
+                    Array.flatMap(([module, member]) => Array.cartesian([module], member.findAll({ rule: { kind: 'dotted_name' } }))),
+                    Array.prependAll(Array.map(imports, (module) => [module])),
+                    Array.map(Array.flatMap((name) => name.namedChildren())),
+                    Array.map(Array.map((part) => part.text())),
+                    Array.map((parts) => Trie.longestPrefixOf(modules, `${parts.join('.')}.`)),
+                    Array.flatMap(Option.toArray),
+                    Array.map(([, target]): ImplicitDependency => ({ source, target, type: DependencyType.implicit })),
+                );
+            });
+        }),
+        { concurrency: 'unbounded' },
+    );
+    return [...assembly, ...Array.flatten(dependencies)];
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-registerDynamicLanguage({ python: grammar });
-const _runtime = ManagedRuntime.make(NodeServices.layer);
+const _registerPython = Effect.runSync(
+    Effect.cached(
+        Effect.tryPromise(async () => {
+            const grammar = import('@ast-grep/lang-python');
+            const { registerDynamicLanguage } = await import('@ast-grep/napi');
+            registerDynamicLanguage({ python: (await grammar).default });
+        }),
+    ),
+);
+const _services = Layer.merge(NodeFileSystem.layer, NodePath.layerPosix);
 const createNodes: CreateNodes = [
-    `*/**/{${[...Record.keys(_PROJECTS), _DECLARATION].join(',')}}`,
-    (files, options, context): Promise<CreateNodesResultArray> =>
-        _runtime.runPromise(pipe(Effect.all([Effect.tryPromise(() => createNodesFromFiles((file) => _runtime.runPromise(_project(file, context.workspaceRoot)), files, options, context)), _floors(files, context.workspaceRoot)], { concurrency: 'unbounded' }), Effect.map(Array.flatten))),
+    `{${_DECLARATION},*/**/{${[...Record.keys(_PROJECTS), _DECLARATION].join(',')}}}`,
+    async (files, options, context): Promise<CreateNodesResultArray> => {
+        await using runtime = ManagedRuntime.make(_services);
+        const [root, path] = runtime.runSync(Effect.all([Effect.cached(_root(context.workspaceRoot)), Path.Path]));
+        const declarations = Array.filter(files, (file) => file !== _DECLARATION && path.basename(file) === _DECLARATION);
+        const project = Effect.fnUntraced(
+            function* (file: string) {
+                if (file === _DECLARATION) {
+                    return yield* _pythonVersions(declarations, context.workspaceRoot, root);
+                }
+                const parsed = path.parse(file);
+                const [, configure] = yield* Effect.fromOption(Array.findFirst(Record.toEntries(_PROJECTS), ([key]) => key === parsed.base || key === `*${parsed.ext}`));
+                const configuration = yield* configure(parsed, context.workspaceRoot, root);
+                return { projects: { [configuration.root]: configuration } };
+            },
+            Effect.catchNoSuchElement,
+            Effect.map(Option.getOrElse(() => ({}))),
+        );
+        return await createNodesFromFiles((file) => runtime.runPromise(project(file)), files, options, context);
+    },
 ];
-const createDependencies: CreateDependencies = (_options, context) => _runtime.runPromise(_dependencies(context));
+const createDependencies: CreateDependencies = (_options, context) => Effect.runPromise(Effect.provide(_dependencies(context), _services, { local: true }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

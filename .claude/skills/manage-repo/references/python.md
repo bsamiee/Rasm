@@ -34,11 +34,12 @@ uv owns resolution, lock, and environment of the root project file.
 - `ruff check` and `ty check` take `--config '<key> = <value>'` to override one row, `mypy` an option flag or a temporary `--config-file`
 - `mypy` skips dot-prefixed children in a directory walk, each hidden tree takes its own `files` row
 - Ruff `target-version` and ty `python-version` hold the raised group `requires-python`, each reads `[project] requires-python` when unset
-- Code below Python 3.15 sits under a `pyproject.toml` with `[project] name`, `requires-python`, and `[tool.ruff] extend` naming root file
+- File runtimes use root Ruff `per-file-target-version` with literal workspace-relative Python paths outside nested host trees
+- Host trees use nested `requires-python` and Ruff `extend` naming root file
 - Nested `pyproject.toml` files are neither uv members nor Nx projects
 - Blender loads extensions as `bl_ext.<repo>.<id>`, extension `pyproject.toml` files add `lint.flake8-tidy-imports.ban-relative-imports = "parents"`
 - Ruff reads `requires-python` from the closest `[tool.ruff]` file over an extended `target-version`, ty and mypy take one `--python-version` per run
-- Workspace plugin runs ty and mypy once per declared `requires-python` and excludes those folders from root runs
+- Workspace plugin groups file runtime mappings and nested `requires-python` by version for ty and mypy, excluding each scope from default runs
 - Rhino, Grasshopper, and .NET modules type as Any through ty `replace-imports-with-any` `<root>.**` rows and mypy `ignore_missing_imports`
 - PEP 723 scripts read ty settings from their block alone, a block's `[tool.ty.rules]` opens with root `[tool.ty] rules` entries
 - `mypy` overrides name a PEP 723 script by its unqualified module

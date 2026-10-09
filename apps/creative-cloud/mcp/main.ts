@@ -1,3 +1,4 @@
+// biome-ignore lint/correctness/noNodejsModules: NodeHttpServer.layerServer consumes the native Node HTTP server factory.
 import { createServer } from 'node:http';
 import { NodeHttpServer, NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Context, Crypto, Deferred, Effect, Layer, Logger, Option, type PlatformError, Schema, type Scope, Stream, Struct } from 'effect';

@@ -517,7 +517,7 @@ nonisolated enum CodexAuthFile {
 
     static let name: String = "auth.json"
 
-    static func read(at url: URL) -> Result<AccountIdentity?, CodexFailure> {
+    static func read(at url: URL) -> Result<(data: Data, identity: AccountIdentity?)?, CodexFailure> {
         ifPresent { try Data(contentsOf: url) }
             .mapError(CodexFailure.storage)
             .flatMap { data in
@@ -525,6 +525,8 @@ nonisolated enum CodexAuthFile {
                     Result { try JSONDecoder().decode(Document.self, from: data) }
                         .mapError { _ in .invalidResponse(field: name) }
                         .flatMap(parse)
+                        .map { identity in (data: data, identity: identity) }
+                        .map(Optional.some)
                 } ?? .success(nil)
             }
     }

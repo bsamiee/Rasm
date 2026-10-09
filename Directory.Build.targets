@@ -81,6 +81,22 @@
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(ProjectRole)' == 'tests'" />
     </ItemGroup>
 
+    <UsingTask TaskName="ReadYakManifest" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll" Condition="'$(TargetExt)' == '.rhp'">
+        <ParameterGroup>
+            <ManifestPath ParameterType="System.String" Required="true" />
+            <PackageName ParameterType="System.String" Output="true" />
+            <PackageVersion ParameterType="System.String" Output="true" />
+        </ParameterGroup>
+        <Task>
+            <Reference Include="$(_YakCoreAssembly)" />
+            <Code Type="Fragment" Language="cs"><![CDATA[
+                Yak.Manifest manifest = Yak.Manifest.FromFile(ManifestPath);
+                PackageName = manifest.Name;
+                PackageVersion = manifest.Version;
+            ]]></Code>
+        </Task>
+    </UsingTask>
+
     <Target Name="BuildPlugInGlyphs" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true'" Inputs="$(MSBuildAllProjects);@(PlugInGlyph)" Outputs="@(_PlugInGlyphFile)">
         <WriteLinesToFile File="$(_PlugInAssetDir)%(_RhinoGlyph.LogicalName)" Overwrite="true" WriteOnlyWhenDifferent="true"
                           Lines="$([MSBuild]::Escape($([System.IO.File]::ReadAllText('%(_RhinoGlyph.FullPath)').Replace('currentColor', '%(_RhinoGlyph.Ink)'))))" />
@@ -124,6 +140,18 @@
         <Exec Command="yak spec" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
         <WriteLinesToFile File="$(PublishDir)manifest.yml" Lines="icon: $(PlugInPackageIcon)" Condition="'$(PlugInPackageIcon)' != ''" />
         <Exec Command="yak build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
+    </Target>
+
+    <Target Name="InstallYakPackage" Condition="'$(TargetExt)' == '.rhp'">
+        <PropertyGroup>
+            <_YakPublishDir>$([MSBuild]::NormalizePath('$(RepoRoot)', '$(PublishDir)'))</_YakPublishDir>
+        </PropertyGroup>
+        <ReadYakManifest ManifestPath="$(_YakPublishDir)/manifest.yml">
+            <Output TaskParameter="PackageName" PropertyName="_YakPackageName" />
+            <Output TaskParameter="PackageVersion" PropertyName="_YakPackageVersion" />
+        </ReadYakManifest>
+        <Exec Command="yak uninstall &quot;$(_YakPackageName)&quot;" StandardOutputImportance="low" />
+        <Exec Command="yak install --source &quot;$(_YakPublishDir)&quot; &quot;$(_YakPackageName)&quot; &quot;$(_YakPackageVersion)&quot;" StandardOutputImportance="low" />
     </Target>
 
     <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments" Condition="'$(IsTestingPlatformApplication)' == 'true'">

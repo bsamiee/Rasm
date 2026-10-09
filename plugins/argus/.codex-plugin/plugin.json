@@ -1,7 +1,7 @@
 {
     "name": "argus",
     "version": "1.0.0",
-    "description": "MCP tools for .lsp.json language servers, with diagnostics after patch and shell edits",
+    "description": "Language-server navigation and automatic workspace diagnostic feedback",
     "mcpServers": {
         "argus": {
             "type": "http",
@@ -10,45 +10,28 @@
     },
     "hooks": {
         "hooks": {
-            "PreToolUse": [
+            "PostToolUse": [
                 {
-                    "matcher": "^Bash$",
                     "hooks": [
                         {
                             "type": "mcp_tool",
                             "server": "argus",
-                            "tool": "shell",
-                            "input": { "event": "${hook_event_name}", "toolUseId": "${tool_use_id}" },
-                            "timeout": 150,
-                            "statusMessage": "Recording filesystem snapshot"
+                            "tool": "feedback",
+                            "input": { "sessionId": "${session_id}", "turnId": "${turn_id}", "transcriptPath": "${transcript_path}", "toolUseId": "${tool_use_id}", "toolName": "${tool_name}" },
+                            "statusMessage": "Reading diagnostics"
                         }
                     ]
                 }
             ],
-            "PostToolUse": [
+            "Stop": [
                 {
-                    "matcher": "^apply_patch$",
                     "hooks": [
                         {
                             "type": "mcp_tool",
                             "server": "argus",
-                            "tool": "patched",
-                            "input": { "patch": "${tool_input.command}" },
-                            "timeout": 150,
-                            "statusMessage": "Reading diagnostics"
-                        }
-                    ]
-                },
-                {
-                    "matcher": "^Bash$",
-                    "hooks": [
-                        {
-                            "type": "mcp_tool",
-                            "server": "argus",
-                            "tool": "shell",
-                            "input": { "event": "${hook_event_name}", "toolUseId": "${tool_use_id}" },
-                            "timeout": 150,
-                            "statusMessage": "Reading diagnostics"
+                            "tool": "format",
+                            "input": { "sessionId": "${session_id}" },
+                            "statusMessage": "Formatting edited files"
                         }
                     ]
                 }

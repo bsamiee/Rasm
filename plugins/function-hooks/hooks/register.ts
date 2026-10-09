@@ -1,7 +1,6 @@
-import type { ClassicHookInputs, EngineInterface, Frozen, PluginOptions, ProcessRunInit, Register, ToolCallInput, ToolCallResult } from 'claude-code';
+import type { ClassicHookInputs, EngineInterface, Frozen, Next, PluginOptions, ProcessRunInit, Register, ToolCallInput, ToolCallResult } from 'claude-code';
 import { atom, memberOf, read, update } from 'claude-code';
 import { bind, both, decoded, type Fault, fault, fromUndefined, map, none, type Option, ok, type Result, rendered, some } from '../composition.ts';
-import { fromAstGrep, lines, summary } from '../context/diagnostics.ts';
 import { pointer, touched } from '../context/plan.ts';
 import { type Boundary, delivered, outcome, request, type Spawn } from '../observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, type Payload, row, TURN, USAGE } from '../observation/row.ts';
@@ -9,11 +8,10 @@ import { BOUNDARY, bound, DELTA, INSERT, JUDGE, OPEN, REPORT, sqlite } from '../
 import { SCAN } from '../policies/command.ts';
 import type { Invocation } from '../policies/invocation.ts';
 import { commandDecision, type Decision, type Host, pathRefusal, worktreeRefusal } from '../policies/policies.ts';
-import { reformatted } from '../repository/format.ts';
 import { caption, capturePath, recorded } from '../ui/capture.ts';
 import { down, kickstart, LAUNCHD_AGENTS, LISTENERS, remaining, services, UID } from '../ui/health.ts';
 import { band, bandRows, captureRow, resultRow } from '../ui/render.tsx';
-import type { Capture, Diagnostic, Notice, Service } from './state.d.ts';
+import type { Capture, Notice, Service } from './state.d.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -40,8 +38,7 @@ const _LOG = 'log';
 const _DATABASE = atom({ plugin: 'function-hooks', key: 'database' } as const, none);
 const _NOTICE = atom({ plugin: 'function-hooks', key: 'notice' } as const, none);
 const _DOWN = atom({ plugin: 'function-hooks', key: 'down' } as const, []);
-const _EDITED = atom({ plugin: 'function-hooks', key: 'edited' } as const, []);
-const _DIAGNOSTICS = atom({ plugin: 'function-hooks', key: 'diagnostics' } as const, []);
+const _EDITS = atom({ plugin: 'function-hooks', key: 'edits' } as const, { format: [], diagnostics: [] });
 const _CAPTURE = atom({ plugin: 'function-hooks', key: 'capture' } as const, none);
 const _PLAN = atom({ plugin: 'function-hooks', key: 'plan' } as const, { path: none, taskFile: none });
 const _SAID = atom({ plugin: 'function-hooks', key: 'said' } as const, []);
@@ -51,10 +48,14 @@ const _SAID = atom({ plugin: 'function-hooks', key: 'said' } as const, []);
 // --- [HOST]
 
 const _once = async ($: EngineInterface, loop: string, texts: readonly string[]): Promise<readonly string[]> => {
-    const said = memberOf(_SAID, { requestId: loop });
-    const held = await read($, said);
-    const fresh = [...new Set(texts)].filter((text) => !held.includes(text));
-    await (fresh.length === 0 ? undefined : update($, said, (current) => [...current, ...fresh]));
+    if (texts.length === 0) {
+        return [];
+    }
+    let fresh: readonly string[] = [];
+    await update($, memberOf(_SAID, { requestId: loop }), (held) => {
+        fresh = [...new Set(texts)].filter((text) => !held.includes(text));
+        return [...held, ...fresh];
+    });
     return fresh;
 };
 
@@ -71,9 +72,7 @@ const _run = async ($: EngineInterface, argv: Invocation, init: ProcessRunInit, 
 
 const _host = ($: EngineInterface): Host => ({
     scan: (text) => _run($, SCAN, { stdin: text }, [0]),
-    read: (path) => _result($.fs.read(path), 'unread', path),
     repo: () => $.session.repo().then((found) => (found === null ? none : some(found.root))),
-    make: (folders) => _run($, ['mkdir', '-p', ...folders], {}, [0]),
     exists: (path) => $.fs.exists(path),
     real: (path) =>
         $.fs.stat(path, { resolve: true }).then(
@@ -81,7 +80,6 @@ const _host = ($: EngineInterface): Host => ({
             () => none,
         ),
     home: () => $.env.get('HOME').then(fromUndefined),
-    workspaceData: () => $.env.get('NX_WORKSPACE_DATA_DIRECTORY').then(fromUndefined),
 });
 
 const _toplevel = async ($: EngineInterface): Promise<Result<string>> => map(await _run($, ['git', 'rev-parse', '--show-toplevel'], { cwd: await $.session.root() }, [0]), (printed) => printed.trim());
@@ -144,24 +142,68 @@ const _decision = ($: EngineInterface, e: ToolCallInput, walkPolicy: boolean): P
     return Promise.resolve(refusal.kind === 'some' ? { kind: 'deny', reason: refusal.value } : { kind: 'allow', rewrite: none });
 };
 
-const _edited = async ($: EngineInterface, e: ToolCallInput, loop: string): Promise<readonly string[]> => {
-    if (e.tool !== 'Edit' && e.tool !== 'Write' && e.tool !== 'NotebookEdit') {
+const _called = async (e: Frozen<ToolCallInput>, next: Next<'tool.call'>): Promise<{ readonly answer: ToolCallResult; readonly paths: readonly string[] }> => {
+    if (e.tool === 'Edit' || e.tool === 'Write') {
+        const answer = await next(e);
+        return { answer, paths: answer.deny === undefined && answer.isError !== true && answer.result.staged !== true ? [answer.result.filePath] : [] };
+    }
+    if (e.tool === 'NotebookEdit') {
+        const answer = await next(e);
+        return { answer, paths: answer.deny === undefined && answer.isError !== true && answer.result.error === undefined ? [answer.result.notebook_path] : [] };
+    }
+    return { answer: await next(e), paths: [] };
+};
+
+const _queued = async ($: EngineInterface, loop: string, paths: readonly string[]): Promise<void> => {
+    if (paths.length === 0) {
+        return;
+    }
+    const merge = (held: readonly string[]): readonly string[] => [...new Set([...held, ...paths])];
+    await update($, memberOf(_EDITS, { requestId: loop }), (held) => ({ format: merge(held.format), diagnostics: merge(held.diagnostics) }));
+};
+
+const _drained = async ($: EngineInterface, loop: string, operation: 'format' | 'diagnostics'): Promise<readonly string[]> => {
+    let paths: readonly string[] = [];
+    await update($, memberOf(_EDITS, { requestId: loop }), (held) => {
+        paths = held[operation];
+        return { ...held, [operation]: [] };
+    });
+    return paths;
+};
+
+const _node = async ($: EngineInterface, operation: 'format' | 'diagnostics', root: string, paths: readonly string[]): Promise<Result<string>> => {
+    const stream = $.process.spawn({ argv: ['node', `${$.plugin.root}/repository/${operation}-cli.ts`], cwd: root, input: JSON.stringify({ root, paths }) });
+    let stdout = '';
+    let stderr = '';
+    for await (const chunk of stream) {
+        if (chunk.stream === 'stdout') {
+            stdout += chunk.text;
+        } else {
+            stderr += chunk.text;
+        }
+    }
+    const { code, signal } = await stream.result;
+    if (code === null) {
+        return fault({ kind: 'unstarted', subject: operation, cause: signal });
+    }
+    return code === 0 ? ok(stdout) : fault({ kind: 'exited', subject: operation, code, stderr });
+};
+
+const _processed = async ($: EngineInterface, loop: string, operation: 'format' | 'diagnostics'): Promise<readonly string[]> => {
+    const paths = await _drained($, loop, operation);
+    if (paths.length === 0) {
         return [];
     }
-    const path = e.tool === 'NotebookEdit' ? e.notebook_path : e.file_path;
-    const root = await _toplevel($);
-    if (root.kind === 'fault' || !path.startsWith(`${root.value}/`)) {
-        return [];
+    const ran = await bind(await _toplevel($), (root) => _result(_node($, operation, root, paths), 'unstarted', operation));
+    const output = bind(ran, (printed) => decoded<readonly string[]>(operation, printed));
+    if (output.kind === 'fault') {
+        await update($, memberOf(_EDITS, { requestId: loop }), (held) => ({ ...held, [operation]: [...new Set([...paths, ...held[operation]])] }));
+        return [rendered(output.faults)];
     }
-    const [scanned] = await Promise.all([
-        e.tool === 'NotebookEdit' ? ok<readonly Diagnostic[]>([]) : _run($, ['ast-grep', 'scan', '--json=compact', path], { cwd: root.value }, [0, 1]).then((printed) => fromAstGrep(printed, path)),
-        update($, memberOf(_EDITED, { requestId: loop }), (held) => (held.includes(path) ? held : [...held, path])),
-    ]);
-    if (scanned.kind === 'fault') {
-        return [`${rendered(scanned.faults)}. Run ast-grep scan ${path} for the full cause`];
+    if (operation === 'format') {
+        await update($, memberOf(_EDITS, { requestId: loop }), (held) => ({ ...held, diagnostics: [...new Set([...held.diagnostics, ...paths])] }));
     }
-    await (scanned.value.length === 0 ? undefined : update($, memberOf(_DIAGNOSTICS, { requestId: e.tool_use_id }), () => scanned.value));
-    return lines(scanned.value);
+    return output.value;
 };
 
 const _captured = async ($: EngineInterface, e: ToolCallInput, text: string): Promise<void> => {
@@ -253,30 +295,14 @@ const _boundary = async ($: EngineInterface, options: PluginOptions, session: st
 
 // --- [WRITERS]
 
-const _formatted = async ($: EngineInterface, loop: string): Promise<readonly string[]> => {
-    const [files, toplevel] = await Promise.all([read($, memberOf(_EDITED, { requestId: loop })), _toplevel($)]);
-    return toplevel.kind === 'fault'
-        ? []
-        : reformatted(
-              {
-                  exec: (argv, exits) => _run($, argv, { cwd: toplevel.value, timeoutMs: 120_000 }, exits),
-                  read: (path) => _result($.fs.read(path), 'unread', path),
-                  mtime: (path) =>
-                      $.fs.stat(path).then(
-                          ({ mtimeMs }) => some(mtimeMs),
-                          () => none,
-                      ),
-              },
-              toplevel.value,
-              files,
-          );
-};
-
 const _stopped = async <E extends Frozen<ClassicHookInputs['Stop' | 'SubagentStop']>, R extends { readonly additionalContext?: readonly string[] }>($: EngineInterface, e: E, next: (input: E) => Promise<R>, observation: Option<PluginOptions>): Promise<R> => {
+    const loop = e.hook_event_name === 'SubagentStop' ? e.agent_id : _MAIN;
     const stamped = observation.kind === 'some' ? await _record($, e.hook_event_name, e, CLASSIC) : none;
     const result = await next(e);
     const boundary = observation.kind === 'some' && stamped.kind === 'some' && e.hook_event_name === 'Stop' ? _boundary($, observation.value, e.session_id, stamped.value) : [];
-    const context = e.stop_hook_active ? [] : (await Promise.all([boundary, _formatted($, e.hook_event_name === 'SubagentStop' ? e.agent_id : _MAIN)])).flat();
+    const written = await _processed($, loop, 'format');
+    const checked = await _processed($, loop, 'diagnostics');
+    const context = e.stop_hook_active ? [] : await _once($, loop, [...(await boundary), ...written, ...checked]);
     return context.length === 0 ? result : { ...result, additionalContext: [...(result.additionalContext ?? []), ...context] };
 };
 
@@ -299,24 +325,23 @@ const register: Register = (on, options) => {
         }
         const { rewrite } = decision;
         const loop = e.agentId ?? _MAIN;
-        const [answer] = await Promise.all([(e.tool === 'Bash' || e.tool === 'Monitor') && rewrite.kind === 'some' ? next({ ...e, command: rewrite.value.command }) : next(e), rewrite.kind === 'some' ? _noticed($, rewrite.value.notice) : undefined]);
+        const [{ answer, paths }] = await Promise.all([_called((e.tool === 'Bash' || e.tool === 'Monitor') && rewrite.kind === 'some' ? { ...e, command: rewrite.value.command } : e, next), rewrite.kind === 'some' ? _noticed($, rewrite.value.notice) : undefined]);
         if (answer.deny !== undefined) {
             await _denied($, observation, e, answer.deny, next.trace);
             return answer;
         }
         const failed = answer.isError === true;
-        const [edited] = await Promise.all([failed ? [] : _edited($, e, loop), failed || answer.text === undefined ? undefined : _captured($, e, answer.text), failed ? undefined : _planned($, e)]);
-        const context = [...(await _once($, loop, rewrite.kind === 'some' ? [rewrite.value.context] : [])), ...edited];
+        await Promise.all([_queued($, loop, paths), failed || answer.text === undefined ? undefined : _captured($, e, answer.text), failed ? undefined : _planned($, e)]);
+        const context = await _once($, loop, [...(rewrite.kind === 'some' ? [rewrite.value.context] : []), ...(await _processed($, loop, 'diagnostics'))]);
         return context.length === 0 ? answer : ({ ...answer, context: [...(answer.context ?? []), ...context] } satisfies ToolCallResult);
     }).catch((_$, e, next) => (next.called ? next(e) : { deny: 'function-hooks policy did not run' }));
 
     on('turn.complete', async ($, e, next) => {
         const loop = e.agentId ?? _MAIN;
-        const edited = memberOf(_EDITED, { requestId: loop });
         const said = memberOf(_SAID, { requestId: loop });
         const logged = memberOf(_SAID, { requestId: _LOG });
-        const [files, notes, faults] = await Promise.all([read($, edited), read($, said), loop === _MAIN ? read($, logged) : [], observation.kind === 'some' ? _record($, 'turn.complete', e, TURN) : undefined]);
-        const [result] = await Promise.all([next(e), files.length === 0 ? undefined : update($, edited, () => []), notes.length === 0 ? undefined : update($, said, () => []), faults.length === 0 ? undefined : update($, logged, () => [])]);
+        const [notes, faults] = await Promise.all([read($, said), loop === _MAIN ? read($, logged) : [], observation.kind === 'some' ? _record($, 'turn.complete', e, TURN) : undefined]);
+        const [result] = await Promise.all([next(e), notes.length === 0 ? undefined : update($, said, () => []), faults.length === 0 ? undefined : update($, logged, () => [])]);
         return result;
     });
 
@@ -347,11 +372,11 @@ const register: Register = (on, options) => {
     });
 
     on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
-        const [below, rows, capture] = await Promise.all([next(e), read($, memberOf(_DIAGNOSTICS, e)), read($, memberOf(_CAPTURE, e))]);
+        const [below, capture] = await Promise.all([next(e), read($, memberOf(_CAPTURE, e))]);
         if (capture.kind === 'some') {
             return e.surface === 'terminal' && e.viewport !== undefined ? captureRow($.ui.resolve(e), below, capture.value, e.viewport.columns) : resultRow($.ui.resolve(e), below, caption(capture.value.path, capture.value.record));
         }
-        return rows.length === 0 ? below : resultRow($.ui.resolve(e), below, summary(rows));
+        return below;
     });
 
     if (observation.kind === 'some') {

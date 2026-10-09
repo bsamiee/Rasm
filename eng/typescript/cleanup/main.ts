@@ -1,93 +1,89 @@
-import { connect, type Socket } from 'node:net';
+// biome-ignore-all lint/correctness/noNodejsModules lint/nursery/noRestrictedDependencies: Recovery requires native process APIs and Rimraf's cancellable filtered deletion.
+
 import { homedir, userInfo } from 'node:os';
+import { sep } from 'node:path';
 import process from 'node:process';
-import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Array, Boolean, Console, Duration, Effect, FileSystem, HashMap, Option, Path, type PlatformError, pipe, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
-import { Command } from 'effect/cli';
+import { NodeRuntime, NodeServices, NodeSocket } from '@effect/platform-node';
+import { cacheDir, createProjectGraphAsync, getOutputsForTargetAndConfiguration, workspaceRoot } from '@nx/devkit';
+import { Array, Config, Console, Data, Effect, FileSystem, flow, HashMap, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schema, Stream, String, Struct, Tuple } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Argv = Array.NonEmptyReadonlyArray<string>;
+import { escape, Minimatch } from 'minimatch';
+import { rimraf } from 'rimraf';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<uid>\d+)\s+(?<state>\S+)\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
-const LSOF_BLOCK = /\n(?=p\d)/u;
-const LSOF_PID = /^p(?<pid>\d+)/u;
-const LSOF_CWD = /^fcwd\nn(?<path>.*)$/mu;
-const LSOF_TXT = /^ftxt\nn(?<path>.*)$/gmu;
-const JOB_ROW = /^(?<pid>\d+)\t\S+\t(?<label>.+)$/u;
-const WORKTREE_ROW = /^worktree (?<path>.+)$/u;
+const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<uid>\d+)\s+(?<state>\S+)\s+(?<terminal>-?\d+)\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
+const JOB_ROW = /^(?<pid>\d+|-)\t\S+\t(?<label>.+)$/u;
+const OPEN_PROCESS = /^p(?<pid>\d+)\0\n(?<files>[\s\S]*)$/u;
+const OPEN_BLOCK = /(?<=\0\n)(?=p\d+\0)/u;
+const SUCCESS_CODES = [0];
+const LSOF_CODES = [...SUCCESS_CODES, 1];
+const GLOB_OPTIONS = { dot: true, windowsPathsNoEscape: process.platform === 'win32', magicalBraces: true, nocase: false };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Installed = Schema.Record(Schema.String, Schema.Array(Schema.Struct({ install_path: Schema.String })));
-const Agents = Schema.Struct({ launchd: Schema.Struct({ agents: Schema.Array(Schema.Struct({ label: Schema.String })) }) });
+const Installed = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.Struct({ install_path: Schema.String }))));
+const Agents = Schema.fromJsonString(Schema.Struct({ launchd: Schema.Struct({ agents: Schema.Array(Schema.Struct({ loaded: Schema.Boolean, label: Schema.String, path: Schema.String })) }) }));
 const Registered = Schema.fromJsonString(Schema.Struct({ connection_uri: Schema.URLFromString }));
+const Listed = Schema.Struct({ pid: Schema.NumberFromString, ppid: Schema.NumberFromString, uid: Schema.NumberFromString, state: Schema.String, terminal: Schema.NumberFromString, started: Schema.String, command: Schema.String });
+const OpenProcess = Schema.Struct({ pid: Schema.NumberFromString, files: Schema.String });
+const OpenFile = Schema.Struct({ descriptor: Schema.String, path: Schema.String });
 
-interface Process {
-    readonly pid: number;
-    readonly ppid: number;
-    readonly uid: number;
-    readonly state: string;
-    readonly started: string;
-    readonly command: string;
-    readonly cwd: Option.Option<string>;
-    readonly mapped: readonly string[];
+interface Process extends Schema.Schema.Type<typeof Listed> {
+    readonly files: Option.Option<readonly { readonly descriptor: string; readonly path: string }[]>;
 }
 interface Snapshot {
     readonly processes: HashMap.HashMap<number, Process>;
     readonly jobs: HashMap.HashMap<number, string>;
 }
+interface Removal {
+    readonly root: string;
+    readonly included: string[];
+    readonly excluded: readonly Minimatch[];
+}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class Exited extends Schema.TaggedError<Exited>()('Exited', { command: Schema.String, code: Schema.Int }) {}
-class Unsignaled extends Schema.TaggedError<Unsignaled>()('Unsignaled', { pid: Schema.Int, cause: Schema.Unknown }) {}
+class Exited extends Data.TaggedError('Exited')<{ readonly command: ChildProcess.StandardCommand; readonly code: number }> {}
+class Unsignaled extends Data.TaggedError('Unsignaled')<{ readonly pid: number; readonly cause: unknown }> {}
+class RemovalFailed extends Data.TaggedError('RemovalFailed')<{ readonly patterns: readonly string[]; readonly cause: unknown }> {}
+class UnsupportedEndpoint extends Data.TaggedError('UnsupportedEndpoint')<{ readonly uri: URL }> {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [COMMANDS]
-const run = (argv: Argv, cwd: string): Effect.Effect<void, Exited | PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner> =>
-    Effect.scoped(Effect.flatMap(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { cwd, stdin: 'ignore', stdout: 'inherit', stderr: 'inherit' }), (handle) => Effect.flatMap(handle.exitCode, (code) => (code === 0 ? Effect.void : Effect.fail(new Exited({ command: argv.join(' '), code }))))));
-const read = (argv: Argv, accepted: readonly number[]): Effect.Effect<string, Exited | PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner> =>
+const execute = (command: ChildProcess.StandardCommand, accepted: readonly number[]): Effect.Effect<string, Exited | PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner> =>
     Effect.scoped(
-        Effect.flatMap(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', stderr: 'ignore' }), (handle) =>
-            Effect.flatMap(Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode]), ([text, code]) => (accepted.includes(code) ? Effect.succeed(text) : Effect.fail(new Exited({ command: argv.join(' '), code })))),
+        Effect.flatMap(ChildProcess.make(command.command, command.args, { ...command.options, stdin: 'ignore', stderr: 'inherit', env: { ...command.options.env, LC_ALL: 'C' }, extendEnv: true }), (handle) =>
+            Effect.flatMap(Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' }), ([text, code]) => (accepted.includes(code) ? Effect.succeed(text) : Effect.fail(new Exited({ command, code })))),
         ),
     );
-const groups = (pattern: RegExp, text: string): Option.Option<Record<string, string | undefined>> => Option.fromNullishOr(pattern.exec(text)?.groups);
-const group = (pattern: RegExp, name: string, text: string): Option.Option<string> => Option.flatMap(groups(pattern, text), (found) => Option.fromNullishOr(found[name]));
-const lines = (pattern: RegExp, name: string, text: string): string[] => Array.getSomes(Array.map(text.split('\n'), (line) => group(pattern, name, line)));
+const under = (entry: string, roots: readonly string[]): boolean => roots.some((root) => entry === root || entry.startsWith(`${root}${sep}`));
 
 // --- [SNAPSHOT]
-const block = (text: string): Option.Option<readonly [number, Pick<Process, 'cwd' | 'mapped'>]> =>
-    Option.map(group(LSOF_PID, 'pid', text), (pid) => [Number(pid), { cwd: group(LSOF_CWD, 'path', text), mapped: Array.getSomes(Array.map([...text.matchAll(LSOF_TXT)], (match) => Option.fromNullishOr(match.groups?.path))) }] as const);
-const opened = (lsof: string): HashMap.HashMap<number, Pick<Process, 'cwd' | 'mapped'>> => HashMap.fromIterable(Array.getSomes(Array.map(lsof.split(LSOF_BLOCK), block)));
-const listed = (line: string): Option.Option<Omit<Process, 'cwd' | 'mapped'>> =>
-    pipe(
-        groups(PS_ROW, line),
-        Option.flatMap((found) => Option.all({ pid: Option.fromNullishOr(found.pid), ppid: Option.fromNullishOr(found.ppid), uid: Option.fromNullishOr(found.uid), state: Option.fromNullishOr(found.state), started: Option.fromNullishOr(found.started), command: Option.fromNullishOr(found.command) })),
-        Option.map(({ pid, ppid, uid, ...rest }) => ({ pid: Number(pid), ppid: Number(ppid), uid: Number(uid), ...rest })),
+const opened = Effect.fn('opened')(function* (text: string) {
+    return HashMap.fromIterable(
+        yield* Effect.forEach(text.split(OPEN_BLOCK).filter(String.isNonEmpty), (block) =>
+            Effect.gen(function* () {
+                const { pid, files } = yield* Schema.decodeUnknownEffect(OpenProcess)(OPEN_PROCESS.exec(block)?.groups);
+                const named = yield* Schema.decodeUnknownEffect(Schema.Array(OpenFile))([...files.matchAll(/(?:^|\0\n)f(?<descriptor>[^\0]+)\0n(?<path>[^\0]*)/gu)].map(Struct.get('groups')));
+                return [pid, named] as const;
+            }),
+        ),
     );
-const loaded = (line: string): Option.Option<readonly [number, string]> => Option.map(Option.all([group(JOB_ROW, 'pid', line), group(JOB_ROW, 'label', line)] as const), ([pid, label]) => [Number(pid), label] as const);
-const snapshot: Effect.Effect<Snapshot, Exited | PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner> = Effect.map(
-    Effect.all([read(['ps', '-axww', '-o', 'pid=,ppid=,uid=,stat=,lstart=,comm='], [0]), read(['lsof', '-n', '-P', '-a', '-d', 'cwd,txt', '-Fpfn'], [0, 1]), read(['launchctl', 'list'], [0])], { concurrency: 'unbounded' }),
-    ([ps, lsof, launchctl]) => {
-        const files = opened(lsof);
-        return {
-            processes: pipe(
-                ps.split('\n'),
-                Array.map(listed),
-                Array.getSomes,
-                Array.map((running) => [running.pid, { ...running, ...Option.getOrElse(HashMap.get(files, running.pid), () => ({ cwd: Option.none(), mapped: [] })) }] as const),
-                HashMap.fromIterable,
-            ),
-            jobs: HashMap.fromIterable(Array.getSomes(Array.map(launchctl.split('\n'), loaded))),
-        };
-    },
-);
+});
+const listed = execute(ChildProcess.make('ps', ['-axww', '-o', 'pid=,ppid=,uid=,stat=,tpgid=,lstart=,comm=']), SUCCESS_CODES).pipe(Effect.flatMap((text) => Effect.forEach(text.split('\n').filter(String.isNonEmpty), (line) => Schema.decodeUnknownEffect(Listed)(PS_ROW.exec(line)?.groups))));
+const snapshot = Effect.gen(function* () {
+    const [processes, files, jobs] = yield* Effect.all(
+        [
+            listed,
+            execute(ChildProcess.make('lsof', ['-nP', '-F0pfn']), LSOF_CODES).pipe(Effect.flatMap(opened)),
+            execute(ChildProcess.make('launchctl', ['list']), SUCCESS_CODES).pipe(Effect.flatMap((text) => Effect.forEach(text.split('\n').slice(1).filter(String.isNonEmpty), (line) => Schema.decodeUnknownEffect(Schema.Struct({ pid: Schema.String, label: Schema.String }))(JOB_ROW.exec(line)?.groups)))),
+        ],
+        { concurrency: 'unbounded' },
+    );
+    return { processes: HashMap.fromIterable(processes.map((running) => [running.pid, { ...running, files: HashMap.get(files, running.pid) }] as const)), jobs: HashMap.fromIterable(jobs.filter(({ pid }) => pid !== '-').map(({ pid, label }) => [Number(pid), label] as const)) } satisfies Snapshot;
+});
 const ancestors = (processes: HashMap.HashMap<number, Process>, pid: number): number[] =>
     Array.unfold(pid, (current) =>
         Option.map(
@@ -97,186 +93,228 @@ const ancestors = (processes: HashMap.HashMap<number, Process>, pid: number): nu
     );
 const descendants = (processes: HashMap.HashMap<number, Process>, pid: number): Process[] => {
     const children = Array.groupBy(HashMap.values(processes), (running) => `${running.ppid}`);
-    const walk = (current: number): Process[] => (children[`${current}`] ?? []).flatMap((child) => [child, ...walk(child.pid)]);
+    const walk = (current: number): Process[] => Option.match(Record.get(children, `${current}`), { onNone: () => [], onSome: (members) => members.flatMap((child) => [child, ...walk(child.pid)]) });
     return walk(pid);
 };
-const under = (path: string, roots: readonly string[]): boolean => roots.some((root) => path === root || path.startsWith(`${root}/`));
-const executable = (running: Process): Option.Option<string> => Array.head(running.mapped);
-const stale = ({ processes, jobs }: Snapshot, roots: readonly string[], installed: readonly string[], tools: readonly string[], self: number): Process[] => {
-    const harness = [`${homedir()}/.local/share/claude`];
+const stale = ({ processes, jobs }: Snapshot, roots: readonly string[], installed: readonly string[], tools: readonly string[], self: number, uid: number): Process[] => {
     const running = Array.fromIterable(HashMap.values(processes));
     const kept = new Set([
         ...ancestors(processes, self),
-        ...Array.flatMap(Array.fromIterable(HashMap.keys(jobs)), (pid) => Array.map(descendants(processes, pid), Struct.get('pid'))),
-        ...pipe(
-            running,
-            Array.filter((candidate) => Option.exists(executable(candidate), (exe) => under(exe, harness))),
-            Array.flatMap((candidate) => ancestors(processes, candidate.pid)),
+        ...Array.flatMap(Array.fromIterable(HashMap.keys(jobs)), (pid) => [pid, ...descendants(processes, pid).map(Struct.get('pid'))]),
+        ...Array.flatMap(
+            running.filter((candidate) => candidate.terminal > 0),
+            (candidate) => ancestors(processes, candidate.pid),
         ),
     ]);
-    const repository = (candidate: Process): boolean => Option.exists(executable(candidate), (exe) => under(exe, installed) || (under(exe, tools) && Option.exists(candidate.cwd, (cwd) => under(cwd, [...roots, ...tools]))));
-    return pipe(
-        running,
-        Array.filter((candidate) => candidate.ppid === 1 && !HashMap.has(jobs, candidate.pid) && repository(candidate)),
-        Array.map((candidate) => [candidate, ...descendants(processes, candidate.pid)]),
-        Array.filter((subtree) => !subtree.some((member) => kept.has(member.pid))),
-        Array.flatten,
-        Array.dedupeWith((left, right) => left.pid === right.pid),
-        Array.filter((target) => target.uid === userInfo().uid && !target.state.startsWith('Z')),
+    return Array.flatMap(
+        running.filter(
+            (candidate) =>
+                candidate.ppid === 1 &&
+                Option.exists(
+                    candidate.files,
+                    (files) => files.some(({ descriptor, path }) => descriptor === 'txt' && under(path, installed)) || (files.some(({ descriptor, path }) => descriptor === 'txt' && under(path, tools)) && files.some(({ descriptor, path }) => descriptor === 'cwd' && under(path, [...roots, ...tools]))),
+                ),
+        ),
+        (candidate) => {
+            const subtree = [candidate, ...descendants(processes, candidate.pid)];
+            return subtree.some((member) => kept.has(member.pid) || member.uid !== uid) ? [] : subtree.filter((member) => !member.state.startsWith('Z'));
+        },
     );
 };
 
-// --- [SIGNALS]
-const signal = (pid: number, name: 'SIGTERM' | 'SIGKILL'): Effect.Effect<void, Unsignaled> =>
-    Effect.try({ try: () => process.kill(pid, name), catch: (cause) => new Unsignaled({ pid, cause }) }).pipe(
-        Effect.catchIf(
-            (error) => error.cause instanceof Error && 'code' in error.cause && error.cause.code === 'ESRCH',
-            () => Effect.void,
-        ),
-    );
-const grace = (targets: readonly Process[]): Duration.Duration => {
-    const runtimes: Record<string, Duration.Duration> = { java: Duration.fromInputUnsafe('30 seconds'), pulumi: Duration.fromInputUnsafe('1 minute') };
-    return Array.reduce(targets, Duration.fromInputUnsafe('5 seconds'), (longest, target) =>
-        pipe(
-            executable(target),
-            Option.flatMap((exe) => Array.last(exe.split('/'))),
-            Option.flatMap((name) => Record.get(runtimes, name)),
-            Option.map((input) => Duration.max(longest, input)),
-            Option.getOrElse(() => longest),
-        ),
-    );
-};
-const terminate = Effect.fn('terminate')(function* (roots: readonly string[], installed: readonly string[], tools: readonly string[]) {
-    const targets = stale(yield* snapshot, roots, installed, tools, process.pid);
-    yield* Effect.forEach(targets, (target) => Console.log(`terminate ${target.pid} ${target.command}`).pipe(Effect.andThen(signal(target.pid, 'SIGTERM'))), { discard: true });
-    yield* pipe(
-        Effect.sleep(grace(targets)),
-        Effect.andThen(snapshot),
-        Effect.flatMap((after) =>
-            Effect.forEach(
-                Array.filter(targets, (target) => Option.exists(HashMap.get(after.processes, target.pid), (running) => running.started === target.started)),
-                (target) => Console.log(`kill ${target.pid} ${target.command}`).pipe(Effect.andThen(signal(target.pid, 'SIGKILL'))),
-                { discard: true },
+// --- [RECOVERY]
+const wait = (pids: readonly number[]): Effect.Effect<string, Exited | PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner> => execute(ChildProcess.make('lsof', ['-nP', '-p', pids.join(','), '+r', '1'], { stdout: 'ignore' }), LSOF_CODES);
+const terminate = Effect.fn('terminate')(function* (roots: readonly string[], installed: readonly string[], tools: readonly string[], uid: number) {
+    const signal = (pid: number, name: 'SIGTERM' | 'SIGKILL'): Effect.Effect<void, Unsignaled> =>
+        Effect.try({ try: () => process.kill(pid, name), catch: (cause) => new Unsignaled({ pid, cause }) }).pipe(
+            Effect.asVoid,
+            Effect.catchIf(
+                (error) => error.cause instanceof Error && 'code' in error.cause && error.cause.code === 'ESRCH',
+                () => Effect.void,
             ),
-        ),
-        Effect.when(Effect.succeed(Array.isReadonlyArrayNonEmpty(targets))),
-    );
+        );
+    const targets = stale(yield* snapshot, roots, installed, tools, process.pid, uid);
+    yield* Effect.validate(targets, (target) => Console.log(`terminate ${target.pid} ${target.command}`).pipe(Effect.andThen(signal(target.pid, 'SIGTERM'))), { discard: true });
+    if (targets.length > 0 && Option.isNone(yield* wait(targets.map(Struct.get('pid'))).pipe(Effect.timeoutOption('1 minute')))) {
+        const after = yield* listed;
+        yield* Effect.validate(
+            targets.filter((target) => after.some((running) => running.pid === target.pid && running.started === target.started)),
+            (target) => Console.log(`kill ${target.pid} ${target.command}`).pipe(Effect.andThen(signal(target.pid, 'SIGKILL'))),
+            { discard: true },
+        );
+    }
 });
-
-// --- [AGENTS]
-const holders = ({ jobs, processes }: Snapshot, labels: readonly string[], held: readonly string[], lockers: readonly number[]): string[] =>
-    pipe(
-        HashMap.toEntries(jobs),
-        Array.filter(([pid, label]) => labels.includes(label) && descendants(processes, pid).some((member) => lockers.includes(member.pid) || member.mapped.some((path) => under(path, held)))),
-        Array.map(([, label]) => label),
+const withoutAgents = <A, E, R>(agents: Schema.Schema.Type<typeof Agents>['launchd']['agents'], uid: number, work: Effect.Effect<A, E, R>): Effect.Effect<A, E | Exited | PlatformError.PlatformError, R | ChildProcessSpawner.ChildProcessSpawner> =>
+    agents.reduceRight<Effect.Effect<A, E | Exited | PlatformError.PlatformError, R | ChildProcessSpawner.ChildProcessSpawner>>(
+        (use, agent) =>
+            Effect.acquireUseRelease(
+                Console.log(`bootout ${agent.label}`).pipe(Effect.andThen(execute(ChildProcess.make('launchctl', ['bootout', `gui/${uid}/${agent.label}`]), SUCCESS_CODES))),
+                () => use,
+                () => execute(ChildProcess.make('launchctl', ['bootstrap', `gui/${uid}`, agent.path]), SUCCESS_CODES).pipe(Effect.asVoid),
+            ),
+        work,
     );
-const withoutAgents = (root: string, labels: readonly string[]): Effect.Effect<void, Exited | PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner | Scope.Scope> =>
-    Effect.addFinalizer(() => run(['mise', 'bootstrap', 'macos', 'launchd-agents', 'apply', '--yes'], root).pipe(Effect.when(Effect.succeed(Array.isReadonlyArrayNonEmpty(labels))), Effect.orDie)).pipe(
-        Effect.andThen(Effect.forEach(labels, (label) => Console.log(`bootout ${label}`).pipe(Effect.andThen(run(['launchctl', 'bootout', `gui/${userInfo().uid}/${label}`], root))), { discard: true })),
-    );
-
-// --- [FILES]
-const litter = Effect.fn('litter')(function* (root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const patterns = [
-        '.artifacts/apps',
-        '.artifacts/blender',
-        '.artifacts/dotnet',
-        '.artifacts/ghidra',
-        '.artifacts/ilspy',
-        '.artifacts/playwright',
-        '.artifacts/python/coverage',
-        '.artifacts/rhino',
-        '.artifacts/typescript/coverage',
-        '.cache/biome/logs',
-        '.cache/dotnet',
-        '.cache/ghidra/cache',
-        '.cache/ghidra/tmp',
-        '.cache/ghidra/settings/**/*.log',
-        '.cache/ghidra/settings/ghidra/*/osgi',
-        '.cache/hypothesis/{constants,observed,patches,tmp,unicode_data}',
-        '.cache/mypy',
-        '.cache/nuget/http-cache',
-        '.cache/nx/*',
-        '.cache/playwright/*',
-        '.cache/playwright-*',
-        '.cache/pmd',
-        '.cache/pnpm/cache/dlx',
-        '.cache/pulumi/logs',
-        '.cache/pycache',
-        '.cache/pytest',
-        '.cache/ruff',
-        '.cache/swiftlint',
-        '.cache/swiftpm',
-        '.cache/typescript',
-        '.cache/vite',
-        '.cache/vitest',
-        '.cache/wrangler/logs',
-        '.cache/wrangler/registry',
-        '.cache/xcode',
-        '{apps,libs,plugins,tools}/**/dist',
-        '{apps,libs,plugins,tools}/**/__pycache__',
-        '{apps,libs,plugins,tools}/**/.wrangler/{deploy,registry,tmp}',
-    ];
-    const kept = ['**/node_modules', '**/.venv', '.cache/nx/cache', '.cache/nx/workspace-data', '.cache/playwright/browsers', '.cache/playwright/profile'];
-    return yield* fs.glob(`{${patterns.join(',')}}`, { root, exclude: kept });
-});
-const discard = (entries: readonly string[]): Effect.Effect<void, PlatformError.PlatformError, FileSystem.FileSystem> =>
-    Effect.flatMap(FileSystem.FileSystem, (fs) => Effect.forEach(entries, (entry) => Console.log(`remove ${entry}`).pipe(Effect.andThen(fs.remove(entry, { recursive: true, force: true }))), { concurrency: 'unbounded', discard: true }));
-
-// --- [REGISTRY]
-const connected = (socket: Socket): Effect.Effect<boolean> =>
-    Effect.callback((resume) => {
-        socket.once('connect', () => resume(Effect.succeed(true)));
-        socket.once('error', () => resume(Effect.succeed(false)));
-    });
-const reachable = ({ hostname, port }: URL): Effect.Effect<boolean> =>
-    Effect.acquireUseRelease(
-        Effect.sync(() => connect({ host: hostname.replace(/^\[|\]$/gu, ''), port: Number(port) })),
-        connected,
-        (socket) => Effect.sync(() => socket.destroy()),
-    );
-const dead = (text: string): Effect.Effect<boolean> => Option.match(Schema.decodeUnknownOption(Registered)(text), { onNone: () => Effect.succeed(true), onSome: ({ connection_uri }) => Effect.map(reachable(connection_uri), Boolean.not) });
 const unreachable = Effect.fn('unreachable')(function* (directory: string) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const entries = Array.map(yield* fs.glob('lldb-mcp-*.json', { root: directory }), (entry) => path.join(directory, entry));
-    return yield* Effect.filter(entries, (entry) => Effect.flatMap(fs.readFileString(entry), dead), { concurrency: 'unbounded' });
+    return yield* Effect.filter(
+        (yield* fs.glob('lldb-mcp-*.json', { root: directory })).map((entry) => path.resolve(directory, entry)),
+        (entry) =>
+            Effect.gen(function* () {
+                const { connection_uri: uri } = yield* fs.readFileString(entry).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Registered)));
+                if (!['connection:', 'connect:', 'tcp-connect:'].includes(uri.protocol) || uri.hostname === '' || uri.port === '') {
+                    return yield* Effect.fail(new UnsupportedEndpoint({ uri }));
+                }
+                return yield* Effect.scoped(
+                    NodeSocket.makeNet({ host: uri.hostname.replace(/^\[|\]$/gu, ''), port: Number(uri.port) }).pipe(
+                        Effect.flatMap(Struct.get('reader')),
+                        Effect.as(false),
+                        Effect.catchIf(
+                            (error) => error.reason._tag === 'SocketOpenError' && error.reason.cause instanceof Error && 'code' in error.reason.cause && error.reason.cause.code === 'ECONNREFUSED',
+                            () => Effect.succeed(true),
+                        ),
+                    ),
+                );
+            }),
+        { concurrency: 'unbounded' },
+    );
 });
+
+// --- [FILES]
+const litter = Effect.fn('litter')(function* (root: string) {
+    const path = yield* Path.Path;
+    const graph = yield* Effect.tryPromise(() => createProjectGraphAsync({ exitOnError: false }));
+    const [direct, hypothesis, pulumi, browsers, data, dotnet] = yield* Effect.all(
+        [
+            Effect.forEach(['BIOME_LOG_PATH', 'NUGET_HTTP_CACHE_PATH', 'PYTHONPYCACHEPREFIX', 'RUFF_CACHE_DIR', 'SWIFTPM_BUILD_DIR', 'WRANGLER_LOG_PATH', 'MINIFLARE_REGISTRY_PATH', 'PLAYWRIGHT_MCP_OUTPUT_DIR', 'PLAYWRIGHT_HTML_OUTPUT_DIR'], Config.String),
+            Config.String('HYPOTHESIS_STORAGE_DIRECTORY'),
+            Config.String('PULUMI_HOME'),
+            Config.String('PLAYWRIGHT_BROWSERS_PATH'),
+            Config.String('NX_WORKSPACE_DATA_DIRECTORY'),
+            Config.String('DOTNET_CLI_HOME'),
+        ],
+        { concurrency: 'unbounded' },
+    );
+    const patternRoot = escape(root, GLOB_OPTIONS);
+    const protectedPaths = [cacheDir, data, browsers, dotnet, path.resolve(root, '.cache/playwright/profile')].map((entry) => escape(path.resolve(root, entry), GLOB_OPTIONS));
+    const protectedPatterns = [...protectedPaths, path.join(patternRoot, '**/{node_modules,.venv}')];
+    const outputs = Object.values(graph.nodes).flatMap((node) =>
+        Object.entries(node.data.targets ?? {}).flatMap(([target, definition]) =>
+            definition.outputs === undefined ? [] : [undefined, ...Object.keys(definition.configurations ?? {})].map((configuration) => getOutputsForTargetAndConfiguration({ project: node.name, target, ...(configuration === undefined ? {} : { configuration }) }, {}, node)),
+        ),
+    );
+    const residue = ['.artifacts/{dotnet/binlog,ghidra,ilspy,python/coverage}', '.cache/{ghidra/{cache,tmp,settings/**/*.log,settings/ghidra/*/osgi},mypy,pytest,pmd,swiftlint,vite,vitest,xcode}', '{apps,libs,plugins,tools}/**/{__pycache__,.wrangler/{deploy,registry,tmp}}'];
+    return [...outputs, residue, [...direct, ...['constants', 'observed', 'patches', 'tmp', 'unicode_data'].map((entry) => path.join(hypothesis, entry)), path.join(pulumi, 'logs')].map((entry) => escape(path.resolve(root, entry), GLOB_OPTIONS))].map(
+        (patterns): Removal => ({
+            root,
+            included: patterns.filter(Predicate.not(String.startsWith('!'))).map((pattern) => path.resolve(patternRoot, pattern)),
+            excluded: [...protectedPatterns, ...patterns.filter(String.startsWith('!')).map((pattern) => path.resolve(patternRoot, pattern.slice(1)))].map((pattern) => new Minimatch(`${pattern}{,/**}`, GLOB_OPTIONS)),
+        }),
+    );
+});
+const discard = Effect.fn('discard')(function* (groups: readonly Removal[]) {
+    yield* Effect.validate(
+        groups,
+        ({ root, included, excluded }) => {
+            const protectedEntry = Predicate.some(excluded.map((pattern) => pattern.match.bind(pattern)));
+            return Console.log(`remove ${included.join(', ')}`).pipe(
+                Effect.andThen(
+                    Effect.tryPromise({
+                        try: (signal) => rimraf(included, { signal, glob: { ...GLOB_OPTIONS, ignore: excluded.map(Struct.get('pattern')) }, filter: (entry) => under(entry, [root]) && !protectedEntry(entry) }),
+                        catch: (cause) => new RemovalFailed({ patterns: included, cause }),
+                    }),
+                ),
+            );
+        },
+        { discard: true },
+    );
+});
+const prune = Effect.validate(
+    [
+        [ChildProcess.make('mise', ['prune', '--yes'], { stdout: 'inherit' })],
+        [ChildProcess.make('mise', ['cache', 'prune'], { stdout: 'inherit' })],
+        [ChildProcess.make('uv', ['cache', 'prune'], { stdout: 'inherit' })],
+        [ChildProcess.make('pnpm', ['store', 'prune'], { stdout: 'inherit' }), ChildProcess.make('pnpm', ['cache', 'prune'], { stdout: 'inherit' })],
+    ],
+    (commands) => Effect.forEach(commands, (command) => execute(command, SUCCESS_CODES), { discard: true }),
+    { concurrency: 'unbounded', discard: true },
+);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const cleanup = Effect.fn('cleanup')(function* () {
     const path = yield* Path.Path;
-    const root = path.resolve(import.meta.dirname, '..', '..', '..');
-    const [worktrees, managed, developer, agents, cache] = yield* Effect.all(
+    const root = path.resolve(workspaceRoot);
+    const workspace = yield* Effect.result(litter(root));
+    const work = <E, R>(removal: Effect.Effect<void, E, R>): Effect.Effect<void, Array.NonEmptyArray<E | Effect.Error<typeof prune>>, R | Effect.Services<typeof prune>> =>
+        Effect.validate([prune, removal], identity<Effect.Effect<void, E | Effect.Error<typeof prune>, R | Effect.Services<typeof prune>>>, { concurrency: 'unbounded', discard: true });
+    if (process.platform !== 'darwin') {
+        return yield* work(Effect.fromResult(workspace).pipe(Effect.flatMap(discard)));
+    }
+    const { uid } = userInfo();
+    const [roots, managed, developer, agents, cache] = yield* Effect.all(
         [
-            Effect.map(read(['git', '-C', root, 'worktree', 'list', '--porcelain'], [0]), (text) => lines(WORKTREE_ROW, 'path', text)),
-            Effect.flatMap(read(['mise', 'ls', '--installed', '--json'], [0]), (text) => Effect.map(Schema.decodeUnknownEffect(Schema.fromJsonString(Installed))(text), (installs) => Array.map(Array.flatten(Record.values(installs)), Struct.get('install_path')))),
-            Effect.map(read(['xcode-select', '--print-path'], [0]), String.trim),
-            Effect.flatMap(read(['mise', 'bootstrap', 'macos', 'launchd-agents', 'status', '--json'], [0]), (text) => Effect.map(Schema.decodeUnknownEffect(Schema.fromJsonString(Agents))(text), (status) => Array.map(status.launchd.agents, Struct.get('label')))),
-            Effect.map(read(['uv', 'cache', 'dir'], [0]), String.trim),
+            execute(ChildProcess.make('git', ['-C', root, 'worktree', 'list', '--porcelain', '-z']), SUCCESS_CODES).pipe(
+                Effect.map((text) =>
+                    text
+                        .split('\0')
+                        .filter(String.startsWith('worktree '))
+                        .map((field) => field.slice('worktree '.length)),
+                ),
+            ),
+            execute(ChildProcess.make('mise', ['ls', '--installed', '--json']), SUCCESS_CODES).pipe(
+                Effect.flatMap(Schema.decodeUnknownEffect(Installed)),
+                Effect.map((installs) => Array.flatten(Record.values(installs)).map(Struct.get('install_path'))),
+            ),
+            execute(ChildProcess.make('xcode-select', ['--print-path']), SUCCESS_CODES).pipe(Effect.map(String.trim)),
+            execute(ChildProcess.make('mise', ['bootstrap', 'macos', 'launchd-agents', 'status', '--json']), SUCCESS_CODES).pipe(
+                Effect.flatMap(Schema.decodeUnknownEffect(Agents)),
+                Effect.map((status) => status.launchd.agents.filter(Struct.get('loaded'))),
+            ),
+            execute(ChildProcess.make('uv', ['cache', 'dir']), SUCCESS_CODES).pipe(Effect.map(String.trim)),
         ],
         { concurrency: 'unbounded' },
     );
-    const installed = Array.flatMap(worktrees, (worktree) => [path.join(worktree, 'node_modules'), path.join(worktree, '.venv'), path.join(worktree, '.cache')]);
-    const tools = Array.append(managed, developer);
-    const commands: readonly (readonly Argv[])[] = [
-        [['mise', 'prune', '--yes']],
-        [['uv', 'cache', 'prune']],
-        [
-            ['pnpm', 'store', 'prune'],
-            ['pnpm', 'cache', 'delete'],
-            ['pnpm', 'cache', 'prune'],
-        ],
-        [['pulumi', 'plugin', 'rm', '--all', '--yes']],
-    ];
-    yield* run(['dotnet', 'build-server', 'shutdown'], root);
-    yield* terminate(worktrees, installed, tools);
-    const entries = [...Array.map(yield* litter(root), (entry) => path.join(root, entry)), ...(yield* unreachable(path.join(homedir(), '.lldb')))];
-    const lockers = Array.map(Array.filter((yield* read(['lsof', '-t', path.join(cache, '.lock')], [0, 1])).split('\n'), String.isNonEmpty), Number);
-    const labels = holders(yield* snapshot, agents, [cache, ...entries], lockers);
-    yield* Effect.scoped(withoutAgents(root, labels).pipe(Effect.andThen(Effect.validate(commands, (sequence) => Effect.forEach(sequence, (argv) => run(argv, root), { discard: true }), { concurrency: 'unbounded', discard: true })), Effect.andThen(discard(entries))));
+    yield* execute(ChildProcess.make('dotnet', ['build-server', 'shutdown'], { cwd: root, stdout: 'inherit' }), SUCCESS_CODES);
+    yield* terminate(
+        roots,
+        roots.flatMap((worktree) => ['node_modules', '.venv', '.cache'].map((entry) => path.join(worktree, entry))),
+        [...managed, developer],
+        uid,
+    );
+    const registryRoot = path.join(homedir(), '.lldb');
+    const registry = yield* unreachable(registryRoot).pipe(
+        Effect.map((entries): Removal[] => [{ root: registryRoot, included: entries.map((entry) => escape(entry, GLOB_OPTIONS)), excluded: [] }]),
+        Effect.result,
+    );
+    const plans: readonly Result.Result<readonly Removal[], Effect.Error<ReturnType<typeof litter>> | Effect.Error<ReturnType<typeof unreachable>>>[] = [workspace, registry];
+    const removals = Array.getSomes(plans.map(Result.getSuccess)).flat();
+    const state = yield* snapshot;
+    const held = Predicate.some([
+        (file: string): boolean => under(file, [cache]),
+        ...removals.map((group) =>
+            Predicate.every([
+                (file: string): boolean => under(file, [group.root]),
+                Predicate.some(group.included.map((pattern) => new Minimatch(`${pattern}{,/**}`, GLOB_OPTIONS)).map((pattern) => pattern.match.bind(pattern))),
+                Predicate.not(Predicate.some(group.excluded.map((pattern) => pattern.match.bind(pattern)))),
+            ]),
+        ),
+    ]);
+    const busy = new Set(
+        Array.fromIterable(HashMap.entries(state.jobs))
+            .filter(([pid]) =>
+                Array.getSomes([...Option.toArray(HashMap.get(state.processes, pid)), ...descendants(state.processes, pid)].map(Struct.get('files')))
+                    .flat()
+                    .some(flow(Struct.get('path'), held)),
+            )
+            .map(Tuple.get(1)),
+    );
+    const participating = agents.filter((agent) => busy.has(agent.label));
+    const labels = new Set(participating.map(Struct.get('label')));
+    const pids = Array.fromIterable(HashMap.entries(state.jobs))
+        .filter(([, label]) => labels.has(label))
+        .flatMap(([pid]) => [pid, ...descendants(state.processes, pid).map(Struct.get('pid'))]);
+    return yield* withoutAgents(participating, uid, (pids.length === 0 ? Effect.void : wait(pids).pipe(Effect.asVoid)).pipe(Effect.andThen(work(Effect.validate(plans, (plan) => Effect.fromResult(plan).pipe(Effect.flatMap(discard)), { discard: true })))));
 });
 
-Command.make('cleanup', {}, cleanup).pipe(Command.run({ version: '0' }), Effect.provide(NodeServices.layer), NodeRuntime.runMain);
+cleanup().pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);

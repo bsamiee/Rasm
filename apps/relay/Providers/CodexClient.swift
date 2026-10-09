@@ -37,18 +37,18 @@ actor CodexClient: ProviderClient {
 
     // --- [SELECTION]
     func currentSelection(known _: [Account]) -> Result<AccountIdentity?, ProviderError> {
-        CodexAuthFile.read(at: liveAuthFile).mapError(ProviderError.init(failure:))
+        CodexAuthFile.read(at: liveAuthFile).map { file in file?.identity }.mapError(ProviderError.init(failure:))
     }
 
     func holdsCredential(for account: Account) -> Result<Bool, ProviderError> {
         CodexAuthFile.read(at: paths.codexHome(account.id).appending(path: CodexAuthFile.name))
-            .map { identity in identity?.isSameAccount(as: account.identity) ?? false }
+            .map { file in file?.identity?.isSameAccount(as: account.identity) ?? false }
             .mapError(ProviderError.init(failure:))
     }
 
     private func identity(at home: URL) -> Result<AccountIdentity, CodexFailure> {
-        CodexAuthFile.read(at: home.appending(path: CodexAuthFile.name)).flatMap { identity in
-            identity.map(Result.success) ?? .failure(.signInRequired)
+        CodexAuthFile.read(at: home.appending(path: CodexAuthFile.name)).flatMap { file in
+            file?.identity.map(Result.success) ?? .failure(.signInRequired)
         }
     }
 
@@ -74,59 +74,57 @@ actor CodexClient: ProviderClient {
 
     func select(
         _ account: Account,
-        candidates: [Account],
+        outgoing: Account?,
     ) async -> Result<AccountIdentity, ProviderError> {
         let incoming: URL = paths.codexHome(account.id).appending(path: CodexAuthFile.name)
         return await preconditions()
-            .flatMap { _ in CodexAuthFile.read(at: incoming) }
-            .flatMap { saved -> Result<AccountIdentity, CodexFailure> in
-                switch saved {
-                    case .some(let saved) where saved.isSameAccount(as: account.identity): .success(saved)
-                    case .some, .none: .failure(.signInRequired)
-                }
-            }
-            .bind { saved -> Result<AccountIdentity, CodexFailure> in
+            .bind { _ in
                 await stopServer(liveHome)
                 await stopServer(paths.codexHome(account.id))
-                return await CodexAuthFile.read(at: liveAuthFile)
-                    .bind { live -> Result<Void, CodexFailure> in
-                        if let live, live.isSameAccount(as: account.identity) { return remove(incoming) }
-                        let outgoing: URL? = candidates.first { candidate in
-                            candidate.provider == .openAI && (live.map(candidate.identity.isSameAccount(as:)) ?? false)
-                        }
-                        .map { candidate in paths.codexHome(candidate.id) }
-                        if let outgoing { await stopServer(outgoing) }
-                        return
-                            (outgoing.map { home in
-                                installFile(from: liveAuthFile, to: home.appending(path: CodexAuthFile.name))
-                            } ?? .success(()))
-                            .flatMap { _ in installFile(from: incoming, to: liveAuthFile) }
-                            .flatMap { _ in remove(incoming) }
+                if let outgoing { await stopServer(paths.codexHome(outgoing.id)) }
+                return CodexAuthFile.read(at: incoming)
+            }
+            .flatMap { file -> Result<(data: Data, identity: AccountIdentity), CodexFailure> in
+                if let file, let identity: AccountIdentity = file.identity, identity.isSameAccount(as: account.identity) {
+                    .success((file.data, identity))
+                } else {
+                    .failure(.signInRequired)
+                }
+            }
+            .flatMap { saved in CodexAuthFile.read(at: liveAuthFile).map { live in (saved, live) } }
+            .flatMap { saved, live -> Result<AccountIdentity, CodexFailure> in
+                if live?.identity?.isSameAccount(as: account.identity) == true { return remove(incoming).map { _ in saved.identity } }
+                let matchesOutgoing: Bool =
+                    switch (live?.identity, outgoing) {
+                        case (.none, .none): true
+                        case (.some(let identity), .some(let outgoing)): identity.isSameAccount(as: outgoing.identity)
+                        case (.none, .some), (.some, .none): false
                     }
-                    .bind { _ in await CodexDesktop.relaunchIfRunning() }
-                    .map { _ in saved }
+                guard matchesOutgoing else { return .failure(.identityChanged) }
+                let parked: Result<Void, CodexFailure> =
+                    if let outgoing, let live {
+                        installFile(live.data, to: paths.codexHome(outgoing.id).appending(path: CodexAuthFile.name))
+                    } else {
+                        .success(())
+                    }
+                return
+                    parked
+                    .flatMap { _ in installFile(saved.data, to: liveAuthFile) }
+                    .flatMap { _ in remove(incoming) }
+                    .map { _ in saved.identity }
+            }
+            .bind { saved in
+                await CodexDesktop.relaunchIfRunning().map { _ in saved }
             }
             .mapError(ProviderError.init(failure:))
     }
 
-    private func installFile(from source: URL, to destination: URL) -> Result<Void, CodexFailure> {
+    private func installFile(_ data: Data, to destination: URL) -> Result<Void, CodexFailure> {
         Result {
-            let data: Data = try Data(contentsOf: source)
-            let directory: URL = destination.deletingLastPathComponent()
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let temporary: URL = directory.appending(path: ".\(destination.lastPathComponent).\(UUID().uuidString)")
-            guard
-                FileManager.default.createFile(
-                    atPath: temporary.path,
-                    contents: data,
-                    attributes: [.posixPermissions: 0o600],
-                )
-            else { throw CocoaError(.fileWriteUnknown) }
-            _ = try FileManager.default.replaceItemAt(
-                destination,
-                withItemAt: temporary,
-                options: .usingNewMetadataOnly,
-            )
+            let file: FileWrapper = FileWrapper(regularFileWithContents: data)
+            file.fileAttributes = [FileAttributeKey.posixPermissions.rawValue: 0o600]
+            try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try file.write(to: destination, options: .atomic, originalContentsURL: nil)
         }
         .mapError(CodexFailure.storage)
     }

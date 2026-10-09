@@ -17,8 +17,10 @@
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <_RhinoResourcesDir>$([MSBuild]::NormalizeDirectory('$(RHINO_PATH)', 'Contents', 'Frameworks', 'RhCore.framework', 'Versions', 'A', 'Resources'))</_RhinoResourcesDir>
+        <_RhinoResourcesDir>$([MSBuild]::NormalizeDirectory('$(RHINO_PATH)', 'Contents', 'Frameworks', 'RhCore.framework', 'Versions', 'Current', 'Resources'))</_RhinoResourcesDir>
         <RhinoResourcesDir Condition="Exists('$(_RhinoResourcesDir)Eto.macOS.dll')">$(_RhinoResourcesDir)</RhinoResourcesDir>
+        <_YakCoreAssembly Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(_RhinoResourcesDir)Yak.Core.dll</_YakCoreAssembly>
+        <_YakCoreAssembly Condition="$([MSBuild]::IsOSPlatform('Windows'))">$([MSBuild]::NormalizePath('$(RHINO_PATH)', 'System', 'Yak.Core.dll'))</_YakCoreAssembly>
         <DefaultItemExcludes Condition="'$(RhinoResourcesDir)' == ''">$(DefaultItemExcludes);**/macOS/**</DefaultItemExcludes>
         <DefaultItemExcludes Condition="'$(RhinoHost)' == 'common'">$(DefaultItemExcludes);grasshopper/**</DefaultItemExcludes>
     </PropertyGroup>

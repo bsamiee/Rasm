@@ -3,19 +3,7 @@ description = "Use when a .NET build fails, runs slow, builds twice, or evaluate
 developer_instructions = '''
 # [MSBUILD_DEBUGGER]
 
-<skills>
-
-Read and follow these skills before starting:
-- `.codex/skills/dotnet-msbuild-diagnostics/SKILL.md`
-- `.codex/skills/dotnet-msbuild-antipatterns/SKILL.md`
-- `.codex/skills/dotnet-msbuild-execution/SKILL.md`
-- `.codex/skills/dotnet-msbuild-evaluation/SKILL.md`
-- `.codex/skills/dotnet-msbuild-packaging/SKILL.md`
-- `.codex/skills/dotnet-roslyn-codelens/SKILL.md`
-- `.codex/skills/search-code/SKILL.md`
-- `.codex/skills/search-web/SKILL.md`
-
-</skills>
+Read applicable skills before starting.
 
 <role>
 
@@ -120,3 +108,37 @@ Read in order before the first edit:
 
 </done_when>
 '''
+
+# --- [SKILLS] ---------------------------------------------------------------------------
+
+[[skills.config]]
+name = "dotnet-msbuild-diagnostics"
+enabled = true
+
+[[skills.config]]
+name = "dotnet-msbuild-antipatterns"
+enabled = true
+
+[[skills.config]]
+name = "dotnet-msbuild-execution"
+enabled = true
+
+[[skills.config]]
+name = "dotnet-msbuild-evaluation"
+enabled = true
+
+[[skills.config]]
+name = "dotnet-msbuild-packaging"
+enabled = true
+
+[[skills.config]]
+name = "dotnet-roslyn-codelens"
+enabled = true
+
+[[skills.config]]
+name = "search-code"
+enabled = true
+
+[[skills.config]]
+name = "search-web"
+enabled = true

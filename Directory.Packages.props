@@ -678,6 +678,7 @@
         <PackageVersion Include="NuGet.Common"                                            Version="7.9.0" />                 <!-- NuGet client logging contracts and shared utilities -->
         <PackageVersion Include="NuGet.Configuration"                                     Version="7.9.0" />                 <!-- NuGet.config settings, package sources, and source mapping -->
         <PackageVersion Include="NuGet.Frameworks"                                        Version="7.9.0" />                 <!-- Target framework parsing, compatibility, and nearest-match reduction -->
+        <PackageVersion Include="NuGet.Packaging"                                         Version="7.9.0" />                 <!-- NuGet package readers and PackageReference asset selection conventions -->
         <PackageVersion Include="NuGet.Protocol"                                          Version="7.9.0" />                 <!-- NuGet feed resources for package metadata, search, and downloads -->
         <PackageVersion Include="NuGet.Versioning"                                        Version="7.9.0" />                 <!-- Semantic version parsing, comparison, and range evaluation -->
         <PackageVersion Include="OpenFeature"                                             Version="2.14.1" />                <!-- Feature flag evaluation SDK with provider abstraction -->

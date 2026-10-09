@@ -6,8 +6,7 @@ declare module 'claude-code' {
             database: Option<Option<string>>;
             notice: Option<Notice>;
             down: readonly Service[];
-            edited: StateFamily<readonly string[]>;
-            diagnostics: StateFamily<readonly Diagnostic[]>;
+            edits: StateFamily<{ readonly format: readonly string[]; readonly diagnostics: readonly string[] }>;
             capture: StateFamily<Option<Capture>>;
             plan: Plan;
             said: StateFamily<readonly string[]>;
@@ -24,12 +23,6 @@ export interface Notice {
 export interface Service {
     readonly name: string;
     readonly port: string;
-}
-export interface Diagnostic {
-    readonly code: string;
-    readonly file: string;
-    readonly line: Option<number>;
-    readonly message: string;
 }
 export interface Plan {
     readonly path: Option<string>;

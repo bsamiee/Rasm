@@ -3,6 +3,8 @@ description = "Use when Playwright tests of a suite fail, covering config, run, 
 developer_instructions = '''
 # [PLAYWRIGHT_TEST_HEALER]
 
+Read and follow `playwright:playwright-cli` before starting.
+
 <role>
 
 You run the Playwright tests of a suite through the `playwright-test` server and fix each failing test in its file.
@@ -101,3 +103,9 @@ Paused page decides over the stack trace, a passing rerun decides over an edit.
 
 </done_when>
 '''
+
+# --- [SKILLS] ---------------------------------------------------------------------------
+
+[[skills.config]]
+name = "playwright:playwright-cli"
+enabled = true

@@ -1,6 +1,6 @@
 # [RELAY]
 
-Relay shows Claude and OpenAI subscription usage in the menu bar, switches each provider's active account, and starts 5-hour sessions.
+Relay shows Claude and OpenAI subscription usage in the menu bar, switches each provider's active account, and starts 5-hour sessions
 
 ## [01]-[LAYOUT]
 
@@ -39,6 +39,7 @@ Stored state sits under `~/Library/Application Support/Relay`, `<id>` an account
 
 Each provider's CLI and desktop app run as its active account, Relay keeps every other account's credential in a private store:
 - Selected account reads and writes the provider's live store, every other account its private store
+- Credential operations reserve affected stores through suspension and selection publication
 - `AccountIdentity.isSameAccount` compares account id and organization id, every identity check goes through it
 - Sign-in to an existing account that returns another identity signs that store out and fails
 - New sign-in matching a connected or busy account is refused, one matching a signed-out account replaces that record
@@ -96,7 +97,7 @@ Relay refreshes Claude tokens as a peer of Claude Code, under the same lock pair
 - Identity is `id_token` claims of `auth.json`, a usage response for another workspace fails as `identityChanged`
 - Notifications a later wait claims belong in `retainedNotifications`
 - Switch reads effective configuration through `config/read`, requiring `cli_auth_credentials_store` unset or `file` and `forced_chatgpt_workspace_id` unset
-- Switch stops every server it touches, saves live `auth.json` into the private home of the account it names, then installs the incoming file
+- Switch stops affected servers before reading credential bytes with identity, and rejects outgoing identity changes
 - Finished switch quits and reopens a running desktop app
 
 ## [07]-[SESSIONS]
@@ -121,7 +122,7 @@ Session start reads usage and sends one greeting while `AccountUsage.availabilit
 - Schedule ticks every 180 s while the panel is open, else every 5, 15, or 30 minutes by time since it opened
 - Reset and `retryAfter` wakes respect the account's next permitted read, resets observed by a later usage snapshot schedule nothing
 - Each refresh re-reads a signed-out inactive account's private store without network and reconnects it on a stored credential
-- Refreshes and watch events skip while a switch runs
+- File observation delivers current state after registration and survives directory removal and recreation
 
 ## [09]-[PROCESSES]
 
@@ -130,7 +131,7 @@ Session start reads usage and sends one greeting while `AccountUsage.availabilit
 - Stream children are read and written inside the `run` body closure
 - `$SHELL -lc` runs once at launch and overlays `LoginShell.variables` on the launch environment, a failed run keeps the launch environment
 - `FileLocations` resolves once, after the login shell
-- Each account runs one operation at a time, and a switch waits for the outgoing account's operation alone
+- Each account runs one operation at a time
 - Quit cancels every operation, waits 5 s at most, then saves accounts
 
 ## [10]-[INTERFACE]

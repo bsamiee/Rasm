@@ -23,6 +23,7 @@ interface Operands {
     readonly inputs: readonly string[];
     readonly options: readonly string[];
     readonly values: readonly Given[];
+    readonly positions: readonly { readonly at: number; readonly names: readonly string[] }[];
 }
 interface ParsedOption {
     readonly names: readonly string[];
@@ -439,25 +440,26 @@ const firstOperand = (invocation: Invocation, index: number): number => {
     return word === undefined || word === '-' || word === '--' || !word.startsWith('-') || !known(program, word) ? index : firstOperand(invocation, index + 1 + _option(declared(program), word).taken);
 };
 
-const _split = (program: string, args: readonly string[]): Operands => {
-    const empty: Operands = { inputs: [], options: [], values: [] };
+const _split = (program: string, args: readonly string[], at: number): Operands => {
+    const empty: Operands = { inputs: [], options: [], values: [], positions: [] };
     const row = declared(program);
     const [head, ...rest] = args;
     const flagged = head !== undefined && head !== '-' && head !== '--' && (head.startsWith('-') || (head.startsWith('+') && row.valued?.some((name) => name.startsWith('+')) === true)) && known(program, head);
     const { names, taken, joined } = flagged ? _option(row, head) : { names: [], taken: 0, joined: [] };
-    const tail = head === undefined || head === '--' || names.some((name) => row.ends?.includes(name) === true) ? empty : _split(program, rest.slice(taken));
+    const tail = head === undefined || head === '--' || names.some((name) => row.ends?.includes(name) === true) ? empty : _split(program, rest.slice(taken), at + 1 + taken);
     return head === '--'
         ? { ...empty, inputs: rest }
         : {
               inputs: [...(head === undefined || flagged ? [] : [head]), ...tail.inputs],
               options: [...names, ...tail.options],
               values: [...names.slice(-1).flatMap((name) => [...joined, ...rest.slice(0, taken)].map((value): Given => [name, value])), ...tail.values],
+              positions: [...(names.length === 0 ? [] : [{ at, names }]), ...tail.positions],
           };
 };
 
 const operands = ([program, ...args]: Invocation): Operands => {
     const row = declared(program);
-    const split = _split(program, args);
+    const split = _split(program, args, 1);
     return { ...split, inputs: split.inputs.slice(split.options.some((name) => row.leadingOptions?.includes(name) === true) ? 0 : (row.leading ?? 0)) };
 };
 

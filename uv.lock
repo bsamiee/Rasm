@@ -6699,6 +6699,20 @@ wheels = [
 ]
 
 [[package]]
+name = "picosvg"
+version = "0.23.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "absl-py" },
+    { name = "lxml" },
+    { name = "skia-pathops" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3b/d2/2e69443424c880f433cd37c841e2db37ecd41cb5de73844a363b7a146d26/picosvg-0.23.0.tar.gz", hash = "sha256:a3616d5eb3ee810e74a931ffa68e2c36cd06a2eef24400a97dc07c0e6cc5eb4c", size = 120513, upload-time = "2026-08-14T10:01:02.835Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/48/96/fe3de3f0d5513636cb7bbfd0a693a6bc582ca0c2aeec03250e44a5aa144e/picosvg-0.23.0-py3-none-any.whl", hash = "sha256:f18d9b0f69bccd7773bc1de6932f505dc71dc16fb439b4d844716d8f57450b3c", size = 52624, upload-time = "2026-08-14T10:01:01.655Z" },
+]
+
+[[package]]
 name = "pika"
 version = "1.4.4"
 source = { registry = "https://pypi.org/simple" }
@@ -8894,23 +8908,29 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "anyio", marker = "python_full_version >= '3.15'" },
+    { name = "asttokens", marker = "python_full_version >= '3.15'" },
     { name = "asyncssh", marker = "python_full_version >= '3.15'" },
     { name = "brotli-stubs", marker = "python_full_version >= '3.15'" },
     { name = "coverage", marker = "python_full_version >= '3.15'" },
     { name = "cyclopts", marker = "python_full_version >= '3.15'" },
     { name = "editorconfig", marker = "python_full_version >= '3.15'" },
     { name = "fake-bpy-module-latest", marker = "python_full_version >= '3.15'" },
+    { name = "fonttools", marker = "python_full_version >= '3.15'" },
     { name = "fsspec", marker = "python_full_version >= '3.15'" },
     { name = "hypothesis", marker = "python_full_version >= '3.15'" },
+    { name = "mcp", marker = "python_full_version >= '3.15'" },
     { name = "moto", extra = ["server"], marker = "python_full_version >= '3.15'" },
     { name = "msgspec", extra = ["yaml"], marker = "python_full_version >= '3.15'" },
     { name = "mypy", marker = "python_full_version >= '3.15'" },
     { name = "opentelemetry-api", marker = "python_full_version >= '3.15'" },
     { name = "opentelemetry-sdk", marker = "python_full_version >= '3.15'" },
+    { name = "packaging", marker = "python_full_version >= '3.15'" },
     { name = "pandas-stubs", marker = "python_full_version >= '3.15'" },
+    { name = "picosvg", marker = "python_full_version >= '3.15'" },
     { name = "psutil", marker = "python_full_version >= '3.15'" },
     { name = "pydantic", marker = "python_full_version >= '3.15'" },
     { name = "pydantic-core", marker = "python_full_version >= '3.15'" },
+    { name = "pyobjc-framework-cocoa", marker = "python_full_version >= '3.15' and sys_platform != 'linux' and sys_platform != 'win32'" },
     { name = "pytest", marker = "python_full_version >= '3.15'" },
     { name = "pytest-benchmark", marker = "python_full_version >= '3.15'" },
     { name = "pytest-cov", marker = "python_full_version >= '3.15'" },
@@ -8918,11 +8938,14 @@ dev = [
     { name = "pytest-socket", marker = "python_full_version >= '3.15'" },
     { name = "pytest-timeout", marker = "python_full_version >= '3.15'" },
     { name = "pytest-xdist", marker = "python_full_version >= '3.15'" },
+    { name = "result", marker = "python_full_version >= '3.15'" },
     { name = "ruff", marker = "python_full_version >= '3.15'" },
     { name = "s3fs", marker = "python_full_version >= '3.15'" },
     { name = "scipy-stubs", marker = "python_full_version >= '3.15'" },
+    { name = "skia-pathops", marker = "python_full_version >= '3.15'" },
     { name = "sniffio", marker = "python_full_version >= '3.15'" },
     { name = "structlog", marker = "python_full_version >= '3.15'" },
+    { name = "tomlkit", marker = "python_full_version >= '3.15'" },
     { name = "trio", marker = "python_full_version >= '3.15'" },
     { name = "ty", marker = "python_full_version >= '3.15'" },
     { name = "types-geopandas", marker = "python_full_version >= '3.15'" },
@@ -8955,6 +8978,7 @@ workspace = [
     { name = "arro3-core", marker = "python_full_version >= '3.15'" },
     { name = "arro3-io", marker = "python_full_version >= '3.15'" },
     { name = "arviz", marker = "python_full_version >= '3.15'" },
+    { name = "asttokens", marker = "python_full_version >= '3.15'" },
     { name = "asyncssh", marker = "python_full_version >= '3.15'" },
     { name = "av", marker = "python_full_version >= '3.15'" },
     { name = "awkward", marker = "python_full_version >= '3.15'" },
@@ -9100,6 +9124,7 @@ workspace = [
     { name = "opentype-feature-freezer", marker = "python_full_version >= '3.15'" },
     { name = "optax", marker = "python_full_version >= '3.15'" },
     { name = "optimistix", marker = "python_full_version >= '3.15'" },
+    { name = "packaging", marker = "python_full_version >= '3.15'" },
     { name = "paho-mqtt", marker = "python_full_version >= '3.15'" },
     { name = "pandas", marker = "python_full_version >= '3.15'" },
     { name = "pandera", marker = "python_full_version >= '3.15'" },
@@ -9109,6 +9134,7 @@ workspace = [
     { name = "pdfimpose", marker = "python_full_version >= '3.15'" },
     { name = "pdfplumber", marker = "python_full_version >= '3.15'" },
     { name = "pebble", marker = "python_full_version >= '3.15'" },
+    { name = "picosvg", marker = "python_full_version >= '3.15'" },
     { name = "pika", marker = "python_full_version >= '3.15'" },
     { name = "pikepdf", marker = "python_full_version >= '3.15'" },
     { name = "pillow", marker = "python_full_version >= '3.15'" },
@@ -9165,6 +9191,7 @@ workspace = [
     { name = "rasterio", marker = "python_full_version >= '3.15'" },
     { name = "regex", marker = "python_full_version >= '3.15'" },
     { name = "reportlab", marker = "python_full_version >= '3.15'" },
+    { name = "result", marker = "python_full_version >= '3.15'" },
     { name = "resvg-py", marker = "python_full_version >= '3.15'" },
     { name = "rioxarray", marker = "python_full_version >= '3.15'" },
     { name = "rtree", marker = "python_full_version >= '3.15'" },
@@ -9239,23 +9266,29 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "anyio", marker = "python_full_version >= '3.15'" },
+    { name = "asttokens", marker = "python_full_version >= '3.15'" },
     { name = "asyncssh", marker = "python_full_version >= '3.15'" },
     { name = "brotli-stubs", marker = "python_full_version >= '3.15'" },
     { name = "coverage", marker = "python_full_version >= '3.15'" },
     { name = "cyclopts", marker = "python_full_version >= '3.15'" },
     { name = "editorconfig", marker = "python_full_version >= '3.15'" },
     { name = "fake-bpy-module-latest", marker = "python_full_version >= '3.15'" },
+    { name = "fonttools", marker = "python_full_version >= '3.15'" },
     { name = "fsspec", marker = "python_full_version >= '3.15'" },
     { name = "hypothesis", marker = "python_full_version >= '3.15'" },
+    { name = "mcp", marker = "python_full_version >= '3.15'" },
     { name = "moto", extras = ["server"], marker = "python_full_version >= '3.15'" },
     { name = "msgspec", extras = ["yaml"], marker = "python_full_version >= '3.15'" },
     { name = "mypy", marker = "python_full_version >= '3.15'" },
     { name = "opentelemetry-api", marker = "python_full_version >= '3.15'" },
     { name = "opentelemetry-sdk", marker = "python_full_version >= '3.15'" },
+    { name = "packaging", marker = "python_full_version >= '3.15'" },
     { name = "pandas-stubs", marker = "python_full_version >= '3.15'" },
+    { name = "picosvg", marker = "python_full_version >= '3.15'" },
     { name = "psutil", marker = "python_full_version >= '3.15'" },
     { name = "pydantic", marker = "python_full_version >= '3.15'" },
     { name = "pydantic-core", marker = "python_full_version >= '3.15'" },
+    { name = "pyobjc-framework-cocoa", marker = "python_full_version >= '3.15' and sys_platform == 'darwin'" },
     { name = "pytest", marker = "python_full_version >= '3.15'" },
     { name = "pytest-benchmark", marker = "python_full_version >= '3.15'" },
     { name = "pytest-cov", marker = "python_full_version >= '3.15'" },
@@ -9263,11 +9296,14 @@ dev = [
     { name = "pytest-socket", marker = "python_full_version >= '3.15'" },
     { name = "pytest-timeout", marker = "python_full_version >= '3.15'" },
     { name = "pytest-xdist", marker = "python_full_version >= '3.15'" },
+    { name = "result", marker = "python_full_version >= '3.15'" },
     { name = "ruff", marker = "python_full_version >= '3.15'" },
     { name = "s3fs", marker = "python_full_version >= '3.15'" },
     { name = "scipy-stubs", marker = "python_full_version >= '3.15'" },
+    { name = "skia-pathops", marker = "python_full_version >= '3.15'" },
     { name = "sniffio", marker = "python_full_version >= '3.15'" },
     { name = "structlog", marker = "python_full_version >= '3.15'" },
+    { name = "tomlkit", marker = "python_full_version >= '3.15'" },
     { name = "trio", marker = "python_full_version >= '3.15'" },
     { name = "ty", marker = "python_full_version >= '3.15'" },
     { name = "types-geopandas", marker = "python_full_version >= '3.15'" },
@@ -9300,6 +9336,7 @@ workspace = [
     { name = "arro3-core", marker = "python_full_version >= '3.15'" },
     { name = "arro3-io", marker = "python_full_version >= '3.15'" },
     { name = "arviz", marker = "python_full_version >= '3.15'" },
+    { name = "asttokens", marker = "python_full_version >= '3.15'" },
     { name = "asyncssh", marker = "python_full_version >= '3.15'" },
     { name = "av", marker = "python_full_version >= '3.15'" },
     { name = "awkward", marker = "python_full_version >= '3.15'" },
@@ -9445,6 +9482,7 @@ workspace = [
     { name = "opentype-feature-freezer", marker = "python_full_version >= '3.15'" },
     { name = "optax", marker = "python_full_version >= '3.15'" },
     { name = "optimistix", marker = "python_full_version >= '3.15'" },
+    { name = "packaging", marker = "python_full_version >= '3.15'" },
     { name = "paho-mqtt", marker = "python_full_version >= '3.15'" },
     { name = "pandas", marker = "python_full_version >= '3.15'" },
     { name = "pandera", marker = "python_full_version >= '3.15'" },
@@ -9454,6 +9492,7 @@ workspace = [
     { name = "pdfimpose", marker = "python_full_version >= '3.15'" },
     { name = "pdfplumber", marker = "python_full_version >= '3.15'" },
     { name = "pebble", marker = "python_full_version >= '3.15'" },
+    { name = "picosvg", marker = "python_full_version >= '3.15'" },
     { name = "pika", marker = "python_full_version >= '3.15'" },
     { name = "pikepdf", marker = "python_full_version >= '3.15'" },
     { name = "pillow", marker = "python_full_version >= '3.15'" },
@@ -9510,6 +9549,7 @@ workspace = [
     { name = "rasterio", marker = "python_full_version >= '3.15'" },
     { name = "regex", marker = "python_full_version >= '3.15'" },
     { name = "reportlab", marker = "python_full_version >= '3.15'" },
+    { name = "result", marker = "python_full_version >= '3.15'" },
     { name = "resvg-py", marker = "python_full_version >= '3.15'" },
     { name = "rioxarray", marker = "python_full_version >= '3.15'" },
     { name = "rtree", marker = "python_full_version >= '3.15'" },
@@ -9708,6 +9748,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9f/47/f216a33221db8eff328987661cf18371afee89c62a62b434b963d6b509c9/responses-0.26.3.tar.gz", hash = "sha256:b0c11ca8131b8b227b8d5108e6ed39772222bd5aab030ed430e8f99057c4c409", size = 86335, upload-time = "2026-08-26T19:17:24.373Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6d/86/ca7958de70cb0752350575e98229368a3a2f746a2942034b3364e17312bb/responses-0.26.3-py3-none-any.whl", hash = "sha256:74474f799334ac4f37d93b6437ecc3bb1bb5c77a8d31780a338643be2dce0af8", size = 36289, upload-time = "2026-08-26T19:17:23.176Z" },
+]
+
+[[package]]
+name = "result"
+version = "0.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/47/2175be65744aa4d8419c27bd3a7a7d65af5bcad7a4dc6a812c00778754f0/result-0.17.0.tar.gz", hash = "sha256:b73da420c0cb1a3bf741dbd41ff96dedafaad6a1b3ef437a9e33e380bb0d91cf", size = 20180, upload-time = "2024-06-02T16:39:54.51Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e2/90/19110ce9374c3db619e2df0816f2c58e4ddc5cdad5f7284cd81d8b30b7cb/result-0.17.0-py3-none-any.whl", hash = "sha256:49fd668b4951ad15800b8ccefd98b6b94effc789607e19c65064b775570933e8", size = 11689, upload-time = "2024-06-02T16:39:52.715Z" },
 ]
 
 [[package]]

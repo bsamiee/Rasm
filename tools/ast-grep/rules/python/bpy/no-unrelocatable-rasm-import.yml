@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unrelocatable-rasm-import
+language: python
+severity: error
+files:
+    - libs/python/rasm/**/*.py
+    - apps/**/blender/**/*.py
+rule:
+    pattern: $MODULE
+    matches: python-imported-module
+    regex: '^rasm(\.|$)'
+    not: {inside: {kind: import_from_statement, field: module_name}}
+message: '`$MODULE` remains an absolute import inside a private Blender extension package'
+note: 'Use `from rasm.<module> import <member>` for private extension relocation'

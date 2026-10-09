@@ -3,13 +3,7 @@ description = "Use when every file a checkpoint touched needs one clean-prose pa
 developer_instructions = '''
 # [PROSE_EDITOR]
 
-<skills>
-
-Read and follow these skills before starting:
-- `.codex/skills/use-ast-grep/SKILL.md`
-- `.codex/skills/clean-prose/SKILL.md`
-
-</skills>
+Read applicable skills before starting.
 
 <role>
 
@@ -109,3 +103,13 @@ Rename coined names through the tool that updates every reference:
 
 </done_when>
 '''
+
+# --- [SKILLS] ---------------------------------------------------------------------------
+
+[[skills.config]]
+name = "use-ast-grep"
+enabled = true
+
+[[skills.config]]
+name = "clean-prose"
+enabled = true

@@ -29,6 +29,7 @@ workspace = [
     # --- [GENERAL]
     "anyio",                                              # Structured concurrency over asyncio and trio
     "apscheduler",                                        # Cron, interval, and date triggers
+    "asttokens",                                          # Source ranges for private Blender extension imports
     "azure-identity",                                     # DefaultAzureCredential chain for Azure Key Vault secrets
     "azure-keyvault-secrets",                             # Azure Key Vault secret store
     "beartype",                                           # Runtime type checks over annotations
@@ -61,6 +62,7 @@ workspace = [
     "opentelemetry-resource-detector-containerid",        # container.id resource detector
     "opentelemetry-sdk",                                  # Tracer, meter, and logger providers with processors and samplers
     "opentelemetry-semantic-conventions",                 # Schema URL for telemetry
+    "packaging",                                          # Python requirement, version, and wheel filename parsing
     "pebble",                                             # Worker kill at a terminal deadline and per-worker task recycling
     "psutil",                                             # Process and host resource readings
     "pydantic",                                           # Validated models at settings and protocol boundaries
@@ -70,6 +72,7 @@ workspace = [
     "pyroscope-io",                                       # Continuous-profiling agent feeding the pyroscope-otel span-link exporter
     "pyroscope-otel",                                     # Continuous-profiling span links beside the OTLP exporters
     "regex",                                              # Unicode property classes the standard library regex lacks, emoji and pictograph matching
+    "result",                                             # Selective synchronous and asynchronous error composition
     "ruamel-yaml",                                        # Round-trip YAML with comments and layout kept
     "structlog",                                          # Structured logging with processors and typed events
     "tblib",                                              # Cross-process traceback fidelity for worker exceptions
@@ -304,6 +307,7 @@ workspace = [
     "kiwisolver",                                         # Cassowary constraint layout
     "latex2mathml",                                       # LaTeX-to-MathML front end for ziamath
     "networkx",                                           # Graph structures and algorithms
+    "picosvg",                                            # SVG geometry normalization and path operations
     "pyelk",                                              # ELK layered and orthogonal diagram layout with ports and nesting
     "resvg-py",                                           # In-process SVG-to-PNG rasterization over resvg
     "rustworkx",                                          # Graph algorithms
@@ -350,10 +354,20 @@ dev = [
     "structlog",                                          # Log capture in the test runtime plugin
     "trio",                                               # AnyIO Trio backend with the autojumping clock for the test doubles
     # --- [SCRIPTS]
+    "asttokens",                                          # Source ranges for private Blender extension imports
     "cyclopts",                                           # CLI parser for tool commands
     "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
+    "fonttools",                                          # SVG path parsing and cubic pens for Blender geometry icons
+    "mcp",                                                # Native Blender Lab execution through its public MCP service
     "msgspec[yaml]",                                      # Structs and JSON, TOML, and YAML codecs for tools, skill scripts, and test support
+    "packaging",                                          # Native wheel filename parsing for Blender extension assembly
+    "picosvg",                                            # SVG geometry normalization for native Blender glyphs
     "psutil",                                             # Process lookup for use-ghidra bridge script, readings for benchmark fixture
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",   # Native AppKit running-application snapshot for Blender installation
+    "result",                                             # Typed error composition for native Blender assembly and installation
+    "skia-pathops",                                       # Glyph stroke expansion and filled-region unions
+    # SVG shapes, paint, and affine transforms for Blender glyphs
+    "tomlkit",                                            # Comment-preserving Blender extension manifest assembly
     "wcwidth",                                            # Display width of text with wide, combining, and emoji characters
     # --- [STUBS]
     "brotli-stubs",                                       # Stubs for brotli
@@ -398,6 +412,7 @@ build-backend = { module-name = "rasm", module-root = "libs/python", namespace =
 [tool.ruff]
 preview = true
 target-version = "py315"
+per-file-target-version = { "eng/python/fitout/geometry.py" = "py313" }
 line-length = 200
 src = [".", "libs/python"]
 format = { line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
@@ -511,6 +526,7 @@ disallow_any_unimported = true
 plugins = ["pydantic.mypy"]
 enable_error_code = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 overrides = [
+    { module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true },
     { module = "tests.python.support.env", disallow_any_unimported = false },
     { module = "tests.python.support.strategies", warn_unreachable = false },
     { module = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.*", "OpenImageIO", "PyObjCTools", "Rhino", "Rhino.*", "System", "System.*", "fsspec.*", "s3fs"], ignore_missing_imports = true },

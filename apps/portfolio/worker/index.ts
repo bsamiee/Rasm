@@ -1,4 +1,6 @@
-import { Layer } from 'effect';
+import { BrowserCrypto } from '@effect/platform-browser';
+import { D1Client } from '@effect/sql-d1';
+import { Function, Layer, String } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { HttpApiBuilder } from 'effect/http-api';
 import { Api } from '../model/api.ts';
@@ -10,23 +12,30 @@ import { owner } from './session.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-declare global {
-    // biome-ignore lint/style/noNamespace: Cloudflare declares Worker bindings on the Cloudflare.Env namespace interface
-    namespace Cloudflare {
-        interface Env {
-            DB: D1Database;
-            BUCKET: R2Bucket;
-            ASSETS: Fetcher;
-            OWNER_EMAIL: string;
-        }
-    }
+interface Bindings {
+    DB: D1Database;
+    BUCKET: R2Bucket;
+    ASSETS: Fetcher;
+    OWNER_EMAIL: string;
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const { handler } = HttpRouter.toWebHandler(Layer.mergeAll(page, download, HttpApiBuilder.layer(Api).pipe(Layer.provide([Layer.merge(content, media).pipe(Layer.provide(owner)), HttpServer.layerServices]))).pipe(Layer.provideMerge(database)));
+const handler = Function.memoize((bindings: Bindings) => {
+    const email = bindings.OWNER_EMAIL.toLowerCase();
+    return HttpRouter.toWebHandler(
+        Layer.mergeAll(page(bindings.ASSETS, email), download(bindings.BUCKET, email), HttpApiBuilder.layer(Api).pipe(Layer.provide([Layer.merge(content, media(bindings.BUCKET)).pipe(Layer.provide(owner(email))), HttpServer.layerServices]))).pipe(
+            Layer.provideMerge(database.pipe(Layer.provideMerge(D1Client.layer({ db: bindings.DB, transformResultNames: String.snakeToCamel })))),
+            Layer.provideMerge(BrowserCrypto.layer),
+        ),
+    ).handler;
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-// biome-ignore lint/style/noDefaultExport: Cloudflare loads the fetch handler from the Worker module's default export
-export default { fetch: handler };
+// biome-ignore lint/style/noDefaultExport: Cloudflare invokes the Worker module's default-exported fetch handler
+export default {
+    fetch(request: Request, bindings: Bindings): Promise<Response> {
+        return handler(bindings)(request);
+    },
+};

@@ -38,4 +38,5 @@ const config = Effect.gen(function* () {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+// biome-ignore lint/style/noDefaultExport: Vite loads its configuration from the module default export.
 export default config;

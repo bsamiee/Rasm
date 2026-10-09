@@ -62,11 +62,10 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [SELECTION]
-    func completePendingSwitch() async -> Result<Void, ClaudeFailure> {
-        await ClaudeSelectionState.read(at: paths.claudeSelectionFile).bind {
-            state -> Result<Void, ClaudeFailure> in
-            if let pending: ClaudePendingSwitch = state.pending { await completePendingSwitch(pending) } else { .success(()) }
-        }
+    func selectionDestination(known: [Account]) -> UUID? {
+        known.first { account in
+            account.provider == .claude && (lastSelection.map(account.identity.isSameAccount(as:)) ?? false)
+        }?.id
     }
 
     func currentSelection(known: [Account]) async -> Result<AccountIdentity?, ProviderError> {
@@ -96,7 +95,7 @@ actor ClaudeClient: ProviderClient {
         .mapError(ProviderError.init(failure:))
     }
 
-    private func completePendingSwitch(_ pending: ClaudePendingSwitch) async -> Result<Void, ClaudeFailure> {
+    func completePendingSwitch(_ pending: ClaudePendingSwitch) async -> Result<Void, ClaudeFailure> {
         let copies: [ClaudeCredentialStore] = [pending.incoming, pending.outgoing].compactMap(\.self).map(privateStore)
         return await ClaudeLock.withLock(directories: ([shared] + copies).map(\.directory)) {
             await self.shared.read()
@@ -128,16 +127,14 @@ actor ClaudeClient: ProviderClient {
         known: [Account],
     ) async -> Result<Void, ClaudeFailure> {
         guard let previous: AccountIdentity = lastSelection, !previous.isSameAccount(as: identity),
-            let outgoing: Account = known.first(where: { account in
-                account.provider == .claude && account.identity.isSameAccount(as: previous)
-            }),
+            let outgoing: UUID = selectionDestination(known: known),
             let credential: ClaudeCredential = lastCredential,
             credential.identity.isSameAccount(as: previous)
         else {
             if !(lastSelection?.isSameAccount(as: identity) ?? false) { lastCredential = nil }
             return .success(())
         }
-        let store: ClaudeCredentialStore = privateStore(outgoing.id)
+        let store: ClaudeCredentialStore = privateStore(outgoing)
         return await ClaudeLock.withLock(directories: [store.directory]) {
             await store.read().bind { existing -> Result<Void, ClaudeFailure> in
                 let keepsExisting: Bool =
@@ -153,7 +150,7 @@ actor ClaudeClient: ProviderClient {
     // --- [SWITCH]
     func select(
         _ account: Account,
-        candidates: [Account],
+        outgoing: Account?,
     ) async -> Result<AccountIdentity, ProviderError> {
         let incoming: ClaudeCredentialStore = privateStore(account.id)
         return await identity(of: shared)
@@ -161,21 +158,15 @@ actor ClaudeClient: ProviderClient {
             .bind { _ in
                 await ClaudeLock.withLock(directories: [shared.directory, incoming.directory]) {
                     let before: Result<(current: ClaudeCredential?, outgoing: (id: UUID, credential: ClaudeCredential)?), ClaudeFailure> =
-                        switch await self.shared.read() {
-                            case .success(.unidentified): .failure(.accountChanged)
-                            case .success(.signedOut): .success((nil, nil))
-                            case .success(.credential(let current)):
-                                .success(
-                                    (
-                                        current,
-                                        candidates.first { candidate in
-                                            candidate.provider == .claude && candidate.id != account.id
-                                                && candidate.identity.isSameAccount(as: current.identity)
-                                        }
-                                        .map { candidate in (candidate.id, current) },
-                                    )
-                                )
-                            case .failure(let error): .failure(error)
+                        switch (await self.shared.read(), outgoing) {
+                            case (.success(.signedOut), .none): .success((nil, nil))
+                            case (.success(.credential(let current)), _) where current.identity.isSameAccount(as: account.identity):
+                                .success((current, nil))
+                            case (.success(.credential(let current)), .some(let outgoing))
+                            where outgoing.identity.isSameAccount(as: current.identity):
+                                .success((current, (outgoing.id, current)))
+                            case (.success, _): .failure(.accountChanged)
+                            case (.failure(let error), _): .failure(error)
                         }
                     return await before.bind { current, outgoing in
                         await ClaudeLock.withLock(

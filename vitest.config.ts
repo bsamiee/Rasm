@@ -62,4 +62,5 @@ const rootConfig: () => Promise<ViteUserConfig> = Effect.fnUntraced(
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export { createVitestConfig };
+// biome-ignore lint/style/noDefaultExport: Vitest loads its configuration from the module default export.
 export default rootConfig;

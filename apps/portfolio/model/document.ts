@@ -20,14 +20,14 @@ const Entry = Schema.Struct({
     cover: Schema.optionalKey(Placement),
     compositions: Schema.Array(Composition),
 });
-const Portfolio = Schema.Struct({ name: Schema.String, introduction: Schema.String, email: Schema.String, hero: Schema.optionalKey(Placement), entries: Schema.Array(Entry) }).check(
-    Schema.makeFilter((portfolio) =>
-        [{ path: ['entries'], ids: portfolio.entries.map(Struct.get('id')) }, ...portfolio.entries.map((entry, index) => ({ path: ['entries', index, 'compositions'], ids: entry.compositions.map(Struct.get('id')) }))].flatMap(({ path, ids }) =>
-            new Set(ids).size === ids.length ? [] : [{ path, issue: 'Each item needs a unique ID' }],
-        ),
+const PortfolioStructure = Schema.Struct({ name: Schema.String, introduction: Schema.String, email: Schema.String, hero: Schema.optionalKey(Placement), entries: Schema.Array(Entry) });
+const uniqueIds = Schema.makeFilter((document: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
+    [{ path: ['entries'], ids: document.entries.map(({ id }) => id) }, ...document.entries.map((entry, index) => ({ path: ['entries', index, 'compositions'], ids: entry.compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) =>
+        new Set(ids).size === ids.length ? [] : [{ path, issue: 'Each item needs a unique ID' }],
     ),
 );
-const StoredPortfolio = Schema.toEncoded(Portfolio);
+const Portfolio = PortfolioStructure.check(uniqueIds);
+const StoredPortfolio = Schema.toEncoded(PortfolioStructure).check(uniqueIds);
 const envelope = Schema.Struct({ portfolio: Portfolio, assets: AssetCollection });
 const PortfolioData = Schema.make<Schema.Codec<typeof envelope.Type, typeof envelope.Encoded>>(
     Schema.declareConstructor<typeof envelope.Type, typeof envelope.Encoded>()(

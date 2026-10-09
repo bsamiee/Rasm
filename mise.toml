@@ -38,6 +38,8 @@ AST_GREP_CONFIG = "{{config_root}}/sgconfig.yml"
 RHINO_PATH = "/Applications/RhinoBETA.app"
 RHINO_MCP_DEFAULT_VERSION = "9"
 BLENDER_PATH = "/Applications/Blender.app/Contents/MacOS/Blender"
+BLENDER_MCP_HTTP_PORT = "7407"
+BLENDER_MCP_URL = "http://127.0.0.1:{{ env.BLENDER_MCP_HTTP_PORT }}/"
 BLENDER_MCP_PORT = "9877"
 BLENDER_MCP_DISABLE_TELEMETRY = "true"
 PULUMI_HOME = "{{config_root}}/.cache/pulumi"
@@ -52,6 +54,7 @@ java = "latest"
 node = "latest"
 pnpm = "latest"
 uv = "latest"
+"pypi:pip" = "latest"
 rust = "latest"
 git-lfs = "latest"
 actionlint = "latest"
@@ -105,7 +108,7 @@ rhino-mcp-platform = { program = "{{ mise_bin }}", args = [
     "--", "rhino-mcp-router",
 ], working_directory = "{{config_root}}", keep_alive = true }
 blender = { program = "{{ mise_bin }}", args = [
-    "exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7407",
+    "exec", "--", "node", "tools/bridge/bridge.ts", "--port", "{{ env.BLENDER_MCP_HTTP_PORT }}",
     "--hide", "execute_blender_code_for_cli",
     "--hide", "get_blendfile_summary_datablocks_for_cli",
     "--hide", "get_blendfile_summary_missing_files_for_cli",

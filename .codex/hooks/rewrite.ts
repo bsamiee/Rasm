@@ -1,3 +1,5 @@
+// biome-ignore-all lint/correctness/noNodejsModules: Codex runs this CLI in Node with native argument parsing and process I/O
+
 import process from 'node:process';
 import { parseArgs } from 'node:util';
 import { none, type Option, rendered, some } from '../../plugins/function-hooks/composition.ts';

@@ -146,9 +146,3 @@ matcher = "^(Bash|apply_patch)$"
 [[hooks.PreToolUse.hooks]]
 type = "command"
 command = 'mise exec -- node "$(git rev-parse --show-toplevel)/.codex/hooks/rewrite.ts" --walk-policy'
-
-[[hooks.Stop]]
-
-[[hooks.Stop.hooks]]
-type = "command"
-command = 'mise exec -- node "$(git rev-parse --show-toplevel)/.codex/hooks/format.ts"'

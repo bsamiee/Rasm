@@ -3,6 +3,8 @@ description = "Use when one scenario of a Playwright test plan needs its test fi
 developer_instructions = '''
 # [PLAYWRIGHT_TEST_GENERATOR]
 
+Read and follow `playwright:playwright-cli` before starting.
+
 <role>
 
 You turn one scenario of a test plan into one Playwright test file by running each step live through the `playwright-test` server.
@@ -143,3 +145,9 @@ test.describe('Adding New Todos', () => {
 
 </done_when>
 '''
+
+# --- [SKILLS] ---------------------------------------------------------------------------
+
+[[skills.config]]
+name = "playwright:playwright-cli"
+enabled = true

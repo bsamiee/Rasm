@@ -5,6 +5,13 @@ import OSLog
 import Observation
 import SwiftUI
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+private nonisolated enum CredentialStore: Hashable, Sendable {
+    case live(Provider)
+    case privateAccount(UUID)
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 @Observable
@@ -35,6 +42,8 @@ final class AccountStore {
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var refreshPause: Task<Void, any Error>?
     @ObservationIgnored private var lastPanelOpen: ContinuousClock.Instant?
+    @ObservationIgnored private var occupiedStores: Set<CredentialStore> = []
+    @ObservationIgnored private var storeWaiters: [UUID: AsyncStream<Void>.Continuation] = [:]
 
     init(environment: [String: String]) {
         locations = FileLocations(environment: environment)
@@ -67,6 +76,50 @@ final class AccountStore {
         }
     }
 
+    // --- [CREDENTIAL_OWNERSHIP]
+    private func withStores(
+        _ requested: @autoclosure () -> Set<CredentialStore>,
+        owning: Set<CredentialStore> = [],
+        _ work: (Set<CredentialStore>) async -> Void,
+    ) async throws(CancellationError) {
+        let changes: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) =
+            AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let id: UUID = UUID()
+        storeWaiters[id] = changes.continuation
+        defer {
+            storeWaiters[id] = nil
+            changes.continuation.finish()
+        }
+        changes.continuation.yield(())
+        for await _ in changes.stream {
+            let needed: Set<CredentialStore> = requested().subtracting(owning)
+            guard needed.isDisjoint(with: occupiedStores) else { continue }
+            guard !Task.isCancelled else { throw CancellationError() }
+            occupiedStores.formUnion(needed)
+            defer {
+                occupiedStores.subtract(needed)
+                for waiter: AsyncStream<Void>.Continuation in storeWaiters.values { waiter.yield(()) }
+            }
+            await work(owning.union(needed))
+            return
+        }
+        throw CancellationError()
+    }
+
+    private func run(
+        _ model: AccountModel,
+        _ operation: AccountOperation,
+        _ work: @escaping (Set<CredentialStore>) async -> Void,
+    ) {
+        guard !isStopping else { return }
+        model.run(operation) { [self] in
+            _ = try? await withStores(
+                Set([.privateAccount(model.account.id)] + (model.isSelected ? [.live(model.account.provider)] : [])),
+                work,
+            )
+        }
+    }
+
     // --- [LIFECYCLE]
     func start() {
         guard root == nil else { return }
@@ -79,12 +132,12 @@ final class AccountStore {
                 group.addTask(name: "Network") { await self.observeNetwork() }
                 group.addTask(name: "Wake") { await self.observeWake() }
                 group.addTask(name: "Claude selection") {
-                    await self.observe(file: self.claude.shared.configFile)
+                    await self.observe(file: self.claude.shared.configFile, provider: .claude)
                 }
                 group.addTask(name: "Claude refresh lock") {
                     await self.observeRefreshLock(ClaudeLock.refreshLockfile(in: self.claude.shared.directory))
                 }
-                group.addTask(name: "Codex selection") { await self.observe(file: self.codex.liveAuthFile) }
+                group.addTask(name: "Codex selection") { await self.observe(file: self.codex.liveAuthFile, provider: .openAI) }
                 group.addTask(name: "Codex rate limits") { await self.observeCodexUpdates() }
                 group.addTask(name: "Refresh schedule") { await self.schedule() }
             }
@@ -130,13 +183,26 @@ final class AccountStore {
     }
 
     private func reconcile() async {
-        if case .failure(let error) = await claude.completePendingSwitch().mapError(ProviderError.init(failure:)) {
-            providerIssues[.claude] = error
+        _ = try? await withStores([.live(.claude)]) { live in
+            switch ClaudeSelectionState.read(at: locations.claudeSelectionFile) {
+                case .success(let state):
+                    if let pending: ClaudePendingSwitch = state.pending {
+                        _ = try? await withStores(
+                            Set([pending.incoming, pending.outgoing].compactMap(\.self).map(CredentialStore.privateAccount)),
+                            owning: live,
+                        ) { _ in
+                            if case .failure(let error) = await claude.completePendingSwitch(pending).mapError(ProviderError.init(failure:)) {
+                                providerIssues[.claude] = error
+                            }
+                        }
+                    }
+                case .failure(let error): providerIssues[.claude] = ProviderError(failure: error)
+            }
         }
         guard !accounts.isEmpty else { return }
         await readCodexPrecondition()
         let orphans: [UUID]
-        switch locations.orphanAccountDirectories(excluding: Set(accounts.map(\.account.id))) {
+        switch locations.orphanAccountDirectories(excluding: Set(accounts.map(\.account.id) + [authentication?.id].compactMap(\.self))) {
             case .success(let found): orphans = found
             case .failure(let error):
                 logger.error("Accounts directory listing: \(String(describing: error), privacy: .public)")
@@ -208,25 +274,32 @@ final class AccountStore {
     // --- [SELECTION]
     private func readSelection() async {
         guard !isStopping else { return }
-        let selections: [Provider: Result<AccountIdentity?, ProviderError>] = await withTaskGroup { group in
+        await withDiscardingTaskGroup { group in
             for provider: Provider in Provider.allCases {
-                group.addTask(name: "\(provider.name) selection") { [client = client(for: provider), known = records] in
-                    (provider, await client.currentSelection(known: known))
-                }
+                group.addTask(name: "\(provider.name) selection") { await self.readSelection(provider) }
             }
-            var reads: [Provider: Result<AccountIdentity?, ProviderError>] = [:]
-            for await (provider, selection): (Provider, Result<AccountIdentity?, ProviderError>) in group {
-                reads[provider] = selection
-            }
-            return reads
         }
-        for (provider, selection): (Provider, Result<AccountIdentity?, ProviderError>) in Provider.allCases.compactMap({ provider in
-            selections[provider].map { selection in (provider, selection) }
-        }) {
-            switch selection {
-                case .success(.none): apply(selected: nil, provider: provider)
-                case .success(.some(let identity)): register(identity, provider: provider)
-                case .failure(let error): report(error, provider: provider)
+    }
+
+    private func readSelection(_ provider: Provider, owning: Set<CredentialStore> = []) async {
+        _ = try? await withStores([.live(provider)], owning: owning) { live in
+            let outgoing: UUID? = provider == .claude ? await claude.selectionDestination(known: records) : nil
+            _ = try? await withStores(Set([outgoing.map(CredentialStore.privateAccount)].compactMap(\.self)), owning: live) { stores in
+                switch await client(for: provider).currentSelection(known: records) {
+                    case .success(let identity):
+                        _ = try? await withStores(
+                            Set(
+                                accounts.filter { model in
+                                    model.account.provider == provider
+                                        && (model.isSelected || identity.map(model.account.identity.isSameAccount(as:)) == true)
+                                }.map { model in .privateAccount(model.account.id) }
+                            ),
+                            owning: stores,
+                        ) { _ in
+                            if let identity { register(identity, provider: provider) } else { apply(selected: nil, provider: provider) }
+                        }
+                    case .failure(let error): report(error, provider: provider)
+                }
             }
         }
     }
@@ -261,22 +334,29 @@ final class AccountStore {
 
     // --- [SWITCH]
     func select(_ id: UUID) {
-        guard let model: AccountModel = model(id), model.canSelect else { return }
+        guard let model: AccountModel = model(id), model.canSelect, !isStopping else { return }
         let account: Account = model.account
         let outgoing: AccountModel? = accounts.first { other in
             other.account.provider == account.provider && other.isSelected && other.account.id != id
         }
         model.run(.selecting) { [self] in
-            await outgoing?.running?.task.value
-            guard !Task.isCancelled else { return }
-            switch await client(for: account.provider).select(account, candidates: records) {
-                case .success(let identity):
-                    model.account.identity = identity
-                    model.issue = nil
-                    scheduleSave()
-                case .failure(let error): await record(error, for: model)
+            _ = try? await withStores([.live(account.provider)]) { live in
+                await readSelection(account.provider, owning: live)
+                guard !model.isSelected else { return }
+                let outgoing: AccountModel? = accounts.first { other in
+                    other.account.provider == account.provider && other.isSelected && other.account.id != id
+                }
+                _ = try? await withStores(Set([id, outgoing?.account.id].compactMap(\.self).map(CredentialStore.privateAccount)), owning: live) { stores in
+                    switch await client(for: account.provider).select(account, outgoing: outgoing?.account) {
+                        case .success(let identity):
+                            model.account.identity = identity
+                            model.issue = nil
+                            scheduleSave()
+                        case .failure(let error): await record(error, for: model, owning: stores)
+                    }
+                    await withTaskCancellationShield { await readSelection(account.provider, owning: stores) }
+                }
             }
-            await readSelection()
         }
         Task(name: "Refresh after switch") { [self] in
             await model.running?.task.value
@@ -324,16 +404,17 @@ final class AccountStore {
     func signOut(_ id: UUID) {
         guard let model: AccountModel = model(id) else { return }
         let account: Account = model.account
-        let isSelected: Bool = model.isSelected
-        model.run(.signingOut) { [self] in
-            switch await client(for: account.provider).signOut(account, isSelected: isSelected) {
+        run(model, .signingOut) { [self] stores in
+            switch await client(for: account.provider).signOut(account, isSelected: model.isSelected) {
                 case .success:
                     model.authentication = .signInRequired
                     model.usage = .unavailable
                     model.issue = nil
                     scheduleSave()
-                    await readSelection()
-                case .failure(let error): await record(error, for: model)
+                case .failure(let error): await record(error, for: model, owning: stores)
+            }
+            if stores.contains(.live(account.provider)) {
+                await withTaskCancellationShield { await readSelection(account.provider, owning: stores) }
             }
         }
     }
@@ -341,15 +422,16 @@ final class AccountStore {
     func remove(_ id: UUID) {
         guard let model: AccountModel = model(id) else { return }
         let account: Account = model.account
-        let isSelected: Bool = model.isSelected
-        model.run(.removing) { [self] in
-            switch await client(for: account.provider).remove(account, isSelected: isSelected) {
+        run(model, .removing) { [self] stores in
+            switch await client(for: account.provider).remove(account, isSelected: model.isSelected) {
                 case .success:
                     accounts.removeAll { other in other.account.id == id }
                     removeAccountDirectory(id)
                     scheduleSave()
-                    await readSelection()
-                case .failure(let error): await record(error, for: model)
+                case .failure(let error): await record(error, for: model, owning: stores)
+            }
+            if stores.contains(.live(account.provider)) {
+                await withTaskCancellationShield { await readSelection(account.provider, owning: stores) }
             }
         }
     }
@@ -365,35 +447,54 @@ final class AccountStore {
             AsyncStream<String>.makeStream()
         authenticationCodes = codes.continuation
         let task: Task<Void, Never> = Task(name: "Sign in \(provider.name)") { [self] in
-            let client: any ProviderClient = client(for: provider)
-            let result: Result<AccountIdentity, ProviderError> =
-                if let existing {
-                    await client.reconnect(account: existing.account, isSelected: existing.isSelected, codes: codes.stream)
-                } else {
-                    await client.connect(id: id, codes: codes.stream)
+            defer {
+                codes.continuation.finish()
+                if authentication?.id == id || authentication == nil {
+                    authenticationCodes = nil
+                    authenticationTask = nil
                 }
-            codes.continuation.finish()
-            authenticationCodes = nil
-            switch result {
-                case .success(let identity) where !Task.isCancelled:
-                    await connect(id: id, provider: provider, identity: identity, existing: existing)
-                case .success:
-                    if existing == nil { await deletePrivateStore(id, provider: provider) }
-                    authentication = nil
-                case .failure(let error) where error.failure.isCancellation || Task.isCancelled:
-                    if existing == nil { await deletePrivateStore(id, provider: provider) }
-                    authentication = nil
-                case .failure(let error):
-                    let refusal: AuthenticationRefusal =
-                        if let existing, error.failure.isAccountMismatch {
-                            .differentAccount(email: existing.account.identity.email)
-                        } else {
-                            .failure(error)
-                        }
-                    if let existing { await record(error, for: existing) }
-                    authentication?.phase = .refused(refusal)
             }
-            authenticationTask = nil
+            _ = try? await withStores(
+                Set([.privateAccount(id)] + (existing?.isSelected == true ? [.live(provider)] : []))
+            ) { stores in
+                let client: any ProviderClient = client(for: provider)
+                let result: Result<AccountIdentity, ProviderError> =
+                    if let existing {
+                        await client.reconnect(account: existing.account, isSelected: existing.isSelected, codes: codes.stream)
+                    } else {
+                        await client.connect(id: id, codes: codes.stream)
+                    }
+                codes.continuation.finish()
+                authenticationCodes = nil
+                switch result {
+                    case .success(let identity) where !Task.isCancelled:
+                        await connect(id: id, provider: provider, identity: identity, existing: existing, owning: stores)
+                    case .success:
+                        if existing == nil {
+                            await withTaskCancellationShield { await deletePrivateStore(id, provider: provider, owning: stores) }
+                        }
+                        authentication = nil
+                    case .failure(let error) where error.failure.isCancellation || Task.isCancelled:
+                        if existing == nil {
+                            await withTaskCancellationShield { await deletePrivateStore(id, provider: provider, owning: stores) }
+                        }
+                        authentication = nil
+                    case .failure(let error):
+                        let refusal: AuthenticationRefusal =
+                            if let existing, error.failure.isAccountMismatch {
+                                .differentAccount(email: existing.account.identity.email)
+                            } else {
+                                .failure(error)
+                            }
+                        if let existing { await record(error, for: existing, owning: stores) }
+                        authentication?.phase = .refused(refusal)
+                }
+                if stores.contains(.live(provider)) {
+                    await withTaskCancellationShield { await readSelection(provider, owning: stores) }
+                }
+            }
+            if Task.isCancelled, authentication?.id == id { authentication = nil }
+            await readSelection(provider)
         }
         authenticationTask = task
         existing?.run(.signingIn) { await task.value }
@@ -404,77 +505,94 @@ final class AccountStore {
         provider: Provider,
         identity: AccountIdentity,
         existing: AccountModel?,
+        owning stores: Set<CredentialStore>,
     ) async {
-        let duplicate: AccountModel? = accounts.first { model in
-            model.account.id != id && model.account.provider == provider
-                && model.account.identity.isSameAccount(as: identity)
+        let matchingAccount: () -> AccountModel? = { [self] in
+            accounts.first { model in
+                model.account.id != id && model.account.provider == provider
+                    && model.account.identity.isSameAccount(as: identity)
+            }
         }
-        let replaced: AccountModel?
-        switch (duplicate, existing) {
-            case (.some(let connected), _) where connected.isConnected || connected.isBusy:
-                connected.issue = nil
-                if existing == nil { await deletePrivateStore(id, provider: provider) }
-                authentication?.phase = .refused(.alreadyConnected(email: identity.email))
-                return
-            case (.some(let signedOut), .none): replaced = signedOut
-            case (.some, .some), (.none, _): replaced = nil
-        }
-        let model: AccountModel =
-            existing
-            ?? AccountModel(
-                account: Account(
-                    id: id,
-                    provider: provider,
-                    identity: identity,
-                    sessionPolicy: replaced?.account.sessionPolicy ?? .manual,
-                ),
-                authentication: .connected,
-                usage: replaced?.usage ?? .unavailable,
-                retryAfter: nil,
-            )
-        if let replaced, let index: Int = accounts.firstIndex(where: { stored in stored.account.id == replaced.account.id }) {
-            accounts[index] = model
-            await deletePrivateStore(replaced.account.id, provider: provider)
-        } else if existing == nil {
-            accounts.append(model)
-        }
-        model.account.identity = identity
-        model.authentication = .connected
-        model.retryAfter = nil
-        model.issue = nil
-        await save()
-        await readSelection()
-        authentication = nil
-        switch existing {
-            case .some: await readUsage(model)
-            case .none: model.run(.refreshing) { [self] in await readUsage(model) }
+        _ = try? await withStores(
+            Set(
+                [matchingAccount()].compactMap(\.self).flatMap { model in
+                    [.privateAccount(model.account.id)] + (model.isSelected ? [.live(provider)] : [])
+                }
+            ),
+            owning: stores,
+        ) { stores in
+            let duplicate: AccountModel? = matchingAccount()
+            let replaced: AccountModel?
+            switch (duplicate, existing) {
+                case (.some(let connected), _) where connected.isConnected || connected.isBusy:
+                    connected.issue = nil
+                    if existing == nil { await deletePrivateStore(id, provider: provider, owning: stores) }
+                    authentication?.phase = .refused(.alreadyConnected(email: identity.email))
+                    return
+                case (.some(let signedOut), .none): replaced = signedOut
+                case (.some, .some), (.none, _): replaced = nil
+            }
+            let model: AccountModel =
+                existing
+                ?? AccountModel(
+                    account: Account(
+                        id: id,
+                        provider: provider,
+                        identity: identity,
+                        sessionPolicy: replaced?.account.sessionPolicy ?? .manual,
+                    ),
+                    authentication: .connected,
+                    usage: replaced?.usage ?? .unavailable,
+                    retryAfter: nil,
+                )
+            if let replaced, let index: Int = accounts.firstIndex(where: { stored in stored.account.id == replaced.account.id }) {
+                accounts[index] = model
+                await deletePrivateStore(replaced.account.id, provider: provider, owning: stores)
+            } else if existing == nil {
+                accounts.append(model)
+            }
+            model.account.identity = identity
+            model.authentication = .connected
+            model.retryAfter = nil
+            model.issue = nil
+            await save()
+            if stores.contains(.live(provider)) { await readSelection(provider, owning: stores) }
+            authentication = nil
+            switch existing {
+                case .some: await readUsage(model, owning: stores)
+                case .none: run(model, .refreshing) { [self] stores in await readUsage(model, owning: stores) }
+            }
         }
     }
 
     private func readCodexPrecondition() async {
         guard accounts.contains(where: { model in model.account.provider == .openAI }) else { return }
-        codexPrecondition = (await codex.preconditions()).failure
+        _ = try? await withStores([.live(.openAI)]) { _ in
+            codexPrecondition = (await codex.preconditions()).failure
+        }
     }
 
-    private func deletePrivateStore(_ id: UUID, provider: Provider) async {
-        let result: Result<Void, ProviderError> = await client(for: provider).deletePrivateStore(id: id)
-        removeAccountDirectory(id)
-        switch result {
-            case .success: providerIssues[provider] = nil
-            case .failure(let error): report(error, provider: provider)
+    private func deletePrivateStore(_ id: UUID, provider: Provider, owning: Set<CredentialStore>) async {
+        _ = try? await withStores([.privateAccount(id)], owning: owning) { _ in
+            let result: Result<Void, ProviderError> = await client(for: provider).deletePrivateStore(id: id)
+            removeAccountDirectory(id)
+            switch result {
+                case .success: providerIssues[provider] = nil
+                case .failure(let error): report(error, provider: provider)
+            }
         }
     }
 
     // --- [USAGE]
     func startSession(_ id: UUID) {
         guard let model: AccountModel = model(id), model.isConnected else { return }
-        model.run(.starting) { [self] in
+        run(model, .starting) { [self] stores in
             guard model.isConnected else { return }
-            await apply(await client(for: model.account.provider).startSession(for: model.account, isSelected: model.isSelected), to: model)
+            await apply(await client(for: model.account.provider).startSession(for: model.account, isSelected: model.isSelected), to: model, owning: stores)
         }
     }
 
-    private func apply(_ result: Result<AccountUsage, ProviderError>, to model: AccountModel) async {
+    private func apply(_ result: Result<AccountUsage, ProviderError>, to model: AccountModel, owning: Set<CredentialStore>) async {
         switch result {
             case .success(let usage):
                 let now: Date = Date()
@@ -490,39 +608,47 @@ final class AccountStore {
             case .failure(let error) where error.failure.isCancellation: return
             case .failure(let error):
                 model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
-                await record(error, for: model)
+                await record(error, for: model, owning: owning)
         }
     }
 
     private func refresh(_ candidates: [AccountModel], trigger: RefreshTrigger) {
-        guard isStorageAvailable, !isStopping, !isSwitching else { return }
+        guard isStorageAvailable, !isStopping else { return }
         let now: Date = Date()
         for model: AccountModel in candidates where !model.isBusy {
             let due: Bool = trigger == .immediate || (model.usageReadAfter.map { date in date <= now } ?? true)
-            switch (model.isConnected, model.isSelected) {
-                case (true, _) where due, (false, true) where due && trigger == .revalidation:
-                    model.run(.refreshing) { [self] in await readUsage(model) }
-                case (false, false):
-                    model.run(.refreshing) { [self] in
-                        switch await client(for: model.account.provider).holdsCredential(for: model.account) {
-                            case .success(true):
-                                model.authentication = .connected
-                                model.issue = nil
-                                scheduleSave()
-                            case .success(false): return
-                            case .failure(let error):
-                                await record(error, for: model)
-                                return
-                        }
-                        if due { await readUsage(model) }
+            let refreshes: Bool =
+                switch (model.isConnected, model.isSelected) {
+                    case (true, _): due
+                    case (false, true): due && trigger == .revalidation
+                    case (false, false): true
+                }
+            guard refreshes else { continue }
+            run(model, .refreshing) { [self] stores in
+                let credential: Result<Bool, ProviderError>? =
+                    if !model.isConnected, !model.isSelected {
+                        await client(for: model.account.provider).holdsCredential(for: model.account)
+                    } else {
+                        nil
                     }
-                case (true, _), (false, true): continue
+                switch credential {
+                    case .some(.success(true)):
+                        model.authentication = .connected
+                        model.issue = nil
+                        scheduleSave()
+                    case .some(.success(false)): return
+                    case .some(.failure(let error)):
+                        await record(error, for: model, owning: stores)
+                        return
+                    case .none: break
+                }
+                if due { await readUsage(model, owning: stores) }
             }
         }
     }
 
-    private func readUsage(_ model: AccountModel) async {
-        await apply(await client(for: model.account.provider).usage(for: model.account, isSelected: model.isSelected), to: model)
+    private func readUsage(_ model: AccountModel, owning: Set<CredentialStore>) async {
+        await apply(await client(for: model.account.provider).usage(for: model.account, isSelected: model.isSelected), to: model, owning: owning)
     }
 
     private func startAutomaticSessionIfNeeded(_ model: AccountModel) {
@@ -552,18 +678,18 @@ final class AccountStore {
         }
     }
 
-    private func observe(file: URL) async {
+    private func observe(file: URL, provider: Provider) async {
         do {
             for try await _ in FileWatch.values(
                 of: file,
                 read: FileWatch.contentDigest,
                 debounce: .milliseconds(300),
-            ) where !isSwitching {
+            ).dropFirst() {
                 let before: [UUID: Bool] = Dictionary(
                     uniqueKeysWithValues: accounts.map { model in (model.account.id, model.isSelected) }
                 )
-                await readSelection()
-                if file == codex.liveAuthFile { await readCodexPrecondition() }
+                await readSelection(provider)
+                if provider == .openAI { await readCodexPrecondition() }
                 let changed: [AccountModel] = accounts.filter { model in
                     before[model.account.id] != model.isSelected
                 }
@@ -578,9 +704,9 @@ final class AccountStore {
 
     private func observeRefreshLock(_ lock: URL) async {
         do {
-            for try await present: Bool in FileWatch.values(of: lock, read: FileWatch.exists, debounce: nil)
-            where !isSwitching && !present {
-                await readSelection()
+            for try await present: Bool in FileWatch.values(of: lock, read: FileWatch.exists, debounce: nil).dropFirst()
+            where !present {
+                await readSelection(.claude)
             }
         } catch {
             logger.error(
@@ -591,20 +717,19 @@ final class AccountStore {
 
     private func observeCodexUpdates() async {
         for await home: URL in codex.updates {
-            guard
-                let model: AccountModel = accounts.first(where: { model in
-                    model.account.provider == .openAI
-                        && codex.home(for: model.account, isSelected: model.isSelected) == home
-                })
-            else { continue }
-            while let operation: RunningOperation = model.running
-                ?? accounts.first(where: { account in account.running?.kind == .selecting })?.running
-            {
+            while let operation: RunningOperation = accounts.first(where: { model in
+                model.account.provider == .openAI
+                    && codex.home(for: model.account, isSelected: model.isSelected) == home
+            })?.running {
                 await operation.task.value
             }
-            guard !Task.isCancelled else { return }
-            guard accounts.contains(where: { account in account === model }) else { continue }
-            refresh([model], trigger: .immediate)
+            _ = try? await withStores([.live(.openAI)]) { _ in
+                if let model: AccountModel = accounts.first(where: { model in
+                    model.account.provider == .openAI && codex.home(for: model.account, isSelected: model.isSelected) == home
+                }) {
+                    refresh([model], trigger: .immediate)
+                }
+            }
         }
     }
 
@@ -645,7 +770,7 @@ final class AccountStore {
     }
 
     // --- [FAILURES]
-    private func record(_ error: ProviderError, for model: AccountModel) async {
+    private func record(_ error: ProviderError, for model: AccountModel, owning: Set<CredentialStore>) async {
         guard !error.failure.isCancellation else { return }
         logger.error(
             "\(model.running?.kind.description ?? "Account operation", privacy: .public) failed for \(model.account.id.uuidString, privacy: .public) \(model.account.identity.email, privacy: .private): \(String(describing: error), privacy: .public)"
@@ -659,7 +784,7 @@ final class AccountStore {
         guard error.failure.requiresSignIn else { return }
         model.authentication = .signInRequired
         scheduleSave()
-        await readSelection()
+        if owning.contains(.live(model.account.provider)) { await readSelection(model.account.provider, owning: owning) }
     }
 
     private func report(_ error: ProviderError, provider: Provider) {

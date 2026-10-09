@@ -4,6 +4,88 @@ language: tsx
 severity: error
 ignores: ['plugins/function-hooks/**', '.codex/hooks/**']
 utils:
+    nx-type-declaration:
+        any:
+            - kind: type_alias_declaration, interface_declaration, enum_declaration, class_declaration, abstract_class_declaration, internal_module
+              has: {field: name, pattern: $NX_TYPE}
+            - kind: export_statement, expression_statement
+              has: {matches: nx-type-declaration}
+    nx-shadowed-type:
+        kind: type_identifier, identifier
+        pattern: $NX_TYPE
+        inside:
+            stopBy: end
+            any:
+                - kind: statement_block, program
+                  has: {matches: nx-type-declaration}
+                - kind: function_declaration, function_expression, arrow_function, method_definition, class, class_declaration, abstract_class_declaration
+                  has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $NX_TYPE}}}
+    nx-imported-type:
+        any:
+            - kind: type_identifier
+              pattern: $NX_TYPE
+              not: {matches: nx-shadowed-type}
+              inside:
+                kind: program
+                stopBy: end
+                has:
+                    kind: import_statement
+                    all:
+                        - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^(@nx/devkit|nx/src/project-graph/plugins)$'}}
+                        - has:
+                            kind: import_clause
+                            has:
+                                kind: named_imports
+                                has:
+                                    kind: import_specifier
+                                    all:
+                                        - has: {field: name, matches: nx-exported-type}
+                                        - has: {kind: identifier, pattern: $NX_TYPE, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
+            - kind: nested_type_identifier
+              all:
+                - has: {field: name, matches: nx-exported-type}
+                - has: {field: module, kind: identifier, pattern: $NX_MODULE, not: {any: [{matches: syntax-shadowed-import}, {matches: nx-shadowed-type}]}}
+                - inside:
+                    kind: program
+                    stopBy: end
+                    has:
+                        kind: import_statement
+                        all:
+                            - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^(@nx/devkit|nx/src/project-graph/plugins)$'}}
+                            - has: {kind: import_clause, has: {kind: namespace_import, has: {kind: identifier, pattern: $NX_MODULE}}}
+    nx-exported-type:
+        regex: '^(CreateNodes(Function)?(V2)?|CreateDependencies|CreateMetadata|PreTasksExecution|PostTasksExecution)$'
+    nx-type:
+        any:
+            - matches: nx-imported-type
+            - kind: generic_type
+              has: {field: name, matches: nx-imported-type}
+    nx-typed-value:
+        any:
+            - kind: variable_declarator
+              has: {field: type, kind: type_annotation, has: {matches: nx-type}}
+            - kind: satisfies_expression
+              has: {nthChild: 2, matches: nx-type}
+    nx-tuple-callback:
+        any:
+            - kind: arrow_function, function_expression
+            - matches: syntax-expression-wrapper
+        nthChild: {position: 2, ofRule: {not: {kind: comment}}}
+        inside:
+            kind: array
+            inside:
+                matches: nx-typed-value
+                stopBy: {not: {matches: syntax-expression-wrapper}}
+    nx-boundary:
+        kind: arrow_function, function_expression
+        any:
+            - inside:
+                matches: nx-typed-value
+                stopBy: {not: {matches: syntax-expression-wrapper}}
+            - matches: nx-tuple-callback
+            - inside:
+                matches: nx-tuple-callback
+                stopBy: {not: {matches: syntax-expression-wrapper}}
     host-import:
         kind: call_expression
         has: {field: function, kind: import}
@@ -36,7 +118,7 @@ utils:
                   all:
                     - has: {field: object, matches: effect-effect-module}
                     - has: {field: property, regex: '^(promise|tryPromise)$'}
-    promise-boundary:
+    conversion-boundary:
         any:
             - kind: arrow_function, function_expression
               any:
@@ -51,7 +133,7 @@ utils:
               has: {field: name, regex: '^(try|"try"|''try'')$'}
               inside: {kind: object, inside: {kind: arguments, inside: {matches: promise-call}}}
             - matches: syntax-function-boundary
-              inside: {matches: promise-boundary, stopBy: {matches: syntax-function-boundary}}
+              inside: {matches: conversion-boundary, stopBy: {matches: syntax-function-boundary}}
             - kind: generator_function
               inside:
                 kind: parenthesized_expression
@@ -70,6 +152,10 @@ utils:
                                       all:
                                         - has: {field: object, matches: {effect-module: {name: {regex: '\bStream$'}}}}
                                         - has: {field: property, regex: '^fromAsyncIterable$'}
+    promise-boundary:
+        any:
+            - matches: nx-boundary
+            - matches: conversion-boundary
     global-receiver: {matches: syntax-global-reference, regex: '^(globalThis|window|self)(\.(globalThis|window|self))*$'}
     promise-constructor:
         any:
@@ -134,5 +220,5 @@ rule:
                 pattern: $PROMISE
                 matches: promise-combinator
         - not: {inside: {stopBy: {matches: syntax-function-boundary}, matches: promise-boundary}}
-message: '`$PROMISE` runs as a promise outside a promise conversion callback'
-note: '`Effect.tryPromise(() => <promise>)` converts an awaited promise, `Effect.callback` replaces `new Promise`, `Effect.all` replaces `Promise.all` and with `mode: "result"` `allSettled`, `Effect.raceAll` and `Effect.race` replace `race` and `any`, `Effect.succeed`, `Effect.fail`, `Deferred.make`, and `Effect.try` replace `resolve`, `reject`, `withResolvers`, and `try`, `HttpClient` replaces `fetch`, and `Stream.fromAsyncIterable` reads an async iterable, each keeping the failure typed'
+message: '`$PROMISE` runs as a promise outside a host or promise conversion callback'
+note: 'Native Nx plugin callbacks imported from their owning package return promises to Nx. `Effect.tryPromise(() => <promise>)` converts other awaited promises, `Effect.callback` replaces `new Promise`, `Effect.all` replaces `Promise.all` and with `mode: "result"` `allSettled`, `Effect.raceAll` and `Effect.race` replace `race` and `any`, `Effect.succeed`, `Effect.fail`, `Deferred.make`, and `Effect.try` replace `resolve`, `reject`, `withResolvers`, and `try`, `HttpClient` replaces `fetch`, and `Stream.fromAsyncIterable` reads an async iterable, each keeping the failure typed'

@@ -1,9 +1,14 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
+using NuGet.Client;
 using NuGet.Common;
 using NuGet.Configuration;
+using NuGet.ContentModel;
 using NuGet.Frameworks;
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
@@ -17,7 +22,7 @@ internal sealed record Move(Row Row, NuGetVersion Version);
 // --- [ERRORS] --------------------------------------------------------------------------
 internal sealed record Usage() : Expected("Pass one argument, the Directory.Packages.props file to upgrade", 2);
 internal sealed record UnknownFramework() : Expected("Entry assembly names no target framework to match releases against", 3);
-internal sealed record MissingMetadata(string Source) : Expected($"Package source {Source} serves no package metadata resource. Correct the source URL in NuGet.config", 4);
+internal sealed record MissingResource<T>(string Source) : Expected($"Package source {Source} serves no {typeof(T).Name} resource, update NuGet.config", 4);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class Catalog {
@@ -33,29 +38,86 @@ internal static partial class Catalog {
             select new Row(include.Value, version.Value, at.LineNumber - 1, attribute));
 
     // --- [RELEASES]
-    public static IO<Seq<PackageMetadataResource>> Feeds(ISettings settings) =>
-        toSeq(SettingsUtility.GetEnabledSources(settings))
-            .Traverse(static source =>
-                from resource in IO.liftAsync(env => Repository.Factory.GetCoreV3(source).GetResourceAsync<PackageMetadataResource>(env.Token))
-                from metadata in IO.lift(Optional(resource).ToFin(new MissingMetadata(source.Name)))
-                select metadata)
-            .As();
+    public static IO<Seq<(PackageMetadataResource Metadata, FindPackageByIdResource Downloads)>> Feeds(ISettings settings) {
+        static FinT<IO, T> Resource<T>(SourceRepository source) where T : class, INuGetResource =>
+            (from resource in IO.liftAsync(env => source.GetResourceAsync<T>(env.Token))
+             from required in IO.lift(Optional(resource).ToFin(new MissingResource<T>(source.PackageSource.Name)))
+             select required).Try();
 
-    public static IO<Option<Move>> Newest(NuGetFramework framework, SourceCacheContext cache, Seq<PackageMetadataResource> feeds, Row row, NuGetVersion current) =>
-        feeds
-            .Traverse(feed => IO.liftAsync(env => feed.GetMetadataAsync(row.Id, includePrerelease: true, includeUnlisted: false, cache, NullLogger.Instance, env.Token)).Map(static published => toSeq(published)))
+        return Collect(toSeq(SettingsUtility.GetEnabledSources(settings))
+            .Map(static source => Repository.Factory.GetCoreV3(source))
+            .Map(static source =>
+                (Resource<PackageMetadataResource>(source), Resource<FindPackageByIdResource>(source))
+                    .Apply(static (metadata, downloads) => (Metadata: metadata, Downloads: downloads))
+                    .Run()
+                    .As()
+                    .Bind(IO.lift)));
+    }
+
+    public static IO<Option<Move>> Newest(NuGetFramework framework, SourceCacheContext cache, Seq<(PackageMetadataResource Metadata, FindPackageByIdResource Downloads)> feeds, Row row, NuGetVersion current) =>
+        from published in Collect(feeds
+            .Map(feed =>
+                IO.liftAsync(env => feed.Metadata.GetMetadataAsync(row.Id, includePrerelease: true, includeUnlisted: false, cache, NullLogger.Instance, env.Token))
+                    .Map(releases => toSeq(releases).Map(metadata => (Metadata: metadata, feed.Downloads)))))
+        from latest in IO.liftAsync(async env =>
+            await published.Flatten()
+                .OrderByDescending(static release => (release.Metadata.Identity.Version.Version, !release.Metadata.Identity.Version.IsPrerelease, release.Metadata.Published, release.Metadata.Identity.Version))
+                .ToAsyncEnumerable()
+                .Where(async (release, token) => {
+                    using IPackageDownloader downloader = await release.Downloads.GetPackageDownloaderAsync(release.Metadata.Identity, cache, NullLogger.Instance, token).ConfigureAwait(false);
+                    Seq<string> files = toSeq(await downloader.CoreReader.GetFilesAsync(token).ConfigureAwait(false));
+                    Stream manifest = await downloader.CoreReader.GetNuspecAsync(token).ConfigureAwait(false);
+                    await using ConfiguredAsyncDisposable disposal = manifest.ConfigureAwait(false);
+                    return Compatible(framework, release.Metadata.Identity.Id, files, new NuspecReader(manifest));
+                })
+                .Select(static release => Some(release.Metadata.Identity.Version))
+                .FirstOrDefaultAsync(env.Token)
+                .ConfigureAwait(false))
+        select latest
+            .Filter(version => !VersionComparer.Default.Equals(version, current))
+            .Map(version => new Move(row, version));
+
+    public static IO<Seq<T>> Collect<T>(Seq<IO<T>> effects) =>
+        effects
+            .Traverse(static effect => effect.Try())
+            .Run()
             .As()
-            .Map(published =>
-                Optional(published.Flatten().Filter(metadata => Compatible(framework, metadata)).MaxBy(static metadata => (metadata.Identity.Version.Version, !metadata.Identity.Version.IsPrerelease, metadata.Published, metadata.Identity.Version)))
-                    .Map(static metadata => metadata.Identity.Version)
-                    .Filter(version => !VersionComparer.Default.Equals(version, current))
-                    .Map(version => new Move(row, version)));
+            .Bind(static results => IO.lift(results.Map(static values => values.As())));
 
-    private static bool Compatible(NuGetFramework framework, IPackageSearchMetadata metadata) =>
-        toSeq(metadata.DependencySets).Map(static set => set.TargetFramework) switch {
-            { IsEmpty: true } => true,
-            var frameworks => new FrameworkReducer().GetNearest(framework, frameworks) is not null,
-        };
+    private static bool Compatible(NuGetFramework framework, string packageId, Seq<string> files, NuspecReader nuspec) {
+        string lib = $"{PackagingConstants.Folders.Lib}/";
+        string reference = $"{PackagingConstants.Folders.Ref}/";
+        ManagedCodeConventions conventions = new(runtimeGraph: null);
+        SelectionCriteria criteria = conventions.Criteria.ForFramework(framework);
+        ManagedCodeConventions.ManagedCodePatterns patterns = conventions.Patterns;
+        ContentItemCollection content = new();
+        content.Load(files);
+        Option<FrameworkSpecificGroup> references = Optional(nuspec.GetReferenceGroups().GetNearest(framework));
+        Func<ContentItem, bool> included = item =>
+            !item.Path.StartsWith(lib, StringComparison.Ordinal)
+            || references.Match(Some: group => group.Items.Contains(Path.GetFileName(item.Path), StringComparer.OrdinalIgnoreCase), None: static () => true);
+        PatternSet[][] assemblies = [
+            [patterns.CompileRefAssemblies, patterns.CompileLibAssemblies],
+            [patterns.RuntimeAssemblies],
+        ];
+        Seq<PatternSet> builds = Seq(patterns.MSBuildFiles, patterns.MSBuildTransitiveFiles, patterns.MSBuildMultiTargetingFiles);
+        List<ContentItemGroup> contentFiles = [];
+        content.PopulateItemGroups(patterns.ContentFiles, contentFiles);
+
+        return !files.Exists(file => file.StartsWith(reference, StringComparison.OrdinalIgnoreCase) || file.StartsWith(lib, StringComparison.OrdinalIgnoreCase))
+            || assemblies.Any(definitions => Optional(content.FindBestItemGroup(criteria, definitions)).Exists(group => group.Items.Any(included)))
+            || content.FindBestItemGroup(criteria, patterns.ResourceAssemblies) is { Items.Count: > 0 }
+            || builds
+                .Map(pattern => Optional(content.FindBestItemGroup(criteria, pattern)))
+                .Somes()
+                .Bind(static group => toSeq(group.Items))
+                .Exists(item => Path.GetFileNameWithoutExtension(item.Path).Equals(packageId, StringComparison.OrdinalIgnoreCase) || Path.GetFileName(item.Path).Equals(PackagingCoreConstants.EmptyFolder, StringComparison.Ordinal))
+            || contentFiles
+                .GroupBy(static group => (string)group.Properties[ManagedCodeConventions.PropertyNames.CodeLanguage], StringComparer.OrdinalIgnoreCase)
+                .Any(language => Optional(NuGetFrameworkUtility.GetNearest(language, framework, static group => (NuGetFramework)group.Properties[ManagedCodeConventions.PropertyNames.TargetFrameworkMoniker])).Exists(static group => group.Items.Count > 0))
+            || (!framework.IsPackageBased && Optional(nuspec.GetFrameworkAssemblyGroups().GetNearest(framework)).Exists(static group => group.Items.Any()))
+            || Optional(nuspec.GetFrameworkRefGroups().GetNearest(framework)).Exists(static group => group.FrameworkReferences.Any());
+    }
 
     // --- [REWRITE]
     public static string Rewrite(Lst<string> lines, Seq<Row> rows, Seq<Move> moves) {
@@ -90,10 +152,9 @@ internal static class Program {
         let rows = Catalog.Rows(lines, XDocument.Parse(text, LoadOptions.SetLineInfo))
         from cache in use(static () => new SourceCacheContext { NoCache = true })
         from feeds in Catalog.Feeds(Settings.LoadDefaultSettings(Path.GetDirectoryName(path)))
-        from moves in rows
+        from moves in Catalog.Collect(rows
             .Choose(static row => NuGetVersion.TryParse(row.Version, out NuGetVersion? current) ? Some((Row: row, Current: current)) : None)
-            .Traverse(pending => Catalog.Newest(framework, cache, feeds, pending.Row, pending.Current))
-            .As()
+            .Map(pending => Catalog.Newest(framework, cache, feeds, pending.Row, pending.Current)))
             .Map(static moves => moves.Somes())
         from written in when(!moves.IsEmpty, IO.lift(() => File.WriteAllText(path, Catalog.Rewrite(lines, rows, moves)))).As()
         select moves;

@@ -3,15 +3,7 @@ description = "Use when a diff or a category of mistake needs an ast-grep rule, 
 developer_instructions = '''
 # [AST_GREP_RULE_BUILDER]
 
-<skills>
-
-Read and follow these skills before starting:
-- `.claude/skills/observation/SKILL.md`
-- `.codex/skills/use-ast-grep/SKILL.md`
-- `.codex/skills/clean-prose/SKILL.md`
-- `.codex/skills/search-code/SKILL.md`
-
-</skills>
+Read applicable skills before starting.
 
 <role>
 
@@ -102,3 +94,21 @@ Step 6 writes a refused category through `bar.sql` of `observation`, `:verdict` 
 
 </done_when>
 '''
+
+# --- [SKILLS] ---------------------------------------------------------------------------
+
+[[skills.config]]
+name = "observation"
+enabled = true
+
+[[skills.config]]
+name = "use-ast-grep"
+enabled = true
+
+[[skills.config]]
+name = "clean-prose"
+enabled = true
+
+[[skills.config]]
+name = "search-code"
+enabled = true

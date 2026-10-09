@@ -3,15 +3,7 @@ description = "Use when ast-grep rules or a diff's rules report fewer forms than
 developer_instructions = '''
 # [AST_GREP_RULE_HARDENER]
 
-<skills>
-
-Read and follow these skills before starting:
-- `.claude/skills/observation/SKILL.md`
-- `.codex/skills/use-ast-grep/SKILL.md`
-- `.codex/skills/clean-prose/SKILL.md`
-- `.codex/skills/search-code/SKILL.md`
-
-</skills>
+Read applicable skills before starting.
 
 <role>
 
@@ -89,3 +81,21 @@ Installed source or binary decides over a page.
 
 </done_when>
 '''
+
+# --- [SKILLS] ---------------------------------------------------------------------------
+
+[[skills.config]]
+name = "observation"
+enabled = true
+
+[[skills.config]]
+name = "use-ast-grep"
+enabled = true
+
+[[skills.config]]
+name = "clean-prose"
+enabled = true
+
+[[skills.config]]
+name = "search-code"
+enabled = true

@@ -33,11 +33,13 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [HANDLERS]: Worker is one Effect `Layer` graph that `HttpRouter.toWebHandler` turns into a fetch handler
 - Operations are `Effect.fn` spans, `Effect.catchTag` turns SQL, schema, and platform failures into a logged `ServiceUnavailable`
-- `D1Client` from `@effect/sql-d1` keeps documents and asset metadata as JSON, R2 keeps media bytes
+- `D1Client` from `@effect/sql-d1` stores complete encoded documents and assets as JSON, R2 stores media bytes
+- `SqlSchema` decodes joined JSON documents and asset collections through `PortfolioData` at store boundaries
 - ALWAYS enforce storage invariants as conditions of writing SQL statements
 - Placement references are a SQL view over stored JSON, no reference row is written or kept in sync
 - Portfolio versions are content-addressed by digest, draft and published states each point at one
 - Draft writes send the digest their last read or write returned, a stale digest fails with `PreconditionFailed` and writes nothing
+- Portfolio writes, pointer updates, and garbage collection share one atomic D1 batch
 - `partial-content` evaluates HTTP preconditions and ranges for draft writes and media reads
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Every stored object has a row naming its upload attempt, interrupted uploads and removals stay listed until the owner discards them
@@ -93,7 +95,14 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 ## [07]-[HOSTING]
 
 [SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names
+- Worker `fetch` supplies bindings to memoized handler construction inside request context
 - Sites forwards signed-in user id and email headers, requests without an id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks compare user ids alone
 - Hosted configuration supplies `OWNER_EMAIL`, `vite.config.ts` sets it to the `sites()` local sign-in email for `serve` alone
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
+
+[CONVERSION]: Run `storage:convert` with Worker stopped to convert local storage layouts
+- `--source original` reads complete JSON tables, `--source split` reads document and asset component tables
+- `--config` selects Wrangler configuration, `--persist` selects local storage directory
+- Conversion preserves content, existing digests, object keys, and upload recovery in one atomic D1 batch
+- Conversion accesses local Wrangler bindings exclusively

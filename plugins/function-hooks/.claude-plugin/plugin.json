@@ -1,7 +1,7 @@
 {
     "name": "function-hooks",
     "version": "1.0.0",
-    "description": "Refuses, rewrites, and queues tool calls by policy, draws edit diagnostics, captures, notices, and down services, runs writers at stop, and with observation on records hook events and delivers findings",
+    "description": "Tool policies, workspace edit formatting, Nx diagnostics, captures, service status, and optional event records and finding delivery",
     "author": {
         "name": "Bardia Samiee"
     },

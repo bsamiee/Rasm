@@ -15,10 +15,10 @@ minimumReleaseAge: 0
 # --- [CATALOG] --------------------------------------------------------------------------
 catalog:
     # --- [EFFECT_RUNTIME]
-    effect: 4.0.1
-    '@effect/platform-node': 4.0.0
+    effect: 4.0.2
+    '@effect/platform-node': 4.0.2
     '@effect/platform-bun': 4.0.0
-    '@effect/platform-browser': 4.0.1
+    '@effect/platform-browser': 4.0.2
     '@effect/opentelemetry': 4.0.1
     # --- [SERIALIZATION_MESSAGING]
     jsesc: 3.1.0 # JavaScript literals for native Acrobat scripts
@@ -31,6 +31,7 @@ catalog:
     '@connectrpc/connect-web': 2.2.0
     '@msgpack/msgpack': 3.1.3
     vscode-languageserver-protocol: 3.18.4 # Typed LSP requests and the stdio connection of the argus MCP server
+    vscode-languageserver-textdocument: 1.0.15
     rfc6902: 5.3.0
     fast-xml-parser: 5.11.2
     fast-xml-validator: 1.4.2 # Strict XML syntax validation for native Adobe shortcut files
@@ -62,7 +63,7 @@ catalog:
     '@effect/sql-sqlite-bun': 4.0.1
     '@effect/sql-sqlite-wasm': 4.0.1
     '@effect/sql-libsql': 4.0.1
-    '@effect/sql-d1': 4.0.1
+    '@effect/sql-d1': 4.0.2
     '@effect/sql-mysql2': 4.0.1
     '@effect/sql-mssql': 4.0.1
     '@effect/sql-clickhouse': 4.0.0
@@ -90,7 +91,7 @@ catalog:
     basic-ftp: 6.2.2
     partial-content: 4.0.0
     chokidar: 5.0.0
-    '@parcel/watcher': 2.6.0 # Filesystem snapshots for Argus shell hooks
+    '@parcel/watcher': 2.6.0
     # --- [SERVICES_OBSERVABILITY]
     '@nats-io/nats-core': "3.4.1-0"
     '@nats-io/transport-node': "3.4.1-0"
@@ -179,7 +180,7 @@ catalog:
     react-compiler-runtime: 1.0.0
     react-error-boundary: 6.1.6
     scheduler: "0.28.0-canary-17eca7b0-20261006"
-    '@effect/atom-react': 4.0.1
+    '@effect/atom-react': 4.0.2
     '@floating-ui/react': 0.27.20
     '@tanstack/react-table': 9.2.6
     '@tanstack/react-virtual': 3.14.13
@@ -294,6 +295,7 @@ catalog:
     '@cloudflare/vite-plugin': 1.63.0
     '@cloudflare/workers-types': 5.20261007.1
     '@openai/sites-vite-plugin': 0.2.0
+    wrangler: 4.149.0
     typescript: 7.1.0-dev.20261006.1
     '@effect/language-service': 0.87.3
     '@effect/docgen': 4.0.0
@@ -305,6 +307,8 @@ catalog:
     '@ast-grep/napi': 0.45.3 # Structural search and rewrite over syntax trees from Node
     '@ast-grep/lang-python': 0.0.6 # Python grammar for Nx import dependencies
     smol-toml: 1.9.0 # Nx parser for `pyproject.toml` and `blender_manifest.toml`
+    minimatch: 10.2.6
+    rimraf: 6.1.3
     '@biomejs/biome': 2.5.15
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
     tree-sitter-sqlite3: 0.1.0

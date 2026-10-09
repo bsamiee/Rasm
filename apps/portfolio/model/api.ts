@@ -17,7 +17,7 @@ class Owner extends HttpApiMiddleware.Service<Owner>()('portfolio/Owner', { erro
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-// biome-ignore lint/nursery/useExplicitReturnType: HttpApi.add/prefix/middleware infer the complete route graph; annotating it duplicates that contract or erases endpoint payload types.
+// biome-ignore lint/nursery/useExplicitReturnType: HttpApi infers endpoint types from schemas; a return annotation duplicates that graph or erases client payload types
 const makeApi = <P extends typeof Portfolio | typeof StoredPortfolio>(portfolio: P) =>
     HttpApi.make('portfolio')
         .add(
