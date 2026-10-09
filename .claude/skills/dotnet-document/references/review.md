@@ -22,7 +22,7 @@ Fix step edits CRITICAL findings without a per-finding choice:
 
 Fix step edits IMPORTANT findings the caller selects:
 - Placeholders: TODO, FIXME, TBD, or a bracketed template (`[Describe ...]`)
-- Diagnostics the build reports on the comment, the `dotnet build` output is the evidence
+- Diagnostics on the comment, the `mcp__roslyn-codelens__get_diagnostics` items are the evidence
 - Phrasing that departs from the phrase for the member kind, the declaration (accessor list, `abstract`, return type) is the evidence
 - Overloads with descriptions on one overload and none on another overload of the same member
 - Default-value claims with no initializer in the source
@@ -37,11 +37,14 @@ Report lists MINOR findings and the fix step leaves them:
 
 ## [03]-[PROCEDURE]
 
-1. Find the C# source for the file under review and read it before the doc comments
-2. Record each documented member's constructors, overloads, accessor lists, body validation (throw, clamp, pad, truncate), constants, and initializers
-3. Read each doc comment and run the factual, example, and quality checks against the record
-4. Deduplicate findings by file, member, and class, keep one row at the higher severity when the build and the review report the same defect
-5. When the caller approved fixes, edit the doc comments for every CRITICAL finding and for the IMPORTANT findings the caller selected
+1. Invoke `Skill(dotnet-roslyn-codelens)` for the solution load and analyzer trust
+2. Load `mcp__roslyn-codelens__get_method_source` and `mcp__roslyn-codelens__get_diagnostics` with one `ToolSearch` `select:` query
+3. Call `mcp__roslyn-codelens__get_method_source` with every documented member's name and read the source before the doc comments
+4. Record each documented member's constructors, overloads, accessor lists, body validation (throw, clamp, pad, truncate), constants, and initializers
+5. Call `mcp__roslyn-codelens__get_diagnostics` with `includeAnalyzers: true` and the file's `project`
+6. Read each doc comment and run the factual, example, and quality checks against the record
+7. Deduplicate findings by file, member, and class, keep one row at the higher severity when diagnostics and the review report the same defect
+8. When the caller approved fixes, edit the doc comments for every CRITICAL finding and for the IMPORTANT findings the caller selected
 
 ## [04]-[CHECKS]
 

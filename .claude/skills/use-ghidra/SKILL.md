@@ -32,7 +32,7 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Keys: Renames replace the `FUN_<hex>` name, the entry address stays the key
 - Memory: Every run and bridge caps its heap at `GHIDRA_HEADLESS_MAXMEM`, the quarter of RAM `mise.toml` sets, and holds it until exit
 - Memory: Decompiles spawn up to min(cores + 1, 10) native `decompile` processes outside the heap, `-max-cpu <n>` caps one run at n + 1
-- Time: Imports, analysis, and script runs take `run_in_background`
+- Time: Imports, analysis, and script runs take Bash `run_in_background: true`
 - Bundle: `-scriptPath` compiles the scripts directory as one bundle at the JDK `JAVA_HOME` names with no release flag
 - Bundle: Subdirectories become packages, unnamed variables need JDK 22 or later
 - Bundle: Compile failures drop the failing file and every file referencing it
@@ -40,14 +40,14 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
 - Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<main>/docs/research/<area>/<subject>/decompiled/<program>/` alone
 - Files: `<log>`, `<scriptlog>`, and `<macros>` go under `<main>/.artifacts/ghidra/<name>/`
-- Files: `<main>` is the main worktree's absolute path, `<skill>` the absolute directory containing this `SKILL.md`
+- Files: Main worktree `<main>` is !`dirname "$(git rev-parse --path-format=absolute --git-common-dir)"`
 - Files: Scripts and `-log` create their file's folder, `lipo` and redirects need `mkdir -p`
 - Logs: `<log>` holds one run's messages and its scripts' printed lines, `<scriptlog>` the printed lines alone
 - Logs: Runs without `-log` or `-scriptlog` append to `application.log` or `script.log` under `<main>/.cache/ghidra/settings/ghidra/<release>/`
 - Logs: Log4j size rollover is unreliable with concurrent runs appending to one file
 - Logs: ghidra-cli writes a daily debug log under `~/Library/Application Support/ghidra-cli/`, a folder no setting moves
-- Use `manage-repo` for research folders
-- Use `search-code` for a Ghidra API signature
+- Use `Skill(manage-repo)` for research folders
+- Use `Skill(search-code)` for a Ghidra API signature
 
 Numbered steps consume the step before. Bulleted cases are alternatives, one per command line in order.
 
@@ -55,26 +55,32 @@ Numbered steps consume the step before. Bulleted cases are alternatives, one per
 
 Import, analyze, name stubs, and catalog the program in one run, then decompile seeds with their callers and callees into one file.
 
+Projects saved under `$GHIDRA_PROJECT_DIR`, a binary without one takes an import:
+
+```!
+find "$GHIDRA_PROJECT_DIR" -maxdepth 1 -name '*.gpr' -exec basename -s .gpr -a {} +
+```
+
 Imports:
 - Analysis, stubs, then catalog
 - One architecture of a universal Mach-O as the file the first line imports
 - Headerless bytes, loader, base address without `0x`, and language named, then catalog
 
 ```bash
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath <skill>/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
 lipo -thin arm64 <binary> -output <main>/.artifacts/ghidra/<name>/<file>.arm64
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath <skill>/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
 ```
 
 `<run>` opens the saved program without analysis:
 
 ```bash
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath <skill>/scripts -log <log> -scriptlog <scriptlog>
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath ${CLAUDE_SKILL_DIR}/scripts -log <log> -scriptlog <scriptlog>
 ```
 
 After import:
 1. Seeds with callers and callees into one file
-2. Block dividers with line numbers, then `Read <out>` at the line of one function
+2. Block dividers with line numbers, then `Read` of `<out>` with `offset` at one function's line
 3. Failed blocks, seeded again with `timeout=<seconds>` after a timeout and `payload=<megabytes>` after `Response buffer size exceeded`
 
 ```bash
@@ -205,10 +211,10 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 
 Each new script is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`:
 1. Bundle compiled against the install's jars with every warning on
-2. `google-java-format`, `pmd check`, and `ast-grep scan` of `<project>:lint` over the scripts directory, jdtls diagnostics
+2. `google-java-format`, `pmd check`, and `ast-grep scan` of `<project>:lint` over the scripts directory, `LSP` diagnostics
 3. Run on a saved program
 
 ```bash
-javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" <skill>/scripts/*.java
+javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" ${CLAUDE_SKILL_DIR}/scripts/*.java
 <run> -readOnly -postScript <Script>.java <out> <seed>...
 ```

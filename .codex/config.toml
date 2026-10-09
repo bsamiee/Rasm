@@ -147,22 +147,6 @@ matcher = "^(Bash|apply_patch)$"
 type = "command"
 command = 'mise exec -- node "$(git rev-parse --show-toplevel)/.codex/hooks/rewrite.ts" --walk-policy'
 
-[[hooks.PreToolUse]]
-matcher = "^mcp__rhino_mcp_platform__"
-
-[[hooks.PreToolUse.hooks]]
-type = "command"
-command = 'mise exec -- uv run --script "$(git rev-parse --show-toplevel)/.claude/skills/use-rhino/scripts/hook.py"'
-timeout = 10
-
-[[hooks.PreToolUse]]
-matcher = "^mcp__(blender|mcp_for_blender)__"
-
-[[hooks.PreToolUse.hooks]]
-type = "command"
-command = 'mise exec -- uv run --script "$(git rev-parse --show-toplevel)/.claude/skills/use-blender/scripts/wrapper.py"'
-timeout = 10
-
 [[hooks.Stop]]
 
 [[hooks.Stop.hooks]]

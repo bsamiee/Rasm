@@ -2,10 +2,16 @@
 id: no-unavailable-import
 language: python
 severity: error
-files:
-    - libs/python/rasm/**
-    - apps/*/blender/**
 utils:
+    blender-module:
+        kind: module
+        has:
+            stopBy: end
+            any:
+                - kind: import_statement
+                  has: {stopBy: end, matches: python-blender-module}
+                - kind: import_from_statement
+                  has: {field: module_name, matches: python-blender-module}
     available:
         regex: |-
             (?x)^(abc|antigravity|argparse|array|ast|asyncio|atexit|base64|bdb|binascii|bisect|builtins|bz2|cProfile|calendar
@@ -34,9 +40,7 @@ rule:
             - kind: string_content
               matches: available
             - matches: python-blender-module
-            - kind: dotted_name
-              has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^rasm$'}
-              inside: {kind: import_from_statement, field: module_name}
             - matches: typing-type-checking-block
+    inside: {stopBy: end, matches: blender-module}
 message: '`$M` resolves in no packed extension, so its import fails inside Blender'
-note: 'Use the standard library, a Blender module, bundled numpy, OpenColorIO, or OpenImageIO, a `[project] dependencies` package, or `from rasm.<module> import <name>`, the rasm form pack rewrites to the extension copy'
+note: 'Use standard library, a Blender module, bundled numpy, OpenColorIO, or OpenImageIO, or a `[project] dependencies` package the extension includes as a wheel'

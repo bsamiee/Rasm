@@ -82,6 +82,6 @@ rule:
                         has: {kind: class_definition, stopBy: end, has: {field: superclasses, has: {any: [{pattern: $NAME}, {kind: subscript, has: {field: value, pattern: $NAME}}]}}}
         - not: {has: {kind: identifier, regex: '^__class__$', stopBy: end}}
 message: '`$NAME` is a plain class holding one method, static or class methods alone, or record members written by hand'
-note: 'Use a frozen `msgspec.Struct` for the fields, `attrs.frozen` where the interpreter lacks msgspec, and a module function per operation, a record and a function state what the class spells by hand'
+note: 'Use a frozen `msgspec.Struct` for the fields and a module function per operation, a record and a function state what the class spells by hand'
 labels:
     NAME: {style: primary, message: Plain class}

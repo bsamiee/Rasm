@@ -21,7 +21,8 @@
             { "cache": true },
             { "filter": { "projects": ["tag:host:rhino"] }, "inputs": ["...", "rhino"] },
             { "filter": { "projects": ["tag:host:rhino", "!directory:libs/**"] }, "inputs": ["...", "icons"], "options": { "args": ["--no-restore"] }, "configurations": { "debug": { "args": ["--no-restore", "--configuration", "Debug"] }, "release": { "args": ["--no-restore", "--configuration", "Release"] } } },
-            { "filter": { "projects": ["tag:language:dotnet"] }, "command": "dotnet build -bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog", "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }], "inputs": ["...", "dotnet"] },
+            { "filter": { "plugin": "@nx/dotnet" }, "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }] },
+            { "filter": { "projects": ["tag:language:dotnet"] }, "command": "dotnet build -bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog", "inputs": ["...", "dotnet"] },
             {
                 "filter": { "projects": ["tag:language:swift"] },
                 "executor": "nx:run-commands",
@@ -102,19 +103,10 @@
                 "inputs": ["default", "^default", "typescript", { "externalDependencies": ["typescript"] }],
                 "options": { "cwd": "{projectRoot}" },
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
-            },
-            {
-                "filter": { "projects": ["tag:language:python"] },
-                "executor": "nx:run-commands",
-                "cache": true,
-                "inputs": ["default", "^default", "python"],
-                "options": {
-                    "args": "--python-version 3.13",
-                    "commands": ["ty check {projectRoot}", "mypy --platform darwin --cache-dir .cache/mypy/darwin {projectRoot}", "mypy --platform linux --cache-dir .cache/mypy/linux {projectRoot}", "mypy --platform win32 --cache-dir .cache/mypy/win32 {projectRoot}"],
-                    "parallel": false
-                }
             }
         ],
+        "typecheck:ty{,-*}": { "cache": true, "parallelism": false, "inputs": ["python", "pythonFiles", { "runtime": "ty --version" }] },
+        "typecheck:mypy{,-*}": { "cache": true, "inputs": ["python", "pythonFiles", { "runtime": "mypy --version" }] },
         "test": [
             { "cache": true },
             { "filter": { "projects": ["tag:language:dotnet"] }, "inputs": ["...", "dotnet"], "outputs": ["{workspaceRoot}/.artifacts/dotnet/coverage/{projectName}"] },
@@ -129,9 +121,5 @@
         ],
         "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] }, { "filter": { "projects": ["tag:language:swift"] }, "dependsOn": [{ "target": "build", "params": "forward" }, "lint"] }]
     },
-    "plugins": [
-        { "plugin": "@nx/vitest", "include": ["**/vitest.config.ts"], "exclude": ["vitest.config.ts"], "options": { "testMode": "run" } },
-        { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } },
-        { "plugin": "./tools/nx/workspace.ts", "exclude": ["tools/interface/**/blender_manifest.toml", "apps/*/blender/theme/blender_manifest.toml"] }
-    ]
+    "plugins": [{ "plugin": "@nx/vitest", "include": ["**/vitest.config.ts"], "exclude": ["vitest.config.ts"], "options": { "testMode": "run" } }, { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } }, { "plugin": "./tools/nx/workspace.ts" }]
 }

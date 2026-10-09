@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-partial-class-attribute
+language: python
+severity: error
+utils:
+    class-var:
+        matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^ClassVar$'}}}
+    record-decorator:
+        any:
+            - matches: {python-member-use: {module: {regex: '^(pydantic\.)?dataclasses$'}, name: {regex: '^dataclass$'}}}
+            - matches: {python-member-use: {module: {regex: '^attrs?$'}, name: {regex: '^(dataclass|define|frozen|mutable)$'}}}
+    record-class:
+        kind: class_definition
+        any:
+            - has: {field: superclasses, has: {any: [{matches: python-record-base}, {matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^NamedTuple$'}}}}]}}
+            - inside: {kind: decorated_definition, has: {kind: decorator, has: {any: [{matches: record-decorator}, {kind: call, has: {field: function, matches: record-decorator}}]}}}
+    record-field:
+        kind: assignment
+        has: {field: type, not: {has: {stopBy: end, matches: class-var}}}
+        inside: {kind: class_definition, stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: record-class}
+    class-body:
+        inside: {kind: class_definition, stopBy: {kind: 'function_definition, class_definition, lambda'}}
+    class-owner:
+        kind: identifier
+        any:
+            - pattern: $OWNER
+              inside: {kind: module, stopBy: end, has: {kind: class_definition, stopBy: {kind: 'function_definition, class_definition'}, has: {field: name, pattern: $OWNER}}}
+            - pattern: $CLS
+              inside:
+                kind: function_definition
+                stopBy: {kind: 'function_definition, class_definition, lambda'}
+                all:
+                    - matches: class-body
+                    - has: {field: parameters, has: {nthChild: 1, any: [{pattern: $CLS}, {kind: typed_parameter, has: {nthChild: 1, pattern: $CLS}}]}}
+                    - any:
+                        - has: {field: name, regex: '^__init_subclass__$'}
+                        - inside: {kind: decorated_definition, has: {kind: decorator, has: {matches: {python-builtin-name: {name: {regex: '^classmethod$'}}}}}}
+    target:
+        any:
+            - kind: identifier
+              matches: class-body
+            - kind: attribute
+              has: {field: object, matches: class-owner}
+    type-namespace:
+        kind: dictionary, call
+        nthChild: 3
+        inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^type$'}}}}}}
+    bound:
+        any:
+            - inside: {kind: assignment, field: right, has: {field: left, matches: target}}
+            - inside: {kind: assignment, field: right, matches: bound}
+            - inside: {kind: named_expression, field: value, has: {field: name, matches: target}}
+            - inside: {kind: named_expression, field: value, matches: bound}
+            - inside: {kind: parenthesized_expression, matches: bound}
+            - inside: {kind: boolean_operator, field: right, matches: bound}
+            - inside: {kind: boolean_operator, field: left, has: {field: operator, regex: '^or$'}, matches: bound}
+            - inside: {kind: conditional_expression, matches: bound}
+              not: {nthChild: 2}
+            - inside: {kind: 'expression_list, tuple', inside: {kind: assignment, field: right, has: {field: left, kind: 'pattern_list, tuple_pattern, list_pattern', has: {matches: target}}}}
+            - nthChild: 3
+              inside:
+                kind: argument_list
+                has: {nthChild: 1, matches: class-owner}
+                inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^setattr$'}}}}}
+            - inside: {kind: pair, field: value, inside: {kind: dictionary, matches: type-namespace}}
+            - inside:
+                kind: keyword_argument
+                field: value
+                inside: {kind: argument_list, inside: {kind: call, matches: type-namespace, has: {field: function, matches: {python-builtin-name: {name: {regex: '^dict$'}}}}}}
+rule:
+    any:
+        - kind: call
+          pattern: $VALUE
+          all:
+            - has: {field: function, matches: functools-partial-class}
+            - matches: bound
+            - not: {inside: {matches: record-field, stopBy: {not: {kind: 'parenthesized_expression, conditional_expression, boolean_operator'}}}}
+        - kind: decorator
+          pattern: $VALUE
+          all:
+            - has: {matches: functools-partial-class}
+            - not: {follows: {kind: decorator, stopBy: end}}
+            - inside: {kind: decorated_definition, matches: class-body}
+message: '`$VALUE` stores `functools.partial` as a class attribute, bound as a method on Python 3.14 and later and unbound on Blender and Rhino''s embedded Python 3.13'
+note: 'Wrap the partial in `staticmethod` for an unbound call, `functools.partialmethod` for a method, or `enum.member` for an enum member, each bound alike on every interpreter'

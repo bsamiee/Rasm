@@ -24,11 +24,10 @@ You bring the prose of touched files under `clean-prose`, in markdown, comments,
 <context_gathering>
 
 Read in order before the first edit, `<scope>` your file list, `<code>` its files outside `.md`, `<worktree>` the `git rev-parse --show-toplevel` line:
-1. `references/rewrites.md` and `references/word-map.md` of `clean-prose` whole
-2. `{ git diff --name-only --diff-filter=ACMR <commit>; git ls-files --others --exclude-standard; } | sort -u`, the scope as files on disk
-3. `rg -nU --pcre2 -e '^[ \t]*(#(?!!)|//|<!--|/\*)' -e '^[ \t]*(message|note):' -e '"""[\s\S]*?"""' <code>`, prose inside code in one view
-4. Every file in scope whole, `git diff <commit> -- <file>` for each, and the files each one points to
-5. Sibling rule files beside each rule file in scope, for the `message` and `note` form they share
+1. `{ git diff --name-only --diff-filter=ACMR <commit>; git ls-files --others --exclude-standard; } | sort -u`, the scope as files on disk
+2. `rg -nU --pcre2 -e '^[ \t]*(#(?!!)|//|<!--|/\*)' -e '^[ \t]*(message|note):' -e '"""[\s\S]*?"""' <code>`, prose inside code in one view
+3. Every file in scope whole, `git diff <commit> -- <file>` for each, and the files each one points to
+4. Sibling rule files beside each rule file in scope, for the `message` and `note` form they share
 
 </context_gathering>
 
@@ -52,6 +51,7 @@ File on disk, `<tool> --help`, and the documentation decide over a prompt or mes
 
 - Shortening an entry is a judgment on that entry, a count is no target
 - Regex and count checks list hits, a fix per hit leaves restated facts and chained sentences in place
+- `ToolSearch` with `select:<tool>` loads an `ast-grep` or `roslyn-codelens` MCP tool before its first call
 - `find_code` with the identifier alone as `pattern` finds declarations with references, a call shape finds calls alone
 - `find_code` takes `language` omitted or the language `sgconfig.yml` maps the extension to, another language matches none
 - `ast-grep run` reads the `sgconfig.yml` an ancestor of the working directory holds, a run outside the tree applies no `languageGlobs`
@@ -65,12 +65,12 @@ File on disk, `<tool> --help`, and the documentation decide over a prompt or mes
 
 Rename coined names through the tool that updates every reference:
 
-| [INDEX] | [SUBJECT]                      | [TOOL]                                                  |
-| :-----: | :----------------------------- | :------------------------------------------------------ |
-|  [01]   | C# symbol                      | Rename through `dotnet-roslyn-codelens`                 |
-|  [02]   | Symbol of every other language | `ast-grep run -p '<old>' -r '<new>' -l <lang> -U <dir>` |
-|  [03]   | File or directory              | `git mv`, then every reference edited                   |
-|  [04]   | Configuration or markdown name | `sd -F '<old>' '<new>' $(rg -l -F '<old>')`             |
+| [INDEX] | [SUBJECT]                      | [TOOL]                                                                                            |
+| :-----: | :----------------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | C# symbol                      | `Skill(dotnet-roslyn-codelens)`, then `mcp__roslyn-codelens__rename_symbol` with `preview: false` |
+|  [02]   | Symbol of every other language | `ast-grep run -p '<old>' -r '<new>' -l <lang> -U <dir>`                                           |
+|  [03]   | File or directory              | `git mv`, then every reference edited                                                             |
+|  [04]   | Configuration or markdown name | `sd -F '<old>' '<new>' $(rg -l -F '<old>')`                                                       |
 
 </renames>
 
@@ -88,6 +88,7 @@ Rename coined names through the tool that updates every reference:
 10. Check each value, command, and flag against its sources row
 11. Run each checker over the scope files of its kind, fix each finding:
 - `rg -n -w because <scope>`
+- `prose.py check` of `clean-prose` over `<scope>`
 - `ast-grep scan --no-ignore hidden <scope>`
 - `biome check --error-on-warnings <files>`, `ruff check <files>`, and `ruff format --check <files>`
 - `yamlfmt -lint <files>` over the scope's YAML

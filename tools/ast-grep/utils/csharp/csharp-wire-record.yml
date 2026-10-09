@@ -3,13 +3,14 @@ id: csharp-wire-record
 language: csharp
 rule:
     kind: record_declaration
-    has: {field: name, pattern: $WIRE}
-    inside:
-        stopBy: end
-        kind: compilation_unit
-        has:
+    all:
+        - has: {field: name, pattern: $WIRE}
+        - inside:
             stopBy: end
-            kind: attribute
-            all:
-                - has: {field: name, regex: '^(global::)?(System\.Text\.Json\.Serialization\.)?JsonSerializable(Attribute)?$'}
-                - has: {stopBy: end, kind: typeof_expression, has: {field: type, pattern: $WIRE}}
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: attribute
+                all:
+                    - has: {field: name, regex: '^(global::)?(System\.Text\.Json\.Serialization\.)?JsonSerializable(Attribute)?$'}
+                    - has: {stopBy: end, kind: typeof_expression, has: {field: type, pattern: $WIRE}}

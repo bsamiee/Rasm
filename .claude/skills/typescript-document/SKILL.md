@@ -106,7 +106,7 @@ interface RetryOptions {
 
 ## [06]-[WORKFLOW]
 
-Each documentation run reports:
+Runs cover declarations in the invocation paths ($ARGUMENTS) and report:
 - Scope, the symbols touched
 - Edits, the exact comment blocks in context
 - Skipped, the symbols left alone and the reason (trivial, unclear, private)

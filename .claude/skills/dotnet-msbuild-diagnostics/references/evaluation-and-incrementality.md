@@ -19,13 +19,13 @@ nx run <project>:build --skip-nx-cache -- -v:diag | rg 'Property reassignment'
 
 ### [01.2]-[BINLOG_DIAGNOSIS]
 
-1. Run `binlog_evaluations` for the slow or repeated evaluations
-2. Run `binlog_evaluation_global_properties` for each evaluation of a repeated project
+1. Run `mcp__binlog__binlog_evaluations` for the slow or repeated evaluations
+2. Run `mcp__binlog__binlog_evaluation_global_properties` for each evaluation of a repeated project
 3. Run the tool the evidence selects:
-   - `binlog_evaluation_properties` when an evaluated value is in question
-   - `binlog_imports` for the import chain and each missing import
-   - `binlog_items` for the count and content of one item type
-   - `binlog_search_files` for the glob or property function declaration in the embedded sources
+   - `mcp__binlog__binlog_evaluation_properties` when an evaluated value is in question
+   - `mcp__binlog__binlog_imports` for the import chain and each missing import
+   - `mcp__binlog__binlog_items` for the count and content of one item type
+   - `mcp__binlog__binlog_search_files` for the glob or property function declaration in the embedded sources
    - `-pp:` on the project file when the whole expansion is necessary
 
 Change a glob, an import, or a property function when the measured evaluation cost names it.
@@ -54,7 +54,7 @@ Change a glob, an import, or a property function when the measured evaluation co
 
 ## [02]-[INCREMENTALITY]
 
-Diagnosis finds targets that break incremental rules. Use `dotnet-msbuild-execution` for `Inputs`, `Outputs`, and `FileWrites`.
+Diagnosis finds targets that break incremental rules. Use `Skill(dotnet-msbuild-execution)` for `Inputs`, `Outputs`, and `FileWrites`.
 
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
@@ -65,13 +65,13 @@ nx run <project>:build --skip-nx-cache -- --artifacts-path <dir>/artifacts
 ```
 
 Analyze the newest `build-*.binlog`:
-1. Run `binlog_incremental_analysis`, read each `targets` row with `skipped: false` for its `reason`, `triggerInputs`, and `staleOutputs`
+1. Run `mcp__binlog__binlog_incremental_analysis`, read each `skipped: false` row of `targets` for `reason`, `triggerInputs`, and `staleOutputs`
 2. Read `incrementalCleanDeletions` for a file a skipped target had declared
-3. Run `binlog_project_target_times` for each project the rows name
+3. Run `mcp__binlog__binlog_project_target_times` for each project the rows name
 4. Keep the rows with a file path in `staleOutputs`, a `staleOutputs` value repeating the target name marks a target with no `Outputs`
-5. Run `binlog_search` with `under($project <name>) $target <target>` per unresolved target, its message names the stale input or missing output
-6. Run `binlog_expensive_targets` to order the rebuilt targets by cost
-7. Run `binlog_search_files` for the target declaration when its `Inputs` and `Outputs` are in question
+5. Per unresolved target, `mcp__binlog__binlog_search` on `under($project <name>) $target <target>` names the stale input or missing output
+6. Run `mcp__binlog__binlog_expensive_targets` to order the rebuilt targets by cost
+7. Run `mcp__binlog__binlog_search_files` for the target declaration when its `Inputs` and `Outputs` are in question
 
 - Targets without `Inputs` and `Outputs` run on every build and log no up-to-date reason
 - Files in `incrementalCleanDeletions` vanish on every second build

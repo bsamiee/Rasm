@@ -63,7 +63,7 @@ Use `dotnet-msbuild-diagnostics` for binlog capture.
 - `dotnet msbuild <file> -getProperty:MSBuildProjectFile` is the parse check, a broken file answers `MSB4025`
 - `nx run rasm:lint:dotnet-format` is the writer's solution-wide check form
 - `-p:LangVersion=7.3` produces a failing build without a repository edit
-- `Csc` execution count in `binlog_expensive_tasks` shows a compile, a duration shows none
+- `Csc` execution count in `mcp__binlog__binlog_expensive_tasks` shows a compile, a duration shows none
 
 ## [07]-[AST_GREP]
 
@@ -86,6 +86,7 @@ Use `dotnet-msbuild-diagnostics` for binlog capture.
 ## [09]-[OTHER]
 
 - `gh repo view --json nameWithOwner -q .nameWithOwner` prints the owner pair
-- `mcp__github__actions_list` with `method`, `resource_id`, and `perPage` lists runs and jobs, then `get_job_logs` with `job_id` and `tail_lines`
+- `mcp__github__actions_list` with `method`, `resource_id`, and `perPage` lists runs and jobs
+- `mcp__github__get_job_logs` with a listed `job_id` and `tail_lines` prints the job's log tail
 - `mcp__nuget__get_latest_package_version` with `includePrerelease: true` and an absolute `solutionDirectory` prints the newest release
 - `yamlfmt -lint <files>` prints a diff at exit 1, a missing path is silent at exit 0

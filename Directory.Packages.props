@@ -13,6 +13,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Rhino">
+        <PackageVersion Include="Grasshopper"                                             Version="9.0.26272.12303-beta" />  <!-- Grasshopper 1 reference assemblies Grasshopper and GH_IO for plugin compilation -->
         <PackageVersion Include="Grasshopper2"                                            Version="9.0.26272.12303-beta" />  <!-- Grasshopper 2 reference assemblies Grasshopper2 and GrasshopperIO for plugin compilation -->
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0" />                <!-- openNURBS geometry access for reading and writing 3dm files -->
         <PackageVersion Include="RhinoCommon"                                             Version="9.0.26272.12303-beta" />  <!-- Rhino plugin SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->

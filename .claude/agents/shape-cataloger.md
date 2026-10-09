@@ -39,12 +39,13 @@ Read in order before the first row, `<paths>` the `file_path` values step 1 prin
 
 2. `<id>`, the range id command of `observation` for a `range` scope, else the own-id command
 3. `<scope>`, `{ git ls-files -c -o --exclude-standard -- <paths>; git ls-files -d -- <paths>; } | sort | uniq -u`, empty when step 1 printed no row
-4. Smells, fix, bar, and derivation sections of `references/rule-building.md` of `use-ast-grep`
+4. References of `use-ast-grep`, smells, fix, bar, and derivation sections of `rule-building.md` and collapse section of `rule-hardening.md`
 5. Changes, the change reader of `observation` with `:ids` `<tool_use_ids>`, its `structuredPatch` lines or a Write's `content` the text you judge
 6. Rows on scope paths, proposed, or stale, the state reader of `observation` with `:paths` the `<scope>` lines as one JSON array
 7. Rules with their corrections, the rules line of the findings section of `observation`
 8. Declaration holding each changed line, `ast-grep outline <path> --json=compact` for its `range`, then `Read` with `offset` and `limit` over it
 9. `Skill(dotnet-coding)` when `<scope>` holds a `.cs` file
+10. `ToolSearch` with `query` `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree`, `max_results` 3
 
 Scope select: `select session_id, prompt_id, agent_id, ts, tool_use_id, file_path from edited_files where <predicate> and file_path like '<worktree>/%' order by ts`.
 
@@ -56,7 +57,7 @@ Scope select: `select session_id, prompt_id, agent_id, ts, tool_use_id, file_pat
 | :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------------- |
 |  [01]   | Site text, span, and bytes     | `mcp__ast-grep__find_code`, `pattern` the text, `project_folder` `<worktree>`, `output_format: json` |
 |  [02]   | Occurrence of a site's text    | `rg -nU -F -- '<text>' <path>`, the site's rank among the printed lines                              |
-|  [03]   | Node kinds of one node         | `mcp__ast-grep__dump_syntax_tree` with `format: cst`                                                 |
+|  [03]   | Node kinds of one node         | `mcp__ast-grep__dump_syntax_tree` with `format: cst`, `language` the site's language                 |
 |  [04]   | Sites of one category in scope | `mcp__ast-grep__find_code_by_rule` over `<worktree>/<dir>` with a bounded `max_results`              |
 |  [05]   | Diagnostic a checker owns      | Diagnostic line of the mapping section of `observation`                                              |
 |  [06]   | Category id in use             | Free-id line of the findings section of `observation`, exit 1 means free                             |
@@ -74,7 +75,7 @@ File on disk and checker output decide over a message, a memory, or a row.
 - `edited_files.file_path` is absolute and holds writes outside `<worktree>`, `<scope>` holds paths under `<worktree>` alone
 - `git ls-files -c -o --exclude-standard` prints tracked and untracked paths and no ignored one, `git ls-files -d` the deleted ones `uniq -u` drops
 - Sites take `checker_owned` when a checker row on their span comes from a rule stating the category's correction, by the diagnostic
-- Verifier spawns name `prompt` alone
+- Verifier spawns pass `subagent_type`, `description`, and `prompt` alone
 - Slug a rule of the site's language holds names a missed site, `category` the slug alone, state `checker_silent`
 - Rules of another language leave a slug free, the site is a category with no checker
 - Outline `range` lines are zero-based, `offset` of `Read` is one-based
@@ -95,7 +96,7 @@ File on disk and checker output decide over a message, a memory, or a row.
 6. Write judgment rows in one batch through `batch.sql` of `observation` with `:worktree`, `:sites` bound as the skill states, and `:actor_id` `<id>`
 7. Read the returned arrays, the ids new to `finding` first
 8. Append `checker_owned` per batch or `confirmed` id a checker row of a rule stating the correction overlaps, `checker_silent` per id a rule missed
-9. `Agent shape-verifier` once, `prompt` `ids <finding_id>...` over the batch and every state-reader row in `proposed`, non-empty
+9. `Agent` with `subagent_type` `shape-verifier` once, `prompt` `ids <finding_id>...` over the batch and every state-reader row in `proposed`, non-empty
 10. Write each missed site the reply names through steps 5 to 8, the next run's verifier confirms them
 
 Steps 8 and 10 run `transition.sql` of `observation` per id, `:actor` `agent`, `:actor_id` `<id>`, `:evidence` `<tool>:<rule id>`, `:verdict` `null`.

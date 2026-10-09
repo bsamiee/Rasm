@@ -28,8 +28,8 @@ Each tag has one use, `RCS1228` fails the build on an empty element:
 | [INDEX] | [TAG]                      | [USAGE]                                                                                            |
 | :-----: | :------------------------- | :------------------------------------------------------------------------------------------------- |
 |  [01]   | `<summary>`                | One-sentence description, required on every documented member                                      |
-|  [02]   | `<param name="x">`         | Parameter description, every parameter or none (`CS1573`), in declaration order (`RCS1232`)        |
-|  [03]   | `<typeparam name="T">`     | Type parameter description, every type parameter or none (`CS1712`)                                |
+|  [02]   | `<param name="x">`         | Parameter description, every parameter (`CS1573`, `RCS1141`), in declaration order (`RCS1232`)     |
+|  [03]   | `<typeparam name="T">`     | Type parameter description, every type parameter (`CS1712`, `RCS1142`)                             |
 |  [04]   | `<returns>`                | Return value description                                                                           |
 |  [05]   | `<value>`                  | Property value description                                                                         |
 |  [06]   | `<remarks>`                | Usage facts the other tags do not state, one `<para>` per topic                                    |
@@ -75,7 +75,7 @@ Unescaped characters inside documentation text fail `CS1570`:
 
 ## [03]-[SUMMARIES]
 
-Every documented member has a `<summary>` on one line (`RCS1253` with `roslynator_doc_comment_summary_style = single_line`), one sentence in the third person that states what the member does, returns, or represents, with no trailing period:
+Every documented member has a `<summary>` on one line (`RCS1253`), one sentence in the third person that states what the member does, returns, or represents, with no trailing period:
 - Open with a present-tense verb, a member kind with its own opening phrase (exception class, enum member, abstract member) keeps the phrase
 - Name the behavior, `String.Format` reads "Replaces each format item in a specified string with the string representation of a specified object"
 - Restate no part of the signature, except the type name in a constructor or `Dispose` summary
@@ -202,7 +202,7 @@ Type summary opens with "Specifies" or "Describes", a member summary is a noun p
 
 ### [04.7]-[PARAMETERS]
 
-- Every parameter or none (`CS1573`), in declaration order (`RCS1232`)
+- Every parameter (`CS1573`, `RCS1141`), in declaration order (`RCS1232`)
 - Descriptions open with an article and state the unit, the valid range, and the default, `<see langword="null" />` for a nullable parameter
 
 | [INDEX] | [PARAMETER]     | [DESCRIPTION]                                                                   |

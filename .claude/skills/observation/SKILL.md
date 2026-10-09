@@ -6,17 +6,16 @@ user-invocable: false
 
 # [OBSERVATION]
 
-Database `<main>/.cache/observation/observation.db`, one per repository, holds a row per event the hooks record while option `observation` is true, views over event rows, and finding tables agents write. Placeholders name what a command prints or a fixed path:
-- `<main>`: first `worktree` line of `git worktree list --porcelain`
-- `<worktree>`: `git rev-parse --show-toplevel`
-- `<branch>`: `git branch --show-current`
-- `<db>`: database path
-- `<scripts>`: `.claude/skills/observation/scripts`
+Database `<db>` under the main worktree, one per repository, holds a row per event the hooks record while option `observation` is true, views over event rows, and finding tables agents write. Placeholders hold values of the loading session:
+- `<db>`: !`git worktree list --porcelain | rg -m1 -r '$p/.cache/observation/observation.db' '^worktree (?P<p>.+)'`
+- `<worktree>`: !`git rev-parse --show-toplevel`
+- `<session>`: `${CLAUDE_SESSION_ID}`, or the id of a session a reader names
+- `<branch>`: line `git branch --show-current` prints
 
 Readers run `sqlite3 -json -cmd ".param set :<name> <value>" <db> "<select>"` from `<worktree>` with one binding per id the select reads. `-json` renders `payload` as a JSON string, `jq '[.[] | .payload |= fromjson]'` nests it. Writers run one script from `<worktree>` with its parameters bound before the read:
 
 ```bash
-sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> ".read <scripts>/lifecycle.sql"
+sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> ".read ${CLAUDE_SKILL_DIR}/scripts/lifecycle.sql"
 ```
 
 Each parameter binds through one `-cmd ".param set :<name> <value>"`, and the shell evaluates the value as SQL:
@@ -32,10 +31,10 @@ Parameters holding JSON:
 `:out` and `:sites` bind as one row of the shell's binding table through an SQL argument after `<db>`, with `''` spelling one `'`:
 
 ```bash
-sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> "insert into temp.sqlite_parameters(key, value) values(':out', '$(<checker command> | sd -F "'" "''")')" ".read <scripts>/<script>"
+sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> "insert into temp.sqlite_parameters(key, value) values(':out', '$(<checker command> | sd -F "'" "''")')" ".read ${CLAUDE_SKILL_DIR}/scripts/<script>"
 ```
 
-DuckDB scripts run `duckdb -json -cmd "set variable transcript = '<transcript>'" -f <script>` and attach the database through `-cmd "attach '<db>' as s (type sqlite, read_only)"`.
+DuckDB scripts run `duckdb -json -cmd "set variable transcript = '<transcript>'" -f ${CLAUDE_SKILL_DIR}/scripts/<script>` and attach the database through `-cmd "attach '<db>' as s (type sqlite, read_only)"`.
 
 [REFERENCES]:
 - [01]-[SQLITE](references/sqlite.md): SQLite and DuckDB behavior that decides script and view forms
@@ -168,7 +167,7 @@ Hashes are lowercase hex from `sha3` of the `sqlite3` shell alone. Columns, ids,
 - `finding_state` reads `state`, `evidence`, and `verdict` from the latest non-`moved` transition, every other column from its newest transition
 - Rows in a state with `live` 1 in `transition_state` hold a site on disk, `lifecycle.sql` re-checks each one
 - `lineage_key` is `<name>/<branch>`, `<name>` `.` for the main worktree or a linked worktree's directory name, `<branch>` empty on a detached head
-- `actor_id` is null for actor `user`, a subagent's `agent_id` or the main loop's `session_id` for `agent`, and the tool for `check`
+- `actor_id` is null for actor `user`, a subagent's `agent_id` or the main loop's `<session>` for `agent`, and the tool for `check`
 - `finding_delivery.agent_id` is the category agent on a `report` row, null on a finding entry
 - `verdict` holds the category agent's `bar_verdict` row on a `confirmed` under a refused category, copied by reconfirm, kept across a move, else null
 - `bar_verdict` opens empty, category agents alone fill it through `bar.sql`
@@ -202,9 +201,8 @@ Row conditions and `lifecycle.sql` transitions:
 Views hold no `readfile`, a statement holding one runs from `<worktree>`:
 
 ```bash
-# Writer's <id>, a subagent by :agent, its definition name, the main loop by :literal, text of one of its own Bash commands
+# Writer's <id>, a subagent by :agent, its definition name
 sqlite3 -json -cmd ".param set :agent '<agent>'" -cmd ".param set :worktree '<worktree>'" <db> "select agent_id from observation where event = 'SubagentStart' and json_extract(payload, '$.agent_type') = :agent and (json_extract(payload, '$.cwd') = :worktree or json_extract(payload, '$.cwd') like :worktree || '/%') order by ts desc limit 1"
-sqlite3 -json -cmd ".param set :literal '<literal>'" <db> "select session_id from observation where event = 'PostToolUse' and tool = 'Bash' and json_extract(payload, '$.tool_input.command') like '%' || :literal || '%' order by ts desc limit 1"
 
 # Range id: a range agent's <id>, from the judged_range row its spawn wrote
 sqlite3 -json -cmd ".param set :key '<key>'" -cmd ".param set :from <from_ts>" -cmd ".param set :to <to_ts>" <db> "select agent_id from judged_range where kind = 'edit' and lineage_key = :key and from_ts = :from and to_ts = :to"

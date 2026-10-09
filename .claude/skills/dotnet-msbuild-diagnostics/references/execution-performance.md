@@ -17,17 +17,17 @@ Change the input or setting under measurement alone. Hold command, properties, n
 - `-nr:false` stops node reuse, the next capture starts its worker nodes again
 - Record server and node state with the capture, a warm server and reused nodes remove process startup from measured duration
 - When another session builds into the shared `ArtifactsPath`, restore and capture both with `-- --artifacts-path <dir>`
-- `binlog_compare` shows property and package drift between captures
+- `mcp__binlog__binlog_compare` shows property and package drift between captures
 - Compare the build against its own captures
 
 ## [02]-[BINLOG_DIAGNOSIS]
 
-1. Run `binlog_build_graph` for project dependencies, durations, and the critical path
-2. Run `binlog_project_target_times` on each critical-path project
-3. Run `binlog_tasks_in_target` on each slow target
-4. Run `binlog_task_details` when task parameters or messages explain the cost
+1. Run `mcp__binlog__binlog_build_graph` for project dependencies, durations, and the critical path
+2. Run `mcp__binlog__binlog_project_target_times` on each critical-path project
+3. Run `mcp__binlog__binlog_tasks_in_target` on each slow target
+4. Run `mcp__binlog__binlog_task_details` when task parameters or messages explain the cost
 
-`binlog_expensive_targets` and `binlog_expensive_tasks` aggregate elapsed duration by name across the build, findings rank by measured duration and critical-path effect.
+`mcp__binlog__binlog_expensive_targets` and `mcp__binlog__binlog_expensive_tasks` aggregate elapsed duration by name across the build, findings rank by measured duration and critical-path effect.
 
 ## [03]-[CRITICAL_PATH_AND_NODES]
 
@@ -47,7 +47,7 @@ Critical path is the duration-weighted chain of project dependencies setting min
 - Replace a project reference with a package when the dependency is a prebuilt artifact
 - Reduce the graph with a solution filter
 
-After each graph change, capture the same build again and run `binlog_build_graph` for the new critical path.
+After each graph change, capture the same build again and run `mcp__binlog__binlog_build_graph` for the new critical path.
 
 ## [05]-[STATIC_GRAPH]
 
@@ -80,8 +80,8 @@ nx run <project>:build --skip-nx-cache -- -graph -isolate
 
 ## [08]-[RESOLVE_ASSEMBLY_REFERENCE]
 
-When `binlog_expensive_tasks` shows `ResolveAssemblyReference` cost:
-1. Run `binlog_task_details` with `task_name=ResolveAssemblyReference` for the slow project
+When `mcp__binlog__binlog_expensive_tasks` shows `ResolveAssemblyReference` cost:
+1. Run `mcp__binlog__binlog_task_details` with `task_name=ResolveAssemblyReference` for the slow project
 2. Read its `Assemblies` input and search paths
 3. Apply the project graph rules before a reference changes
 
@@ -95,15 +95,15 @@ When `binlog_expensive_tasks` shows `ResolveAssemblyReference` cost:
 nx run <project>:build --skip-nx-cache -- -t:Rebuild -p:ReportAnalyzer=true
 ```
 
-- Run `binlog_analyzer_summary` on the capture for time and invocation count per analyzer, rank the outliers
+- Run `mcp__binlog__binlog_analyzer_summary` on the capture for time and invocation count per analyzer, rank the outliers
 - Analyzers run concurrently, the reported analyzer time can exceed the `Csc` duration
 - `GlobalPackageReference` in `Directory.Packages.props` gives every project the analyzer, an outlier there costs every compilation
 - Change analyzer coverage when the evidence and the quality policy permit it
 
 ## [10]-[COPY_TASKS]
 
-When `binlog_expensive_tasks` shows `Copy` cost:
-1. Run `binlog_task_details` with `task_name=Copy` for the slow target
+When `mcp__binlog__binlog_expensive_tasks` shows `Copy` cost:
+1. Run `mcp__binlog__binlog_task_details` with `task_name=Copy` for the slow target
 2. Read `SourceFiles`, `DestinationFiles`, and `DestinationFolder`
 
 Evidence selects the fix:
@@ -113,4 +113,4 @@ Evidence selects the fix:
 
 ## [11]-[RESTORE]
 
-When restore contributes to the measured build, run `binlog_nuget` and read its duration, sources, and package count. Build-only captures separate restore from execution without reducing combined duration.
+When restore contributes to the measured build, run `mcp__binlog__binlog_nuget` and read its duration, sources, and package count. Build-only captures separate restore from execution without reducing combined duration.

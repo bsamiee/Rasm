@@ -1,7 +1,3 @@
-# /// script
-# requires-python = ">=3.15"
-# dependencies = ["editorconfig", "msgspec", "pygments", "regex", "wcwidth"]
-# ///
 """Check and fix house style in markdown files and in section dividers and comments of source files."""
 
 from collections.abc import Callable, Iterable
@@ -558,7 +554,7 @@ def show(found: list[Finding]) -> str:
 def check(paths: list[Path]) -> int:
     """Print one line per file with fixable blocks naming the fix command, then every report as `path:line: message`, exit 1 on any."""
     docs = list(starmap(lint, files(paths).items()))
-    fixable = "".join(f"{d.path}: {d.fixed} fixable, uv run --script {sys.argv[0]} fix {d.path}\n" for d in docs if d.fixed)
+    fixable = "".join(f"{d.path}: {d.fixed} fixable, python {sys.argv[0]} fix {d.path}\n" for d in docs if d.fixed)
     found = [f for d in docs for f in d.found]
     total = sum(d.fixed for d in docs)
     sys.stdout.write(fixable + show(found) + f"Found {len(found) + total} findings, {total} fixable\n")

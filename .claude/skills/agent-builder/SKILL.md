@@ -1,6 +1,7 @@
 ---
 name: agent-builder
 description: "Use when writing, rebuilding, or reviewing an agent definition, covering skill and agent divide, sections, integration, checks, and description."
+argument-hint: "[agent-file]"
 ---
 
 # [AGENT_BUILDER]
@@ -37,13 +38,14 @@ Markdown parses text against an opening tag as one HTML block, and a blank line 
 |  [02]   | `description`       | Delegation sentence                                                           |
 |  [03]   | `skills`            | Skills preloaded whole at spawn, every run applies each                       |
 |  [04]   | `tools`             | Allowlist of tool names or `mcp__<server>` patterns, absent for every tool    |
-|  [05]   | `color`             | Transcript color: red, blue, green, yellow, purple, orange, pink, cyan        |
-|  [06]   | `role`              | Addresses the agent as you, states purpose, scope, owned files, and decisions |
-|  [07]   | `context_gathering` | Discovery steps in order before the first edit                                |
-|  [08]   | `sources`           | Question-to-source table                                                      |
-|  [09]   | `decision`          | Tool facts that decide a reading                                              |
-|  [10]   | `procedure`         | Imperative steps in run order, each judgment naming its criterion             |
-|  [11]   | `done_when`         | Observable conditions of a finished run                                       |
+|  [05]   | `disallowedTools`   | Denylist in `tools` form, applied before `tools` resolves                     |
+|  [06]   | `color`             | Transcript color: red, blue, green, yellow, purple, orange, pink, cyan        |
+|  [07]   | `role`              | Addresses the agent as you, states purpose, scope, owned files, and decisions |
+|  [08]   | `context_gathering` | Discovery steps in order before the first edit                                |
+|  [09]   | `sources`           | Question-to-source table                                                      |
+|  [10]   | `decision`          | Tool facts that decide a reading                                              |
+|  [11]   | `procedure`         | Imperative steps in run order, each judgment naming its criterion             |
+|  [12]   | `done_when`         | Observable conditions of a finished run                                       |
 
 [ROLES]:
 - Role opens with purpose in one paragraph
@@ -87,8 +89,9 @@ Markdown parses text against an opening tag as one HTML block, and a blank line 
 Steps name tools in the form the harness runs:
 
 [CLAUDE_CODE_TOOLS]:
+- Bodies and frontmatter hold call form, injection sits in a preloaded skill when every caller of that skill consumes its output
 - Commands with outputs one reading consumes join one `Bash` call, commands with output that decides the next step run alone
-- MCP tools appear as `mcp__<server>__<tool>`, searches take a bounded result count
+- MCP tools appear as `mcp__<server>__<tool>`, a plugin server's as `mcp__plugin_<plugin>_<server>__<tool>`, searches take a bounded result count
 - Paths an MCP tool resolves outside the shell are absolute
 
 [CLI_TOOLS]:

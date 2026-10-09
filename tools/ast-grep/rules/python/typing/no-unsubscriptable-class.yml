@@ -8,25 +8,27 @@ rule:
         python-evaluated-subscript:
             value:
                 any:
-                    - matches: {python-builtin-name: {name: {regex: '^(filter|map|reversed|zip)$'}}}
+                    - matches: {python-builtin-name: {name: {regex: '^(classmethod|filter|map|memoryview|reversed|slice|staticmethod|zip)$'}}}
                     - matches:
                         python-member-use:
                             module:
                                 regex: |-
                                     (?x)^(
-                                        _?(argparse|contextlib|ctypes|enum|functools|io|ipaddress|itertools|multiprocessing|operator|tempfile|threading|unittest|warnings|weakref)
+                                        _?(abc|argparse|contextlib|ctypes|enum|functools|io|ipaddress|itertools|multiprocessing|operator|sqlite3|tempfile|threading|types|unittest|warnings
+                                        |weakref)
                                         |_collections_abc|concurrent\.futures\.process|attrs?|av|bmesh|bpy|flint|google\.protobuf|lxml|matplotlib|netCDF4|networkx|numpy
                                         |pandas|regex|rustworkx|scipy|shapely
                                     )(\..+)?$
                             name:
                                 regex: |-
                                     (?x)^(
-                                        _SubParsersAction|_BaseExitStack|_GeneratorContextManagerBase|CField|_Pointer|_SimpleCData|member|nonmember|_lru_cache_wrapper
-                                        |singledispatchmethod|BufferedRWPair|BufferedReader|BufferedWriter|TextIOWrapper|_BaseNetwork
+                                        abstractclassmethod|abstractstaticmethod|_SubParsersAction|_BaseExitStack|_GeneratorContextManagerBase|CField|_Pointer|_SimpleCData
+                                        |py_object|member|nonmember|_lru_cache_wrapper|singledispatchmethod|BufferedRWPair|BufferedReader|BufferedWriter|TextIOWrapper
+                                        |_BaseNetwork
                                         |accumulate|batched|combinations|combinations_with_replacement|compress|count|cycle|dropwhile|filterfalse|groupby|islice
                                         |pairwise|permutations|product|repeat|starmap|takewhile|zip_longest
                                         |BaseListProxy|Connection|Finalize|IMapIterator|IMapUnorderedIterator|Synchronized|SynchronizedArray|SynchronizedBase
-                                        |_BaseDictProxy|_ConnectionBase|attrgetter|itemgetter|_TemporaryFileWrapper|serialize_iterator|TextTestResult
+                                        |_BaseDictProxy|_ConnectionBase|attrgetter|itemgetter|Binary|_TemporaryFileWrapper|serialize_iterator|UnionType|TextTestResult
                                         |_AssertLogsContext|_patch|catch_warnings|CallableProxyType|ProxyType|finalize|dict_items|dict_keys|dict_values|_WorkItem
                                         |Attribute|Converter|Packet|BMElemSeq|BMIter|BMLayerCollection|BMLayerItem|bpy_prop_collection|bpy_prop_collection_idprop
                                         |bpy_struct|flint_mat|flint_mod_mpoly_context|flint_mpoly|flint_mpoly_context|flint_poly|flint_series|TypeChecker
@@ -67,5 +69,5 @@ rule:
                         python-member-use:
                             module: {regex: '^xml(\..+)?$'}
                             name: {regex: '^(AttributesImpl|Element|ElementTree|ReadOnlySequentialNamedNodeMap|XMLParser|XMLPullParser)$'}
-message: '`$G` defines no `__class_getitem__` and its subscript raises `TypeError` at evaluation'
-note: 'Use the `collections.abc` protocol the value satisfies (`Iterator`, `Callable`) or the class unsubscripted where its type parameters have defaults, each evaluates at run time'
+message: '`$G` defines no `__class_getitem__` on Blender and Rhino''s embedded Python 3.13, evaluated subscripts raise `TypeError`'
+note: 'Use `A | B` for `types.UnionType`, `$G` unsubscripted where type parameters have defaults, the value''s `collections.abc` protocol (`Iterator`, `Callable`, `Buffer`), or a quoted annotation, each valid on every interpreter'

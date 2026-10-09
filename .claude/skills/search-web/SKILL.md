@@ -1,6 +1,7 @@
 ---
 name: search-web
 description: "Use when a task needs live web retrieval, discovery, page reading, site section, claim check, or cited research report."
+argument-hint: "[question]"
 ---
 
 # [SEARCH_WEB]
@@ -15,18 +16,25 @@ Choose retrieval by source location and required evidence.
 - Failure: `failed_results` records extraction failures, not page absence
 - Syntax: read complete source passages when code, table cells, or surrounding qualifications decide a claim
 
-| [INDEX] | [TASK]                               | [OPERATION]                                      |
-| :-----: | :----------------------------------- | :----------------------------------------------- |
-|  [01]   | Web discovery with passages          | `tvly search` or `web_search_advanced_exa`       |
-|  [02]   | Search by source category            | `web_search_advanced_exa` with `category`        |
-|  [03]   | News with publication metadata       | `tvly search --topic news`                       |
-|  [04]   | Question across selected URLs        | `tvly extract --query`                           |
-|  [05]   | Page text with a character limit     | `web_fetch_exa`                                  |
-|  [06]   | Complex page extraction              | `tvly extract --extract-depth advanced`          |
-|  [07]   | Site URL selection                   | `tvly map`                                       |
-|  [08]   | Site content selected by topic       | `tvly crawl --instructions`                      |
-|  [09]   | Cited research synthesis             | `tvly research` or `agent_run`                   |
-|  [10]   | Row enrichment or continued research | `agent_run` with `input.data` or `previousRunId` |
+| [INDEX] | [TASK]                               | [OPERATION]                                                |
+| :-----: | :----------------------------------- | :--------------------------------------------------------- |
+|  [01]   | Web discovery with passages          | `tvly search` or `mcp__exa__web_search_advanced_exa`       |
+|  [02]   | Search by source category            | `mcp__exa__web_search_advanced_exa` with `category`        |
+|  [03]   | News with publication metadata       | `tvly search --topic news`                                 |
+|  [04]   | Question across selected URLs        | `tvly extract --query`                                     |
+|  [05]   | Page text with a character limit     | `mcp__exa__web_fetch_exa`                                  |
+|  [06]   | Complex page extraction              | `tvly extract --extract-depth advanced`                    |
+|  [07]   | Site URL selection                   | `tvly map`                                                 |
+|  [08]   | Site content selected by topic       | `tvly crawl --instructions`                                |
+|  [09]   | Cited research synthesis             | `tvly research` or `mcp__exa__agent_run`                   |
+|  [10]   | Row enrichment or continued research | `mcp__exa__agent_run` with `input.data` or `previousRunId` |
+
+Exa tool schemas load through one `ToolSearch` select before the first Exa call.
+
+```text
+# Schemas of every Exa tool
+ToolSearch {"query": "select:mcp__exa__web_search_advanced_exa,mcp__exa__web_fetch_exa,mcp__exa__agent_run", "max_results": 3}
+```
 
 ## [01]-[DISCOVERY]
 
@@ -93,7 +101,7 @@ tvly extract '<url>' '<url>' --query '<question>' --chunks-per-source 3 --extrac
 tvly extract '<url>' --extract-depth advanced --json
 ```
 
-`web_fetch_exa` limits text per URL with `maxCharacters`. Increase the limit when a required passage ends at truncation.
+`mcp__exa__web_fetch_exa` limits text per URL with `maxCharacters`. Increase the limit when a required passage ends at truncation.
 
 ```text
 # Page context beyond search excerpts
@@ -118,15 +126,15 @@ PDF page numbers differ from printed page labels. Inspect rendered pages when ex
 
 ```bash
 # PDF pages containing a heading or literal
-curl -fsSL '<pdf-url>' | uv run --frozen python -c \
+curl -fsSL '<pdf-url>' | python -c \
     "import sys, pymupdf; print(*(i + 1 for i, p in enumerate(pymupdf.open(stream=sys.stdin.buffer.read(), filetype='pdf')) if sys.argv[1] in p.get_text()))" '<literal>'
 
 # Table rows from a selected PDF page
-curl -fsSL '<pdf-url>' | PYMUPDF_SUGGEST_LAYOUT_ANALYZER=0 uv run --frozen python -c \
+curl -fsSL '<pdf-url>' | PYMUPDF_SUGGEST_LAYOUT_ANALYZER=0 python -c \
     "import sys, pymupdf; [print(' | '.join(map(str, r))) for t in pymupdf.open(stream=sys.stdin.buffer.read(), filetype='pdf')[int(sys.argv[1]) - 1].find_tables().tables for r in t.extract()]" <page>
 
 # Outline entries with PDF page numbers
-curl -fsSL '<pdf-url>' | uv run --frozen python -c \
+curl -fsSL '<pdf-url>' | python -c \
     "import sys, pymupdf; print(*(f'{p} {t}' for _, t, p in pymupdf.open(stream=sys.stdin.buffer.read(), filetype='pdf').get_toc()), sep='\n')" | rg -- '<heading>'
 
 # Local PDF for rendered page inspection

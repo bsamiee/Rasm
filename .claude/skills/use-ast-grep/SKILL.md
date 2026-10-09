@@ -5,7 +5,7 @@ description: "Use when listing a file's declarations, reading, searching, or rew
 
 # [AST_GREP]
 
-MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_code_rule`) answer searches with a match list or a tree. CLI runs through `nx run rasm:outline`, `nx run rasm:lint:ast-grep`, and `nx run rasm:rewrite`, and directly for interactive writes (`-i`) and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`. Language tooling resolves symbol identity, types, and behavior beyond syntax.
+MCP tools answer searches with a match list or a tree. Deferred MCP tools load through `ToolSearch` query `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule`. CLI runs through `nx run rasm:outline`, `nx run rasm:lint:ast-grep`, and `nx run rasm:rewrite`, and directly for interactive writes (`-i`) and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`. Language tooling resolves symbol identity, types, and behavior beyond syntax.
 
 [REFERENCES]:
 - [01]-[RULE_BUILDING](references/rule-building.md): Deriving rules from diffs, code smells, and principles
@@ -28,7 +28,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `template` matches text alone with kinds ignored and needs a `kind` beside it
 - `regex` is a Rust regex with no look-around or back-reference, `|` inside a name escapes, `(?i)` sets flags inline
 - `(?x)` in a `|-` block scalar holds one alternative per line with `\ ` for a space inside a phrase, `(?-x:...)` keeps a phrase verbatim
-- `dump_syntax_tree` with `format=cst` prints one top-level node's kinds, fields, and tokens, `format=pattern` how a pattern parsed
+- `mcp__ast-grep__dump_syntax_tree` with `format=cst` prints one top-level node's kinds, fields, and tokens, `format=pattern` how a pattern parsed
 - Multi-statement snippets take `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree prints on stderr before exit 8
 
 ## [02]-[RULES]
@@ -89,7 +89,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `NEW: convert($OLD, toCase=snakeCase, separatedBy=[underscore])` converts case over the named separators
 - `NEW: rewrite($OLD, rewriters=[<id>])` rewrites nodes
 - Object forms (`replace: {source: $OLD, replace: <regex>, by: <text>}`) hold a regex or replacement with commas or quotes the string form splits
-- `replace` reads Rust regex captures in its `by` field as `$1` or `${NAME}`, with `$$` for a literal dollar
+- `replace` reads Rust regex captures in its `by` field as `\$1` or `${NAME}`, with `$$` for a literal dollar
 - Templates read every `$NAME` as a metavariable and fail the load on an unbound one, a literal `$NAME` comes from a `replace` with `by: $$NAME`
 - Rewriters sit in the document `rewriters` list, `rewrite()` selects them by id
 - Each rewriter holds `id`, `rule`, and `fix`, with optional `constraints`, `transform`, and `utils`
@@ -143,22 +143,22 @@ Tree-sitter recovers with `ERROR` or zero-width `MISSING` nodes, and its precede
 
 Fixes emit walrus conditionals as `(v := (a if b else c))`.
 
-| [INDEX] | [BASH]                          | [SHAPE]                                                                                                |
-| :-----: | :------------------------------ | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `[ x = y ]`, `[[ x = y ]]`      | `test_command` with the bracket unnamed over a `binary_expression` with `left`, `operator`, `right`    |
-|  [02]   | `$(cmd)`, backticks             | `command_substitution` with the delimiter unnamed and one `command` child per simple command           |
-|  [03]   | `echo $x`, `echo "$x"`          | `simple_expansion` under `command` when unquoted and under `string` when double-quoted                 |
-|  [04]   | `$1`, `${10}`, `$@`, `$?`       | `variable_name` under `simple_expansion` or `expansion`, `special_variable_name` for `$@`, `$#`, `$?`  |
-|  [05]   | `${x#*/}`, `${x:-d}`            | `expansion` with `variable_name` and an `operator` child, the pattern a `regex` or `word` child        |
-|  [06]   | `${x//a/$r}`                    | `expansion` with `operator` children `//` and `/`, the replacement follows the second `/`              |
-|  [07]   | `x=${ cmd; }`, `${\| cmd; }`    | `expansion` with an `ERROR` child at the `;`, the grammar has no node for the no-fork substitution     |
-|  [08]   | `cmd <<<"$x"`                   | `command` with `redirect: herestring_redirect`, the last stage's after a pipeline                      |
-|  [09]   | `cmd > f`, `done < <(p)`        | `redirected_statement` with `body` and `redirect: file_redirect` wrapping the whole list or pipeline   |
-|  [10]   | `for f in $(ls); do`            | `for_statement` with `variable`, `value: command_substitution`, and `body: do_group`                   |
-|  [11]   | `(( x += 1 ))`, `(( x++ ))`     | `compound_statement` over a `binary_expression`, a `postfix_expression` for `x++`                      |
-|  [12]   | `local -n r=$1`, `declare -A m` | `declaration_command` with the keyword, an option `word`, and `variable_name` or `variable_assignment` |
-|  [13]   | `f() { ...; }`                  | `function_definition` with `name: word` and `body: compound_statement`, `function` spelling included   |
-|  [14]   | `if c; then a; else b; fi`      | `if_statement` with the condition, the then statements, and `else_clause` as named children, no `then` |
+| [INDEX] | [BASH]                           | [SHAPE]                                                                                               |
+| :-----: | :------------------------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `[ x = y ]`, `[[ x = y ]]`       | `test_command` with the bracket unnamed over a `binary_expression` with `left`, `operator`, `right`   |
+|  [02]   | `$(cmd)`, backticks              | `command_substitution` with the delimiter unnamed and one `command` child per simple command          |
+|  [03]   | `echo $x`, `echo "$x"`           | `simple_expansion` under `command` when unquoted and under `string` when double-quoted                |
+|  [04]   | `\$1`, `${10}`, `$@`, `$?`       | `variable_name` under `simple_expansion` or `expansion`, `special_variable_name` for `$@`, `$#`, `$?` |
+|  [05]   | `${x#*/}`, `${x:-d}`             | `expansion` with `variable_name` and an `operator` child, the pattern a `regex` or `word` child       |
+|  [06]   | `${x//a/$r}`                     | `expansion` with `operator` children `//` and `/`, the replacement follows the second `/`             |
+|  [07]   | `x=${ cmd; }`, `${\| cmd; }`     | `expansion` with an `ERROR` child at the `;`, the grammar has no node for the no-fork substitution    |
+|  [08]   | `cmd <<<"$x"`                    | `command` with `redirect: herestring_redirect`, the last stage's after a pipeline                     |
+|  [09]   | `cmd > f`, `done < <(p)`         | `redirected_statement` with `body` and `redirect: file_redirect` wrapping the whole list or pipeline  |
+|  [10]   | `for f in $(ls); do`             | `for_statement` with `variable`, `value: command_substitution`, and `body: do_group`                  |
+|  [11]   | `(( x += 1 ))`, `(( x++ ))`      | `compound_statement` over a `binary_expression`, a `postfix_expression` for `x++`                     |
+|  [12]   | `local -n r=\$1`, `declare -A m` | `declaration_command` with the keyword, option `word`, and `variable_name` or `variable_assignment`   |
+|  [13]   | `f() { ...; }`                   | `function_definition` with `name: word` and `body: compound_statement`, `function` spelling included  |
+|  [14]   | `if c; then a; else b; fi`       | `if_statement` with the condition, then statements, and `else_clause` as named children, no `then`    |
 
 | [INDEX] | [YAML]                | [SHAPE]                                                                                    |
 | :-----: | :-------------------- | :----------------------------------------------------------------------------------------- |

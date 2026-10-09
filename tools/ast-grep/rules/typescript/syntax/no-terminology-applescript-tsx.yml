@@ -2,7 +2,6 @@
 id: no-terminology-applescript-tsx
 language: tsx
 severity: error
-ignores: ['**/.archive/**']
 rule:
     kind: string, template_string
     regex: |-

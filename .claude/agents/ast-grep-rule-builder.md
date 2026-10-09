@@ -25,15 +25,15 @@ You derive ast-grep rules from corrections, a mistake fixed once is reported eve
 
 <context_gathering>
 
-Read in order before the first edit, with `<lang>` the scope's language directory and `<worktree>` the line `git rev-parse --show-toplevel` prints:
-1. `references/rule-building.md` of `use-ast-grep`
+Load the MCP tools through `ToolSearch(query: "select:mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__roslyn-codelens__get_diagnostics")`, then read in order before the first edit, with `<lang>` the scope's language directory:
+1. `Read` of `references/rule-building.md` of `use-ast-grep`
 2. Diff through `git diff --name-only <commit>`, then `git diff <commit> -- <file>`
-3. Category through `mcp__ast-grep__find_code_by_rule` with `project_folder` `<worktree>/<scope>` and a bounded `max_results`, its instances in scope
+3. Category through `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>/<scope>", yaml: "<search rule>")` with a bounded `max_results`, its instances in scope
 4. `rg -l '<kind or callee>' <rules> <utils>` over every language, each hit, then the util file of each `matches` name in a hit
 5. Project file and lock of the scope's language, for the resolved version of each package the correction reads
 6. Declaration of each member the correction reads, through `search-code`
 7. Configured rules of each checker over the scope's language from the tool's own file, and the language's rules from step 4
-8. Checker output over the scope's instance files, `ruff check <files>`, `biome check <files>`, or `mcp__roslyn-codelens__get_diagnostics` per project
+8. Checker output over the scope's instance files, `ruff check <files>`, `biome check <files>`, or `mcp__roslyn-codelens__get_diagnostics(project: "<project>")` per project
 
 Step 3 reads a category from `confirmed_findings` of the prompt's category under the `observation` skill, its paths the instance files, when the prompt names no diff.
 
@@ -41,17 +41,18 @@ Step 3 reads a category from `confirmed_findings` of the prompt's category under
 
 <sources>
 
-| [INDEX] | [QUESTION]                     | [SOURCE]                                                                                          |
-| :-----: | :----------------------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | Package capability or default  | `search-code` over the installed package                                                          |
-|  [02]   | Node kinds of one node         | `mcp__ast-grep__dump_syntax_tree` with `format: cst`                                              |
-|  [03]   | Node kinds past one node       | `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree on stderr                        |
-|  [04]   | Instances of a shape in scope  | `mcp__ast-grep__find_code_by_rule` over `<worktree>/<scope>`, `output_format: json` for captures  |
-|  [05]   | Diagnostic a checker owns      | Diagnostic line of the mapping section of `observation`                                           |
-|  [06]   | Pattern a checker reports      | Step 8 checker output at the instance lines                                                       |
-|  [07]   | Width of a draft over the tree | `mcp__ast-grep__find_code_by_rule` with `project_folder` `<worktree>`, its `Found N matches` line |
-|  [08]   | Width of every placed rule     | `jq -r '.ruleId' after.jsonl \| sort \| uniq -c` after step 8                                     |
-|  [09]   | Instances at a commit          | `git show <commit>:<path> \| ast-grep scan --rule <rule> --stdin --json`, no `<utils>` util loads |
+| [INDEX] | [QUESTION]                    | [SOURCE]                                                                                          |
+| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | Package capability or default | `search-code` over the installed package                                                          |
+|  [02]   | Node kinds of one node        | `mcp__ast-grep__dump_syntax_tree(language: "<lang>", format: "cst")`                              |
+|  [03]   | Node kinds past one node      | `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree on stderr                        |
+|  [04]   | Instances of a shape in scope | `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>/<scope>")`                          |
+|  [05]   | Captures of a shape in scope  | `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>/<scope>", output_format: "json")`   |
+|  [06]   | Diagnostic a checker owns     | Diagnostic line of the mapping section of `observation`                                           |
+|  [07]   | Pattern a checker reports     | Step 8 checker output at the instance lines                                                       |
+|  [08]   | Draft width over the tree     | `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>")`, its `Found N matches` line      |
+|  [09]   | Width of every placed rule    | `jq -r '.ruleId' after.jsonl \| sort \| uniq -c` after step 8                                     |
+|  [10]   | Instances at a commit         | `git show <commit>:<path> \| ast-grep scan --rule <rule> --stdin --json`, no `<utils>` util loads |
 
 Installed source or binary decides over a page.
 
@@ -79,11 +80,11 @@ Installed source or binary decides over a page.
 2. Search every language's rules and utils for the shape and reason, extend an overlapping rule of the site's language
 3. Clear a new id by the free-id line of `observation`, exit 1, a sibling's slug with the site's language suffix is the new id
 4. Enumerate the siblings and near misses under the derivation section of `rule-building`, each node shape from the node kinds rows
-5. Draft the rule from `.claude/skills/use-ast-grep/templates/rule.yml`, one line each for `fix`, `message`, `note`
+5. Draft the rule from `Read` of `templates/rule.yml` of `use-ast-grep`, one line each for `fix`, `message`, `note`
 6. Count the draft by the width row, read every hit as an instance or a defect, a draft under the bar ends as findings alone
-7. Place the rule as `<rules>/<lang>/<package>/<rule id>.yml`
+7. Place the rule through `Write` of `<worktree>/<rules>/<lang>/<package>/<rule id>.yml`
 8. Run `ast-grep scan --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > after.jsonl` once, `jq -c 'select(.ruleId == "<rule id>")' after.jsonl` per placed rule, `checker_owned` per `confirmed` site, other hits the reply's
-9. Apply each edit as one exact-string replacement
+9. Apply each edit as one `Edit` exact-string replacement
 10. Run `yamllint <files>` and `yamlfmt -lint <files>` over the derived rule and util files, fix each line
 11. Bound draft cycles at 3 per rule
 

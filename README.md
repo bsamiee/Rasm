@@ -20,7 +20,6 @@ Rasm/
 ├── tools/
 │   ├── ast-grep/             # Outlines, rules, and utilities per language
 │   ├── bridge/               # Streamable HTTP bridge every stdio MCP server's launchd agent runs through
-│   ├── interface/            # Desktop application interfaces, one directory per application
 │   └── nx/                   # Nx plugin inferring a project from each project file
 ├── plugins/                  # Agent harness marketplace, one directory per plugin
 ├── mise.toml                 # Tool binaries and process environment
@@ -73,7 +72,6 @@ flowchart LR
         catalog_py["pyproject.toml dependencies and groups"] --> lock_py["uv.lock, .venv/bin on PATH"]
         catalog_net["Directory.Packages.props"] --> restore["rasm:restore"]
         catalog_net --> eng_net["eng/dotnet"] --> upgrade["rasm:upgrade"]
-        packages["packages.toml rows"] --> upgrade
         catalog_swift[".xcodeproj package requirements"] --> lock_swift["Package.resolved"]
     end
 
@@ -105,12 +103,13 @@ flowchart LR
 - `--skip-nx-cache` runs a build in place of an Nx cache replay
 - `nx run <project>:install` installs built products, packing Rhino and Blender projects first
 - `nx run <project>:pack` builds a Rhino Yak package or one Blender extension ZIP under `.artifacts/<host>/<project>/`
-- `nx run rasm:upgrade` moves catalogs, Swift package locks, tool binaries, and application packages to their newest builds
+- `nx run rasm:upgrade` moves catalogs, Swift package locks, and tool binaries to newest builds
 - `nx run rasm:clean` removes what tool runs leave behind
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
-- `nx run rasm:interface` applies each `tools/interface/<app>/apply.py`, `-- <app>` one, and prints every outcome as one JSON document
 - Workspace plugin names each project's tags and empty targets by project file and Python edges by import, `@nx/dotnet` and `@nx/vitest` infer theirs
+- File-based app directories are one project each, named by path, `build`, `format`, and `lint` run one `<target>:<file>` target per entry file
+- `nx run rasm:format` runs every app's `format` and `nx run rasm:lint:dotnet-format` every app's `lint`
 - Project `vite.config.ts` infers `build`, run from that project, and its `serve` configuration runs the Vite development server
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
@@ -130,13 +129,13 @@ flowchart LR
 |  [08]   | Secret                         | Doppler, `mise.toml` `[env]` `exec` row for every process, `doppler run` around one command          |
 |  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:infra:up`                           |
 |  [10]   | Tool with no consumer          | Machine setup                                                                                        |
-|  [11]   | Application package            | `packages.toml` row beside the script installing it                                                  |
-|  [12]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                                         |
-|  [13]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
-|  [14]   | Swift package version          | `.xcodeproj` package requirement                                                                     |
-|  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
-|  [16]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
-|  [17]   | MCP tool a skill replaces      | `--hide <tool>` on server's `mise.toml` launchd agent row                                            |
+|  [11]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                                         |
+|  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
+|  [13]   | Swift package version          | `.xcodeproj` package requirement                                                                     |
+|  [14]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
+|  [15]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
+|  [16]   | MCP tool a skill replaces      | `--hide <tool>` on server's `mise.toml` launchd agent row                                            |
+|  [17]   | Python version below 3.15      | `requires-python` in `pyproject.toml` at code root                                                   |
 
 - Tool rows name a release where `latest` resolves a development build
 - Tool consumers are targets, MCP rows, skills, `.gitattributes` filters, and CLAUDE.md `[CLI_TOOLING]` rows
@@ -163,13 +162,13 @@ flowchart LR
 - `tools/` provides capabilities for development tools and applications
 - Apps group by product under `apps/<product>/`, with a `<host>/` folder per host application
 - Libraries group by language under `libs/<language>/`, with host-bound packages under a `<host>/` folder
-- Build and task graph read a project's host from the `<host>/` folder on its path
+- Build and task graph take .NET hosts from the `<host>/` path folder, Blender hosts from `blender_manifest.toml`
 - `libs/` packages point down an acyclic graph, each .NET and TypeScript package consumable alone through declared dependencies
 - Python packages import siblings absolutely and build into the one `rasm` wheel
 - Projects under a `rhino` folder compile against `RhinoCommon`, `RhinoHost` token `grasshopper` adds `Grasshopper2`
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files define projects, never `project.json`
-- Project files are `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `py.typed`, `blender_manifest.toml`, and `.xcodeproj`
+- Project files are `.csproj`, `.cs` files opening with `#!`, `package.json` with `tsconfig.json`, `py.typed`, `blender_manifest.toml`, and `.xcodeproj`
 - `Workspace.slnx` lists every project `.csproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
 - Projects hold no `src/` directory and no folder with one file, folders group by domain per language

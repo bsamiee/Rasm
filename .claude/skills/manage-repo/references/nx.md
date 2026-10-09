@@ -4,8 +4,10 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 
 ## [01]-[PROJECTS]
 
-- Plugins infer a project from each file matching their glob, a matching file that defines no project joins the plugin's `exclude`
+- Plugins infer a project from each file matching their glob, a matching file that defines no project yields none
 - Plugins export `createDependencies` beside `createNodes` for undeclared edges, a static edge names its `sourceFile`
+- Nx merges inferred projects sharing a root, each file of one directory adds its targets to one project
+- Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - `useDaemonProcess: false` computes graphs in the calling process
 - `NX_CACHE_PROJECT_GRAPH=false` disables graph caching
 - `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
@@ -14,6 +16,8 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 
 - `targetDefaults.<target>` takes one configuration or an array of entries, matching entries merge in order and later values win
 - Entry `filter` keys `projects` (names, globs, `tag:<tag>`, `directory:<glob>`, `!` exclusions), `plugin`, and `executor` must all match
+- `filter.plugin` matches the plugin that set a target's `executor` or `command`, an empty inferred target matches by tag or name glob
+- Entries setting no `command` precede a key's entry setting one, Nx stamps a later entry with the inferred command and it replaces the target
 - `targetDefaults` configures existing targets alone, project configuration overrides a default
 - `"...": true` in objects and `"..."` in arrays preserve lower-layer values at their position
 - `command` on a target runs one command with its `options`, `executor: nx:run-commands` with `commands` and `parallel` exists for a list alone

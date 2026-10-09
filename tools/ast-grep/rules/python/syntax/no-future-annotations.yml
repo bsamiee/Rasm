@@ -2,14 +2,6 @@
 id: no-future-annotations
 language: python
 severity: error
-ignores:
-    - .claude/skills/use-blender/scripts/*.py
-    - .claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py
-    - tools/interface/{roles,report,units,render,aliases,frame}.py
-    - tools/interface/rhino/{window,markup}.py
-    - tools/interface/blender/rows.py
-    - tools/interface/*/script/**
-    - tools/interface/blender/extension/**
 utils:
     feature: {any: [{kind: aliased_import}, {kind: dotted_name}]}
     annotations-feature: {matches: feature, regex: '^annotations\b'}

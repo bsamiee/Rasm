@@ -35,7 +35,7 @@ Doppler resources exist alone as typed `infra/cli.ts` rows of `Project`, `Enviro
 - `infra/cli.ts` reads each `Secret` value from the environment `dev_repo` injects, a branch config inheriting every `dev` secret
 - `dev_repo` supplies `DOPPLER_TOKEN` to `@pulumiverse/doppler`, `PULUMI_ACCESS_TOKEN` to Pulumi, and `GITHUB_TOKEN` to `@pulumi/github`, each its own `Secret` row
 - `nx run rasm:infra:up` applies rows, `nx run rasm:infra:refresh` reads live state into the stack
-- Use `manage-repo` for infra rows
+- Use `Skill(manage-repo)` for infra rows
 
 ## [03]-[OP_SIGNIN]
 
@@ -110,6 +110,7 @@ Desktop app's SSH agent serves key `Forge SSH Key` (ED25519) to SSH hosts and Gi
 - Each secret keeps one name as `Tokens` item title, Doppler secret, and environment variable a consumer reads
 - Configuration files hold no secret value
 - `.mcp.json` headers read each value from the harness environment as `${<NAME>}`
+- Secrets a remote server header reads take a name outside the credentials Claude Code reads there as empty (`ANTHROPIC_API_KEY`, `NPM_TOKEN`)
 - Values reach a consumer as injected environment, a command substitution, a mount, or a mode-600 file outside every repository tree
 - Files holding values go when the consumer exits
 - Agent output holds secret names alone

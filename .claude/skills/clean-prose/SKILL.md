@@ -12,7 +12,7 @@ Governs every English text in a project (markdown, comments, messages, identifie
 - [02]-[REWRITES](references/rewrites.md): Before and after pairs for structural moves, with rewrites that look right and fail
 
 [SCRIPTS]:
-- [01]-[PROSE](scripts/prose.py): `uv run --script scripts/prose.py check <path>...` prints findings over named files and unignored files of named folders, `fix` writes the fixable ones
+- [01]-[PROSE](scripts/prose.py): `python ${CLAUDE_SKILL_DIR}/scripts/prose.py check <path>...` prints findings over named files and unignored files of named folders, `fix` writes the fixable ones
 
 ## [01]-[TERMINOLOGY]
 
@@ -57,7 +57,7 @@ Words that fail take the current term for what they name, real field terms (SIMD
 |  [30]   | `pluggable`, `publication-quality`, `settled` (fact)              | Delete                                                           |
 |  [31]   | `toolkit`, `suite` (after a package name), `hard-won`             | Delete                                                           |
 
-Use `tools/ast-grep/utils/text/text-coined-word.yml` for coined words in identifiers
+`nx run rasm:lint:ast-grep -- --filter='^no-coined-identifier-' <path>...` reports coined words in identifiers
 
 Names in code, build, and rule files say what the thing is in their language's vocabulary:
 - Renames go through language tooling and update every reference, test, and file name
@@ -198,7 +198,7 @@ Comments state intent or constraint code cannot show, in one line and statement 
 - Comments naming a value's ported source go once the source leaves the repository or names a file the repository does not hold
 - Section dividers, structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
 - Doc comment summaries are one sentence that states what the member returns or does without restating its name, remarks keep one fact per sentence
-- Use `dotnet-document`, `python-document`, and `typescript-document` for a doc comment's tags, sections, period, and presence
+- Use `Skill(python-document)` for a doc comment's tags, sections, period, and presence, `/dotnet-document` and `/typescript-document` hold the C# and TypeScript forms
 - Messages (log, error, exception, diagnostic) state what happened, its cause when known, then the action, each in one sentence with no period
 - Commit subjects are imperative, commit and pull request bodies state past facts
 - Comments naming a wrong result a call can return are guards, the call takes the parameter or form returning the right result, or the line goes
@@ -217,3 +217,5 @@ Rewrite of an existing file:
 9. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
 
 New text follows the same rules from its first draft. Reviews report one row per finding: line, rule, offending text, rewrite.
+
+!`cat ${CLAUDE_SKILL_DIR}/references/word-map.md ${CLAUDE_SKILL_DIR}/references/rewrites.md`

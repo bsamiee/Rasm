@@ -38,8 +38,8 @@ Facts files are plain text with one fact per line and a title line naming their 
 Facts come from source, its decompile, and documentation at the installed build:
 - Behavior (poll order, event routing, draw and scale formulas) comes from source
 - Documentation of the installed release decides over older posts and community sources
-- Use `use-ghidra` for native code
-- Use `search-code` for managed code, its project form writing one file per type into `decompiled/<assembly>/`
+- Use `Skill(use-ghidra)` for native code
+- Use `Skill(search-code)` for managed code, its project form writing one file per type into `decompiled/<assembly>/`
 - Decompiles cover what the work reads alone, in full depth
 - Tarballs and loose readme and license files are deleted from decompiled sources
 - Project and configuration files of a source stay as a record of its packages and settings, repository files decide every binding
@@ -63,4 +63,3 @@ Finished research and decompile work leaves the machine holding the research it 
 - Old content, caches, stray files, installers, logs, history, and empty folders are deleted in full
 - Applications, binaries, extensions, and plug-ins installed before the work stay
 - Applications, extensions, and plug-ins a study installed are uninstalled with their user data, except one kept as a tool
-- Running hosts hold what the interface declares alone

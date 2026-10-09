@@ -299,7 +299,7 @@ Every CI property sits in one `PropertyGroup` in root `Directory.Build.props` un
 - Satellite and documentation properties belong to the unconditioned group
 - `EnableWindowsTargeting` stays unset on a non-Windows runner, a Windows target framework then fails `NETSDK1100`
 - `global.json` `rollForward: disable` pins the SDK on runners, `DOTNET_ROLL_FORWARD` governs which runtime an application host selects
-- Use `dotnet-msbuild-diagnostics` for BuildCheck on the pipeline build
+- Use `Skill(dotnet-msbuild-diagnostics)` for BuildCheck on the pipeline build
 
 ```bash
 dotnet restore Product.slnx -p:CI=true

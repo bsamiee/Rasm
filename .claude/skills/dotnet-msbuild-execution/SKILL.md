@@ -239,7 +239,7 @@ Command line switches print what a target returns and control the whole build:
 - `Build` maps to `GetTargetFrameworks`, the default target, `GetNativeManifest`, and `GetCopyToOutputDirectoryItems`
 - Results caches hold built target results, the producing build names every protocol target in `-target:`
 - Consumers under `-isolate -inputResultsCaches` build without evaluating the reference
-- Use `dotnet-msbuild-diagnostics` for the static graph and isolation switches
+- Use `Skill(dotnet-msbuild-diagnostics)` for the static graph and isolation switches
 
 ```xml
 <ItemGroup>

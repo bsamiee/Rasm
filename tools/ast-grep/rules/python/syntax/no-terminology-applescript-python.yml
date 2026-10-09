@@ -2,7 +2,6 @@
 id: no-terminology-applescript-python
 language: python
 severity: error
-ignores: ['**/.archive/**']
 rule:
     kind: string
     regex: |-

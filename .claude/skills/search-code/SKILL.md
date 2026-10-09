@@ -11,10 +11,10 @@ Dependency declarations come from installed files, usage from Context7, DeepWiki
 - Path: package metadata names repository and commit, Context7 IDs are the repository's `/owner/repo` lowercased, a tag list spells each tag
 - Prose: Context7 descriptions and DeepWiki answers are generated, code quotes come from their Source URL, member names from their declaration
 - Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
-- Size: `get_file_contents`, `get_package_context`, and `read_wiki_contents` return the whole document, a cited line reads through `rg`
-- Index: `search_code` reads default branches in files under 384 KB, the tree call finds a path at a tag
-- Quota: every client on one GitHub account shares 10 `search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none of it
-- Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from a repository URL skips the resolve
+- Size: `mcp__github__get_file_contents`, `mcp__nuget__get_package_context`, and `mcp__deepwiki__read_wiki_contents` return all, `rg` cites a line
+- Index: `mcp__github__search_code` reads default branches in files under 384 KB, `mcp__github__get_repository_tree` finds a path at a tag
+- Quota: clients on one GitHub account share 10 `mcp__github__search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none
+- Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from a repository URL skips `mcp__context7__resolve-library-id`
 
 ## [01]-[DECLARATION]
 
@@ -36,7 +36,7 @@ uv tree --frozen --invert --package <pkg> --depth 1
 - Version missing from the packages folder, its nupkg streamed through `tar`, id lowercase
 
 ```bash
-rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' <lib>/*.xml
+rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' ${CLAUDE_PROJECT_DIR}/<lib>/*.xml
 curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.nupkg" | tar -xOf - 'lib/*.xml' | rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*'
 ```
 
@@ -46,9 +46,9 @@ curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.n
 3. Doc comment, attributes, and signature per overload with line, `-A<n>` on its `rg` reads the body
 
 ```bash
-dotnet dnx ilspycmd -y -- -l cisde <dll> | rg '<Type>'
-dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -n '^\s*public '
-dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
+dotnet dnx ilspycmd -y -- -l cisde ${CLAUDE_PROJECT_DIR}/<dll> | rg '<Type>'
+dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' ${CLAUDE_PROJECT_DIR}/<dll> | rg -n '^\s*public '
+dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' ${CLAUDE_PROJECT_DIR}/<dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
 ```
 
 .NET decompiled files under `<main>/.artifacts/ilspy`, `<main>` is the first worktree line of `git worktree list --porcelain`:
@@ -56,8 +56,8 @@ dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\
 2. Project with one file per type, without `-p` the whole assembly as one `<Name>.decompiled.cs`
 
 ```bash
-dotnet dnx ilspycmd -y -- --dump-table Assembly --json <dll> | jq -r '.rows[0] | "\(.Name)/\(.Version)"'
-dotnet dnx ilspycmd -y -- -p -o <main>/.artifacts/ilspy/<Name>/<Version> <dll>
+dotnet dnx ilspycmd -y -- --dump-table Assembly --json ${CLAUDE_PROJECT_DIR}/<dll> | jq -r '.rows[0] | "\(.Name)/\(.Version)"'
+dotnet dnx ilspycmd -y -- -p -o <main>/.artifacts/ilspy/<Name>/<Version> ${CLAUDE_PROJECT_DIR}/<dll>
 ```
 
 TypeScript package under `node_modules/<pkg>`, `package.json` `types` names the entry file:
@@ -65,14 +65,14 @@ TypeScript package under `node_modules/<pkg>`, `package.json` `types` names the 
 2. Declaration with file and line, following overloads and its preceding doc comment read through `Read` at the line
 
 ```bash
-rg -n '^export ' node_modules/<pkg>/<file>.d.ts
-rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' node_modules/<pkg> --glob '*.d.ts'
+rg -n '^export ' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg>/<file>.d.ts
+rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg> --glob '*.d.ts'
 ```
 
 TypeScript type and enum values of one configuration schema definition:
 
 ```bash
-jq -c '(.["$defs"] // .definitions).<Def>' node_modules/<pkg>/<schema>.json
+jq -c '(.["$defs"] // .definitions).<Def>' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg>/<schema>.json
 ```
 
 Python package in `uv.lock`, `--with <pkg>` before `python` resolves one outside the lock:
@@ -89,7 +89,7 @@ uv run --frozen python -c "import inspect, <mod>; print(inspect.getsource(<mod>.
 Python typed signature per overload from a package's `.pyi` or its `-stubs` package where the runtime declares no types:
 
 ```bash
-rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' .venv/lib/python*/site-packages/<pkg>* --glob '*.pyi'
+rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' ${CLAUDE_PROJECT_DIR}/.venv/lib/python*/site-packages/<pkg>* --glob '*.pyi'
 ```
 
 MSBuild target with `Condition`, `Inputs`, and `DependsOnTargets` across the SDK `global.json` resolves, package targets under `build/` or `buildTransitive/`:
@@ -115,6 +115,7 @@ Context7 reads:
 - Rendered docs site with API reference pages, Source URL names the docs version, a code fence can lose line breaks
 
 ```text
+ToolSearch {"query": "select:mcp__context7__resolve-library-id,mcp__context7__query-docs", "max_results": 2}
 mcp__context7__resolve-library-id {"libraryName": "<repository name>", "query": "<task sentence naming the symbol>"}
 mcp__context7__query-docs {"libraryId": "/<owner>/<repo>", "query": "<one concept naming the symbol>"}
 mcp__context7__query-docs {"libraryId": "/<owner>/<repo>/<version>", "query": "<one concept>"}
@@ -126,6 +127,7 @@ DeepWiki reads:
 2. Answer with quoted signatures over repositories step 1 indexed, up to 10 per call
 
 ```text
+ToolSearch {"query": "select:mcp__deepwiki__read_wiki_structure,mcp__deepwiki__ask_wiki_question", "max_results": 2}
 mcp__deepwiki__read_wiki_structure {"repoName": "<owner>/<repo>"}
 mcp__deepwiki__ask_wiki_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>"], "question": "<question naming the members>"}
 ```
@@ -133,13 +135,15 @@ mcp__deepwiki__ask_wiki_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>
 GitHub public code composing members, repository and commit per fragment:
 
 ```text
+ToolSearch {"query": "select:mcp__github__search_code", "max_results": 1}
 mcp__github__search_code {"query": "\"<Member>\" \"<Member>\" language:<language>", "perPage": 5, "fields": ["repository", "path", "text_matches"]}
 ```
 
 .NET `AGENTS.md` of an installed NuGet package, its README otherwise, from the packages folder or source:
 
 ```text
-mcp__nuget__get_package_context {"solutionDirectory": "<repo>", "packageName": "<id>", "packageVersion": "<version>"}
+ToolSearch {"query": "select:mcp__nuget__get_package_context", "max_results": 1}
+mcp__nuget__get_package_context {"solutionDirectory": "${CLAUDE_PROJECT_DIR}", "packageName": "<id>", "packageVersion": "<version>"}
 ```
 
 Context7 stars, trust score, and last update per candidate, MCP results omit them, `libraryName` is the repository name:
@@ -151,8 +155,8 @@ curl -s "https://context7.com/api/v2/libs/search?libraryName=<repository name>" 
 Cited README lines of an installed .NET or TypeScript package:
 
 ```bash
-rg -n --no-ignore -A6 '<term>' .cache/nuget/packages/<id>/<version> --glob '*.md'
-rg -n --no-ignore -A6 '<term>' node_modules/<pkg> --glob '*.md'
+rg -n --no-ignore -A6 '<term>' ${CLAUDE_PROJECT_DIR}/.cache/nuget/packages/<id>/<version> --glob '*.md'
+rg -n --no-ignore -A6 '<term>' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg> --glob '*.md'
 ```
 
 Python cited lines of a package's long description at one version, case sensitive:
@@ -172,7 +176,7 @@ Repository, commit, and tag behind an installed version, then its tree, files, b
 3. Cited lines of a file at the tag, any size
 
 ```bash
-rg -o '<(repository|projectUrl)[^<]*' .cache/nuget/packages/<id>/<version>/<id>.nuspec
+rg -o '<(repository|projectUrl)[^<]*' ${CLAUDE_PROJECT_DIR}/.cache/nuget/packages/<id>/<version>/<id>.nuspec
 pnpm view <pkg>@<version> repository.url repository.directory gitHead --json
 curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -c '.info.project_urls'
 git ls-remote --tags https://github.com/<owner>/<repo> | rg 'refs/tags/\S*<version>$'
@@ -194,6 +198,7 @@ GitHub reads at the tag:
 3. Commit, author, and date that last changed each line range
 
 ```text
+ToolSearch {"query": "select:mcp__github__get_repository_tree,mcp__github__get_file_contents,mcp__github__get_file_blame", "max_results": 3}
 mcp__github__get_repository_tree {"owner": "<owner>", "repo": "<repo>", "tree_sha": "<tag>", "recursive": true, "path_filter": "<dir>/"}
 mcp__github__get_file_contents {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "<tag>"}
 mcp__github__get_file_blame {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "<tag>", "start_line": <n>, "end_line": <n>}
@@ -202,6 +207,7 @@ mcp__github__get_file_blame {"owner": "<owner>", "repo": "<repo>", "path": "<fil
 GitHub paths and fragments in one repository:
 
 ```text
+ToolSearch {"query": "select:mcp__github__search_code", "max_results": 1}
 mcp__github__search_code {"query": "\"<phrase>\" repo:<owner>/<repo> path:<dir>", "perPage": 5, "fields": ["path", "text_matches"]}
 ```
 
@@ -212,12 +218,14 @@ Newest version and its date come from the registry, notes from each tag's releas
 .NET newest NuGet version with its publish date:
 
 ```text
-mcp__nuget__get_latest_package_version {"solutionDirectory": "<repo>", "packageName": "<id>", "includePrerelease": true}
+ToolSearch {"query": "select:mcp__nuget__get_latest_package_version", "max_results": 1}
+mcp__nuget__get_latest_package_version {"solutionDirectory": "${CLAUDE_PROJECT_DIR}", "packageName": "<id>", "includePrerelease": true}
 ```
 
 GitHub advisories on pinned versions with each patched version, one call across ecosystems, owner and repo name the current repository:
 
 ```text
+ToolSearch {"query": "select:mcp__github__check_dependency_vulnerabilities", "max_results": 1}
 mcp__github__check_dependency_vulnerabilities {"owner": "<owner>", "repo": "<repo>", "dependencies": [{"ecosystem": "nuget", "name": "<id>", "version": "<version>"}, {"ecosystem": "npm", "name": "<pkg>", "version": "<version>"}, {"ecosystem": "pip", "name": "<pkg>", "version": "<version>"}]}
 ```
 

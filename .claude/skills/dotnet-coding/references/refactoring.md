@@ -2,7 +2,7 @@
 
 Covers C# corrections no ast-grep rule enforces.
 
-Use `dotnet-coding-mapperly` for member copies between host and domain types.
+Use `Skill(dotnet-coding-mapperly)` for member copies between host and domain types.
 
 ## [01]-[HOST_BOUNDARY]
 

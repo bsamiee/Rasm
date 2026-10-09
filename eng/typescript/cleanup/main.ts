@@ -1,7 +1,8 @@
+import { connect, type Socket } from 'node:net';
 import { homedir, userInfo } from 'node:os';
 import process from 'node:process';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Array, Console, Duration, Effect, FileSystem, HashMap, Option, Path, type PlatformError, pipe, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
+import { Array, Boolean, Console, Duration, Effect, FileSystem, HashMap, Option, Path, type PlatformError, pipe, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
 import { Command } from 'effect/cli';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 
@@ -23,6 +24,7 @@ const WORKTREE_ROW = /^worktree (?<path>.+)$/u;
 
 const Installed = Schema.Record(Schema.String, Schema.Array(Schema.Struct({ install_path: Schema.String })));
 const Agents = Schema.Struct({ launchd: Schema.Struct({ agents: Schema.Array(Schema.Struct({ label: Schema.String })) }) });
+const Registered = Schema.fromJsonString(Schema.Struct({ connection_uri: Schema.URLFromString }));
 
 interface Process {
     readonly pid: number;
@@ -177,10 +179,8 @@ const withoutAgents = (root: string, labels: readonly string[]): Effect.Effect<v
 const litter = Effect.fn('litter')(function* (root: string) {
     const fs = yield* FileSystem.FileSystem;
     const patterns = [
-        '.artifacts/adobe',
         '.artifacts/apps',
-        '.artifacts/blender/*',
-        '.artifacts/blender/session/*',
+        '.artifacts/blender',
         '.artifacts/dotnet',
         '.artifacts/ghidra',
         '.artifacts/ilspy',
@@ -218,11 +218,31 @@ const litter = Effect.fn('litter')(function* (root: string) {
         '{apps,libs,plugins,tools}/**/__pycache__',
         '{apps,libs,plugins,tools}/**/.wrangler/{deploy,registry,tmp}',
     ];
-    const kept = ['**/node_modules', '**/.venv', '.artifacts/blender/session', '.artifacts/blender/session/*.json', '.cache/nx/cache', '.cache/nx/workspace-data', '.cache/playwright/browsers', '.cache/playwright/profile'];
+    const kept = ['**/node_modules', '**/.venv', '.cache/nx/cache', '.cache/nx/workspace-data', '.cache/playwright/browsers', '.cache/playwright/profile'];
     return yield* fs.glob(`{${patterns.join(',')}}`, { root, exclude: kept });
 });
 const discard = (entries: readonly string[]): Effect.Effect<void, PlatformError.PlatformError, FileSystem.FileSystem> =>
     Effect.flatMap(FileSystem.FileSystem, (fs) => Effect.forEach(entries, (entry) => Console.log(`remove ${entry}`).pipe(Effect.andThen(fs.remove(entry, { recursive: true, force: true }))), { concurrency: 'unbounded', discard: true }));
+
+// --- [REGISTRY]
+const connected = (socket: Socket): Effect.Effect<boolean> =>
+    Effect.callback((resume) => {
+        socket.once('connect', () => resume(Effect.succeed(true)));
+        socket.once('error', () => resume(Effect.succeed(false)));
+    });
+const reachable = ({ hostname, port }: URL): Effect.Effect<boolean> =>
+    Effect.acquireUseRelease(
+        Effect.sync(() => connect({ host: hostname.replace(/^\[|\]$/gu, ''), port: Number(port) })),
+        connected,
+        (socket) => Effect.sync(() => socket.destroy()),
+    );
+const dead = (text: string): Effect.Effect<boolean> => Option.match(Schema.decodeUnknownOption(Registered)(text), { onNone: () => Effect.succeed(true), onSome: ({ connection_uri }) => Effect.map(reachable(connection_uri), Boolean.not) });
+const unreachable = Effect.fn('unreachable')(function* (directory: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const entries = Array.map(yield* fs.glob('lldb-mcp-*.json', { root: directory }), (entry) => path.join(directory, entry));
+    return yield* Effect.filter(entries, (entry) => Effect.flatMap(fs.readFileString(entry), dead), { concurrency: 'unbounded' });
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -253,7 +273,7 @@ const cleanup = Effect.fn('cleanup')(function* () {
     ];
     yield* run(['dotnet', 'build-server', 'shutdown'], root);
     yield* terminate(worktrees, installed, tools);
-    const entries = Array.map(yield* litter(root), (entry) => path.join(root, entry));
+    const entries = [...Array.map(yield* litter(root), (entry) => path.join(root, entry)), ...(yield* unreachable(path.join(homedir(), '.lldb')))];
     const lockers = Array.map(Array.filter((yield* read(['lsof', '-t', path.join(cache, '.lock')], [0, 1])).split('\n'), String.isNonEmpty), Number);
     const labels = holders(yield* snapshot, agents, [cache, ...entries], lockers);
     yield* Effect.scoped(withoutAgents(root, labels).pipe(Effect.andThen(Effect.validate(commands, (sequence) => Effect.forEach(sequence, (argv) => run(argv, root), { discard: true }), { concurrency: 'unbounded', discard: true })), Effect.andThen(discard(entries))));

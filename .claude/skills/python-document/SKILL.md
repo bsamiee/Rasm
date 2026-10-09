@@ -7,7 +7,11 @@ description: "Use when ruff reports a D or DOC violation, or a public Python mod
 
 Covers Google-style docstrings on Python modules, classes, functions, and methods.
 
-Under `pyproject.toml` settings `convention = "google"` and `preview = true`, every `D` rule the convention keeps, `D420`, `D421`, and every `DOC` rule fire.
+Ruff settings in `pyproject.toml` fire every `D` rule the convention keeps and, under `preview`, `D420`, `D421`, and every `DOC` rule:
+
+```!
+yq -p toml -o toml '{"tool": {"ruff": (.tool.ruff | {"preview": .preview, "format": (.format | pick(["docstring-code-format"])), "lint": (.lint | pick(["select", "pycodestyle", "pydocstyle", "pydoclint"]))})}}' "${CLAUDE_PROJECT_DIR}/pyproject.toml"
+```
 
 ## [01]-[SCOPE]
 
@@ -51,7 +55,7 @@ Accurate existing docstrings stay. Docstrings in another convention (Sphinx `:pa
 
 ### [02.2]-[ONE_LINERS]
 
-Docstrings that need no section are one-liners: opening and closing quotes on one line (`D200`), no blank line before (`D201`) or after (`D202`), `DOC` rules skip them (`ignore-one-line-docstrings = true`):
+Docstrings that need no section are one-liners: opening and closing quotes on one line (`D200`), no blank line before (`D201`) or after (`D202`), `DOC` rules skip them (`ignore-one-line-docstrings`):
 
 ```python
 def is_valid(self) -> bool:
@@ -241,7 +245,7 @@ def name(self, value: str) -> None:
 
 - Code blocks indent 4 spaces within the section, a blank line separates a block from the label before it and the entry after it
 - Each example gets a label when the section holds more than one
-- `docstring-code-format = true` makes `ruff format` reformat `>>>` doctest lines, Markdown fences, and rST `::` blocks that parse
+- `docstring-code-format` makes `ruff format` reformat `>>>` doctest lines, Markdown fences, and rST `::` blocks that parse
 - Examples are indented plain blocks, `ruff format` leaves them as written
 
 ```python

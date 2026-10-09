@@ -10,8 +10,8 @@ Review catalog for project and build files, each entry names the smell, the fail
 - `ERROR` names a build failure, a wrong value, or a wrong output
 - `STYLE` names a form that builds and costs maintenance or time
 - Entries naming a `BC` code are BuildCheck diagnostics
-- Use `dotnet-msbuild-diagnostics` for the BuildCheck baseline
-- Use `dotnet-msbuild-evaluation` for the evaluation rule behind an entry
+- Use `Skill(dotnet-msbuild-diagnostics)` for the BuildCheck baseline
+- Use `Skill(dotnet-msbuild-evaluation)` for the evaluation rule behind an entry
 
 [REFERENCES]:
 - [01]-[WORKED_EXAMPLES](references/worked-examples.md): Corrections that span more than one element

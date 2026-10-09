@@ -172,30 +172,6 @@
                     }
                 ]
             }
-        ],
-        "PreToolUse": [
-            {
-                "matcher": "^mcp__rhino-mcp-platform__",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "uv",
-                        "args": ["run", "--script", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-rhino/scripts/hook.py"],
-                        "timeout": 10
-                    }
-                ]
-            },
-            {
-                "matcher": "^mcp__(blender|mcp-for-blender)__",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "uv",
-                        "args": ["run", "--script", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-blender/scripts/wrapper.py"],
-                        "timeout": 10
-                    }
-                ]
-            }
         ]
     },
     "enabledPlugins": {
@@ -213,6 +189,5 @@
     },
     "effortLevel": "high",
     "showClearContextOnPlanAccept": true,
-    "cleanupPeriodDays": 7,
     "claudeMdExcludes": ["**/.cache/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md", "**/.venv/**/CLAUDE.md", "**/.artifacts/**/CLAUDE.md"]
 }

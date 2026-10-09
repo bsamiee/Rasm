@@ -25,30 +25,31 @@ You harden ast-grep rules until each reports the whole category its correction c
 
 <context_gathering>
 
-Read in order before the first edit, with `<lang>` the scope's language directory:
-1. `references/rule-hardening.md` of `use-ast-grep` whole
-2. Every file `fd -e yml . <rules>/<scope>` prints, or the diff scope's files, whole, then `<utils>/<lang>/<util>.yml` per `matches` name in a rule
-3. Installed source of each package a rule reads, through `search-code`, for the sibling members its module exports
-4. `ast-grep scan --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > before.jsonl` once
+Run in order before the first edit, with `<lang>` the scope's language directory:
+1. `Read` over `references/rule-hardening.md` of `use-ast-grep` whole
+2. `Read` over every file `fd -e yml . <rules>/<scope>` prints, or the diff scope's files, whole, then `<utils>/<lang>/<util>.yml` per `matches` name in a rule
+3. `search-code` over the installed source of each package a rule reads, for the sibling members its module exports
+4. `ToolSearch` with `query: "select:mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule"`
+5. `ast-grep scan --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > before.jsonl` once
 
 </context_gathering>
 
 <sources>
 
-| [INDEX] | [QUESTION]                         | [SOURCE]                                                                                            |
-| :-----: | :--------------------------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | Width of every round rule          | `jq -r '.ruleId' after.jsonl \| sort \| uniq -c` after step 4                                       |
-|  [02]   | Node kinds of one node             | `mcp__ast-grep__dump_syntax_tree` with `format: cst`                                                |
-|  [03]   | Node kinds past one node           | `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree on stderr                          |
-|  [04]   | Rule match on one snippet          | `mcp__ast-grep__test_match_code_rule` with severity omitted, the JSON `metaVariables`               |
-|  [05]   | Match call that fails              | `printf '%s' '<code>' \| ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?`, 0, 8, or 1 |
-|  [06]   | Sibling member of a package module | `search-code` over the installed package                                                            |
-|  [07]   | Binary behavior a rule depends on  | Rule over one file, the command, and the exit code                                                  |
-|  [08]   | Width of a util                    | `jq -c 'select(.ruleId == "<caller>")' after.jsonl` per rule calling it through `matches: <id>`     |
-|  [09]   | Files holding an old suppressed id | `rg -l -F 'ast-grep-ignore: <old>' .`, then `sd -F '<old>' '<survivor>' <files>` over them          |
-|  [10]   | Rules firing every prompt or never | `prompts_fired` per `category` of `observation` `category_fires`, against `prompts_judged`          |
-|  [11]   | Sites a rule missed                | `missed_sites` of `observation`, one row per site a rule missed                                     |
-|  [12]   | Width at a commit                  | `git show <commit>:<path> \| ast-grep scan --rule <rule> --stdin --json`, no `<utils>` util loads   |
+| [INDEX] | [QUESTION]                         | [SOURCE]                                                                                          |
+| :-----: | :--------------------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | Width of every round rule          | `jq -r '.ruleId' after.jsonl \| sort \| uniq -c` after step 4                                     |
+|  [02]   | Node kinds of one node             | `mcp__ast-grep__dump_syntax_tree` with `format: cst`                                              |
+|  [03]   | Node kinds past one node           | `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree on stderr                        |
+|  [04]   | Rule match on one snippet          | `mcp__ast-grep__test_match_code_rule` with severity omitted, the JSON `metaVariables`             |
+|  [05]   | Match call that fails              | `printf '%s' '<code>' \| ast-grep scan --inline-rules '<yaml>' --json --stdin`, exit 0, 8, or 1   |
+|  [06]   | Sibling member of a package module | `search-code` over the installed package                                                          |
+|  [07]   | Binary behavior a rule depends on  | Rule over one file, the command, and the exit code                                                |
+|  [08]   | Width of a util                    | `jq -c 'select(.ruleId == "<caller>")' after.jsonl` per rule calling it through `matches: <id>`   |
+|  [09]   | Files holding an old suppressed id | `rg -l -F 'ast-grep-ignore: <old>' .`, then `sd -F '<old>' '<survivor>' <files>` over them        |
+|  [10]   | Rules firing every prompt or never | `prompts_fired` per `category` of `observation` `category_fires`, against `prompts_judged`        |
+|  [11]   | Sites a rule missed                | `missed_sites` of `observation`, one row per site a rule missed                                   |
+|  [12]   | Width at a commit                  | `git show <commit>:<path> \| ast-grep scan --rule <rule> --stdin --json`, no `<utils>` util loads |
 
 Installed source or binary decides over a page.
 
@@ -72,7 +73,7 @@ Installed source or binary decides over a page.
 3. Rename each collapsed id in every suppression comment through the sources table
 4. Run `ast-grep scan --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > after.jsonl` once, `comm -3` over the before and after keys of `rule-building`, each gained hit a `missed_sites` row or a line of the reply
 5. Write `checker_owned` with `transition.sql` of `observation` per `missed_sites` row a rebuilt rule hits, `:actor` `agent`, `:actor_id` `<agent_id>`, `:evidence` `ast-grep:<id>`
-6. Apply each edit as one exact-string replacement
+6. Apply each edit as one `Edit` exact-string replacement
 7. Run `yamllint <files>` and `yamlfmt -lint <files>` over rebuilt rule and util files, fix each line
 8. Bound fix cycles at 3 per rule
 

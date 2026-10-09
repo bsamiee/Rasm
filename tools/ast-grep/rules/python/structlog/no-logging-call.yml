@@ -2,17 +2,21 @@
 id: no-logging-call
 language: python
 severity: error
-ignores:
-    - .claude/skills/use-blender/scripts/*.py
-    - .claude/skills/use-rhino/scripts/{canvas,document,file3dm,records}.py
-    - tools/interface/{roles,report,units,render,aliases,frame}.py
-    - tools/interface/rhino/{window,markup}.py
-    - tools/interface/blender/rows.py
-    - tools/interface/*/script/**
-    - tools/interface/blender/extension/**
-    - libs/python/rasm/**
-    - apps/*/blender/**
 utils:
+    rhino-module:
+        kind: dotted_name
+        has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^(Rhino|rhinoscriptsyntax|scriptcontext|Grasshopper2?|GH_IO|GrasshopperIO|ghpythonlib|RhinoCodePlatform|Eto|System|clr)$'}
+    host-module:
+        kind: module
+        any:
+            - has: {kind: comment, regex: '^#(!\s*python\s*3\s*$|\s*(r|venv|env):\s)'}
+            - has:
+                stopBy: end
+                any:
+                    - kind: import_statement
+                      has: {stopBy: end, any: [{matches: python-blender-module}, {matches: rhino-module}]}
+                    - kind: import_from_statement
+                      has: {field: module_name, any: [{matches: python-blender-module}, {matches: rhino-module}]}
     event-method: {regex: '^(log|debug|info|warning|warn|error|critical|fatal|exception)$'}
     logger-type:
         any:
@@ -135,6 +139,7 @@ rule:
           all:
             - has: {field: attribute, matches: event-method}
             - has: {field: object, matches: logger}
+    not: {inside: {stopBy: end, matches: host-module}}
 message: '`$USE` emits through standard library logging in place of a configured structlog logger'
 note: 'Emit structured events through `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)`, structlog renders every event with its bound context'
 labels: {USE: {style: primary, message: Event method}}
