@@ -1,7 +1,5 @@
 # --- [CODEX] ----------------------------------------------------------------------------
 
-model = "gpt-6-astra"
-model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 
@@ -121,9 +119,6 @@ source = "/Users/bardiasamiee/Developer/Rasm/plugins"
 [plugins."argus@rasm"]
 enabled = true
 mcp_servers.argus.default_tools_approval_mode = "approve"
-
-[plugins."unified-computer-use@openai-bundled"]
-enabled = false
 
 [plugins."playwright@rasm"]
 enabled = true

@@ -106,7 +106,7 @@ flowchart LR
 - `nx run <project>:install` installs built products, packing Rhino and Blender projects first
 - `nx run <project>:pack` builds a Rhino Yak package or one Blender extension ZIP under `.artifacts/<host>/<project>/`
 - `nx run rasm:upgrade` moves catalogs, Swift package locks, tool binaries, and application packages to their newest builds
-- `nx run rasm:clean` removes orphaned tool processes, files under `.artifacts/` and `.cache/`, prunes uv, pnpm, and Pulumi caches
+- `nx run rasm:clean` removes what tool runs leave behind
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
 - `nx run rasm:interface` applies each `tools/interface/<app>/apply.py`, `-- <app>` one, and prints every outcome as one JSON document

@@ -112,7 +112,7 @@ const stale = ({ processes, jobs }: Snapshot, roots: readonly string[], installe
             Array.flatMap((candidate) => ancestors(processes, candidate.pid)),
         ),
     ]);
-    const repository = (candidate: Process): boolean => Option.exists(executable(candidate), (exe) => under(exe, installed) || (under(exe, tools) && Option.exists(candidate.cwd, (cwd) => under(cwd, roots))));
+    const repository = (candidate: Process): boolean => Option.exists(executable(candidate), (exe) => under(exe, installed) || (under(exe, tools) && Option.exists(candidate.cwd, (cwd) => under(cwd, [...roots, ...tools]))));
     return pipe(
         running,
         Array.filter((candidate) => candidate.ppid === 1 && !HashMap.has(jobs, candidate.pid) && repository(candidate)),
@@ -229,17 +229,20 @@ const discard = (entries: readonly string[]): Effect.Effect<void, PlatformError.
 const cleanup = Effect.fn('cleanup')(function* () {
     const path = yield* Path.Path;
     const root = path.resolve(import.meta.dirname, '..', '..', '..');
-    const [worktrees, tools, agents, cache] = yield* Effect.all(
+    const [worktrees, managed, developer, agents, cache] = yield* Effect.all(
         [
             Effect.map(read(['git', '-C', root, 'worktree', 'list', '--porcelain'], [0]), (text) => lines(WORKTREE_ROW, 'path', text)),
             Effect.flatMap(read(['mise', 'ls', '--installed', '--json'], [0]), (text) => Effect.map(Schema.decodeUnknownEffect(Schema.fromJsonString(Installed))(text), (installs) => Array.map(Array.flatten(Record.values(installs)), Struct.get('install_path')))),
+            Effect.map(read(['xcode-select', '--print-path'], [0]), String.trim),
             Effect.flatMap(read(['mise', 'bootstrap', 'macos', 'launchd-agents', 'status', '--json'], [0]), (text) => Effect.map(Schema.decodeUnknownEffect(Schema.fromJsonString(Agents))(text), (status) => Array.map(status.launchd.agents, Struct.get('label')))),
             Effect.map(read(['uv', 'cache', 'dir'], [0]), String.trim),
         ],
         { concurrency: 'unbounded' },
     );
     const installed = Array.flatMap(worktrees, (worktree) => [path.join(worktree, 'node_modules'), path.join(worktree, '.venv'), path.join(worktree, '.cache')]);
+    const tools = Array.append(managed, developer);
     const commands: readonly (readonly Argv[])[] = [
+        [['mise', 'prune', '--yes']],
         [['uv', 'cache', 'prune']],
         [
             ['pnpm', 'store', 'prune'],

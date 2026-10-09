@@ -48,7 +48,8 @@ Policies read Bash and Monitor (git, stdin, wait, rewrite), Bash alone (script, 
 - Git policy checks each operand of `git reset` and `git checkout` through `Host` `exists`, an existing path passes `reset` and refuses `checkout`
 - Rewrite policy adds `-A` to an `sd` invocation lacking it when its find holds a line break, line mode never matches one
 - Rewrite policy adds `--` before an `sd` find when an operand opens with `-` outside the `flags` and `valued` options of its `invocation.ts` row
-- Rewrite policy drops an `npx`, `npm`, or `pnpm` launcher before `nx`
+- Rewrite policy prefixes `mise exec --` to `nx` by name or path or a `node` running `nx/bin/nx.js`, in place of an `npx`, `npm`, or `pnpm` launcher
+- Rewrite policy prefixes `mise exec --` to the top-level command of an inline body's `nx`, an `nx` under a `mise` call keeps its text
 - Rewrite policy adds `-bl` naming `<subcommand>-<tool_use_id>-<n>.binlog` under `.artifacts/dotnet/binlog/` to a `dotnet publish`, `pack`, or `msbuild` call passing none, help and version calls excepted
 - Rewrite policy splices top-level commands by the byte spans of their words, a command inside an inline body keeps its text
 - Queue policy wraps a command in `{ lockf 9 && {`, its lines, and `} 9>&-; } 9>>'<root>/<lock>'` once per lock the command needs

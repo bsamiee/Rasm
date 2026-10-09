@@ -59,6 +59,7 @@ const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
 const _DESCRIPTOR = /^\d+$/u;
 const _TRAILING = /\/$/u;
 const _BINLOG = /^(?:--?|\/)(?:bl|binarylogger)(?::|$)/iu;
+const _NX_ENTRY = /(?:^|\/)nx\/bin\/nx(?:\.js)?$/u;
 const _DOTNET: ReadonlyMap<string, string> = new Map(
     Object.entries({
         build: 'compiles outside the Nx task graph and its cache. Run nx run <project>:build, -- forwarding MSBuild switches and --skip-nx-cache forcing the run, then read the binary log under .artifacts/dotnet/binlog/ through the binlog MCP',
@@ -371,14 +372,27 @@ const _sd = (command: Command): readonly (Splice & { readonly option: '-A' | '--
                   ];
               });
 
-const _nx = (command: Command): readonly Splice[] =>
-    command.nested
-        ? []
-        : command.invocations.flatMap(([program], index) => {
-              const from = command.spans[offset(command, index)];
-              const to = command.spans[offset(command, index + 1)];
-              return ['npx', 'npm', 'pnpm'].includes(program) && command.invocations[index + 1]?.[0] === 'nx' && from !== undefined && to !== undefined ? [{ start: from.start, end: to.start, text: '' }] : [];
-          });
+const _managed = (command: Command): boolean => command.invocations.some(([program]) => program === 'mise');
+const _runsNx = (invocation: Invocation): boolean =>
+    invocation[0] === 'nx' ||
+    (invocation[0] === 'node' &&
+        operands(invocation)
+            .inputs.slice(0, 1)
+            .some((entry) => _NX_ENTRY.test(entry)));
+
+const _nx = (commands: readonly Command[]): readonly Splice[] => [
+    ...new Map(
+        commands.flatMap((command, position) => {
+            const root = commands.slice(0, position + 1).findLast((other) => !other.nested);
+            const index = command.invocations.findIndex(_runsNx);
+            const prior = command.invocations[index - 1]?.[0];
+            const launched = !command.nested && prior !== undefined && ['npx', 'npm', 'pnpm'].includes(prior);
+            const from = command.nested ? root?.spans[0] : command.spans[offset(command, launched ? index - 1 : index)];
+            const to = command.spans[offset(command, index)];
+            return index < 0 || _managed(command) || root === undefined || _managed(root) || from === undefined || to === undefined ? [] : [[from.start, { start: from.start, end: launched ? to.start : from.start, text: 'mise exec -- ' }] as const];
+        }),
+    ).values(),
+];
 
 const _builds = (command: Command): readonly Build[] =>
     command.nested
@@ -393,17 +407,17 @@ const _rewrite = (commands: readonly Command[], text: string, held: readonly str
     const actions = { '-A': 'Pass -A on a find holding a line break', '--': 'Pass -- before a find opening with -' } as const;
     const sd = commands.flatMap(_sd);
     const added = [...new Set(sd.map(({ option }) => option))];
-    const launchers = commands.flatMap(_nx);
+    const unmanaged = _nx(commands);
     const builds = root.kind === 'none' ? [] : commands.flatMap(_builds).map(({ at, subcommand }, index) => ({ at, path: `${root.value}/.artifacts/dotnet/binlog/${subcommand}-${id}-${index + 1}.binlog` }));
     const notes: readonly (readonly [notice: string, ...actions: string[]])[] = [
         ...(sd.length === 0 ? [] : [[`sd ran with ${added.join(' and ')} added`, ...added.map((option) => actions[option])] as const]),
-        ...(launchers.length === 0 ? [] : [['nx ran without its launcher', 'Call nx directly'] as const]),
+        ...(unmanaged.length === 0 ? [] : [['nx ran under mise exec', 'Call nx as mise exec -- nx'] as const]),
         ...(builds.length === 0 ? [] : [['dotnet ran with -bl added', `Diagnose a failed build from ${builds.map(({ path }) => path).join(' and ')} with the dotnet-msbuild-diagnostics skill`] as const]),
         ...(held.length === 0 ? [] : [[`command queued under lockf on ${held.map(basename).join(' and ')}`] as const]),
     ];
     const bytes = new TextEncoder().encode(text);
     const decoder = new TextDecoder();
-    const spliced = [...sd, ...launchers, ...builds.map(({ at, path }) => ({ start: at, end: at, text: ` -bl:${_quoted(path)}` }))]
+    const spliced = [...sd, ...unmanaged, ...builds.map(({ at, path }) => ({ start: at, end: at, text: ` -bl:${_quoted(path)}` }))]
         .toSorted((left, right) => left.start - right.start)
         .reduce<{ readonly at: number; readonly pieces: readonly string[] }>((head, { start, end, text: inserted }) => ({ at: end, pieces: [...head.pieces, decoder.decode(bytes.subarray(head.at, start)), inserted] }), { at: 0, pieces: [] });
     return notes.length === 0
