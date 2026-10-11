@@ -1,41 +1,13 @@
 using System.Numerics;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Collections;
-using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Rhino.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-public readonly partial struct HistoryCapacity : IMinMaxValue<HistoryCapacity> {
-    public static HistoryCapacity MinValue { get; } = new(1);
-    public static HistoryCapacity MaxValue { get; } = new(100);
-    public static HistoryCapacity Default { get; } = new(10);
-
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) < 0 || value.CompareTo(MaxValue._value) > 0 ? new InvalidRhinoValue() : null;
-}
-
-[ValueObject<int>(SkipIParsable = true, AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-public readonly partial struct MergeWindow : IMinMaxValue<MergeWindow> {
-    public static MergeWindow MinValue { get; } = new(0);
-    public static MergeWindow MaxValue { get; } = new(600);
-    public static MergeWindow Default { get; } = new(5);
-    public static Presentation<MergeWindow, int> Presentation { get; } = new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(DurationUnit.Second) };
-
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) < 0 || value.CompareTo(MaxValue._value) > 0 ? new InvalidRhinoValue() : null;
-}
-
-public sealed record HistoryLimits(HistoryCapacity Capacity, MergeWindow Window) {
-    public static HistoryLimits Default { get; } = new(HistoryCapacity.Default, MergeWindow.Default);
-}
+public sealed record HistoryLimits(int Capacity, Duration Window);
 
 public sealed record HistoryEntry(BigInteger Serial, ValueDiff Diff, Instant At);
 
@@ -60,7 +32,7 @@ public sealed record ValueHistory {
     public ValueHistory Committed(ValueDiff diff, Instant at, HistoryLimits limits) =>
         diff.Changes.IsEmpty ? this : Done.Head
             .Filter(head => Undone.IsEmpty && toHashSet(head.Diff.Changes.Keys) == toHashSet(diff.Changes.Keys)
-                && at >= head.At && at - head.At < Duration.FromSeconds(limits.Window))
+                && at >= head.At && at - head.At < limits.Window)
             .Match(
                 Some: head => new ValueHistory(
                     (head.Diff.Then(diff) switch {
@@ -149,8 +121,14 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
     public IO<ValueHistory> History => Scope.Histories.Map(histories => histories.Find(Id).IfNone(ValueHistory.Empty));
 
     // --- [WRITES]
-    public IO<ValueDiff> Commit(ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) => Written(incoming, locks).Bind(Recorded);
-    public IO<ValueDiff> Commit(ValueSet incoming, ValueSet from) => Recorded(from.Diff(incoming));
+    public IO<ValueDiff> Commit(ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) => Written(incoming, locks).Bind(Commit);
+
+    public IO<ValueDiff> Commit(ValueDiff diff) =>
+        from at in IO.lift(Clock.GetCurrentInstant)
+        from limits in Limits
+        from recorded in Swapped(history => history.Committed(diff, at, limits))
+        select diff;
+
     public IO<Unit> Clear =>
         from histories in Scope.Histories
         from cleared in IO.lift(() => histories.Remove(Id))
@@ -166,12 +144,6 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
                         from registered in when(recording && !diff.Changes.IsEmpty,
                             TableOps.Register(scope.Doc, new CustomUndo(state.Binding.Caption, state.Binding.Followed(diff.Inverse()), state.Binding.Followed(diff), scope.Site))).As()
                         select diff).Map(static committed => committed.Value));
-
-    private IO<ValueDiff> Recorded(ValueDiff diff) =>
-        from at in IO.lift(Clock.GetCurrentInstant)
-        from limits in Limits
-        from recorded in Swapped(history => history.Committed(diff, at, limits))
-        select diff;
 
     private IO<Unit> Followed(ValueDiff taken) =>
         from applied in Group.Apply(taken.After(), [])

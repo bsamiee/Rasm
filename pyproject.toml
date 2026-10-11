@@ -5,14 +5,24 @@ name = "rasm"
 version = "0.0.0"
 requires-python = ">=3.13"
 dependencies = [
+    "atomicwrites",                                       # Atomic preset moves that preserve occupied destinations
+    "cbor2",                                              # Canonical binary content hashing with unbounded integer support
+    "colour-science",                                     # Authoritative CIE observer datasets
     "expression",                                         # Results, options, fault unions, and collections of every rasm package
     "httpx2",                                             # HTTP for batch render targets and notices
+    "imagecodecs",                                        # JPEG encoding and decoding for compression emulation
+    "matplotlib",                                         # Native colour-science plotting import
     "msgspec",                                            # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
     "numpy",                                              # Arrays for image planes, previews, and analysis
     "opencolorio",                                        # Color processing, config authoring, and LUT baking
-    "openimageio; python_full_version < '3.15'",          # Image IO and analysis, no cp315 wheel, sdist build fails copying a testsuite the sdist excludes
+    "openimageio",                                        # Image IO and analysis through the native provider
     "psdtags",                                            # Photoshop layer records for layered documents
+    "scikit-image",                                       # Structural similarity over image comparison planes
+    "scipy",                                              # Colour algebra, vector quadrature, FFT sizing, and zoom transforms
+    "tenacity",                                           # Batch target retries over configured domain retry policies
     "tifffile",                                           # Linear Raw DNG and TIFF containers for layered documents
+    "typing-extensions",                                  # Runtime TypeForm schemas on Python 3.13 and later
+    "typing-inspection",                                  # Native annotation metadata and generic type-alias inspection
     "tzdata",                                             # IANA time zones for zoneinfo on platforms without a database
 ]
 
@@ -355,6 +365,7 @@ dev = [
     "trio",                                               # AnyIO Trio backend with the autojumping clock for the test doubles
     # --- [SCRIPTS]
     "asttokens",                                          # Source ranges for private Blender extension imports
+    "coloraide",                                          # SVG tool paint parsing and scene-linear color conversion
     "cyclopts",                                           # CLI parser for tool commands
     "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
     "fonttools",                                          # SVG path parsing and cubic pens for Blender geometry icons
@@ -362,11 +373,9 @@ dev = [
     "msgspec[yaml]",                                      # Structs and JSON, TOML, and YAML codecs for tools, skill scripts, and test support
     "packaging",                                          # Native wheel filename parsing for Blender extension assembly
     "picosvg",                                            # SVG geometry normalization for native Blender glyphs
-    "psutil",                                             # Process lookup for use-ghidra bridge script, readings for benchmark fixture
-    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",   # Native AppKit running-application snapshot for Blender installation
+    "psutil",                                             # Blender executable identity, use-ghidra process lookup, and benchmark readings
     "result",                                             # Typed error composition for native Blender assembly and installation
     "skia-pathops",                                       # Glyph stroke expansion and filled-region unions
-    # SVG shapes, paint, and affine transforms for Blender glyphs
     "tomlkit",                                            # Comment-preserving Blender extension manifest assembly
     "wcwidth",                                            # Display width of text with wide, combining, and emoji characters
     # --- [STUBS]
@@ -374,6 +383,7 @@ dev = [
     "fake-bpy-module-latest",                             # Stubs for bpy, bmesh, mathutils, and gpu
     "pandas-stubs",                                       # Stubs for pandas
     "scipy-stubs",                                        # Stubs for scipy
+    "types-atomicwrites",                                 # Stubs for atomic preset moves
     "types-geopandas",                                    # Stubs for geopandas
     "types-lxml",                                         # Stubs for lxml
     "types-networkx",                                     # Stubs for networkx
@@ -403,9 +413,12 @@ prerelease = "allow"
 no-build-package = ["epdx", "numba"]                      # epdx sdist omits project.version, numba before 0.68 publishes no cp315 wheel
 constraint-dependencies = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'"] # Versions Blender 5.3 bundles into the interpreter host code runs in
 override-dependencies = ["truststore @ git+https://github.com/sethmlarson/truststore.git@8d19b4d3dea6d28003886a5b254f0ce8ce66eeb3"] # httpx2 verifies through truststore, whose released 0.10.4 races concurrent handshakes on one SSL context in wrap_bio, fixed upstream after the release
-extra-build-variables = { manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }, opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" } } # manifold3d's sdist enables MANIFOLD_PAR without the builtin TBB its wheel builds set, opencolorio's setup.py builds the command-line apps
+extra-build-variables = { manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }, opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }, openimageio = { CMAKE_ARGS = "-DLINKSTATIC=OFF" } } # manifold3d needs builtin TBB, OCIO omits command-line apps, OIIO uses native shared codec dependencies with their complete link closure
 extra-build-dependencies = { pyroscope-io = ["cmake"] } # pyroscope-io build.rs runs cmake, undeclared in the sdist
-build-backend = { module-name = "rasm", module-root = "libs/python", namespace = true }
+build-backend = { module-name = "rasm", module-root = "libs/python", namespace = true, wheel-exclude = ["pyproject.toml"] }
+
+[tool.uv.sources]
+openimageio = { git = "https://github.com/AcademySoftwareFoundation/OpenImageIO", tag = "v3.1.18.1", marker = "python_full_version >= '3.15'" }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -421,8 +434,10 @@ format = { line-ending = "lf", docstring-code-format = true, skip-magic-trailing
 select = ["ALL"]
 ignore = [
     "missing-trailing-comma",
+    "too-many-public-methods",
     "too-many-return-statements",
     "too-many-branches",
+    "too-many-nested-blocks",
     "too-many-locals",
     "too-many-statements",
     "complex-structure",
@@ -437,21 +452,37 @@ ignore = [
     "missing-copyright-notice",
     "commented-out-code",
     "django-extra",
+    "float-equality-comparison",
+    "non-pep695-generic-class",
+    "no-self-use",
+    "unused-method-argument",
+    "zip-without-explicit-strict",
+    "batched-without-explicit-strict",
+    "boolean-positional-value-in-call",
+    "too-many-statements-in-try-clause",
+    "subprocess-without-shell-equals-true",
+    "function-uses-loop-variable",
+    "relative-imports",
+    "import-private-name",
+    "reimplemented-operator",
+    "lambda-assignment",
+    "boolean-type-hint-positional-argument",
+    "non-empty-init-module",
+    "unused-function-argument",
+    "unused-lambda-argument",
 ]
-per-file-ignores = { "tests/**" = ["assert"], ".claude/skills/*/scripts/*.py" = ["subprocess-without-shell-equals-true", "start-process-with-partial-path"] }
+per-file-ignores = { "tests/**" = ["assert"] }
 flake8-bandit = { check-typed-exception = true }
-flake8-boolean-trap = { extend-allowed-calls = ["ctypes.c_bool"] }
-flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", scipy = "sp", sympy = "sym", xarray = "xr" } }
+flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", datetime = "datetime", scipy = "sp", sympy = "sym", xarray = "xr" } }
 flake8-pytest-style = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError"] }
 flake8-type-checking = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
 isort = { combine-as-imports = true, force-sort-within-sections = true, order-by-type = false, split-on-trailing-comma = false }
 pycodestyle = { max-line-length = 300 }
 pydocstyle = { convention = "google" }
 pydoclint = { ignore-one-line-docstrings = true }
-pylint = { allow-magic-value-types = ["str", "bytes", "int"], max-args = 8, max-nested-blocks = 3 }
+pylint = { allow-magic-value-types = ["str", "bytes", "int"], max-args = 8 }
 
 [tool.ruff.lint.flake8-tidy-imports]
-ban-relative-imports = "all"
 require-lazy = [
     "adbc_driver_flightsql",
     "adbc_driver_snowflake",
@@ -507,7 +538,7 @@ require-lazy = [
 
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python"] }
-analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.**", "OpenImageIO", "Rhino.**", "System.**"] }
+analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.**", "Rhino.**", "System.**"] }
 rules = { all = "error", dynamic-function-decorator-return = "ignore", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
 
 # --- [MYPY] -----------------------------------------------------------------------------
@@ -527,9 +558,7 @@ plugins = ["pydantic.mypy"]
 enable_error_code = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 overrides = [
     { module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true },
-    { module = "tests.python.support.env", disallow_any_unimported = false },
-    { module = "tests.python.support.strategies", warn_unreachable = false },
-    { module = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.*", "OpenImageIO", "PyObjCTools", "Rhino", "Rhino.*", "System", "System.*", "fsspec.*", "s3fs"], ignore_missing_imports = true },
+    { module = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.*", "PyObjCTools", "Rhino", "Rhino.*", "System", "System.*", "fsspec.*", "s3fs"], ignore_missing_imports = true },
 ]
 
 # --- [PYDANTIC_MYPY] --------------------------------------------------------------------

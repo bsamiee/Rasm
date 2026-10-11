@@ -36,21 +36,24 @@ public sealed record MappingDecomposition(Vector3d Position, Vector3d Scale, Vec
 public static partial class Mappings {
     // --- [MAPPINGS]
     public static IO<TValue> WithMapping<TValue>(MappingPrimitive primitive, Func<TextureMapping, IO<TValue>> body) =>
-        use(IO.lift(() => primitive.Switch(
+        DisposalOps.Within(
+            () => primitive.Switch(
             surfaceParameter: static _ => Missing.Unless(TextureMapping.CreateSurfaceParameterMapping(), nameof(TextureMapping.CreateSurfaceParameterMapping)),
             planar: static planar => Missing.Unless(TextureMapping.CreatePlaneMapping(planar.Plane, planar.Dx, planar.Dy, planar.Dz, planar.Capped), nameof(TextureMapping.CreatePlaneMapping)),
             ocs: static ocs => Missing.Unless(TextureMapping.CreateOcsMapping(ocs.Plane), nameof(TextureMapping.CreateOcsMapping)),
             cylindrical: static cylindrical => Missing.Unless(TextureMapping.CreateCylinderMapping(cylindrical.Cylinder, cylindrical.Capped), nameof(TextureMapping.CreateCylinderMapping)),
             spherical: static spherical => Missing.Unless(TextureMapping.CreateSphereMapping(spherical.Sphere), nameof(TextureMapping.CreateSphereMapping)),
             box: static box => Missing.Unless(TextureMapping.CreateBoxMapping(box.Plane, box.Dx, box.Dy, box.Dz, box.Capped), nameof(TextureMapping.CreateBoxMapping)),
-            customMesh: static custom => Missing.Unless(TextureMapping.CreateCustomMeshMapping(custom.Mesh), nameof(TextureMapping.CreateCustomMeshMapping)))))
-        .Bind(body).Bracket();
+            customMesh: static custom => Missing.Unless(TextureMapping.CreateCustomMeshMapping(custom.Mesh), nameof(TextureMapping.CreateCustomMeshMapping))),
+            answer => IO.lift(answer).Bind(body),
+            static answer => DisposalOps.Release(answer.ToSeq()));
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     public static partial void ApplySettings([MappingTarget] TextureMapping mapping, MappingSettings settings);
 
     public static IO<TValue> WithSnapshot<TValue>(TextureMapping mapping, Func<MappingState, IO<TValue>> body) =>
-        (from kind in IO.lift(() => mapping.MappingType)
+        DisposalOps.Within<IDisposable, TValue>(retain =>
+         from kind in IO.lift(() => mapping.MappingType)
          from primitive in kind switch {
              TextureMappingType.SurfaceParameters => IO.pure(Some<MappingPrimitive>(new MappingPrimitive.SurfaceParameter())),
              TextureMappingType.PlaneMapping => IO.lift(() => Refused.Unless(mapping.TryGetMappingPlane(out Plane plane, out Interval dx, out Interval dy, out Interval dz, out bool capped), Some<MappingPrimitive>(new MappingPrimitive.Planar(plane, dx, dy, dz, capped)), nameof(TextureMapping.TryGetMappingPlane))),
@@ -59,12 +62,12 @@ public static partial class Mappings {
              TextureMappingType.SphereMapping => IO.lift(() => Refused.Unless(mapping.TryGetMappingSphere(out Sphere sphere), Some<MappingPrimitive>(new MappingPrimitive.Spherical(sphere)), nameof(TextureMapping.TryGetMappingSphere))),
              TextureMappingType.BoxMapping => IO.lift(() => Refused.Unless(mapping.TryGetMappingBox(out Plane plane, out Interval dx, out Interval dy, out Interval dz, out bool capped), Some<MappingPrimitive>(new MappingPrimitive.Box(plane, dx, dy, dz, capped)), nameof(TextureMapping.TryGetMappingBox))),
              TextureMappingType.MeshMappingPrimitive =>
-                 from mesh in use(Copies.Acquire(() => Refused.Unless(mapping.TryGetMappingMesh(out Mesh copy), copy, nameof(TextureMapping.TryGetMappingMesh)), nameof(TextureMapping.TryGetMappingMesh)))
+                 from mesh in Copies.Acquire(() => Refused.Unless(mapping.TryGetMappingMesh(out Mesh copy), copy, nameof(TextureMapping.TryGetMappingMesh)), nameof(TextureMapping.TryGetMappingMesh), retain)
                  select Some<MappingPrimitive>(new MappingPrimitive.CustomMesh(mesh)),
              TextureMappingType.None or TextureMappingType.SurfaceMappingPrimitive or TextureMappingType.BrepMappingPrimitive or TextureMappingType.FalseColors => IO.pure(Option<MappingPrimitive>.None),
          }
          from value in body(new MappingState(Conversions.Present(mapping.Id), primitive.ToEither(kind), ToState(mapping)))
-         select value).Bracket();
+         select value, DisposalOps.Release);
 
     public static IO<Seq<(Point3d Texture, int Side)>> Evaluate(TextureMapping mapping, Seq<(Point3d Point, Vector3d Normal)> samples, Transform objectTransform) =>
         from moved in IO.lift(() => !objectTransform.IsIdentity && objectTransform.TryGetInverse(out Transform inverse) ? Some((Points: inverse, Normals: objectTransform.Transpose())) : None)
@@ -86,15 +89,17 @@ public static partial class Mappings {
 
     // --- [CHANNELS]
     public static IO<Option<TValue>> WithChannel<TValue>(RhinoObject rhinoObject, int channel, Func<MappingEntry, IO<TValue>> body) =>
-        (from found in use(Entry(rhinoObject, channel), static found => Released(found.ToSeq()))
-         from value in found.Traverse(body).As()
-         select value).Bracket();
+        DisposalOps.Within<IDisposable, Option<TValue>>(
+            retain => Entry(rhinoObject, channel, retain).Bind(found => found.Traverse(body).As()),
+            DisposalOps.Release);
 
     public static IO<TValue> WithChannels<TValue>(RhinoObject rhinoObject, Func<Seq<MappingEntry>, IO<TValue>> body) =>
-        (from channels in IO.lift(() => Conversions.Rows(rhinoObject.GetTextureChannels()))
-         from held in use(DisposalOps.AcquireAll(channels.Map(channel => Entry(rhinoObject, channel).Bind(static found => IO.lift(found.ToFin(new Missing(nameof(RhinoObject.GetTextureMapping)))))), Released), Released)
+        DisposalOps.Within<IDisposable, TValue>(retain =>
+         from channels in IO.lift(() => Conversions.Rows(rhinoObject.GetTextureChannels()))
+         from held in channels.TraverseM(channel => Entry(rhinoObject, channel, retain)
+             .Bind(static found => IO.lift(found.ToFin(new Missing(nameof(RhinoObject.GetTextureMapping)))))).As()
          from value in body(held)
-         select value).Bracket();
+         select value, DisposalOps.Release);
 
     public static IO<Unit> Assign(RhinoObject rhinoObject, int channel, Option<TextureMapping> mapping, Option<Transform> objectTransform = default) =>
         from accepted in IO.lift(() => mapping.Traverse(held => OcsChannelMismatch.Unless(held.MappingType, channel)).As())
@@ -104,10 +109,12 @@ public static partial class Mappings {
             None: () => rhinoObject.SetTextureMapping(channel, held)) != 0, nameof(RhinoObject.SetTextureMapping)))
         select assigned;
 
-    private static IO<Option<MappingEntry>> Entry(RhinoObject rhinoObject, int channel) =>
-        IO.lift(() => Optional(rhinoObject.GetTextureMapping(channel, out Transform objectTransform)).Map(mapping => new MappingEntry(channel, mapping, objectTransform)));
-
-    private static IO<Unit> Released(Seq<MappingEntry> held) => DisposalOps.Release(held.Map(static entry => entry.Mapping));
+    private static IO<Option<MappingEntry>> Entry(RhinoObject rhinoObject, int channel, Action<IDisposable> retain) =>
+        Copies.Owned(
+            () => (Mapping: rhinoObject.GetTextureMapping(channel, out Transform objectTransform), ObjectTransform: objectTransform),
+            Fin<Option<MappingEntry>> (answer) => Optional(answer.Mapping).Map(mapping => new MappingEntry(channel, mapping, answer.ObjectTransform)),
+            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer.Mapping })),
+            retain);
 
     // --- [COORDINATES]
     public static IO<Option<Either<Seq<Point2d>, Seq<Point3d>>>> Coordinates(Mesh mesh, Guid mappingId) =>

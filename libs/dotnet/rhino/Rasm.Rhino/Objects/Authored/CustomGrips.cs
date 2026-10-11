@@ -16,7 +16,7 @@ public sealed record GripPoint(
     Seq<int> CurveCVIndices = default,
     Seq<IndexPair> SurfaceCVIndices = default);
 
-[Union<bool, NurbsCurve, NurbsSurface>(T1Name = "FreePoints", T2Name = "CurveControlPoint", T3Name = "SurfaceControlPoint", MapMethods = SwitchMapMethodsGeneration.None)]
+[Union<bool, NurbsCurve, NurbsSurface>(T1Name = "FreePoints", T2Name = "CurveControlPoint", T3Name = "SurfaceControlPoint", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class GripControl;
 
 [Union<bool, Guid, EditPoints>(T1Name = "ControlPoints", T2Name = "Registered", T3IsStateless = true, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -47,7 +47,7 @@ internal sealed class DefinedGripObject : CustomGripObject {
     internal DefinedGripObject(GripPoint point) {
         Point = point;
         weight = Conversions.Unset(point.Weight);
-        GripMapper.Initialize(point.Location, this);
+        _ = DisposalOps.OnFailure(IO.lift(() => GripMapper.Initialize(point.Location, this)), IO.lift(Dispose)).Run();
     }
 
     internal GripPoint Point { get; }
@@ -93,13 +93,11 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
         curveControlPoint: static _ => ObjectGripsType.CurveControlPoint,
         surfaceControlPoint: static _ => ObjectGripsType.SurfaceControlPoint)) {
         this.control = control;
-        grips = toSeq(points).Map(static point => new DefinedGripObject(point)).Strict();
-        _ = grips.Iter(AddGrip);
+        grips = DisposalOps.OnFailure(
+            toSeq(points).TraverseM(point => DisposalOps.Acquire(
+                IO.lift(() => new DefinedGripObject(point)), static made => IO.lift(made.Dispose), AddGrip)).As(),
+            IO.lift(Dispose)).Run();
     }
-
-    // --- [OWNERSHIP]
-    internal IO<Unit> AttachTo(RhinoObject owner) =>
-        DisposalOps.OnFailure(IO.lift(() => Refused.Unless(owner.EnableCustomGrips(this), nameof(RhinoObject.EnableCustomGrips))), IO.lift(Dispose));
 
     // --- [CALLBACKS]
     protected abstract Fin<GeometryBase> Rebuild(Seq<GripPoint> grips);
@@ -107,7 +105,7 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
     protected sealed override GeometryBase? NewGeometry() =>
         Callbacks.Answer(
             IO.lift(() => Rebuild(grips.Map(static grip => grip.Point with { Location = grip.CurrentLocation, Weight = Conversions.Present(grip.Weight) }).Strict()))
-                .Map(static GeometryBase? (geometry) => geometry),
+                .Map(static GeometryBase? (geometry) => geometry).Uninterruptible(),
             static () => null,
             CallbackSite.Of(this));
 
@@ -134,11 +132,12 @@ internal static partial class GripMapper {
 public static class CustomGrips {
     // --- [REGISTRATION]
     public static IO<Unit> Register<TGrips>(Func<RhinoObject, Option<TGrips>> grips, IPlugInSink sink) where TGrips : DefinedObjectGrips {
-        TurnOnGripsEventHandler handler = owner => _ = Callbacks.Answer(
-            from candidate in IO.lift(() => grips(owner))
-            from attached in candidate.Match(Some: built => built.AttachTo(owner), None: static () => IO.pure(unit))
-            select attached,
-            static () => unit,
+        TurnOnGripsEventHandler handler = owner => Callbacks.Run(
+            (from candidate in IO.lift(() => grips(owner))
+             from attached in candidate.Match(
+                 Some: built => DisposalOps.OnFailure(IO.lift(() => Refused.Unless(owner.EnableCustomGrips(built), nameof(RhinoObject.EnableCustomGrips))), IO.lift(built.Dispose)),
+                 None: static () => IO.pure(unit))
+             select attached).Uninterruptible(),
             new CallbackSite(sink, typeof(TGrips), nameof(CustomObjectGrips.RegisterGripsEnabler)));
         return IO.lift(() => CustomObjectGrips.RegisterGripsEnabler(handler, typeof(TGrips)));
     }
@@ -147,9 +146,9 @@ public static class CustomGrips {
     public static IO<Unit> EnableGrips(RhinoObject owner, GripKind kind) =>
         IO.lift(() => kind.Switch(
             owner,
-            controlPoints: static (target, enabled) => {
+            controlPoints: static Fin<Unit> (target, enabled) => {
                 target.GripsOn = enabled;
-                return Refused.Unless(target.GripsOn == enabled, nameof(RhinoObject.GripsOn));
+                return unit;
             },
             registered: static (target, id) => Refused.Unless(target.EnableGrips(id), nameof(RhinoObject.EnableGrips)),
             editPoints: static (target, _) => Refused.Unless(target.EnableEditPointGrips(), nameof(RhinoObject.EnableEditPointGrips))));

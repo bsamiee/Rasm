@@ -6,14 +6,13 @@ namespace Rasm.Rhino.Document.Tables;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     MissingComponent = 1,
-    NonUniqueName,
-    UndoRecordOpen,
-    InvalidLayerSegment,
-    MissingLayerPath,
-    LayerCycle,
-    ForeignContent,
-    LayerPathTaken,
-    CurrentLayerPruned,
+    NonUniqueName = 2,
+    UndoRecordOpen = 3,
+    InvalidLayerSegment = 4,
+    MissingLayerPath = 5,
+    LayerCycle = 6,
+    ForeignContent = 7,
+    LayerPathTaken = 8,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -44,5 +43,3 @@ public sealed record ForeignContent(Guid Content) : Expected("Render content {Co
 }
 
 public sealed record LayerPathTaken(string Path, Guid Occupant) : Expected("Layer path {Path} is held by layer {Occupant}", (int)Codes.LayerPathTaken);
-
-public sealed record CurrentLayerPruned(Guid Layer) : Expected("Pruning deletes current layer {Layer} and no current layer is named", (int)Codes.CurrentLayerPruned);

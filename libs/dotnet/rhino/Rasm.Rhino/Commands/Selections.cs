@@ -23,7 +23,8 @@ public sealed record PickRequest(ViewportTarget Viewport, PickRegion Region, Pic
 public static class Selections {
     // --- [FRUSTUM]
     public static IO<T> Frustum<T>(RhinoDoc doc, PickRequest request, Func<PickContext, IO<T>> body) =>
-        (from row in use(Viewports.ResolveViewport(doc, request.Viewport))
+        DisposalOps.Within<IDisposable, T>(retain =>
+         from row in Viewports.ResolveViewport(doc, request.Viewport, retain)
          from picked in (from context in use(static () => new PickContext())
                          from answer in Activated(row,
                              from frame in IO.lift(() => request.Region.Switch(
@@ -38,7 +39,7 @@ public static class Selections {
                              from value in body(context)
                              select value)
                          select answer).Bracket()
-         select picked).Bracket();
+         select picked, DisposalOps.Release);
 
     private static IO<T> Activated<T>(ViewportRef row, IO<T> body) =>
         row.View is RhinoPageView page

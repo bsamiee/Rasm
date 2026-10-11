@@ -1,3 +1,4 @@
+using PeterO.Numbers;
 using SixLabors.ImageSharp.Metadata.Profiles.Cicp;
 using TinyEXR;
 
@@ -6,11 +7,12 @@ namespace Rasm.Imaging.Pixels;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     InvalidPixelValue = 1,
-    CodecRefused,
-    LayerAbsent,
-    PngRefused,
-    CicpUnsupported,
-    UnequalFrames,
+    CodecRefused = 2,
+    LayerAbsent = 3,
+    PngRefused = 4,
+    CicpUnsupported = 5,
+    UnequalFrames = 6,
+    KernelSizeUnsupported = 7,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -39,3 +41,5 @@ public sealed record CicpUnsupported(CicpColorPrimaries Primaries, CicpTransferC
     : Expected("PNG cICP chunk states an encoding Rasm holds no gamut and transfer for", (int)Codes.CicpUnsupported);
 
 public sealed record UnequalFrames(PixelExtent Reference, PixelExtent Test) : Expected("frames of unequal size", (int)Codes.UnequalFrames);
+
+public sealed record KernelSizeUnsupported(ERational Radius) : Expected("native kernel size is not representable", (int)Codes.KernelSizeUnsupported);

@@ -5,8 +5,6 @@ severity: error
 utils:
     text-type:
         regex: '^(var|string|((global::)?System\.)?String|((global::)?System\.Text\.)?StringBuilder|((global::)?System\.)?(ReadOnly)?Span\s*<\s*char\s*>)\??$'
-    function-owner:
-        kind: 'method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, operator_declaration'
     declared-receiver:
         kind: identifier
         pattern: $RECEIVER
@@ -65,9 +63,7 @@ utils:
                 all:
                     - has: {field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|ToUpper|ToLower|Trim|AsSpan|AsMemory)$'}
                     - has: {field: expression, matches: name-value}
-            - kind: identifier
-              pattern: $RELAY
-              inside: {matches: function-owner, stopBy: end, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {all: [{not: {kind: identifier}}, {matches: name-value}]}}]}}
+            - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: name-value}}}}
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: identifier, pattern: $HELPER}

@@ -5,7 +5,7 @@ namespace Rasm.Rhino.Viewport.Publishing;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     HeadlessCapture = 1,
-    PublishRefused,
+    PublishRefused = 2,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

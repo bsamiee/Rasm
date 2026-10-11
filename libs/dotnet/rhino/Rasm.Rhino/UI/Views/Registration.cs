@@ -1,5 +1,6 @@
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Rows;
@@ -28,7 +29,7 @@ public abstract partial record ContentScope {
 
 public sealed record ContentMenuRow(
     string Caption,
-    IGlyph Icon,
+    (IGlyph Glyph, int Master) Icon,
     ContentScope Scope,
     LanguageExt.HashSet<RenderContentMenu.Context> Contexts,
     RenderContentMenu.SeparatorStyle Separator,
@@ -45,15 +46,23 @@ public static class ViewRegistration {
         IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? new UnsupportedView(view, Some(error)) : error);
 
     // --- [PANELS]
-    public static readonly Func<PlugIn, IPlugInSink, IO<IDisposable>> RegisterPanels =
-        static (plugIn, sink) => Each<View.Panel>((IPlugInViews)sink, row => Hosted(row.Identity, () => Panels.RegisterPanel(
-                plugIn,
-                row.Identity,
-                RowText.Localize(row.Caption, table: Some<object>(sink)).Local,
-                plugIn.Assembly,
-                Conversions.Unset(row.Icon.Map(static glyph => Icons.ResourceName(glyph, IconSlot.PanelTab.Master))),
-                row.Kind.IfNone(PanelType.PerDoc))))
-            .Map(static _ => Thinktecture.Empty.Disposable());
+    public static readonly Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> RegisterPanels =
+        static (plugIn, sink, retain) => {
+            Func<View.Panel, IO<Option<System.Drawing.Icon>>> image = row =>
+                from size in IconSlot.PanelTab.Size()
+                from pixels in HostTheme.Device(new(size, size))
+                from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(sink, glyph.Glyph, glyph.Master, pixels)).As()
+                select icon;
+            IO<Unit> refresh = Each<View.Panel>((IPlugInViews)sink, row => image(row)
+                .Bind(icon => IO.lift(() => icon.Iter(held => Panels.ChangePanelIcon(row.Identity, held)))).Map(static _ => unit));
+            return DisposalOps.Acquire(owned =>
+                from registered in Each<View.Panel>((IPlugInViews)sink, row => image(row).Bind(icon => Hosted(row.Identity, () => Panels.RegisterPanel(
+                    plugIn, row.Identity, RowText.Localize(row.Caption, table: Some<object>(sink)).Local,
+                    icon.ValueUnsafe(), row.Kind.IfNone(PanelType.PerDoc)))))
+                from subscriptions in HostTheme.Changed.Cons(Appearance.TabIconSize.Changed.ToSeq())
+                    .TraverseM(signal => signal.Inline(_ => refresh, sink, owned)).As()
+                select unit, (_, release) => retain(release));
+        };
 
     // --- [PAGES]
     public static IO<Unit> OptionsDialogPages(IPlugInViews plugIn, ICollection<OptionsDialogPage> pages) =>
@@ -66,13 +75,13 @@ public static class ViewRegistration {
         Tree(plugIn, row, static held => held.SubPages, Some(document));
 
     public static IO<Unit> ObjectPropertiesPages(IPlugInViews plugIn, ObjectPropertiesPageCollection collection) =>
-        Each<View.PropertiesPage>(plugIn, row => ViewOps.Construct<DefinedPropertiesPage>(row).Bind(page => IO.lift(() => collection.Add(page))));
+        Each<View.PropertiesPage>(plugIn, row => IO.lift(() => (DefinedPropertiesPage)Activator.CreateInstance(row.Identity)!).Bind(page => IO.lift(() => collection.Add(page))));
 
     private static IO<Option<OptionsDialogPage>> Tree<TCase>(IPlugInViews plugIn, TCase row, Func<TCase, Seq<TCase>> subPages, Option<RhinoDoc> document) where TCase : View =>
         from scope in RowScope.Open(plugIn, document, new CommitMode.Immediate())
         from shown in RowRules.Holds(row.Visible, scope)
         from page in shown
-            ? from built in ViewOps.Construct<DefinedOptionsPage>(row)
+            ? from built in IO.lift(() => (DefinedOptionsPage)Activator.CreateInstance(row.Identity)!)
               from _ in document.TraverseM(built.ForDocument).As()
               from children in subPages(row).TraverseM(sub => Tree(plugIn, sub, subPages, document)).As()
               from __ in IO.lift(() => built.Children.AddRange(children.Somes()))
@@ -83,39 +92,43 @@ public static class ViewRegistration {
     // --- [RENDER_WINDOW]
     public static IO<Unit> RegisterRenderTabs<TPlugIn>(TPlugIn plugIn, RenderTabs tabs) where TPlugIn : PlugIn, IPlugInViews =>
         Each<View.Tab>(plugIn, row =>
-            from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(plugIn, glyph, IconSlot.RenderTab)).As()
+            from size in IconSlot.RenderTab.Size()
+            from pixels in HostTheme.Device(new(size, size))
+            from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(plugIn, glyph.Glyph, glyph.Master, pixels)).As()
             from registered in Hosted(row.Identity, () => tabs.RegisterTab(
                 plugIn, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, table: Some<object>(plugIn)).Local, icon.ValueUnsafe()))
             select registered);
 
     public static IO<Unit> RegisterRenderPanels<TPlugIn>(TPlugIn plugIn, RenderPanels panels) where TPlugIn : PlugIn, IPlugInViews =>
         Each<View.Pane>(plugIn, row => Hosted(row.Identity, () => panels.RegisterPanel(
-            plugIn, RenderPanelType.RenderWindow, row.Identity, plugIn.Id, RowText.Localize(row.Caption, table: Some<object>(plugIn)).Local, row.Scope.AlwaysShow, row.InitialShow)));
+            plugIn, RenderPanelType.RenderWindow, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, table: Some<object>(plugIn)).Local,
+            row.Scope.AlwaysShow, row.InitialShow, row.Position)));
 
     // --- [CUSTOM_SECTIONS]
     public static IO<Unit> CustomSections(IPlugInViews plugIn, Seq<View.Section> rows, ICollection<ICollapsibleSection> sections) =>
         Documents.WithDocument(new DocumentSource.Active(), document =>
             from scope in RowScope.Open(plugIn, Some(document), new CommitMode.Immediate())
-            from _ in Callbacks.Each(rows.Map(row => SectionHolder.Section(plugIn, row, scope).Bind(section => IO.lift(() => sections.Add(section)))))
+            from _ in Callbacks.Each(rows.Map(row => SectionHolder.Section(plugIn, row, scope, sections.Add).Map(static _ => unit)))
             select unit);
 
     // --- [CONTENT_SECTIONS]
-    public static readonly Func<PlugIn, IPlugInSink, IO<IDisposable>> AddCustomUISections =
-        static (_, sink) => EventKind.OnAddCustomUISections.Inline(
+    public static readonly Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> AddCustomUISections =
+        static (_, sink, retain) => EventKind.OnAddCustomUISections.Inline(
             args => Each<View.Section>((IPlugInViews)sink, row => when(
                 row.Identity.IsSubclassOf(typeof(DefinedContentSection)),
-                from section in ViewOps.Construct<DefinedContentSection>(row)
-                from added in DisposalOps.OnFailure(IO.lift(() => args.ExpandableContentUI.AddSection(section)), IO.lift(section.Dispose))
-                select added).As()),
-            sink);
+                DisposalOps.Acquire(IO.lift(() => (DefinedContentSection)Activator.CreateInstance(row.Identity)!),
+                    static section => IO.lift(section.Dispose), args.ExpandableContentUI.AddSection).Map(static _ => unit)).As()),
+            sink, retain);
 
     public static EntryKey FieldKey(RenderContent content, string field) =>
         EntryKey.Named(EntryKey.TypeOwner(content.TypeId), field);
 
     // --- [CONTENT_MENUS]
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> AddMenuItem(Seq<ContentMenuRow> rows) =>
-        (plugIn, sink) => Callbacks.Each(rows.Map((row, order) =>
-                from icon in Icons.DrawingIcon(sink, row.Icon, IconSlot.ContentMenu)
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> AddMenuItem(Seq<ContentMenuRow> rows) =>
+        (plugIn, sink, _) => Callbacks.Each(rows.Map((row, order) =>
+                from size in IconSlot.ContentMenu.Size()
+                from pixels in HostTheme.Device(new(size, size))
+                from icon in Icons.DrawingIcon(sink, row.Icon.Glyph, row.Icon.Master, pixels)
                 let site = new CallbackSite(sink, typeof(RenderContentMenu), row.Caption)
                 from added in IO.lift(() => RenderContentMenu.AddMenuItem(
                     plugIn.Id,
@@ -127,7 +140,7 @@ public static class ViewRegistration {
                     collection => Executed(row, collection, site),
                     (collection, context) => Enabled(row, collection, context, site)))
                 select added))
-            .Map(static _ => Thinktecture.Empty.Disposable());
+            .Map(static _ => unit);
 
     private static Result Executed(ContentMenuRow row, RenderContentCollection collection, CallbackSite site) =>
         Callbacks.Answer(Conversions.ToResult(IO.lift(() => Conversions.Rows(collection)).Bind(row.Run)), static () => Result.Failure, site);

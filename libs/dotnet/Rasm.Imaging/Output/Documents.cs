@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Drawing;
 using System.IO.Compression;
 using System.Numerics;
 using System.Numerics.Tensors;
@@ -13,6 +12,7 @@ using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Output;
 
@@ -48,13 +48,12 @@ public sealed record LayeredDocument {
         new(ImageSourceData, TiffFieldInfo.Variable2, TiffFieldInfo.Variable2, TiffType.UNDEFINED, FieldBit.Custom, okToChange: true, passCount: true, nameof(ImageSourceData)),
     ];
     private static readonly Seq<(short Id, int Plane)> ColourChannels = [(-1, 3), (0, 0), (1, 1), (2, 2)];
-    private static readonly (short Id, int Plane) MaskChannel = (-2, 4);
     private static readonly Seq<(short Id, ReadOnlyMemory<byte> Data)> GroupChannels = ColourChannels.Map(static channel => (channel.Id, new ReadOnlyMemory<byte>(new byte[sizeof(ushort)]))).Strict();
-    private static readonly LayerRecord Divider = new(Rectangle.Empty, GroupChannels, PassThrough, Mix.Full, Visible: false, None, "</Layer group>", [3]);
+    private static readonly LayerRecord Divider = new((0L, 0L, 0L, 0L), GroupChannels, PassThrough, Mix.Full, Visible: false, None, "</Layer group>", [3]);
 
-    private LayeredDocument((TiffSample Tiff, uint Key) sample, ColorEncoding encoding, PixelFrame canvas, Seq<DocumentLayer> layers) => (Sample, Encoding, Canvas, Layers) = (sample, encoding, canvas, layers);
+    private LayeredDocument((TiffSample Tiff, uint Key) sample, Option<ColorEncoding> encoding, PixelFrame canvas, Seq<DocumentLayer> layers) => (Sample, Encoding, Canvas, Layers) = (sample, encoding, canvas, layers);
 
-    public ColorEncoding Encoding { get; }
+    public Option<ColorEncoding> Encoding { get; }
     public Seq<DocumentLayer> Layers { get; }
     private (TiffSample Tiff, uint Key) Sample { get; }
     private PixelFrame Canvas { get; }
@@ -63,10 +62,16 @@ public sealed record LayeredDocument {
 
     private static ReadOnlySpan<byte> DataBlock => "Adobe Photoshop Document Data Block\0"u8;
 
-    public static Validation<Error, LayeredDocument> From(OutputDepth depth, ColorEncoding encoding, Seq<DocumentLayer> layers) =>
-        (Table(depth).ToValidation<Error>(new DepthRefused(depth, Depths)), CanvasOf(Rasters(layers)))
-            .Apply((sample, canvas) => new LayeredDocument(sample, encoding, canvas, layers))
-            .As();
+    public static Validation<Error, LayeredDocument> From(OutputDepth depth, Option<ColorEncoding> encoding, Seq<DocumentLayer> layers) {
+        Seq<DocumentLayer.Raster> rasters = Rasters(layers);
+        return (Table(depth).ToValidation<Error>(new DepthRefused(depth, Depths)), CanvasOf(rasters))
+            .Apply(static (sample, canvas) => (Sample: sample, Canvas: canvas))
+            .As()
+            .Bind<LayeredDocument>(accepted => {
+                long bytes = accepted.Sample.Tiff.Depth.RowBytes(accepted.Canvas.Extent.Width, alpha: true);
+                return bytes > System.Array.MaxLength ? new BufferBytesRefused(bytes) : new LayeredDocument(accepted.Sample, encoding, accepted.Canvas, layers);
+            });
+    }
 
     public PixelFrame Composite() => Isolated(Layers);
 
@@ -98,12 +103,17 @@ public sealed record LayeredDocument {
 
     private static Validation<Error, PixelFrame> CanvasOf(Seq<DocumentLayer.Raster> rasters) =>
         from canvas in rasters.Head.Map(static raster => raster.Frame).ToValidation<Error>(new DocumentEmpty())
-        from placed in rasters.Map(static (raster, index) => raster.Frame.Cons(raster.Mask.Map(static mask => mask.Frame).ToSeq()).Map(frame => (Frame: frame, Index: index)))
-            .Flatten()
-            .Traverse(entry => entry.Frame.Window == canvas.Window && entry.Frame.Extent == canvas.Extent
-                ? Validation.Success<Error, Unit>(unit)
-                : Validation.Fail<Error, Unit>(new LayerWindowRefused(entry.Index, entry.Frame.Window, entry.Frame.Extent)))
-            .As()
+        from accepted in (
+                canvas.Window.Right <= int.MaxValue && canvas.Window.Bottom <= int.MaxValue
+                    ? Validation.Success<Error, Unit>(unit)
+                    : Validation.Fail<Error, Unit>(new WindowRefused(canvas.Window)),
+                rasters.Map(static (raster, index) => raster.Frame.Cons(raster.Mask.Map(static mask => mask.Frame).ToSeq()).Map(frame => (Frame: frame, Index: index)))
+                    .Flatten()
+                    .Traverse(entry => entry.Frame.Window == canvas.Window && entry.Frame.Extent == canvas.Extent
+                        ? Validation.Success<Error, Unit>(unit)
+                        : Validation.Fail<Error, Unit>(new LayerWindowRefused(entry.Index, entry.Frame.Window, entry.Frame.Extent)))
+                    .As())
+            .Apply(static (_, _) => unit).As()
         select canvas;
 
     private PixelFrame Isolated(Seq<DocumentLayer> layers) =>
@@ -112,35 +122,36 @@ public sealed record LayeredDocument {
                 ReadOnlySpan<Vector4> associated = MemoryMarshal.Cast<float, Vector4>(flat.Block);
                 Span<Vector4> straight = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
                 for (int i = 0; i < straight.Length; i++)
-                    straight[i] = associated[i].W > 0f ? new Vector4(associated[i].AsVector3() / associated[i].W, associated[i].W) : Vector4.Zero;
+                    straight[i] = associated[i].W is 0f or 1f ? associated[i] : new Vector4(associated[i].AsVector3() / associated[i].W, associated[i].W);
             }),
         };
 
     private PixelFrame Flatten(Seq<DocumentLayer> layers, PixelFrame backdrop) =>
-        layers.Filter(static layer => layer.Visible).Fold(backdrop, Over);
+        layers.Filter(static layer => layer.Visible && layer.Opacity != Mix.MinValue).Fold(backdrop, Over);
 
     private PixelFrame Over(PixelFrame under, DocumentLayer layer) =>
         layer.Switch(
             (Document: this, Under: under),
-            raster: static (state, raster) => Blend.Composite(state.Under, raster.Frame, raster.Mode, raster.Opacity, raster.Mask.Map(static mask => new Mask(MaskOperation.Add, mask)).ToSeq()),
+            raster: static (state, raster) => Blend.Composite(state.Under, raster.Frame, raster.Mode, raster.Opacity, raster.Mask.Map(static mask => new Mask(MaskOperation.Add, mask)).ToSeq(), PixelAlphaRepresentation.Associated),
             folder: static (state, folder) => folder.Mode.Match(
-                Some: mode => Blend.Composite(state.Under, state.Document.Isolated(folder.Children), mode, folder.Opacity, []),
+                Some: mode => Blend.Composite(state.Under, state.Document.Isolated(folder.Children), mode, folder.Opacity, [], PixelAlphaRepresentation.Associated),
                 None: () => state.Document.Flatten(folder.Children, state.Under) switch {
-                    var passed => new PixelFrame(passed.Origin, passed.Size, passed.Extent, block => TensorPrimitives.Lerp(state.Under.Block, passed.Block, (float)folder.Opacity, block)),
+                    var passed => folder.Opacity == Mix.Full ? passed : new PixelFrame(passed.Origin, passed.Size, passed.Extent, block => TensorPrimitives.Lerp(state.Under.Block, passed.Block, (float)folder.Opacity, block)),
                 }));
 
     private Fin<byte[]> SourceData() {
         Seq<LayerRecord> records = Records(Layers).Strict();
+        if (records.Count > -short.MinValue)
+            return new LayerCountRefused(records.Count);
         using MemoryStream fields = new();
         using (BinaryWriter writer = new(fields, System.Text.Encoding.UTF8, leaveOpen: true))
             _ = records.Iter(record => record.Write(writer));
         long info = sizeof(short) + fields.Length + records.Fold(0L, static (sum, record) => record.Channels.Fold(sum, static (total, channel) => total + channel.Data.Length));
         long layered = info + (info & 1);
         long size = (DataBlock.Length + (6 * sizeof(uint)) + layered + 3) & ~3L;
-        long bytes = size + ((long)Canvas.Extent.Height * Sample.Tiff.Depth.RowBytes(Canvas.Extent.Width, alpha: true));
-        if (bytes > StillWriter.ClassicBytes || size > System.Array.MaxLength)
-            return new TiffBytesRefused(bytes);
-        byte[] block = new byte[size];
+        if (size > System.Array.MaxLength)
+            return new BufferBytesRefused(size);
+        byte[] block = new byte[(int)size];
         using (BinaryWriter writer = new(new MemoryStream(block))) {
             writer.Write(DataBlock);
             writer.Write(Signature);
@@ -148,9 +159,9 @@ public sealed record LayeredDocument {
             writer.Write(0u);
             writer.Write(Signature);
             writer.Write(Sample.Key);
-            writer.Write(uint.CreateSaturating(layered));
+            writer.Write((uint)layered);
             writer.Write((short)-records.Count);
-            writer.Write(fields.GetBuffer(), 0, int.CreateSaturating(fields.Length));
+            writer.Write(fields.GetBuffer(), 0, (int)fields.Length);
             _ = records.Iter(record => record.Channels.Iter(channel => writer.Write(channel.Data.Span)));
         }
         return block;
@@ -163,44 +174,48 @@ public sealed record LayeredDocument {
                 document.Canvas.Window, document.Channels(raster), raster.Mode.BlendModeKey, raster.Opacity, raster.Visible, raster.Mask.Map(_ => document.Canvas.Window), raster.Name, [])),
             folder: static (document, folder) => folder.Mode.Map(static mode => mode.BlendModeKey).IfNone(PassThrough) switch {
                 var key => Divider.Cons(document.Records(folder.Children)).Add(new LayerRecord(
-                    Rectangle.Empty, GroupChannels, key, folder.Opacity, folder.Visible, None, folder.Name, [folder.Open ? 1u : 2u, Signature, key])),
+                    (0L, 0L, 0L, 0L), GroupChannels, key, folder.Opacity, folder.Visible, None, folder.Name, [folder.Open ? 1u : 2u, Signature, key])),
             }));
 
     private Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels(DocumentLayer.Raster raster) {
-        Seq<(short Id, int Plane)> channels = ColourChannels + raster.Mask.Map(static _ => MaskChannel).ToSeq();
-        int plane = Canvas.Size.Width * Canvas.Size.Height * Sample.Tiff.Depth.SampleBytes;
-        using MemoryOwner<byte> planes = MemoryOwner<byte>.Allocate(channels.Count * plane);
-        StillWriter.Planar(Sample.Tiff.Depth, Canvas.Size, ColourChannels.Count, (y, row) => raster.Frame.View.Span.GetRowSpan(y).CopyTo(row), planes.Span);
-        _ = raster.Mask.Iter(mask => StillWriter.Planar(Sample.Tiff.Depth, Canvas.Size, 1, (y, row) => Weigh(mask, y, row), planes.Span[(MaskChannel.Plane * plane)..]));
-        Sample.Tiff.Depth.ToBigEndian(planes.Span);
+        Seq<(short Id, int Plane)> channels = ColourChannels + raster.Mask.Map(static _ => (Id: (short)-2, Plane: ColourChannels.Count)).ToSeq();
+        byte[][] planes = [
+            .. StillWriter.Planar(Sample.Tiff.Depth, Canvas.Size, ColourChannels.Count, (y, row) => raster.Frame.View.Span.GetRowSpan(y).CopyTo(row)),
+            .. raster.Mask.Map(mask => StillWriter.Planar(Sample.Tiff.Depth, Canvas.Size, 1, (y, row) => Weigh(mask, y, row))[0]).ToSeq(),
+        ];
+        foreach (byte[] plane in planes)
+            Sample.Tiff.Depth.ToBigEndian(plane);
         byte[][] compressed = new byte[channels.Count][];
-        ParallelHelper.For(0, channels.Count, new ChannelAction(planes.Memory, plane, compressed));
+        ParallelHelper.For(0, channels.Count, new ChannelAction(planes, compressed));
         return channels.Map(channel => (channel.Id, new ReadOnlyMemory<byte>(compressed[channel.Plane]))).Strict();
     }
 
     private void Weigh(Coverage.Matte mask, int y, Span<Vector4> row) {
         using SpanOwner<float> weights = SpanOwner<float>.Allocate(row.Length);
-        mask.Weights(row, Canvas.Origin.X, Canvas.Line(y), Canvas.Extent, weights.Span);
+        mask.Weights(row, Canvas.Origin.X, Canvas.Line(y), weights.Span);
         for (int x = 0; x < row.Length; x++)
             row[x] = new Vector4(weights.Span[x]);
     }
 
     private Action<int, Span<byte>> Scanline(PixelFrame composite) {
-        Action<int, Span<byte>> rows = StillWriter.Rows(composite, Sample.Tiff.Depth, alpha: true);
+        long left = long.Max(composite.Window.Left, 0L);
+        int width = (int)long.Max(long.Min(composite.Window.Right, composite.Extent.Width) - left, 0L);
         return (line, scanline) => {
             scanline.Clear();
-            if (line >= Canvas.Window.Top && line < Canvas.Window.Bottom)
-                rows(line - Canvas.Window.Top, scanline[Sample.Tiff.Depth.RowBytes(Canvas.Origin.X, alpha: true)..]);
+            if (width > 0 && line >= composite.Window.Top && line < composite.Window.Bottom)
+                Sample.Tiff.Depth.Encode(
+                    composite.View.Span.GetRowSpan(line - composite.Origin.Y).Slice((int)(left - composite.Origin.X), width), alpha: true,
+                    scanline.Slice((int)Sample.Tiff.Depth.RowBytes((int)left, alpha: true), (int)Sample.Tiff.Depth.RowBytes(width, alpha: true)));
         };
     }
 
-    private readonly record struct LayerRecord(Rectangle Bounds, Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels, uint Mode, Mix Opacity, bool Visible, Option<Rectangle> Mask, string Name, Seq<uint> Section) {
+    private readonly record struct LayerRecord((long Left, long Top, long Right, long Bottom) Bounds, Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels, uint Mode, Mix Opacity, bool Visible, Option<(long Left, long Top, long Right, long Bottom)> Mask, string Name, Seq<uint> Section) {
         internal void Write(BinaryWriter writer) {
-            static void Edges(BinaryWriter into, Rectangle rectangle) {
-                into.Write(rectangle.Top);
-                into.Write(rectangle.Left);
-                into.Write(rectangle.Bottom);
-                into.Write(rectangle.Right);
+            static void Edges(BinaryWriter into, (long Left, long Top, long Right, long Bottom) rectangle) {
+                into.Write((int)rectangle.Top);
+                into.Write((int)rectangle.Left);
+                into.Write((int)rectangle.Bottom);
+                into.Write((int)rectangle.Right);
             }
             byte[] pascal = MacRoman.GetBytes(Name);
             byte[] unicode = System.Text.Encoding.Unicode.GetBytes(Name);
@@ -238,17 +253,17 @@ public sealed record LayeredDocument {
             writer.Write(Signature);
             writer.Write(Mode);
             writer.Write([(byte)MathF.Round((float)Opacity * byte.MaxValue, MidpointRounding.ToEven), 0, (byte)(Visible ? 8 : 10), 0]);
-            writer.Write(uint.CreateSaturating(extra.Length));
-            writer.Write(extra.GetBuffer(), 0, int.CreateSaturating(extra.Length));
+            writer.Write((uint)extra.Length);
+            writer.Write(extra.GetBuffer(), 0, (int)extra.Length);
         }
     }
 
-    private readonly struct ChannelAction(Memory<byte> planes, int length, byte[][] compressed) : IAction {
+    private readonly struct ChannelAction(byte[][] planes, byte[][] compressed) : IAction {
         public void Invoke(int i) {
             using MemoryStream output = new();
             output.Write([2, 0]);
             using (ZLibStream zlib = new(output, CompressionLevel.Optimal, leaveOpen: true))
-                zlib.Write(planes.Span.Slice(i * length, length));
+                zlib.Write(planes[i]);
             compressed[i] = output.ToArray();
         }
     }

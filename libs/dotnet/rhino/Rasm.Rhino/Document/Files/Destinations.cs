@@ -93,6 +93,15 @@ public static class Destinations {
                 file.ToFin(new DocumentUnsaved()).Bind(static path => Conversions.Validated<NamePart, string, InvalidRhinoValue>(Path.GetFileNameWithoutExtension(path))),
             literal: static (_, literal) => Fin.Succ(literal.Value));
 
+    public static Fin<Destination> Resolved(Destination destination, Option<string> saved) =>
+        Location(destination, saved).Map(location => new Destination(new OutputFolder.Absolute(location.Folder), new Stem.Literal(location.Stem), destination.Overwrite));
+
+    private static Fin<(string Folder, NamePart Stem)> Location(Destination destination, Option<string> saved) =>
+        (FolderOf(destination.Folder, saved).ToValidation(), StemOf(destination.Stem, saved).ToValidation())
+            .Apply(static (folder, stem) => (Folder: folder, Stem: stem))
+            .As()
+            .ToFin();
+
     private static Seq<string> Entries(string folder, Seq<Seq<NamePart>> fresh) =>
         !fresh.IsEmpty && Directory.Exists(folder)
             ? toSeq(Directory.EnumerateFileSystemEntries(folder)).Map(static entry => Path.GetFileName(entry)).Strict()
@@ -133,13 +142,12 @@ public static class Destinations {
     private static IO<(string Folder, Seq<(OutputName Name, OutputPath Path)> Placed)> Planned(
         RhinoDoc document, Destination destination, Seq<OutputName> names, [CallerMemberName] string member = "") =>
         from saved in IO.lift(() => Conversions.Present(document.Path))
-        from folder in IO.lift(() => FolderOf(destination.Folder, saved))
-        from stem in IO.lift(() => StemOf(destination.Stem, saved))
+        from location in IO.lift(() => Location(destination, saved))
         let fresh = names.Filter(static name => name.Version.Map(unversioned: false, pinned: false, nextFree: true)).Map(static name => name.Scope).Distinct()
-        from entries in OnFolder(folder, () => Entries(folder, fresh))
-        from next in IO.lift(() => Versions(stem, fresh, entries))
-        from placed in IO.lift(() => Named(folder, stem, next, names).Bind(named => Plan(named, path => destination.Overwrite || !Path.Exists(path), member)).ToFin())
-        select (folder, placed);
+        from entries in OnFolder(location.Folder, () => Entries(location.Folder, fresh))
+        from next in IO.lift(() => Versions(location.Stem, fresh, entries))
+        from placed in IO.lift(() => Named(location.Folder, location.Stem, next, names).Bind(named => Plan(named, path => destination.Overwrite || !Path.Exists(path), member)).ToFin())
+        select (location.Folder, placed);
 
     // --- [RESOLUTION]
     public static IO<Seq<(OutputName Name, OutputPath Path)>> Preview(RhinoDoc document, Destination destination, Seq<OutputName> names) =>

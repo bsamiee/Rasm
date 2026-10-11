@@ -16,49 +16,47 @@ public sealed partial class CustomObject;
 public static class CustomObjects {
     // --- [REGISTRATION]
     public static IO<Unit> Register(Func<CustomObject> create) =>
-        (from custom in use(create, static custom => custom.Value.Dispose())
-         from registered in IO.lift(() => MissingGuid.Unless(custom.Value.GetType()))
-         select registered).Bracket();
+        DisposalOps.Within(create, static custom => IO.lift(() => MissingGuid.Unless(custom.Value.GetType())), static custom => IO.lift(custom.Value.Dispose));
 
     // --- [DOCUMENT]
     public static IO<Guid> Add(RhinoDoc doc, Func<CustomObject> create, Option<HistoryRecord> history) =>
-        (from custom in use(create, static custom => custom.Value.Dispose())
-         from _ in IO.lift(() => custom.Switch(
-             (doc.Objects, History: history.ValueUnsafe()),
-             brep: static (state, brep) => state.Objects.AddRhinoObject(brep, state.History),
-             curve: static (state, curve) => state.Objects.AddRhinoObject(curve, state.History),
-             mesh: static (state, mesh) => state.Objects.AddRhinoObject(mesh, state.History),
-             point: static (state, point) => state.Objects.AddRhinoObject(point, state.History)))
-         from id in IO.lift(() => Conversions.Required(custom.Value.Id, nameof(ObjectTable.AddRhinoObject)))
-         select id).Bracket();
+        DisposalOps.Within(create,
+            custom => IO.lift(() => {
+                custom.Switch(
+                    (doc.Objects, History: history.ValueUnsafe()),
+                    brep: static (state, brep) => state.Objects.AddRhinoObject(brep, state.History),
+                    curve: static (state, curve) => state.Objects.AddRhinoObject(curve, state.History),
+                    mesh: static (state, mesh) => state.Objects.AddRhinoObject(mesh, state.History),
+                    point: static (state, point) => state.Objects.AddRhinoObject(point, state.History));
+                return Conversions.Required(custom.Value.Id, nameof(ObjectTable.AddRhinoObject));
+            }),
+            static custom => IO.lift(custom.Value.Dispose));
 
     public static IO<Unit> Replace(RhinoDoc doc, Guid id, Func<CustomObject> create) =>
-        (from reference in use(() => new ObjRef(doc, id))
-         from replaced in
-             (from custom in use(create, static custom => custom.Value.Dispose())
-              from accepted in IO.lift(() => Refused.Unless(doc.Objects.Replace(reference, custom.Value), nameof(ObjectTable.Replace)))
-              select accepted).Bracket()
-         select replaced).Bracket();
+        DisposalOps.Within(() => new ObjRef(doc, id),
+            reference => DisposalOps.Within(create,
+                custom => IO.lift(() => Refused.Unless(doc.Objects.Replace(reference, custom.Value), nameof(ObjectTable.Replace))),
+                static custom => IO.lift(custom.Value.Dispose)),
+            static reference => IO.lift(reference.Dispose));
 
     // --- [CALLBACKS]
     public static IEnumerable<ObjRef> Pick(Func<IEnumerable<ObjRef>?> candidates, Func<ObjRef, bool> keep, CallbackSite site) {
-        using Disposal<Seq<ObjRef>> offered = new(
-            Callbacks.Answer(
-                IO.lift(() => Optional(candidates())).Bracket(
-                    Use: static source => IO.lift(() => source.ToSeq().Bind(static rows => toSeq(rows)).Strict()),
-                    Fin: static source => IO.lift(() => (source.ValueUnsafe() as IDisposable)?.Dispose())),
-                static () => Seq<ObjRef>(),
-                site),
-            held => Callbacks.Answer(DisposalOps.Release(held), static () => unit, site));
-        foreach (ObjRef reference in offered.Held.ToSeq().Bind(rows => Callbacks.Answer(IO.lift(() => rows.Filter(keep).Strict()), () => rows, site)))
+        List<ObjRef> offered = [];
+        using Disposal<List<ObjRef>> release = new(offered, held => Callbacks.Run(DisposalOps.Release(toSeq(held)), site));
+        foreach (ObjRef reference in Callbacks.Answer(
+            DisposalOps.Within(candidates,
+                source => IO.lift(() => { offered.AddRange(source ?? []); return toSeq(offered).Filter(keep).Strict(); }),
+                static source => DisposalOps.Release(Optional(source as IDisposable).ToSeq())),
+            static () => Seq<ObjRef>(), site))
             yield return reference;
     }
 
     public static IO<Seq<PickCapture>> Picks(IEnumerable<ObjRef> pickedItems) =>
-        (from picked in use(static () => new List<ObjRef>(), static picked => DisposalOps.Release(toSeq(picked)))
-         from read in IO.lift(() => picked.AddRange(pickedItems))
-         from captures in toSeq(picked).TraverseM(PickCapture.Of).As()
-         select captures).Bracket();
+        DisposalOps.Within(static () => new List<ObjRef>(),
+            picked => from read in IO.lift(() => picked.AddRange(pickedItems))
+                      from captures in toSeq(picked).TraverseM(PickCapture.Of).As()
+                      select captures,
+            static picked => DisposalOps.Release(toSeq(picked)));
 
     public static BoundingBox TightBoundingBox(BoundingBox tightBox, bool growBox, Transform xform, Func<Transform, IO<BoundingBox>> box, CallbackSite site) =>
         BoundingBox.Union(growBox ? tightBox : BoundingBox.Empty, Callbacks.Answer(xform, box, static () => BoundingBox.Empty, site));

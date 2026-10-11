@@ -6,8 +6,10 @@ using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Viewport;
 using Rhino;
+using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.PlugIns;
+using NativeConstructionPlane = Rhino.DocObjects.ConstructionPlane;
 
 namespace Rasm.Rhino.Persistence;
 
@@ -69,7 +71,7 @@ public abstract partial record NamedState {
 
     public sealed record LayerState(StateName Name, Option<ViewportTarget> Viewport, Seq<LayerOp.Modify> Edits) : NamedState;
     public sealed record View(StateName Name, ViewportTarget Source, Option<CameraPose> Pose) : NamedState;
-    public sealed record ConstructionPlane(global::Rhino.DocObjects.ConstructionPlane Value) : NamedState;
+    public sealed record ConstructionPlane(NativeConstructionPlane Value) : NamedState;
     public sealed record Position(StateName Name, ObjectTarget Objects) : NamedState;
     public sealed record Snapshot(SnapshotName Name) : NamedState;
 }
@@ -117,12 +119,12 @@ public abstract partial class LayerStateRestoreParameter : IStateParameter<Layer
 
     private sealed class Field<TRaw>(KeyName key, Lens<LayerStateRestore, TRaw> lens, Func<Lens<LayerStateRestore, TRaw>, StateParameter<LayerStateRestore>> kind,
         SettingType<TRaw> setting, string caption, string help) : LayerStateRestoreParameter((string)key, kind(lens)) where TRaw : notnull, ISpanParsable<TRaw> {
-        private readonly PlugInSetting<TRaw, TRaw, InvalidRhinoValue> row = new(
+        private readonly PlugInSetting<TRaw, TRaw> row = new(
             ValueKey.Raw((string)key, caption, help, lens.Get(LayerStateRestore.Default)), setting, Applied.IdleSave, [], Hidden: false);
 
         internal override IO<Func<LayerStateRestore, LayerStateRestore>> Read(RhinoDoc doc, (KeyName Section, SettingsNode Node) owner) =>
             from held in Store(Some(doc), owner).Read.Catch(static error => error.IsType<UnreadText>(), _ => IO.pure(Some(row.Value.Default)))
-            from value in held.Match(Some: IO.pure, None: () => PlugInSettings.Current(owner.Node, row))
+            from value in held.Match(Some: IO.pure, None: () => owner.Node.Current(row))
             select lens.SetF(value);
 
         internal override IO<Option<IO<Unit>>> Edit(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner, Option<LayerStateRestore> value) =>
@@ -161,19 +163,26 @@ public static class NamedStates {
                      select saved
         from result in state.Edits.IsEmpty
             ? Saved(doc, state.Name, scope)
-            : (from held in IO.lift(static () => Guid.NewGuid().ToString())
-               from temporary in Saved(doc, held, scope)
-               select held).Bracket(
-                Use: _ => edited,
-                Fin: held => Restored(doc, held, RestoreLayerProperties.All, scope)
-                    .Finally(IO.lift(() => Refused.Unless(doc.NamedLayerStates.Delete(held), nameof(NamedLayerStateTable.Delete)))))
+            : DisposalOps.Within(
+                () => Guid.NewGuid().ToString() switch {
+                    var held => Conversions.Required(doc.NamedLayerStates.Save(held, Conversions.Unset(scope)), nameof(NamedLayerStateTable.Save)).Map(_ => held),
+                },
+                answer => IO.lift(() => answer).Bind(_ => edited),
+                answer => answer.Match(
+                    Succ: held => Callbacks.Each(Seq(Restored(doc, held, RestoreLayerProperties.All, scope),
+                        IO.lift(() => Refused.Unless(doc.NamedLayerStates.Delete(held), nameof(NamedLayerStateTable.Delete))))).Map(static _ => unit),
+                    Fail: static _ => IO.pure(unit)))
         select result;
 
     private static IO<int> LayerStateIndex(RhinoDoc doc, string name) =>
         IO.lift(() => Conversions.Present(doc.NamedLayerStates.FindName(name)).ToFin(new Missing(nameof(NamedLayerStateTable.FindName))));
 
     private static IO<Option<Guid>> Scope(RhinoDoc doc, Option<ViewportTarget> viewport) =>
-        viewport.Traverse(target => use(Viewports.ResolveViewport(doc, target)).Bind(static row => IO.lift(() => row.Viewport.Id)).Bracket()).As();
+        viewport.Traverse(target => DisposalOps.Within<IDisposable, Guid>(retain =>
+            Viewports.ResolveViewport(doc, target, retain).Bind(static row => IO.lift(() => {
+                using ViewInfo view = new(row.Viewport);
+                return view.Viewport.Id;
+            })), DisposalOps.Release)).As();
 
     private static IO<Unit> Saved(RhinoDoc doc, string name, Option<Guid> scope) =>
         IO.lift(() => Conversions.Required(doc.NamedLayerStates.Save(name, Conversions.Unset(scope)), nameof(NamedLayerStateTable.Save)).Map(static _ => unit));
@@ -256,12 +265,15 @@ public static class NamedStates {
             snapshot: static (document, snapshot) => NamedSnapshots.Save(document, snapshot.Name));
 
     private static IO<Unit> SaveView(RhinoDoc doc, NamedState.View view) =>
-        (from row in use(Viewports.ResolveViewport(doc, view.Source))
-         let added = from committed in IO.lift(row.CommitViewportChanges)
-                     from saved in NamedViews.Add(doc, row.Viewport, Some((string)view.Name))
-                     select saved
-         from index in view.Pose.Match(Some: pose => Cameras.WithPose(row.Viewport, pose, added).Finally(IO.lift(row.CommitViewportChanges)), None: () => added)
-         select unit).Bracket();
+        DisposalOps.Within<IDisposable, Unit>(retain =>
+         from row in Viewports.ResolveViewport(doc, view.Source, retain)
+         let added = NamedViews.Add(doc, row.Viewport, Some((string)view.Name))
+         from index in view.Pose.Match(
+             Some: pose => DisposalOps.Within(static () => unit,
+                 _ => Cameras.WithPose(row.Viewport, pose, IO.lift(row.CommitViewportChanges).Bind(_ => added)),
+                 _ => IO.lift(row.CommitViewportChanges)),
+             None: () => added)
+         select unit, DisposalOps.Release);
 
     // --- [RESTORE_MASK]
     private static readonly IO<(KeyName Section, SettingsNode Node)> MaskOwner =

@@ -5,7 +5,6 @@ import { once } from 'node:events';
 import { stat } from 'node:fs/promises';
 import { matchesGlob, relative, resolve } from 'node:path';
 import { text } from 'node:stream/consumers';
-import { quoteShellArg } from 'nx/src/utils/shell-quoting.js';
 import { bind, fault, ok, type Result, rendered } from '../composition.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -60,7 +59,7 @@ const formatEdited = async (root: string, paths: readonly string[] | 'all', sign
         const files = present.value === 'all' ? [] : present.value.filter((path) => globs.some((glob) => !glob.startsWith('!') && matchesGlob(path, glob)) && globs.every((glob) => !(glob.startsWith('!') && matchesGlob(path, glob.slice(1)))));
         return present.value !== 'all' && files.length === 0
             ? []
-            : [['run', `--project=${project.name}`, `--target=${writer.target}`, '--output-style=summary', ...(present.value === 'all' ? [] : [...(writer.configuration === undefined ? [] : [`--configuration=${writer.configuration}`]), `--args=${files.map((file) => quoteShellArg(resolve(root, file))).join(' ')}`])]];
+            : [['run', `--project=${project.name}`, `--target=${writer.target}`, '--output-style=summary', ...(present.value === 'all' ? [] : [...(writer.configuration === undefined ? [] : [`--configuration=${writer.configuration}`]), '--', ...files.map((file) => resolve(root, file))])]];
     });
     return invocations.reduce<Promise<readonly string[]>>(async (before, invocation) => [...(await before), ...messages(await run('nx', invocation))], Promise.resolve([]));
 };

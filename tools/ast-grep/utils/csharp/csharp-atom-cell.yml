@@ -43,7 +43,7 @@ utils:
             - kind: variable_declarator
               all:
                 - has: {field: name, pattern: $CELL}
-                - has: {nthChild: 2, any: [{matches: atom-creation}, {matches: csharp-atom-cell}]}
+                - has: {nthChild: 2, matches: atom-creation}
             - kind: from_clause
               all:
                 - has: {field: name, pattern: $CELL}
@@ -133,6 +133,7 @@ utils:
                     inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: elements}}}
 rule:
     any:
+        - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: csharp-atom-cell}}}}
         - matches: own-cell
         - matches: element-parameter
         - kind: member_access_expression

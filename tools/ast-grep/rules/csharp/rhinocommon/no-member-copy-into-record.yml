@@ -13,7 +13,7 @@ utils:
                 kind: record_declaration
                 all:
                     - has: {field: name, pattern: $TYPE}
-                    - not: {matches: csharp-error-record}
+                    - not: {has: {kind: base_list}}
     record-parameter:
         inside:
             stopBy: end

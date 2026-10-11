@@ -31,12 +31,12 @@ public readonly partial struct PassCount : System.Numerics.IMinMaxValue<PassCoun
 
 public sealed record RealtimeTarget(PixelExtent Extent, bool ForCapture, RenderWindow Window);
 
-public sealed record RealtimeStart(RealtimeTarget Target, RhinoDoc Document, ViewInfo View, ViewportInfo Viewport, IO<SceneBatch> Take);
+public sealed record RealtimeStart(RealtimeTarget Target, RhinoDoc Document, ViewInfo View, ViewportInfo Viewport, Func<Action<Disposal<SceneBatch>>, IO<SceneBatch>> Take);
 
 public sealed record RealtimeSession(
-    RealtimeTarget Target, Disposal<DefinedChangeFeed> Scene, Instant Started, PassCount Pass, Option<PassCount> Limit,
+    RealtimeTarget Target, IDisposable Scene, Instant Started, PassCount Pass, Option<PassCount> Limit,
     Option<uint> Frame, Option<string> Status, Option<Instant> PausedAt, bool Locked) {
-    public static RealtimeSession Of(RealtimeTarget target, Disposal<DefinedChangeFeed> scene, Instant now) =>
+    public static RealtimeSession Of(RealtimeTarget target, IDisposable scene, Instant now) =>
         new(target, scene, now, PassCount.Zero, None, None, None, None, Locked: false);
 
     public bool Completed => !Locked && Frame.IsSome && (Target.ForCapture || Limit.Exists(limit => Pass >= limit));
@@ -120,8 +120,7 @@ public abstract partial record HudEvent {
 public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     where TEngine : DefinedRealtimeEngine<TEngine>, IRealtimeProduct, new() {
     // --- [STATE]
-    private readonly Atom<(Option<RealtimeSession> Held, Option<RealtimeSession> Taken)> sessions =
-        Atom((Held: Option<RealtimeSession>.None, Taken: Option<RealtimeSession>.None));
+    private readonly Ref<Option<RealtimeSession>> sessions = Ref(Option<RealtimeSession>.None);
     private readonly Atom<Option<DisplayPipelineAttributes>> attributes = Atom(Option<DisplayPipelineAttributes>.None);
     private readonly IPlugInViews views;
 
@@ -144,14 +143,14 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
 
     // --- [LIFECYCLE]
     public sealed override void PostConstruct() =>
-        _ = Callbacks.Answer(IO.lift(Subscribe), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(IO.lift(Subscribe), CallbackSite.Of(this));
 
     public sealed override void CreateWorld(RhinoDoc doc, ViewInfo viewInfo, DisplayPipelineAttributes displayPipelineAttributes) =>
         _ = attributes.Swap(_ => Some(displayPipelineAttributes));
 
     public sealed override bool StartRenderer(int w, int h, RhinoDoc doc, ViewInfo view, ViewportInfo viewportInfo, bool forCapture, RenderWindow renderWindow) =>
         Callbacks.Succeeded(
-            IO.lift(RenderWindows.Extent(w, h)).Bind(extent => Started(new RealtimeTarget(extent, forCapture, renderWindow), doc, view, viewportInfo)),
+            Started(w, h, doc, view, viewportInfo, forCapture, renderWindow),
             CallbackSite.Of(this));
 
     public sealed override bool OnRenderSizeChanged(int width, int height) =>
@@ -163,7 +162,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
             CallbackSite.Of(this));
 
     public sealed override void ShutdownRenderer() =>
-        _ = Callbacks.Answer(IO.pure(unit).Bind(_ => Stop()).Finally(Closed), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(DisposalOps.Within(static () => unit, _ => Stop(), _ => Closed), CallbackSite.Of(this));
 
     public sealed override void GetRenderSize(out int width, out int height) =>
         (width, height) = Session.Map(static session => (session.Target.Extent.Width, session.Target.Extent.Height)).IfNone((0, 0));
@@ -176,20 +175,35 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         _ = Middleground.Iter(draw => OnDrawMiddleground += Callbacks.Handler<DrawMiddlegroundEventArgs>(args => draw(args.Pipeline), CallbackSite.Of(this, nameof(OnDrawMiddleground))));
     }
 
-    private IO<Unit> Started(RealtimeTarget target, RhinoDoc doc, ViewInfo view, ViewportInfo viewport) =>
-        from sized in IO.lift(() => target.Window.SetSize(new Size(target.Extent.Width, target.Extent.Height)))
-        from added in RenderWindows.AddRequested(target.Window)
-        from now in IO.lift(views.Clock.GetCurrentInstant)
-        from queue in DefinedChangeFeed.Of((PlugIn)views, doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake)
-        let scene = new Disposal<DefinedChangeFeed>(queue, static owned => owned.Dispose())
-        from opened in sessions.SwapIO(_ => (Some(RealtimeSession.Of(target, scene, now)), Option<RealtimeSession>.None))
-        from world in DisposalOps.OnFailure(queue.World, Closed)
-        from started in DisposalOps.OnFailure(Start(new RealtimeStart(target, doc, view, viewport, queue.Take)), Closed)
-        select unit;
+    private IO<Unit> Started(int width, int height, RhinoDoc doc, ViewInfo view, ViewportInfo viewport, bool forCapture, RenderWindow window) =>
+        DisposalOps.OnFailure(
+            from opened in DisposalOps.Replace(owned =>
+                from framing in DisposalOps.Acquire(IO.pure(viewport), static held => IO.lift(held.Dispose), owned)
+                from extent in IO.lift(RenderWindows.Extent(width, height))
+                let target = new RealtimeTarget(extent, forCapture, window)
+                from sized in IO.lift(() => target.Window.SetSize(new Size(target.Extent.Width, target.Extent.Height)))
+                from added in RenderWindows.AddRequested(target.Window)
+                from now in IO.lift(views.Clock.GetCurrentInstant)
+                from queue in DefinedChangeFeed.Of((PlugIn)views, doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake, owned)
+                select (Queue: queue, Now: now, Target: target), (created, lease) => {
+                    Option<RealtimeSession> prior = atomic(() => {
+                        Option<RealtimeSession> held = sessions.Value;
+                        _ = sessions.Swap(_ => Some(RealtimeSession.Of(created.Target, lease, created.Now)));
+                        return held;
+                    });
+                    return DisposalOps.Release(prior.Map(static session => session.Scene).ToSeq());
+                })
+            from world in opened.Queue.World
+            from started in Start(new RealtimeStart(opened.Target, doc, view, viewport, opened.Queue.Take))
+            select unit,
+            Callbacks.Each(Seq(IO.pure(unit).Bind(_ => Stop()), Closed)).Map(static _ => unit));
 
     private IO<Unit> Closed =>
-        sessions.SwapIO(static state => (Option<RealtimeSession>.None, state.Held))
-            .Bind(static state => DisposalOps.Release(state.Taken.Map(static session => session.Scene).ToSeq()));
+        atomicIO(() => {
+            Option<RealtimeSession> held = sessions.Value;
+            _ = sessions.Swap(static _ => None);
+            return held;
+        }).Bind(static held => DisposalOps.Release(held.Map(static session => session.Scene).ToSeq())).Uninterruptible();
 
     private IO<Unit> Resized(RealtimeTarget target, Func<RealtimeTarget, IO<Unit>> resize) =>
         from sized in IO.lift(() => target.Window.SetSize(new Size(target.Extent.Width, target.Extent.Height)))
@@ -265,7 +279,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         Hud.TraverseM(deliver => deliver(hudEvent)).As().Map(static _ => unit);
 
     // --- [REPORTS]
-    protected Option<RealtimeSession> Session => sessions.Value.Held;
+    protected Option<RealtimeSession> Session => sessions.Value;
 
     protected IO<Unit> FrameRendered(PassCount pass, ViewInfo view) =>
         IO.lift(() => ComputeViewportCrc(view))
@@ -279,7 +293,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
 
     private IO<Unit> Swapped(Func<RealtimeSession, Instant, RealtimeSession> change) =>
         from now in IO.lift(views.Clock.GetCurrentInstant)
-        from swapped in sessions.SwapIO(state => (state.Held.Map(current => change(current, now)), Option<RealtimeSession>.None))
+        from swapped in atomicIO(() => sessions.Swap(state => state.Map(current => change(current, now))))
         from redrawn in IO.lift(SignalRedraw)
         select unit;
 }

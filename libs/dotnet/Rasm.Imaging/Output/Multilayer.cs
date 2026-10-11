@@ -1,7 +1,5 @@
-using System.Drawing;
 using System.Numerics;
 using System.Text;
-using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
@@ -108,8 +106,8 @@ public sealed record IdentityLayer(ushort Id, PassName Name, Vector3 Colour) {
     }
 }
 
-internal readonly record struct ExrLayer(Option<PassName> Name, PassKind Kind, PixelFrame Source, Action<ReadOnlySpan<Vector4>, Point, Span<Vector4>> Row) {
-    internal static Action<ReadOnlySpan<Vector4>, Point, Span<Vector4>> Held { get; } = static (source, _, part) => source.CopyTo(part);
+internal readonly record struct ExrLayer(Option<PassName> Name, PassKind Kind, PixelFrame Source, Action<ReadOnlySpan<Vector4>, (long X, long Y), Span<Vector4>> Row) {
+    internal static Action<ReadOnlySpan<Vector4>, (long X, long Y), Span<Vector4>> Held { get; } = static (source, _, part) => source.CopyTo(part);
 }
 
 [SmartEnum]
@@ -131,10 +129,13 @@ public abstract partial record ReaderConvention {
     internal abstract Vector3 Axes(Vector3 world);
     internal abstract Vector3 Screen(Vector3 view);
 
-    internal Func<Vector3, Vector3> Normal(Camera camera) =>
-        Quaternion.Conjugate(camera.Orientation) switch {
-            var toView => Normals.Map(world: Axes, view: normal => Screen(Vector3.Transform(normal, toView))),
-        };
+    internal Fin<Func<Vector3, Vector3>> Normal(Option<Camera> camera) =>
+        Normals.Switch((Convention: this, Camera: camera),
+            world: static state => Fin.Succ(state.Convention.Axes),
+            view: static state => state.Camera.ToFin(new CameraRequired()).Map(held => {
+                Quaternion toView = Quaternion.Conjugate(held.Orientation);
+                return (Func<Vector3, Vector3>)(normal => state.Convention.Screen(Vector3.Transform(normal, toView)));
+            }));
 
     public sealed record Blender(NormalSpace Normals) : ReaderConvention(Normals) {
         internal override PassName Beauty => PassName.Combined;
@@ -157,14 +158,14 @@ public abstract partial record ReaderConvention {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ExrPass {
-    internal abstract Seq<ExrLayer> Layers(ReaderConvention convention, Camera camera);
+    internal abstract Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera);
 
     public sealed record Depth(PixelFrame Frame) : ExrPass {
-        internal override Seq<ExrLayer> Layers(ReaderConvention convention, Camera camera) => Seq(new ExrLayer(convention.Depth, PassKind.Z, Frame, ExrLayer.Held));
+        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) => Seq(new ExrLayer(convention.Depth, PassKind.Z, Frame, ExrLayer.Held));
     }
 
     public sealed record InverseDepth(PassName Name, PixelFrame Distance) : ExrPass {
-        internal override Seq<ExrLayer> Layers(ReaderConvention convention, Camera camera) =>
+        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
             Seq(new ExrLayer(Name, PassKind.Z, Distance, static (source, _, part) => {
                 for (int x = 0; x < source.Length; x++)
                     part[x] = new Vector4(1f / source[x].X);
@@ -172,25 +173,23 @@ public abstract partial record ExrPass {
     }
 
     public sealed record Position(PixelFrame Distance) : ExrPass {
-        internal override Seq<ExrLayer> Layers(ReaderConvention convention, Camera camera) =>
-            Seq(new ExrLayer(convention.Position, PassKind.Xyz, Distance, (source, first, part) => {
+        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
+            camera.ToFin(new CameraRequired()).Map(held => Seq(new ExrLayer(convention.Position, PassKind.Xyz, Distance, (source, first, part) => {
                 for (int x = 0; x < source.Length; x++)
-                    part[x] = new Vector4(convention.Axes(camera.WorldPoint(new Vector2(first.X + x + 0.5f, first.Y + 0.5f), source[x].X)), 1f);
-            }));
+                    part[x] = new Vector4(convention.Axes(held.WorldPoint((first.X + x + 0.5d, first.Y + 0.5d), source[x].X)), 1f);
+            })));
     }
 
     public sealed record Normal(PassName Name, PixelFrame Frame) : ExrPass {
-        internal override Seq<ExrLayer> Layers(ReaderConvention convention, Camera camera) =>
-            convention.Normal(camera) switch {
-                var turned => Seq(new ExrLayer(Name, PassKind.Xyz, Frame, (source, _, part) => {
-                    for (int x = 0; x < source.Length; x++)
-                        part[x] = new Vector4(turned(source[x].AsVector3()), 1f);
-                })),
-            };
+        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
+            convention.Normal(camera).Map(turned => Seq(new ExrLayer(Name, PassKind.Xyz, Frame, (source, _, part) => {
+                for (int x = 0; x < source.Length; x++)
+                    part[x] = new Vector4(turned(source[x].AsVector3()), 1f);
+            })));
     }
 
     public sealed record Identities(PassName Name, PixelFrame Ids, Seq<IdentityLayer> Entries) : ExrPass {
-        internal override Seq<ExrLayer> Layers(ReaderConvention convention, Camera camera) =>
+        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
             (Name, Entries).Cons(Entries.Map(static entry => (entry.Name, Entries: Seq(entry))))
                 .Map(layer => IdentityLayer.Fill(layer.Entries) switch {
                     var fill => new ExrLayer(layer.Name, PassKind.Rgba, Ids, (source, _, part) => fill(source, part)),
@@ -198,7 +197,7 @@ public abstract partial record ExrPass {
     }
 
     public sealed record Named(PassName Name, PassKind Kind, PixelFrame Frame) : ExrPass {
-        internal override Seq<ExrLayer> Layers(ReaderConvention convention, Camera camera) => Seq(new ExrLayer(Name, Kind, Frame, ExrLayer.Held));
+        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) => Seq(new ExrLayer(Name, Kind, Frame, ExrLayer.Held));
     }
 }
 
@@ -209,27 +208,23 @@ public sealed partial class PassLayout {
 }
 
 public sealed record PassSet {
-    private PassSet(ReaderConvention convention, Camera camera, PassLayout layout, Seq<ExrPass> passes) => (Convention, Camera, Layout, Passes) = (convention, camera, layout, passes);
+    private PassSet(ReaderConvention convention, PassLayout layout, Seq<ExrLayer> layers) => (Convention, Layout, Layers) = (convention, layout, layers);
 
     public ReaderConvention Convention { get; }
-    public Camera Camera { get; }
     public PassLayout Layout { get; }
-    public Seq<ExrPass> Passes { get; }
+    internal Seq<ExrLayer> Layers { get; }
 
-    internal Seq<ExrLayer> Layers => Passes.Bind(pass => pass.Layers(Convention, Camera));
-
-    public static Validation<Error, PassSet> From(ReaderConvention convention, Camera camera, PassLayout layout, Seq<ExrPass> passes) =>
-        new PassSet(convention, camera, layout, passes) switch {
-            var set => toSeq(convention.Beauty.Cons(set.Layers.Map(static layer => layer.Name).Somes()).CountBy(static name => name))
-                .Traverse(static count => count.Value == 1 ? Validation.Success<Error, Unit>(unit) : Validation.Fail<Error, Unit>(new PassTaken(count.Key)))
-                .As()
-                .Map(_ => set),
-        };
+    public static Validation<Error, PassSet> From(ReaderConvention convention, Option<Camera> camera, PassLayout layout, Seq<ExrPass> passes) =>
+        from groups in passes.Traverse(pass => pass.Layers(convention, camera).ToValidation()).As()
+        let layers = groups.Flatten().Strict()
+        from names in toSeq(convention.Beauty.Cons(layers.Map(static layer => layer.Name).Somes()).CountBy(static name => name))
+            .Traverse(static count => count.Value is 1 ? Validation.Success<Error, Unit>(unit) : Validation.Fail<Error, Unit>(new PassTaken(count.Key)))
+            .As()
+        select new PassSet(convention, layout, layers);
 
     internal Validation<Error, Unit> Fits(PixelFrame beauty) =>
-        beauty.Cons(Layers.Map(static layer => layer.Source))
-            .Map(static (frame, index) => (Frame: frame, Index: index))
-            .Traverse(entry => entry.Frame.Extent == Camera.Extent && Layout.Map(parts: true, interleaved: entry.Frame.Window == beauty.Window)
+        Layers.Map(static (layer, index) => (Frame: layer.Source, Index: index + 1))
+            .Traverse(entry => entry.Frame.Extent == beauty.Extent && Layout.Map(parts: true, interleaved: entry.Frame.Window == beauty.Window)
                 ? Validation.Success<Error, Unit>(unit)
                 : Validation.Fail<Error, Unit>(new LayerWindowRefused(entry.Index, entry.Frame.Window, entry.Frame.Extent)))
             .As()
@@ -241,22 +236,22 @@ internal static class ExrParts {
     internal static IO<Unit> Write(StillFormat.ExrRaster exr, FileMetadata metadata, FileStream stream) {
         static Seq<ChannelBuffer> Buffers(ExrLayout layout, ExrLayer layer) {
             ExrSample sample = layer.Kind.Sample(layout);
-            int plane = layer.Source.Size.Width * layer.Source.Size.Height * sample.Depth.SampleBytes;
-            using MemoryOwner<byte> planes = MemoryOwner<byte>.Allocate(layer.Kind.Channels.Count * plane);
-            StillWriter.Planar(sample.Depth, layer.Source.Size, layer.Kind.Channels.Count, (y, row) => {
-                layer.Row(layer.Source.View.Span.GetRowSpan(y), new Point(layer.Source.Origin.X, layer.Source.Origin.Y + y), row);
+            byte[][] planes = StillWriter.Planar(sample.Depth, layer.Source.Size, layer.Kind.Channels.Count, (y, row) => {
+                layer.Row(layer.Source.View.Span.GetRowSpan(y), (layer.Source.Origin.X, (long)layer.Source.Origin.Y + y), row);
                 layer.Kind.Associate(row);
-            }, planes.Span);
+            });
             return layer.Kind.Channels
-                .Map((letter, lane) => new ChannelBuffer(layer.Name.Match(Some: name => $"{name}.{letter}", None: () => letter), sample.Type, planes.Span.Slice(lane * plane, plane)))
+                .Map((letter, lane) => new ChannelBuffer(layer.Name.Match(Some: name => $"{name}.{letter}", None: () => letter), sample.Type, planes[lane]))
                 .Strict();
         }
 
-        static Part Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<PassName> name, Rectangle window, Seq<ExrLayer> layers) {
+        static Fin<Part> Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<PassName> name, (long Left, long Top, long Right, long Bottom) window, Seq<ExrLayer> layers) {
+            if (window.Right - 1L > int.MaxValue || window.Bottom - 1L > int.MaxValue)
+                return new WindowRefused(window);
             Seq<ChannelBuffer> buffers = layers.Bind(layer => Buffers(exr.Layout, layer)).Strict();
             Header header = new(
                 PartType.Scanline,
-                new Box2i(window.Left, window.Top, window.Right - 1, window.Bottom - 1),
+                new Box2i((int)window.Left, (int)window.Top, (int)(window.Right - 1L), (int)(window.Bottom - 1L)),
                 buffers.Map(static buffer => new Channel(buffer.Name, buffer.PixelType)),
                 compression: layers.Fold(exr.Layout.Compression.Codec, (codec, layer) => layer.Kind.Codec(exr.Layout.Compression, codec)),
                 displayWindow: new Box2i(0, 0, exr.Beauty.Extent.Width - 1, exr.Beauty.Extent.Height - 1),
@@ -266,19 +261,26 @@ internal static class ExrParts {
             return new Part(header, [new FlatLevel(0, 0, header.DataWindow, buffers)], isComplete: true);
         }
 
-        static Seq<Part> Parts(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes) {
+        static Fin<Seq<Part>> Parts(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes) {
             PassKind beauty = exr.Alpha ? PassKind.Rgba : PassKind.Rgb;
-            return exr.Passes.Match(
+            Seq<Fin<Part>> parts = exr.Passes.Match(
                 Some: set => set.Layout.Switch(
                     (Exr: exr, Attributes: attributes, Layers: new ExrLayer(set.Convention.Beauty, beauty, exr.Beauty, ExrLayer.Held).Cons(set.Layers)),
                     parts: static state => state.Layers.Map(layer => Part(state.Exr, state.Attributes, layer.Name, layer.Source.Window, Seq(layer))),
                     interleaved: static state => Seq(Part(state.Exr, state.Attributes, None, state.Exr.Beauty.Window, state.Layers))),
                 None: () => Seq(Part(exr, attributes, None, exr.Beauty.Window, Seq(new ExrLayer(None, beauty, exr.Beauty, ExrLayer.Held)))));
+            return parts.Traverse(static part => part.ToValidation()).As().ToFin();
         }
 
-        return from image in IO.lift(() => new Image(Parts(exr, metadata.Exr(exr.Layout.Gamut))))
+        WriterOptions options = new(new WriterLimits(
+            maximumParts: int.MaxValue, maximumChannelsPerPart: int.MaxValue, maximumAttributesPerPart: int.MaxValue,
+            maximumHeaderByteCount: System.Array.MaxLength, maximumBlocksPerPart: int.MaxValue, maximumTotalBlocks: long.MaxValue,
+            maximumOffsetTableByteCount: System.Array.MaxLength, maximumDimension: long.MaxValue,
+            maximumUncompressedBlockByteCount: System.Array.MaxLength, maximumEncodedBlockByteCount: System.Array.MaxLength,
+            maximumDeepSampleCount: long.MaxValue));
+        return from image in IO.lift(() => Parts(exr, metadata.Exr(exr.Layout.Gamut)).Map(static parts => new Image(parts)))
                from token in cancelToken
-               from result in IO.liftVAsync(() => ExrFile.SaveToStreamAsync(image, stream, cancellationToken: token))
+               from result in IO.liftVAsync(() => ExrFile.SaveToStreamAsync(image, stream, options, token))
                from _ in IO.lift(CodecRefused.Unless(result))
                select unit;
     }

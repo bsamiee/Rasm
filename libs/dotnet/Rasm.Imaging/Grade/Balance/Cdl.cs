@@ -92,7 +92,7 @@ public sealed record CdlState(
             new XElement(Asc + CorrectionNode, id.ToSeq().Map(static value => new XAttribute(IdAttribute, value)), LutFiles.CorrectionNodes(Asc, state.Step)),
             static (inner, ancestor) => new XElement(Asc + ancestor, inner))}\n";
 
-    public static IO<Unit> Save(CdlState state, Option<string> id, CdlFormat format, OutputPath path) => StillWriter.Commit(path, Write(state, id, format));
+    public static IO<Unit> Save(CdlState state, Option<string> id, CdlFormat format, OutputPath path) => FilePublication.Write(path, Write(state, id, format));
 
     private static Validation<Error, CdlState> Corrected(XElement correction) {
         static Validation<Error, T> Crossed<T>(float key) where T : IObjectFactory<T, float, InvalidGrade> =>
@@ -114,30 +114,20 @@ public sealed record CdlState(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CdlParameter : IStateParameter<CdlState> {
-    private static Presentation<CdlSlope, float> Slope { get; } = new() { Soft = (0f, 2f), Origin = (float)CdlSlope.Unit };
-    private static Presentation<CdlOffset, float> Offset { get; } = new() { Soft = (-1f, 1f), Origin = (float)CdlOffset.Neutral };
-    private static Presentation<CdlPower, float> Power { get; } = new() { Soft = ((float)CdlPower.MinValue, 2f), Origin = (float)CdlPower.Unit };
+    private static Presentation<float> Slope { get; } = new() { Soft = (0f, 2f), Origin = (float)CdlSlope.Unit };
+    private static Presentation<float> Offset { get; } = new() { Soft = (-1f, 1f), Origin = (float)CdlOffset.Neutral };
+    private static Presentation<float> Power { get; } = new() { Soft = ((float)CdlPower.MinValue, 2f), Origin = (float)CdlPower.Unit };
 
-    public static readonly CdlParameter SlopeRed = new("slope-red", new StateParameter<CdlState>.Bounded<CdlSlope, float, InvalidGrade>(
-        Lens<CdlState, CdlSlope>.New(static state => state.SlopeRed, static slope => state => state with { SlopeRed = slope }), Slope));
-    public static readonly CdlParameter SlopeGreen = new("slope-green", new StateParameter<CdlState>.Bounded<CdlSlope, float, InvalidGrade>(
-        Lens<CdlState, CdlSlope>.New(static state => state.SlopeGreen, static slope => state => state with { SlopeGreen = slope }), Slope));
-    public static readonly CdlParameter SlopeBlue = new("slope-blue", new StateParameter<CdlState>.Bounded<CdlSlope, float, InvalidGrade>(
-        Lens<CdlState, CdlSlope>.New(static state => state.SlopeBlue, static slope => state => state with { SlopeBlue = slope }), Slope));
-    public static readonly CdlParameter OffsetRed = new("offset-red", new StateParameter<CdlState>.Bounded<CdlOffset, float, InvalidGrade>(
-        Lens<CdlState, CdlOffset>.New(static state => state.OffsetRed, static offset => state => state with { OffsetRed = offset }), Offset));
-    public static readonly CdlParameter OffsetGreen = new("offset-green", new StateParameter<CdlState>.Bounded<CdlOffset, float, InvalidGrade>(
-        Lens<CdlState, CdlOffset>.New(static state => state.OffsetGreen, static offset => state => state with { OffsetGreen = offset }), Offset));
-    public static readonly CdlParameter OffsetBlue = new("offset-blue", new StateParameter<CdlState>.Bounded<CdlOffset, float, InvalidGrade>(
-        Lens<CdlState, CdlOffset>.New(static state => state.OffsetBlue, static offset => state => state with { OffsetBlue = offset }), Offset));
-    public static readonly CdlParameter PowerRed = new("power-red", new StateParameter<CdlState>.Bounded<CdlPower, float, InvalidGrade>(
-        Lens<CdlState, CdlPower>.New(static state => state.PowerRed, static power => state => state with { PowerRed = power }), Power));
-    public static readonly CdlParameter PowerGreen = new("power-green", new StateParameter<CdlState>.Bounded<CdlPower, float, InvalidGrade>(
-        Lens<CdlState, CdlPower>.New(static state => state.PowerGreen, static power => state => state with { PowerGreen = power }), Power));
-    public static readonly CdlParameter PowerBlue = new("power-blue", new StateParameter<CdlState>.Bounded<CdlPower, float, InvalidGrade>(
-        Lens<CdlState, CdlPower>.New(static state => state.PowerBlue, static power => state => state with { PowerBlue = power }), Power));
-    public static readonly CdlParameter Saturation = new("saturation", new StateParameter<CdlState>.Bounded<Saturation, float, InvalidGrade>(
-        Lens<CdlState, Saturation>.New(static state => state.Saturation, static saturation => state => state with { Saturation = saturation }), ContrastGradeParameter.Chroma));
+    public static readonly CdlParameter SlopeRed = new("slope-red", StateParameter.Bounded<CdlState, CdlSlope, float, InvalidGrade>(Lens<CdlState, CdlSlope>.New(static state => state.SlopeRed, static slope => state => state with { SlopeRed = slope }), Slope));
+    public static readonly CdlParameter SlopeGreen = new("slope-green", StateParameter.Bounded<CdlState, CdlSlope, float, InvalidGrade>(Lens<CdlState, CdlSlope>.New(static state => state.SlopeGreen, static slope => state => state with { SlopeGreen = slope }), Slope));
+    public static readonly CdlParameter SlopeBlue = new("slope-blue", StateParameter.Bounded<CdlState, CdlSlope, float, InvalidGrade>(Lens<CdlState, CdlSlope>.New(static state => state.SlopeBlue, static slope => state => state with { SlopeBlue = slope }), Slope));
+    public static readonly CdlParameter OffsetRed = new("offset-red", StateParameter.Bounded<CdlState, CdlOffset, float, InvalidGrade>(Lens<CdlState, CdlOffset>.New(static state => state.OffsetRed, static offset => state => state with { OffsetRed = offset }), Offset));
+    public static readonly CdlParameter OffsetGreen = new("offset-green", StateParameter.Bounded<CdlState, CdlOffset, float, InvalidGrade>(Lens<CdlState, CdlOffset>.New(static state => state.OffsetGreen, static offset => state => state with { OffsetGreen = offset }), Offset));
+    public static readonly CdlParameter OffsetBlue = new("offset-blue", StateParameter.Bounded<CdlState, CdlOffset, float, InvalidGrade>(Lens<CdlState, CdlOffset>.New(static state => state.OffsetBlue, static offset => state => state with { OffsetBlue = offset }), Offset));
+    public static readonly CdlParameter PowerRed = new("power-red", StateParameter.Bounded<CdlState, CdlPower, float, InvalidGrade>(Lens<CdlState, CdlPower>.New(static state => state.PowerRed, static power => state => state with { PowerRed = power }), Power));
+    public static readonly CdlParameter PowerGreen = new("power-green", StateParameter.Bounded<CdlState, CdlPower, float, InvalidGrade>(Lens<CdlState, CdlPower>.New(static state => state.PowerGreen, static power => state => state with { PowerGreen = power }), Power));
+    public static readonly CdlParameter PowerBlue = new("power-blue", StateParameter.Bounded<CdlState, CdlPower, float, InvalidGrade>(Lens<CdlState, CdlPower>.New(static state => state.PowerBlue, static power => state => state with { PowerBlue = power }), Power));
+    public static readonly CdlParameter Saturation = new("saturation", StateParameter.Bounded<CdlState, Saturation, float, InvalidGrade>(Lens<CdlState, Saturation>.New(static state => state.Saturation, static saturation => state => state with { Saturation = saturation }), ContrastGradeParameter.Chroma));
 
     public StateParameter<CdlState> Kind { get; }
 }

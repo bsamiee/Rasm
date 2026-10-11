@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.Pixels;
 using TinyEXR;
 
@@ -85,15 +86,15 @@ public sealed class InverseLut1D {
         ReadOnlySpan<float> table = Forward.Channel(channel)[range.Start..(range.End + 1)];
         float bounded = float.IsNaN(value) ? table[0] : float.Clamp(value, float.Min(table[0], table[^1]), float.Max(table[0], table[^1]));
         int above = ~table.BinarySearch(new LowerBound(bounded, range.Sign));
-        float position = range.Start + (above == 0 ? 0f : above - 1 + ((bounded - table[above - 1]) / (table[above] - table[above - 1])));
+        float position = range.Start + (above is 0 ? 0f : above - 1 + ((bounded - table[above - 1]) / (table[above] - table[above - 1])));
         return Forward.DomainMinimum[channel] + (position / (Forward.Length - 1) * (Forward.DomainMaximum[channel] - Forward.DomainMinimum[channel]));
     }
 
     private static Option<MonotonicRange> Monotonic(ReadOnlySpan<float> table) {
         float sign = float.Sign(table[^1] - table[0]);
-        for (int entry = 1; entry < table.Length && sign != 0f; entry++)
+        for (int entry = 1; entry < table.Length && sign is not 0f; entry++)
             sign = sign * (table[entry] - table[entry - 1]) < 0f ? 0f : sign;
-        return sign == 0f ? None : new MonotonicRange(sign, table.IndexOfAnyExcept(table[0]) - 1, table.LastIndexOfAnyExcept(table[^1]) + 1);
+        return sign is 0f ? None : new MonotonicRange(sign, table.IndexOfAnyExcept(table[0]) - 1, table.LastIndexOfAnyExcept(table[^1]) + 1);
     }
 
     private readonly record struct MonotonicRange(float Sign, int Start, int End);
@@ -256,26 +257,23 @@ public abstract partial record LutTable {
         public override Fin<LutTable> Inverse() => new ChannelCurve(Table.Forward);
     }
 
-    public sealed record Affine(ColorMatrix3x3 Matrix, Vector3 Offset) : LutTable {
+    public sealed record Affine(Matrix<double> Matrix, (double X, double Y, double Z) Offset) : LutTable {
         public override void Apply(Span<Vector4> row) {
-            Span<float> lanes = MemoryMarshal.Cast<Vector4, float>(row);
-            ImageProcessing.ApplyColorMatrix(lanes, lanes, 4, Matrix);
-            foreach (ref Vector4 pixel in row) pixel = new Vector4(pixel.AsVector3() + Offset, pixel.W);
+            DenseVector source = new(3);
+            DenseVector mapped = new(3);
+            foreach (ref Vector4 pixel in row) {
+                (source[0], source[1], source[2]) = (pixel.X, pixel.Y, pixel.Z);
+                Matrix.Multiply(source, mapped);
+                pixel = new Vector4((float)(mapped[0] + Offset.X), (float)(mapped[1] + Offset.Y), (float)(mapped[2] + Offset.Z), pixel.W);
+            }
         }
         public override Fin<LutTable> Inverse() =>
-            Matrix<double>.Build.Dense(4, 4, (row, column) => (row, column) switch {
-                (3, _) => column == 3 ? 1d : 0d,
-                (_, 3) => Offset[row],
-                _ => Matrix[row, column],
-            }) switch {
-                var forward when forward.Rank() < 4 => new StepNotInvertible(this),
-                var forward => forward.Inverse() switch {
-                    var inverse => new Affine(
-                        new ColorMatrix3x3(
-                            (float)inverse[0, 0], (float)inverse[0, 1], (float)inverse[0, 2],
-                            (float)inverse[1, 0], (float)inverse[1, 1], (float)inverse[1, 2],
-                            (float)inverse[2, 0], (float)inverse[2, 1], (float)inverse[2, 2]),
-                        new Vector3((float)inverse[0, 3], (float)inverse[1, 3], (float)inverse[2, 3])),
+            Matrix.LU() switch {
+                var factorization when factorization.U.Diagonal().Contains(0d) => new StepNotInvertible(this),
+                var factorization => factorization.Inverse() switch {
+                    var inverse => inverse.Multiply(new DenseVector([Offset.X, Offset.Y, Offset.Z])) switch {
+                        var offset => new Affine(inverse, (-offset[0], -offset[1], -offset[2])),
+                    },
                 },
             };
     }
@@ -333,10 +331,11 @@ public sealed partial class LogSpace {
     public static readonly LogSpace AgXLog = new("agx-log", Gamut.EGamut, LogCurve.Allocation(-12.47393f, 12.5260688117f, 0f));
     public static readonly LogSpace FilmicLog = new("filmic-log", Gamut.StandardRgb, LogCurve.Allocation(-12.473931188f, 12.526068812f, 0f));
 
-    private static readonly LutTable Inset = new LutTable.Affine(new ColorMatrix3x3(
-        0.856627153315983f, 0.0951212405381588f, 0.0482516061458583f,
-        0.137318972929847f, 0.761241990602591f, 0.101439036467562f,
-        0.11189821299995f, 0.0767994186031903f, 0.811302368396859f), Vector3.Zero);
+    private static readonly LutTable Inset = new LutTable.Affine(Matrix<double>.Build.DenseOfRowMajor(3, 3, [
+        0.856627153315983d, 0.0951212405381588d, 0.0482516061458583d,
+        0.137318972929847d, 0.761241990602591d, 0.101439036467562d,
+        0.11189821299995d, 0.0767994186031903d, 0.811302368396859d,
+    ]), (0d, 0d, 0d));
     private static readonly LutTable Outset = Inset.Inverse().ThrowIfFail();
 
     public Gamut Gamut { get; }
@@ -354,37 +353,49 @@ public sealed partial class LogSpace {
 }
 
 [Union]
-[ValidationError<InvalidColor>]
-[ObjectFactory<string>]
-public abstract partial record LutSpace : IConvertible<string> {
+public abstract partial record LutSpace {
     public abstract (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket { get; }
 
-    public static InvalidColor? Validate(string? value, IFormatProvider? provider, out LutSpace? item) {
-        item = value?.Split('/', 2) switch {
-            null => null,
-            [var primaries, var curve] =>
-                Gamut.TryGet(primaries, out Gamut? gamut) && Transfer.Validate(curve, provider, out Transfer? transfer) is null ? new Encoded(gamut, transfer!) : null,
-            _ => LogSpace.TryGet(value, out LogSpace? space) ? new Log(space) : null,
-        };
-        return value is not null && item is null ? new InvalidColor() : null;
-    }
+    public sealed record Encoded(Gamut Gamut, Transfer Transfer) : LutSpace, IStateRecord<Encoded, EncodedLutParameter, InvalidColor> {
+        public static Encoded Default { get; } = new(Gamut.StandardRgb, Transfer.Standard.Default);
 
-    public string ToValue() => Switch(
-        encoded: static space => $"{space.Gamut.Key}/{space.Transfer.ToValue()}",
-        log: static space => space.Space.Key);
-
-    public sealed record Encoded(Gamut Gamut, Transfer Transfer) : LutSpace {
         public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (new(Gamut, Transfer, Nits.ReferenceWhite), [], []);
     }
 
-    public sealed record Log(LogSpace Space) : LutSpace {
+    public sealed record Log(LogSpace Space) : LutSpace, IStateRecord<Log, LogLutParameter, InvalidColor> {
+        public static Log Default { get; } = new(LogSpace.AgXLog);
+
         public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (new(Space.Gamut, TransferCurve.Linear, Nits.ReferenceWhite), Space.Into, Space.Back);
     }
 }
 
+[SmartEnum<string>]
+[ValidationError<InvalidColor>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class EncodedLutParameter : IStateParameter<LutSpace.Encoded> {
+    public static readonly EncodedLutParameter Gamut = new("gamut", new StateParameter<LutSpace.Encoded>.Choice<Gamut, InvalidColor>(
+        Lens<LutSpace.Encoded, Gamut>.New(static space => space.Gamut, static gamut => space => space with { Gamut = gamut })));
+    public static readonly EncodedLutParameter Transfer = new("transfer", new StateParameter<LutSpace.Encoded>.Variant<Transfer>(
+        Lens<LutSpace.Encoded, Transfer>.New(static space => space.Transfer, static transfer => space => space with { Transfer = transfer })));
+
+    public StateParameter<LutSpace.Encoded> Kind { get; }
+}
+
+[SmartEnum<string>]
+[ValidationError<InvalidColor>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class LogLutParameter : IStateParameter<LutSpace.Log> {
+    public static readonly LogLutParameter Space = new("space", new StateParameter<LutSpace.Log>.Choice<LogSpace, InvalidColor>(
+        Lens<LutSpace.Log, LogSpace>.New(static space => space.Space, static log => space => space with { Space = log })));
+
+    public StateParameter<LutSpace.Log> Kind { get; }
+}
+
 public sealed record LutLook(Option<LutFile> Lut, LutSpace Space)
     : IStateRecord<LutLook, LutLookParameter, InvalidColor>, IPixelStage<LutLook> {
-    public static LutLook Default { get; } = new(None, new LutSpace.Encoded(Gamut.StandardRgb, TransferCurve.Srgb));
+    public static LutLook Default { get; } = new(None, LutSpace.Encoded.Default);
 
     public static Option<PixelPass> Pass(LutLook state, PassContext context) =>
         state.Lut.Map(file => (new ColorEncoding(context.Working, context.Signal, Nits.ReferenceWhite), state.Space.Bracket) switch {
@@ -407,7 +418,7 @@ public sealed partial class LutLookParameter : IStateParameter<LutLook> {
         Lens<LutLook, Option<LutFile>>.New(static look => look.Lut, static lut => look => look with { Lut = lut }),
         LutFile.Read,
         static file => file.Path));
-    public static readonly LutLookParameter Space = new("space", new StateParameter<LutLook>.Keyed<LutSpace, string, InvalidColor>(
+    public static readonly LutLookParameter Space = new("space", new StateParameter<LutLook>.Variant<LutSpace>(
         Lens<LutLook, LutSpace>.New(static look => look.Space, static space => look => look with { Space = space })));
 
     public StateParameter<LutLook> Kind { get; }
@@ -429,5 +440,5 @@ public static class LutTables {
             .Apply(static (_, _, _) => unit).As().ToFin();
 
     internal static Seq<LutTable> Between(Gamut source, Gamut target) =>
-        source == target ? [] : [new LutTable.Affine(source.MatrixTo(target), Vector3.Zero)];
+        source == target ? [] : [new LutTable.Affine(source.MatrixTo(target), (0d, 0d, 0d))];
 }

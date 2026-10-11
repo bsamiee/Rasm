@@ -7,36 +7,41 @@
 
     <ItemGroup Label="Analyzers">
         <PackageVersion Include="ErrorProne.NET.CoreAnalyzers"                            Version="0.9.0-beta.4" />          <!-- Roslyn analyzers for correctness and performance defects -->
-        <PackageVersion Include="Meziantou.Analyzer"                                      Version="3.0.294" />               <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
+        <PackageVersion Include="Meziantou.Analyzer"                                      Version="3.0.296" />               <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
         <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers"              Version="18.7.23" />               <!-- Roslyn analyzers flagging async deadlocks and threading hazards -->
         <PackageVersion Include="Roslynator.Analyzers"                                    Version="5.0.1" />                 <!-- C# code quality analyzers, refactorings, and code fixes -->
     </ItemGroup>
 
     <ItemGroup Label="Rhino">
-        <PackageVersion Include="Grasshopper"                                             Version="9.0.26272.12303-beta" />  <!-- Grasshopper 1 reference assemblies Grasshopper and GH_IO for plugin compilation -->
-        <PackageVersion Include="Grasshopper2"                                            Version="9.0.26272.12303-beta" />  <!-- Grasshopper 2 reference assemblies Grasshopper2 and GrasshopperIO for plugin compilation -->
+        <PackageVersion Include="Grasshopper"                                             Version="9.0.26279.6303-beta" />  <!-- Grasshopper 1 reference assemblies Grasshopper and GH_IO for plugin compilation -->
+        <PackageVersion Include="Grasshopper2"                                            Version="9.0.26279.6303-beta" />  <!-- Grasshopper 2 reference assemblies Grasshopper2 and GrasshopperIO for plugin compilation -->
+        <PackageVersion Include="Microsoft.Win32.SystemEvents"                            Version="11.0.0-rc.1.26425.128" />
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0" />                <!-- openNURBS geometry access for reading and writing 3dm files -->
-        <PackageVersion Include="RhinoCommon"                                             Version="9.0.26272.12303-beta" />  <!-- Rhino plugin SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->
+        <PackageVersion Include="RhinoCommon"                                             Version="9.0.26279.6303-beta" />  <!-- Rhino plugin SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->
         <PackageVersion Include="System.Drawing.Common"                                   Version="11.0.0-rc.1.26425.128" /> <!-- GDI+ based drawing, imaging, and text rendering API -->
     </ItemGroup>
 
     <ItemGroup Label="Core">
+        <PackageVersion Include="CliWrap"                                                  Version="3.10.5" />
         <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />                 <!-- Helpers for spans, buffers, and pooled memory -->
-        <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-77" />         <!-- Functional programming base: option, either, immutable collections, and effects -->
-        <PackageVersion Include="LanguageExt.Parsec"                                      Version="5.0.0-beta-77" />         <!-- Parser combinators ported from Haskell -->
-        <PackageVersion Include="LanguageExt.Streaming"                                   Version="5.0.0-beta-77" />         <!-- Compositional streaming with pipes, sources, sinks, and conduits -->
-        <PackageVersion Include="LanguageExt.Sys"                                         Version="5.0.0-beta-77" />         <!-- Effect wrappers for console, file system, time, and environment -->
+        <PackageVersion Include="CommunityToolkit.Mvvm"                                   Version="8.4.2" />
+        <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-78" />         <!-- Functional programming base: option, either, immutable collections, and effects -->
+        <PackageVersion Include="LanguageExt.Parsec"                                      Version="5.0.0-beta-78" />         <!-- Parser combinators ported from Haskell -->
+        <PackageVersion Include="LanguageExt.Streaming"                                   Version="5.0.0-beta-78" />         <!-- Compositional streaming with pipes, sources, sinks, and conduits -->
+        <PackageVersion Include="LanguageExt.Sys"                                         Version="5.0.0-beta-78" />         <!-- Effect wrappers for console, file system, time, and environment -->
         <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream"                     Version="4.0.1-preview" />         <!-- Pooled memory stream allocator reducing garbage collection pressure -->
+        <PackageVersion Include="Mono.Unix"                                               Version="7.1.0-final.1.21458.1" />  <!-- Unix filesystem operations and typed native errors -->
         <PackageVersion Include="NodaTime"                                                Version="3.3.5" />                 <!-- Date and time types with explicit calendars, instants, and zones -->
         <PackageVersion Include="NodaTime.Serialization.Protobuf"                         Version="2.0.2" />                 <!-- Protobuf well-known type conversions for instants and durations -->
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson"                   Version="1.4.0" />                 <!-- JSON converters for instants, durations, zones, and calendar dates -->
         <PackageVersion Include="Riok.Mapperly"                                           Version="5.0.0-next.11" />         <!-- Source-generated object mapper with compile-time diagnostics -->
         <PackageVersion Include="System.IO.Hashing"                                       Version="11.0.0-rc.1.26425.128" /> <!-- Non-cryptographic hash algorithms including CRC and xxHash -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.5.0" />                <!-- Source-generated smart enums, value objects, and discriminated unions -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.5.0" />                <!-- Value converters for smart enums and value objects -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.5.0" />                <!-- JSON serialization for smart enums and value objects -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack"             Version="10.5.0" />                <!-- Formatter resolvers for smart enums and value objects -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.Serilog"                 Version="10.5.0" />                <!-- Log event destructuring for smart enums, value objects, and unions -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.5.1" />                <!-- Source-generated smart enums, value objects, and discriminated unions -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.5.1" />                <!-- Value converters for smart enums and value objects -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.5.1" />                <!-- JSON serialization for smart enums and value objects -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack"             Version="10.5.1" />                <!-- Formatter resolvers for smart enums and value objects -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.Serilog"                 Version="10.5.1" />                <!-- Log event destructuring for smart enums, value objects, and unions -->
+        <PackageVersion Include="UUIDNext"                                                Version="4.2.4" />
     </ItemGroup>
 
     <ItemGroup Label="Quantities">
@@ -263,6 +268,7 @@
 
     <ItemGroup Label="Machine Learning">
         <PackageVersion Include="libtorch-cpu"                                            Version="2.10.0" />                <!-- Native CPU tensor runtime binaries for TorchSharp -->
+        <PackageVersion Include="libtorch-cpu-win-arm64"                                  Version="2.10.0" />                <!-- Windows ARM64 native CPU tensor runtime binaries for TorchSharp -->
         <PackageVersion Include="Microsoft.ML"                                            Version="6.0.0-preview.26457.2" /> <!-- Machine learning framework with data pipelines, trainers, and inference -->
         <PackageVersion Include="Microsoft.ML.AutoML"                                     Version="0.24.0-preview.26457.2" /> <!-- Automated pipeline, model, and hyperparameter search -->
         <PackageVersion Include="Microsoft.ML.FastTree"                                   Version="6.0.0-preview.26457.2" /> <!-- Gradient boosted decision tree trainers -->
@@ -304,7 +310,7 @@
         <PackageVersion Include="Emgu.CV.runtime.mini.macos"                              Version="5.0.0.6584" />            <!-- macOS arm64 and x64 native binaries for the minimal OpenCV runtime -->
         <PackageVersion Include="Emgu.CV.runtime.ubuntu-26.04-x64"                        Version="5.0.0.6584" />            <!-- Ubuntu native binaries for the full OpenCV runtime -->
         <PackageVersion Include="Magick.NET-Q16-HDRI-AnyCPU"                              Version="14.17.2" />               <!-- ImageMagick image processing with 16-bit HDRI pixel channels -->
-        <PackageVersion Include="SixLabors.ImageSharp"                                    Version="4.1.2" />                 <!-- Managed image decoding, encoding, and processing -->
+        <PackageVersion Include="SixLabors.ImageSharp"                                    Version="4.1.3" />                 <!-- Managed image decoding, encoding, and processing -->
         <PackageVersion Include="TextureCompressor"                                       Version="0.1.0" />                 <!-- Managed GPU texture codecs: BCn, ETC, ASTC, PVRTC, mipmaps, and container conversion -->
         <PackageVersion Include="TextureCompressor.FileFormats.Hdr"                       Version="0.1.0" />                 <!-- Radiance RGBE HDR image decoding and encoding -->
         <PackageVersion Include="TextureCompressor.FileFormats.Ktx"                       Version="0.1.0" />                 <!-- KTX and KTX2 texture container reading and writing -->
@@ -368,7 +374,6 @@
         <PackageVersion Include="HanumanInstitute.LibMpv"                                 Version="0.10.1" />                <!-- Strongly typed wrapper for the mpv media player -->
         <PackageVersion Include="HanumanInstitute.LibMpv.Avalonia"                        Version="0.10.1" />                <!-- Avalonia video view control for mpv playback -->
         <PackageVersion Include="Melanchall.DryWetMidi"                                   Version="9.0.0-prerelease8" />     <!-- MIDI file reading and writing, device IO, and playback -->
-        <PackageVersion Include="NAudio.Core"                                             Version="3.1.1-preview.2" />       <!-- Audio wave stream processing and playback pipeline primitives -->
         <PackageVersion Include="NLayer"                                                  Version="3.0.0" />                 <!-- Managed MPEG audio decoding for MP3 streams -->
         <PackageVersion Include="NLayer.NAudioSupport"                                    Version="3.0.0" />                 <!-- Wave stream adapter for managed MP3 decoding -->
         <PackageVersion Include="NVorbis"                                                 Version="1.0.0-rc.2" />            <!-- Managed Ogg Vorbis audio decoder -->
@@ -728,6 +733,7 @@
         <PackageVersion Include="FluentIcons.Common"                                      Version="2.1.343" />               <!-- Symbol enums and glyph metadata for the icon set -->
         <PackageVersion Include="HarfBuzzSharp"                                           Version="14.4.0-preview.2.26479.13" /> <!-- Text shaping engine bindings -->
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS"                        Version="14.4.0-preview.2.26479.13" /> <!-- macOS native binaries for the text shaping engine -->
+        <PackageVersion Include="HarfBuzzSharp.NativeAssets.Win32"                        Version="14.4.0-preview.2.26479.13" /> <!-- Windows native binaries for the text shaping engine -->
         <PackageVersion Include="HotAvalonia"                                             Version="3.1.5" />                 <!-- XAML hot reload at application runtime -->
         <PackageVersion Include="Irihi.Ursa"                                              Version="2.2.0" />                 <!-- Control library: forms, pickers, navigation, pagination, dialogs, drawers, and toasts -->
         <PackageVersion Include="Irihi.Ursa.Themes.Semi"                                  Version="2.2.0" />                 <!-- Semi Design theme for the control library -->
@@ -756,7 +762,9 @@
         <PackageVersion Include="SkiaSharp.HarfBuzz"                                      Version="4.155.0-preview.2.26479.13" /> <!-- Shaped text drawing combining rendering with text shaping -->
         <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies"             Version="4.155.0-preview.2.26479.13" /> <!-- Linux native binaries with no system library dependencies -->
         <PackageVersion Include="SkiaSharp.NativeAssets.macOS"                            Version="4.155.0-preview.2.26479.13" /> <!-- macOS native binaries for the graphics engine -->
+        <PackageVersion Include="SkiaSharp.NativeAssets.Win32"                            Version="4.155.0-preview.2.26479.13" /> <!-- Windows native binaries for the graphics engine -->
         <PackageVersion Include="Svg.Controls.Skia.Avalonia"                              Version="12.0.0.17" />             <!-- SVG image display controls and markup extensions -->
+        <PackageVersion Include="Svg.Model"                                               Version="5.2.3" />                 <!-- SVG document parameters and rendering model -->
         <PackageVersion Include="Svg.Skia"                                                Version="5.2.3" />                 <!-- SVG rendering engine built on the 2D graphics bindings -->
         <PackageVersion Include="System.Reactive"                                         Version="7.0.0" />                 <!-- Reactive Extensions for composable event and asynchronous sequences -->
         <PackageVersion Include="Xaml.Behaviors.Avalonia"                                 Version="12.0.7" />                <!-- XAML behaviors, triggers, and actions for declarative interactivity -->

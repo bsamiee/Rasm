@@ -3,9 +3,9 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Helpers;
+using PeterO.Numbers;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Quantization;
-using Rasm.Imaging.Tone;
 using Rasm.Imaging.Tone.Formations;
 using UnitsNet;
 using UnitsNet.Units;
@@ -15,15 +15,13 @@ namespace Rasm.Imaging.Pixels;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IStateParameterVisitor<TRecord, out TResult> {
-    public TResult Bounded<TValue, TKey, TError>(Lens<TRecord, TValue> lens, Presentation<TValue, TKey> presentation)
-        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-        where TKey : struct, INumber<TKey>
-        where TError : Error, IValidationError<TError>;
+    public TResult Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation)
+        where TValue : notnull
+        where TKey : struct, INumber<TKey>;
 
-    public TResult OptionalBounded<TValue, TKey, TError>(Lens<TRecord, Gated<TValue>> lens, Presentation<TValue, TKey> presentation)
-        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-        where TKey : struct, INumber<TKey>
-        where TError : Error, IValidationError<TError>;
+    public TResult OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation)
+        where TValue : notnull
+        where TKey : struct, INumber<TKey>;
 
     public TResult Choice<TValue, TError>(Lens<TRecord, TValue> lens)
         where TValue : ISmartEnum<string, TValue, TError>
@@ -33,10 +31,7 @@ public interface IStateParameterVisitor<TRecord, out TResult> {
         where TValue : ISmartEnum<string, TValue, TError>
         where TError : Error, IValidationError<TError>;
 
-    public TResult Variant<TValue, TCase, TError>(Lens<TRecord, TValue> lens)
-        where TValue : class
-        where TCase : class, IStateCase<TValue>, ISmartEnum<string, TCase, TError>
-        where TError : Error, IValidationError<TError>;
+    public TResult Variant<TValue>(Lens<TRecord, TValue> lens) where TValue : class;
 
     public TResult Enumerated<TEnum>(Lens<TRecord, TEnum> lens) where TEnum : struct, Enum;
 
@@ -82,10 +77,6 @@ public interface IStateCaseVisitor<TUnion, out TResult> where TUnion : class {
     public TResult Case<TCase>() where TCase : class, TUnion, IStateRecord<TCase>;
 }
 
-public interface IStateCase<TUnion> where TUnion : class {
-    public TResult Accept<TResult>(IStateCaseVisitor<TUnion, TResult> visitor);
-}
-
 public interface IStateParameter<TRecord> {
     public string Key { get; }
     public StateParameter<TRecord> Kind { get; }
@@ -116,14 +107,39 @@ public interface IPixelStage<TSelf> : IStateRecord<TSelf> where TSelf : IPixelSt
 public interface IFrameJob<TSelf, TState> : IDisposable
     where TSelf : IFrameJob<TSelf, TState>
     where TState : IStateRecord<TState> {
-    public static abstract IO<TSelf> Open();
+    public static abstract IO<TSelf> Open(Action<IDisposable> retain);
 
     public static abstract Seq<GuideChannel> Channels(TState state);
 
     public IO<PixelFrame> Run(TState state, PixelFrame color, HashMap<GuideChannel, PixelFrame> guides, IProgress<int> rows);
 }
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+public static class StateCases {
+    public const string SelectionKey = "$case";
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
+public abstract class StateCase<TUnion> where TUnion : class {
+    private StateCase() { }
+
+    public static readonly Seq<StateCase<TUnion>> Items =
+        toSeq(typeof(TUnion).GetNestedTypes()).Filter(static type => type.IsAssignableTo(typeof(TUnion)))
+            .Map(static type => (StateCase<TUnion>)Activator.CreateInstance(typeof(StateCase<>.Case<>).MakeGenericType(typeof(TUnion), type))!).Strict();
+
+    public abstract string Key { get; }
+    public abstract TUnion Default { get; }
+    public abstract bool Holds(TUnion value);
+    public abstract TResult Accept<TResult>(IStateCaseVisitor<TUnion, TResult> visitor);
+
+    public sealed class Case<TState> : StateCase<TUnion> where TState : class, TUnion, IStateRecord<TState> {
+        public override string Key => typeof(TState).Name;
+        public override TUnion Default => TState.Default;
+        public override bool Holds(TUnion value) => value is TState;
+        public override TResult Accept<TResult>(IStateCaseVisitor<TUnion, TResult> visitor) => visitor.Case<TState>();
+    }
+}
+
 [SmartEnum]
 public sealed partial class GuideChannel {
     public static readonly GuideChannel Depth = new();
@@ -138,8 +154,8 @@ public sealed record SceneLights(Option<Vector3> Sun, HashMap<Guid, Vector3> Poi
 }
 
 public readonly record struct PassContext(
-    PixelExtent Extent, Gamut Working, Display Display, OutputDepth Depth, Transfer Signal, Exposure Exposure,
-    Option<Camera> Camera, HashMap<GuideChannel, PixelFrame> Guides, Option<TimeSpan> Time, SceneLights Lights, Derivations Derivations);
+    PixelExtent Extent, Gamut Working, Display Display, OutputDepth Depth, Transfer Signal, double Exposure,
+    Option<Camera> Camera, HashMap<GuideChannel, PixelFrame> Guides, Option<TimeSpan> Time, Option<SceneLights> Lights, Derivations Derivations);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PixelPass {
@@ -155,7 +171,7 @@ public abstract partial record PixelPass {
         public override Fin<Unit> Run(PixelFrame frame, IProgress<int> progress) => RowAction.For(frame, (row, _, _) => Row(row), progress);
     }
 
-    public sealed record Pointwise(Action<Span<Vector4>, int, int> Row) : PixelPass {
+    public sealed record Pointwise(Action<Span<Vector4>, long, long> Row) : PixelPass {
         public override Fin<Unit> Run(PixelFrame frame, IProgress<int> progress) => RowAction.For(frame, Row, progress);
     }
 
@@ -167,18 +183,31 @@ public abstract partial record PixelPass {
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class TrackScale {
     public static readonly TrackScale Linear = new(
-        static (key, low, high) => (key - low) / (high - low),
-        static (position, low, high) => low + (position * (high - low)));
+        static (key, low, high) => ERational.FromDouble(key).Subtract(ERational.FromDouble(low)).Divide(ERational.FromDouble(high).Subtract(ERational.FromDouble(low))).ToDouble(),
+        static (position, low, high) => ERational.FromDouble(low).Add(ERational.FromDouble(position).Multiply(ERational.FromDouble(high).Subtract(ERational.FromDouble(low)))).ToDouble());
     public static readonly TrackScale Log = new(
-        static (key, low, high) => double.Max(low, LogFloor) switch { var floor => double.MaxNumber(0, Math.Log(key / floor, high / floor)) },
-        static (position, low, high) => double.Max(low, LogFloor) switch { var floor => floor * Math.Pow(high / floor, position) });
+        static (key, low, high) => (double.Log(low), double.Log(high)) switch { var (bottom, top) => (double.Log(key) - bottom) / (top - bottom) },
+        static (position, low, high) => (double.Log(low), double.Log(high)) switch { var (bottom, top) => double.Exp(bottom + (position * (top - bottom))) });
     public static readonly TrackScale Cubic = new(
-        static (key, low, high) =>
-            (Math.Cbrt(((key - low) * ((high * high * high) - (low * low * low)) / (high - low)) + (low * low * low)) - low) / (high - low),
-        static (position, low, high) =>
-            ((Math.Pow(low + (position * (high - low)), 3) - (low * low * low)) * (high - low) / ((high * high * high) - (low * low * low))) + low);
-
-    private const double LogFloor = 0.5e-8;
+        static (key, low, high) => {
+            ERational bottom = ERational.FromDouble(low);
+            ERational top = ERational.FromDouble(high);
+            ERational offset = ERational.FromDouble(key).Subtract(bottom);
+            ERational slope = top.Multiply(top).Add(top.Multiply(bottom)).Add(bottom.Multiply(bottom));
+            EFloat cube = bottom.Multiply(bottom).Multiply(bottom).Add(offset.Multiply(slope)).ToEFloat(EContext.Binary64.WithUnlimitedExponents());
+            EInteger exponent = cube.Exponent.Add(cube.Precision()).Divide(3);
+            ERational root = ERational.FromEFloat(EFloat.FromDouble(double.Cbrt(cube.ScaleByPowerOfTwo(exponent.Multiply(-3)).ToDouble())).ScaleByPowerOfTwo(exponent));
+            return key == low ? 0d : key == high ? 1d
+                : offset.Multiply(slope).Divide(root.Multiply(root).Add(root.Multiply(bottom)).Add(bottom.Multiply(bottom)).Multiply(top.Subtract(bottom))).ToDouble();
+        },
+        static (position, low, high) => {
+            ERational bottom = ERational.FromDouble(low);
+            ERational top = ERational.FromDouble(high);
+            ERational offset = ERational.FromDouble(position).Multiply(top.Subtract(bottom));
+            ERational key = bottom.Add(offset);
+            return bottom.Add(offset.Multiply(key.Multiply(key).Add(key.Multiply(bottom)).Add(bottom.Multiply(bottom)))
+                .Divide(top.Multiply(top).Add(top.Multiply(bottom)).Add(bottom.Multiply(bottom)))).ToDouble();
+        });
 
     [UseDelegateFromConstructor]
     public partial double Position(double key, double low, double high);
@@ -346,21 +375,35 @@ public readonly partial struct Swatch : IMinMaxValue<Swatch> {
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
 }
 
-public sealed record Presentation<TValue, TKey>
-    where TValue : IMinMaxValue<TValue>, IConvertible<TKey>
-    where TKey : struct, INumber<TKey> {
+public sealed record Presentation<TKey> where TKey : struct, INumber<TKey> {
     public NumberForm Form { get; init; } = NumberForm.Track;
     public Option<UnitInfo> Unit { get; init; }
-    public (TKey Low, TKey High) Soft { get; init; } = (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue());
+    public Option<UnitInfo> DisplayUnit { get; init; }
+    public Option<(TKey Low, TKey High)> Soft { get; init; }
     public Option<TKey> Origin { get; init; }
     public TrackScale Scale { get; init; } = TrackScale.Linear;
     public Option<TKey> Step { get; init; }
     public Option<int> Decimals { get; init; }
     public Option<Ramp> Stops { get; init; }
 
-    public (TKey Low, TKey High) Track(TKey key) =>
-        (key < Soft.Low ? key - TKey.Min(Soft.High - key, key - TValue.MinValue.ToValue()) : Soft.Low,
-         key > Soft.High ? key + TKey.Min(key - Soft.Low, TValue.MaxValue.ToValue() - key) : Soft.High);
+    public Fin<TValue> Admit<TValue>(TValue value, (TKey Low, TKey High) bounds) where TValue : notnull =>
+        value is IQuantity quantity
+            ? UnitConverter.Default.ConvertValue(quantity.Value, quantity.UnitKey, Unit.IfNone(() => quantity.GetQuantityInfo().BaseUnitInfo).UnitKey) switch {
+                var key => key >= QuantityValue.CreateChecked(bounds.Low) && key <= QuantityValue.CreateChecked(bounds.High)
+                    ? Fin.Succ(value)
+                    : new InvalidPixelValue(),
+            }
+            : Fin.Succ(value);
+
+    public (TKey Low, TKey High) Track(TKey key, (TKey Low, TKey High) bounds) =>
+        (Soft.IfNone(bounds), ERational.FromDouble(double.CreateChecked(key)), ERational.FromDouble(double.CreateChecked(bounds.Low)), ERational.FromDouble(double.CreateChecked(bounds.High))) switch {
+            var (soft, value, low, high) =>
+                (ERational.FromDouble(double.CreateChecked(soft.Low)), ERational.FromDouble(double.CreateChecked(soft.High))) switch {
+                    var (bottom, top) =>
+                        (value.CompareTo(bottom) < 0 ? TKey.CreateSaturating(value.Subtract(ERational.Min(top.Subtract(value), value.Subtract(low))).ToDouble()) : soft.Low,
+                         value.CompareTo(top) > 0 ? TKey.CreateSaturating(value.Add(ERational.Min(value.Subtract(bottom), high.Subtract(value))).ToDouble()) : soft.High),
+                },
+        };
 
     public double Position(TKey key, (TKey Low, TKey High) track) =>
         Scale.Position(double.CreateChecked(key), double.CreateChecked(track.Low), double.CreateChecked(track.High));
@@ -370,8 +413,10 @@ public sealed record Presentation<TValue, TKey>
             var (low, high) => double.Clamp(Scale.Key(position, low, high), low, high),
         };
 
-    public Option<Vector4> Fill(double key) =>
-        Stops.Map(ramp => ramp.Tabulate(Gamut.StandardRgb).Sample((key - double.CreateChecked(Soft.Low)) / double.CreateChecked(Soft.High - Soft.Low)));
+    public Option<Vector4> Fill(double key, (TKey Low, TKey High) bounds) =>
+        Stops.Map(ramp => Soft.IfNone(bounds) switch {
+            var soft => ramp.Tabulate(Gamut.StandardRgb).Sample(TrackScale.Linear.Position(key, double.CreateChecked(soft.Low), double.CreateChecked(soft.High))),
+        });
 }
 
 public sealed record Gated<TValue>(bool Enabled, TValue Value) where TValue : notnull {
@@ -388,18 +433,16 @@ public abstract class StateParameter<TRecord> {
 
     public abstract TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor);
 
-    public sealed class Bounded<TValue, TKey, TError>(Lens<TRecord, TValue> lens, Presentation<TValue, TKey> presentation) : StateParameter<TRecord>
-        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-        where TKey : struct, INumber<TKey>
-        where TError : Error, IValidationError<TError> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Bounded<TValue, TKey, TError>(lens, presentation);
+    public sealed class Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation) : StateParameter<TRecord>
+        where TValue : notnull
+        where TKey : struct, INumber<TKey> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Numeric(lens, create, key, bounds, presentation);
     }
 
-    public sealed class OptionalBounded<TValue, TKey, TError>(Lens<TRecord, Gated<TValue>> lens, Presentation<TValue, TKey> presentation) : StateParameter<TRecord>
-        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-        where TKey : struct, INumber<TKey>
-        where TError : Error, IValidationError<TError> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalBounded<TValue, TKey, TError>(lens, presentation);
+    public sealed class OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation) : StateParameter<TRecord>
+        where TValue : notnull
+        where TKey : struct, INumber<TKey> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalNumeric(lens, create, key, bounds, presentation);
     }
 
     public sealed class Choice<TValue, TError>(Lens<TRecord, TValue> lens) : StateParameter<TRecord>
@@ -414,11 +457,8 @@ public abstract class StateParameter<TRecord> {
         public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalChoice<TValue, TError>(lens);
     }
 
-    public sealed class Variant<TValue, TCase, TError>(Lens<TRecord, TValue> lens) : StateParameter<TRecord>
-        where TValue : class
-        where TCase : class, IStateCase<TValue>, ISmartEnum<string, TCase, TError>
-        where TError : Error, IValidationError<TError> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Variant<TValue, TCase, TError>(lens);
+    public sealed class Variant<TValue>(Lens<TRecord, TValue> lens) : StateParameter<TRecord> where TValue : class {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Variant(lens);
     }
 
     public sealed class Enumerated<TEnum>(Lens<TRecord, TEnum> lens) : StateParameter<TRecord> where TEnum : struct, Enum {
@@ -492,11 +532,11 @@ public abstract class StateParameter<TRecord> {
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidPixelValue>]
 public readonly partial struct ShortSideOffset : IMinMaxValue<ShortSideOffset> {
-    public static ShortSideOffset MinValue { get; } = new(-8f);
-    public static ShortSideOffset MaxValue { get; } = new(8f);
-    public static Presentation<ShortSideOffset, float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (-1f, 1f), Origin = (float)Neutral };
+    public static ShortSideOffset MinValue { get; } = new(-float.MaxValue);
+    public static ShortSideOffset MaxValue { get; } = new(float.MaxValue);
+    public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (-1f, 1f), Origin = (float)Neutral };
 
-    public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
+    public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
@@ -506,10 +546,10 @@ public readonly partial struct ShortSideOffset : IMinMaxValue<ShortSideOffset> {
 [ValidationError<InvalidPixelValue>]
 public readonly partial struct ShortSideLength : IMinMaxValue<ShortSideLength> {
     public static ShortSideLength MinValue => Neutral;
-    public static ShortSideLength MaxValue { get; } = new(8f);
-    public static Presentation<ShortSideLength, float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 1f) };
+    public static ShortSideLength MaxValue { get; } = new(float.MaxValue);
+    public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 1f) };
 
-    public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
+    public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
@@ -518,11 +558,11 @@ public readonly partial struct ShortSideLength : IMinMaxValue<ShortSideLength> {
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidPixelValue>]
 public readonly partial struct ShortSideExtent : IMinMaxValue<ShortSideExtent> {
-    public static ShortSideExtent MinValue { get; } = new(0.001f);
-    public static ShortSideExtent MaxValue { get; } = new(8f);
-    public static Presentation<ShortSideExtent, float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Scale = TrackScale.Log };
+    public static ShortSideExtent MinValue { get; } = new(float.Epsilon);
+    public static ShortSideExtent MaxValue { get; } = new(float.MaxValue);
+    public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.001f, 8f), Scale = TrackScale.Log };
 
-    public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
+    public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
@@ -553,17 +593,17 @@ public sealed record FramePosition(FrameAxis X, FrameAxis Y) {
     private static readonly Lens<FramePosition, FrameAxis> YOf =
         Lens<FramePosition, FrameAxis>.New(static position => position.Y, static y => position => position with { Y = y });
 
-    public Vector2 Point(PixelExtent extent) => new(X * extent.Width, Y * extent.Height);
+    public (double X, double Y) Point(PixelExtent extent) => ((double)X * extent.Width, (double)Y * extent.Height);
 
     public static (StateParameter<TRecord> X, StateParameter<TRecord> Y) Kinds<TRecord>(Lens<TRecord, FramePosition> position) =>
-        (new StateParameter<TRecord>.Bounded<FrameAxis, float, InvalidPixelValue>(lens(position, XOf), Axis),
-         new StateParameter<TRecord>.Bounded<FrameAxis, float, InvalidPixelValue>(lens(position, YOf), Axis));
+        (StateParameter.Bounded<TRecord, FrameAxis, float, InvalidPixelValue>(lens(position, XOf), Axis),
+         StateParameter.Bounded<TRecord, FrameAxis, float, InvalidPixelValue>(lens(position, YOf), Axis));
 
-    private static Presentation<FrameAxis, float> Axis { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 1f) };
+    private static Presentation<float> Axis { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 1f) };
 }
 
-file readonly struct RowAction(PixelFrame frame, Memory2D<Vector4> rows, Action<Span<Vector4>, int, int> kernel, IProgress<int> progress, StrongBox<int> finished) : IAction {
-    public static Unit For(PixelFrame frame, Action<Span<Vector4>, int, int> kernel, IProgress<int> progress) {
+file readonly struct RowAction(PixelFrame frame, Memory2D<Vector4> rows, Action<Span<Vector4>, long, long> kernel, IProgress<int> progress, StrongBox<int> finished) : IAction {
+    public static Unit For(PixelFrame frame, Action<Span<Vector4>, long, long> kernel, IProgress<int> progress) {
         ParallelHelper.For(0, frame.Size.Height, new RowAction(frame, frame.View, kernel, progress, new StrongBox<int>()));
         return unit;
     }
@@ -575,15 +615,81 @@ file readonly struct RowAction(PixelFrame frame, Memory2D<Vector4> rows, Action<
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class Derivations {
-    private readonly Atom<HashMap<Delegate, (object State, Lazy<object> Value)>> held = Atom(HashMap<Delegate, (object State, Lazy<object> Value)>());
+public sealed class Derivations : IDisposable {
+    private readonly Lock sync = new();
+    private HashMap<Delegate, (object State, object Value)> held;
+    private Option<HashMap<Delegate, (object State, IDisposable Value)>> resources = Some(HashMap<Delegate, (object State, IDisposable Value)>());
 
-    public TValue Derived<TState, TValue>(TState state, Func<TState, TValue> derive) where TState : notnull where TValue : notnull =>
-        (TValue)held.Swap(map => map.Find(derive).Exists(kept => kept.State.Equals(state)) ? map : map.AddOrUpdate(derive, (state, new Lazy<object>(() => derive(state)))))
-            .Find(derive).Map(static entry => entry.Value).ValueUnsafe()!.Value;
+    public TValue Derived<TState, TValue>(TState state, Func<TState, TValue> derive) where TState : notnull where TValue : notnull {
+        lock (sync) {
+            ObjectDisposedException.ThrowIf(resources.IsNone, this);
+            return held.Find(derive).Match(
+                Some: kept => kept.State.Equals(state) ? (TValue)kept.Value : Create(),
+                None: Create);
+
+            TValue Create() {
+                TValue value = derive(state);
+                held = held.AddOrUpdate(derive, (state, value));
+                return value;
+            }
+        }
+    }
+
+    public Fin<TResult> Derived<TState, TValue, TResult>(TState state, Func<TState, TValue> acquire, Action<TState, TValue> populate, Func<TValue, Fin<TResult>> use)
+        where TState : notnull where TValue : class, IDisposable {
+        lock (sync) {
+            return resources.Case is HashMap<Delegate, (object State, IDisposable Value)> cache
+                ? cache.Find(populate).Match(
+                    Some: kept => kept.State.Equals(state) ? Try.lift(() => use((TValue)kept.Value)).Run() : Create(Some(kept.Value)),
+                    None: () => Create(None))
+                : Errors.Cancelled;
+
+            Fin<TResult> Create(Option<IDisposable> previous) =>
+                Try.lift(() => acquire(state)).Run().Bind(value => {
+                    Fin<TValue> prepared = Try.lift(() => {
+                        populate(state, value);
+                        resources = Some(cache.AddOrUpdate(populate, (state, value)));
+                        return value;
+                    }).Run();
+                    return prepared.Match(
+                        Succ: ready => previous.Traverse(static old => Try.lift(old.Dispose).Run()).As().Bind(_ => Try.lift(() => use(ready)).Run()),
+                        Fail: error => (Fin.Fail<TResult>(error), Try.lift(value.Dispose).Run()).Apply(static (result, _) => result).As());
+                });
+        }
+    }
+
+    public void Dispose() {
+        lock (sync) {
+            Option<HashMap<Delegate, (object State, IDisposable Value)>> closed = resources;
+            resources = None;
+            held = HashMap<Delegate, (object State, object Value)>();
+            _ = closed.ToSeq().Bind(static cache => toSeq(cache.Values))
+                .Traverse(static entry => Try.lift(entry.Value.Dispose).Run()).As().ThrowIfFail();
+        }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+public static class StateParameter {
+    public static StateParameter<TRecord>.Numeric<TValue, TKey> Bounded<TRecord, TValue, TKey, TError>(Lens<TRecord, TValue> lens, Presentation<TKey> presentation)
+        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
+        where TKey : struct, INumber<TKey>
+        where TError : Error, IValidationError<TError> =>
+        new(lens, Validated<TValue, TKey, TError>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), presentation);
+
+    public static StateParameter<TRecord>.OptionalNumeric<TValue, TKey> OptionalBounded<TRecord, TValue, TKey, TError>(Lens<TRecord, Gated<TValue>> lens, Presentation<TKey> presentation)
+        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
+        where TKey : struct, INumber<TKey>
+        where TError : Error, IValidationError<TError> =>
+        new(lens, Validated<TValue, TKey, TError>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), presentation);
+
+    private static Fin<TValue> Validated<TValue, TKey, TError>(TKey key)
+        where TValue : IObjectFactory<TValue, TKey, TError>
+        where TKey : notnull
+        where TError : Error, IValidationError<TError> =>
+        TValue.Validate(key, provider: null, out TValue? value) is { } error ? error : value!;
+}
+
 public static class Valid {
     public static T Value<T, TError>(TError? error, T? item) where T : notnull where TError : Error =>
         error is null ? item! : error.Throw<T>();

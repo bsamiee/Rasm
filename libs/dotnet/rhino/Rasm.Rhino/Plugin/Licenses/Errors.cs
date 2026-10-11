@@ -3,8 +3,8 @@ namespace Rasm.Rhino.Plugin.Licenses;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     AccountsBusy = 1,
-    AccountsUnreachable,
-    AccountsFailed,
+    AccountsUnreachable = 2,
+    AccountsFailed = 3,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

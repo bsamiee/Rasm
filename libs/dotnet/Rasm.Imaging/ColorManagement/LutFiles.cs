@@ -6,6 +6,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using CommunityToolkit.HighPerformance.Buffers;
+using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Output;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
@@ -291,7 +292,7 @@ public static class LutFiles {
     private static Fin<LutTable> ParseSpi1d(string text) =>
         from header in Header.Read(text, LutFormat.Spi1d, [Version, From, Length, Components], static line => line[0] != '{')
         from stated in (
-                header.Stated(Version, static value => Invariant.Number<int>(value).Filter(static version => version == 1)),
+                header.Stated(Version, static value => Invariant.Number<int>(value).Filter(static version => version is 1)),
                 header.Stated(From, Pair),
                 header.Stated(Length, static value => Invariant.Number<int>(value).Bind(Sized<CurveLength>)),
                 header.Stated(Components, static value => Invariant.Number<int>(value).Filter(static count => count is 1 or 3)))
@@ -313,7 +314,7 @@ public static class LutFiles {
             return new LutLineMalformed(LutFormat.Spi3d, 1);
         if (!lines.MoveNext() || !lines.MoveNext())
             return new LutSizeAbsent(LutFormat.Spi3d);
-        if (lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries) != 3 || Parsed(lines.Current, tokens, codes) != 3
+        if (lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries) is not 3 || Parsed(lines.Current, tokens, codes) is not 3
             || codes.ContainsAnyExcept(codes[0]) || Sized<LatticeSize>(codes[0]).Case is not LatticeSize size)
             return new LutLineMalformed(LutFormat.Spi3d, 3);
         int nodes = size * size * size;
@@ -322,10 +323,10 @@ public static class LutFiles {
         (int number, int read) = (3, 0);
         while (lines.MoveNext()) {
             number++;
-            if (lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries) != 6 || Parsed(lines.Current, tokens, codes) != 3)
+            if (lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries) is not 6 || Parsed(lines.Current, tokens, codes) is not 3)
                 continue;
             int node = (((codes[2] * size) + codes[1]) * size) + codes[0];
-            if (codes.ContainsAnyExceptInRange(0, size - 1) || filled.Span[node] || Parsed(lines.Current, tokens[3..6], samples.Span.Slice(3 * node, 3)) != 3)
+            if (codes.ContainsAnyExceptInRange(0, size - 1) || filled.Span[node] || Parsed(lines.Current, tokens[3..6], samples.Span.Slice(3 * node, 3)) is not 3)
                 return new LutLineMalformed(LutFormat.Spi3d, number);
             (filled.Span[node], read) = (true, read + 1);
         }
@@ -336,10 +337,10 @@ public static class LutFiles {
 
     private static Fin<LutTable> ParseSpiMatrix(string text) {
         const int Cells = 12;
-        (Seq<float> values, int number) = ([], 0);
+        (Seq<double> values, int number) = ([], 0);
         foreach (ReadOnlySpan<char> line in text.AsSpan().EnumerateLines()) {
             number++;
-            if (Numbers<float>(line).Case is not float[] row)
+            if (Numbers<double>(line).Case is not double[] row)
                 return new LutLineMalformed(LutFormat.SpiMatrix, number);
             values += toSeq(row);
         }
@@ -353,12 +354,12 @@ public static class LutFiles {
         Span<int> codes = stackalloc int[LatticeSize.MaxValue + 1];
         SpanLineEnumerator lines = text.AsSpan().EnumerateLines();
         (int number, int count, int read) = (0, 0, 0);
-        while (read == 0 && lines.MoveNext()) {
+        while (read is 0 && lines.MoveNext()) {
             number++;
             count = lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries);
             read = Parsed(lines.Current, tokens[..count], codes[..count]);
         }
-        if (read == 0)
+        if (read is 0)
             return new LutSizeAbsent(LutFormat.Autodesk);
         if (read != count || count <= 3 || codes[..count] is not [.., var last] || last < 128 || !Ramped(codes[..count], last) || Sized<LatticeSize>(count).Case is not LatticeSize size)
             return new LutLineMalformed(LutFormat.Autodesk, number);
@@ -370,9 +371,9 @@ public static class LutFiles {
             number++;
             count = lines.Current.SplitAny(tokens[..4], Blanks, StringSplitOptions.RemoveEmptyEntries);
             read = Parsed(lines.Current, tokens[..count], codes[..count]);
-            if (read == 0)
+            if (read is 0)
                 continue;
-            if (count != 3 || read != count || codes[..3].ContainsAnyInRange(int.MinValue, -1))
+            if (count is not 3 || read != count || codes[..3].ContainsAnyInRange(int.MinValue, -1))
                 return new LutLineMalformed(LutFormat.Autodesk, number);
             if (rows < nodes)
                 lattice[Transposed(rows, size)] = new Vector3(codes[0], codes[1], codes[2]);
@@ -406,7 +407,7 @@ public static class LutFiles {
                 : new LutLineMalformed(format, document.Root is { } other ? Line(other) : 1));
 
     internal static Fin<LutTable> ReadMatrix(XElement node, LutFormat format) =>
-        from read in (Scales(node, format), Values<float>(node, format)).Apply(static (scales, array) => (Scales: scales, Array: array)).As()
+        from read in (Scales(node, format), Values<double>(node, format)).Apply(static (scales, array) => (Scales: scales, Array: array)).As()
         from table in (read.Array.Dimensions, read.Array.Values.Length) switch {
             ([4, ..], _) => Fin.Fail<LutTable>(Unheld(node, format)),
             ([3, 3] or [3, 3, 3], 9) => Fin.Succ<LutTable>(Affine(read.Array.Values.AsSpan(0, 9), 3, read.Scales)),
@@ -593,7 +594,7 @@ public static class LutFiles {
                         (Sides: new Vector4(logSlope.IfNone(1f), logOffset.IfNone(0f), linSlope.IfNone(1f), linOffset.IfNone(0f)), Knee: knee, Slope: slope))
                     .As()
                 from _ in guard<Error>(
-                    read.Sides.X != 0f && read.Sides.Z != 0f && read.Knee.IsSome == camera && (camera || read.Slope.IsNone),
+                    read.Sides.X is not 0f && read.Sides.Z is not 0f && read.Knee.IsSome == camera && (camera || read.Slope.IsNone),
                     Malformed(element, format)).ToFin()
                 select (read.Sides, Camera: read.Knee.Map(at => (Knee: at, Slope: read.Slope.IfNone(() => read.Sides.X * read.Sides.Z / (((read.Sides.Z * at) + read.Sides.W) * float.Log(logBase)))))),
             camera ? None : Some((Sides: new Vector4(1f, 0f, 1f, 0f), Camera: Option<(float Knee, float Slope)>.None)))
@@ -629,7 +630,7 @@ public static class LutFiles {
         Children(node, name)
             .TraverseM(element =>
                 from lanes in Attribute(element, Channel).Match(
-                    Some: static letter => letter.Length == 1 && Lanes.IndexOf(letter, StringComparison.OrdinalIgnoreCase) is var lane and >= 0 ? Some(Seq(lane)) : None,
+                    Some: static letter => letter.Length is 1 && Lanes.IndexOf(letter, StringComparison.OrdinalIgnoreCase) is var lane and >= 0 ? Some(Seq(lane)) : None,
                     None: static () => Some(Seq(0, 1, 2))).ToFin(Malformed(element, format))
                 from value in read(element)
                 select (Lanes: lanes, Value: value))
@@ -655,14 +656,15 @@ public static class LutFiles {
          from values in Numbers<T>(array.Value)
          select (dimensions, values)).ToFin(Malformed(node, format));
 
-    private static LutTable.Affine Affine(ReadOnlySpan<float> values, int columns, (float In, float Out) scales) =>
-        (scales.In / scales.Out) switch {
+    private static LutTable.Affine Affine(ReadOnlySpan<double> values, int columns, (float In, float Out) scales) =>
+        ((double)scales.In / scales.Out) switch {
             var gain => new LutTable.Affine(
-                new ColorMatrix3x3(
+                Matrix<double>.Build.DenseOfRowMajor(3, 3, [
                     values[0] * gain, values[1] * gain, values[2] * gain,
                     values[columns] * gain, values[columns + 1] * gain, values[columns + 2] * gain,
-                    values[2 * columns] * gain, values[(2 * columns) + 1] * gain, values[(2 * columns) + 2] * gain),
-                columns == 4 ? new Vector3(values[3], values[7], values[11]) / scales.Out : Vector3.Zero),
+                    values[2 * columns] * gain, values[(2 * columns) + 1] * gain, values[(2 * columns) + 2] * gain,
+                ]),
+                columns is 4 ? (values[3] / scales.Out, values[7] / scales.Out, values[11] / scales.Out) : (0d, 0d, 0d)),
         };
 
     private static Option<XElement> Child(XElement node, string name) => Children(node, name).Head;
@@ -726,7 +728,7 @@ public static class LutFiles {
                 string keyword = line[parts[0]].ToString();
                 if (keywords.Find(known => string.Equals(known, keyword, StringComparison.OrdinalIgnoreCase)).Filter(known => !lines.ContainsKey(known)).Case is not string key)
                     return new LutLineMalformed(format, number);
-                lines = lines.Add(key, (count == 2 ? line[parts[1]].ToString() : "", number));
+                lines = lines.Add(key, (count is 2 ? line[parts[1]].ToString() : "", number));
             }
             return new Header(format, lines, number + 1);
         }
@@ -751,7 +753,7 @@ public static class LutFiles {
 
     public static IO<Unit> Write(LutTable table, LutFormat format, OutputPath path) =>
         from text in IO.lift(Render(table, format, Path.GetFileNameWithoutExtension(path)))
-        from _ in StillWriter.Commit(path, text)
+        from _ in FilePublication.Write(path, text)
         select unit;
 
     public static IO<Unit> WriteLookup(LutTable table, LookupLayout layout, FileMetadata metadata, OutputPath path) =>
@@ -789,7 +791,7 @@ public static class LutFiles {
         let width = curve.Channel(0).SequenceEqual(curve.Channel(1)) && curve.Channel(1).SequenceEqual(curve.Channel(2)) ? 1 : 3
         select Rows(
             new StringBuilder().Append(CultureInfo.InvariantCulture, $"{Version} 1\n{From} {curve.DomainMinimum.X} {curve.DomainMaximum.X}\n{Length} {curve.Length}\n{Components} {width}\n{{\n"),
-            width == 1 ? curve.Channel(0) : Interleaved(curve),
+            width is 1 ? curve.Channel(0) : Interleaved(curve),
             width).Append("}\n").ToString();
 
     private static Option<string> RenderSpi3d(Seq<LutTable> steps) =>
@@ -809,9 +811,9 @@ public static class LutFiles {
         select Rows(
             new StringBuilder(),
             [
-                affine.Matrix.M11, affine.Matrix.M12, affine.Matrix.M13, affine.Offset.X * ushort.MaxValue,
-                affine.Matrix.M21, affine.Matrix.M22, affine.Matrix.M23, affine.Offset.Y * ushort.MaxValue,
-                affine.Matrix.M31, affine.Matrix.M32, affine.Matrix.M33, affine.Offset.Z * ushort.MaxValue,
+                affine.Matrix[0, 0], affine.Matrix[0, 1], affine.Matrix[0, 2], affine.Offset.X * ushort.MaxValue,
+                affine.Matrix[1, 0], affine.Matrix[1, 1], affine.Matrix[1, 2], affine.Offset.Y * ushort.MaxValue,
+                affine.Matrix[2, 0], affine.Matrix[2, 1], affine.Matrix[2, 2], affine.Offset.Z * ushort.MaxValue,
             ],
             4).ToString();
 
@@ -896,10 +898,10 @@ public static class LutFiles {
     private static XElement Node(ProcessNode kind, params ReadOnlySpan<object> content) =>
         new(kind.Key, new XAttribute(InBitDepth, ClfBitDepth.Float32.Key), new XAttribute(OutBitDepth, ClfBitDepth.Float32.Key), content.ToArray());
 
-    private static XElement Matrix(ColorMatrix3x3 matrix, Vector3 offset) =>
-        offset == Vector3.Zero
-            ? Node(ProcessNode.Matrix, Grid([3, 3], [matrix.M11, matrix.M12, matrix.M13, matrix.M21, matrix.M22, matrix.M23, matrix.M31, matrix.M32, matrix.M33]))
-            : Node(ProcessNode.Matrix, Grid([3, 4], [matrix.M11, matrix.M12, matrix.M13, offset.X, matrix.M21, matrix.M22, matrix.M23, offset.Y, matrix.M31, matrix.M32, matrix.M33, offset.Z]));
+    private static XElement Matrix(Matrix<double> matrix, (double X, double Y, double Z) offset) =>
+        offset == (0d, 0d, 0d)
+            ? Node(ProcessNode.Matrix, Grid([3, 3], matrix.ToRowMajorArray()))
+            : Node(ProcessNode.Matrix, Grid([3, 4], [matrix[0, 0], matrix[0, 1], matrix[0, 2], offset.X, matrix[1, 0], matrix[1, 1], matrix[1, 2], offset.Y, matrix[2, 0], matrix[2, 1], matrix[2, 2], offset.Z]));
 
     private static Seq<XElement> Normalized(Vector3 minimum, Vector3 maximum) =>
         minimum == Vector3.Zero && maximum == Vector3.One ? [] : [Diagonal(Vector3.One / (maximum - minimum), -minimum / (maximum - minimum))];
@@ -907,9 +909,10 @@ public static class LutFiles {
     private static Seq<XElement> Restored(Vector3 minimum, Vector3 maximum) =>
         minimum == Vector3.Zero && maximum == Vector3.One ? [] : [Diagonal(maximum - minimum, minimum)];
 
-    private static XElement Diagonal(Vector3 scale, Vector3 offset) => Matrix(new ColorMatrix3x3(scale.X, 0f, 0f, 0f, scale.Y, 0f, 0f, 0f, scale.Z), offset);
+    private static XElement Diagonal(Vector3 scale, Vector3 offset) =>
+        Matrix(Matrix<double>.Build.DenseOfDiagonalArray([scale.X, scale.Y, scale.Z]), (offset.X, offset.Y, offset.Z));
 
-    private static XElement Grid(ReadOnlySpan<int> dimensions, ReadOnlySpan<float> values) =>
+    private static XElement Grid<T>(ReadOnlySpan<int> dimensions, ReadOnlySpan<T> values) where T : struct, INumberBase<T> =>
         new(ArrayElement, new XAttribute(Dimensions, string.Join(' ', dimensions.ToArray())), Rows(new StringBuilder().Append('\n'), values, dimensions[^1]).ToString());
 
     private static XElement[] Bounded(string input, string output, RemapBound bound) =>
@@ -925,7 +928,7 @@ public static class LutFiles {
 
     private static Seq<XElement> Parameters(string element, Func<int, Seq<(string Name, float Value)>> lane) =>
         Seq(0, 1, 2).Map(lane).Strict() switch {
-            var lanes when lanes.Distinct().Count == 1 => lanes.Take(1).Map(held => new XElement(element, Attributes(held))),
+            var lanes when lanes.Distinct().Count is 1 => lanes.Take(1).Map(held => new XElement(element, Attributes(held))),
             var lanes => lanes.Map((held, at) => new XElement(element, new XAttribute(Channel, Lanes[at].ToString()), Attributes(held))),
         };
 
@@ -967,9 +970,9 @@ public static class LutFiles {
         minimum == Vector3.Zero && maximum == Vector3.One ? builder : builder.Append(CultureInfo.InvariantCulture, $"{DomainMin} {Spaced(minimum)}\n{DomainMax} {Spaced(maximum)}\n");
 
     private static StringBuilder Ranged(StringBuilder builder, string keyword, float minimum, float maximum) =>
-        minimum == 0f && maximum == 1f ? builder : builder.Append(CultureInfo.InvariantCulture, $"{keyword} {minimum} {maximum}\n");
+        minimum is 0f && maximum is 1f ? builder : builder.Append(CultureInfo.InvariantCulture, $"{keyword} {minimum} {maximum}\n");
 
-    private static StringBuilder Rows(StringBuilder builder, ReadOnlySpan<float> values, int width) {
+    private static StringBuilder Rows<T>(StringBuilder builder, ReadOnlySpan<T> values, int width) where T : struct, INumberBase<T> {
         for (int at = 0; at < values.Length; at++)
             builder.Append(CultureInfo.InvariantCulture, $"{values[at]}{(at % width == width - 1 ? '\n' : ' ')}");
         return builder;

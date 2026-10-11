@@ -25,34 +25,33 @@ public static class SurfaceEvaluation {
             .As().ToFin())
         select jet;
 
-    public static IO<SurfaceCurvature> Curvature(Surface surface, Point2d uv) =>
+    public static IO<SurfaceCurvature> Curvature(Surface surface, Point2d uv, Action<IDisposable> retain) =>
         from at in IO.lift(() => InDomain(surface, uv, nameof(Surface.CurvatureAt)).ToFin())
+        from sampled in IO.lift(Fin<Point2d> () => surface.IsAtSingularity(at.X, at.Y, exact: false) ? new Degenerate(nameof(Surface.CurvatureAt)) : at)
         from curvature in Copies.Owned(
-            IO.lift(Fin<SurfaceCurvature> () =>
-                surface.IsAtSingularity(at.X, at.Y, exact: false)
-                    ? new Degenerate(nameof(Surface.CurvatureAt))
-                    : Missing.Unless(surface.CurvatureAt(at.X, at.Y), nameof(Surface.CurvatureAt))),
-            static answer => InvalidAnswer.Unless(answer.IsSet, answer, nameof(Surface.CurvatureAt)))
+            () => surface.CurvatureAt(sampled.X, sampled.Y),
+            static answer => Missing.Unless(answer, nameof(Surface.CurvatureAt)).Bind(static value => InvalidAnswer.Unless(value.IsSet, value, nameof(Surface.CurvatureAt))),
+            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer })), retain)
         select curvature;
 
     // --- [CURVES]
-    public static IO<Seq<Curve>> IsoCurves(BrepFace face, SurfaceDirection constant, double parameter) =>
+    public static IO<Seq<Curve>> IsoCurves(BrepFace face, SurfaceDirection constant, double parameter, Action<IDisposable> retain) =>
         Copies.Acquire(
             () => OutOfDomain.Unless(face.Domain((int)constant), parameter, nameof(BrepFace.TrimAwareIsoCurve)).Map(at => face.TrimAwareIsoCurve(Varying(constant), at)),
-            nameof(BrepFace.TrimAwareIsoCurve));
+            nameof(BrepFace.TrimAwareIsoCurve), retain);
 
-    public static IO<Seq<Curve>> IsoCurves(Surface surface, SurfaceDirection constant, double parameter) =>
+    public static IO<Seq<Curve>> IsoCurves(Surface surface, SurfaceDirection constant, double parameter, Action<IDisposable> retain) =>
         Copies.Acquire(
             () => OutOfDomain.Unless(surface.Domain((int)constant), parameter, nameof(Surface.IsoCurve)).Map(at => surface.IsoCurve(Varying(constant), at)),
-            nameof(Surface.IsoCurve)).Map(static curve => Seq(curve));
+            nameof(Surface.IsoCurve), retain).Map(static curve => Seq(curve));
 
-    public static IO<Curve> ShortPath(Surface surface, Point2d start, Point2d end, Tolerances tolerances) =>
+    public static IO<Curve> ShortPath(Surface surface, Point2d start, Point2d end, Tolerances tolerances, Action<IDisposable> retain) =>
         Copies.Acquire(
             () => (InDomain(surface, start, nameof(Surface.ShortPath)), InDomain(surface, end, nameof(Surface.ShortPath)))
                 .Apply((origin, target) => surface.ShortPath(origin, target, tolerances.Absolute))
                 .As()
                 .ToFin(),
-            nameof(Surface.ShortPath));
+            nameof(Surface.ShortPath), retain);
 
     // --- [SCANS]
     public static IO<Seq<double>> Discontinuities(Surface surface, SurfaceDirection direction, Continuity continuity, double cosAngleTolerance, double curvatureTolerance) =>

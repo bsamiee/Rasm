@@ -9,6 +9,7 @@ using Rasm.Rhino.UI.Rows;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
+using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
@@ -53,7 +54,7 @@ public sealed partial class WindowKind {
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class EngineScope {
     public static readonly EngineScope Own = new(alwaysShow: false, static plugIn => plugIn.Id);
-    public static readonly EngineScope Every = new(alwaysShow: true, static _ => new Guid("99999999-9999-9999-9999-999999999999"));
+    public static readonly EngineScope Every = new(alwaysShow: true, static _ => new Guid(0x99999999, 0x9999, 0x9999, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99));
 
     public bool AlwaysShow { get; }
 
@@ -67,7 +68,7 @@ public sealed record NavigationText(bool Bold, Option<System.Drawing.Color> Colo
 public abstract partial record View {
     public required Type Identity { get; init; }
     public required string Caption { get; init; }
-    public Option<IGlyph> Icon { get; init; }
+    public Option<(IGlyph Glyph, int Master)> Icon { get; init; }
     public Option<HelpTopic> Help { get; init; }
     public Option<RowRule> Enabled { get; init; }
     public Option<RowRule> Visible { get; init; }
@@ -87,13 +88,14 @@ public abstract partial record View {
     public sealed record Dialog : View {
         public required bool Cancelable { get; init; }
         public Option<DialogDisplayMode> DisplayMode { get; init; }
-        public Option<PlugInSetting<bool, bool, InvalidRhinoValue>> Suppression { get; init; }
+        public Option<PlugInSetting<bool, bool>> Suppression { get; init; }
 
         public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Dialog;
     }
 
     public sealed record Panel : View {
         public Option<PanelType> Kind { get; init; }
+        public Option<Guid> InitialAfter { get; init; }
 
         public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Panel;
     }
@@ -139,6 +141,7 @@ public abstract partial record View {
     public sealed record Pane : View {
         public required EngineScope Scope { get; init; }
         public required bool InitialShow { get; init; }
+        public RenderPanels.ExtraSidePanePosition Position { get; init; } = RenderPanels.ExtraSidePanePosition.Left;
 
         public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Panel;
     }
@@ -174,69 +177,48 @@ public sealed partial class Child {
     public Seq<View.Section> Sections => Holders.Bind(static holder => holder.Sections);
 }
 
-public sealed record ViewBody(Control Content, IO<Unit> Release);
-
-public sealed record ViewCatalog {
-    private readonly Seq<View> rows;
-    private readonly HashMap<Guid, View> views;
-
-    private ViewCatalog(Seq<View> rows, HashMap<Guid, View> views) => (this.rows, this.views) = (rows, views);
-
-    public static ViewCatalog Empty { get; } = new(Seq<View>(), HashMap<Guid, View>());
-
-    public static Validation<Error, ViewCatalog> Of(Seq<View> rows) => Indexed(rows, rows.Bind(static view => Tree(view)).Strict());
+public sealed record ViewCatalog(Seq<View> Rows) {
+    public static ViewCatalog Empty { get; } = new(Seq<View>());
 
     public Option<TCase> Find<TCase>(Guid id) where TCase : View =>
-        views.Find(id).Bind(static view => Optional(view as TCase));
+        Rows.Bind(Tree).Find(view => view.Identity.GUID == id).Bind(static view => Optional(view as TCase));
 
     public Seq<TCase> Listed<TCase>() where TCase : View =>
-        rows.Choose(static view => Optional(view as TCase));
+        Rows.Choose(static view => Optional(view as TCase));
 
     public static Seq<View> Tree(View view) =>
         view.Cons(view.Children.Bind(static child => child.Sections).Bind(static section => Tree(section)));
-
-    private static Validation<Error, ViewCatalog> Indexed(Seq<View> rows, Seq<View> tree) =>
-        (Callbacks.Unique(tree, static view => view.Identity.GUID, nameof(ViewCatalog)),
-         tree.Bind(static view => Hideable(view)).Traverse(static section => Validation.Fail<Error, Unit>(new UnsupportedView(section.Identity, None))).As())
-            .Apply((listed, _) => new ViewCatalog(rows, toHashMap(listed.Map(static view => (view.Identity.GUID, view)))))
-            .As();
-
-    private static Seq<View.Section> Hideable(View view) =>
-        view.Children.Bind(static child => child.Holders).Bind(static holder => holder.Switch(
-            stacked: static _ => Seq<View.Section>(),
-            filled: static filled => filled.Above.Add(filled.Fill).Filter(static section => section.Visible.IsSome)));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class ShownSubscription(IO<IDisposable> listen, CallbackSite site) : IDisposable {
-    private readonly Atom<Option<IDisposable>> held = Atom(Option<IDisposable>.None);
+public sealed class ShownSubscription(Func<Action<IDisposable>, IO<Unit>> listen) : IDisposable {
+    private Tuple<IDisposable>? held;
 
-    public Unit Shown(bool shown) =>
-        held.Value.Match(
-            Some: listener => shown ? unit : Unsubscribed(listener),
-            None: () => shown ? Subscribed(Callbacks.Answer(listen.Map(static listener => Some(listener)), static () => Option<IDisposable>.None, site)) : unit);
+    public IO<Unit> Shown(bool shown) => shown
+        ? IO.lift(() => {
+            Option<Tuple<IDisposable>> accepted = None;
+            return DisposalOps.OnFailure(
+                DisposalOps.Acquire(retain => accepted.Match(Some: _ => listen(retain), None: static () => IO.pure(unit)), release => {
+                    Tuple<IDisposable> owner = Tuple.Create(release);
+                    if (Interlocked.CompareExchange(ref held, owner, comparand: null) is null)
+                        accepted = Some(owner);
+                    else
+                        release.Dispose();
+                }),
+                IO.lift(() => accepted.Iter(owner => Interlocked.CompareExchange(ref held, value: null, owner))));
+        }).Flatten()
+        : IO.lift(Dispose);
 
-    public void Dispose() => _ = Shown(shown: false);
-
-    private Unit Subscribed(Option<IDisposable> listener) => ignore(held.Swap(_ => listener));
-
-    private Unit Unsubscribed(IDisposable listener) {
-        _ = held.Swap(static _ => Option<IDisposable>.None);
-        return Callbacks.Answer(IO.lift(listener.Dispose), static () => unit, site);
-    }
+    public void Dispose() => Optional(Interlocked.Exchange(ref held, value: null)).Iter(static listener => listener.Item1.Dispose());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewOps {
-    // --- [CONSTRUCTION]
-    public static IO<TView> Construct<TView>(View row) where TView : class =>
-        IO.lift(() => (TView)Activator.CreateInstance(row.Identity)!);
-
     // --- [STORES]
-    public static Validation<Error, BindingGroup> Bindings(IPlugInViews owner, View view, RowScope scope) =>
+    public static Fin<BindingGroup> Bindings(IPlugInViews owner, View view, RowScope scope) =>
         view.Store.Bind(static store => store.Bindings).Match(
-            Some: stored => scope.Document.ToFin(new UnsupportedView(view.Identity, None)).Bind(doc => stored(owner, doc)).ToValidation(),
-            None: () => BindingGroup.Of(Sources(view).Map(source => source.Values(scope))));
+            Some: stored => scope.Document.ToFin(new UnsupportedView(view.Identity, None)).Bind(doc => stored(owner, doc)),
+            None: () => Fin.Succ(new BindingGroup(Sources(view).Map(source => source.Values(scope)))));
 
     public static Option<ValueStore<LanguageExt.HashSet<EntryKey>>> Locks(View view, Option<RhinoDoc> document) =>
         from doc in document
@@ -244,10 +226,6 @@ public static class ViewOps {
         select locks(doc, view.Identity.GUID);
 
     public static SettingsNode Settings(IPlugInViews owner, View view) => owner.Settings.Child(EntryKey.TypeOwner(view.Identity.GUID));
-
-    public static IO<ValueSet> Defaults(View view) =>
-        Sources(view).TraverseM(static source => source.Defaults).As()
-            .Map(static sets => new ValueSet(toHashMap(sets.Bind(static set => toSeq(set.Entries.AsIterable())))));
 
     public static Fin<HistoryBinding> History(IPlugInViews owner, View view, ViewStore store, BindingGroup bound, Option<RhinoDoc> document) =>
         store.Switch(
@@ -262,15 +240,17 @@ public static class ViewOps {
         view.Children.Bind(static child => child.Controls).Choose(static row => row.Bound).Distinct();
 
     // --- [REALIZATION]
-    public static IO<ViewBody> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope) =>
-        from parts in DisposalOps.AcquireAll(
-            Runs(children).Map(run => Part(owner, children, run, scope)),
-            static held => Released(held.Map(static part => part.Body)))
-        from body in DisposalOps.OnFailure(IO.lift(() => Stacked(parts)), Released(parts.Map(static part => part.Body)))
-        select body;
-
-    internal static IO<Unit> Released(Seq<ViewBody> bodies) =>
-        Callbacks.Each(bodies.Rev().Map(static body => body.Release)).Map(static _ => unit);
+    public static IO<Control> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(owned =>
+            from stack in DisposalOps.Acquire(
+                IO.lift(static () => new RhinoNestedStackLayout(Orientation.Vertical, RhinoLayout.SpacingType.Panel)),
+                static stack => IO.lift(stack.Dispose), owned)
+            from parts in Runs(children).TraverseM(run => Part(owner, children, run, scope, owned)).As()
+            from configured in IO.lift(() => {
+                stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body, part.Fill)));
+            })
+            select (Control)stack, (_, release) => retain(release));
 
     private static Seq<(Child Lead, Seq<Child> Run)> Runs(Seq<Child> children) =>
         children.FoldBack(Seq<(Child Lead, Seq<Child> Run)>(), static (runs, child) =>
@@ -280,31 +260,23 @@ public static class ViewOps {
                     ? (Lead: child, Run: child.Cons(next.Run)).Cons(rest)
                     : (Lead: child, Run: Seq(child)).Cons(runs)));
 
-    private static IO<(ViewBody Body, bool Fill)> Part(IPlugInViews owner, Seq<Child> children, (Child Lead, Seq<Child> Run) run, RowScope scope) =>
+    private static IO<(Control Body, bool Fill)> Part(IPlugInViews owner, Seq<Child> children, (Child Lead, Seq<Child> Run) run, RowScope scope, Action<IDisposable> retain) =>
         run.Lead.Switch(
-                (Owner: owner, Children: children, run.Run, Scope: scope),
-                control: static (state, _) => RowGrid.Realize(state.Children.Bind(static child => child.Controls), state.Run.Map(static child => child.AsControl), state.Scope)
-                    .Map(static grid => new ViewBody(grid, IO.lift(grid.Dispose))),
-                holder: static (state, holder) => SectionHolder.Hold(state.Owner, holder, state.Scope),
-                container: static (state, container) => Containers.Realize(state.Owner, container, state.Scope))
+                (Owner: owner, Children: children, run.Run, Scope: scope, Retain: retain),
+                control: static (state, _) => RowGrid.Realize(state.Children.Bind(static child => child.Controls), state.Run.Map(static child => child.AsControl), state.Scope, state.Retain)
+                    .Map(static grid => (Control)grid),
+                holder: static (state, holder) => SectionHolder.Hold(state.Owner, holder, state.Scope, state.Retain).Map(static held => (Control)held),
+                container: static (state, container) => Containers.Realize(state.Owner, container, state.Scope, state.Retain))
             .Map(body => (Body: body, Fill: run.Run.Exists(static child => child.Fill)));
 
-    private static ViewBody Stacked(Seq<(ViewBody Body, bool Fill)> parts) {
-        RhinoNestedStackLayout stack = new(Orientation.Vertical, RhinoLayout.SpacingType.Panel) { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-        _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body.Content, part.Fill)));
-        return new ViewBody(stack, Released(parts.Map(static part => part.Body)));
-    }
-
     // --- [LISTENERS]
-    public static IO<IDisposable> WhileLoaded(Control control, IO<IDisposable> listen, CallbackSite site) =>
-        from subscription in IO.lift(() => new ShownSubscription(listen, site))
-        from attached in DisposalOps.AcquireAll(
-            Seq(
-                IO.pure<IDisposable>(subscription),
-                Subscriptions.Attach(
-                    handler => control.Load += handler, handler => control.Load -= handler, Callbacks.Handler<EventArgs>(_ => IO.lift(() => subscription.Shown(shown: true)), site)),
-                Subscriptions.Attach(
-                    handler => control.UnLoad += handler, handler => control.UnLoad -= handler, Callbacks.Handler<EventArgs>(_ => IO.lift(() => subscription.Shown(shown: false)), site))),
-            DisposalOps.Release)
-        select DisposalOps.Composite(attached, site);
+    public static IO<Unit> WhileLoaded(Control control, Func<Action<IDisposable>, IO<Unit>> listen, CallbackSite site, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(owned =>
+            from subscription in DisposalOps.Acquire(IO.lift(() => new ShownSubscription(listen)), static held => IO.lift(held.Dispose), owned)
+            from loaded in Subscriptions.Attach(
+                handler => control.Load += handler, handler => control.Load -= handler, Callbacks.Handler<EventArgs>(_ => subscription.Shown(shown: true), site), owned)
+            from unloaded in Subscriptions.Attach(
+                handler => control.UnLoad += handler, handler => control.UnLoad -= handler, Callbacks.Handler<EventArgs>(_ => subscription.Shown(shown: false), site), owned)
+            from current in subscription.Shown(control.Loaded)
+            select unit, (_, release) => retain(release));
 }

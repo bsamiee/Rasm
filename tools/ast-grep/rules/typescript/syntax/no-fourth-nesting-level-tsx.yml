@@ -3,175 +3,30 @@ id: no-fourth-nesting-level-tsx
 language: tsx
 severity: error
 utils:
-    callback-wrapper:
-        any:
-            - matches: syntax-expression-wrapper
-            - kind: pair
-            - kind: object
-            - kind: array
-            - kind: spread_element
-            - kind: ternary_expression
-    module-constant-value:
-        kind: call_expression
-        any:
-            - inside:
-                kind: variable_declarator
-                field: value
-                stopBy:
-                    not:
-                        any:
-                            - matches: syntax-expression-wrapper
-                            - kind: object, pair
-                inside: {matches: syntax-module-constant}
-            - inside:
-                kind: member_expression
-                field: object
-                stopBy: {not: {matches: syntax-expression-wrapper}}
-                inside: {kind: call_expression, field: function, matches: module-constant-value}
-    effect-function-factory:
-        kind: call_expression
-        has:
-            field: function
-            any:
-                - kind: member_expression
-                  all:
-                    - has: {field: property, regex: '^(fn|fnUntraced)$'}
-                    - has: {field: object, matches: effect-effect-module}
-                - kind: call_expression
-                  has:
-                    field: function
-                    kind: member_expression
-                    all:
-                        - has: {field: property, regex: '^fn$'}
-                        - has: {field: object, matches: effect-effect-module}
-    effect-fn-argument:
-        pattern: $BODY
-        inside:
-            kind: arguments
-            stopBy: {not: {matches: syntax-expression-wrapper}}
-            has:
-                nthChild: {position: 1, ofRule: {not: {kind: 'comment, object'}}}
-                any:
-                    - pattern: $BODY
-                    - matches: syntax-expression-wrapper
-                      has: {pattern: $BODY, stopBy: {not: {matches: syntax-expression-wrapper}}}
-            inside:
-                all:
-                    - matches: effect-function-factory
-                    - matches: module-constant-value
-    callback-position:
-        any:
-            - inside: {matches: syntax-function-boundary, stopBy: end}
-            - inside: {kind: arguments, stopBy: {not: {matches: callback-wrapper}}}
-    nested-scope:
-        all:
-            - matches: syntax-function-boundary
-            - not: {matches: effect-fn-argument}
-            - matches: callback-position
-    fourth-level:
-        matches: nested-scope
-        inside:
-            matches: nested-scope
-            stopBy: end
-            inside:
-                matches: nested-scope
-                stopBy: end
-                inside: {matches: nested-scope, stopBy: end}
+    function:
+        matches: syntax-function-boundary
     control:
         any:
-            - kind: for_statement, for_in_statement, while_statement, do_statement, switch_statement, try_statement
+            - kind: for_statement, for_in_statement, while_statement, do_statement, switch_statement
             - kind: if_statement
               not: {inside: {kind: else_clause}}
             - kind: ternary_expression
               not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {matches: syntax-expression-wrapper}}}}
-    control-boundary:
-        any: [{matches: control}, {matches: syntax-function-boundary}]
-    helper:
-        any:
-            - kind: function_declaration, generator_function_declaration
-              not: {inside: {kind: export_statement}}
-              has: {field: name, pattern: $HELPER}
-            - matches: syntax-function-boundary
-              inside:
-                kind: variable_declarator
-                field: value
-                stopBy: {not: {matches: syntax-expression-wrapper}}
-                has: {field: name, kind: identifier, pattern: $HELPER}
-                inside: {kind: lexical_declaration, not: {inside: {kind: export_statement}}}
-    helper-site:
-        all:
-            - kind: identifier, shorthand_property_identifier
-            - pattern: $HELPER
-            - not: {inside: {stopBy: end, kind: 'function_declaration, generator_function_declaration, variable_declarator', has: {field: name, pattern: $HELPER}}}
-    other-site:
-        any: [{matches: helper-site}, {has: {stopBy: end, matches: helper-site}}]
-    beside-site:
-        any: [{follows: {stopBy: end, matches: other-site}}, {precedes: {stopBy: end, matches: other-site}}]
-    lone-site:
-        all:
-            - matches: helper-site
-            - pattern: $CALL
-            - not: {inside: {kind: 'export_statement, export_specifier, new_expression, jsx_opening_element, jsx_self_closing_element'}}
-            - not: {inside: {matches: fourth-level, stopBy: end}}
-            - not: {matches: beside-site}
-            - not: {inside: {stopBy: end, not: {kind: program}, matches: beside-site}}
-    invoked-site:
-        inside: {kind: call_expression, field: function}
-    value-site:
-        all:
-            - not: {matches: invoked-site}
-            - not: {matches: effect-fn-argument}
-            - matches: callback-position
-    site-1:
-        all:
-            - matches: lone-site
-            - any:
-                - matches: value-site
-                - inside: {matches: nested-scope, stopBy: end}
-    site-2:
-        all:
-            - matches: lone-site
-            - any:
-                - all: [{matches: value-site}, {inside: {matches: nested-scope, stopBy: end}}]
-                - inside: {matches: nested-scope, stopBy: end, inside: {matches: nested-scope, stopBy: end}}
-    site-3:
-        all:
-            - matches: lone-site
-            - any:
-                - all: [{matches: value-site}, {inside: {matches: nested-scope, stopBy: end, inside: {matches: nested-scope, stopBy: end}}}]
-                - inside: {matches: nested-scope, stopBy: end, inside: {matches: nested-scope, stopBy: end, inside: {matches: nested-scope, stopBy: end}}}
-    helper-body-1:
-        has: {matches: nested-scope, stopBy: end}
-    helper-body-2:
-        has: {matches: nested-scope, stopBy: end, has: {matches: nested-scope, stopBy: end}}
-    helper-body-3:
-        has: {matches: nested-scope, stopBy: end, has: {matches: nested-scope, stopBy: end, has: {matches: nested-scope, stopBy: end}}}
+    boundary: {any: [{matches: control}, {matches: function}]}
 rule:
+    matches: control
     pattern: $SCOPE
-    any:
-        - matches: fourth-level
-          not: {inside: {matches: fourth-level, stopBy: end}}
-        - all:
-            - matches: helper
-            - matches: helper-body-1
-            - not: {has: {matches: fourth-level, stopBy: end}}
-            - any:
-                - all: [{matches: helper-body-3}, {inside: {kind: 'program, statement_block', stopBy: end, has: {stopBy: end, matches: site-1}}}]
-                - all: [{matches: helper-body-2}, {inside: {kind: 'program, statement_block', stopBy: end, has: {stopBy: end, matches: site-2}}}]
-                - inside: {kind: 'program, statement_block', stopBy: end, has: {stopBy: end, matches: site-3}}
-        - matches: control
-          inside:
+    inside:
+        matches: control
+        stopBy: {matches: boundary}
+        inside:
             matches: control
-            stopBy: {matches: control-boundary}
+            stopBy: {matches: boundary}
             inside:
                 matches: control
-                stopBy: {matches: control-boundary}
-                inside:
-                    matches: control
-                    stopBy: {matches: control-boundary}
-                    not: {inside: {matches: control, stopBy: {matches: syntax-function-boundary}}}
-message: 'Function or control nesting reaches a fourth level'
-note: 'Rebuild the logic within three levels, an extracted helper or inner function keeps the fourth level one call away'
+                stopBy: {matches: boundary}
+                not: {inside: {matches: control, stopBy: {matches: function}}}
+message: Control flow reaches a fourth nesting level
+note: Rebuild nested decisions or loops with a match, comprehension or pipeline over their inputs
 labels:
     SCOPE: {style: primary}
-    CALL: {style: secondary, message: One call site of the helper}

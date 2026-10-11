@@ -3,7 +3,7 @@ namespace Rasm.Rhino.Modeling.Solids;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     BooleanUnionFailed = 1,
-    NotSolid,
+    NotSolid = 2,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

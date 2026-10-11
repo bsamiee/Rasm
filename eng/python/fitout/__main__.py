@@ -1,23 +1,20 @@
 """Build and install Blender extensions through the native CLI."""
 
-from pathlib import Path
 import subprocess
 import sys
-from typing import Annotated
 
-from cyclopts import App, Parameter
-from cyclopts.types import ResolvedPath
+from cyclopts import App
 from mcp.types import CallToolResult
 from result import Err, Ok, Result
 import structlog
 
-from eng.python.fitout.assembly import pack as assembled, PackError
-from eng.python.fitout.install import install as installed, InstallError, RemoteFailure
+from eng.python.fitout.assembly import pack
+from eng.python.fitout.install import install, RemoteFailure
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _reported(result: Result[int, PackError | InstallError]) -> int:
+def _reported[E](result: Result[int, E]) -> int:
     """Return native status or render a filesystem or process launch failure."""
     match result:
         case Ok(status):
@@ -43,38 +40,8 @@ def _reported(result: Result[int, PackError | InstallError]) -> int:
 
 structlog.configure(logger_factory=structlog.PrintLoggerFactory(file=sys.stderr))
 app = App(help=__doc__, result_action=(_reported, "sys_exit"))
-
-
-@app.command
-async def pack(source: ResolvedPath, archive: ResolvedPath, /, *, blender: Annotated[str, Parameter(env_var="BLENDER_PATH")] = "blender") -> Result[int, PackError]:
-    """Build a Blender extension at the requested archive path.
-
-    Args:
-        source: Extension directory containing its manifest.
-        archive: ZIP file to create or replace.
-        blender: Blender executable, supplied by BLENDER_PATH when set.
-
-    Returns:
-        Native exit status, or a filesystem or process launch error.
-    """
-    return await assembled(source, archive, blender, Path.cwd())
-
-
-@app.command
-async def install(
-    archive: ResolvedPath, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[str, Parameter(env_var="BLENDER_PATH")] = "blender"
-) -> Result[int, InstallError]:
-    """Install and enable a Blender extension in the user repository.
-
-    Args:
-        archive: Extension ZIP file to install.
-        blender: Blender executable, supplied by BLENDER_PATH when set.
-        endpoint: Blender Lab service endpoint, supplied by BLENDER_MCP_URL.
-
-    Returns:
-        Native exit status, or a process launch error.
-    """
-    return await installed(archive, blender, endpoint)
+app.command(pack)
+app.command(install)
 
 
 if __name__ == "__main__":

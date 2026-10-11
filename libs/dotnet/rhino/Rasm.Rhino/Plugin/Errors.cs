@@ -5,7 +5,7 @@ namespace Rasm.Rhino.Plugin;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     CommandRefused = 1,
-    UnmatchedFormat,
+    UnmatchedFormat = 2,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

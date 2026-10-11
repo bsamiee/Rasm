@@ -3,6 +3,7 @@ using System.Drawing.Imaging;
 using Rasm.Drafting;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Shapes;
 using Rhino;
 using Rhino.Display;
 
@@ -63,21 +64,25 @@ public sealed partial class RasterEncoding {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewCaptures {
     // --- [SETTINGS]
-    public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureRequest request) =>
+    public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureRequest request, Action<IDisposable> retain) =>
         Valid(
             () => request.Subject.Switch(
                 row,
                 view: static (target, view) => new ViewCaptureSettings(target.View, view.Media, view.Dpi),
                 page: static (target, page) => WrongType.Unless<RhinoPageView>(target.View).Map(pageView => new ViewCaptureSettings(pageView, page.Dpi))),
-            settings => Configured(row, settings, request));
+            settings => Configured(row, settings, request), retain);
 
-    public static IO<ViewCaptureSettings> Preview(ViewCaptureSettings basis, Size pixels) =>
-        Valid(() => Missing.Unless(basis.CreatePreviewSettings(pixels), nameof(ViewCaptureSettings.CreatePreviewSettings)), static _ => IO.pure(unit));
+    public static IO<ViewCaptureSettings> Preview(ViewCaptureSettings basis, Size pixels, Action<IDisposable> retain) =>
+        Valid(() => Missing.Unless(basis.CreatePreviewSettings(pixels), nameof(ViewCaptureSettings.CreatePreviewSettings)), static _ => IO.pure(unit), retain);
 
-    private static IO<ViewCaptureSettings> Valid(Func<Fin<ViewCaptureSettings>> create, Func<ViewCaptureSettings, IO<Unit>> configure) =>
-        IO.lift(create).Bind(settings => DisposalOps.OnFailure(
-            configure(settings).Bind(_ => IO.lift(() => Refused.Unless(settings.IsValid, settings, nameof(ViewCaptureSettings.IsValid)))),
-            IO.lift(settings.Dispose)));
+    private static IO<ViewCaptureSettings> Valid(Func<Fin<ViewCaptureSettings>> create, Func<ViewCaptureSettings, IO<Unit>> configure, Action<IDisposable> retain) =>
+        Copies.Owned(create,
+            answer =>
+                from settings in IO.lift(answer)
+                from configured in configure(settings)
+                from valid in IO.lift(() => Refused.Unless(settings.IsValid, settings, nameof(ViewCaptureSettings.IsValid)))
+                select valid,
+            static answer => IO.lift(() => { _ = answer.IfSucc(static settings => settings.Dispose()); }), retain);
 
     private static IO<Unit> Configured(ViewportRef row, ViewCaptureSettings settings, CaptureRequest request) =>
         from framed in IO.lift(() => {
@@ -109,8 +114,17 @@ public static class ViewCaptures {
         select edited;
 
     // --- [RASTERS]
-    public static IO<Bitmap> CaptureToBitmap(RhinoView view, Guid modeId, Option<Size> pixels, Func<DisplayPipelineAttributes, Fin<Unit>> edit) =>
-        Viewports.WithMode(modeId, mode => IO.lift(() => edit(mode.DisplayAttributes).Bind(_ => Missing.Unless(
-            pixels.Match(Some: size => view.CaptureToBitmap(size, mode), None: () => view.CaptureToBitmap(mode)),
-            nameof(RhinoView.CaptureToBitmap)))));
+    public static IO<Bitmap> CaptureToBitmap(RhinoView view, Func<ViewCapture, Fin<Unit>> edit, Action<IDisposable> retain) =>
+        from capture in IO.lift(static () => new ViewCapture())
+        from edited in IO.lift(() => edit(capture))
+        from bitmap in Copies.Owned(() => capture.CaptureToBitmap(view),
+                static bitmap => Missing.Unless(bitmap, nameof(ViewCapture.CaptureToBitmap)),
+                static bitmap => DisposalOps.Release(Conversions.Rows(new[] { bitmap })), retain)
+        select bitmap;
+
+    public static IO<Bitmap> CaptureToBitmap(RhinoView view, Guid modeId, Option<Size> pixels, Func<DisplayPipelineAttributes, Fin<Unit>> edit, Action<IDisposable> retain) =>
+        Viewports.WithMode(modeId, mode => IO.lift(() => edit(mode.DisplayAttributes)).Bind(_ =>
+            Copies.Owned(() => pixels.Match(Some: size => view.CaptureToBitmap(size, mode), None: () => view.CaptureToBitmap(mode)),
+                static bitmap => Missing.Unless(bitmap, nameof(RhinoView.CaptureToBitmap)),
+                static bitmap => DisposalOps.Release(Conversions.Rows(new[] { bitmap })), retain)));
 }

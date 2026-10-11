@@ -64,5 +64,6 @@ rule:
             - has: {field: body, pattern: $BODY}
             - has: {kind: finally_clause, has: {kind: block, pattern: $END}}
             - follows: {kind: expression_statement, has: {pattern: $BEGIN}}
+            - not: {inside: {stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}, matches: csharp-disposal-boundary}}
 message: '`$BEGIN` and `$END` bracket `$BODY` by hand'
 note: 'Use `<acquire>.Bracket(Use: <body>, Fin: <release>)`, `Bracket` runs `<release>` after `<body>` on both paths'

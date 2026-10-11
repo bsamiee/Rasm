@@ -1,9 +1,9 @@
 using System.Buffers.Binary;
 using System.Text;
+using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.ColorManagement;
 using SixLabors.ImageSharp.Metadata.Profiles.Cicp;
 using SixLabors.ImageSharp.Metadata.Profiles.Icc;
-using TinyEXR;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Output;
@@ -56,12 +56,11 @@ internal static class ColorTags {
         static byte[] Text(string text) => Encoding.BigEndianUnicode.GetBytes(text) switch {
             var units => [.. Block(IccTypeSignature.MultiLocalizedUnicode, [1, 12, BinaryPrimitives.ReadUInt32BigEndian("enUS"u8), (uint)units.Length, 28]), .. units],
         };
-        static ColorMatrix3x3 ToPcs(Configuration source, ColourSpace space) => Gamut.Columns(basis => new Unicolour(source, space, basis).ConvertToConfiguration(Pcs).Xyz.Tuple);
-        static Seq<uint> Column(ColorMatrix3x3 matrix, int column) => [Fixed(matrix[0, column]), Fixed(matrix[1, column]), Fixed(matrix[2, column])];
+        static Matrix<double> ToPcs(Configuration source, ColourSpace space) => Gamut.Columns(basis => new Unicolour(source, space, basis).ConvertToConfiguration(Pcs).Xyz.Tuple);
+        static Seq<uint> Column(Matrix<double> matrix, int column) => [Fixed(matrix[0, column]), Fixed(matrix[1, column]), Fixed(matrix[2, column])];
 
-        ColorMatrix3x3 colorants = ToPcs(encoding.Gamut.Configuration, ColourSpace.RgbLinear);
-        float[] adaptation = new float[9];
-        ToPcs(new Configuration(xyzConfig: new XyzConfiguration(encoding.Gamut.Configuration.Rgb.WhitePoint)), ColourSpace.Xyz).CopyTo(adaptation);
+        Matrix<double> colorants = ToPcs(encoding.Gamut.Configuration, ColourSpace.RgbLinear);
+        double[] adaptation = ToPcs(new Configuration(xyzConfig: new XyzConfiguration(encoding.Gamut.Configuration.Rgb.WhitePoint)), ColourSpace.Xyz).ToRowMajorArray();
         Seq<uint> illuminant = [Fixed(Pcs.Xyz.WhitePoint.X), Fixed(Pcs.Xyz.WhitePoint.Y), Fixed(Pcs.Xyz.WhitePoint.Z)];
         Seq<(Seq<IccProfileTag> Tags, byte[] Data)> blocks = [
             ([IccProfileTag.ProfileDescription], Text(string.Join(' ', encoding.Gamut.Key, encoding.Transfer.ToValue()))),

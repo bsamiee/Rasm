@@ -1,5 +1,7 @@
 using System.Drawing;
+using System.Globalization;
 using System.Runtime.CompilerServices;
+using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rhino;
@@ -9,43 +11,6 @@ using Rhino.UI;
 using Rhino.UI.Theme;
 
 namespace Rasm.Rhino.Persistence.Settings;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-public enum CommandPromptLocation { SeparatePanel = 0, SideBar = 1, CommandHistory = 2 }
-
-public enum CommandPromptStyle { Links = 0, Graphical = 1, Buttons = 2 }
-
-// --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-public readonly partial struct StripIconSize : System.Numerics.IMinMaxValue<StripIconSize> {
-    public static StripIconSize MinValue { get; } = new(16);
-    public static StripIconSize MaxValue { get; } = new(32);
-    public static StripIconSize Default { get; } = new(18);
-
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
-}
-
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-public readonly partial struct PromptFontHeight : System.Numerics.IMinMaxValue<PromptFontHeight> {
-    public static PromptFontHeight MinValue { get; } = new(60);
-    public static PromptFontHeight MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
-}
-
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-public readonly partial struct HistoryStrip : System.Numerics.IMinMaxValue<HistoryStrip> {
-    public static HistoryStrip MinValue { get; } = new(19);
-    public static HistoryStrip MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Accessors {
@@ -104,6 +69,13 @@ internal static class Accessors {
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "get_ItemPadding")]
     internal static extern Eto.Drawing.Size ItemPadding([UnsafeAccessorType("Rhino.UI.Internal.TabPanels.Controls.BaseTabControlItem, Rhino.UI")] object? owner);
+
+    // --- [STRIPS]
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "CurrentIconSize")]
+    internal static extern int OSnapIconSize([UnsafeAccessorType("Rhino.UI.DialogPanels.OSnapPanel, Rhino.UI")] object? owner);
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "CurrentIconSize")]
+    internal static extern int SelectionFilterIconSize([UnsafeAccessorType("Rhino.UI.DialogPanels.SelectionFilterUi, Rhino.UI")] object? owner);
 
     // --- [TOOLBARS]
     internal static object ToolbarButtons => Buttons(Instance(owner: null));
@@ -211,12 +183,6 @@ internal static class Accessors {
 
 public static class Appearance {
     // --- [CHANGES]
-    private static readonly HostEvent<EventArgs> PromptLocationChanged = Subscriptions.Host<EventHandler, EventArgs>(
-        typeof(Accessors),
-        static handler => Accessors.PromptLocationChanged(owner: null) += handler,
-        static handler => Accessors.PromptLocationChanged(owner: null) -= handler,
-        static deliver => deliver.Invoke);
-
     private static readonly HostEvent<EventArgs> PromptStyleChanged = Subscriptions.Host<EventHandler, EventArgs>(
         typeof(Accessors),
         static handler => Accessors.PromptStyleChanged(owner: null) += handler,
@@ -242,51 +208,40 @@ public static class Appearance {
 
     // --- [ROWS]
     public static ValueStore<bool> BlackWhiteSwitching { get; } =
-        Row(
+        ValueStore.Defaulted(
             IO.lift(static () => AppearanceSettings.BlackWhiteSwitching),
             IO.pure(value: false),
             static enabled => IO.lift(() => { AppearanceSettings.BlackWhiteSwitching = enabled; }),
             EqualityComparer<bool>.Default.Equals,
             Applied.Live,
-            EventKind.AppSettingsChanged);
+            Some(ValueStore.Signal(EventKind.AppSettingsChanged, static _ => true)));
 
     public static ValueStore<bool> AutocompleteCommands { get; } =
-        Row(
+        ValueStore.Defaulted(
             Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_GetAutocompleteCommands), IO.lift(static () => Accessors.CRhinoAppSettings_GetAutocompleteCommands(owner: null, defaultValue: false))),
             Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_GetAutocompleteCommands), IO.lift(static () => Accessors.CRhinoAppSettings_GetAutocompleteCommands(owner: null, defaultValue: true))),
             static enabled => Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_SetAutocompleteCommands), IO.lift(() => Accessors.CRhinoAppSettings_SetAutocompleteCommands(owner: null, enabled))),
             EqualityComparer<bool>.Default.Equals,
             Applied.Live,
-            EventKind.AppSettingsChanged);
+            Some(ValueStore.Signal(EventKind.AppSettingsChanged, static _ => true)));
 
     public static ValueStore<bool> FuzzyAutocomplete { get; } =
-        Row(
+        ValueStore.Defaulted(
             Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_GetFuzzyAutocomplete), IO.lift(static () => Accessors.CRhinoAppSettings_GetFuzzyAutocomplete(owner: null, defaultValue: false))),
             Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_GetFuzzyAutocomplete), IO.lift(static () => Accessors.CRhinoAppSettings_GetFuzzyAutocomplete(owner: null, defaultValue: true))),
             static enabled => Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_SetFuzzyAutocomplete), IO.lift(() => Accessors.CRhinoAppSettings_SetFuzzyAutocomplete(owner: null, enabled))),
             EqualityComparer<bool>.Default.Equals,
             Applied.Live,
-            EventKind.AppSettingsChanged);
+            Some(ValueStore.Signal(EventKind.AppSettingsChanged, static _ => true)));
 
     public static ValueStore<T> Member<T>(Func<AppearanceSettingsState, T> project, Action<T> set, Func<T, T, bool> same) where T : notnull =>
-        Row(
+        ValueStore.Defaulted(
             IO.lift(() => project(AppearanceSettings.GetCurrentState())),
             IO.lift(() => project(AppearanceSettings.GetDefaultState(HostUtils.RunningInDarkMode))),
             value => IO.lift(() => set(value)),
             same,
             Applied.Live,
-            EventKind.AppSettingsChanged);
-
-    private static ValueStore<T> Row<T, TArgs>(IO<T> current, IO<T> factory, Func<T, IO<Unit>> set, Func<T, T, bool> same, Applied applied, HostEvent<TArgs> changed)
-        where T : notnull =>
-        new(
-            from held in current
-            from initial in factory
-            select Some(held).Filter(value => !same(value, initial)),
-            value => value.Match(Some: set, None: () => factory.Bind(set)),
-            same,
-            applied,
-            Some(ValueStore.Signal(changed, static _ => true)));
+            Some(ValueStore.Signal(EventKind.AppSettingsChanged, static _ => true)));
 
     // --- [MODES]
     public static IO<Unit> SetMode(bool darkMode) =>
@@ -298,25 +253,22 @@ public static class Appearance {
         IO.lift(() => darkMode ? AppearanceSettings.UsingDefaultDarkModeColors() : AppearanceSettings.UsingDefaultLightModeColors());
 
     // --- [COLORS]
-    public static ValueStore<Color> Paint(PaintColor slot) =>
-        Row(
-            IO.lift(() => AppearanceSettings.GetPaintColor(slot, compute: false)),
-            IO.lift(() => AppearanceSettings.DefaultPaintColor(slot, HostUtils.RunningInDarkMode)),
-            color =>
-                Accessors.Scoped(nameof(Accessors.GetPaintColorHook), IO.lift(() => ThemedPaintColor.Unless(Accessors.GetPaintColorHook(owner: null, slot) is null, slot)))
-                >> IO.lift(() => AppearanceSettings.SetPaintColor(slot, color, forceUiUpdate: false)),
-            Conversions.Same,
-            Applied.IdleSave,
-            EventKind.ThemeChanged);
+    public static IO<Color> Paint(PaintColor slot) => IO.lift(() => AppearanceSettings.GetPaintColor(slot, compute: false));
 
-    public static ValueStore<Color> Widget(WidgetColor slot) =>
-        Row(
-            IO.lift(() => AppearanceSettings.GetWidgetColor(slot)),
-            IO.lift(() => AppearanceSettings.DefaultWidgetColor(slot)),
-            color => IO.lift(() => AppearanceSettings.SetWidgetColor(slot, color, forceUiUpdate: true)),
-            Conversions.Same,
+    public static IO<Unit> SetPaint(PaintColor slot, Option<Color> color) =>
+        from writable in Accessors.Scoped(nameof(Accessors.GetPaintColorHook), IO.lift(() => ThemedPaintColor.Unless(Accessors.GetPaintColorHook(owner: null, slot) is null, slot)))
+        from written in IO.lift(() => AppearanceSettings.SetPaintColor(slot, color.IfNone(() => AppearanceSettings.DefaultPaintColor(slot, HostUtils.RunningInDarkMode)), forceUiUpdate: false))
+        from saved in Applied.IdleSave.Drain.Traverse(static drain => drain).As()
+        select unit;
+
+    public static ValueStore<Swatch> Widget(WidgetColor slot) =>
+        ValueStore.Defaulted(
+            IO.lift(() => Conversions.Rgb(AppearanceSettings.GetWidgetColor(slot))),
+            IO.lift(() => Conversions.Rgb(AppearanceSettings.DefaultWidgetColor(slot))),
+            color => IO.lift(() => AppearanceSettings.SetWidgetColor(slot, Conversions.Opaque(color), forceUiUpdate: true)),
+            EqualityComparer<Swatch>.Default.Equals,
             Applied.Live,
-            EventKind.AppSettingsChanged);
+            Some(ValueStore.Signal(EventKind.AppSettingsChanged, static _ => true)));
 
     // --- [THEME]
     public static IO<Seq<string>> ThemeKeys() =>
@@ -330,15 +282,14 @@ public static class Appearance {
         from keys in ThemeKeys()
         from known in IO.lift(UnknownThemeKey.Unless(keys.Exists(entry => string.Equals(entry, key, StringComparison.Ordinal)), key))
         from node in Accessors.Scoped(nameof(Accessors.Settings), IO.lift(static () => Accessors.Settings(owner: null)))
-        select new ValueStore<Color>(
+        select ValueStore.Of(
             IO.lift(() => SettingType.Color.Read(node, key)),
             color =>
                 from writable in IO.lift(() => PlugInSettings.Writable(node, key))
                 from written in IO.lift(() => SettingType.Color.Write(node, key, color))
                 select written,
-            Conversions.Same,
             Applied.IdleSave,
-            Some(ValueStore.Signal(EventKind.ThemeChanged, static _ => true)));
+            Some(ValueStore.Signal(EventKind.ThemeChanged, static _ => true)), Some(Conversions.Same));
 
     // --- [PROMPT]
     private const string GetPresentationStyle = "Rhino.UI.Internal.DockBars.CommandLine.GetPresentationStyle";
@@ -348,38 +299,40 @@ public static class Appearance {
     private const string PresentationKey = "CommandOptionsPresentationStyle";
     private const string StyleName = "CommandPromptStyle";
 
-    private static readonly IO<CommandPromptLocation> Location =
-        from location in NamedCallbacks.Execute(GetPresentationStyle, static args => Callbacks.Found(args.TryGetInt(ModeEntry, out int mode), (CommandPromptLocation)mode))
-        from valid in IO.lift(InvalidAnswer.Unless(Enum.IsDefined(location), location, GetPresentationStyle))
+    public static Type PromptLocationType { get; } = Type.GetType("Rhino.UI.CommandPromptLocation, RhinoCommon", throwOnError: true)!;
+
+    public static Type PromptStyleType { get; } = Type.GetType("Rhino.UI.CommandPromptStyle, RhinoCommon", throwOnError: true)!;
+
+    public static IO<Enum> PromptLocation { get; } =
+        from location in NamedCallbacks.Execute(GetPresentationStyle, static args => Callbacks.Found(args.TryGetInt(ModeEntry, out int mode), (Enum)Enum.ToObject(PromptLocationType, mode)))
+        from valid in IO.lift(InvalidAnswer.Unless(Enum.IsDefined(PromptLocationType, location), location, GetPresentationStyle))
         select valid;
 
-    public static ValueStore<CommandPromptLocation> PromptLocation { get; } =
-        ValueStore.Of(
-            Location.Map(static location => Some(location)),
-            static location =>
-                from options in SettingRoots.TryGetChild(SettingsNode.Options)
-                let keys = Seq(LocationKey, PresentationKey)
-                let existing = from node in options.ToSeq() from key in keys select (Node: node, Key: key)
-                from writable in IO.lift(() => Callbacks.Each(existing, static (entry, _) => PlugInSettings.Writable(entry.Node, entry.Key)))
-                let removals = location.IsSome ? Seq(LocationKey) : keys
-                let deleted = from node in options.ToSeq() from key in removals select (Node: node, Key: key)
-                from cleared in IO.lift(() => deleted.Iter(static entry => entry.Node.DeleteItem(entry.Key)))
-                from held in location.Match(Some: IO.pure, None: static () => Location)
-                from shown in NamedCallbacks.Execute(SetPresentationStyle, NamedCallbacks.Handled, args => args.Set(ModeEntry, (int)held))
-                select shown,
-            Applied.Live,
-            Some(ValueStore.Signal(PromptLocationChanged, static _ => true)));
+    public static IO<Unit> SetPromptLocation(Option<Enum> location) =>
+        from admitted in IO.lift(() => location.Traverse(static K<Fin, Enum> (held) => held.GetType() == PromptLocationType && Enum.IsDefined(PromptLocationType, held) ? Fin.Succ(held) : Fin.Fail<Enum>(new InvalidRhinoValue())).As())
+        from options in SettingRoots.TryGetChild(SettingsNode.Options)
+        let keys = Seq(LocationKey, PresentationKey)
+        let existing = from node in options.ToSeq() from key in keys select (Node: node, Key: key)
+        from writable in IO.lift(() => Callbacks.Each(existing, static (entry, _) => PlugInSettings.Writable(entry.Node, entry.Key)))
+        let removals = admitted.IsSome ? Seq(LocationKey) : keys
+        let deleted = from node in options.ToSeq() from key in removals select (Node: node, Key: key)
+        from cleared in IO.lift(() => deleted.Iter(static entry => entry.Node.DeleteItem(entry.Key)))
+        from shown in admitted.Match(
+            Some: static held => NamedCallbacks.Execute(SetPresentationStyle, NamedCallbacks.Handled, args => args.Set(ModeEntry, Convert.ToInt32(held, CultureInfo.InvariantCulture))),
+            None: static () => Accessors.Scoped(nameof(Accessors.PromptLocationChanged), IO.lift(static () => Accessors.PromptLocationChanged(owner: null)?.Invoke(sender: null, EventArgs.Empty))))
+        select shown;
 
-    public static ValueStore<CommandPromptStyle> PromptStyle { get; } =
+    public static ValueStore<Enum> PromptStyle { get; } =
         ValueStore.Of(
             from found in SettingRoots.TryGetChild(SettingsNode.Options)
-            from raw in IO.lift(() => found.Traverse(static node => SettingType.Enumeration<CommandPromptStyle>().Read(node, StyleName)).As())
-            from style in IO.lift(() => raw.Flatten().Traverse(static K<Fin, CommandPromptStyle> (held) => Enum.IsDefined(held) ? Fin.Succ(held) : Fin.Fail<CommandPromptStyle>(new InvalidRhinoValue())).As())
+            from raw in IO.lift(() => found.Traverse(static node => SettingType.Enumeration(PromptStyleType).Read(node, StyleName)).As())
+            from style in IO.lift(() => raw.Flatten().Traverse(static K<Fin, Enum> (held) => Enum.IsDefined(PromptStyleType, held) ? Fin.Succ(held) : Fin.Fail<Enum>(new InvalidRhinoValue())).As())
             select style,
             static style =>
+                from admitted in IO.lift(() => style.Traverse(static K<Fin, Enum> (held) => held.GetType() == PromptStyleType && Enum.IsDefined(PromptStyleType, held) ? Fin.Succ(held) : Fin.Fail<Enum>(new InvalidRhinoValue())).As())
                 from node in SettingRoots.AddChild(SettingsNode.Options)
                 from writable in IO.lift(() => PlugInSettings.Writable(node, StyleName))
-                from written in IO.lift(() => SettingType.Enumeration<CommandPromptStyle>().Write(node, StyleName, style))
+                from written in IO.lift(() => SettingType.Enumeration(PromptStyleType).Write(node, StyleName, admitted))
                 from raised in Accessors.Scoped(nameof(Accessors.PromptStyleChanged), IO.lift(static () => Accessors.PromptStyleChanged(owner: null)?.Invoke(sender: null, EventArgs.Empty)))
                 select raised,
             Applied.Live,
@@ -419,14 +372,14 @@ public static class Appearance {
     public static ValueStore<int> PanelButtonSize { get; } =
         ToolbarSize(IO.lift(static () => Accessors.PrivatePanelButtonSize(Accessors.ToolbarButtons)));
 
-    public static ValueStore<StripIconSize> OSnapIconSize { get; } =
-        Strip("OSnapIconSize", "Osnap icon size", "Point size of the Osnap panel icons");
+    public static ValueStore<int> OSnapIconSize { get; } =
+        Strip("OSnapIconSize", Accessors.Scoped(nameof(Accessors.OSnapIconSize), IO.lift(static () => Accessors.OSnapIconSize(owner: null))));
 
-    public static ValueStore<StripIconSize> SelectionFilterIconSize { get; } =
-        Strip("SelectionFilterIconSize", "Selection filter icon size", "Point size of the selection filter icons");
+    public static ValueStore<int> SelectionFilterIconSize { get; } =
+        Strip("SelectionFilterIconSize", Accessors.Scoped(nameof(Accessors.SelectionFilterIconSize), IO.lift(static () => Accessors.SelectionFilterIconSize(owner: null))));
 
     private static ValueStore<int> Sized<TArgs>(string member, IO<int> current, IO<int> factory, IO<(int Minimum, int Maximum)> limits, Func<int, IO<Unit>> set, Applied applied, HostEvent<TArgs> changed) =>
-        Row(
+        ValueStore.Defaulted(
             current,
             factory,
             size =>
@@ -436,7 +389,7 @@ public static class Appearance {
                 select written,
             EqualityComparer<int>.Default.Equals,
             applied,
-            changed);
+            Some(ValueStore.Signal(changed, static _ => true)));
 
     private static ValueStore<int> ToolbarSize(IO<object> setting) =>
         Sized(
@@ -451,15 +404,21 @@ public static class Appearance {
             Applied.Live,
             SettingChanged);
 
-    private static ValueStore<StripIconSize> Strip(string name, string caption, string help) =>
-        PlugInSettings.Store(
-            SettingsNode.Application,
-            new PlugInSetting<StripIconSize, int, InvalidRhinoValue>(
-                ValueKey.Of<StripIconSize, int, InvalidRhinoValue>(name, caption, help, StripIconSize.Default),
-                SettingType.Integer,
-                Applied.IdleSave,
-                Seq<string>(),
-                Hidden: false));
+    private static ValueStore<int> Strip(string name, IO<int> current) {
+        const int factory = 18;
+        return Sized(
+            name,
+            current,
+            IO.pure(factory),
+            IO.pure((Minimum: 16, Maximum: 32)),
+            size =>
+                from node in SettingRoots.AddChild(SettingsNode.Application)
+                from writable in IO.lift(() => PlugInSettings.Writable(node, name))
+                from written in IO.lift(() => SettingType.Integer.Set(node, name, size))
+                select written,
+            Applied.IdleSave,
+            SettingRoots.Saved(SettingsNode.Application));
+    }
 
     // --- [WINDOW]
     public static IO<Option<Rectangle>> InitialMainWindowPosition() =>
@@ -467,25 +426,22 @@ public static class Appearance {
 
     // --- [POLICY]
     public static IO<int> HistoryBand(RhinoDoc doc, AppearanceSettingsState settings, Option<int> promptRow, int stack) =>
-        from height in IO.lift(Conversions.Validated<PromptFontHeight, int, InvalidRhinoValue>(settings.CommandPromptFontSize))
-        from pitch in use(() => new Eto.Drawing.Font(settings.CommandPromptFontName, height / 10f)).Map(static font => (int)font.LineHeight).Bracket()
+        from pitch in use(() => new Eto.Drawing.Font(settings.CommandPromptFontName, settings.CommandPromptFontSize / 10f)).Map(static font => (int)font.LineHeight).Bracket()
         from sites in Accessors.Scoped(nameof(Accessors.FromDocument), IO.lift(() => Missing.Unless(Accessors.FromDocument(owner: null, doc), nameof(Accessors.FromDocument))))
         from chrome in Accessors.Scoped(nameof(Accessors.StatusBar), IO.lift(() => ((Eto.Forms.Control)Accessors.StatusBar(sites)).Height + Accessors.ResizerWidth(owner: null)))
         let addend = promptRow.Match(Some: static row => row + 1, None: static () => 0)
-        from strip in IO.lift(Conversions.Validated<HistoryStrip, int, InvalidRhinoValue>((stack - chrome - addend) / pitch * pitch))
-        select strip + addend;
+        select ((stack - chrome - addend) / pitch * pitch) + addend;
 
     public static IO<Unit> IconCategory(int stripHeight, int glyph, int row) =>
         from even in IO.lift(OddPadding.Unless((row - glyph) % 2 == 0, row, glyph))
         from inset in Accessors.Scoped(nameof(Accessors.ItemPadding), IO.lift(static () => Accessors.ItemPadding(owner: null).Height))
         let tab = stripHeight - (2 * inset)
-        from strip in IO.lift(Conversions.Validated<StripIconSize, int, InvalidRhinoValue>(tab))
         from committed in ValueStore.Commit(Seq(
             ButtonPadding.Edit(Some((row - glyph) / 2)),
             ToolBarImageSize.Edit(Some(glyph)),
             TabIconSize.Edit(Some(tab)),
             PanelButtonSize.Edit(Some(tab)),
-            OSnapIconSize.Edit(Some(strip)),
-            SelectionFilterIconSize.Edit(Some(strip))))
+            OSnapIconSize.Edit(Some(tab)),
+            SelectionFilterIconSize.Edit(Some(tab))))
         select committed;
 }

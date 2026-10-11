@@ -1,7 +1,6 @@
 """SessionStart and SessionEnd hook that stops each ghidra-cli bridge of an ended Claude Code session and runs `ghidra status` to clear pid, port, and lock files dead bridges left on each project no bridge holds."""
 
 from collections.abc import Mapping
-import math
 import os
 from pathlib import Path
 import subprocess
@@ -74,7 +73,7 @@ def bridges() -> tuple[Bridge, ...]:
     processes = tuple(psutil.process_iter(("cmdline", "environ", "create_time")))
     started = {process.pid: process.info["create_time"] for process in processes}
     return tuple(
-        Bridge(Path(argv[at + 1], argv[at + 2]), owner, started.get(owner.pid, math.inf) > process.info["create_time"], environ)
+        Bridge(Path(argv[at + 1], argv[at + 2]), owner, owner.pid not in started or started[owner.pid] > process.info["create_time"], environ)
         for process in processes
         if {HEADLESS, BRIDGE} <= set(argv := process.info["cmdline"] or []) and set(Owner.__struct_encode_fields__) <= (environ := process.info["environ"] or {}).keys()
         for owner in (msgspec.convert(environ, Owner, strict=False),)

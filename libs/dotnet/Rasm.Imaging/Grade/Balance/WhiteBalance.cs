@@ -12,16 +12,19 @@ public sealed record WhiteBalanceState(ColorTemperature Temperature, Tint Tint) 
     public static WhiteBalanceState Default { get; } = new(ColorTemperature.ViewDefault, Tint.ViewDefault);
 
     public LutTable.Affine Table(Gamut working) =>
-        new(working.Adapting(Adaptation.White(Temperature, Tint), working.Configuration.Xyz.WhitePoint), Vector3.Zero);
+        new(working.Adapting(Adaptation.White(Temperature, Tint), working.Configuration.Xyz.WhitePoint), (0d, 0d, 0d));
 
     public static Option<PixelPass> Pass(WhiteBalanceState state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Color(state.Table(context.Working)));
 
     public static Fin<WhiteBalanceState> Sample(PixelFrame frame, Option<Rectangle> region, Gamut working) {
-        Rectangle bounds = Rectangle.Intersect(region.IfNone(frame.Window), frame.Window);
+        (long Left, long Top, long Right, long Bottom) bounds = region.Match(
+            Some: area => (long.Max(area.Left, frame.Window.Left), long.Max(area.Top, frame.Window.Top), long.Min((long)area.X + area.Width, frame.Window.Right), long.Min((long)area.Y + area.Height, frame.Window.Bottom)),
+            None: () => frame.Window);
+        int width = (int)long.Max(bounds.Right - bounds.Left, 0L);
         Vector256<double> sum = Vector256<double>.Zero;
-        for (int line = bounds.Top; line < bounds.Bottom; line++) {
-            foreach (Vector4 pixel in frame.View.Span.GetRowSpan(line - frame.Origin.Y).Slice(bounds.Left - frame.Origin.X, bounds.Width))
+        for (long line = bounds.Top; width > 0 && line < bounds.Bottom; line++) {
+            foreach (Vector4 pixel in frame.View.Span.GetRowSpan((int)(line - frame.Origin.Y)).Slice((int)(bounds.Left - frame.Origin.X), width))
                 sum += pixel.W > 0f && Vector3.AllWhereAllBitsSet(Vector3.IsFinite(pixel.AsVector3())) ? Vector256.Create(pixel.X, pixel.Y, pixel.Z, 1d) : Vector256<double>.Zero;
         }
         return sum[3] == 0d
@@ -38,14 +41,12 @@ public sealed record WhiteBalanceState(ColorTemperature Temperature, Tint Tint) 
 public sealed partial class WhiteBalanceParameter : IStateParameter<WhiteBalanceState> {
     public static readonly WhiteBalanceParameter Temperature = new(
         "temperature",
-        new StateParameter<WhiteBalanceState>.Bounded<ColorTemperature, double, InvalidColor>(
-            Lens<WhiteBalanceState, ColorTemperature>.New(static state => state.Temperature, static temperature => state => state with { Temperature = temperature }),
-            new() { Unit = ColorTemperature.Unit, Soft = (2000d, 11000d), Step = 1d, Decimals = 0 }));
+        StateParameter.Bounded<WhiteBalanceState, ColorTemperature, double, InvalidColor>(Lens<WhiteBalanceState, ColorTemperature>.New(static state => state.Temperature, static temperature => state => state with { Temperature = temperature }),
+        new() { Unit = ColorTemperature.Unit, Soft = (2000d, 11000d), Step = 1d, Decimals = 0 }));
     public static readonly WhiteBalanceParameter Tint = new(
         "tint",
-        new StateParameter<WhiteBalanceState>.Bounded<Tint, double, InvalidColor>(
-            Lens<WhiteBalanceState, Tint>.New(static state => state.Tint, static tint => state => state with { Tint = tint }),
-            new() { Origin = (double)ColorManagement.Tint.Neutral }));
+        StateParameter.Bounded<WhiteBalanceState, Tint, double, InvalidColor>(Lens<WhiteBalanceState, Tint>.New(static state => state.Tint, static tint => state => state with { Tint = tint }),
+        new() { Origin = (double)ColorManagement.Tint.Neutral }));
 
     public StateParameter<WhiteBalanceState> Kind { get; }
 }

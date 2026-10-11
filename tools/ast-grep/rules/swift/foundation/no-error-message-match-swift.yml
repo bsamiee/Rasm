@@ -24,9 +24,9 @@ utils:
             - kind: simple_identifier
               pattern: $TEXT
               inside:
-                kind: statements
                 stopBy: end
-                has:
+                follows:
+                    stopBy: end
                     kind: property_declaration
                     all:
                         - has: {field: name, has: {field: bound_identifier, pattern: $TEXT}}

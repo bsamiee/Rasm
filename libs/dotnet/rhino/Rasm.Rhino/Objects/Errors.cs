@@ -3,7 +3,7 @@ namespace Rasm.Rhino.Objects;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     InvalidPlane = 1,
-    InvalidLight,
+    InvalidLight = 2,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

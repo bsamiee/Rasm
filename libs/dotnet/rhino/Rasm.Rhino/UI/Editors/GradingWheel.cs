@@ -154,9 +154,10 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
         raster.Filter(held => held.Diameter == extent.Width).IfNone(() => Rebuilt(extent)).Raster;
 
     private (int Diameter, Bitmap Raster) Rebuilt(PixelExtent extent) {
-        _ = raster.Iter(static held => held.Raster.Dispose());
         (int Diameter, Bitmap Raster) built = (extent.Width, Plots.Pixels(extent, Tints(extent.Width)));
+        Option<(int Diameter, Bitmap Raster)> prior = raster;
         raster = built;
+        _ = prior.Iter(static held => held.Raster.Dispose());
         return built;
     }
 
@@ -177,9 +178,11 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
 
     // --- [LIFETIME]
     protected override void Dispose(bool disposing) {
-        if (disposing)
-            _ = raster.Iter(static held => held.Raster.Dispose());
-        raster = None;
         base.Dispose(disposing);
+        if (!disposing) return;
+
+        Option<(int Diameter, Bitmap Raster)> prior = raster;
+        raster = None;
+        _ = prior.Iter(static held => held.Raster.Dispose());
     }
 }

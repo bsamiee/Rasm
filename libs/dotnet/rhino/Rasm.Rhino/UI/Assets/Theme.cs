@@ -1,6 +1,8 @@
+using System.Runtime.Versioning;
 using Eto;
 using Eto.Drawing;
 using Eto.Forms;
+using Microsoft.Win32;
 using Rasm.Rhino.Events;
 using Rhino.UI;
 
@@ -10,13 +12,13 @@ namespace Rasm.Rhino.UI.Assets;
 public interface IThemeHandler {
     public DisplayOptions Accessibility { get; }
 
-    public event EventHandler AccessibilityChanged;
+    public HostEvent<EventArgs> Changed { get; }
 
     public Font Digits(Font font);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct DisplayOptions(bool ReduceMotion, bool IncreaseContrast, bool DifferentiateWithoutColor, bool ReduceTransparency);
+public readonly record struct DisplayOptions(bool ReduceMotion, bool IncreaseContrast, bool DifferentiateWithoutColor, bool ReduceTransparency, bool InvertColors);
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class PaintSlot {
@@ -76,20 +78,59 @@ public static class HostTheme {
     public static DisplayOptions Accessibility => Handler.Match(Some: static handler => handler.Accessibility, None: static () => default);
 
     // --- [CHANGE]
-    public static readonly HostEvent<Unit> Changed = new(
-        typeof(HostTheme),
-        nameof(Changed),
-        static (deliver, site) =>
-            from handler in IO.lift(static () => Handler)
-            from attached in DisposalOps.AcquireAll(
-                EventKind.ThemeChanged.Cons(handler.Map(AccessibilityChanged).ToSeq()).Map(row => row.Inline(_ => deliver(unit), site.Sink)),
-                DisposalOps.Release)
-            select DisposalOps.Composite(attached, site));
+    public static readonly HostEvent<Unit> Changed =
+        Subscriptions.Host(typeof(HostTheme), static () => EventKind.ThemeChanged.Cons(Handler.Map(static handler => handler.Changed).ToSeq())
+            .Concat(OperatingSystem.IsWindows()
+                ? Seq(DisplayChangesOnWindows())
+                : []))
+            .Choose(static _ => Some(unit));
+
+    [SupportedOSPlatform("windows")]
+    private static HostEvent<EventArgs> DisplayChangesOnWindows() =>
+        Subscriptions.Host<EventHandler, EventArgs>(typeof(SystemEvents),
+            static handler => SystemEvents.DisplaySettingsChanged += handler,
+            static handler => SystemEvents.DisplaySettingsChanged -= handler,
+            static handler => handler.Invoke, nameof(SystemEvents.DisplaySettingsChanged));
+
+    public static HostEvent<Unit> In(Control control) =>
+        new(typeof(Control), nameof(Control.LoadComplete), (deliver, site, retain) =>
+            DisposalOps.Acquire(owned =>
+                from mounted in IO.lift(static () => Ref(Some(Option<IDisposable>.None)))
+                let exchange = fun((Option<Option<IDisposable>> next) => atomicIO(() => {
+                    Option<Option<IDisposable>> prior = mounted.Value;
+                    mounted.Value = prior.Bind(_ => next);
+                    return prior.Bind(static current => current);
+                }).Bind(static prior => IO.lift(() => prior.Iter(static lease => lease.Dispose()))).Uninterruptible())
+                let mount = DisposalOps.Replace(windowOwned =>
+                    IO.lift(() => Optional(control.ParentWindow)).Bind(window => window.Traverse(parent =>
+                        Subscriptions.Host<EventArgs>(typeof(Window),
+                            handler => parent.LogicalPixelSizeChanged += handler,
+                            handler => parent.LogicalPixelSizeChanged -= handler,
+                            nameof(Window.LogicalPixelSizeChanged))
+                        .Choose(static _ => Some(unit)).Inline(deliver, site.Sink, windowOwned)).As()).Map(static _ => unit),
+                    (_, lease) => {
+                        Option<IDisposable> prior = atomic(() => mounted.Value.Match(
+                            Some: current => {
+                                mounted.Value = Some(Some(lease));
+                                return current;
+                            },
+                            None: static () => throw Errors.Cancelled.ToException()));
+                        return IO.lift(() => prior.Iter(static held => held.Dispose()));
+                    })
+                from lifetime in DisposalOps.Acquire(
+                    IO.lift(() => new Disposal<Ref<Option<Option<IDisposable>>>>(mounted, _ => exchange(None).Run())),
+                    static lease => IO.lift(lease.Dispose), owned)
+                from changed in Changed.Inline(deliver, site.Sink, owned)
+                from loaded in Subscriptions.Attach(
+                    handler => control.LoadComplete += handler, handler => control.LoadComplete -= handler,
+                    Callbacks.Handler<EventArgs>(_ => mount.Bind(__ => deliver(unit)), site), owned)
+                from unloaded in Subscriptions.Attach(
+                    handler => control.UnLoad += handler, handler => control.UnLoad -= handler,
+                    Callbacks.Handler<EventArgs>(_ => exchange(Some(Option<IDisposable>.None)), site), owned)
+                from initial in when(control.Loaded, mount).As()
+                select unit, (_, lease) => retain(lease)));
 
     // --- [HOST]
     private static Option<IThemeHandler> Handler =>
         Platform.Instance.Supports<IThemeHandler>() ? Some(Platform.Instance.CreateShared<IThemeHandler>()) : None;
-
-    private static HostEvent<EventArgs> AccessibilityChanged(IThemeHandler handler) =>
-        Subscriptions.Host<EventHandler, EventArgs>(typeof(IThemeHandler), h => handler.AccessibilityChanged += h, h => handler.AccessibilityChanged -= h, static h => h.Invoke);
 }

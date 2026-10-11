@@ -1,9 +1,11 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
-using CommunityToolkit.HighPerformance;
+using System.Runtime.Intrinsics;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
+using MathNet.Numerics.Integration;
+using MathNet.Numerics.LinearAlgebra;
+using PeterO.Numbers;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Filters.Optics;
@@ -15,29 +17,16 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using UnitsNet.Units;
+using TorchSharp;
 
 namespace Rasm.Imaging.Filters.Stylize;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidStylize>]
-public readonly partial struct Spread : IMinMaxValue<Spread> {
-    public static Spread MinValue => Off;
-    public static Spread MaxValue { get; } = new(0.05f);
-    public static Presentation<Spread, float> Presentation { get; } = new() { Unit = UnitsNet.Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 0.005f) };
-
-    public float Pixels(PixelExtent extent) => _value * extent.ShortSide;
-
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
-}
-
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidStylize>]
 public readonly partial struct EdgeGain : IMinMaxValue<EdgeGain> {
     public static EdgeGain MinValue => Off;
-    public static EdgeGain MaxValue { get; } = new(4f);
+    public static EdgeGain MaxValue { get; } = new(float.MaxValue);
 
     static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
@@ -47,7 +36,7 @@ public readonly partial struct EdgeGain : IMinMaxValue<EdgeGain> {
 [ValidationError<InvalidStylize>]
 public readonly partial struct NoiseLevel : IMinMaxValue<NoiseLevel> {
     public static NoiseLevel MinValue => Off;
-    public static NoiseLevel MaxValue { get; } = new(1f);
+    public static NoiseLevel MaxValue { get; } = new(float.MaxValue);
 
     static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
@@ -56,12 +45,13 @@ public readonly partial struct NoiseLevel : IMinMaxValue<NoiseLevel> {
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidStylize>]
 public readonly partial struct LineCount : IMinMaxValue<LineCount> {
-    public static LineCount MinValue { get; } = new(16);
-    public static LineCount MaxValue { get; } = new(4320);
+    public static LineCount MinValue { get; } = new(1);
+    public static LineCount MaxValue { get; } = new(int.MaxValue);
     public static LineCount Ntsc { get; } = new(480);
     public static LineCount Coarse { get; } = new(120);
 
-    public int Line(int row, PixelExtent extent) => (int)((long)row * _value / extent.Height);
+    public EInteger Line(long row, PixelExtent extent) =>
+        NoiseFunctions.Split(ERational.FromInt64(row).Multiply(_value).Divide(extent.Height)).Cell;
 
     static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref int value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
@@ -82,7 +72,7 @@ public readonly partial struct JpegQuality : IMinMaxValue<JpegQuality> {
 [ValidationError<InvalidStylize>]
 public readonly partial struct Generations : IMinMaxValue<Generations> {
     public static Generations MinValue => Single;
-    public static Generations MaxValue { get; } = new(8);
+    public static Generations MaxValue { get; } = new(int.MaxValue);
     public static Generations Single { get; } = new(1);
 
     static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref int value) =>
@@ -94,11 +84,11 @@ public readonly partial struct Generations : IMinMaxValue<Generations> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class YuvMatrix {
-    public static readonly YuvMatrix Rec601 = new("rec601", static () => new Vector3(0.299f, 0.587f, 0.114f));
+    public static readonly YuvMatrix Rec601 = new("rec601", static () => (0.299d, 0.587d, 0.114d));
     public static readonly YuvMatrix Rec709 = new("rec709", static () => Gamut.StandardRgb.Luminance);
 
     [UseDelegateFromConstructor]
-    public partial Vector3 Weights();
+    public partial (double X, double Y, double Z) Weights();
 }
 
 [SmartEnum<string>]
@@ -106,49 +96,55 @@ public sealed partial class YuvMatrix {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PhosphorMask {
-    public static readonly PhosphorMask ApertureGrille = new("aperture-grille", gap: 0f, columnStagger: 0f, rowStagger: 0f);
-    public static readonly PhosphorMask SlotMask = new("slot-mask", gap: 1f / 3f, columnStagger: 0.5f, rowStagger: 0f);
-    public static readonly PhosphorMask ShadowMask = new("shadow-mask", gap: 1f / 3f, columnStagger: 0f, rowStagger: 0.5f);
+    public static readonly PhosphorMask ApertureGrille = new("aperture-grille", gap: 0d, columnStagger: 0d, rowStagger: 0d);
+    public static readonly PhosphorMask SlotMask = new("slot-mask", gap: 1d / 3d, columnStagger: 0.5d, rowStagger: 0d);
+    public static readonly PhosphorMask ShadowMask = new("shadow-mask", gap: 1d / 3d, columnStagger: 0d, rowStagger: 0.5d);
 
-    private readonly float _gap;
-    private readonly float _columnStagger;
-    private readonly float _rowStagger;
+    private readonly double _gap;
+    private readonly double _columnStagger;
+    private readonly double _rowStagger;
 
-    public Vector3 Coverage(int column, int row, float pitch) {
-        float span = 1f / pitch;
-        float u = (column * span) + (((int)MathF.Floor((row + 0.5f) * span) & 1) * _rowStagger);
-        float v = (row * span) + (((int)MathF.Floor((column + 0.5f) * span) & 1) * _columnStagger);
-        return 3f * (Stripes(u + span) - Stripes(u)) * (Open(v + span) - Open(v)) / (span * span * (1f - _gap));
+    public (double R, double G, double B) Coverage(long column, long row, ShortSideExtent pitch, PixelExtent extent) {
+        ERational span = ERational.One.Divide(ERational.FromSingle(pitch).Multiply(extent.ShortSide));
+        (ERational u, ERational v, ERational width) =
+            (ERational.FromInt64(column).Multiply(span), ERational.FromInt64(row).Multiply(span), ERational.One.Subtract(ERational.FromDouble(_gap)));
+        ERational third = ERational.One.Divide(3);
+        return (Channel(0), Channel(1), Channel(2));
+
+        double Channel(int channel) => (_rowStagger == 0d
+            ? Area(u, 2, channel, 0, third).Multiply(Area(v, 1, 0, 0, width))
+                .Add(Area(u, 2, channel, 1, third).Multiply(Area(v.Add(ERational.FromDouble(_columnStagger)), 1, 0, 0, width)))
+            : Area(u, 1, channel, 0, third).Multiply(Area(v, 2, 0, 0, width))
+                .Add(Area(u.Add(ERational.FromDouble(_rowStagger)), 1, channel, 0, third).Multiply(Area(v, 2, 0, 1, width))))
+            .Multiply(3).Divide(span.Multiply(span).Multiply(width)).ToDouble();
+        ERational Area(ERational t, int period, int channel, int parity, ERational open) {
+            return Primitive(t.Add(span)).Subtract(Primitive(t));
+
+            ERational Primitive(ERational point) => NoiseFunctions.Split(point.Divide(period)) switch {
+                var (cell, local) => ERational.FromEInteger(cell).Multiply(open).Add(
+                    ERational.Min(ERational.Max(local.Multiply(period).Subtract(parity).Subtract(third.Multiply(channel)), ERational.Zero), open)),
+            };
+        }
     }
-
-    private static Vector3 Stripes(float t) =>
-        MathF.Floor(t) switch {
-            var cell => new Vector3(cell / 3f) + Vector3.Clamp(new Vector3(t - cell) - new Vector3(0f, 1f / 3f, 2f / 3f), Vector3.Zero, new Vector3(1f / 3f)),
-        };
-
-    private float Open(float t) =>
-        MathF.Floor(t) switch {
-            var cell => (cell * (1f - _gap)) + float.Min(t - cell, 1f - _gap),
-        };
 }
 
 public sealed record CrtDisplay(
     PhosphorMask Mask, ShortSideExtent Pitch, Mix MaskStrength, LineCount Lines, bool Interlaced, Mix ScanlineDepth,
-    Mix Collapse, Spread Glow, Distortion Curvature, LensFraming Framing, Timing Timing)
+    Mix Collapse, ShortSideLength Glow, Distortion Curvature, LensFraming Framing, Timing Timing)
     : IStateRecord<CrtDisplay, CrtDisplayParameter, InvalidStylize>, IPixelStage<CrtDisplay> {
     private const double NearShare = 0.890909d;
 
     public static CrtDisplay Default { get; } = new(
         PhosphorMask.SlotMask, ShortSideExtent.Create(8f / ReferenceFrame.Height), Mix.Create(0.8f), LineCount.Ntsc, Interlaced: false, Mix.Full,
-        Mix.MinValue, Spread.Off, Distortion.Neutral, LensFraming.Edges, Timing.Default);
+        Mix.MinValue, ShortSideLength.Neutral, Distortion.Neutral, LensFraming.Edges, Timing.Default);
 
     public static CrtDisplay Monitor { get; } = Default with {
         Mask = PhosphorMask.ApertureGrille,
-        Pitch = ShortSideExtent.Create(16f / 9f / 640f),
+        Pitch = ShortSideExtent.Create(ReferenceFrame.GreaterSide / 640f),
         MaskStrength = Mix.Create(0.705394f),
         Lines = LineCount.Create(240),
         ScanlineDepth = Mix.Create(0.5f),
-        Glow = Spread.Create(0.01f * 16f / 9f / 3f),
+        Glow = ShortSideLength.Create(0.01f * ReferenceFrame.GreaterSide / 3f),
         Curvature = Distortion.Create(0.0497677f),
     };
 
@@ -156,66 +152,82 @@ public sealed record CrtDisplay(
 
     private bool Lit => MaskStrength != Mix.MinValue || ScanlineDepth != Mix.MinValue || Collapse != Mix.MinValue;
 
-    private (float X, float Y) Scales =>
-        ((float)Collapse, 1f / Lines) switch {
-            var (k, line) => (float.Min(1f, float.Max(2f - (2f * k), line)), float.Max(1f - (2f * k), line)),
+    private (ERational X, ERational Y) Scales =>
+        (ERational.FromSingle(Collapse).Multiply(2), ERational.One.Divide((int)Lines)) switch {
+            var (collapse, line) => (ERational.Min(ERational.One, ERational.Max(ERational.FromInt32(2).Subtract(collapse), line)),
+                ERational.Max(ERational.One.Subtract(collapse), line)),
         };
 
     public static Option<PixelPass> Pass(CrtDisplay state, PassContext context) =>
-        (state.Lit, state.Collapse == Mix.MinValue && state.Glow == Spread.Off && state.Curvature == Distortion.Neutral) switch {
+        (state.Lit, state.Collapse == Mix.MinValue && state.Glow == ShortSideLength.Neutral && state.Curvature == Distortion.Neutral) switch {
             (false, true) => None,
             (true, true) => Some<PixelPass>(new PixelPass.Pointwise(Raster(state, context))),
             _ => Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress))),
         };
 
     private static Fin<Unit> Kernel(CrtDisplay state, PassContext context, PixelFrame frame, IProgress<int> progress) =>
-        (state.Collapse == Mix.MinValue ? unit : new CoordinateMap.Analytic(Deflection(state.Scales, context.Extent), Sampling.Linear, WrapMode.Black).Apply(frame, progress))
-            .Bind(_ => {
-                if (state.Glow != Spread.Off)
-                    Bloom(frame, state.Glow.Pixels(context.Extent));
-                return state.Lit ? new PixelPass.Pointwise(Raster(state, context)).Run(frame, progress) : unit;
-            })
+        (state.Collapse == Mix.MinValue ? unit : new CoordinateMap.Analytic(Deflection(state.Scales, context.Extent), Sampling.Linear, (WrapMode.Black, WrapMode.Black)).Apply(frame, progress))
+            .Bind(_ => state.Glow == ShortSideLength.Neutral ? unit : Bloom(frame, state.Glow.Pixels(context.Extent)))
+            .Bind(_ => state.Lit ? new PixelPass.Pointwise(Raster(state, context)).Run(frame, progress) : unit)
             .Bind(_ => state.Curvature == Distortion.Neutral ? unit
                 : new LensDistortion(state.Curvature, AxisFraction.MinValue, state.Framing, LensDirection.Distort, WrapMode.Black).Placed.Apply(frame, progress));
 
-    private static Action<Span<Vector2>, Span<float>, PixelExtent> Deflection((float X, float Y) scale, PixelExtent extent) {
-        Vector2 centre = new Vector2(extent.Width, extent.Height) / 2f;
-        Vector2 spread = Vector2.One / new Vector2(scale.X, scale.Y);
+    private static Action<Span<(double X, double Y)>, Span<float>, PixelExtent> Deflection((ERational X, ERational Y) scale, PixelExtent extent) {
+        (ERational X, ERational Y) = (ERational.FromInt32(extent.Width).Divide(2), ERational.FromInt32(extent.Height).Divide(2));
         return (points, _, _) => {
-            foreach (ref Vector2 point in points)
-                point = centre + ((point - centre) * spread);
+            foreach (ref (double X, double Y) point in points)
+                point = (Sampling.Linear.Point(X.Add(ERational.FromDouble(point.X).Subtract(X).Divide(scale.X)), WrapMode.Black, extent.Width),
+                    Sampling.Linear.Point(Y.Add(ERational.FromDouble(point.Y).Subtract(Y).Divide(scale.Y)), WrapMode.Black, extent.Height));
         };
     }
 
-    private static void Bloom(PixelFrame frame, float sigma) {
-        using Mat header = frame.Header();
-        using Mat alpha = new();
-        using Mat near = new();
-        using Mat far = new();
-        CvInvoke.ExtractChannel(header, alpha, 3);
-        int taps = PixelSampling.GaussianTaps(sigma);
-        CvInvoke.GaussianBlur(header, near, new System.Drawing.Size(taps, taps), sigma, sigma, BorderType.Replicate);
-        CvInvoke.GaussianBlur(near, far, new System.Drawing.Size(PixelSampling.GaussianTaps(4f * sigma), taps), 4f * sigma, sigma, BorderType.Replicate);
-        CvInvoke.AddWeighted(near, NearShare, far, 1d - NearShare, 0d, header);
-        CvInvoke.InsertChannel(alpha, header, 3);
-    }
+    private static Fin<Unit> Bloom(PixelFrame frame, double sigma) =>
+        frame.Filter(header => (
+        from taps in PixelSampling.GaussianTaps<long>(sigma)
+        from wide in PixelSampling.GaussianTaps<long>(4d * sigma)
+        select (taps, wide)).Bind(support => {
+            using Mat alpha = new();
+            using Mat light = new();
+            using Mat near = new();
+            using Mat far = new();
+            CvInvoke.ExtractChannel(header, alpha, 3);
+            header.ConvertTo(light, DepthType.Cv64F);
+            return light.Gaussian(near, (support.taps, support.taps), sigma, sigma, PaddingModes.Replicate)
+                .Bind(_ => near.Gaussian(far, (support.wide, support.taps), 4d * sigma, sigma, PaddingModes.Replicate))
+                .Map(_ => {
+                    CvInvoke.AddWeighted(near, NearShare, far, 1d - NearShare, 0d, light);
+                    light.ConvertTo(header, DepthType.Cv32F);
+                    CvInvoke.InsertChannel(alpha, header, 3);
+                    return unit;
+                });
+        }));
 
-    private static Action<Span<Vector4>, int, int> Raster(CrtDisplay state, PassContext context) {
+    private static Action<Span<Vector4>, long, long> Raster(CrtDisplay state, PassContext context) {
         PixelExtent extent = context.Extent;
-        (float width, float height) = state.Scales;
-        (double middle, double field) = (extent.Height / 2d, state.Interlaced ? 2d * extent.Height : extent.Height);
-        double parity = state.Interlaced ? SystemM.Frame(state.Timing.At(context)) % 2 / 2d : 0d;
-        (float pitch, float mask, float depth) = (state.Pitch.Pixels(extent), state.MaskStrength, state.ScanlineDepth);
-        float power = 1f / (width * height);
+        (ERational width, ERational height) = state.Scales;
+        ERational middle = ERational.FromInt32(extent.Height).Divide(2);
+        ERational field = ERational.FromInt32(extent.Height).Multiply(state.Interlaced ? 2 : 1);
+        ERational parity = ERational.FromInt64(state.Interlaced ? SystemM.Frame(state.Timing.At(context)) & 1L : 0L).Divide(2);
+        (double mask, double depth) = (state.MaskStrength, state.ScanlineDepth);
+        double power = ERational.One.Divide(width.Multiply(height)).ToDouble();
+        ERational span = ERational.FromInt32(state.Lines).Divide(field.Multiply(height));
+        ERational phase = middle.Multiply((int)state.Lines).Divide(field).Add(parity);
+        (EInteger whole, ERational fraction) = NoiseFunctions.Split(span);
+        double sinc = (whole.IsEven ? 1d : -1d) * double.SinPi(ERational.Min(fraction, ERational.One.Subtract(fraction)).ToDouble()) / (2d * double.Pi * span.ToDouble());
         return (row, column, line) => {
-            int y = extent.Height - 1 - line;
-            (double top, double bottom) = (Beam(y), Beam(y + 1));
-            float lit = power * (1f - (depth * (float)(0.5d + ((double.SinPi(2d * bottom) - double.SinPi(2d * top)) / (4d * double.Pi * (bottom - top)))))) / (1f - (depth / 2f));
-            for (int x = 0; x < row.Length; x++)
-                row[x] = new Vector4(row[x].AsVector3() * (new Vector3(1f - mask) + (mask * state.Mask.Coverage(column + x, y, pitch))) * lit, row[x].W);
+            long y = (long)extent.Height - 1 - line;
+            ERational centre = ERational.FromInt64((2 * y) + 1).Divide(2).Subtract(middle);
+            double beam = NoiseFunctions.Split(centre.Multiply(span).Add(phase)).Local.ToDouble();
+            double average = 0.5d + (double.CosPi(2d * beam) * sinc);
+            double lit = power * (1d - (depth * average)) / (1d - (depth / 2d));
+            for (int x = 0; x < row.Length; x++) {
+                (double R, double G, double B) = mask == 0d ? (1d, 1d, 1d) : state.Mask.Coverage(column + x, y, state.Pitch, extent);
+                row[x] = new Vector4(
+                    (float)(row[x].X * (1d - mask + (mask * R)) * lit),
+                    (float)(row[x].Y * (1d - mask + (mask * G)) * lit),
+                    (float)(row[x].Z * (1d - mask + (mask * B)) * lit), row[x].W);
+            }
         };
-
-        double Beam(int y) => ((middle + ((y - middle) / height)) * state.Lines / field) + parity;
     }
 }
 
@@ -228,32 +240,28 @@ public sealed partial class CrtDisplayParameter : IStateParameter<CrtDisplay> {
         "mask", new StateParameter<CrtDisplay>.Choice<PhosphorMask, InvalidStylize>(Lens<CrtDisplay, PhosphorMask>.New(static crt => crt.Mask, static mask => crt => crt with { Mask = mask })));
     public static readonly CrtDisplayParameter Pitch = new(
         "pitch",
-        new StateParameter<CrtDisplay>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-            Lens<CrtDisplay, ShortSideExtent>.New(static crt => crt.Pitch, static pitch => crt => crt with { Pitch = pitch }),
-            ShortSideExtent.Presentation with { Soft = (0.002f, 0.02f) }));
+        StateParameter.Bounded<CrtDisplay, ShortSideExtent, float, InvalidPixelValue>(Lens<CrtDisplay, ShortSideExtent>.New(static crt => crt.Pitch, static pitch => crt => crt with { Pitch = pitch }),
+        ShortSideExtent.Presentation with { Soft = (0.002f, 0.02f) }));
     public static readonly CrtDisplayParameter MaskStrength = new(
         "mask-strength",
-        new StateParameter<CrtDisplay>.Bounded<Mix, float, InvalidGrade>(Lens<CrtDisplay, Mix>.New(static crt => crt.MaskStrength, static strength => crt => crt with { MaskStrength = strength }), new()));
+        StateParameter.Bounded<CrtDisplay, Mix, float, InvalidGrade>(Lens<CrtDisplay, Mix>.New(static crt => crt.MaskStrength, static strength => crt => crt with { MaskStrength = strength }), new()));
     public static readonly CrtDisplayParameter Lines = new(
         "lines",
-        new StateParameter<CrtDisplay>.Bounded<LineCount, int, InvalidStylize>(
-            Lens<CrtDisplay, LineCount>.New(static crt => crt.Lines, static lines => crt => crt with { Lines = lines }), new() { Soft = (LineCount.Coarse, 1080) }));
+        StateParameter.Bounded<CrtDisplay, LineCount, int, InvalidStylize>(Lens<CrtDisplay, LineCount>.New(static crt => crt.Lines, static lines => crt => crt with { Lines = lines }), new() { Soft = (LineCount.Coarse, 1080) }));
     public static readonly CrtDisplayParameter Interlaced = new(
         "interlaced", new StateParameter<CrtDisplay>.Toggle(Lens<CrtDisplay, bool>.New(static crt => crt.Interlaced, static interlaced => crt => crt with { Interlaced = interlaced })));
     public static readonly CrtDisplayParameter ScanlineDepth = new(
         "scanline-depth",
-        new StateParameter<CrtDisplay>.Bounded<Mix, float, InvalidGrade>(Lens<CrtDisplay, Mix>.New(static crt => crt.ScanlineDepth, static depth => crt => crt with { ScanlineDepth = depth }), new()));
+        StateParameter.Bounded<CrtDisplay, Mix, float, InvalidGrade>(Lens<CrtDisplay, Mix>.New(static crt => crt.ScanlineDepth, static depth => crt => crt with { ScanlineDepth = depth }), new()));
     public static readonly CrtDisplayParameter Collapse = new(
         "collapse",
-        new StateParameter<CrtDisplay>.Bounded<Mix, float, InvalidGrade>(Lens<CrtDisplay, Mix>.New(static crt => crt.Collapse, static collapse => crt => crt with { Collapse = collapse }), new()));
+        StateParameter.Bounded<CrtDisplay, Mix, float, InvalidGrade>(Lens<CrtDisplay, Mix>.New(static crt => crt.Collapse, static collapse => crt => crt with { Collapse = collapse }), new()));
     public static readonly CrtDisplayParameter Glow = new(
         "glow",
-        new StateParameter<CrtDisplay>.Bounded<Spread, float, InvalidStylize>(
-            Lens<CrtDisplay, Spread>.New(static crt => crt.Glow, static glow => crt => crt with { Glow = glow }), Spread.Presentation));
+        StateParameter.Bounded<CrtDisplay, ShortSideLength, float, InvalidPixelValue>(Lens<CrtDisplay, ShortSideLength>.New(static crt => crt.Glow, static glow => crt => crt with { Glow = glow }), ShortSideLength.Presentation with { Soft = (0f, 0.005f) }));
     public static readonly CrtDisplayParameter Curvature = new(
         "curvature",
-        new StateParameter<CrtDisplay>.Bounded<Distortion, float, InvalidOptics>(
-            Lens<CrtDisplay, Distortion>.New(static crt => crt.Curvature, static curvature => crt => crt with { Curvature = curvature }), new() { Origin = (float)Distortion.Neutral }));
+        StateParameter.Bounded<CrtDisplay, Distortion, float, InvalidOptics>(Lens<CrtDisplay, Distortion>.New(static crt => crt.Curvature, static curvature => crt => crt with { Curvature = curvature }), new() { Origin = (float)Distortion.Neutral }));
     public static readonly CrtDisplayParameter Framing = new(
         "framing", new StateParameter<CrtDisplay>.Choice<LensFraming, InvalidOptics>(Lens<CrtDisplay, LensFraming>.New(static crt => crt.Framing, static framing => crt => crt with { Framing = framing })));
     public static readonly CrtDisplayParameter Timing = new("timing", new StateParameter<CrtDisplay>.Record<Timing>(
@@ -264,224 +272,268 @@ public sealed partial class CrtDisplayParameter : IStateParameter<CrtDisplay> {
 
 public sealed record AnalogVideo(
     YuvMatrix Matrix, LineCount Lines,
-    Spread LumaBandwidth, Spread ChromaBandwidth, Spread ChromaVertical, ShortSideLength ChromaPitch, ShortSideOffset CbDelay, ShortSideOffset CrDelay,
-    Spread Smear, Mix SmearMix, EdgeGain Ringing, ShortSideOffset RingingDelay, EdgeGain Emboss, Mix Ghost, ShortSideOffset GhostDelay, Mix CrossColor,
-    NoiseLevel LumaNoise, NoiseLevel ChromaNoise, ShortSideExtent NoiseLength, Mix Snow, Likelihood SnowDensity,
+    ShortSideLength LumaBandwidth, ShortSideLength ChromaBandwidth, ShortSideLength ChromaVertical, ShortSideLength ChromaPitch, ShortSideOffset ChromaDelay,
+    ShortSideLength Smear, Mix SmearMix, EdgeGain Ringing, ShortSideOffset RingingDelay, EdgeGain Emboss, Mix Ghost, ShortSideOffset GhostDelay, Mix CrossColor,
+    NoiseLevel LumaNoise, NoiseLevel ChromaNoise, ShortSideExtent NoiseLength, Mix Snow, Likelihood SnowDensity, ShortSideExtent SnowLength,
     ShortSideOffset Interlace, ShortSideLength Jitter, ShortSideExtent JitterPeriod, ShortSideOffset Wrinkle, ShortSideExtent WrinkleHeight, Frequency WrinkleRate,
     ShortSideOffset HeadSwitch, ShortSideExtent HeadSwitchHeight, ShortSideLength Bounce, Frequency RollRate, Mix Hum, Frequency HumRate,
     Seed Seed, Timing Timing)
     : IStateRecord<AnalogVideo, AnalogVideoParameter, InvalidStylize>, IPixelStage<AnalogVideo> {
-    private const float SwitchCrest = 0.9f;
+    private const double SwitchCrest = 0.9d;
 
     public static AnalogVideo Default { get; } = new(
         YuvMatrix.Rec601, LineCount.Ntsc,
-        Spread.Off, Spread.Off, Spread.Off, ShortSideLength.Neutral, ShortSideOffset.Neutral, ShortSideOffset.Neutral,
-        Spread.Off, Mix.Create(0.3f * 0.25f), EdgeGain.Off, ShortSideOffset.Neutral, EdgeGain.Off, Mix.MinValue, ShortSideOffset.Neutral, Mix.MinValue,
-        NoiseLevel.Off, NoiseLevel.Off, ShortSideExtent.Create(ReferenceFrame.GreaterSide / 40f), Mix.MinValue, Likelihood.Off,
+        ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideOffset.Neutral,
+        ShortSideLength.Neutral, Mix.Create(0.3f * 0.25f), EdgeGain.Off, ShortSideOffset.Neutral, EdgeGain.Off, Mix.MinValue, ShortSideOffset.Neutral, Mix.MinValue,
+        NoiseLevel.Off, NoiseLevel.Off, ShortSideExtent.Create(ReferenceFrame.GreaterSide / 40f), Mix.MinValue, Likelihood.Off, ShortSideExtent.Create(0.04f * ReferenceFrame.GreaterSide),
         ShortSideOffset.Neutral, ShortSideLength.Neutral, ShortSideExtent.Create(1f / 65f), ShortSideOffset.Neutral, ShortSideExtent.Create(0.15f), Frequency.Neutral,
-        ShortSideOffset.Neutral, ShortSideExtent.Create(0.31f / (32f - (28.8f * 0.5f))), ShortSideLength.Neutral, Frequency.Neutral, Mix.MinValue, Frequency.Neutral,
+        ShortSideOffset.Neutral, ShortSideExtent.Create(0.31f / (32f - (28.8f * 0.5f))), ShortSideLength.Neutral, Frequency.Neutral, Mix.MinValue, Frequency.Create(60f / 1001f),
         Seed.MinValue, Timing.Default);
 
     public static AnalogVideo ChromaBlur { get; } = Default with {
-        ChromaBandwidth = Spread.Create(128f / ReferenceFrame.Height / 3f),
-        ChromaVertical = Spread.Create(128f * 0.1f / ReferenceFrame.Height / 3f),
+        ChromaBandwidth = ShortSideLength.Create(128f / ReferenceFrame.Height / 3f),
+        ChromaVertical = ShortSideLength.Create(128f * 0.1f / ReferenceFrame.Height / 3f),
     };
 
     private bool Moves =>
         Interlace != ShortSideOffset.Neutral || Jitter != ShortSideLength.Neutral || Wrinkle != ShortSideOffset.Neutral
         || HeadSwitch != ShortSideOffset.Neutral || Bounce != ShortSideLength.Neutral || RollRate != Frequency.Neutral;
 
-    private bool Filters =>
-        LumaBandwidth != Spread.Off || ChromaBandwidth != Spread.Off || ChromaVertical != Spread.Off || ChromaPitch != ShortSideLength.Neutral
-        || CbDelay != ShortSideOffset.Neutral || CrDelay != ShortSideOffset.Neutral || Smear != Spread.Off || Ghost != Mix.MinValue || CrossColor != Mix.MinValue;
+    private bool Filters(PixelExtent extent) =>
+        LumaBandwidth != ShortSideLength.Neutral || ChromaBandwidth != ShortSideLength.Neutral || ChromaVertical != ShortSideLength.Neutral || ChromaPitch.Pixels(extent) > 1d
+        || ChromaDelay != ShortSideOffset.Neutral || (Smear != ShortSideLength.Neutral && SmearMix != Mix.MinValue) || Ghost != Mix.MinValue || CrossColor != Mix.MinValue
+        || LumaNoise != NoiseLevel.Off || ChromaNoise != NoiseLevel.Off;
 
-    private bool Lined => LumaNoise != NoiseLevel.Off || ChromaNoise != NoiseLevel.Off;
-
-    private bool Speckled => Snow != Mix.MinValue || Hum != Mix.MinValue;
+    private bool Speckled => (Snow != Mix.MinValue && SnowDensity != Likelihood.Off) || Hum != Mix.MinValue;
 
     public static Option<PixelPass> Pass(AnalogVideo state, PassContext context) =>
-        state.Moves || state.Filters || state.Lined || state.Speckled
+        state.Moves || state.Filters(context.Extent) || state.Speckled
             ? Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)))
             : None;
 
     private static Fin<Unit> Kernel(AnalogVideo state, PassContext context, PixelFrame frame, IProgress<int> progress) {
         (PixelExtent extent, Clock now) = (context.Extent, state.Timing.At(context));
         uint field = CoordinateHash.Field(NoiseStream.AnalogVideo, state.Seed, now.Term);
-        return (state.Moves ? Sync(state, extent, now, field).Apply(frame, progress) : unit)
-            .Bind(_ => {
-                if (state.Filters)
-                    Signal(state, extent, now, frame);
-                return state.Lined ? LineNoise(state, extent, field, frame, progress) : unit;
-            })
-            .Bind(_ => state.Speckled ? Snowfall(state, extent, now, field, frame, progress) : unit);
+        Fin<Unit> received = state.Moves || state.Filters(extent)
+            ? frame.Filter(header => (state.Moves ? Sync(state, extent, now, field, frame, progress) : unit)
+                .Bind(_ => state.Filters(extent) ? Signal(state, extent, now, field, frame, header, progress) : unit))
+            : unit;
+        return received.Bind(_ => state.Speckled ? Snowfall(state, extent, now, field, frame, progress) : unit);
     }
 
-    private static CoordinateMap.Composed Sync(AnalogVideo state, PixelExtent extent, Clock now, uint field) {
-        float sigma = state.JitterPeriod.Pixels(extent) * state.Lines / extent.Height;
-        int reach = (int)MathF.Ceiling(3f * sigma);
+    private static unsafe Fin<Unit> Sync(AnalogVideo state, PixelExtent extent, Clock now, uint field, PixelFrame frame, IProgress<int> progress) {
+        double sigma = ERational.FromSingle(state.JitterPeriod).Multiply(extent.ShortSide).Multiply((int)state.Lines).Divide(extent.Height).ToDouble();
         uint jitterDraws = CoordinateHash.Branch(field, 2u);
-        using Mat plane = new(state.Lines + (2 * reach), 1, DepthType.Cv32F, 1);
-        Span<float> draws = plane.GetSpan<float>();
-        for (int index = 0; index < draws.Length; index++)
-            draws[index] = CoordinateHash.Normals(0, index - reach, jitterDraws).X;
-        using (Mat taps = Kernels.Unit(sigma))
-            Kernels.Across(plane, taps);
-        float[] jitters = plane.GetSpan<float>().ToArray();
-        float height = extent.Height;
-        float rise = Kernels.Fraction(state.RollRate * now) * height;
-        float jump = state.Bounce.Pixels(extent) * ((2f * NoiseFunctions.White(Vector4.Zero, CoordinateHash.Branch(field, 3u)).X) - 1f);
-        float crest = height * (1f - Kernels.Fraction(state.WrinkleRate * now));
-        (float interlace, float jitter, float wrinkle, float wrinkleBand) =
-            (state.Interlace.Pixels(extent), state.Jitter.Pixels(extent), state.Wrinkle.Pixels(extent), state.WrinkleHeight.Pixels(extent));
-        (float switching, float switchBand) = (state.HeadSwitch.Pixels(extent), state.HeadSwitchHeight.Pixels(extent));
-        return new CoordinateMap.Composed(
+        ERational clock = ERational.FromSingle(now);
+        ERational rise = NoiseFunctions.Split(ERational.FromSingle(state.RollRate).Multiply(clock)).Local.Multiply(extent.Height);
+        ERational jump = ERational.FromSingle(state.Bounce).Multiply(extent.ShortSide)
+            .Multiply(ERational.FromSingle(NoiseFunctions.White(Vector4.Zero, CoordinateHash.Branch(field, 3u)).X).Multiply(2).Subtract(1));
+        ERational crest = ERational.One.Subtract(NoiseFunctions.Split(ERational.FromSingle(state.WrinkleRate).Multiply(clock)).Local).Multiply(extent.Height);
+        (ERational interlace, ERational jitter, ERational wrinkle, ERational wrinkleBand) =
+            (ERational.FromSingle(state.Interlace).Multiply(extent.ShortSide), ERational.FromSingle(state.Jitter).Multiply(extent.ShortSide),
+                ERational.FromSingle(state.Wrinkle).Multiply(extent.ShortSide), ERational.FromSingle(state.WrinkleHeight).Multiply(extent.ShortSide));
+        (ERational switching, ERational switchBand) =
+            (ERational.FromSingle(state.HeadSwitch).Multiply(extent.ShortSide), ERational.FromSingle(state.HeadSwitchHeight).Multiply(extent.ShortSide));
+        return (state.Jitter == ShortSideLength.Neutral ? Kernels.Gauss(0d) : Kernels.Unit(sigma)).Bind(taps => {
+            using (taps)
+            using (torch.Storage<double> storage = taps.storage<double>())
+                return new CoordinateMap.Composed(
             new CoordinateMap.Composed(
                 new CoordinateMap.Analytic(
                     (points, _, _) => {
-                        foreach (ref Vector2 point in points)
-                            point.Y += rise;
-                    }, Sampling.Linear, WrapMode.Periodic),
+                        foreach (ref (double X, double Y) point in points)
+                            point.Y = Sampling.Linear.Point(ERational.FromDouble(point.Y).Add(rise), WrapMode.Periodic, extent.Height);
+                    }, Sampling.Linear, (WrapMode.Periodic, WrapMode.Periodic)),
                 new CoordinateMap.Analytic(
                     (points, _, _) => {
-                        foreach (ref Vector2 point in points)
-                            point.Y -= jump;
-                    }, Sampling.Linear, WrapMode.Black)),
+                        foreach (ref (double X, double Y) point in points)
+                            point.Y = Sampling.Linear.Point(ERational.FromDouble(point.Y).Subtract(jump), WrapMode.Black, extent.Height);
+                    }, Sampling.Linear, (WrapMode.Black, WrapMode.Black))),
             new CoordinateMap.Analytic(
                 (points, _, _) => {
-                    foreach (ref Vector2 point in points) {
-                        int line = state.Lines.Line((int)point.Y, extent);
-                        float distance = point.Y - crest - (height * MathF.Round((point.Y - crest) / height, MidpointRounding.ToEven));
-                        float band = (height - point.Y) / switchBand;
-                        point.X -= ((line & 1) * interlace) + (jitter * jitters[line + reach]) + (wrinkle * float.Max(0f, 1f - (MathF.Abs(distance) / wrinkleBand)))
-                            + (band is >= 0f and < 1f ? switching * (band < SwitchCrest ? band / SwitchCrest : (1f - band) / (1f - SwitchCrest)) : 0f);
+                    EInteger line = state.Lines.Line((long)Math.Floor(points[0].Y), extent);
+                    double draw = 0d;
+                    double* weights = (double*)storage.data_ptr().ToPointer();
+                    long count = taps.size(0);
+                    for (long tap = 0; tap < count; tap++)
+                        draw += weights[tap] * CoordinateHash.Normals(EInteger.Zero, line.Add(EInteger.FromInt64(tap - (count / 2))), jitterDraws).X;
+                    foreach (ref (double X, double Y) point in points) {
+                        ERational row = ERational.FromDouble(point.Y);
+                        ERational distance = row.Subtract(crest);
+                        distance = distance.Subtract(ERational.FromEInteger(NoiseFunctions.Split(distance.Divide(extent.Height).Add(ERational.One.Divide(2))).Cell).Multiply(extent.Height));
+                        ERational band = ERational.FromInt32(extent.Height).Subtract(row).Divide(switchBand);
+                        ERational crestShare = ERational.FromDouble(SwitchCrest);
+                        ERational head = band.Sign >= 0 && band.CompareTo(ERational.One) < 0
+                            ? switching.Multiply(band.CompareTo(crestShare) < 0 ? band.Divide(crestShare) : ERational.One.Subtract(band).Divide(ERational.One.Subtract(crestShare)))
+                            : ERational.Zero;
+                        ERational offset = interlace.Multiply(line.IsEven ? 0 : 1).Add(jitter.Multiply(ERational.FromDouble(draw)))
+                            .Add(wrinkle.Multiply(ERational.Max(ERational.Zero, ERational.One.Subtract(distance.Abs().Divide(wrinkleBand))))).Add(head);
+                        point.X = Sampling.Linear.Point(ERational.FromDouble(point.X).Subtract(offset), WrapMode.Clamp, extent.Width);
                     }
-                }, Sampling.Linear, WrapMode.Clamp));
+                }, Sampling.Linear, (WrapMode.Clamp, WrapMode.Clamp))).Apply(frame, progress);
+        });
     }
 
-    private static void Signal(AnalogVideo state, PixelExtent extent, Clock now, PixelFrame frame) {
+    private static Fin<Unit> Signal(AnalogVideo state, PixelExtent extent, Clock now, uint field, PixelFrame frame, Mat header, IProgress<int> progress) {
         ChromaAxes axes = new(state.Matrix.Weights());
-        using Mat header = frame.Header();
+        using Mat alpha = new();
+        using Mat light = new();
         using Mat forward = Kernels.Transform(axes.Forward);
         using Mat inverse = Kernels.Transform(axes.Inverse);
         using Mat ycc = new();
         using VectorOfMat planes = new();
-        CvInvoke.Transform(header, ycc, forward);
+        CvInvoke.ExtractChannel(header, alpha, 3);
+        header.ConvertTo(light, DepthType.Cv64F);
+        CvInvoke.Transform(light, ycc, forward);
         CvInvoke.Split(ycc, planes);
         using Mat luma = planes[0];
         using Mat blue = planes[1];
         using Mat red = planes[2];
-        if (state.CrossColor != Mix.MinValue)
-            Rainbow(state, extent, now, frame, luma, blue, red);
-        Luma(state, extent, luma);
-        Chroma(state, extent, blue, state.CbDelay);
-        Chroma(state, extent, red, state.CrDelay);
-        CvInvoke.Merge(planes, ycc);
-        CvInvoke.Transform(ycc, header, inverse);
+        return (state.CrossColor == Mix.MinValue ? unit : Rainbow(state, extent, now, frame, luma, blue, red))
+            .Bind(_ => state.LumaNoise == NoiseLevel.Off && state.ChromaNoise == NoiseLevel.Off ? unit : LineNoise(state, extent, field, frame, luma, blue, red))
+            .Bind(_ => Luma(state, extent, luma))
+            .Bind(_ => Chroma(state, extent, blue))
+            .Bind(_ => Chroma(state, extent, red))
+            .Map(_ => {
+                CvInvoke.Merge(planes, ycc);
+                CvInvoke.Transform(ycc, light, inverse);
+                light.ConvertTo(header, DepthType.Cv32F);
+                CvInvoke.InsertChannel(alpha, header, 3);
+                progress.Report(frame.Size.Height);
+                return unit;
+            });
     }
 
-    private static void Rainbow(AnalogVideo state, PixelExtent extent, Clock now, PixelFrame frame, Mat luma, Mat blue, Mat red) {
-        using Mat detail = new();
-        using (Mat taps = Kernels.Gauss(extent.Width / (6f * SystemM.Subcarrier)))
-        using (Mat impulse = Kernels.Impulse())
-            CvInvoke.SepFilter2D(luma, detail, DepthType.Cv32F, taps, impulse, Kernels.Anchor, 0d, BorderType.Replicate);
-        CvInvoke.Subtract(luma, detail, detail);
-        (float Sin, float Cos)[] carrier = [.. Enumerable.Range(frame.Origin.X, frame.Size.Width).Select(x => float.SinCosPi(2f * SystemM.Subcarrier * x / extent.Width))];
-        long count = SystemM.Frame(now);
-        Span2D<float> luminance = detail.GetSpan<float>().AsSpan2D(frame.Size.Height, frame.Size.Width);
-        Span2D<float> cb = blue.GetSpan<float>().AsSpan2D(frame.Size.Height, frame.Size.Width);
-        Span2D<float> cr = red.GetSpan<float>().AsSpan2D(frame.Size.Height, frame.Size.Width);
-        for (int y = 0; y < luminance.Height; y++) {
-            float amplitude = ((state.Lines.Line(frame.Origin.Y + y, extent) + count) & 1) == 0 ? state.CrossColor : -state.CrossColor;
-            for (int x = 0; x < luminance.Width; x++)
-                (cb[y, x], cr[y, x]) = (cb[y, x] + (amplitude * luminance[y, x] * carrier[x].Cos), cr[y, x] + (amplitude * luminance[y, x] * carrier[x].Sin));
-        }
-    }
+    private static unsafe Fin<Unit> Rainbow(AnalogVideo state, PixelExtent extent, Clock now, PixelFrame frame, Mat luma, Mat blue, Mat red) =>
+        Kernels.Gauss(extent.Width / (6d * SystemM.Subcarrier)).Bind(taps => {
+            using torch.Tensor kernel = taps;
+            using torch.Tensor impulse = torch.ones(1, dtype: torch.ScalarType.Float64, device: torch.CPU);
+            using Mat detail = new();
+            return luma.Separable(detail, taps, impulse, DepthType.Cv64F, PaddingModes.Replicate).Map(_ => {
+                CvInvoke.Subtract(luma, detail, detail);
+                ERational cycles = ERational.FromDouble(SystemM.Subcarrier).Divide(extent.Width);
+                (double Sin, double Cos)[] carrier = [.. Enumerable.Range(0, frame.Size.Width).Select(x =>
+            double.SinCosPi(2d * NoiseFunctions.Split(cycles.Multiply((long)frame.Origin.X + x)).Local.ToDouble()))];
+                long count = SystemM.Frame(now);
+                for (int y = 0; y < frame.Size.Height; y++) {
+                    ReadOnlySpan<double> luminance = new(detail.GetDataPointer(y).ToPointer(), frame.Size.Width);
+                    Span<double> cb = new(blue.GetDataPointer(y).ToPointer(), frame.Size.Width);
+                    Span<double> cr = new(red.GetDataPointer(y).ToPointer(), frame.Size.Width);
+                    float amplitude = state.Lines.Line((long)frame.Origin.Y + y, extent).Add(count).IsEven ? state.CrossColor : -state.CrossColor;
+                    for (int x = 0; x < luminance.Length; x++)
+                        (cb[x], cr[x]) = (cb[x] + (amplitude * luminance[x] * carrier[x].Cos), cr[x] + (amplitude * luminance[x] * carrier[x].Sin));
+                }
+                return unit;
+            });
+        });
 
-    private static void Luma(AnalogVideo state, PixelExtent extent, Mat luma) {
-        float sigma = state.LumaBandwidth.Pixels(extent);
+    private static Fin<Unit> Luma(AnalogVideo state, PixelExtent extent, Mat luma) {
+        double sigma = state.LumaBandwidth.Pixels(extent);
         (bool rings, bool embosses) = (sigma > 0f && state.Ringing != EdgeGain.Off, sigma > 0f && state.Emboss != EdgeGain.Off);
         using Mat ring = new();
         using Mat relief = new();
-        if (sigma > 0f)
-            using (Mat taps = Kernels.Gauss(sigma))
-                Kernels.Along(luma, taps);
-        if (rings) {
-            CvInvoke.Sobel(luma, ring, DepthType.Cv32F, 2, 0, 1, 1d, 0d, BorderType.Replicate);
-            using Mat taps = Kernels.Echo(0f, state.RingingDelay.Pixels(extent), 1f);
-            Kernels.Along(ring, taps);
-        }
-        if (embosses)
-            CvInvoke.Sobel(luma, relief, DepthType.Cv32F, 1, 0, 1, 1d, 0d, BorderType.Replicate);
-        float smear = state.Smear.Pixels(extent);
-        if (smear > 0f)
-            using (Mat taps = Kernels.Echo(smear, smear, state.SmearMix))
-                Kernels.Along(luma, taps);
-        if (rings)
-            CvInvoke.ScaleAdd(ring, -state.Ringing * sigma * sigma, luma, luma);
-        if (embosses)
-            CvInvoke.ScaleAdd(relief, -state.Emboss * sigma / 2f, luma, luma);
-        if (state.Ghost != Mix.MinValue)
-            using (Mat taps = Kernels.Echo(0f, state.GhostDelay.Pixels(extent), state.Ghost))
-                Kernels.Along(luma, taps);
+        double smear = state.Smear.Pixels(extent);
+        return (sigma > 0d ? Kernels.Gauss(sigma).Bind(taps => { using (taps) return Kernels.Filter(luma, taps); }) : unit)
+            .Bind(_ => rings ? Kernels.Echo(0d, state.RingingDelay.Pixels(extent), 1f).Bind(taps => {
+                using (taps)
+                    return luma.Derivative(ring, DepthType.Cv64F, 2, 0, 1, 1d, 0d, PaddingModes.Replicate)
+                        .Bind(_ => Kernels.Filter(ring, taps));
+            }) : unit)
+            .Bind(_ => embosses ? luma.Derivative(relief, DepthType.Cv64F, 1, 0, 1, 1d, 0d, PaddingModes.Replicate) : unit)
+            .Bind(_ => smear > 0d && state.SmearMix != Mix.MinValue
+                ? Kernels.Echo(smear, smear, state.SmearMix).Bind(taps => { using (taps) return Kernels.Filter(luma, taps); }) : unit)
+            .Bind(_ => {
+                if (rings)
+                    CvInvoke.ScaleAdd(ring, -state.Ringing * sigma * sigma, luma, luma);
+                if (embosses)
+                    CvInvoke.ScaleAdd(relief, -state.Emboss * sigma / 2d, luma, luma);
+                return state.Ghost == Mix.MinValue ? unit
+                    : Kernels.Echo(0d, state.GhostDelay.Pixels(extent), state.Ghost).Bind(taps => { using (taps) return Kernels.Filter(luma, taps); });
+            });
     }
 
-    private static void Chroma(AnalogVideo state, PixelExtent extent, Mat plane, ShortSideOffset delay) {
-        float pitch = state.ChromaPitch.Pixels(extent);
+    private static Fin<Unit> Chroma(AnalogVideo state, PixelExtent extent, Mat plane) {
+        double pitch = state.ChromaPitch.Pixels(extent);
         if (pitch > 1f) {
             using Mat coarse = new();
-            CvInvoke.Resize(plane, coarse, new System.Drawing.Size(int.Max(1, (int)MathF.Round(plane.Cols / pitch, MidpointRounding.ToEven)), plane.Rows), 0d, 0d, Inter.Area);
+            CvInvoke.Resize(plane, coarse, new System.Drawing.Size(int.Max(1, (int)Math.Round(plane.Cols / pitch, MidpointRounding.ToEven)), plane.Rows), 0d, 0d, Inter.Area);
             CvInvoke.Resize(coarse, plane, plane.Size, 0d, 0d, Inter.Linear);
         }
-        if (state.ChromaBandwidth != Spread.Off)
-            using (Mat taps = Kernels.Gauss(state.ChromaBandwidth.Pixels(extent)))
-                Kernels.Along(plane, taps);
-        if (state.ChromaVertical != Spread.Off)
-            using (Mat taps = Kernels.Gauss(state.ChromaVertical.Pixels(extent)))
-                Kernels.Across(plane, taps);
-        if (delay != ShortSideOffset.Neutral)
-            using (Mat taps = Kernels.Echo(0f, delay.Pixels(extent), 1f))
-                Kernels.Along(plane, taps);
-        if (state.Ghost != Mix.MinValue)
-            using (Mat taps = Kernels.Echo(0f, state.GhostDelay.Pixels(extent), state.Ghost))
-                Kernels.Along(plane, taps);
+        return (state.ChromaBandwidth == ShortSideLength.Neutral ? unit
+                : Kernels.Gauss(state.ChromaBandwidth.Pixels(extent)).Bind(taps => { using (taps) return Kernels.Filter(plane, taps); }))
+            .Bind(_ => state.ChromaVertical == ShortSideLength.Neutral ? unit
+                : Kernels.Gauss(state.ChromaVertical.Pixels(extent)).Bind(taps => { using (taps) return Kernels.Filter(plane, taps, vertical: true); }))
+            .Bind(_ => state.ChromaDelay == ShortSideOffset.Neutral ? unit
+                : Kernels.Echo(0d, state.ChromaDelay.Pixels(extent), 1f).Bind(taps => { using (taps) return Kernels.Filter(plane, taps); }))
+            .Bind(_ => state.Ghost == Mix.MinValue ? unit
+                : Kernels.Echo(0d, state.GhostDelay.Pixels(extent), state.Ghost).Bind(taps => { using (taps) return Kernels.Filter(plane, taps); }));
     }
 
-    private static Fin<Unit> LineNoise(AnalogVideo state, PixelExtent extent, uint field, PixelFrame frame, IProgress<int> progress) {
-        float length = state.NoiseLength.Pixels(extent);
-        int reach = (int)MathF.Ceiling(3f * length);
-        int width = frame.Size.Width + (2 * reach);
-        uint draws = CoordinateHash.Branch(field, 0u);
-        using Mat plane = new(state.Lines, width, DepthType.Cv32F, 3);
-        Span2D<Vector3> cells = plane.GetSpan<Vector3>().AsSpan2D(state.Lines, width);
-        for (int line = 0; line < cells.Height; line++) {
-            for (int column = 0; column < cells.Width; column++)
-                cells[line, column] = CoordinateHash.Normals(frame.Origin.X - reach + column, line, draws).AsVector3();
-        }
-        using (Mat taps = Kernels.Unit(length))
-            Kernels.Along(plane, taps);
-        Matrix4x4 inverse = new ChromaAxes(state.Matrix.Weights()).Inverse;
-        Vector3 luma = new(state.LumaNoise);
-        (Vector3 blue, Vector3 red) = (state.ChromaNoise * new Vector3(inverse.M21, inverse.M22, inverse.M23), state.ChromaNoise * new Vector3(inverse.M31, inverse.M32, inverse.M33));
-        return new PixelPass.Pointwise((row, _, line) => {
-            ReadOnlySpan<Vector3> noise = plane.GetSpan<Vector3>().AsSpan2D(state.Lines, width).GetRowSpan(state.Lines.Line(extent.Height - 1 - line, extent)).Slice(reach, row.Length);
-            for (int x = 0; x < row.Length; x++)
-                row[x] += new Vector4((noise[x].X * luma) + (noise[x].Y * blue) + (noise[x].Z * red), 0f);
-        }).Run(frame, progress);
-    }
+    private static unsafe Fin<Unit> LineNoise(AnalogVideo state, PixelExtent extent, uint field, PixelFrame frame, Mat luma, Mat blue, Mat red) =>
+        (from taps in Kernels.Unit(state.NoiseLength.Pixels(extent))
+         let count = taps.size(0)
+         from width in Try.lift(() => checked(count + (frame.Size.Width - 1L))).Run()
+             .MapFail(_ => new NativeSignalDimensionsUnsupported((double)frame.Size.Width + count - 1d, frame.Size.Height))
+         select (taps, count, width)).Map(shape => {
+             (torch.Tensor taps, long count, long width) = shape;
+             using torch.Tensor kernel = taps;
+             long reach = count / 2;
+             uint draws = CoordinateHash.Branch(field, 0u);
+             using torch.Tensor plane = torch.empty((long)frame.Size.Height * 3, 1, width, dtype: torch.ScalarType.Float64, device: torch.CPU);
+             using torch.Storage<double> input = plane.storage<double>();
+             double* cells = (double*)input.data_ptr().ToPointer();
+             for (int line = 0; line < frame.Size.Height; line++) {
+                 EInteger scan = state.Lines.Line((long)frame.Origin.Y + line, extent);
+                 long first = (long)line * 3 * width;
+                 for (long column = 0; column < width; column++) {
+                     Vector4 draw = CoordinateHash.Normals(EInteger.FromInt64(frame.Origin.X - reach + column), scan, draws);
+                     (cells[first + column], cells[first + width + column], cells[first + (2 * width) + column]) = (draw.X, draw.Y, draw.Z);
+                 }
+             }
+             using torch.Tensor filtered = torch.nn.functional.conv1d(plane, taps.reshape(1, 1, count)).contiguous();
+             using torch.Storage<double> output = filtered.storage<double>();
+             double* noise = (double*)output.data_ptr().ToPointer();
+             Vector3 levels = new(state.LumaNoise, state.ChromaNoise, state.ChromaNoise);
+             for (int y = 0; y < frame.Size.Height; y++) {
+                 long first = (long)y * 3 * frame.Size.Width;
+                 Span<double> luminance = new(luma.GetDataPointer(y).ToPointer(), frame.Size.Width);
+                 Span<double> cb = new(blue.GetDataPointer(y).ToPointer(), frame.Size.Width);
+                 Span<double> cr = new(red.GetDataPointer(y).ToPointer(), frame.Size.Width);
+                 for (int x = 0; x < luminance.Length; x++) {
+                     (luminance[x], cb[x], cr[x]) =
+                         (luminance[x] + (noise[first + x] * levels.X), cb[x] + (noise[first + frame.Size.Width + x] * levels.Y), cr[x] + (noise[first + (2 * frame.Size.Width) + x] * levels.Z));
+                 }
+             }
+             return unit;
+         });
 
     private static Fin<Unit> Snowfall(AnalogVideo state, PixelExtent extent, Clock now, uint field, PixelFrame frame, IProgress<int> progress) {
-        (float length, float phase) = (state.NoiseLength.Pixels(extent), Kernels.Fraction(state.HumRate * now));
+        ERational length = ERational.FromSingle(state.SnowLength).Multiply(extent.ShortSide);
+        ERational phase = NoiseFunctions.Split(ERational.FromSingle(state.HumRate).Multiply(ERational.FromSingle(now))).Local;
+        (double X, double Y, double Z) = state.Matrix.Weights();
         uint flakes = CoordinateHash.Branch(field, 1u);
         return new PixelPass.Pointwise((row, column, line) => {
-            int y = extent.Height - 1 - line;
-            int scan = state.Lines.Line(y, extent);
-            float dim = 1f - (state.Hum * (1f + float.CosPi(2f * (((y + 0.5f) / extent.Height) + phase))) / 2f);
+            long y = (long)extent.Height - 1 - line;
+            EInteger scan = state.Lines.Line(y, extent);
+            double cycle = NoiseFunctions.Split(ERational.FromInt64((2 * y) + 1).Divide(2).Divide(extent.Height).Add(phase)).Local.ToDouble();
+            double dim = 1d - (state.Hum * (1d + double.CosPi(2d * cycle)) / 2d);
             for (int x = 0; x < row.Length; x++) {
-                float cell = (column + x + 0.5f) / length;
-                float lit = NoiseFunctions.White(new Vector4(MathF.Floor(cell), scan, 0f, 0f), flakes).X < state.SnowDensity
-                    ? state.Snow * (1f - MathF.Abs((2f * Kernels.Fraction(cell)) - 1f))
-                    : 0f;
-                row[x] = new Vector4(Vector3.Lerp(row[x].AsVector3(), Vector3.One, lit) * dim, row[x].W);
+                double lit = 0d;
+                if (state.Snow != Mix.MinValue && state.SnowDensity != Likelihood.Off) {
+                    (EInteger cell, ERational local) = NoiseFunctions.Split(ERational.FromInt64((2 * (column + x)) + 1).Divide(2).Divide(length));
+                    lit = CoordinateHash.Uniforms(cell, scan, flakes).X < state.SnowDensity
+                        ? state.Snow * ERational.One.Subtract(local).ToDouble()
+                        : 0d;
+                }
+                if (lit == 0d && state.Hum == Mix.MinValue)
+                    continue;
+                (double r, double g, double b) = lit == 0d ? (row[x].X, row[x].Y, row[x].Z)
+                    : (double.Lerp(row[x].X, 1d, lit), double.Lerp(row[x].Y, 1d, lit), double.Lerp(row[x].Z, 1d, lit));
+                if (state.Hum != Mix.MinValue) {
+                    double hum = (dim - 1d) * ((r * X) + (g * Y) + (b * Z));
+                    (r, g, b) = (r + hum, g + hum, b + hum);
+                }
+                row[x] = new Vector4((float)r, (float)g, (float)b, row[x].W);
             }
         }).Run(frame, progress);
     }
@@ -496,143 +548,115 @@ public sealed partial class AnalogVideoParameter : IStateParameter<AnalogVideo> 
         "matrix", new StateParameter<AnalogVideo>.Choice<YuvMatrix, InvalidStylize>(Lens<AnalogVideo, YuvMatrix>.New(static video => video.Matrix, static matrix => video => video with { Matrix = matrix })));
     public static readonly AnalogVideoParameter Lines = new(
         "lines",
-        new StateParameter<AnalogVideo>.Bounded<LineCount, int, InvalidStylize>(
-            Lens<AnalogVideo, LineCount>.New(static video => video.Lines, static lines => video => video with { Lines = lines }), new() { Soft = (LineCount.Coarse, 1080) }));
+        StateParameter.Bounded<AnalogVideo, LineCount, int, InvalidStylize>(Lens<AnalogVideo, LineCount>.New(static video => video.Lines, static lines => video => video with { Lines = lines }), new() { Soft = (LineCount.Coarse, 1080) }));
     public static readonly AnalogVideoParameter LumaBandwidth = new(
         "luma-bandwidth",
-        new StateParameter<AnalogVideo>.Bounded<Spread, float, InvalidStylize>(
-            Lens<AnalogVideo, Spread>.New(static video => video.LumaBandwidth, static spread => video => video with { LumaBandwidth = spread }), Spread.Presentation));
+        StateParameter.Bounded<AnalogVideo, ShortSideLength, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideLength>.New(static video => video.LumaBandwidth, static spread => video => video with { LumaBandwidth = spread }), ShortSideLength.Presentation with { Soft = (0f, 0.005f) }));
     public static readonly AnalogVideoParameter ChromaBandwidth = new(
         "chroma-bandwidth",
-        new StateParameter<AnalogVideo>.Bounded<Spread, float, InvalidStylize>(
-            Lens<AnalogVideo, Spread>.New(static video => video.ChromaBandwidth, static spread => video => video with { ChromaBandwidth = spread }), Spread.Presentation));
+        StateParameter.Bounded<AnalogVideo, ShortSideLength, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideLength>.New(static video => video.ChromaBandwidth, static spread => video => video with { ChromaBandwidth = spread }), ShortSideLength.Presentation with { Soft = (0f, 0.005f) }));
     public static readonly AnalogVideoParameter ChromaVertical = new(
         "chroma-vertical",
-        new StateParameter<AnalogVideo>.Bounded<Spread, float, InvalidStylize>(
-            Lens<AnalogVideo, Spread>.New(static video => video.ChromaVertical, static spread => video => video with { ChromaVertical = spread }), Spread.Presentation));
+        StateParameter.Bounded<AnalogVideo, ShortSideLength, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideLength>.New(static video => video.ChromaVertical, static spread => video => video with { ChromaVertical = spread }), ShortSideLength.Presentation with { Soft = (0f, 0.005f) }));
     public static readonly AnalogVideoParameter ChromaPitch = new(
         "chroma-pitch",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideLength>.New(static video => video.ChromaPitch, static pitch => video => video with { ChromaPitch = pitch }), ShortSideLength.Presentation with { Soft = (0f, 0.01f) }));
-    public static readonly AnalogVideoParameter CbDelay = new(
-        "cb-delay",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideOffset>.New(static video => video.CbDelay, static delay => video => video with { CbDelay = delay }),
-            ShortSideOffset.Presentation with { Soft = (-0.02f, 0.02f) }));
-    public static readonly AnalogVideoParameter CrDelay = new(
-        "cr-delay",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideOffset>.New(static video => video.CrDelay, static delay => video => video with { CrDelay = delay }),
-            ShortSideOffset.Presentation with { Soft = (-0.02f, 0.02f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideLength, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideLength>.New(static video => video.ChromaPitch, static pitch => video => video with { ChromaPitch = pitch }), ShortSideLength.Presentation with { Soft = (0f, 0.01f) }));
+    public static readonly AnalogVideoParameter ChromaDelay = new(
+        "chroma-delay",
+        StateParameter.Bounded<AnalogVideo, ShortSideOffset, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideOffset>.New(static video => video.ChromaDelay, static delay => video => video with { ChromaDelay = delay }),
+        ShortSideOffset.Presentation with { Soft = (-0.02f, 0.02f) }));
     public static readonly AnalogVideoParameter Smear = new(
         "smear",
-        new StateParameter<AnalogVideo>.Bounded<Spread, float, InvalidStylize>(
-            Lens<AnalogVideo, Spread>.New(static video => video.Smear, static smear => video => video with { Smear = smear }), Spread.Presentation));
+        StateParameter.Bounded<AnalogVideo, ShortSideLength, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideLength>.New(static video => video.Smear, static smear => video => video with { Smear = smear }), ShortSideLength.Presentation with { Soft = (0f, 0.005f) }));
     public static readonly AnalogVideoParameter SmearMix = new(
         "smear-mix",
-        new StateParameter<AnalogVideo>.Bounded<Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.SmearMix, static mix => video => video with { SmearMix = mix }), new()));
+        StateParameter.Bounded<AnalogVideo, Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.SmearMix, static mix => video => video with { SmearMix = mix }), new()));
     public static readonly AnalogVideoParameter Ringing = new(
         "ringing",
-        new StateParameter<AnalogVideo>.Bounded<EdgeGain, float, InvalidStylize>(
-            Lens<AnalogVideo, EdgeGain>.New(static video => video.Ringing, static gain => video => video with { Ringing = gain }), new() { Soft = (0f, 2f) }));
+        StateParameter.Bounded<AnalogVideo, EdgeGain, float, InvalidStylize>(Lens<AnalogVideo, EdgeGain>.New(static video => video.Ringing, static gain => video => video with { Ringing = gain }), new() { Soft = (0f, 2f) }));
     public static readonly AnalogVideoParameter RingingDelay = new(
         "ringing-delay",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideOffset>.New(static video => video.RingingDelay, static delay => video => video with { RingingDelay = delay }),
-            ShortSideOffset.Presentation with { Soft = (-0.02f, 0.02f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideOffset, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideOffset>.New(static video => video.RingingDelay, static delay => video => video with { RingingDelay = delay }),
+        ShortSideOffset.Presentation with { Soft = (-0.02f, 0.02f) }));
     public static readonly AnalogVideoParameter Emboss = new(
         "emboss",
-        new StateParameter<AnalogVideo>.Bounded<EdgeGain, float, InvalidStylize>(
-            Lens<AnalogVideo, EdgeGain>.New(static video => video.Emboss, static gain => video => video with { Emboss = gain }), new() { Soft = (0f, 2f) }));
+        StateParameter.Bounded<AnalogVideo, EdgeGain, float, InvalidStylize>(Lens<AnalogVideo, EdgeGain>.New(static video => video.Emboss, static gain => video => video with { Emboss = gain }), new() { Soft = (0f, 2f) }));
     public static readonly AnalogVideoParameter Ghost = new(
         "ghost",
-        new StateParameter<AnalogVideo>.Bounded<Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.Ghost, static share => video => video with { Ghost = share }), new()));
+        StateParameter.Bounded<AnalogVideo, Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.Ghost, static share => video => video with { Ghost = share }), new()));
     public static readonly AnalogVideoParameter GhostDelay = new(
         "ghost-delay",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideOffset>.New(static video => video.GhostDelay, static delay => video => video with { GhostDelay = delay }),
-            ShortSideOffset.Presentation with { Soft = (-0.05f, 0.05f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideOffset, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideOffset>.New(static video => video.GhostDelay, static delay => video => video with { GhostDelay = delay }),
+        ShortSideOffset.Presentation with { Soft = (-0.05f, 0.05f) }));
     public static readonly AnalogVideoParameter CrossColor = new(
         "cross-color",
-        new StateParameter<AnalogVideo>.Bounded<Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.CrossColor, static mix => video => video with { CrossColor = mix }), new()));
+        StateParameter.Bounded<AnalogVideo, Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.CrossColor, static mix => video => video with { CrossColor = mix }), new()));
     public static readonly AnalogVideoParameter LumaNoise = new(
         "luma-noise",
-        new StateParameter<AnalogVideo>.Bounded<NoiseLevel, float, InvalidStylize>(
-            Lens<AnalogVideo, NoiseLevel>.New(static video => video.LumaNoise, static level => video => video with { LumaNoise = level }), new() { Soft = (0f, 0.2f) }));
+        StateParameter.Bounded<AnalogVideo, NoiseLevel, float, InvalidStylize>(Lens<AnalogVideo, NoiseLevel>.New(static video => video.LumaNoise, static level => video => video with { LumaNoise = level }), new() { Soft = (0f, 0.2f) }));
     public static readonly AnalogVideoParameter ChromaNoise = new(
         "chroma-noise",
-        new StateParameter<AnalogVideo>.Bounded<NoiseLevel, float, InvalidStylize>(
-            Lens<AnalogVideo, NoiseLevel>.New(static video => video.ChromaNoise, static level => video => video with { ChromaNoise = level }), new() { Soft = (0f, 0.2f) }));
+        StateParameter.Bounded<AnalogVideo, NoiseLevel, float, InvalidStylize>(Lens<AnalogVideo, NoiseLevel>.New(static video => video.ChromaNoise, static level => video => video with { ChromaNoise = level }), new() { Soft = (0f, 0.2f) }));
     public static readonly AnalogVideoParameter NoiseLength = new(
         "noise-length",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideExtent>.New(static video => video.NoiseLength, static length => video => video with { NoiseLength = length }),
-            ShortSideExtent.Presentation with { Soft = (0.001f, 0.5f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideExtent, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideExtent>.New(static video => video.NoiseLength, static length => video => video with { NoiseLength = length }),
+        ShortSideExtent.Presentation with { Soft = (0.001f, 0.5f) }));
     public static readonly AnalogVideoParameter Snow = new(
-        "snow", new StateParameter<AnalogVideo>.Bounded<Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.Snow, static snow => video => video with { Snow = snow }), new()));
+        "snow", StateParameter.Bounded<AnalogVideo, Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.Snow, static snow => video => video with { Snow = snow }), new()));
     public static readonly AnalogVideoParameter SnowDensity = new(
         "snow-density",
-        new StateParameter<AnalogVideo>.Bounded<Likelihood, float, InvalidStylize>(
-            Lens<AnalogVideo, Likelihood>.New(static video => video.SnowDensity, static density => video => video with { SnowDensity = density }), new()));
+        StateParameter.Bounded<AnalogVideo, Likelihood, float, InvalidStylize>(Lens<AnalogVideo, Likelihood>.New(static video => video.SnowDensity, static density => video => video with { SnowDensity = density }), new()));
+    public static readonly AnalogVideoParameter SnowLength = new(
+        "snow-length",
+        StateParameter.Bounded<AnalogVideo, ShortSideExtent, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideExtent>.New(static video => video.SnowLength, static length => video => video with { SnowLength = length }),
+        ShortSideExtent.Presentation with { Soft = (0.001f, 0.5f) }));
     public static readonly AnalogVideoParameter Interlace = new(
         "interlace",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideOffset>.New(static video => video.Interlace, static offset => video => video with { Interlace = offset }),
-            ShortSideOffset.Presentation with { Soft = (-0.01f, 0.01f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideOffset, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideOffset>.New(static video => video.Interlace, static offset => video => video with { Interlace = offset }),
+        ShortSideOffset.Presentation with { Soft = (-0.01f, 0.01f) }));
     public static readonly AnalogVideoParameter Jitter = new(
         "jitter",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideLength>.New(static video => video.Jitter, static jitter => video => video with { Jitter = jitter }), ShortSideLength.Presentation with { Soft = (0f, 0.01f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideLength, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideLength>.New(static video => video.Jitter, static jitter => video => video with { Jitter = jitter }), ShortSideLength.Presentation with { Soft = (0f, 0.01f) }));
     public static readonly AnalogVideoParameter JitterPeriod = new(
         "jitter-period",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideExtent>.New(static video => video.JitterPeriod, static period => video => video with { JitterPeriod = period }),
-            ShortSideExtent.Presentation with { Soft = (0.001f, 0.5f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideExtent, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideExtent>.New(static video => video.JitterPeriod, static period => video => video with { JitterPeriod = period }),
+        ShortSideExtent.Presentation with { Soft = (0.001f, 0.5f) }));
     public static readonly AnalogVideoParameter Wrinkle = new(
         "wrinkle",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideOffset>.New(static video => video.Wrinkle, static offset => video => video with { Wrinkle = offset }),
-            ShortSideOffset.Presentation with { Soft = (-0.05f, 0.05f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideOffset, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideOffset>.New(static video => video.Wrinkle, static offset => video => video with { Wrinkle = offset }),
+        ShortSideOffset.Presentation with { Soft = (-0.05f, 0.05f) }));
     public static readonly AnalogVideoParameter WrinkleHeight = new(
         "wrinkle-height",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideExtent>.New(static video => video.WrinkleHeight, static height => video => video with { WrinkleHeight = height }),
-            ShortSideExtent.Presentation with { Soft = (0.001f, 0.5f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideExtent, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideExtent>.New(static video => video.WrinkleHeight, static height => video => video with { WrinkleHeight = height }),
+        ShortSideExtent.Presentation with { Soft = (0.001f, 0.5f) }));
     public static readonly AnalogVideoParameter WrinkleRate = new(
         "wrinkle-rate",
-        new StateParameter<AnalogVideo>.Bounded<Frequency, float, InvalidGenerator>(
-            Lens<AnalogVideo, Frequency>.New(static video => video.WrinkleRate, static rate => video => video with { WrinkleRate = rate }),
-            Frequency.Presentation with { Soft = (-1f, 1f) }));
+        StateParameter.Bounded<AnalogVideo, Frequency, float, InvalidGenerator>(Lens<AnalogVideo, Frequency>.New(static video => video.WrinkleRate, static rate => video => video with { WrinkleRate = rate }),
+        Frequency.Presentation with { Soft = (-1f, 1f) }));
     public static readonly AnalogVideoParameter HeadSwitch = new(
         "head-switch",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideOffset>.New(static video => video.HeadSwitch, static offset => video => video with { HeadSwitch = offset }),
-            ShortSideOffset.Presentation with { Soft = (-0.1f, 0.1f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideOffset, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideOffset>.New(static video => video.HeadSwitch, static offset => video => video with { HeadSwitch = offset }),
+        ShortSideOffset.Presentation with { Soft = (-0.1f, 0.1f) }));
     public static readonly AnalogVideoParameter HeadSwitchHeight = new(
         "head-switch-height",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideExtent>.New(static video => video.HeadSwitchHeight, static height => video => video with { HeadSwitchHeight = height }),
-            ShortSideExtent.Presentation with { Soft = (0.001f, 0.1f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideExtent, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideExtent>.New(static video => video.HeadSwitchHeight, static height => video => video with { HeadSwitchHeight = height }),
+        ShortSideExtent.Presentation with { Soft = (0.001f, 0.1f) }));
     public static readonly AnalogVideoParameter Bounce = new(
         "bounce",
-        new StateParameter<AnalogVideo>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-            Lens<AnalogVideo, ShortSideLength>.New(static video => video.Bounce, static bounce => video => video with { Bounce = bounce }), ShortSideLength.Presentation with { Soft = (0f, 0.02f) }));
+        StateParameter.Bounded<AnalogVideo, ShortSideLength, float, InvalidPixelValue>(Lens<AnalogVideo, ShortSideLength>.New(static video => video.Bounce, static bounce => video => video with { Bounce = bounce }), ShortSideLength.Presentation with { Soft = (0f, 0.02f) }));
     public static readonly AnalogVideoParameter RollRate = new(
         "roll-rate",
-        new StateParameter<AnalogVideo>.Bounded<Frequency, float, InvalidGenerator>(
-            Lens<AnalogVideo, Frequency>.New(static video => video.RollRate, static rate => video => video with { RollRate = rate }),
-            Frequency.Presentation with { Soft = (-1f, 1f) }));
+        StateParameter.Bounded<AnalogVideo, Frequency, float, InvalidGenerator>(Lens<AnalogVideo, Frequency>.New(static video => video.RollRate, static rate => video => video with { RollRate = rate }),
+        Frequency.Presentation with { Soft = (-1f, 1f) }));
     public static readonly AnalogVideoParameter Hum = new(
-        "hum", new StateParameter<AnalogVideo>.Bounded<Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.Hum, static hum => video => video with { Hum = hum }), new()));
+        "hum", StateParameter.Bounded<AnalogVideo, Mix, float, InvalidGrade>(Lens<AnalogVideo, Mix>.New(static video => video.Hum, static hum => video => video with { Hum = hum }), new()));
     public static readonly AnalogVideoParameter HumRate = new(
         "hum-rate",
-        new StateParameter<AnalogVideo>.Bounded<Frequency, float, InvalidGenerator>(
-            Lens<AnalogVideo, Frequency>.New(static video => video.HumRate, static rate => video => video with { HumRate = rate }),
-            Frequency.Presentation with { Soft = (-1f, 1f) }));
+        StateParameter.Bounded<AnalogVideo, Frequency, float, InvalidGenerator>(Lens<AnalogVideo, Frequency>.New(static video => video.HumRate, static rate => video => video with { HumRate = rate }),
+        Frequency.Presentation with { Soft = (-1f, 1f) }));
     public static readonly AnalogVideoParameter Seed = new(
         "seed",
-        new StateParameter<AnalogVideo>.Bounded<Seed, int, InvalidGenerator>(
-            Lens<AnalogVideo, Seed>.New(static video => video.Seed, static seed => video => video with { Seed = seed }), Generators.Seed.Presentation));
+        StateParameter.Bounded<AnalogVideo, Seed, int, InvalidGenerator>(Lens<AnalogVideo, Seed>.New(static video => video.Seed, static seed => video => video with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly AnalogVideoParameter Timing = new("timing", new StateParameter<AnalogVideo>.Record<Timing>(
         Lens<AnalogVideo, Timing>.New(static state => state.Timing, static timing => state => state with { Timing = timing })));
 
@@ -651,24 +675,29 @@ public sealed record CodecDamage(JpegQuality Quality, JpegColorType ColorType, G
     public static Option<PixelPass> Pass(CodecDamage state, PassContext context) => Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, frame, progress)));
 
     private static Fin<Unit> Kernel(CodecDamage state, PixelFrame frame, IProgress<int> progress) {
-        frame.Mutate(source => {
-            _ = state.Coded.Active.Iter(lines => source.Mutate(x => x.Resize(0, lines, KnownResamplers.Box)));
-            JpegEncoder encoder = new() { Quality = state.Quality, ColorType = state.ColorType };
-            foreach (Rectangle tile in
-                     from top in Enumerable.Range(0, (source.Height + Tile - 1) / Tile)
-                     from left in Enumerable.Range(0, (source.Width + Tile - 1) / Tile)
-                     select new Rectangle(left * Tile, top * Tile, int.Min(Tile, source.Width - (left * Tile)), int.Min(Tile, source.Height - (top * Tile)))) {
-                using Image<RgbaVector> piece = source.Clone(x => x.Crop(tile));
-                using Image<Rgb24> coded = toSeq(Enumerable.Range(2, state.Generations - 1)).Fold(Generation(piece, encoder), (image, _) => {
-                    using (image)
-                        return Generation(image, encoder);
-                });
-                source.Mutate(x => x.DrawImage(coded, tile.Location, 1f));
-            }
-            _ = state.Coded.Active.Iter(_ => source.Mutate(x => x.Resize(frame.Size.Width, frame.Size.Height, KnownResamplers.Triangle)));
-        });
-        progress.Report(frame.Size.Height);
-        return unit;
+        int height = state.Coded.Active.Match(static lines => (int)lines, () => frame.Size.Height);
+        double width = double.Max(1d, Math.Round((double)frame.Size.Width * height / frame.Size.Height, MidpointRounding.ToEven));
+        return width > int.MaxValue
+            ? (Fin<Unit>)new CodecDimensionsUnsupported(width, height)
+            : frame.Mutate(source => {
+                _ = state.Coded.Active.Iter(_ => source.Mutate(x => x.Resize((int)width, height, KnownResamplers.Box)));
+                JpegEncoder encoder = new() { Quality = state.Quality, ColorType = state.ColorType };
+                foreach (Rectangle tile in
+                         from top in Enumerable.Range(0, ((source.Height - 1) / Tile) + 1)
+                         from left in Enumerable.Range(0, ((source.Width - 1) / Tile) + 1)
+                         select new Rectangle(left * Tile, top * Tile, int.Min(Tile, source.Width - (left * Tile)), int.Min(Tile, source.Height - (top * Tile)))) {
+                    using Image<RgbaVector> piece = source.Clone(x => x.Crop(tile));
+                    using Image<Rgb24> coded = toSeq(Enumerable.Range(2, state.Generations - 1)).Fold(Generation(piece, encoder), (image, _) => {
+                        using (image)
+                            return Generation(image, encoder);
+                    });
+                    source.Mutate(x => x.DrawImage(coded, tile.Location, 1f));
+                }
+                _ = state.Coded.Active.Iter(_ => source.Mutate(x => x.Resize(frame.Size.Width, frame.Size.Height, KnownResamplers.Triangle)));
+            }).Map(_ => {
+                progress.Report(frame.Size.Height);
+                return unit;
+            });
     }
 
     private static Image<Rgb24> Generation(Image image, JpegEncoder encoder) {
@@ -686,19 +715,16 @@ public sealed record CodecDamage(JpegQuality Quality, JpegColorType ColorType, G
 public sealed partial class CodecDamageParameter : IStateParameter<CodecDamage> {
     public static readonly CodecDamageParameter Quality = new(
         "quality",
-        new StateParameter<CodecDamage>.Bounded<JpegQuality, int, InvalidStylize>(
-            Lens<CodecDamage, JpegQuality>.New(static codec => codec.Quality, static quality => codec => codec with { Quality = quality }), new() { Step = 1 }));
+        StateParameter.Bounded<CodecDamage, JpegQuality, int, InvalidStylize>(Lens<CodecDamage, JpegQuality>.New(static codec => codec.Quality, static quality => codec => codec with { Quality = quality }), new() { Step = 1 }));
     public static readonly CodecDamageParameter ColorType = new(
         "color-type",
         new StateParameter<CodecDamage>.Enumerated<JpegColorType>(Lens<CodecDamage, JpegColorType>.New(static codec => codec.ColorType, static type => codec => codec with { ColorType = type })));
     public static readonly CodecDamageParameter Generations = new(
         "generations",
-        new StateParameter<CodecDamage>.Bounded<Generations, int, InvalidStylize>(
-            Lens<CodecDamage, Generations>.New(static codec => codec.Generations, static generations => codec => codec with { Generations = generations }), new() { Step = 1 }));
+        StateParameter.Bounded<CodecDamage, Generations, int, InvalidStylize>(Lens<CodecDamage, Generations>.New(static codec => codec.Generations, static generations => codec => codec with { Generations = generations }), new() { Soft = (1, 8), Step = 1 }));
     public static readonly CodecDamageParameter Coded = new(
         "coded-lines",
-        new StateParameter<CodecDamage>.OptionalBounded<LineCount, int, InvalidStylize>(
-            Lens<CodecDamage, Gated<LineCount>>.New(static codec => codec.Coded, static lines => codec => codec with { Coded = lines }), new() { Soft = (LineCount.Coarse, 1080), Step = 1 }));
+        StateParameter.OptionalBounded<CodecDamage, LineCount, int, InvalidStylize>(Lens<CodecDamage, Gated<LineCount>>.New(static codec => codec.Coded, static lines => codec => codec with { Coded = lines }), new() { Soft = (LineCount.Coarse, 1080), Step = 1 }));
 
     public StateParameter<CodecDamage> Kind { get; }
 }
@@ -716,18 +742,18 @@ public sealed record Glitch(
         Seed.MinValue, Timing.Default, Hold.MinValue);
 
     public static Glitch Corruption { get; } = Default with {
-        BlockWidth = ShortSideExtent.Create(0.03f * 16f / 9f),
-        BlockHeight = ShortSideExtent.Create(0.03f * 16f / 9f),
+        BlockWidth = ShortSideExtent.Create(0.03f * ReferenceFrame.GreaterSide),
+        BlockHeight = ShortSideExtent.Create(0.03f * ReferenceFrame.GreaterSide),
         BlockDensity = Likelihood.Create(0.2f),
-        BlockShift = ShortSideLength.Create(0.4f * 0.01f * 16f / 9f),
+        BlockShift = ShortSideLength.Create(0.4f * 0.01f * ReferenceFrame.GreaterSide),
         ChromaCorruption = Mix.Create(0.6f),
         Hold = Hold.Create(12f / 24f),
     };
 
     public static Glitch Displaced { get; } = Default with {
         BlockDensity = Likelihood.Create(0.2f),
-        BlockShift = ShortSideLength.Create(0.05f * 16f / 9f),
-        Split = ShortSideOffset.Create(0.6f * 0.05f * 16f / 9f),
+        BlockShift = ShortSideLength.Create(0.05f * ReferenceFrame.GreaterSide),
+        Split = ShortSideOffset.Create(0.6f * 0.05f * ReferenceFrame.GreaterSide),
         Hold = Hold.Create(2f / 24f),
     };
 
@@ -746,7 +772,7 @@ public sealed record Glitch(
         PixelExtent extent = context.Extent;
         uint field = CoordinateHash.Field(NoiseStream.Glitch, state.Seed, state.Hold.Period(state.Timing.At(context)));
         Vector4 draw = NoiseFunctions.White(Vector4.Zero, CoordinateHash.Branch(field, 3u));
-        CoordinateMap blocks = new CoordinateMap.Analytic(Displacement(state, extent, field, draw.X), Sampling.Nearest, state.Wrap);
+        CoordinateMap blocks = new CoordinateMap.Analytic(Displacement(state, extent, field, draw.X), Sampling.Nearest, (state.Wrap, state.Wrap));
         Fin<Unit> moved = (state.Split != ShortSideOffset.Neutral, state.Moves) switch {
             (true, _) => Splits(state, extent, draw.Y, blocks)(frame, progress),
             (false, true) => blocks.Apply(frame, progress),
@@ -755,68 +781,88 @@ public sealed record Glitch(
         return moved.Bind(_ => state.Corrupts ? new PixelPass.Pointwise(Corrupted(state, extent, field)).Run(frame, progress) : unit);
     }
 
-    private static Action<Span<Vector2>, Span<float>, PixelExtent> Displacement(Glitch state, PixelExtent extent, uint field, float phase) {
-        (Vector2 centre, float side) = (new Vector2(extent.Width, extent.Height) / 2f, extent.ShortSide);
-        (uint cells, uint draws) = (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u));
-        (float tear, float period) = (state.Tear, state.TearPeriod);
+    private static Action<Span<(double X, double Y)>, Span<float>, PixelExtent> Displacement(Glitch state, PixelExtent extent, uint field, float phase) {
+        (ERational X, ERational Y) = (ERational.FromInt32(extent.Width).Divide(2), ERational.FromInt32(extent.Height).Divide(2));
+        uint draws = CoordinateHash.Branch(field, 1u);
+        (ERational shift, ERational lift, ERational tear, ERational period) =
+            (ERational.FromSingle(state.BlockShift).Multiply(extent.ShortSide), ERational.FromSingle(state.BlockLift).Multiply(extent.ShortSide),
+                ERational.FromSingle(state.Tear).Multiply(extent.ShortSide), ERational.FromSingle(state.TearPeriod).Multiply(extent.ShortSide));
         return (points, _, _) => {
-            foreach (ref Vector2 point in points) {
-                Vector2 q = (point - centre) / side;
-                Vector2 offset = state.Blocks && Cell(state, q, cells, draws) is (true, _, var cell)
-                    ? new Vector2(state.BlockShift * ((2f * cell.Y) - 1f), state.BlockLift * ((2f * cell.Z) - 1f))
-                    : Vector2.Zero;
-                point = centre + (side * (q - offset - new Vector2(tear * (Kernels.Fraction((q.Y / period) + phase) - 0.5f), 0f)));
+            foreach (ref (double X, double Y) point in points) {
+                (ERational X, ERational Y) p = (ERational.FromDouble(point.X), ERational.FromDouble(point.Y));
+                (ERational X, ERational Y) q = (p.X.Subtract(X), p.Y.Subtract(Y));
+                (ERational X, ERational Y) offset = state.Blocks && Cell(state, extent, q, draws) is (true, _, var cell)
+                    ? (shift.Multiply(ERational.FromSingle(cell.Y).Multiply(2).Subtract(1)), lift.Multiply(ERational.FromSingle(cell.Z).Multiply(2).Subtract(1)))
+                    : (ERational.Zero, ERational.Zero);
+                ERational band = NoiseFunctions.Split(q.Y.Divide(period).Add(ERational.FromSingle(phase))).Local.Subtract(ERational.One.Divide(2));
+                (ERational X, ERational Y) source = (p.X.Subtract(offset.X).Subtract(tear.Multiply(band)), p.Y.Subtract(offset.Y));
+                point = (Sampling.Nearest.Point(source.X, state.Wrap, extent.Width), Sampling.Nearest.Point(source.Y, state.Wrap, extent.Height));
             }
         };
     }
 
     private static Func<PixelFrame, IProgress<int>, Fin<Unit>> Splits(Glitch state, PixelExtent extent, float draw, CoordinateMap blocks) {
-        float reach = state.Split.Pixels(extent) * (1f - state.SplitJitter + (state.SplitJitter * ((2f * draw) - 1f)));
-        Vector2 direction = float.SinCos(state.SplitDirection) switch { var (sin, cos) => new Vector2(cos, -sin) };
-        return CoordinateMap.Integrated(tau => {
-            int channel = int.Min((int)(3f * tau), 2);
-            float shift = reach * float.Lerp(1f - state.Slide, 1f, (3f * tau) - channel);
-            (Vector2 offset, Vector4 lanes) = channel switch {
-                0 => (shift * direction, Vector4.UnitX),
-                1 => (-shift * direction, Vector4.UnitZ),
-                _ => (Vector2.Zero, new Vector4(0f, 1f, 0f, 1f)),
-            };
+        ERational jitter = ERational.FromSingle(state.SplitJitter);
+        ERational reach = ERational.FromSingle(state.Split).Multiply(extent.ShortSide)
+            .Multiply(ERational.One.Subtract(jitter).Add(jitter.Multiply(ERational.FromSingle(draw).Multiply(2).Subtract(1))));
+        (double X, double Y) = double.SinCos(state.SplitDirection) switch { var (sin, cos) => (cos, -sin) };
+        ERational slide = ERational.FromSingle(state.Slide);
+        return reach.IsZero ? state.Moves ? blocks.Apply : static (_, _) => unit : CoordinateMap.Integrated(
+            new GaussLegendreRule(0d, 1d, 1 << 6),
+            tau => Subframe(reach.Multiply(ERational.One.Subtract(slide).Add(slide.Multiply(ERational.FromDouble(tau)))), Vector4.UnitX),
+            tau => Subframe(reach.Negate().Multiply(ERational.One.Subtract(slide).Add(slide.Multiply(ERational.FromDouble(tau)))), Vector4.UnitZ),
+            _ => Subframe(ERational.Zero, new Vector4(0f, 1f, 0f, 1f)));
+
+        (CoordinateMap Map, Vector4 Lanes) Subframe(ERational shift, Vector4 lanes) {
+            (ERational X, ERational Y) offset = (shift.Multiply(ERational.FromDouble(X)), shift.Multiply(ERational.FromDouble(Y)));
             CoordinateMap moved = new CoordinateMap.Analytic(
                 (points, _, _) => {
-                    foreach (ref Vector2 point in points)
-                        point -= offset;
-                }, Sampling.Linear, state.Wrap);
+                    foreach (ref (double X, double Y) point in points) {
+                        (ERational X, ERational Y) source = (ERational.FromDouble(point.X).Subtract(offset.X), ERational.FromDouble(point.Y).Subtract(offset.Y));
+                        point = (Sampling.Linear.Point(source.X, state.Wrap, extent.Width), Sampling.Linear.Point(source.Y, state.Wrap, extent.Height));
+                    }
+                }, Sampling.Linear, (state.Wrap, state.Wrap));
             return (state.Moves ? new CoordinateMap.Composed(blocks, moved) : moved, lanes);
-        });
+        }
     }
 
-    private static Action<Span<Vector4>, int, int> Corrupted(Glitch state, PixelExtent extent, uint field) {
+    private static Action<Span<Vector4>, long, long> Corrupted(Glitch state, PixelExtent extent, uint field) {
         ChromaAxes axes = new(state.Matrix.Weights());
-        (Matrix4x4 forward, Matrix4x4 inverse) = (axes.Forward, axes.Inverse);
-        (Vector2 centre, float side) = (new Vector2(extent.Width, extent.Height) / 2f, extent.ShortSide);
-        (uint cells, uint draws, uint powers) = (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u));
+        (Matrix<double> forward, Matrix<double> inverse) = (axes.Forward, axes.Inverse);
+        Vector256<double> yAxis = Vector256.Create(forward[0, 0], forward[1, 0], forward[2, 0], 0d);
+        Vector256<double> cbAxis = Vector256.Create(forward[0, 1], forward[1, 1], forward[2, 1], 0d);
+        Vector256<double> crAxis = Vector256.Create(forward[0, 2], forward[1, 2], forward[2, 2], 0d);
+        Vector256<double> rAxis = Vector256.Create(inverse[0, 0], inverse[1, 0], inverse[2, 0], 0d);
+        Vector256<double> gAxis = Vector256.Create(inverse[0, 1], inverse[1, 1], inverse[2, 1], 0d);
+        Vector256<double> bAxis = Vector256.Create(inverse[0, 2], inverse[1, 2], inverse[2, 2], 0d);
+        (uint draws, uint powers) = (CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u));
         (float luma, float chroma) = (state.LumaCorruption, state.ChromaCorruption);
         return (row, column, line) => {
-            float y = extent.Height - line - 0.5f;
+            ERational y = ERational.FromInt64(extent.Height - (2 * line) - 1).Divide(2);
             for (int x = 0; x < row.Length; x++) {
-                Vector2 power = Cell(state, (new Vector2(column + x + 0.5f, y) - centre) / side, cells, draws) is (true, var site, _)
-                    ? NoiseFunctions.White(site, powers) switch { var e => new Vector2(float.Exp2((4f * e.X) - 2f), float.Exp2((4f * e.Y) - 2f)) }
-                    : Vector2.One;
-                Vector4 ycc = Vector4.Transform(row[x], forward);
-                row[x] = Vector4.Transform(
-                    new Vector4(
-                        float.Lerp(ycc.X, float.CopySign(float.Pow(float.Abs(ycc.X), power.X), ycc.X), luma),
-                        float.Lerp(ycc.Y, float.CopySign(0.5f * float.Pow(float.Abs(2f * ycc.Y), power.Y), ycc.Y), chroma),
-                        float.Lerp(ycc.Z, float.CopySign(0.5f * float.Pow(float.Abs(2f * ycc.Z), power.Y), ycc.Z), chroma),
-                        ycc.W),
-                    inverse);
+                ERational across = ERational.FromInt64((2 * (column + x)) + 1 - extent.Width).Divide(2);
+                if (Cell(state, extent, (across, y), draws) is not (true, var site, _))
+                    continue;
+                Vector4 exponents = CoordinateHash.Uniforms(site.X, site.Y, powers);
+                (double yPower, double cPower) = (double.Exp2((4d * exponents.X) - 2d), double.Exp2((4d * exponents.Y) - 2d));
+                Vector256<double> color = Vector256.Create(row[x].X, row[x].Y, row[x].Z, 0d);
+                (double yValue, double cb, double cr) = (Vector256.Dot(color, yAxis), Vector256.Dot(color, cbAxis), Vector256.Dot(color, crAxis));
+                Vector256<double> delta = Vector256.Create(
+                    luma == 0f ? 0d : luma * (double.CopySign(double.Pow(double.Abs(yValue), yPower), yValue) - yValue),
+                    chroma == 0f ? 0d : chroma * (double.CopySign(0.5d * double.Pow(double.Abs(2d * cb), cPower), cb) - cb),
+                    chroma == 0f ? 0d : chroma * (double.CopySign(0.5d * double.Pow(double.Abs(2d * cr), cPower), cr) - cr), 0d);
+                row[x] = new Vector4(
+                    (float)(row[x].X + Vector256.Dot(delta, rAxis)),
+                    (float)(row[x].Y + Vector256.Dot(delta, gAxis)),
+                    (float)(row[x].Z + Vector256.Dot(delta, bAxis)), row[x].W);
             }
         };
     }
 
-    private static (bool Active, Vector4 Site, Vector4 Draw) Cell(Glitch state, Vector2 q, uint cells, uint draws) {
-        Vector4 site = NoiseDimensions.Two.F1(new Vector4(q.X / state.BlockWidth, q.Y / state.BlockHeight, 0f, 0f), Octaves.Plain, Cellular.Default, AxisFraction.MinValue, cells).Site;
-        Vector4 draw = NoiseFunctions.White(site, draws);
+    private static (bool Active, (EInteger X, EInteger Y) Site, Vector4 Draw) Cell(Glitch state, PixelExtent extent, (ERational X, ERational Y) q, uint draws) {
+        (EInteger X, EInteger Y) site = (NoiseFunctions.Split(q.X.Divide(ERational.FromSingle(state.BlockWidth).Multiply(extent.ShortSide))).Cell,
+            NoiseFunctions.Split(q.Y.Divide(ERational.FromSingle(state.BlockHeight).Multiply(extent.ShortSide))).Cell);
+        Vector4 draw = CoordinateHash.Uniforms(site.X, site.Y, draws);
         return (draw.X < state.BlockDensity, site, draw);
     }
 }
@@ -828,123 +874,99 @@ public sealed record Glitch(
 public sealed partial class GlitchParameter : IStateParameter<Glitch> {
     public static readonly GlitchParameter BlockWidth = new(
         "block-width",
-        new StateParameter<Glitch>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-            Lens<Glitch, ShortSideExtent>.New(static glitch => glitch.BlockWidth, static width => glitch => glitch with { BlockWidth = width }),
-            ShortSideExtent.Presentation with { Soft = (0.01f, 4f) }));
+        StateParameter.Bounded<Glitch, ShortSideExtent, float, InvalidPixelValue>(Lens<Glitch, ShortSideExtent>.New(static glitch => glitch.BlockWidth, static width => glitch => glitch with { BlockWidth = width }),
+        ShortSideExtent.Presentation with { Soft = (0.01f, 4f) }));
     public static readonly GlitchParameter BlockHeight = new(
         "block-height",
-        new StateParameter<Glitch>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-            Lens<Glitch, ShortSideExtent>.New(static glitch => glitch.BlockHeight, static height => glitch => glitch with { BlockHeight = height }),
-            ShortSideExtent.Presentation with { Soft = (0.01f, 4f) }));
+        StateParameter.Bounded<Glitch, ShortSideExtent, float, InvalidPixelValue>(Lens<Glitch, ShortSideExtent>.New(static glitch => glitch.BlockHeight, static height => glitch => glitch with { BlockHeight = height }),
+        ShortSideExtent.Presentation with { Soft = (0.01f, 4f) }));
     public static readonly GlitchParameter BlockDensity = new(
         "block-density",
-        new StateParameter<Glitch>.Bounded<Likelihood, float, InvalidStylize>(
-            Lens<Glitch, Likelihood>.New(static glitch => glitch.BlockDensity, static density => glitch => glitch with { BlockDensity = density }), new()));
+        StateParameter.Bounded<Glitch, Likelihood, float, InvalidStylize>(Lens<Glitch, Likelihood>.New(static glitch => glitch.BlockDensity, static density => glitch => glitch with { BlockDensity = density }), new()));
     public static readonly GlitchParameter BlockShift = new(
         "block-shift",
-        new StateParameter<Glitch>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-            Lens<Glitch, ShortSideLength>.New(static glitch => glitch.BlockShift, static shift => glitch => glitch with { BlockShift = shift }), ShortSideLength.Presentation with { Soft = (0f, 0.5f) }));
+        StateParameter.Bounded<Glitch, ShortSideLength, float, InvalidPixelValue>(Lens<Glitch, ShortSideLength>.New(static glitch => glitch.BlockShift, static shift => glitch => glitch with { BlockShift = shift }), ShortSideLength.Presentation with { Soft = (0f, 0.5f) }));
     public static readonly GlitchParameter BlockLift = new(
         "block-lift",
-        new StateParameter<Glitch>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-            Lens<Glitch, ShortSideLength>.New(static glitch => glitch.BlockLift, static lift => glitch => glitch with { BlockLift = lift }), ShortSideLength.Presentation with { Soft = (0f, 0.1f) }));
+        StateParameter.Bounded<Glitch, ShortSideLength, float, InvalidPixelValue>(Lens<Glitch, ShortSideLength>.New(static glitch => glitch.BlockLift, static lift => glitch => glitch with { BlockLift = lift }), ShortSideLength.Presentation with { Soft = (0f, 0.1f) }));
     public static readonly GlitchParameter Tear = new(
         "tear",
-        new StateParameter<Glitch>.Bounded<ShortSideLength, float, InvalidPixelValue>(
-            Lens<Glitch, ShortSideLength>.New(static glitch => glitch.Tear, static tear => glitch => glitch with { Tear = tear }), ShortSideLength.Presentation with { Soft = (0f, 0.1f) }));
+        StateParameter.Bounded<Glitch, ShortSideLength, float, InvalidPixelValue>(Lens<Glitch, ShortSideLength>.New(static glitch => glitch.Tear, static tear => glitch => glitch with { Tear = tear }), ShortSideLength.Presentation with { Soft = (0f, 0.1f) }));
     public static readonly GlitchParameter TearPeriod = new(
         "tear-period",
-        new StateParameter<Glitch>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-            Lens<Glitch, ShortSideExtent>.New(static glitch => glitch.TearPeriod, static period => glitch => glitch with { TearPeriod = period }),
-            ShortSideExtent.Presentation with { Soft = (0.01f, 1f) }));
+        StateParameter.Bounded<Glitch, ShortSideExtent, float, InvalidPixelValue>(Lens<Glitch, ShortSideExtent>.New(static glitch => glitch.TearPeriod, static period => glitch => glitch with { TearPeriod = period }),
+        ShortSideExtent.Presentation with { Soft = (0.01f, 1f) }));
     public static readonly GlitchParameter Split = new(
         "split",
-        new StateParameter<Glitch>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-            Lens<Glitch, ShortSideOffset>.New(static glitch => glitch.Split, static split => glitch => glitch with { Split = split }),
-            ShortSideOffset.Presentation with { Soft = (-0.05f, 0.05f) }));
+        StateParameter.Bounded<Glitch, ShortSideOffset, float, InvalidPixelValue>(Lens<Glitch, ShortSideOffset>.New(static glitch => glitch.Split, static split => glitch => glitch with { Split = split }),
+        ShortSideOffset.Presentation with { Soft = (-0.05f, 0.05f) }));
     public static readonly GlitchParameter SplitDirection = new(
         "split-direction",
-        new StateParameter<Glitch>.Bounded<SignedAngle, float, InvalidPixelValue>(
-            Lens<Glitch, SignedAngle>.New(static glitch => glitch.SplitDirection, static direction => glitch => glitch with { SplitDirection = direction }),
-            SignedAngle.Presentation));
+        StateParameter.Bounded<Glitch, SignedAngle, float, InvalidPixelValue>(Lens<Glitch, SignedAngle>.New(static glitch => glitch.SplitDirection, static direction => glitch => glitch with { SplitDirection = direction }),
+        SignedAngle.Presentation));
     public static readonly GlitchParameter SplitJitter = new(
         "split-jitter",
-        new StateParameter<Glitch>.Bounded<AxisFraction, float, InvalidGrade>(
-            Lens<Glitch, AxisFraction>.New(static glitch => glitch.SplitJitter, static jitter => glitch => glitch with { SplitJitter = jitter }), new()));
+        StateParameter.Bounded<Glitch, AxisFraction, float, InvalidGrade>(Lens<Glitch, AxisFraction>.New(static glitch => glitch.SplitJitter, static jitter => glitch => glitch with { SplitJitter = jitter }), new()));
     public static readonly GlitchParameter Slide = new(
         "slide",
-        new StateParameter<Glitch>.Bounded<AxisFraction, float, InvalidGrade>(Lens<Glitch, AxisFraction>.New(static glitch => glitch.Slide, static slide => glitch => glitch with { Slide = slide }), new()));
+        StateParameter.Bounded<Glitch, AxisFraction, float, InvalidGrade>(Lens<Glitch, AxisFraction>.New(static glitch => glitch.Slide, static slide => glitch => glitch with { Slide = slide }), new()));
     public static readonly GlitchParameter Matrix = new(
         "matrix", new StateParameter<Glitch>.Choice<YuvMatrix, InvalidStylize>(Lens<Glitch, YuvMatrix>.New(static glitch => glitch.Matrix, static matrix => glitch => glitch with { Matrix = matrix })));
     public static readonly GlitchParameter LumaCorruption = new(
         "luma-corruption",
-        new StateParameter<Glitch>.Bounded<Mix, float, InvalidGrade>(
-            Lens<Glitch, Mix>.New(static glitch => glitch.LumaCorruption, static corruption => glitch => glitch with { LumaCorruption = corruption }), new()));
+        StateParameter.Bounded<Glitch, Mix, float, InvalidGrade>(Lens<Glitch, Mix>.New(static glitch => glitch.LumaCorruption, static corruption => glitch => glitch with { LumaCorruption = corruption }), new()));
     public static readonly GlitchParameter ChromaCorruption = new(
         "chroma-corruption",
-        new StateParameter<Glitch>.Bounded<Mix, float, InvalidGrade>(
-            Lens<Glitch, Mix>.New(static glitch => glitch.ChromaCorruption, static corruption => glitch => glitch with { ChromaCorruption = corruption }), new()));
+        StateParameter.Bounded<Glitch, Mix, float, InvalidGrade>(Lens<Glitch, Mix>.New(static glitch => glitch.ChromaCorruption, static corruption => glitch => glitch with { ChromaCorruption = corruption }), new()));
     public static readonly GlitchParameter Wrap = new(
         "wrap", new StateParameter<Glitch>.Choice<WrapMode, InvalidPixelValue>(Lens<Glitch, WrapMode>.New(static glitch => glitch.Wrap, static wrap => glitch => glitch with { Wrap = wrap })));
     public static readonly GlitchParameter Seed = new(
         "seed",
-        new StateParameter<Glitch>.Bounded<Seed, int, InvalidGenerator>(
-            Lens<Glitch, Seed>.New(static glitch => glitch.Seed, static seed => glitch => glitch with { Seed = seed }), Generators.Seed.Presentation));
+        StateParameter.Bounded<Glitch, Seed, int, InvalidGenerator>(Lens<Glitch, Seed>.New(static glitch => glitch.Seed, static seed => glitch => glitch with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly GlitchParameter Timing = new("timing", new StateParameter<Glitch>.Record<Timing>(
         Lens<Glitch, Timing>.New(static state => state.Timing, static timing => state => state with { Timing = timing })));
     public static readonly GlitchParameter Hold = new(
         "hold",
-        new StateParameter<Glitch>.Bounded<Hold, float, InvalidGenerator>(
-            Lens<Glitch, Hold>.New(static glitch => glitch.Hold, static hold => glitch => glitch with { Hold = hold }), Generators.Hold.Presentation));
+        StateParameter.Bounded<Glitch, Hold, float, InvalidGenerator>(Lens<Glitch, Hold>.New(static glitch => glitch.Hold, static hold => glitch => glitch with { Hold = hold }), Generators.Hold.Presentation));
 
     public StateParameter<Glitch> Kind { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 file static class SystemM {
-    public const float Subcarrier = 188.3f;
+    public const double Subcarrier = 188.3d;
 
-    public static long Frame(Clock now) => (long)Math.Floor(now * 30000d / 1001d);
+    public static long Frame(Clock now) => NoiseFunctions.Split(ERational.FromSingle(now).Multiply(30000).Divide(1001)).Cell.ToInt64Checked();
 }
 
 file static class Kernels {
-    public static System.Drawing.Point Anchor { get; } = new(-1, -1);
+    public static Fin<torch.Tensor> Gauss(double sigma) =>
+        PixelSampling.GaussianTaps<long>(sigma).Bind(count => FrameHeaders.GaussianKernel(count, sigma));
 
-    public static float Fraction(float value) => value - MathF.Floor(value);
+    public static Fin<torch.Tensor> Unit(double sigma) => Gauss(sigma).Map(static taps => taps / taps.norm());
 
-    public static Mat Impulse() => Mat.Ones(1, 1, DepthType.Cv32F, 1);
+    public static Fin<torch.Tensor> Echo(double sigma, double delay, float share) => PixelSampling.KernelTaps<long>(ERational.FromDouble(delay).Abs().Add(ERational.FromDouble(sigma).Multiply(3))).Map(count => {
+        long integral = long.CreateChecked(Math.Round(delay, MidpointRounding.ToEven));
+        double fraction = delay - integral;
+        double nearest = Math.Abs(fraction);
+        torch.Tensor offsets = torch.ones(count, dtype: torch.ScalarType.Int64, device: torch.CPU).cumsum(0) - ((count / 2) + 1);
+        torch.Tensor distance = ((offsets + integral).to_type(torch.ScalarType.Float64) + fraction).abs();
+        torch.Tensor shape = sigma > 0d
+            ? ((distance - nearest) * (distance + nearest) * -0.5d / sigma / sigma).exp()
+            : (1d - distance).clamp_min(0d);
+        return (share * shape / shape.sum()) + (offsets.eq(0L).to_type(torch.ScalarType.Float64) * (1d - share));
+    });
 
-    public static Mat Gauss(float sigma) => CvInvoke.GetGaussianKernel(PixelSampling.GaussianTaps(sigma), sigma, DepthType.Cv32F);
-
-    public static Mat Unit(float sigma) {
-        Mat taps = Gauss(sigma);
-        taps.ConvertTo(taps, DepthType.Cv32F, 1d / Math.Sqrt(taps.Dot(taps)));
-        return taps;
-    }
-
-    public static Mat Echo(float sigma, float delay, float share) {
-        int reach = (int)MathF.Ceiling(MathF.Abs(delay) + (3f * sigma));
-        float[] shape = [.. Enumerable.Range(-reach, (2 * reach) + 1).Select(k => sigma > 0f ? MathF.Exp(-(k + delay) * (k + delay) / (2f * sigma * sigma)) : float.Max(0f, 1f - MathF.Abs(k + delay)))];
-        float total = shape.Sum();
-        Mat taps = new(1, shape.Length, DepthType.Cv32F, 1);
-        taps.SetTo([.. shape.Select((weight, index) => (share * weight / total) + (index == reach ? 1f - share : 0f))]);
-        return taps;
-    }
-
-    public static Mat Transform(Matrix4x4 rows) {
-        Matrix4x4 columns = Matrix4x4.Transpose(rows);
-        Mat matrix = new(4, 4, DepthType.Cv32F, 1);
-        matrix.SetTo(MemoryMarshal.CreateReadOnlySpan(ref columns.M11, 16).ToArray());
+    public static Mat Transform(Matrix<double> rows) {
+        double[] columns = rows.Resize(4, 4).ToColumnMajorArray();
+        columns[^1] = 1d;
+        Mat matrix = new(4, 4, DepthType.Cv64F, 1);
+        matrix.SetTo(columns);
         return matrix;
     }
 
-    public static void Along(Mat plane, Mat taps) {
-        using Mat impulse = Impulse();
-        CvInvoke.SepFilter2D(plane, plane, DepthType.Cv32F, taps, impulse, Anchor, 0d, BorderType.Replicate);
-    }
-
-    public static void Across(Mat plane, Mat taps) {
-        using Mat impulse = Impulse();
-        CvInvoke.SepFilter2D(plane, plane, DepthType.Cv32F, impulse, taps, Anchor, 0d, BorderType.Replicate);
+    public static Fin<Unit> Filter(Mat plane, torch.Tensor taps, bool vertical = false) {
+        using torch.Tensor impulse = torch.ones(1, dtype: torch.ScalarType.Float64, device: torch.CPU);
+        return plane.Separable(plane, vertical ? impulse : taps, vertical ? taps : impulse, DepthType.Cv64F, PaddingModes.Replicate);
     }
 }

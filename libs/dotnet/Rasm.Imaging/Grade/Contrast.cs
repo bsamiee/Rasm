@@ -55,14 +55,16 @@ public sealed record ContrastGrade(Contrast Contrast, ContrastPivot Pivot, Vibra
     public static Option<PixelPass> Pass(ContrastGrade state, PassContext context) =>
         state with { Pivot = Default.Pivot } == Default
             ? None
-            : ((float)state.Contrast, (float)state.Vibrance, (float)state.Saturation, new Vector3(Exposure.MiddleGrey * float.Exp2(state.Pivot)), context.Working.Luminance) switch {
+            : ((float)state.Contrast, (float)state.Vibrance, (float)state.Saturation, Exposure.MiddleGrey * double.Exp2(state.Pivot), context.Working.Luminance) switch {
                 var (contrast, vibrance, saturation, pivot, luma) => Some<PixelPass>(new PixelPass.Color(row => {
+                    double Curve(float value) => double.CopySign(pivot * double.Pow(double.Abs(value) / pivot, contrast), value);
                     foreach (ref Vector4 pixel in row) {
-                        Vector3 k = Vector3.CopySign(pivot * Vector3.Exp(contrast * Vector3.Log(Vector3.Abs(pixel.AsVector3()) / pivot)), pixel.AsVector3());
-                        float high = float.Max(k.X, float.Max(k.Y, k.Z));
-                        float s = high > 0f ? 1f - (float.Max(float.Min(k.X, float.Min(k.Y, k.Z)), 0f) / high) : 1f;
-                        float gain = saturation * (1f + (vibrance * (vibrance > 0f ? (1f - s) * (1f - s) : s * s / 2f)));
-                        pixel = new Vector4(Vector3.Lerp(new Vector3(Vector3.Dot(k, luma)), k, gain), pixel.W);
+                        (double red, double green, double blue) = (Curve(pixel.X), Curve(pixel.Y), Curve(pixel.Z));
+                        double high = double.Max(red, double.Max(green, blue));
+                        double s = high > 0d ? 1d - (double.Max(double.Min(red, double.Min(green, blue)), 0d) / high) : 1d;
+                        double gain = saturation * (1d + (vibrance * (vibrance > 0d ? (1d - s) * (1d - s) : s * s / 2d)));
+                        double grey = (red * luma.X) + (green * luma.Y) + (blue * luma.Z);
+                        pixel = new Vector4((float)double.Lerp(grey, red, gain), (float)double.Lerp(grey, green, gain), (float)double.Lerp(grey, blue, gain), pixel.W);
                     }
                 })),
             };
@@ -73,7 +75,7 @@ public sealed record ContrastGrade(Contrast Contrast, ContrastPivot Pivot, Vibra
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ContrastGradeParameter : IStateParameter<ContrastGrade> {
-    internal static Presentation<Saturation, float> Chroma { get; } = new() {
+    internal static Presentation<float> Chroma { get; } = new() {
         Soft = (0f, 2f),
         Origin = (float)Grade.Saturation.Neutral,
         Stops = Ramp.Create(
@@ -83,24 +85,20 @@ public sealed partial class ContrastGradeParameter : IStateParameter<ContrastGra
 
     public static readonly ContrastGradeParameter Contrast = new(
         "contrast",
-        new StateParameter<ContrastGrade>.Bounded<Contrast, float, InvalidGrade>(
-            Lens<ContrastGrade, Contrast>.New(static grade => grade.Contrast, static contrast => grade => grade with { Contrast = contrast }),
-            new() { Origin = (float)Grade.Contrast.Neutral }));
+        StateParameter.Bounded<ContrastGrade, Contrast, float, InvalidGrade>(Lens<ContrastGrade, Contrast>.New(static grade => grade.Contrast, static contrast => grade => grade with { Contrast = contrast }),
+        new() { Origin = (float)Grade.Contrast.Neutral }));
     public static readonly ContrastGradeParameter Pivot = new(
         "pivot",
-        new StateParameter<ContrastGrade>.Bounded<ContrastPivot, float, InvalidGrade>(
-            Lens<ContrastGrade, ContrastPivot>.New(static grade => grade.Pivot, static pivot => grade => grade with { Pivot = pivot }),
-            new() { Origin = (float)ContrastPivot.MiddleGrey }));
+        StateParameter.Bounded<ContrastGrade, ContrastPivot, float, InvalidGrade>(Lens<ContrastGrade, ContrastPivot>.New(static grade => grade.Pivot, static pivot => grade => grade with { Pivot = pivot }),
+        new() { Origin = (float)ContrastPivot.MiddleGrey }));
     public static readonly ContrastGradeParameter Vibrance = new(
         "vibrance",
-        new StateParameter<ContrastGrade>.Bounded<Vibrance, float, InvalidGrade>(
-            Lens<ContrastGrade, Vibrance>.New(static grade => grade.Vibrance, static vibrance => grade => grade with { Vibrance = vibrance }),
-            new() { Origin = (float)Grade.Vibrance.Neutral }));
+        StateParameter.Bounded<ContrastGrade, Vibrance, float, InvalidGrade>(Lens<ContrastGrade, Vibrance>.New(static grade => grade.Vibrance, static vibrance => grade => grade with { Vibrance = vibrance }),
+        new() { Origin = (float)Grade.Vibrance.Neutral }));
     public static readonly ContrastGradeParameter Saturation = new(
         "saturation",
-        new StateParameter<ContrastGrade>.Bounded<Saturation, float, InvalidGrade>(
-            Lens<ContrastGrade, Saturation>.New(static grade => grade.Saturation, static saturation => grade => grade with { Saturation = saturation }),
-            Chroma));
+        StateParameter.Bounded<ContrastGrade, Saturation, float, InvalidGrade>(Lens<ContrastGrade, Saturation>.New(static grade => grade.Saturation, static saturation => grade => grade with { Saturation = saturation }),
+        Chroma));
 
     public StateParameter<ContrastGrade> Kind { get; }
 }

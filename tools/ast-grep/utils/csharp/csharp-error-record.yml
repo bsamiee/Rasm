@@ -4,17 +4,6 @@ language: csharp
 utils:
     error-base:
         regex: '^(global::)?(LanguageExt\.(Common\.)?)?(Expected|Exceptional|Error)$'
-    plain-base:
-        any:
-            - {kind: identifier, pattern: $BASE}
-            - {kind: qualified_name, has: {field: name, pattern: $BASE}}
-    generic-base:
-        kind: generic_name
-        has: {kind: identifier, nthChild: 1, pattern: $BASE}
-    plain-first:
-        any: [{matches: plain-base}, {kind: primary_constructor_base_type, has: {field: type, matches: plain-base}}]
-    generic-first:
-        any: [{matches: generic-base}, {kind: primary_constructor_base_type, has: {field: type, matches: generic-base}}]
 rule:
     kind: 'record_declaration'
     has:
@@ -24,29 +13,3 @@ rule:
             any:
                 - {kind: 'identifier, qualified_name', matches: error-base}
                 - {kind: primary_constructor_base_type, has: {field: type, matches: error-base}}
-                - all:
-                    - matches: plain-first
-                    - inside:
-                        kind: compilation_unit
-                        stopBy: end
-                        has:
-                            stopBy: end
-                            kind: record_declaration
-                            all:
-                                - has: {field: name, pattern: $BASE}
-                                - not: {has: {kind: type_parameter_list}}
-                                - not: {has: {kind: base_list, has: {nthChild: 1, matches: plain-first}}}
-                                - matches: csharp-error-record
-                - all:
-                    - matches: generic-first
-                    - inside:
-                        kind: compilation_unit
-                        stopBy: end
-                        has:
-                            stopBy: end
-                            kind: record_declaration
-                            all:
-                                - has: {field: name, pattern: $BASE}
-                                - has: {kind: type_parameter_list}
-                                - not: {has: {kind: base_list, has: {nthChild: 1, matches: generic-first}}}
-                                - matches: csharp-error-record

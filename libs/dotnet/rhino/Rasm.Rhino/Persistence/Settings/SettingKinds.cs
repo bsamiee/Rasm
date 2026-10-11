@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using System.Reflection;
 using Rhino;
 
 namespace Rasm.Rhino.Persistence.Settings;
@@ -108,4 +110,23 @@ public static class SettingType {
                 _ = node.TryGetString(key, out _, legacy);
                 return node.GetEnumValue(key, value);
             });
+
+    public static SettingType<Enum> Enumeration(Type type) {
+        MethodInfo Closed(LambdaExpression call) =>
+            ((MethodCallExpression)call.Body).Method.GetGenericMethodDefinition().MakeGenericMethod(type);
+
+        MethodInfo read = Closed(static (PersistentSettings node, string key, DayOfWeek value) => node.TryGetEnumValue(key, out value));
+        MethodInfo write = Closed(static (PersistentSettings node, string key, DayOfWeek value) => node.SetEnumValue(key, value));
+        MethodInfo register = Closed(static (PersistentSettings node, string key, DayOfWeek value) => node.GetEnumValue(key, value));
+        return new(
+            (node, key) => {
+                object?[] arguments = [key, null];
+                return (bool)read.Invoke(node, BindingFlags.DoNotWrapExceptions, binder: null, parameters: arguments, culture: null)! ? Some((Enum)arguments[1]!) : None;
+            },
+            (node, key, value) => write.Invoke(node, BindingFlags.DoNotWrapExceptions, binder: null, parameters: [key, value], culture: null),
+            (node, key, value, legacy) => {
+                _ = node.TryGetString(key, out _, legacy);
+                return (Enum)register.Invoke(node, BindingFlags.DoNotWrapExceptions, binder: null, parameters: [key, value], culture: null)!;
+            });
+    }
 }

@@ -13,15 +13,18 @@ public sealed class LiveModel<TState> where TState : notnull {
     public TState Value => state.Value.Value;
 
     // --- [VISIBILITY]
-    internal IO<Unit> Show(IO<TState> read) =>
-        from shown in state.SwapIO(static held => held with { Shown = held.Shown + 1 })
+    internal IO<Unit> Show(IO<TState> read, Action<IDisposable> retain) =>
+        from shown in DisposalOps.Acquire(
+            IO.lift(() => state.Swap(static held => held with { Shown = held.Shown + 1 })),
+            _ => IO.lift(Hide),
+            _ => retain(new Disposal<LiveModel<TState>>(this, static held => held.Hide())))
         from fresh in when(shown.Stale, read.Bind(Publish)).As()
         select fresh;
 
     internal void Hide() => _ = state.Swap(static held => held with { Shown = held.Shown - 1 });
 
     internal IO<Unit> Refresh(IO<TState> read) =>
-        state.SwapMaybeIO(static held => held.Shown > 0 || held.Stale ? None : Some(held with { Stale = true }))
+        state.SwapMaybeIO(static held => held.Stale ? None : Some(held with { Stale = true }))
             .Bind(held => when(held.Shown > 0, read.Bind(Publish)).As());
 
     private IO<Unit> Publish(TState next) =>
@@ -30,31 +33,28 @@ public sealed class LiveModel<TState> where TState : notnull {
 }
 
 public sealed class ReadModel<TState>(Seq<HostEvent<Option<uint>>> marks, Func<RhinoDoc, IO<TState>> read) where TState : notnull {
-    public IO<IDisposable> Attach(IPlugInSink sink) =>
+    public IO<Unit> Attach(IPlugInSink sink, Action<IDisposable> retain) =>
         from site in IO.pure(new CallbackSite(sink, typeof(RhinoApp), nameof(RhinoApp.Idle)))
-        from mailbox in Subscriptions.Idle<Option<uint>, Unit>(Refresh)(site)
-        let post = fun((Option<uint> serial) => mailbox.Post((serial, unit)))
-        from attached in DisposalOps.OnFailure(DisposalOps.AcquireAll(marks.Map(mark => mark.Inline(post, sink)), DisposalOps.Release), IO.lift(mailbox.Release.Dispose))
-        select DisposalOps.Composite(mailbox.Release.Cons(attached), site);
+        from mailbox in Subscriptions.Idle<Option<uint>, Unit>(Refresh)(site, retain)
+        let post = fun((Option<uint> serial) => mailbox((serial, unit)))
+        from attached in marks.TraverseM(mark => mark.Inline(post, sink, retain)).As()
+        select unit;
 
-    public IO<Disposal<LiveModel<TState>>> Watch(RhinoDoc doc) =>
+    public IO<LiveModel<TState>> Watch(RhinoDoc doc, Action<IDisposable> retain) =>
         from found in IO.lift(() => Optional(doc.RuntimeData.TryGetValue<LiveModel<TState>>(this)))
         from live in found.Match(
             Some: static held => IO.pure(held),
             None: () => read(doc).Bind(initial => IO.lift(() => doc.RuntimeData.GetValue(this, _ => new LiveModel<TState>(initial)))))
-        from shown in live.Show(read(doc))
-        select new Disposal<LiveModel<TState>>(live, static held => held.Hide());
+        from shown in live.Show(read(doc), retain)
+        select live;
 
     private IO<Unit> Refresh(HashMap<Option<uint>, Unit> marked) =>
         from docs in IO.lift(() => toSeq(marked.Keys).Exists(static serial => serial.IsNone)
             ? Conversions.Rows(RhinoDoc.OpenDocuments(includeHeadless: false))
             : toSeq(marked.Keys).Somes().Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Strict())
-        from fails in docs.Map<K<IO, Unit>>(doc =>
+        from refreshed in Callbacks.Each(docs.Map(doc =>
                 IO.lift(() => Optional(doc.RuntimeData.TryGetValue<LiveModel<TState>>(this)))
-                    .Bind(found => found.Match(Some: live => live.Refresh(read(doc)), None: static () => IO.pure(unit))))
-            .Fails()
-            .As()
-        from failed in unless(fails.IsEmpty, IO.fail<Unit>(Error.Many(fails))).As()
+                    .Bind(found => found.Match(Some: live => live.Refresh(read(doc)), None: static () => IO.pure(unit)))))
         select unit;
 }
 

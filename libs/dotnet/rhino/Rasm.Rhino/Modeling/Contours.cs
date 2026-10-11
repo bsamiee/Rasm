@@ -17,7 +17,7 @@ public sealed partial class CloudCurves {
 
 public sealed record CloudSlab(double MaxDistance, double MinDistance, bool OpenCurves, CloudCurves Curves, double FitTolerance);
 
-[Union<Brep, Mesh, OfCloud>(MapMethods = SwitchMapMethodsGeneration.None)]
+[Union<Brep, Mesh, OfCloud>(SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class ContourSource {
     public sealed record OfCloud(PointCloud Cloud, CloudSlab Slab);
 }
@@ -29,7 +29,7 @@ public sealed partial class ContourCut {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Contours {
-    public static IO<Seq<Curve>> Create(ContourSource source, ContourCut cut, Tolerances tolerances) =>
+    public static IO<Seq<Curve>> Create(ContourSource source, ContourCut cut, Tolerances tolerances, Action<IDisposable> retain) =>
         source.Switch(
             (Cut: cut, Tolerances: tolerances),
             brep: static (state, brep) => (
@@ -52,6 +52,6 @@ public static class Contours {
                 sweep: static (cloud, sweep) => (
                     Create: fun(() => cloud.Of.Cloud.CreateContourCurves(sweep.Start, sweep.End, sweep.Interval, cloud.Absolute, cloud.Of.Slab.MaxDistance, cloud.Of.Slab.MinDistance, cloud.Of.Slab.OpenCurves, cloud.Of.Slab.Curves.CreateSpline, cloud.Of.Slab.Curves.CreatePolyline, cloud.Of.Slab.FitTolerance)),
                     Member: nameof(PointCloud.CreateContourCurves)))) switch {
-                        var operation => Copies.Acquire(operation.Create, operation.Member),
+                        var operation => Copies.Acquire(operation.Create, operation.Member, retain),
                     };
 }

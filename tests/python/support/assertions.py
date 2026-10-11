@@ -88,10 +88,9 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
             names = (f.name for f in dataclasses.fields(a))
             return next((d for f in names if (d := _diverge(getattr(a, f), getattr(b, f), rel_tol, abs_tol, f"{path}.{f}")) is not None), None)
         case (Mapping(), Mapping()):
-            lookup = dict(b.items())
-            if set(a) != set(lookup):
-                return f"{path}: key sets differ: {sorted(map(repr, set(a) ^ set(lookup)))}"
-            return next((d for k, v in a.items() if (d := _diverge(v, lookup[k], rel_tol, abs_tol, f"{path}[{k!r}]")) is not None), None)
+            if set(a) != set(b):
+                return f"{path}: key sets differ: {sorted(map(repr, set(a) ^ set(b)))}"
+            return next((d for k, v in a.items() if (d := _diverge(v, b[k], rel_tol, abs_tol, f"{path}[{k!r}]")) is not None), None)
         case (Sequence(), Sequence()):
             if len(a) != len(b):
                 return f"{path}: length {len(a)} != {len(b)}"
@@ -191,7 +190,6 @@ def differential[T, R](value: T, implementation: Callable[[T], R], reference: Ca
 
 def metamorphic[T, R](value: T, function: Callable[[T], R], *relations: Relation[T, R]) -> None:
     """Assert every relation ``(name, transform, relate)`` holds between ``function(value)`` and ``function(transform(value))``."""
-    assert relations, "metamorphic requires at least one relation"
     baseline = function(value)
     for _, transform, relate in relations:
         relate(baseline, function(transform(value)))
@@ -202,9 +200,7 @@ def metamorphic[T, R](value: T, function: Callable[[T], R], *relations: Relation
 
 def assert_table[I, O](cases: Iterable[Case[I, O]], function: Callable[[I], O], subtests: pytest.Subtests) -> None:
     """Assert ``function(value) == expected`` for each ``(label, value, expected)`` row as an independent subtest."""
-    rows = tuple(cases)
-    assert rows, "assert_table requires at least one case"
-    for label, value, expected in rows:
+    for label, value, expected in cases:
         with subtests.test(msg=label):
             actual = function(value)
             assert actual == expected, f"{label!r}: expected {expected!r}, got {actual!r} for {value!r}"

@@ -8,20 +8,22 @@ namespace Rasm.Rhino.Render.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FrameMark(ContentKey Entry, SequenceNumber Frame, long Started, long Began, long Saved, long Written, long PeakWorkingSet) {
-    public Duration Time(TimeProvider clock) => clock.GetElapsedTime(Started, Saved).ToDuration();
+    public Duration Time(TimeProvider clock) => clock.GetElapsedTime(Started, Written).ToDuration();
 }
 
 [SmartEnum]
 public sealed partial class FrameStage {
-    public static readonly FrameStage Setup = new(static (mark, clock) => clock.GetElapsedTime(mark.Started, mark.Began).ToDuration());
-    public static readonly FrameStage Render = new(static (mark, clock) => clock.GetElapsedTime(mark.Began, mark.Saved).ToDuration());
-    public static readonly FrameStage Save = new(static (mark, clock) => clock.GetElapsedTime(mark.Saved, mark.Written).ToDuration());
+    public static readonly FrameStage Setup = new("Setup", static (mark, clock) => clock.GetElapsedTime(mark.Started, mark.Began).ToDuration());
+    public static readonly FrameStage Render = new("Render", static (mark, clock) => clock.GetElapsedTime(mark.Began, mark.Saved).ToDuration());
+    public static readonly FrameStage Save = new("Save", static (mark, clock) => clock.GetElapsedTime(mark.Saved, mark.Written).ToDuration());
+
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial Duration Of(FrameMark mark, TimeProvider clock);
 }
 
-public sealed record QueueEstimate(int Landed, int Total, Option<Duration> Remaining, Option<Instant> Finish, Option<FrameMark> Last) {
+public sealed record QueueEstimate(long Landed, long Total, Option<Duration> Remaining, Option<Instant> Finish, Option<FrameMark> Last) {
     // --- [ETA]
     public static QueueEstimate Idle { get; } = new(0, 0, None, None, None);
 
@@ -39,7 +41,7 @@ public sealed record QueueEstimate(int Landed, int Total, Option<Duration> Remai
 
     private static QueueEstimate Of(RenderBatch queue, QueueProgress record, Option<FrameMark> last, Instant now, Func<Seq<Duration>, Option<Duration>> rate) =>
         queue.Entries.Map(entry => record.Entries.Find(entry.Key).IfNone(EntryProgress.Empty) switch {
-            var held => (held.Times, Remaining: held.Last.Match(Some: done => (int)entry.Frames.Last - (int)done, None: () => entry.Frames.Count)),
+            var held => (held.Times, Remaining: held.Last.Match(Some: done => (long)(int)entry.Frames.Last - (int)done, None: () => entry.Frames.Count)),
         }) switch {
             var rows => rows.Filter(static row => row.Remaining > 0)
                 .Traverse(row => (rate(row.Times) | Mean(rows.Bind(static held => held.Times))).Map(each => each * row.Remaining))

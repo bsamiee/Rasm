@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino.Render.Effects;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
@@ -32,7 +31,13 @@ public sealed record RenderEngine(
     LocalizeStringPair Caption,
     RenderWindow.StandardChannels Channels,
     bool HostWireframe,
-    Func<RenderStart, Option<PixelExtent>, RenderWindow, SceneBatch, IO<RenderWork>> Open);
+    Func<RenderStart, Option<PixelExtent>, RenderWindow, SceneBatch, IO<RenderWork>> Open) {
+    internal Seq<Guid> SupportedChannels =>
+        toSeq(Enum.GetValues<RenderWindow.StandardChannels>())
+            .Filter(channel => int.IsPow2((int)channel)
+                && (Channels & ~(RenderWindow.StandardChannels.RGB | RenderWindow.StandardChannels.NormalXYZ | RenderWindow.StandardChannels.AlbedoRGB)).HasFlag(channel))
+            .Choose(static channel => Conversions.Present(RenderWindow.ChannelId(channel)));
+}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class ExecutionControl(Func<Guid, IO<bool>> ready, IPlugInSink sink) : PostEffectExecutionControl {
@@ -44,35 +49,68 @@ internal sealed class ExecutionControl(Func<Guid, IO<bool>> ready, IPlugInSink s
 
 internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
     private readonly CancellationTokenSource cancellation = new();
+    private readonly Ref<Option<Seq<IDisposable>>> scenes = Ref(Some(Seq<IDisposable>()));
 
     public IPlugInSink Sink { get; } = sink;
 
-    public IO<bool> Start(RenderWindow window, RenderWork work, LocalizeStringPair caption) =>
-        from control in IO.lift(() => work.Ready.Map(ready => new ExecutionControl(ready, Sink)).Do(window.RegisterPostEffectExecutionControl))
-        from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
-        select started;
+    public IO<bool> Start(RenderWindow window, Func<Action<IDisposable>, IO<RenderWork>> open, LocalizeStringPair caption) =>
+        DisposalOps.OnFailure(
+            from work in DisposalOps.Replace(open, (_, lease) => {
+                Seq<IDisposable> prior = atomic(() => {
+                    Option<Seq<IDisposable>> held = scenes.Value;
+                    scenes.Value = held.Map(_ => Seq(lease));
+                    return held;
+                }).ToFin(Errors.Cancelled).ThrowIfFail();
+                return DisposalOps.Release(prior);
+            })
+            from control in work.Ready.Traverse(ready => DisposalOps.Acquire(
+                IO.lift(() => new ExecutionControl(ready, Sink)),
+                static held => IO.lift(held.Dispose),
+                window.RegisterPostEffectExecutionControl)).As()
+            from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
+            select started,
+            Callbacks.Each(Seq(IO.lift(StopRendering), Released)).Map(static _ => unit));
 
-    public override void StopRendering() {
-        cancellation.Cancel();
-        JoinRenderThread();
-        base.StopRendering();
-    }
+    public override void StopRendering() =>
+        _ = Callbacks.Each(Seq(IO.lift(cancellation.Cancel), IO.lift(JoinRenderThread), IO.lift(base.StopRendering))).Run();
 
     protected override void Dispose(bool isDisposing) {
-        if (isDisposing)
-            cancellation.Dispose();
-        base.Dispose(isDisposing);
+        Option<Seq<IDisposable>> prior = isDisposing
+            ? atomic(() => {
+                Option<Seq<IDisposable>> held = scenes.Value;
+                scenes.Value = None;
+                return held;
+            })
+            : None;
+        try {
+            _ = prior.Iter(static held => DisposalOps.Release(held).Run());
+        } finally {
+            try {
+                if (isDisposing) cancellation.Dispose();
+            } finally {
+                base.Dispose(isDisposing);
+            }
+        }
     }
+
+    private IO<Unit> Released => IO.lift(() => atomic(() => {
+        Option<Seq<IDisposable>> held = scenes.Value;
+        scenes.Value = held.Map(static _ => Seq<IDisposable>());
+        return held.ToSeq().Flatten();
+    })).Bind(DisposalOps.Release);
 
     private void Rendered(RenderWindow window, IO<Unit> render, Option<ExecutionControl> control, string caption) {
         using EnvIO environment = EnvIO.New(token: cancellation.Token);
-        window.EndAsyncRender(Callbacks.Answer(
+        CallbackSite site = new(Sink, typeof(AsyncContext), nameof(StartRenderThread));
+        RenderWindow.RenderSuccessCode answer = Callbacks.Answer(
             IO.lift(() => Try.lift(() => render.Run(environment)).Run())
                 .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))
-                .Bind(_ => IO.lift(fun(() => window.SetProgress(caption, ProgressFraction.MaxValue))))
                 .Map(static _ => RenderWindow.RenderSuccessCode.Completed),
             static () => RenderWindow.RenderSuccessCode.Failed,
-            new CallbackSite(Sink, typeof(AsyncContext), nameof(StartRenderThread))));
+            site);
+        Callbacks.Run(Callbacks.Each(Seq(
+            IO.lift(() => window.SetProgress(caption, ProgressFraction.MaxValue)),
+            IO.lift(() => window.EndAsyncRender(answer)))), site);
         _ = control.Iter(GC.KeepAlive);
     }
 }
@@ -110,57 +148,63 @@ internal sealed class BatchPipeline : RenderPipeline {
 
     protected override bool ContinueModal() => context.RenderThread is { IsAlive: true };
 
-    protected override void Dispose(bool isDisposing) {
-        if (isDisposing && mode is RunMode.Scripted)
-            context.Dispose();
-        base.Dispose(isDisposing);
-    }
+    protected override void Dispose(bool isDisposing) =>
+        _ = Callbacks.Each(isDisposing && mode is RunMode.Scripted
+            ? Seq(IO.lift(context.Dispose), IO.lift(() => base.Dispose(isDisposing)))
+            : Seq(IO.lift(() => base.Dispose(isDisposing)))).Run();
 
     private bool Begin(Option<Size> quiet, [CallerMemberName] string member = "") =>
         Callbacks.Answer(
             from extent in IO.lift(quiet.Traverse(static size => RenderWindows.Extent(size.Width, size.Height)).As())
-            from window in new RenderWindowSource.Rendering(RenderSessionId).Open()
-            from world in start.Switch(
-                (Pipeline: this, Window: window, Member: member),
-                full: static (state, _) => use(() => new RenderSourceView(state.Pipeline.document))
-                    .Bind(static source => IO.lift(() => Missing.Unless(source.GetViewInfo(), nameof(RenderSourceView.GetViewInfo))))
-                    .Bind(view => state.Pipeline.Scene(state.Window, view, state.Member))
-                    .Bracket(),
-                region: static (state, region) => use(() => new ViewInfo(region.View.ActiveViewport))
-                    .Bind(view => state.Pipeline.Scene(state.Window, view, state.Member))
-                    .Bracket())
-            from work in engine.Open(start, extent, window, world)
-            from started in context.Start(window, work, engine.Caption)
+            from started in new RenderWindowSource.Rendering(RenderSessionId).Open(window => context.Start(window, owned =>
+                from world in start.Switch(
+                    (Pipeline: this, Window: window, Retain: owned),
+                    full: static (state, _) => DisposalOps.Within(
+                        () => new RenderSourceView(state.Pipeline.document),
+                        source => DisposalOps.Within(
+                            () => Optional(source.GetViewInfo()),
+                            view => IO.lift(view.ToFin(new Missing(nameof(RenderSourceView.GetViewInfo))))
+                                .Bind(held => state.Pipeline.Scene(state.Window, held, state.Retain)),
+                            static view => DisposalOps.Release(view.ToSeq())),
+                        static source => IO.lift(source.Dispose)),
+                    region: static (state, region) => DisposalOps.Within(
+                        () => new ViewInfo(region.View.ActiveViewport),
+                        view => state.Pipeline.Scene(state.Window, view, state.Retain),
+                        static view => IO.lift(view.Dispose)))
+                from work in engine.Open(start, extent, window, world)
+                select work, engine.Caption))
             select started,
             static () => false,
             new CallbackSite(context.Sink, GetType(), member));
 
-    private IO<SceneBatch> Scene(RenderWindow window, ViewInfo view, string member) =>
+    private IO<SceneBatch> Scene(RenderWindow window, ViewInfo view, Action<IDisposable> retain) =>
         from size in IO.lift(window.Size)
         from extent in IO.lift(RenderWindows.Extent(size.Width, size.Height))
-        from framing in RenderRuns.Framing(document, view, extent, None, new CallbackSite(context.Sink, GetType(), member))
-        from _ in RenderRuns.Framed(RenderSessionId, framing)
         from __ in when(engine.HostWireframe, RenderWindows.AddWireframe(
             window,
             new WireframeRegion(document, view.Viewport, start.Switch(size, full: static (whole, _) => new Rectangle(System.Drawing.Point.Empty, whole), region: static (_, region) => region.Rectangle)),
             size)).As()
         from ___ in RenderWindows.AddRequested(window)
-        from world in (from queue in use(DefinedChangeFeed.Of(PlugIn, document, view, None, QueuePolicy.Render, None))
-                       from ____ in queue.World
-                       from taken in queue.Take
-                       select taken).Bracket()
+        from world in DisposalOps.Within<IDisposable, SceneBatch>(owned =>
+            from queue in DefinedChangeFeed.Of(PlugIn, document, view, None, QueuePolicy.Render, None, owned)
+            from ____ in queue.World
+            from taken in queue.Take(retain)
+            select taken, DisposalOps.Release)
         select world;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Batches {
     public static IO<Unit> Render(RhinoDoc doc, RunMode mode, PlugIn plugIn, RenderEngine engine, RenderStart start) =>
-        use(() => new BatchPipeline(doc, mode, plugIn, engine, start, new AsyncContext((IPlugInSink)plugIn)))
+        DisposalOps.Within<BatchPipeline, Unit>(retain => DisposalOps.Acquire(
+                IO.lift(() => new AsyncContext((IPlugInSink)plugIn)).Bind(context => DisposalOps.OnFailure(
+                    IO.lift(() => new BatchPipeline(doc, mode, plugIn, engine, start, context)), IO.lift(context.Dispose))),
+                static pipeline => IO.lift(pipeline.Dispose), retain)
             .Bind(pipeline => IO.lift(() => start.Switch(
                 pipeline,
                 full: static (session, _) => Answered(session.Render(), nameof(RenderPipeline.Render)),
-                region: static (session, region) => Answered(session.RenderWindow(region.View, region.Rectangle, region.InWindow), nameof(RenderPipeline.RenderWindow)))))
-            .Bracket();
+                region: static (session, region) => Answered(session.RenderWindow(region.View, region.Rectangle, region.InWindow), nameof(RenderPipeline.RenderWindow))))),
+            DisposalOps.Release);
 
     private static Fin<Unit> Answered(RenderPipeline.RenderReturnCode code, string member) =>
         code switch {

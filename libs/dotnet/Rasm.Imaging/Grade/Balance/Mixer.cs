@@ -1,7 +1,7 @@
 using System.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Pixels;
-using TinyEXR;
 
 namespace Rasm.Imaging.Grade.Balance;
 
@@ -28,8 +28,11 @@ public sealed record MixerState(
         MixerWeight.Zero, MixerWeight.Zero, MixerWeight.Unit);
 
     public LutTable.Affine Table => new(
-        new ColorMatrix3x3(RedFromRed, RedFromGreen, RedFromBlue, GreenFromRed, GreenFromGreen, GreenFromBlue, BlueFromRed, BlueFromGreen, BlueFromBlue),
-        Vector3.Zero);
+        Matrix<double>.Build.DenseOfRowMajor(3, 3, [
+            RedFromRed, RedFromGreen, RedFromBlue,
+            GreenFromRed, GreenFromGreen, GreenFromBlue,
+            BlueFromRed, BlueFromGreen, BlueFromBlue,
+        ]), (0d, 0d, 0d));
 
     public static Option<PixelPass> Pass(MixerState state, PassContext context) =>
         state == Default ? None : Some<PixelPass>(new PixelPass.Color(state.Table));
@@ -54,5 +57,5 @@ public sealed partial class MixerParameter : IStateParameter<MixerState> {
     public (int Output, int Input) Cell { get; }
 
     private static MixerParameter Weight(string key, (int Output, int Input) cell, Func<MixerState, MixerWeight> get, Func<MixerWeight, Func<MixerState, MixerState>> set) =>
-        new(key, new StateParameter<MixerState>.Bounded<MixerWeight, float, InvalidGrade>(Lens<MixerState, MixerWeight>.New(get, set), new() { Soft = (-2f, 2f), Origin = (float)get(MixerState.Default) }), cell);
+        new(key, StateParameter.Bounded<MixerState, MixerWeight, float, InvalidGrade>(Lens<MixerState, MixerWeight>.New(get, set), new() { Soft = (-2f, 2f), Origin = (float)get(MixerState.Default) }), cell);
 }

@@ -7,7 +7,6 @@ using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Riok.Mapperly.Abstractions;
-using UnitsNet;
 
 namespace Rasm.Rhino.Annotation.Styles;
 
@@ -20,7 +19,7 @@ public sealed partial class LinetypePattern {
     public Length PatternLength => Segments.Fold(Length.Zero, static (sum, segment) => sum + (segment < Length.Zero ? -segment : segment));
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Seq<Length> segments) =>
-        validationError = segments.ForAll(static segment => QuantityValue.IsFinite(segment.Value)) && segments switch {
+        validationError = segments.ForAll(static segment => UnitsNet.QuantityValue.IsFinite(segment.Value)) && segments switch {
             [] => false,
             [var only] => only > Length.Zero,
             _ => segments.Zip(segments.Tail).ForAll(static pair => (pair.First >= Length.Zero) != (pair.Second >= Length.Zero)),
@@ -110,7 +109,7 @@ public static partial class Linetypes {
         }).Strict();
 
     private static Fin<LinetypeWidth> Width(Linetype linetype, Seq<Point2d> taper) =>
-        linetype.WidthUnits is global::Rhino.UnitSystem.None
+        linetype.WidthUnits is UnitSystem.None
             ? Taper(taper, identity).Map<LinetypeWidth>(profile => new LinetypeWidth.Screen(linetype.Width, profile))
             : Measured(linetype.Width, taper, LengthUnit.FromKnownUnitSystem(linetype.WidthUnits));
 
@@ -133,8 +132,8 @@ public static partial class Linetypes {
         from patterned in unless(held == definition.Settings.Pattern.Segments, IO.lift(() =>
             Refused.Unless(staged.SetSegments(definition.Settings.Pattern.Segments.Map(Millimeters)), nameof(Linetype.SetSegments)))).As()
         let stroke = definition.Settings.Width.Switch(
-            screen: static screen => (screen.Width, WidthUnits: global::Rhino.UnitSystem.None, Taper: screen.Taper.Map(static taper => taper.Lowered(identity))),
-            distance: static distance => (Width: Millimeters(distance.Width), WidthUnits: global::Rhino.UnitSystem.Millimeters, Taper: distance.Taper.Map(static taper => taper.Lowered(Millimeters))))
+            screen: static screen => (screen.Width, WidthUnits: UnitSystem.None, Taper: screen.Taper.Map(static taper => taper.Lowered(identity))),
+            distance: static distance => (Width: Millimeters(distance.Width), WidthUnits: UnitSystem.Millimeters, Taper: distance.Taper.Map(static taper => taper.Lowered(Millimeters))))
         from styled in IO.lift(() => Write((definition.Settings.LineCapStyle, definition.Settings.LineJoinStyle, definition.Settings.AlwaysModelDistances, stroke.Width, stroke.WidthUnits), staged))
         from tapered in IO.lift(() => stroke.Taper.Match(
             Some: taper => staged.SetTaper(taper.Start, taper.Waist.IfNone(Point2d.Unset), taper.End),
@@ -154,11 +153,11 @@ public static partial class Linetypes {
         select unit;
 
     public static IO<int> AddReference(RhinoDoc doc, string name, LinetypeDefinition definition) =>
-        (from staged in use(static () => new Linetype())
+        DisposalOps.Within(static () => new Linetype(), staged =>
          from named in TableOps.Named(staged, Some(name))
          from written in Written(staged, definition)
          from index in IO.lift(() => Conversions.Required(doc.Linetypes.AddReferenceLinetype(staged), nameof(LinetypeTable.AddReferenceLinetype)))
-         select index).Bracket();
+         select index, static staged => IO.lift(staged.Dispose));
 
     // --- [TABLE]
     public static IO<LinetypeTableState> ReadTable(RhinoDoc doc) =>
@@ -188,27 +187,27 @@ public static partial class Linetypes {
 
     // --- [TEXT]
     public static IO<LinetypePattern> Parse(string text, bool millimeters) =>
-        (from parsed in use(IO.lift(() => Optional(Linetype.CreateFromPatternString(text, millimeters))
-             .ToFin(new UnparsedText(typeof(Linetype), nameof(Linetype.CreateFromPatternString), text))))
+        DisposalOps.Within(() => Linetype.CreateFromPatternString(text, millimeters), native =>
+         from parsed in IO.lift(() => Optional(native).ToFin(new UnparsedText(typeof(Linetype), nameof(Linetype.CreateFromPatternString), text)))
          from pattern in IO.lift(Fin<LinetypePattern> () => LinetypePattern.Validate(Segments(parsed), out LinetypePattern? value) is { } error ? error : value!)
-         select pattern).Bracket();
+         select pattern, static native => DisposalOps.Release(Optional(native).ToSeq()));
 
     public static IO<string> Text(LinetypePattern pattern, bool millimeters) =>
-        (from scratch in use(static () => new Linetype())
+        DisposalOps.Within(static () => new Linetype(), scratch =>
          from written in IO.lift(() => Refused.Unless(scratch.SetSegments(pattern.Segments.Map(Millimeters)), nameof(Linetype.SetSegments)))
          from text in IO.lift(() => scratch.PatternString(millimeters))
-         select text).Bracket();
+         select text, static scratch => IO.lift(scratch.Dispose));
 
     // --- [FILES]
     public static IO<Seq<(string Name, LinetypeDefinition Definition)>> ReadFile(string path) =>
         from existing in IO.lift(() => Exchange.ExistingPath(path))
-        from rows in IO.lift(() => Conversions.Rows(Linetype.ReadFromFile(existing))).Bracket(
-            Use: static held => held.TraverseM(static row => (IO.pure(row.Name), Definition(row)).Apply(ValueTuple.Create).As()).As(),
-            Fin: DisposalOps.Release)
+        from rows in DisposalOps.Within(() => Linetype.ReadFromFile(existing),
+            static held => Conversions.Rows(held).TraverseM(static row => (IO.pure(row.Name), Definition(row)).Apply(ValueTuple.Create).As()).As(),
+            static held => DisposalOps.Release(Conversions.Rows(held)))
         select rows;
 
     // --- [MAPPING]
-    private static partial void Write((LineCapStyle LineCapStyle, LineJoinStyle LineJoinStyle, bool AlwaysModelDistances, double Width, global::Rhino.UnitSystem WidthUnits) source, Linetype target);
+    private static partial void Write((LineCapStyle LineCapStyle, LineJoinStyle LineJoinStyle, bool AlwaysModelDistances, double Width, UnitSystem WidthUnits) source, Linetype target);
 
     private static partial void Write((Length ShapeSpacing, Length ShapeGap, Vector2d ShapeLocalOffset) source, Linetype target);
 

@@ -1,7 +1,6 @@
 using Rasm.Rhino.Document.Notation;
 using Rasm.Rhino.Document.Shapes;
 using Rhino.Geometry.MeshRefinements;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Modeling.Meshes;
 
@@ -56,17 +55,17 @@ public readonly partial struct RefinementLevel : System.Numerics.IMinMaxValue<Re
         validationError = value.CompareTo(MinValue._value) >= 0 ? null : new InvalidRhinoValue();
 }
 
-[Union<Brep, FaceSelection>(T2Name = "Mesh", MapMethods = SwitchMapMethodsGeneration.None)]
+[Union<Brep, FaceSelection>(T2Name = "Mesh", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class QuadSource {
     public sealed record FaceSelection(Mesh Mesh, Seq<int> FaceBlocks);
 }
 
-[Union<Seq<Mesh>, PointCloud, Meshable, Mesh>(T1Name = "Meshes", T2Name = "Cloud", MapMethods = SwitchMapMethodsGeneration.None)]
+[Union<Seq<Mesh>, PointCloud, Meshable, Mesh>(T1Name = "Meshes", T2Name = "Cloud", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class ShrinkWrapSource {
     public sealed record Meshable(Seq<GeometryBase> Items, MeshingParameters Meshing);
 }
 
-[Union<Convex, Seq<Point3d>, PointCloud>(T2Name = "Points", T3Name = "Cloud", MapMethods = SwitchMapMethodsGeneration.None)]
+[Union<Convex, Seq<Point3d>, PointCloud>(T2Name = "Points", T3Name = "Cloud", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class HullSource {
     public sealed record Convex(Seq<Point3d> Points, Tolerances Tolerances);
 }
@@ -79,32 +78,23 @@ public abstract partial record PatchBoundary {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class RefinementMapper {
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial RefinementSettings ToSettings((RefinementLevel Level, CreaseEdges NakedEdgeMode, CancellationToken ContinueRequest) source);
-
-    [UserMapping]
-    private static int ToLevel(RefinementLevel level) => level;
-}
-
 public static class MeshConstruction {
     // --- [GENERATED]
-    public static IO<Mesh> QuadRemesh(QuadSource source, QuadRemeshParameters parameters, Seq<Curve> guides, Option<IProgress<int>> progress) =>
+    public static IO<Mesh> QuadRemesh(QuadSource source, QuadRemeshParameters parameters, Seq<Curve> guides, Option<IProgress<int>> progress, Action<IDisposable> retain) =>
         from token in cancelToken
         from mesh in source.Switch(
-            (Parameters: parameters, Guides: guides, Progress: progress.ValueUnsafe(), Token: token),
+            (Parameters: parameters, Guides: guides, Progress: progress.ValueUnsafe(), Token: token, Retain: retain),
             brep: static (state, brep) => Copies.Acquire(
                 () => Optional(Mesh.QuadRemeshBrep(brep, state.Parameters, state.Guides, state.Progress, state.Token))
                     .ToFin(state.Token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(Mesh.QuadRemeshBrep))),
-                nameof(Mesh.QuadRemeshBrep)),
+                nameof(Mesh.QuadRemeshBrep), state.Retain),
             mesh: static (state, of) => Copies.Acquire(
                 () => Optional(of.Mesh.QuadRemesh(of.FaceBlocks, state.Parameters, state.Guides, state.Progress, state.Token))
                     .ToFin(state.Token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(Mesh.QuadRemesh))),
-                nameof(Mesh.QuadRemesh)))
+                nameof(Mesh.QuadRemesh), state.Retain))
         select mesh;
 
-    public static IO<Mesh> ShrinkWrap(ShrinkWrapSource source, ShrinkWrapParameters parameters) =>
+    public static IO<Mesh> ShrinkWrap(ShrinkWrapSource source, ShrinkWrapParameters parameters, Action<IDisposable> retain) =>
         from token in cancelToken
         from mesh in Copies.Acquire(
             () => Optional(source.Switch(
@@ -114,18 +104,21 @@ public static class MeshConstruction {
                     meshable: static (state, of) => Mesh.ShrinkWrap(of.Items, state.Parameters, of.Meshing, state.Token),
                     mesh: static (state, mesh) => mesh.ShrinkWrap(state.Parameters, state.Token)))
                 .ToFin(token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(Mesh.ShrinkWrap))),
-            nameof(Mesh.ShrinkWrap))
+            nameof(Mesh.ShrinkWrap), retain)
         select mesh;
 
-    public static IO<(Mesh Mesh, Seq<Seq<int>> Facets)> CreateHull(HullSource source) =>
-        from answer in IO.lift(() => source.Switch(
-            convex: static of => (Mesh: Mesh.CreateConvexHull3D(of.Points, out int[][] facets, of.Tolerances.Absolute, of.Tolerances.Angle), Facets: toSeq(facets), Member: nameof(Mesh.CreateConvexHull3D)),
-            points: static points => (Mesh: Mesh.CreateQuickHull3D(points, out List<int[]> facets), Facets: Conversions.Rows(facets), Member: nameof(Mesh.CreateQuickHull3D)),
-            cloud: static cloud => (Mesh: Mesh.CreateQuickHull3D(cloud, out List<int[]> facets), Facets: Conversions.Rows(facets), Member: nameof(Mesh.CreateQuickHull3D))))
-        from mesh in Copies.Acquire(() => answer.Mesh, answer.Member)
-        select (mesh, answer.Facets.Map(static facet => toSeq(facet)).Strict());
+    public static IO<(Mesh Mesh, Seq<Seq<int>> Facets)> CreateHull(HullSource source, Action<IDisposable> retain) =>
+        Copies.Owned(
+            () => source.Switch<(Mesh? Mesh, IEnumerable<int[]>? Facets, string Member)>(
+                convex: static of => (Mesh.CreateConvexHull3D(of.Points, out int[][] facets, of.Tolerances.Absolute, of.Tolerances.Angle), facets, nameof(Mesh.CreateConvexHull3D)),
+                points: static points => (Mesh.CreateQuickHull3D(points, out List<int[]> facets), facets, nameof(Mesh.CreateQuickHull3D)),
+                cloud: static cloud => (Mesh.CreateQuickHull3D(cloud, out List<int[]> facets), facets, nameof(Mesh.CreateQuickHull3D))),
+            static answer => Missing.Unless(answer.Mesh, answer.Member).Bind(mesh => Measurements.Valid(mesh, answer.Member))
+                .Map(mesh => (mesh, Conversions.Rows(answer.Facets).Map(static facet => toSeq(facet)).Strict())),
+            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer.Mesh })),
+            retain);
 
-    public static IO<Mesh> CreatePatch(PatchBoundary boundary, Seq<Curve> innerBoundaries, Seq<Curve> innerBothSides, Seq<Point3d> innerPoints, Tolerances tolerances) =>
+    public static IO<Mesh> CreatePatch(PatchBoundary boundary, Seq<Curve> innerBoundaries, Seq<Curve> innerBothSides, Seq<Point3d> innerPoints, Tolerances tolerances, Action<IDisposable> retain) =>
         from boundaries in IO.lift(() => Callbacks.Each(innerBoundaries, static curve => curve.IsClosed, nameof(Mesh.CreatePatch)))
         let patch = boundary.Switch(
             outline: static of => (Boundary: Some(of.Boundary), Surface: of.Pullback, Trimback: false, Divisions: 0),
@@ -134,32 +127,32 @@ public static class MeshConstruction {
             () => Callbacks.Thrown<ArgumentException, Mesh>(
                 () => Mesh.CreatePatch(patch.Boundary.ValueUnsafe(), tolerances.Angle, patch.Surface.ValueUnsafe(), innerBoundaries, innerBothSides, innerPoints, patch.Trimback, patch.Divisions),
                 nameof(Mesh.CreatePatch)),
-            nameof(Mesh.CreatePatch))
+            nameof(Mesh.CreatePatch), retain)
         select mesh;
 
     // --- [REBUILT]
-    public static IO<Option<Seq<Option<Mesh>>>> CreateFromIterativeCleanup(Seq<Mesh> meshes, Tolerances tolerances) =>
+    public static IO<Option<Seq<Option<Mesh>>>> CreateFromIterativeCleanup(Seq<Mesh> meshes, Tolerances tolerances, Action<IDisposable> retain) =>
         Copies.Owned(
-            IO.lift(() => Optional(Mesh.CreateFromIterativeCleanup(meshes, tolerances.Absolute))),
+            () => Optional(Mesh.CreateFromIterativeCleanup(meshes, tolerances.Absolute)),
             static products => products.Traverse(static rows => Measurements.Valid(toSeq(rows).Map(Optional), nameof(Mesh.CreateFromIterativeCleanup))).As(),
-            static products => DisposalOps.Release(products.ToSeq().Bind(static rows => Conversions.Rows(rows))));
+            static products => DisposalOps.Release(products.ToSeq().Bind(static rows => Conversions.Rows(rows))), retain);
 
-    public static IO<Mesh> CreateFromFilteredFaceList(Mesh mesh, Seq<int> faces) =>
+    public static IO<Mesh> CreateFromFilteredFaceList(Mesh mesh, Seq<int> faces, Action<IDisposable> retain) =>
         from count in IO.lift(() => mesh.Faces.Count)
         from filtered in Copies.Acquire(
             () => Copies.InRange(faces, count, nameof(Mesh.CreateFromFilteredFaceList))
                 .Map(_ => Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, count)).Map(toHashSet(faces).Contains))),
-            nameof(Mesh.CreateFromFilteredFaceList))
+            nameof(Mesh.CreateFromFilteredFaceList), retain)
         select filtered;
 
-    public static IO<Mesh> Refine(Mesh mesh, Option<LoopFormula> loop, RefinementLevel level, CreaseEdges nakedEdgeMode) =>
+    public static IO<Mesh> Refine(Mesh mesh, Option<LoopFormula> loop, RefinementLevel level, CreaseEdges nakedEdgeMode, Action<IDisposable> retain) =>
         from token in cancelToken
-        let settings = RefinementMapper.ToSettings((level, nakedEdgeMode, token))
+        let settings = new RefinementSettings { Level = level, NakedEdgeMode = nakedEdgeMode, ContinueRequest = token }
         from refined in Copies.Owned(
-            Try.lift(() => loop.Match(
+            () => loop.Match(
                 Some: formula => (Mesh: Mesh.CreateRefinedLoopMesh(mesh, formula, settings), Member: nameof(Mesh.CreateRefinedLoopMesh)),
-                None: () => (Mesh: Mesh.CreateRefinedCatmullClarkMesh(mesh, settings), Member: nameof(Mesh.CreateRefinedCatmullClarkMesh)))).ToIO(),
+                None: () => (Mesh: Mesh.CreateRefinedCatmullClarkMesh(mesh, settings), Member: nameof(Mesh.CreateRefinedCatmullClarkMesh))),
             static answer => Measurements.Valid(answer.Mesh, answer.Member),
-            static answer => IO.lift(answer.Mesh.Dispose))
+            static answer => IO.lift(answer.Mesh.Dispose), retain)
         select refined;
 }

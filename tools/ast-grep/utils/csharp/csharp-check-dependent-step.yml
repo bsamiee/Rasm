@@ -58,8 +58,9 @@ rule:
                 pattern: $DERIVED
                 inside:
                     stopBy: end
-                    kind: query_expression
-                    has:
+                    kind: from_clause, let_clause
+                    follows:
+                        stopBy: end
                         kind: let_clause
                         all:
                             - has: {kind: identifier, nthChild: 1, pattern: $DERIVED}

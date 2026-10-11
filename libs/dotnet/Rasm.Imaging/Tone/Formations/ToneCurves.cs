@@ -346,11 +346,12 @@ public readonly record struct LogarithmicCurve(float WhiteTarget, float Normaliz
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ToneCurves {
     private static readonly Action<Span<Vector4>> Desaturated = static row => {
-        foreach (ref Vector4 pixel in row)
-            pixel = (float.Max((pixel.X + pixel.Y + pixel.Z) / 3f, 0f), float.Min(pixel.X, float.Min(pixel.Y, pixel.Z))) switch {
-                var (average, least) when least < 0f => new Vector4(new Vector3(average) + (-average / (least - average) * (pixel.AsVector3() - new Vector3(average))), pixel.W),
-                _ => pixel,
-            };
+        foreach (ref Vector4 pixel in row) {
+            double average = double.Max(((double)pixel.X + pixel.Y + pixel.Z) / 3d, 0d);
+            double least = float.Min(pixel.X, float.Min(pixel.Y, pixel.Z));
+            double amount = least < 0d ? -least / (average - least) : 0d;
+            pixel = new Vector4((float)double.Lerp(pixel.X, average, amount), (float)double.Lerp(pixel.Y, average, amount), (float)double.Lerp(pixel.Z, average, amount), pixel.W);
+        }
     };
 
     private static readonly Action<Span<Vector4>> Neutral = static row => {
@@ -374,9 +375,9 @@ public static class ToneCurves {
             : input.X >= input.Z ? (2, 0, 1) : input.Z > input.Y ? (0, 1, 2) : (0, 2, 1);
         float hue = preserve;
         float chroma = input[max] - input[min];
-        float midscale = chroma != 0f ? (input[mid] - input[min]) / chroma : 0f;
+        float midscale = chroma is not 0f ? (input[mid] - input[min]) / chroma : 0f;
         float naive = ((1f - hue) * mapped[mid]) + (hue * (mapped[min] + ((mapped[max] - mapped[min]) * midscale)));
-        float blend = input[min] + input[mid] != 0f ? 2f * input[min] / (input[min] + input[mid]) : 0f;
+        float blend = input[min] + input[mid] is not 0f ? 2f * input[min] / (input[min] + input[mid]) : 0f;
         float target = (blend * (mapped.X + mapped.Y + mapped.Z)) + ((1f - blend) * (mapped[min] + naive + mapped[max]));
         (float low, float middle, float high) = naive <= mapped[mid]
             ? ((((1f - hue) * mapped[mid]) + (hue * ((midscale * mapped[max]) + ((1f - midscale) * (target - mapped[max]))))) / (1f + (hue * (1f - midscale)))) switch {
@@ -406,13 +407,18 @@ public static class ToneCurves {
         ToneMapped(context, ToneMapOperator.Reinhard, new ToneMapParameters());
 
     internal static PixelPass ReinhardExtended(ToneMapping state, PassContext context) =>
-        Whitened(context, state.ReinhardWhite.Active, white => ToneMapped(context, ToneMapOperator.ReinhardExtended, new ToneMapParameters(whitePoint: white)));
+        Whitened(context, state.ReinhardWhite.Active, white => Curved(context, context.Working,
+            Seq<Action<Span<Vector4>>>(row => TransferCurve.PerLane(row, value => value / (1d + value) * (1d + (value / ((double)white * white)))))));
 
-    internal static PixelPass Hable(ToneMapping state, PassContext context) =>
-        state.Hable switch {
-            var hable => Whitened(context, hable.White.Active, white => ToneMapped(context, ToneMapOperator.Hable, new ToneMapParameters(
-                a: hable.A, b: hable.B, c: hable.C, d: hable.D, e: (float)hable.B != 0f ? float.Min(hable.E, hable.C * (float)hable.F) : hable.E, f: hable.F, w: white))),
-        };
+    internal static PixelPass Hable(ToneMapping state, PassContext context) {
+        HableState hable = state.Hable;
+        (double a, double b, double c, double d, double e, double f) = ((float)hable.A, (float)hable.B, (float)hable.C, (float)hable.D, (float)hable.E, (float)hable.F);
+        double Curve(double value) => value * ((a * value * (f - e)) + (b * ((c * f) - e))) / (f * ((value * ((a * value) + b)) + (d * f)));
+        return Whitened(context, hable.White.Active, white => Curve(white) switch {
+            0d => new UndefinedHableNormalization(white),
+            var normalization => Curved(context, context.Working, Seq<Action<Span<Vector4>>>(row => TransferCurve.PerLane(row, value => Curve(value) / normalization))),
+        });
+    }
 
     internal static PixelPass PbrNeutral(ToneMapping _, PassContext context) =>
         Curved(context, Gamut.StandardRgb, Seq(Neutral));
@@ -420,24 +426,24 @@ public static class ToneCurves {
     private static PixelPass.Color Applied<TCurve>(ToneMapping state, PassContext context, TCurve curve) where TCurve : struct, IToneCurve {
         (CurveApplication application, Gamut basis) = (state.Application, state.Application.BasePrimaries.IfNone(context.Working));
         return Curved(context, basis, Seq(
-            new LutTable.Affine(Gamut.Between(Adjusted(basis, application, Factor.MaxValue), basis.Configuration), Vector3.Zero).Apply,
+            new LutTable.Affine(Gamut.Between(Adjusted(basis, application, Factor.MaxValue), basis.Configuration), (0d, 0d, 0d)).Apply,
             row => {
                 foreach (ref Vector4 pixel in row)
                     pixel = new Vector4(PreserveHue(pixel.AsVector3(), new Vector3(curve.Map(pixel.X), curve.Map(pixel.Y), curve.Map(pixel.Z)), application.PreserveHue), pixel.W);
             },
-            new LutTable.Affine(Gamut.Between(basis.Configuration, Adjusted(basis, application, application.Purity)), Vector3.Zero).Apply));
+            new LutTable.Affine(Gamut.Between(basis.Configuration, Adjusted(basis, application, application.Purity)), (0d, 0d, 0d)).Apply));
     }
 
     private static PixelPass.Color Curved(PassContext context, Gamut basis, Seq<Action<Span<Vector4>>> curve) =>
         Formation.Formed(
-            Seq(new LutTable.Affine(context.Working.MatrixTo(basis), Vector3.Zero).Apply, Desaturated) + curve,
+            Seq(new LutTable.Affine(context.Working.MatrixTo(basis), (0d, 0d, 0d)).Apply, Desaturated) + curve,
             new ColorEncoding(basis, new Transfer.Standard(TransferCurve.Linear), Nits.ReferenceWhite), context.Display);
 
-    private static PixelPass Whitened(PassContext context, Option<Exposure> white, Func<float, PixelPass> formed) =>
+    private static PixelPass Whitened(PassContext context, Option<Exposure> white, Func<float, Fin<PixelPass>> formed) =>
         white.Match(
-            Some: manual => formed(manual.Scale),
+            Some: manual => formed(manual.Scale).IfFail(static error => new PixelPass.Frame((_, _) => error)),
             None: () => Measured(context, (_, samples) =>
-                Exposure.Validate(float.Log2(samples.FrameWhite), provider: null, out Exposure measured) is null
+                Exposure.Validate((float)double.Log2(samples.FrameWhite), provider: null, out Exposure measured) is null
                     ? formed(measured.Scale)
                     : new FrameWhiteOutOfRange(samples.FrameWhite)));
 
@@ -453,27 +459,35 @@ public static class ToneCurves {
             ImageProcessing.ToneMap(lanes, lanes, 4, operation, parameters);
         }));
 
-    private static Action<Span<Vector4>> Adapted(PhotoreceptorState state, Vector3 weights, PixelFrame frame, (float Mean, float Maximum, float Minimum) logs) {
+    private static Action<Span<Vector4>> Adapted(PhotoreceptorState state, (double X, double Y, double Z) weights, PixelFrame frame, (double Mean, double Maximum, double Minimum) logs) {
         (double red, double green, double blue, long count) = (0d, 0d, 0d, 0L);
-        foreach (Vector4 pixel in frame.View.Span)
-            (red, green, blue, count) = pixel.W > 0f ? (red + pixel.X, green + pixel.Y, blue + pixel.Z, count + 1L) : (red, green, blue, count);
-        Vector3 mean = new((float)(red / count), (float)(green / count), (float)(blue / count));
-        float intensity = MathF.Exp(-(float)state.Intensity);
-        float contrast = state.Contrast.Active.Match(
-            Some: static manual => (float)manual,
-            None: () => logs.Maximum == logs.Minimum ? 1f : ReceptorContrast.Flattest + ((1f - ReceptorContrast.Flattest) * MathF.Pow((logs.Maximum - logs.Mean) / (logs.Maximum - logs.Minimum), 1.4f)));
-        (float light, float chromatic) = (state.LightAdaptation, state.ChromaticAdaptation);
-        Vector3 global = Vector3.Lerp(new Vector3(Vector3.Dot(weights, mean)), mean, chromatic);
-        Vector3 resting = Raised(intensity * global, contrast);
+        foreach (Vector4 pixel in frame.View.Span) {
+            Vector4 sample = pixel;
+            Desaturated(new Span<Vector4>(ref sample));
+            (red, green, blue, count) = pixel.W > 0f && double.IsFinite(LuminanceSamples.Luminance(pixel.AsVector3(), weights))
+                ? (red + sample.X, green + sample.Y, blue + sample.Z, count + 1L) : (red, green, blue, count);
+        }
+        (double r, double g, double b) = (red / count, green / count, blue / count);
+        double mean = (weights.X * r) + (weights.Y * g) + (weights.Z * b);
+        double intensity = double.Exp(-(float)state.Intensity);
+        double contrast = state.Contrast.Active.Match(
+            Some: static manual => (double)(float)manual,
+            None: () => logs.Maximum == logs.Minimum ? 1d : ReceptorContrast.Flattest + ((1d - ReceptorContrast.Flattest) * double.Pow((logs.Maximum - logs.Mean) / (logs.Maximum - logs.Minimum), 1.4d)));
+        (double light, double chromatic) = ((float)state.LightAdaptation, (float)state.ChromaticAdaptation);
+        (double globalR, double globalG, double globalB) = (double.Lerp(mean, r, chromatic), double.Lerp(mean, g, chromatic), double.Lerp(mean, b, chromatic));
         return row => {
             foreach (ref Vector4 pixel in row) {
                 Vector3 color = pixel.AsVector3();
-                Vector3 total = color + (light == 0f ? resting : Raised(intensity * Vector3.Lerp(global, Vector3.Lerp(new Vector3(Vector3.Dot(weights, color)), color, chromatic), light), contrast));
-                pixel = new Vector4(Vector3.ConditionalSelect(Vector3.Equals(total, Vector3.Zero), Vector3.Zero, color / total), pixel.W);
+                double luminance = LuminanceSamples.Luminance(color, weights);
+                pixel = new Vector4(Mapped(color.X, globalR, luminance), Mapped(color.Y, globalG, luminance), Mapped(color.Z, globalB, luminance), pixel.W);
             }
         };
 
-        static Vector3 Raised(Vector3 value, float power) => new(MathF.Pow(value.X, power), MathF.Pow(value.Y, power), MathF.Pow(value.Z, power));
+        float Mapped(double channel, double average, double luminance) =>
+            (channel + double.Pow(intensity * double.Lerp(average, double.Lerp(luminance, channel, chromatic), light), contrast)) switch {
+                0d => 0f,
+                var total => (float)(channel / total),
+            };
     }
 
     private static Configuration Adjusted(Gamut basis, CurveApplication application, Factor share) =>

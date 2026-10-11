@@ -31,7 +31,7 @@ public static class DefinitionPlans {
     private static IO<Seq<DefinitionOp>> Upserted(TableUpsert<InstanceDefinition, PlannedDefinition> upsert) =>
         from compared in upsert.Existing.TraverseM(live => Stored(live, upsert.Spec)).As()
         let metadata = new DefinitionMetadata(upsert.Name, upsert.Spec.Description, upsert.Spec.Link)
-        let stored = compared.Contains(true)
+        let stored = compared.Exists(static same => same)
         select upsert.Existing.Filter(live => stored ? DefinitionMetadata.Of(live) != metadata : !string.Equals(live.Name, metadata.Name, StringComparison.Ordinal))
             .Map<DefinitionOp>(live => new DefinitionOp.Edit(new ComponentRef<InstanceDefinition>.ById(live.Id), new DefinitionEdit.Modify(metadata))).ToSeq()
             + (stored ? Seq<DefinitionOp>() : Seq<DefinitionOp>(new DefinitionOp.Add(metadata, upsert.Spec.BasePoint, upsert.Spec.Members, upsert.Existing.IsSome)));
@@ -46,7 +46,9 @@ public static class DefinitionPlans {
         select same;
 
     private static IO<bool> Same(GeometryBase planned, Point3d basePoint, GeometryBase stored) =>
-        (from placed in use(Copies.DuplicateShallow(planned))
-         from translated in IO.lift(Refused.Unless(placed.Translate(Point3d.Origin - basePoint), nameof(GeometryBase.Translate)))
-         select GeometryBase.GeometryEquals(placed, stored)).Bracket();
+        DisposalOps.Within<IDisposable, bool>(
+            retain => Copies.DuplicateShallow(planned, retain).Bind(placed => IO.lift(() =>
+                Refused.Unless(placed.Translate(Point3d.Origin - basePoint), nameof(GeometryBase.Translate))
+                    .Map(_ => GeometryBase.GeometryEquals(placed, stored)))),
+            DisposalOps.Release);
 }

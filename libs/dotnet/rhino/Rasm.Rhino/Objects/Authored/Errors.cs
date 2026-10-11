@@ -3,7 +3,7 @@ namespace Rasm.Rhino.Objects.Authored;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     MissingHistoryInput = 1,
-    StaleHistory,
+    StaleHistory = 2,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

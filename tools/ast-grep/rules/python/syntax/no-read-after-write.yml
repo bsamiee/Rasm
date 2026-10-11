@@ -91,6 +91,5 @@ rule:
                 follows:
                     stopBy: {kind: expression_statement, has: {kind: assignment, has: {field: left, pattern: $READ}}}
                     matches: assigned
-fix: $TARGET$SIMULATED
-message: '`$READ$SIMULATED` reads state back from its own write or sets host state through simulated input, the written value or a member the host reads states it'
-note: 'Fix replaces a read following a write on difference or an assignment of a plain value with the written value, simulated input keeps its text for a rewrite to a member or stored file the host reads'
+message: '`$READ$SIMULATED` reads after a write or changes state through simulated input'
+note: 'Use native setter outcomes or events for committed state, and native state operations for simulated input. Requested values do not establish committed values'

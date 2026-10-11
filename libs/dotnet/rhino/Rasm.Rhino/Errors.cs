@@ -6,18 +6,18 @@ namespace Rasm.Rhino;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     Refused = 1,
-    RefusedElement,
-    Missing,
-    InvalidAnswer,
-    CountMismatch,
-    IndexOutOfRange,
-    WrongType,
-    Duplicate,
-    Taken,
-    MissingGuid,
-    Ended,
-    InvalidRhinoValue,
-    UnrepresentableSpan,
+    RefusedElement = 2,
+    Missing = 3,
+    InvalidAnswer = 4,
+    CountMismatch = 5,
+    IndexOutOfRange = 6,
+    WrongType = 7,
+    Duplicate = 8,
+    Taken = 9,
+    MissingGuid = 10,
+    Ended = 11,
+    InvalidRhinoValue = 12,
+    UnrepresentableSpan = 13,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -35,6 +35,8 @@ public sealed record RefusedElement(string Member, int Index) : Expected("{Membe
 
 public sealed record Missing(string Member) : Expected("{Member} answered nothing", (int)Codes.Missing) {
     public static Fin<Unit> Unless(bool found, string member) => found ? unit : new Missing(member);
+
+    public static Fin<T> Unless<T>(bool found, T value, string member) => found ? value : new Missing(member);
 
     public static Fin<T> Unless<T>(T? value, string member) where T : class => value is { } found ? found : new Missing(member);
 }

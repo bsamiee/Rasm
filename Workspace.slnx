@@ -14,6 +14,7 @@
         <Project Path="libs/dotnet/Rasm.Imaging.Filters/Rasm.Imaging.Filters.csproj" />
     </Folder>
     <Folder Name="/libs/dotnet/rhino/">
+        <Project Path="libs/dotnet/rhino/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
         <Project Path="libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </Folder>
     <Folder Name="/tests/dotnet/">

@@ -3,8 +3,8 @@ namespace Rasm.Rhino.Modeling;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     OpenBoundary = 1,
-    VariationalPatchFailed,
-    OutOfDomain,
+    VariationalPatchFailed = 2,
+    OutOfDomain = 3,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

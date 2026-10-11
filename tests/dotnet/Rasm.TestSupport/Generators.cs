@@ -80,7 +80,7 @@ public static class Generators {
         ArgumentOutOfRangeException.ThrowIfLessThan(dimension, 1);
         return UnitVector(dimension).Array[dimension].Select(Gen.Bool, static (reflectors, flip) => {
             double[][] q = reflectors.Aggregate(seed: IdentityMatrix(reflectors.Length), func: Reflect);
-            return flip ? [.. q.Select(static (row, i) => i == 0 ? [.. row.Select(static x => -x)] : row)] : q;
+            return flip ? [.. q.Select(static (row, i) => i is 0 ? [.. row.Select(static x => -x)] : row)] : q;
         });
     }
     public static Gen<double[][]> SymmetricPositiveDefiniteMatrix(int dimension, double conditionNumber) {
@@ -88,7 +88,7 @@ public static class Generators {
         ArgumentOutOfRangeException.ThrowIfLessThan(conditionNumber, 1.0);
         ArgumentOutOfRangeException.ThrowIfEqual(conditionNumber, double.PositiveInfinity);
         return OrthogonalMatrix(dimension).Select(orthogonal => {
-            double[] spectrum = [.. Enumerable.Range(0, dimension).Select(index => Math.Pow(conditionNumber, dimension == 1 ? 0.0 : -(double)index / (dimension - 1)))];
+            double[] spectrum = [.. Enumerable.Range(0, dimension).Select(index => Math.Pow(conditionNumber, dimension is 1 ? 0.0 : -(double)index / (dimension - 1)))];
             IEnumerable<double> entries =
                 from row in Enumerable.Range(0, dimension)
                 from column in Enumerable.Range(0, dimension)

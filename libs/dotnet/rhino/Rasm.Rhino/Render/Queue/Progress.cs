@@ -9,6 +9,22 @@ using Rasm.Rhino.Document.Files;
 namespace Rasm.Rhino.Render.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
+[ComplexValueObject]
+[ValidationError<InvalidRhinoValue>]
+public sealed partial class QueueHeartbeat {
+    public Duration Interval { get; }
+    public int Misses { get; }
+
+    public static QueueHeartbeat Default { get; } = new(Duration.FromSeconds(3), 10);
+    public static (Duration Low, Duration High) Intervals { get; } = (Duration.FromMilliseconds(1), Duration.FromMilliseconds(uint.MaxValue - 1));
+    public static (int Low, int High) MissedIntervals { get; } = (2, int.MaxValue);
+
+    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Duration interval, ref int misses) =>
+        validationError = interval >= Intervals.Low && interval <= Intervals.High && misses >= MissedIntervals.Low
+            ? null
+            : new InvalidRhinoValue();
+}
+
 [SmartEnum<string>]
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -34,7 +50,10 @@ public sealed record EntryProgress(Option<SequenceNumber> Last, Seq<Duration> Ti
 public sealed record QueueProgress(
     Option<string> Job, int ProcessId, Instant ProcessStart, RetryCount Retries, RetryDelay Delay, Option<RunEnd> Ended, HashMap<ContentKey, EntryProgress> Entries) {
     // --- [FILE]
-    public static Duration Heartbeat { get; } = Duration.FromSeconds(3);
+    public static IO<FileStream> Acquire(OutputPath path, Action<FileStream> retain) =>
+        DisposalOps.Acquire(
+            IO.lift(() => File.Open($"{(string)path}.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)),
+            static stream => IO.lift(stream.Dispose), retain);
 
     public static IO<Option<QueueProgress>> Read(OutputPath path) =>
         IO.lift(() => File.ReadAllBytes(path))
@@ -45,10 +64,10 @@ public sealed record QueueProgress(
             .Catch(static error => error.HasException<FileNotFoundException>(), static _ => IO.pure(Option<QueueProgress>.None));
 
     public static IO<Unit> Write(OutputPath path, QueueProgress progress) =>
-        $"{(string)path}.partial" switch {
-            var partial => IO.lift(() => File.WriteAllBytes(partial, JsonSerializer.SerializeToUtf8Bytes(ProgressMapper.ToRecord(progress), ProgressContext.Default.ProgressRecord)))
-                .Bind(_ => IO.lift(() => File.Move(partial, path, overwrite: true))),
-        };
+        FilePublication.Write(path, overwrite: true, stream => IO.liftAsync(async environment => {
+            await JsonSerializer.SerializeAsync(stream, ProgressMapper.ToRecord(progress), ProgressContext.Default.ProgressRecord, environment.Token).ConfigureAwait(false);
+            return unit;
+        }));
 
     public static IO<Unit> Touch(OutputPath path, TimeProvider clock) =>
         IO.lift(() => File.SetLastWriteTimeUtc(path, clock.GetUtcNow().UtcDateTime));
@@ -67,15 +86,13 @@ public sealed record QueueProgress(
             .Bracket();
 
     // --- [STATE]
-    public static Duration Stale { get; } = Duration.FromSeconds(30);
-
     public bool Succeeded => Ended.Exists(static end => end == RunEnd.Succeeded);
 
-    public int Landed => Entries.Values.Fold(0, static (sum, entry) => sum + entry.Times.Count);
+    public long Landed => Entries.Values.Fold(0L, static (sum, entry) => sum + entry.Times.Count);
 
     public Option<Relaunch> Relaunch => Job.Map(job => new Relaunch(job, Delay));
 
-    public static IO<RunState> State(Option<QueueProgress> record, OutputPath path, TimeProvider clock) =>
+    public static IO<RunState> State(Option<QueueProgress> record, OutputPath path, TimeProvider clock, QueueHeartbeat heartbeat) =>
         record.Match(
             Some: held => held.Ended.Match(
                 Some: static end => IO.pure<RunState>(new RunState.Ended(end)),
@@ -83,7 +100,9 @@ public sealed record QueueProgress(
                     from heard in IO.lift(() => File.GetLastWriteTimeUtc(path).ToInstant())
                     from now in IO.lift(clock.GetCurrentInstant)
                     from live in Live(held)
-                    select live && now - heard <= Stale ? (RunState)new RunState.Active(held.ProcessId, heard) : new RunState.Crashed(heard)),
+                    select live && (now - heard).ToInt128Nanoseconds() < heartbeat.Interval.ToInt128Nanoseconds() * heartbeat.Misses
+                        ? (RunState)new RunState.Active(held.ProcessId, heard)
+                        : new RunState.Crashed(heard)),
             None: static () => IO.pure<RunState>(new RunState.Absent()));
 
     private static IO<bool> Live(QueueProgress record) =>

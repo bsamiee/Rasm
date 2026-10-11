@@ -3,6 +3,8 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance.Buffers;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.Pixels;
 using SixLabors.ImageSharp.Metadata.Profiles.Cicp;
 using TinyEXR;
@@ -62,21 +64,21 @@ public sealed partial class Gamut {
         (float)Configuration.Rgb.ChromaticityB.X, (float)Configuration.Rgb.ChromaticityB.Y,
         (float)Configuration.Rgb.WhitePoint.Chromaticity.X, (float)Configuration.Rgb.WhitePoint.Chromaticity.Y);
 
-    public ColorMatrix3x3 ToXyz => Columns(basis => new Unicolour(Configuration, ColourSpace.RgbLinear, basis).Xyz.Tuple);
+    public Matrix<double> ToXyz => Columns(basis => new Unicolour(Configuration, ColourSpace.RgbLinear, basis).Xyz.Tuple);
 
-    public ColorMatrix3x3 FromXyz => Columns(basis => new Unicolour(Configuration, ColourSpace.Xyz, basis).RgbLinear.Tuple);
+    public Matrix<double> FromXyz => Columns(basis => new Unicolour(Configuration, ColourSpace.Xyz, basis).RgbLinear.Tuple);
 
-    public Vector3 Luminance => ToXyz switch {
-        var matrix => new(matrix.M21, matrix.M22, matrix.M23),
+    public (double X, double Y, double Z) Luminance => ToXyz switch {
+        var matrix => (matrix[1, 0], matrix[1, 1], matrix[1, 2]),
     };
 
-    public (Vector3 Red, Vector3 Green, Vector3 Blue) XyzColumns => ToXyz switch {
-        var matrix => (new(matrix.M11, matrix.M21, matrix.M31), new(matrix.M12, matrix.M22, matrix.M32), new(matrix.M13, matrix.M23, matrix.M33)),
+    public ((double X, double Y, double Z) Red, (double X, double Y, double Z) Green, (double X, double Y, double Z) Blue) XyzColumns => ToXyz switch {
+        var matrix => ((matrix[0, 0], matrix[1, 0], matrix[2, 0]), (matrix[0, 1], matrix[1, 1], matrix[2, 1]), (matrix[0, 2], matrix[1, 2], matrix[2, 2])),
     };
 
-    public ColorMatrix3x3 MatrixTo(Gamut target) => Between(Configuration, target.Configuration);
+    public Matrix<double> MatrixTo(Gamut target) => Between(Configuration, target.Configuration);
 
-    public ColorMatrix3x3 Adapting(WhitePoint source, WhitePoint destination) =>
+    public Matrix<double> Adapting(WhitePoint source, WhitePoint destination) =>
         (new Configuration(xyzConfig: new XyzConfiguration(source)), new Configuration(xyzConfig: new XyzConfiguration(destination))) switch {
             var (from, to) => Columns(basis => new Unicolour(
                 Configuration, ColourSpace.Xyz,
@@ -88,13 +90,13 @@ public sealed partial class Gamut {
         return toSeq(Items).Find(gamut => Vector256.LessThanOrEqualAll(Vector256.Abs(Coordinates(gamut.Chromaticities) - Coordinates(stated)), Vector256.Create(1e-4f)));
     }
 
-    public static ColorMatrix3x3 Between(Configuration from, Configuration to) =>
+    public static Matrix<double> Between(Configuration from, Configuration to) =>
         Columns(basis => new Unicolour(from, ColourSpace.RgbLinear, basis).ConvertToConfiguration(to).RgbLinear.Tuple);
 
-    internal static ColorMatrix3x3 Columns(Func<(double, double, double), (double, double, double)> column) =>
+    internal static Matrix<double> Columns(Func<(double, double, double), (double, double, double)> column) =>
         (column((1d, 0d, 0d)), column((0d, 1d, 0d)), column((0d, 0d, 1d))) switch {
             var ((r1, g1, b1), (r2, g2, b2), (r3, g3, b3)) =>
-                new((float)r1, (float)r2, (float)r3, (float)g1, (float)g2, (float)g3, (float)b1, (float)b2, (float)b3),
+                Matrix<double>.Build.DenseOfColumnMajor(3, 3, [r1, g1, b1, r2, g2, b2, r3, g3, b3]),
         };
 
     private static Configuration Linear(Chromaticity red, Chromaticity green, Chromaticity blue) =>
@@ -161,27 +163,31 @@ public sealed partial class TransferCurve {
     public static readonly TransferCurve Hlg = new(
         "hlg",
         static (row, white) => {
-            float scale = (float)white / (float)Nits.HlgPeak;
+            double scale = (double)white / Nits.HlgPeak;
             foreach (ref Vector4 pixel in row) {
-                Vector3 display = pixel.AsVector3() * scale;
-                pixel = new Vector4(display * float.Pow(float.Max(Vector3.Dot(display, HlgSystem.Weights), HlgSystem.DisplayFloor), (1f - HlgSystem.Gamma) / HlgSystem.Gamma), pixel.W);
+                Vector256<double> display = Vector256.Create(pixel.X, pixel.Y, pixel.Z, 0d) * scale;
+                double luminance = Vector256.Dot(display, HlgSystem.Weights);
+                Vector256<double> scene = display * double.Pow(double.Max(luminance, HlgSystem.DisplayFloor), (1d - HlgSystem.Gamma) / HlgSystem.Gamma);
+                pixel = new Vector4((float)scene[0], (float)scene[1], (float)scene[2], pixel.W);
                 ImageProcessing.EncodeTransfer(Lanes(ref pixel), Lanes(ref pixel), TransferFunction.Hlg);
             }
         },
         static (row, white) => {
-            float scale = (float)Nits.HlgPeak / (float)white;
+            double scale = (double)Nits.HlgPeak / white;
             foreach (ref Vector4 pixel in row) {
                 ImageProcessing.DecodeTransfer(Lanes(ref pixel), Lanes(ref pixel), TransferFunction.Hlg);
-                Vector3 scene = pixel.AsVector3();
-                pixel = new Vector4(scene * float.Pow(float.Max(Vector3.Dot(scene, HlgSystem.Weights), HlgSystem.SceneFloor), HlgSystem.Gamma - 1f) * scale, pixel.W);
+                Vector256<double> scene = Vector256.Create(pixel.X, pixel.Y, pixel.Z, 0d);
+                double luminance = Vector256.Dot(scene, HlgSystem.Weights);
+                Vector256<double> display = scene * (double.Pow(double.Max(luminance, HlgSystem.SceneFloor), HlgSystem.Gamma - 1d) * scale);
+                pixel = new Vector4((float)display[0], (float)display[1], (float)display[2], pixel.W);
             }
         });
     public static readonly TransferCurve AcesCct = new("acescct", static (row, _) => PerLane(row, RgbModels.Acescct.FromLinear), static (row, _) => PerLane(row, RgbModels.Acescct.ToLinear));
     public static readonly TransferCurve AcesCc = new("acescc", static (row, _) => PerLane(row, RgbModels.Acescc.FromLinear), static (row, _) => PerLane(row, RgbModels.Acescc.ToLinear));
 
-    private static readonly (Vector3 Weights, float Gamma, float SceneFloor, float DisplayFloor) HlgSystem =
-        (1.2f + (0.42f * float.Log10((float)Nits.HlgPeak / 1_000f))) switch {
-            var gamma => (Gamut.Rec2020.Luminance, gamma, float.Pow(1e-4f, 1f / gamma) / 3f, 1e-4f / float.Pow(3f, gamma)),
+    private static readonly (Vector256<double> Weights, double Gamma, double SceneFloor, double DisplayFloor) HlgSystem =
+        (Gamut.Rec2020.Luminance, 1.2d + (0.42d * double.Log10((double)Nits.HlgPeak / 1_000d))) switch {
+            var ((x, y, z), gamma) => (Vector256.Create(x, y, z, 0d), gamma, double.Pow(1e-4d, 1d / gamma) / 3d, 1e-4d / double.Pow(3d, gamma)),
         };
 
     [UseDelegateFromConstructor]
@@ -242,20 +248,59 @@ public abstract partial record Transfer : IConvertible<string> {
         return words;
     }
 
-    public sealed record Standard(TransferCurve Curve) : Transfer {
+    public sealed record Standard(TransferCurve Curve) : Transfer, IStateRecord<Standard, StandardTransferParameter, InvalidColor> {
+        public static Standard Default { get; } = new(TransferCurve.Srgb);
+
         public override void Encode(Span<Vector4> row, Nits white) => Curve.Encode(row, white);
         public override void Decode(Span<Vector4> row, Nits white) => Curve.Decode(row, white);
     }
 
-    public sealed record Gamma(GammaExponent Exponent) : Transfer {
+    public sealed record Gamma(GammaExponent Exponent) : Transfer, IStateRecord<Gamma, GammaTransferParameter, InvalidColor> {
+        public static Gamma Default { get; } = new(GammaExponent.Gamma22);
+
         public override void Encode(Span<Vector4> row, Nits white) => TransferCurve.PerLane(row, linear => double.Pow(double.Max(linear, 0d), 1d / Exponent));
         public override void Decode(Span<Vector4> row, Nits white) => TransferCurve.PerLane(row, signal => double.Pow(double.Max(signal, 0d), Exponent));
     }
 
-    public sealed record Camera(CameraLog Log) : Transfer {
+    public sealed record Camera(CameraLog Log) : Transfer, IStateRecord<Camera, CameraTransferParameter, InvalidColor> {
+        public static Camera Default { get; } = new(CameraLog.ArriLogC3);
+
         public override void Encode(Span<Vector4> row, Nits white) => TransferCurve.PerLane(row, Log.Encode);
         public override void Decode(Span<Vector4> row, Nits white) => TransferCurve.PerLane(row, Log.Decode);
     }
+}
+
+[SmartEnum<string>]
+[ValidationError<InvalidColor>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class StandardTransferParameter : IStateParameter<Transfer.Standard> {
+    public static readonly StandardTransferParameter Curve = new("curve", new StateParameter<Transfer.Standard>.Choice<TransferCurve, InvalidColor>(
+        Lens<Transfer.Standard, TransferCurve>.New(static transfer => transfer.Curve, static curve => transfer => transfer with { Curve = curve })));
+
+    public StateParameter<Transfer.Standard> Kind { get; }
+}
+
+[SmartEnum<string>]
+[ValidationError<InvalidColor>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class GammaTransferParameter : IStateParameter<Transfer.Gamma> {
+    public static readonly GammaTransferParameter Exponent = new("exponent", StateParameter.Bounded<Transfer.Gamma, GammaExponent, float, InvalidColor>(Lens<Transfer.Gamma, GammaExponent>.New(static transfer => transfer.Exponent, static exponent => transfer => transfer with { Exponent = exponent }),
+    new() { Form = NumberForm.Field }));
+
+    public StateParameter<Transfer.Gamma> Kind { get; }
+}
+
+[SmartEnum<string>]
+[ValidationError<InvalidColor>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CameraTransferParameter : IStateParameter<Transfer.Camera> {
+    public static readonly CameraTransferParameter Log = new("log", new StateParameter<Transfer.Camera>.Choice<CameraLog, InvalidColor>(
+        Lens<Transfer.Camera, CameraLog>.New(static transfer => transfer.Log, static log => transfer => transfer with { Log = log })));
+
+    public StateParameter<Transfer.Camera> Kind { get; }
 }
 
 public sealed record ColorEncoding(Gamut Gamut, Transfer Transfer, Nits White) {
@@ -266,16 +311,14 @@ public sealed record ColorEncoding(Gamut Gamut, Transfer Transfer, Nits White) {
         this == target
             ? Seq<Action<Span<Vector4>>>()
             : (Transfer == TransferCurve.Linear ? Seq<Action<Span<Vector4>>>() : Seq(Decode))
-              + (((float)White / (float)target.White) switch {
-                  1f when Gamut == target.Gamut => Seq<Action<Span<Vector4>>>(),
-                  var white => Gamut.MatrixTo(target.Gamut) switch {
-                      var matrix => Seq(new LutTable.Affine(new ColorMatrix3x3(
-                          white * matrix.M11, white * matrix.M12, white * matrix.M13,
-                          white * matrix.M21, white * matrix.M22, white * matrix.M23,
-                          white * matrix.M31, white * matrix.M32, white * matrix.M33), Vector3.Zero).Apply),
-                  },
-              })
+              + LinearTo(target).Map<Action<Span<Vector4>>>(static table => table.Apply)
               + (target.Transfer == TransferCurve.Linear ? Seq<Action<Span<Vector4>>>() : Seq(target.Encode));
+
+    internal Seq<LutTable> LinearTo(ColorEncoding target) =>
+        ((double)White / target.White) switch {
+            1d when Gamut == target.Gamut => [],
+            var white => [new LutTable.Affine(Gamut.MatrixTo(target.Gamut).Multiply(white), (0d, 0d, 0d))],
+        };
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -327,33 +370,40 @@ public sealed record GamutCompression(
         CompressionPower.Reference);
 
     public static Option<PixelPass> Pass(GamutCompression state, PassContext context) {
-        static float Scale(float threshold, float limit, float power) =>
-            (limit - threshold) / float.Pow(float.Pow((1f - threshold) / (limit - threshold), -power) - 1f, 1f / power);
+        static double Scale(double threshold, double limit, double power) =>
+            (1d - threshold) switch {
+                var head => head / double.Pow(1d - double.Pow(head / (limit - threshold), power), 1d / power),
+            };
 
-        static float Compress(float component, float ach, (float Threshold, float Scale) curve, float power) =>
-            float.Abs(ach) switch {
-                0f => 0f,
+        static double Compress(double component, double ach, (double Threshold, double Scale) curve, double power) =>
+            double.Abs(ach) switch {
+                0d => 0d,
                 var reach => (((ach - component) / reach) - curve.Threshold) switch {
-                    < 0f => component,
-                    var over => ach - (reach * (curve.Threshold + (over / float.Pow(1f + float.Pow(over / curve.Scale, power), 1f / power)))),
+                    <= 0d => component,
+                    var over => (double.Min(over, curve.Scale), double.Max(over, curve.Scale)) switch {
+                        var (lower, upper) => ach - (reach * (curve.Threshold + (lower / double.Pow(1d + double.Pow(lower / upper, power), 1d / power)))),
+                    },
                 },
             };
 
         Gamut target = state.Target.IfNone(context.Working);
-        ColorMatrix3x3 inward = context.Working.MatrixTo(target);
-        ColorMatrix3x3 outward = target.MatrixTo(context.Working);
-        float power = state.Power;
-        (float Threshold, float Scale) cyan = (state.CyanThreshold, Scale(state.CyanThreshold, state.CyanLimit, power));
-        (float Threshold, float Scale) magenta = (state.MagentaThreshold, Scale(state.MagentaThreshold, state.MagentaLimit, power));
-        (float Threshold, float Scale) yellow = (state.YellowThreshold, Scale(state.YellowThreshold, state.YellowLimit, power));
+        Matrix<double> inward = context.Working.MatrixTo(target);
+        Matrix<double> outward = target.MatrixTo(context.Working);
+        double power = state.Power;
+        (double Threshold, double Scale) cyan = (state.CyanThreshold, Scale(state.CyanThreshold, state.CyanLimit, power));
+        (double Threshold, double Scale) magenta = (state.MagentaThreshold, Scale(state.MagentaThreshold, state.MagentaLimit, power));
+        (double Threshold, double Scale) yellow = (state.YellowThreshold, Scale(state.YellowThreshold, state.YellowLimit, power));
         return Some<PixelPass>(new PixelPass.Color(row => {
-            Span<float> lanes = MemoryMarshal.Cast<Vector4, float>(row);
-            ImageProcessing.ApplyColorMatrix(lanes, lanes, 4, inward);
+            DenseVector source = new(3);
+            DenseVector rgb = new(3);
             foreach (ref Vector4 pixel in row) {
-                float ach = float.Max(pixel.X, float.Max(pixel.Y, pixel.Z));
-                pixel = new Vector4(Compress(pixel.X, ach, cyan, power), Compress(pixel.Y, ach, magenta, power), Compress(pixel.Z, ach, yellow, power), pixel.W);
+                (source[0], source[1], source[2]) = (pixel.X, pixel.Y, pixel.Z);
+                inward.Multiply(source, rgb);
+                double ach = double.Max(rgb[0], double.Max(rgb[1], rgb[2]));
+                (source[0], source[1], source[2]) = (Compress(rgb[0], ach, cyan, power), Compress(rgb[1], ach, magenta, power), Compress(rgb[2], ach, yellow, power));
+                outward.Multiply(source, rgb);
+                pixel = new Vector4((float)rgb[0], (float)rgb[1], (float)rgb[2], pixel.W);
             }
-            ImageProcessing.ApplyColorMatrix(lanes, lanes, 4, outward);
         }));
     }
 }
@@ -363,26 +413,19 @@ public sealed record GamutCompression(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GamutCompressionParameter : IStateParameter<GamutCompression> {
-    private static readonly Presentation<CompressionThreshold, float> ThresholdTrack = new() { Step = 0.001f, Decimals = 3 };
-    private static readonly Presentation<CompressionLimit, float> LimitTrack = new() { Soft = (CompressionLimit.MinValue, 2f), Step = 0.001f, Decimals = 3 };
+    private static readonly Presentation<float> ThresholdTrack = new() { Step = 0.001f, Decimals = 3 };
+    private static readonly Presentation<float> LimitTrack = new() { Soft = (CompressionLimit.MinValue, 2f), Step = 0.001f, Decimals = 3 };
 
     public static readonly GamutCompressionParameter Target = new("target", new StateParameter<GamutCompression>.OptionalChoice<Gamut, InvalidColor>(
         Lens<GamutCompression, Option<Gamut>>.New(static state => state.Target, static value => state => state with { Target = value })));
-    public static readonly GamutCompressionParameter CyanThreshold = new("cyan-threshold", new StateParameter<GamutCompression>.Bounded<CompressionThreshold, float, InvalidColor>(
-        Lens<GamutCompression, CompressionThreshold>.New(static state => state.CyanThreshold, static value => state => state with { CyanThreshold = value }), ThresholdTrack));
-    public static readonly GamutCompressionParameter MagentaThreshold = new("magenta-threshold", new StateParameter<GamutCompression>.Bounded<CompressionThreshold, float, InvalidColor>(
-        Lens<GamutCompression, CompressionThreshold>.New(static state => state.MagentaThreshold, static value => state => state with { MagentaThreshold = value }), ThresholdTrack));
-    public static readonly GamutCompressionParameter YellowThreshold = new("yellow-threshold", new StateParameter<GamutCompression>.Bounded<CompressionThreshold, float, InvalidColor>(
-        Lens<GamutCompression, CompressionThreshold>.New(static state => state.YellowThreshold, static value => state => state with { YellowThreshold = value }), ThresholdTrack));
-    public static readonly GamutCompressionParameter CyanLimit = new("cyan-limit", new StateParameter<GamutCompression>.Bounded<CompressionLimit, float, InvalidColor>(
-        Lens<GamutCompression, CompressionLimit>.New(static state => state.CyanLimit, static value => state => state with { CyanLimit = value }), LimitTrack));
-    public static readonly GamutCompressionParameter MagentaLimit = new("magenta-limit", new StateParameter<GamutCompression>.Bounded<CompressionLimit, float, InvalidColor>(
-        Lens<GamutCompression, CompressionLimit>.New(static state => state.MagentaLimit, static value => state => state with { MagentaLimit = value }), LimitTrack));
-    public static readonly GamutCompressionParameter YellowLimit = new("yellow-limit", new StateParameter<GamutCompression>.Bounded<CompressionLimit, float, InvalidColor>(
-        Lens<GamutCompression, CompressionLimit>.New(static state => state.YellowLimit, static value => state => state with { YellowLimit = value }), LimitTrack));
-    public static readonly GamutCompressionParameter Power = new("power", new StateParameter<GamutCompression>.Bounded<CompressionPower, float, InvalidColor>(
-        Lens<GamutCompression, CompressionPower>.New(static state => state.Power, static value => state => state with { Power = value }),
-        new() { Soft = (CompressionPower.MinValue, 2f) }));
+    public static readonly GamutCompressionParameter CyanThreshold = new("cyan-threshold", StateParameter.Bounded<GamutCompression, CompressionThreshold, float, InvalidColor>(Lens<GamutCompression, CompressionThreshold>.New(static state => state.CyanThreshold, static value => state => state with { CyanThreshold = value }), ThresholdTrack));
+    public static readonly GamutCompressionParameter MagentaThreshold = new("magenta-threshold", StateParameter.Bounded<GamutCompression, CompressionThreshold, float, InvalidColor>(Lens<GamutCompression, CompressionThreshold>.New(static state => state.MagentaThreshold, static value => state => state with { MagentaThreshold = value }), ThresholdTrack));
+    public static readonly GamutCompressionParameter YellowThreshold = new("yellow-threshold", StateParameter.Bounded<GamutCompression, CompressionThreshold, float, InvalidColor>(Lens<GamutCompression, CompressionThreshold>.New(static state => state.YellowThreshold, static value => state => state with { YellowThreshold = value }), ThresholdTrack));
+    public static readonly GamutCompressionParameter CyanLimit = new("cyan-limit", StateParameter.Bounded<GamutCompression, CompressionLimit, float, InvalidColor>(Lens<GamutCompression, CompressionLimit>.New(static state => state.CyanLimit, static value => state => state with { CyanLimit = value }), LimitTrack));
+    public static readonly GamutCompressionParameter MagentaLimit = new("magenta-limit", StateParameter.Bounded<GamutCompression, CompressionLimit, float, InvalidColor>(Lens<GamutCompression, CompressionLimit>.New(static state => state.MagentaLimit, static value => state => state with { MagentaLimit = value }), LimitTrack));
+    public static readonly GamutCompressionParameter YellowLimit = new("yellow-limit", StateParameter.Bounded<GamutCompression, CompressionLimit, float, InvalidColor>(Lens<GamutCompression, CompressionLimit>.New(static state => state.YellowLimit, static value => state => state with { YellowLimit = value }), LimitTrack));
+    public static readonly GamutCompressionParameter Power = new("power", StateParameter.Bounded<GamutCompression, CompressionPower, float, InvalidColor>(Lens<GamutCompression, CompressionPower>.New(static state => state.Power, static value => state => state with { Power = value }),
+    new() { Soft = (CompressionPower.MinValue, 2f) }));
 
     public StateParameter<GamutCompression> Kind { get; }
 }

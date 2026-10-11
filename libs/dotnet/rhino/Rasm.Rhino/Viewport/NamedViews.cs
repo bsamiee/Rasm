@@ -54,9 +54,9 @@ public static class NamedViews {
         from restored in Navigation.ApplyToViewports(
             doc,
             viewports,
-            viewport => IO.lift(() => viewport.Name).Bracket(
-                Use: _ => IO.lift(() => Restored(doc.NamedViews, index, viewport, pacing)),
-                Fin: held => IO.lift(() => { viewport.Name = held; })),
+            viewport => DisposalOps.Within(() => viewport.Name,
+                _ => IO.lift(() => Restored(doc.NamedViews, index, viewport, pacing)),
+                held => IO.lift(() => { viewport.Name = held; })),
             redraw)
         select restored;
 
@@ -76,7 +76,9 @@ public static class NamedViews {
 
     // --- [STORED]
     public static IO<TValue> Read<TValue>(RhinoDoc doc, string name, Func<ViewInfo, IO<TValue>> read) =>
-        use(Find(doc, name).Bind(index => IO.lift(() => Missing.Unless(doc.NamedViews[index], nameof(NamedViewTable))))).Bind(read).Bracket();
+        Find(doc, name).Bind(index => DisposalOps.Within(() => doc.NamedViews[index],
+            view => IO.lift(() => Missing.Unless(view, nameof(NamedViewTable))).Bind(read),
+            static view => DisposalOps.Release(Conversions.Rows(new[] { view }))));
 
     public static IO<int> Update(RhinoDoc doc, string name, Func<ViewInfo, IO<Unit>> edit) =>
         Read(doc, name, view => edit(view).Bind(_ => IO.lift(() => Conversions.Required(doc.NamedViews.Add(view), nameof(NamedViewTable.Add)))));

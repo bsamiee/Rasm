@@ -1,12 +1,13 @@
-using System.Drawing;
 using System.Numerics;
 using CommunityToolkit.HighPerformance.Buffers;
 using Emgu.CV;
-using Emgu.CV.CvEnum;
+using PeterO.Numbers;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
+using SixLabors.ImageSharp.PixelFormats;
+using TorchSharp;
 using UnitsNet;
 using UnitsNet.Units;
 
@@ -14,9 +15,9 @@ namespace Rasm.Imaging.Filters.Generators;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 file static class Tracks {
-    public static Presentation<ShortSideExtent, float> Extent { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.01f, 2f), Scale = TrackScale.Log };
-    public static Presentation<Frequency, float> Rate { get; } = Frequency.Presentation with { Soft = (-4f, 4f) };
-    public static Presentation<Mix, float> Share { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
+    public static Presentation<float> Extent { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.01f, 2f), Scale = TrackScale.Log };
+    public static Presentation<float> Rate { get; } = Frequency.Presentation with { Soft = (-4f, 4f) };
+    public static Presentation<float> Share { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -75,7 +76,7 @@ public sealed record GeneratedLayer(BlendingMode Mode, Exposure Exposure) : ISta
     public static GeneratedLayer Default { get; } = new(BlendingMode.Mix, Exposure.Neutral);
     public static GeneratedLayer Added { get; } = Default with { Mode = BlendingMode.Add };
 
-    internal PixelPass Pass(Action<Span<Vector4>, int, int> fill) =>
+    internal PixelPass Pass(Action<Span<Vector4>, long, long> fill) =>
         (Exposure.Scale, Mode) switch {
             var (gain, mode) => new PixelPass.Pointwise((row, column, line) => {
                 using SpanOwner<Vector4> layer = SpanOwner<Vector4>.Allocate(row.Length);
@@ -84,7 +85,7 @@ public sealed record GeneratedLayer(BlendingMode Mode, Exposure Exposure) : ISta
                 for (int i = 0; i < row.Length; i++)
                     (weights.Span[i], layer.Span[i]) = (layer.Span[i].W, new Vector4(layer.Span[i].AsVector3() * gain, 1f));
                 if (mode == BlendingMode.Mix)
-                    mode.Composite(row, layer.Span, weights.Span);
+                    mode.Composite(row, layer.Span, weights.Span, PixelAlphaRepresentation.Unassociated);
                 else {
                     mode.Mixed(row, layer.Span, weights.Span);
                     layer.Span.CopyTo(row);
@@ -100,8 +101,7 @@ public sealed record GeneratedLayer(BlendingMode Mode, Exposure Exposure) : ISta
 public sealed partial class GeneratedLayerParameter : IStateParameter<GeneratedLayer> {
     public static readonly GeneratedLayerParameter Mode = new("mode", new StateParameter<GeneratedLayer>.Choice<BlendingMode, InvalidGrade>(
         Lens<GeneratedLayer, BlendingMode>.New(static layer => layer.Mode, static mode => layer => layer with { Mode = mode })));
-    public static readonly GeneratedLayerParameter Exposure = new("exposure", new StateParameter<GeneratedLayer>.Bounded<Exposure, float, InvalidToneValue>(
-        Lens<GeneratedLayer, Exposure>.New(static layer => layer.Exposure, static exposure => layer => layer with { Exposure = exposure }), Tone.Exposure.Presentation));
+    public static readonly GeneratedLayerParameter Exposure = new("exposure", StateParameter.Bounded<GeneratedLayer, Exposure, float, InvalidToneValue>(Lens<GeneratedLayer, Exposure>.New(static layer => layer.Exposure, static exposure => layer => layer with { Exposure = exposure }), Tone.Exposure.Presentation));
 
     public StateParameter<GeneratedLayer> Kind { get; }
 }
@@ -109,10 +109,7 @@ public sealed partial class GeneratedLayerParameter : IStateParameter<GeneratedL
 public sealed record Placement(FramePosition Center, SignedAngle Rotation) : IStateRecord<Placement, PlacementParameter, InvalidGenerator> {
     public static Placement Default { get; } = new(FramePosition.Center, SignedAngle.Neutral);
 
-    internal FieldFrame Frame(PixelExtent extent) =>
-        (Half: new Vector2(extent.Width, extent.Height) / 2f, Scale: 1f / extent.ShortSide) switch {
-            var (half, scale) => new(half, scale, (Center.Point(extent) - half) * scale, Matrix3x2.CreateRotation(Rotation)),
-        };
+    internal FieldFrame Frame(PixelExtent extent) => new(extent, Center.Point(extent), double.SinCos(Rotation));
 }
 
 [SmartEnum<string>]
@@ -124,20 +121,20 @@ public sealed partial class PlacementParameter : IStateParameter<Placement> {
         FramePosition.Kinds(Lens<Placement, FramePosition>.New(static placement => placement.Center, static center => placement => placement with { Center = center }));
     public static readonly PlacementParameter CenterX = new("center-x", Center.X);
     public static readonly PlacementParameter CenterY = new("center-y", Center.Y);
-    public static readonly PlacementParameter Rotation = new("rotation", new StateParameter<Placement>.Bounded<SignedAngle, float, InvalidPixelValue>(
-        Lens<Placement, SignedAngle>.New(static placement => placement.Rotation, static rotation => placement => placement with { Rotation = rotation }), SignedAngle.Presentation));
+    public static readonly PlacementParameter Rotation = new("rotation", StateParameter.Bounded<Placement, SignedAngle, float, InvalidPixelValue>(Lens<Placement, SignedAngle>.New(static placement => placement.Rotation, static rotation => placement => placement with { Rotation = rotation }), SignedAngle.Presentation));
 
     public StateParameter<Placement> Kind { get; }
 }
 
-internal readonly record struct FieldFrame(Vector2 Half, float Scale, Vector2 Origin, Matrix3x2 Turn) {
-    public Vector2 Point(int column, int line) => new Vector2(column + 0.5f - Half.X, Half.Y - line - 0.5f) * Scale;
+internal readonly record struct FieldFrame(PixelExtent Extent, (double X, double Y) Center, (double Sin, double Cos) Turn) {
+    public (double X, double Y) Local((double X, double Y) point) =>
+        ((point.X - Center.X) / Extent.ShortSide, (point.Y - Center.Y) / Extent.ShortSide) switch {
+            var (x, y) => ((x * Turn.Cos) - (y * Turn.Sin), (x * Turn.Sin) + (y * Turn.Cos)),
+        };
 
-    public Vector2 Local(Vector2 point) => Vector2.Transform(point - Origin, Turn);
+    public (double X, double Y) Upward(long column, long line) => Local((column + 0.5d, Extent.Height - line - 0.5d)) switch { var (x, y) => (x, -y) };
 
-    public Vector2 Upward(int column, int line) => Local(Point(column, line)) * new Vector2(1f, -1f);
-
-    public Action<Span<Vector4>, int, int> Fill(Func<Vector2, Vector4> shade) {
+    public Action<Span<Vector4>, long, long> Fill(Func<(double X, double Y), Vector4> shade) {
         FieldFrame frame = this;
         return (row, column, line) => {
             for (int i = 0; i < row.Length; i++)
@@ -150,9 +147,11 @@ public sealed record NoiseSource(NoiseBasis Basis, ShortSideExtent ScaleX, Short
     : IStateRecord<NoiseSource, NoiseSourceParameter, InvalidGenerator> {
     public static NoiseSource Default { get; } = Looks.Source(NoiseBasis.Default, 1f, Vector2.One);
 
-    internal Func<Vector3, float, float> Sampler(float time, uint field) =>
-        (Basis.Sampler, new Vector3(ScaleX, ScaleY, ScaleX), new Vector3(DriftX, DriftY, 0f) * time, Vector3.UnitZ * Evolution * time) switch {
-            var (basis, scale, drift, lift) => (point, w) => basis(new Vector4(((point - drift) / scale) + lift, w), field).Value,
+    internal Func<(ERational X, ERational Y, ERational Z), ERational, float> Sampler(float time, uint field) =>
+        (Basis.Sampler, ERational.FromSingle(ScaleX), ERational.FromSingle(ScaleY), ERational.FromSingle(time)) switch {
+            var (basis, scaleX, scaleY, clock) => (ERational.FromSingle(DriftX).Multiply(clock), ERational.FromSingle(DriftY).Multiply(clock), ERational.FromSingle(Evolution).Multiply(clock)) switch {
+                var (driftX, driftY, lift) => (point, w) => basis((point.X.Subtract(driftX).Divide(scaleX), point.Y.Subtract(driftY).Divide(scaleY), point.Z.Divide(scaleX).Add(lift), w), field).Value,
+            },
         };
 }
 
@@ -161,19 +160,14 @@ public sealed record NoiseSource(NoiseBasis Basis, ShortSideExtent ScaleX, Short
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NoiseSourceParameter : IStateParameter<NoiseSource> {
-    private static readonly Presentation<Drift, float> Travel = Drift.Presentation with { Soft = (-1f, 1f) };
+    private static readonly Presentation<float> Travel = Drift.Presentation with { Soft = (-1f, 1f) };
 
     public static readonly NoiseSourceParameter Basis = new("basis", new StateParameter<NoiseSource>.Record<NoiseBasis>(Lens<NoiseSource, NoiseBasis>.New(static noise => noise.Basis, static basis => noise => noise with { Basis = basis })));
-    public static readonly NoiseSourceParameter ScaleX = new("scale-x", new StateParameter<NoiseSource>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-        Lens<NoiseSource, ShortSideExtent>.New(static noise => noise.ScaleX, static scale => noise => noise with { ScaleX = scale }), Tracks.Extent));
-    public static readonly NoiseSourceParameter ScaleY = new("scale-y", new StateParameter<NoiseSource>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-        Lens<NoiseSource, ShortSideExtent>.New(static noise => noise.ScaleY, static scale => noise => noise with { ScaleY = scale }), Tracks.Extent));
-    public static readonly NoiseSourceParameter DriftX = new("drift-x", new StateParameter<NoiseSource>.Bounded<Drift, float, InvalidGenerator>(
-        Lens<NoiseSource, Drift>.New(static noise => noise.DriftX, static drift => noise => noise with { DriftX = drift }), Travel));
-    public static readonly NoiseSourceParameter DriftY = new("drift-y", new StateParameter<NoiseSource>.Bounded<Drift, float, InvalidGenerator>(
-        Lens<NoiseSource, Drift>.New(static noise => noise.DriftY, static drift => noise => noise with { DriftY = drift }), Travel));
-    public static readonly NoiseSourceParameter Evolution = new("evolution", new StateParameter<NoiseSource>.Bounded<Frequency, float, InvalidGenerator>(
-        Lens<NoiseSource, Frequency>.New(static noise => noise.Evolution, static evolution => noise => noise with { Evolution = evolution }), Tracks.Rate));
+    public static readonly NoiseSourceParameter ScaleX = new("scale-x", StateParameter.Bounded<NoiseSource, ShortSideExtent, float, InvalidPixelValue>(Lens<NoiseSource, ShortSideExtent>.New(static noise => noise.ScaleX, static scale => noise => noise with { ScaleX = scale }), Tracks.Extent));
+    public static readonly NoiseSourceParameter ScaleY = new("scale-y", StateParameter.Bounded<NoiseSource, ShortSideExtent, float, InvalidPixelValue>(Lens<NoiseSource, ShortSideExtent>.New(static noise => noise.ScaleY, static scale => noise => noise with { ScaleY = scale }), Tracks.Extent));
+    public static readonly NoiseSourceParameter DriftX = new("drift-x", StateParameter.Bounded<NoiseSource, Drift, float, InvalidGenerator>(Lens<NoiseSource, Drift>.New(static noise => noise.DriftX, static drift => noise => noise with { DriftX = drift }), Travel));
+    public static readonly NoiseSourceParameter DriftY = new("drift-y", StateParameter.Bounded<NoiseSource, Drift, float, InvalidGenerator>(Lens<NoiseSource, Drift>.New(static noise => noise.DriftY, static drift => noise => noise with { DriftY = drift }), Travel));
+    public static readonly NoiseSourceParameter Evolution = new("evolution", StateParameter.Bounded<NoiseSource, Frequency, float, InvalidGenerator>(Lens<NoiseSource, Frequency>.New(static noise => noise.Evolution, static evolution => noise => noise with { Evolution = evolution }), Tracks.Rate));
 
     public StateParameter<NoiseSource> Kind { get; }
 }
@@ -183,11 +177,16 @@ public sealed record VortexField(VortexArms Arms, SignedAngle Twist, ShortSideEx
     public static VortexField Default { get; } = new(
         VortexArms.Create(1), SignedAngle.Create(2.8f), ShortSideExtent.Create(0.5f), TunnelSlope.Create(0.6f), Frequency.Create((float)(double)UnitsNet.Frequency.FromRadiansPerSecond(1).Hertz));
 
-    internal Func<Vector2, Vector3> Shape(float time) => point => (point.Length(), float.Atan2(point.Y, point.X)) switch {
-        var (radius, angle) => float.SinCos((Arms * angle) + (Twist * (1f - (radius / Radius))) + (float.Tau * Spin * time)) switch {
-            var (sin, cos) => float.Min(radius, Radius) * new Vector3(cos, sin, Tunnel),
-        },
-    };
+    internal Func<(double X, double Y), (ERational X, ERational Y, ERational Z)> Shape(float time) =>
+        (ERational.FromSingle(Radius), ERational.FromDouble(double.Tau), ERational.FromSingle(Spin).Multiply(ERational.FromSingle(time))) switch {
+            var (size, period, clock) => point => (double.Hypot(point.X, point.Y), double.Atan2(point.Y, point.X)) switch {
+                var (radius, angle) => (ERational.FromDouble(angle).Multiply((int)Arms).Add(ERational.FromSingle(Twist).Multiply(ERational.One.Subtract(ERational.FromDouble(radius).Divide(size)))).Divide(period).Add(clock), ERational.Min(ERational.FromDouble(radius), size)) switch {
+                    var (phase, reach) => double.SinCos(NoiseFunctions.Split(phase).Local.Multiply(period).ToDouble()) switch {
+                        var (sin, cos) => (reach.Multiply(ERational.FromDouble(cos)), reach.Multiply(ERational.FromDouble(sin)), reach.Multiply(ERational.FromSingle(Tunnel))),
+                    },
+                },
+            },
+        };
 }
 
 [SmartEnum<string>]
@@ -195,16 +194,11 @@ public sealed record VortexField(VortexArms Arms, SignedAngle Twist, ShortSideEx
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VortexFieldParameter : IStateParameter<VortexField> {
-    public static readonly VortexFieldParameter Arms = new("arms", new StateParameter<VortexField>.Bounded<VortexArms, int, InvalidGenerator>(
-        Lens<VortexField, VortexArms>.New(static vortex => vortex.Arms, static arms => vortex => vortex with { Arms = arms }), new() { Step = 1 }));
-    public static readonly VortexFieldParameter Twist = new("twist", new StateParameter<VortexField>.Bounded<SignedAngle, float, InvalidPixelValue>(
-        Lens<VortexField, SignedAngle>.New(static vortex => vortex.Twist, static twist => vortex => vortex with { Twist = twist }), SignedAngle.Presentation));
-    public static readonly VortexFieldParameter Radius = new("radius", new StateParameter<VortexField>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-        Lens<VortexField, ShortSideExtent>.New(static vortex => vortex.Radius, static radius => vortex => vortex with { Radius = radius }), Tracks.Extent));
-    public static readonly VortexFieldParameter Tunnel = new("tunnel", new StateParameter<VortexField>.Bounded<TunnelSlope, float, InvalidGenerator>(
-        Lens<VortexField, TunnelSlope>.New(static vortex => vortex.Tunnel, static tunnel => vortex => vortex with { Tunnel = tunnel }), new() { Soft = (0f, 4f) }));
-    public static readonly VortexFieldParameter Spin = new("spin", new StateParameter<VortexField>.Bounded<Frequency, float, InvalidGenerator>(
-        Lens<VortexField, Frequency>.New(static vortex => vortex.Spin, static spin => vortex => vortex with { Spin = spin }), Frequency.Presentation with { Soft = (-1f, 1f) }));
+    public static readonly VortexFieldParameter Arms = new("arms", StateParameter.Bounded<VortexField, VortexArms, int, InvalidGenerator>(Lens<VortexField, VortexArms>.New(static vortex => vortex.Arms, static arms => vortex => vortex with { Arms = arms }), new() { Step = 1 }));
+    public static readonly VortexFieldParameter Twist = new("twist", StateParameter.Bounded<VortexField, SignedAngle, float, InvalidPixelValue>(Lens<VortexField, SignedAngle>.New(static vortex => vortex.Twist, static twist => vortex => vortex with { Twist = twist }), SignedAngle.Presentation));
+    public static readonly VortexFieldParameter Radius = new("radius", StateParameter.Bounded<VortexField, ShortSideExtent, float, InvalidPixelValue>(Lens<VortexField, ShortSideExtent>.New(static vortex => vortex.Radius, static radius => vortex => vortex with { Radius = radius }), Tracks.Extent));
+    public static readonly VortexFieldParameter Tunnel = new("tunnel", StateParameter.Bounded<VortexField, TunnelSlope, float, InvalidGenerator>(Lens<VortexField, TunnelSlope>.New(static vortex => vortex.Tunnel, static tunnel => vortex => vortex with { Tunnel = tunnel }), new() { Soft = (0f, 4f) }));
+    public static readonly VortexFieldParameter Spin = new("spin", StateParameter.Bounded<VortexField, Frequency, float, InvalidGenerator>(Lens<VortexField, Frequency>.New(static vortex => vortex.Spin, static spin => vortex => vortex with { Spin = spin }), Frequency.Presentation with { Soft = (-1f, 1f) }));
 
     public StateParameter<VortexField> Kind { get; }
 }
@@ -212,7 +206,7 @@ public sealed partial class VortexFieldParameter : IStateParameter<VortexField> 
 public sealed record FieldEnvelope(ShortSideExtent Width, ShortSideExtent Height) : IStateRecord<FieldEnvelope, FieldEnvelopeParameter, InvalidGenerator> {
     public static FieldEnvelope Default { get; } = new(Looks.Features(1f), Looks.Features(1f));
 
-    internal float Falloff(Vector2 point) => float.Max(1f - (point / new Vector2(Width, Height)).Length(), 0f) switch { var edge => 1f - (edge * edge) };
+    internal float Falloff((double X, double Y) point) => double.Max(1d - double.Hypot(point.X / Width, point.Y / Height), 0d) switch { var edge => (float)(1d - (edge * edge)) };
 }
 
 [SmartEnum<string>]
@@ -220,12 +214,10 @@ public sealed record FieldEnvelope(ShortSideExtent Width, ShortSideExtent Height
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FieldEnvelopeParameter : IStateParameter<FieldEnvelope> {
-    private static readonly Presentation<ShortSideExtent, float> Size = Tracks.Extent with { Soft = (0.1f, 4f) };
+    private static readonly Presentation<float> Size = Tracks.Extent with { Soft = (0.1f, 4f) };
 
-    public static readonly FieldEnvelopeParameter Width = new("width", new StateParameter<FieldEnvelope>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-        Lens<FieldEnvelope, ShortSideExtent>.New(static envelope => envelope.Width, static width => envelope => envelope with { Width = width }), Size));
-    public static readonly FieldEnvelopeParameter Height = new("height", new StateParameter<FieldEnvelope>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-        Lens<FieldEnvelope, ShortSideExtent>.New(static envelope => envelope.Height, static height => envelope => envelope with { Height = height }), Size));
+    public static readonly FieldEnvelopeParameter Width = new("width", StateParameter.Bounded<FieldEnvelope, ShortSideExtent, float, InvalidPixelValue>(Lens<FieldEnvelope, ShortSideExtent>.New(static envelope => envelope.Width, static width => envelope => envelope with { Width = width }), Size));
+    public static readonly FieldEnvelopeParameter Height = new("height", StateParameter.Bounded<FieldEnvelope, ShortSideExtent, float, InvalidPixelValue>(Lens<FieldEnvelope, ShortSideExtent>.New(static envelope => envelope.Height, static height => envelope => envelope with { Height = height }), Size));
 
     public StateParameter<FieldEnvelope> Kind { get; }
 }
@@ -235,7 +227,7 @@ public sealed record Emission(ColorTemperature Cool, ColorTemperature Hot) : ISt
 
     public static Emission Default { get; } = new(ColorTemperature.MinValue, ColorTemperature.Flame);
 
-    public static Presentation<ColorTemperature, double> Presentation { get; } = new() {
+    public static Presentation<double> Presentation { get; } = new() {
         Unit = ColorTemperature.Unit,
         Soft = (ColorTemperature.MinValue, Hottest),
         Stops = Ramp.Create(Seq(ColorTemperature.MinValue, ColorTemperature.Flame, ColorTemperature.ViewDefault, Hottest).Map(static kelvin =>
@@ -258,10 +250,8 @@ public sealed record Emission(ColorTemperature Cool, ColorTemperature Hot) : ISt
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EmissionParameter : IStateParameter<Emission> {
-    public static readonly EmissionParameter Cool = new("cool", new StateParameter<Emission>.Bounded<ColorTemperature, double, InvalidColor>(
-        Lens<Emission, ColorTemperature>.New(static emission => emission.Cool, static cool => emission => emission with { Cool = cool }), Emission.Presentation));
-    public static readonly EmissionParameter Hot = new("hot", new StateParameter<Emission>.Bounded<ColorTemperature, double, InvalidColor>(
-        Lens<Emission, ColorTemperature>.New(static emission => emission.Hot, static hot => emission => emission with { Hot = hot }), Emission.Presentation));
+    public static readonly EmissionParameter Cool = new("cool", StateParameter.Bounded<Emission, ColorTemperature, double, InvalidColor>(Lens<Emission, ColorTemperature>.New(static emission => emission.Cool, static cool => emission => emission with { Cool = cool }), Emission.Presentation));
+    public static readonly EmissionParameter Hot = new("hot", StateParameter.Bounded<Emission, ColorTemperature, double, InvalidColor>(Lens<Emission, ColorTemperature>.New(static emission => emission.Hot, static hot => emission => emission with { Hot = hot }), Emission.Presentation));
 
     public StateParameter<Emission> Kind { get; }
 }
@@ -357,21 +347,21 @@ public sealed record NoiseTexture(
 
     public static Option<PixelPass> Pass(NoiseTexture state, PassContext context) {
         (uint field, float time, RampTable colors) = (CoordinateHash.Field(NoiseStream.NoiseTexture, state.Seed, 0u), state.Timing.At(context), state.Colors.Tabulate(context.Working));
-        Func<Vector3, float, float> noise = state.Noise.Sampler(time, CoordinateHash.Branch(field, 0u));
-        Func<Vector2, Vector3> shape = state.VortexShape.Active.Map(vortex => vortex.Shape(time)).IfNone(static point => new Vector3(point, 0f));
-        Func<Vector3, Vector3> warp = state.Warp == ShortSideOffset.Neutral ? static at => at
-            : (state.Noise with { Basis = state.WarpBasis }, 2f * state.Warp) switch {
+        Func<(ERational X, ERational Y, ERational Z), ERational, float> noise = state.Noise.Sampler(time, CoordinateHash.Branch(field, 0u));
+        Func<(double X, double Y), (ERational X, ERational Y, ERational Z)> shape = state.VortexShape.Active.Map(vortex => vortex.Shape(time)).IfNone(static point => (ERational.FromDouble(point.X), ERational.FromDouble(point.Y), ERational.Zero));
+        Func<(ERational X, ERational Y, ERational Z), (ERational X, ERational Y, ERational Z)> warp = state.Warp == ShortSideOffset.Neutral ? static at => at
+            : (state.Noise with { Basis = state.WarpBasis }, ERational.FromSingle(state.Warp).Multiply(2)) switch {
                 var (source, gain) => (source.Sampler(time, CoordinateHash.Branch(field, 1u)), source.Sampler(time, CoordinateHash.Branch(field, 2u))) switch {
-                    var (across, along) => at => at + (gain * new Vector3(across(at, 0f) - 0.5f, along(at, 0f) - 0.5f, 0f)),
+                    var (across, along) => at => (at.X.Add(gain.Multiply(ERational.FromSingle(across(at, ERational.Zero) - 0.5f))), at.Y.Add(gain.Multiply(ERational.FromSingle(along(at, ERational.Zero) - 0.5f))), at.Z),
                 },
             };
-        Func<Vector2, float> rim = state.Envelope.Active.Map<Func<Vector2, float>>(static envelope => envelope.Falloff).IfNone(static _ => 0f);
+        Func<(double X, double Y), float> rim = state.Envelope.Active.Map<Func<(double X, double Y), float>>(static envelope => envelope.Falloff).IfNone(static _ => 0f);
         Func<Vector4, Vector3> light = state.Incandescence.Active.Map<Func<Vector4, Vector3>>(emission => Emission.Span((context.Working, emission.Cool, emission.Hot)) switch {
             var span => color => span(color.W),
         }).IfNone(static color => color.AsVector3());
         Func<float, float> opacity = state.Extinction.Active.Map<Func<float, float>>(static depth => cover => 1f - float.Exp(-depth * cover)).IfNone(static cover => cover);
         return Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point =>
-            colors.Sample(noise(warp(shape(point)), 0f) - rim(point)) switch { var color => new Vector4(light(color), opacity(color.W)) })));
+            colors.Sample(noise(warp(shape(point)), ERational.Zero) - rim(point)) switch { var color => new Vector4(light(color), opacity(color.W)) })));
     }
 }
 
@@ -386,8 +376,7 @@ public sealed partial class NoiseTextureParameter : IStateParameter<NoiseTexture
         Lens<NoiseTexture, Placement>.New(static texture => texture.Placement, static placement => texture => texture with { Placement = placement })));
     public static readonly NoiseTextureParameter Vortex = new("vortex", new StateParameter<NoiseTexture>.OptionalRecord<VortexField>(
         Lens<NoiseTexture, Gated<VortexField>>.New(static texture => texture.VortexShape, static vortex => texture => texture with { VortexShape = vortex })));
-    public static readonly NoiseTextureParameter Warp = new("warp", new StateParameter<NoiseTexture>.Bounded<ShortSideOffset, float, InvalidPixelValue>(
-        Lens<NoiseTexture, ShortSideOffset>.New(static texture => texture.Warp, static warp => texture => texture with { Warp = warp }), ShortSideOffset.Presentation));
+    public static readonly NoiseTextureParameter Warp = new("warp", StateParameter.Bounded<NoiseTexture, ShortSideOffset, float, InvalidPixelValue>(Lens<NoiseTexture, ShortSideOffset>.New(static texture => texture.Warp, static warp => texture => texture with { Warp = warp }), ShortSideOffset.Presentation));
     public static readonly NoiseTextureParameter WarpBasis = new("warp-basis", new StateParameter<NoiseTexture>.Record<NoiseBasis>(
         Lens<NoiseTexture, NoiseBasis>.New(static texture => texture.WarpBasis, static basis => texture => texture with { WarpBasis = basis })));
     public static readonly NoiseTextureParameter Colors = new("colors", new StateParameter<NoiseTexture>.Gradient(
@@ -396,12 +385,10 @@ public sealed partial class NoiseTextureParameter : IStateParameter<NoiseTexture
         Lens<NoiseTexture, Gated<FieldEnvelope>>.New(static texture => texture.Envelope, static envelope => texture => texture with { Envelope = envelope })));
     public static readonly NoiseTextureParameter Incandescence = new("incandescence", new StateParameter<NoiseTexture>.OptionalRecord<Emission>(
         Lens<NoiseTexture, Gated<Emission>>.New(static texture => texture.Incandescence, static emission => texture => texture with { Incandescence = emission })));
-    public static readonly NoiseTextureParameter Extinction = new("extinction", new StateParameter<NoiseTexture>.OptionalBounded<OpticalDepth, float, InvalidGenerator>(
-        Lens<NoiseTexture, Gated<OpticalDepth>>.New(static texture => texture.Extinction, static extinction => texture => texture with { Extinction = extinction }), new() { Soft = (0f, 8f) }));
+    public static readonly NoiseTextureParameter Extinction = new("extinction", StateParameter.OptionalBounded<NoiseTexture, OpticalDepth, float, InvalidGenerator>(Lens<NoiseTexture, Gated<OpticalDepth>>.New(static texture => texture.Extinction, static extinction => texture => texture with { Extinction = extinction }), new() { Soft = (0f, 8f) }));
     public static readonly NoiseTextureParameter Layer = new("layer", new StateParameter<NoiseTexture>.Record<GeneratedLayer>(
         Lens<NoiseTexture, GeneratedLayer>.New(static texture => texture.Layer, static layer => texture => texture with { Layer = layer })));
-    public static readonly NoiseTextureParameter Seed = new("seed", new StateParameter<NoiseTexture>.Bounded<Seed, int, InvalidGenerator>(
-        Lens<NoiseTexture, Seed>.New(static texture => texture.Seed, static seed => texture => texture with { Seed = seed }), Generators.Seed.Presentation));
+    public static readonly NoiseTextureParameter Seed = new("seed", StateParameter.Bounded<NoiseTexture, Seed, int, InvalidGenerator>(Lens<NoiseTexture, Seed>.New(static texture => texture.Seed, static seed => texture => texture with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly NoiseTextureParameter Timing = new("timing", new StateParameter<NoiseTexture>.Record<Timing>(
         Lens<NoiseTexture, Timing>.New(static texture => texture.Timing, static timing => texture => texture with { Timing = timing })));
 
@@ -431,34 +418,38 @@ public sealed record Fog(
             Some: attenuation => from depth in context.Guides.Find(GuideChannel.Depth)
                                  from camera in context.Camera
                                  select Extinction(state, context, depth, camera, attenuation),
-            None: static () => Some<Func<int, int, float>>(static (_, _) => 1f))
+            None: static () => Some<Func<long, long, float>>(static (_, _) => 1f))
         .Map(opacity => state.Diffusion.Active.Match(
             Some: radius => new PixelPass.Frame((frame, progress) => {
-                float pixels = radius.Pixels(context.Extent);
-                int taps = (2 * (int)float.Ceiling(pixels)) + 1;
-                PixelFrame spread = new(frame.Origin, frame.Size, frame.Extent, static _ => { });
-                using Mat source = frame.Header();
-                using Mat target = spread.Header();
-                CvInvoke.GaussianBlur(source, target, new Size(taps, taps), pixels / 3f, pixels / 3f, BorderType.Replicate);
-                return state.Layer.Pass(Fill(state, context, opacity, (column, line) => spread.Row(line)[column - spread.Origin.X].AsVector3())).Run(frame, progress);
+                double pixels = radius.Pixels(context.Extent);
+                return from taps in PixelSampling.KernelTaps<long>(pixels)
+                       from result in frame.Filter(source => {
+                           PixelFrame spread = new(frame.Origin, frame.Size, frame.Extent, static _ => { });
+                           using Mat target = spread.Header();
+                           return source.Gaussian(target, (taps, taps), pixels / 3d, pixels / 3d, PaddingModes.Replicate)
+                               .Bind(_ => state.Layer.Pass(Fill(state, context, opacity, (column, line) => spread.Row(line)[(int)(column - spread.Origin.X)].AsVector3())).Run(frame, progress));
+                       })
+                       select result;
             }),
             None: () => state.Layer.Pass(Fill(state, context, opacity, static (_, _) => Vector3.One))));
 
-    private static Func<int, int, float> Extinction(Fog state, PassContext context, PixelFrame depth, Camera camera, FogAttenuation attenuation) {
+    private static Func<long, long, float> Extinction(Fog state, PassContext context, PixelFrame depth, Camera camera, FogAttenuation attenuation) {
         FieldFrame frame = Placement.Default.Frame(context.Extent);
-        Func<Vector3, float, float> noise = state.Noise.Sampler(state.Timing.At(context), CoordinateHash.Field(NoiseStream.Fog, state.Seed, 0u));
+        Func<(ERational X, ERational Y, ERational Z), ERational, float> noise = state.Noise.Sampler(state.Timing.At(context), CoordinateHash.Field(NoiseStream.Fog, state.Seed, 0u));
         Vector3 axis = Vector3.Transform(-Vector3.UnitZ, camera.Orientation);
-        Func<int, int, float, float> density = state.Variation == Mix.MinValue ? static (_, _, _) => 1f
-            : (column, line, path) => float.Max(1f + (state.Variation * ((2f * noise(new Vector3(frame.Upward(column, line), 0f), path)) - 1f)), 0f);
+        Func<long, long, float, float> density = state.Variation == Mix.MinValue ? static (_, _, _) => 1f
+            : (column, line, path) => frame.Upward(column, line) switch { var point => float.Max(1f + (state.Variation * ((2f * noise((ERational.FromDouble(point.X), ERational.FromDouble(point.Y), ERational.Zero), ERational.FromSingle(path))) - 1f)), 0f) };
         Func<float, bool> beyond = state.Cutoff.Active.Map<Func<float, bool>>(static cutoff => distance => distance > cutoff).IfNone(static _ => false);
         return (column, line) => {
-            float distance = depth.Row(line)[column - depth.Origin.X].X / Vector3.Dot(camera.Ray(new Vector2(column + 0.5f, context.Extent.Height - line - 0.5f)).Direction, axis);
+            (double X, double Y) point = (column + 0.5d, context.Extent.Height - line - 0.5d);
+            float distance = depth.Sample(point, (WrapMode.Black, WrapMode.Black), float.PositiveInfinity,
+                static (_, sample, _) => sample.X) / Vector3.Dot(camera.Ray(point).Direction, axis);
             float path = float.MaxNumber(distance - state.Start, 0f) / attenuation;
             return beyond(distance) ? 0f : float.IsPositiveInfinity(path) ? 1f : 1f - float.Exp(-path * density(column, line, path));
         };
     }
 
-    private static Action<Span<Vector4>, int, int> Fill(Fog state, PassContext context, Func<int, int, float> opacity, Func<int, int, Vector3> light) {
+    private static Action<Span<Vector4>, long, long> Fill(Fog state, PassContext context, Func<long, long, float> opacity, Func<long, long, Vector3> light) {
         RampTable table = state.Colors.Tabulate(context.Working);
         return (row, column, line) => {
             for (int i = 0; i < row.Length; i++) {
@@ -475,26 +466,19 @@ public sealed record Fog(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FogParameter : IStateParameter<Fog> {
-    private static readonly Presentation<FogDistance, float> Reach = new() { Unit = Quantity.GetUnitInfo(LengthUnit.Meter), Scale = TrackScale.Cubic };
+    private static readonly Presentation<float> Reach = new() { Unit = Quantity.GetUnitInfo(LengthUnit.Meter), Scale = TrackScale.Cubic };
 
     public static readonly FogParameter Noise = new("noise", new StateParameter<Fog>.Record<NoiseSource>(Lens<Fog, NoiseSource>.New(static fog => fog.Noise, static noise => fog => fog with { Noise = noise })));
-    public static readonly FogParameter Variation = new("variation", new StateParameter<Fog>.Bounded<Mix, float, InvalidGrade>(
-        Lens<Fog, Mix>.New(static fog => fog.Variation, static variation => fog => fog with { Variation = variation }), Tracks.Share));
-    public static readonly FogParameter Start = new("start", new StateParameter<Fog>.Bounded<FogDistance, float, InvalidGenerator>(
-        Lens<Fog, FogDistance>.New(static fog => fog.Start, static start => fog => fog with { Start = start }), Reach with { Soft = (0f, 100f) }));
-    public static readonly FogParameter Attenuation = new("attenuation", new StateParameter<Fog>.OptionalBounded<FogAttenuation, float, InvalidGenerator>(
-        Lens<Fog, Gated<FogAttenuation>>.New(static fog => fog.Attenuation, static attenuation => fog => fog with { Attenuation = attenuation }),
-        new() { Unit = Quantity.GetUnitInfo(LengthUnit.Meter), Soft = (0.3f, 1000f), Scale = TrackScale.Log }));
-    public static readonly FogParameter Cutoff = new("cutoff", new StateParameter<Fog>.OptionalBounded<FogDistance, float, InvalidGenerator>(
-        Lens<Fog, Gated<FogDistance>>.New(static fog => fog.Cutoff, static cutoff => fog => fog with { Cutoff = cutoff }), Reach with { Soft = (0f, 1000f) }));
-    public static readonly FogParameter Diffusion = new("diffusion", new StateParameter<Fog>.OptionalBounded<ShortSideLength, float, InvalidPixelValue>(
-        Lens<Fog, Gated<ShortSideLength>>.New(static fog => fog.Diffusion, static diffusion => fog => fog with { Diffusion = diffusion }), ShortSideLength.Presentation with { Soft = (0f, 2f) }));
-    public static readonly FogParameter Amount = new("amount", new StateParameter<Fog>.Bounded<Mix, float, InvalidGrade>(
-        Lens<Fog, Mix>.New(static fog => fog.Amount, static amount => fog => fog with { Amount = amount }), Tracks.Share));
+    public static readonly FogParameter Variation = new("variation", StateParameter.Bounded<Fog, Mix, float, InvalidGrade>(Lens<Fog, Mix>.New(static fog => fog.Variation, static variation => fog => fog with { Variation = variation }), Tracks.Share));
+    public static readonly FogParameter Start = new("start", StateParameter.Bounded<Fog, FogDistance, float, InvalidGenerator>(Lens<Fog, FogDistance>.New(static fog => fog.Start, static start => fog => fog with { Start = start }), Reach with { Soft = (0f, 100f) }));
+    public static readonly FogParameter Attenuation = new("attenuation", StateParameter.OptionalBounded<Fog, FogAttenuation, float, InvalidGenerator>(Lens<Fog, Gated<FogAttenuation>>.New(static fog => fog.Attenuation, static attenuation => fog => fog with { Attenuation = attenuation }),
+    new() { Unit = Quantity.GetUnitInfo(LengthUnit.Meter), Soft = (0.3f, 1000f), Scale = TrackScale.Log }));
+    public static readonly FogParameter Cutoff = new("cutoff", StateParameter.OptionalBounded<Fog, FogDistance, float, InvalidGenerator>(Lens<Fog, Gated<FogDistance>>.New(static fog => fog.Cutoff, static cutoff => fog => fog with { Cutoff = cutoff }), Reach with { Soft = (0f, 1000f) }));
+    public static readonly FogParameter Diffusion = new("diffusion", StateParameter.OptionalBounded<Fog, ShortSideLength, float, InvalidPixelValue>(Lens<Fog, Gated<ShortSideLength>>.New(static fog => fog.Diffusion, static diffusion => fog => fog with { Diffusion = diffusion }), ShortSideLength.Presentation with { Soft = (0f, 2f) }));
+    public static readonly FogParameter Amount = new("amount", StateParameter.Bounded<Fog, Mix, float, InvalidGrade>(Lens<Fog, Mix>.New(static fog => fog.Amount, static amount => fog => fog with { Amount = amount }), Tracks.Share));
     public static readonly FogParameter Colors = new("colors", new StateParameter<Fog>.Gradient(Lens<Fog, Ramp>.New(static fog => fog.Colors, static colors => fog => fog with { Colors = colors })));
     public static readonly FogParameter Layer = new("layer", new StateParameter<Fog>.Record<GeneratedLayer>(Lens<Fog, GeneratedLayer>.New(static fog => fog.Layer, static layer => fog => fog with { Layer = layer })));
-    public static readonly FogParameter Seed = new("seed", new StateParameter<Fog>.Bounded<Seed, int, InvalidGenerator>(
-        Lens<Fog, Seed>.New(static fog => fog.Seed, static seed => fog => fog with { Seed = seed }), Generators.Seed.Presentation));
+    public static readonly FogParameter Seed = new("seed", StateParameter.Bounded<Fog, Seed, int, InvalidGenerator>(Lens<Fog, Seed>.New(static fog => fog.Seed, static seed => fog => fog with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly FogParameter Timing = new("timing", new StateParameter<Fog>.Record<Timing>(Lens<Fog, Timing>.New(static fog => fog.Timing, static timing => fog => fog with { Timing = timing })));
 
     public StateParameter<Fog> Kind { get; }
@@ -509,27 +493,27 @@ public sealed record Starfield(
         Looks.Features(10f), Looks.Features(10f), Ramp.Grayscale, Exposure.Neutral, Mix.MinValue, Frequency.Neutral, Looks.Source(Looks.Fractal(6f, 0.56f, 2f, 0.1f), 1f, Vector2.One),
         AxisFraction.Half, Ramp.Grayscale, Exposure.Neutral, GeneratedLayer.Added, Seed.MinValue, Timing.Default);
 
-    public static Option<PixelPass> Pass(Starfield state, PassContext context) {
+    public static Option<PixelPass> Pass(Starfield state, PassContext context) => Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Stars.SiteSampler.Bind(stars => {
         (uint field, float time) = (CoordinateHash.Field(NoiseStream.Starfield, state.Seed, 0u), state.Timing.At(context));
         (uint glint, uint sites, uint clouds, uint draws) = (CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u), CoordinateHash.Branch(field, 3u), CoordinateHash.Branch(field, 4u));
-        (Func<Vector4, uint, NoiseSample> stars, RampTable starTable, float gain, float scale, float reach) =
-            (state.Stars.Sampler, state.StarColors.Tabulate(context.Working), state.StarExposure.Scale, state.StarScale, state.StarScale / state.StarRadius);
-        Func<Vector4, float> steady = state.Twinkle == Mix.MinValue ? static _ => 1f
-            : ((NoiseBasis.Plain with { Dimensions = NoiseDimensions.Four }).Sampler, Vector4.UnitW * state.TwinkleRate * time, (float)state.Twinkle) switch {
-                var (plain, phase, depth) => site => 1f - (depth * plain(site + phase, glint).Value),
+        (RampTable starTable, float gain, ERational scale, double reach) =
+            (state.StarColors.Tabulate(context.Working), state.StarExposure.Scale, ERational.FromSingle(state.StarScale), (double)state.StarScale / state.StarRadius);
+        Func<(ERational X, ERational Y, ERational Z, ERational W), float> steady = state.Twinkle == Mix.MinValue ? static _ => 1f
+            : ((NoiseBasis.Plain with { Dimensions = NoiseDimensions.Four }).Sampler, ERational.FromSingle(state.TwinkleRate).Multiply(ERational.FromSingle(time)), (float)state.Twinkle) switch {
+                var (plain, phase, depth) => site => 1f - (depth * plain((site.X, site.Y, site.Z, site.W.Add(phase)), glint).Value),
             };
-        Func<Vector2, Vector3> nebula = state.NebulaDensity == AxisFraction.MinValue ? static _ => Vector3.Zero
+        Func<(double X, double Y), Vector3> nebula = state.NebulaDensity == AxisFraction.MinValue ? static _ => Vector3.Zero
             : (state.Nebula.Sampler(time, clouds), state.NebulaColors.Tabulate(context.Working), state.NebulaExposure.Scale, (float)state.NebulaDensity) switch {
-                var (sample, table, light, density) => point => sample(new Vector3(point, 0f), 0f) switch {
+                var (sample, table, light, density) => point => sample((ERational.FromDouble(point.X), ERational.FromDouble(point.Y), ERational.Zero), ERational.Zero) switch {
                     var n => table.Sample(n) switch { var cloud => (float)RampInterpolation.SmootherRgb.Weight(Looks.Map(n, (1f - density, 1f))) * cloud.W * light * cloud.AsVector3() },
                 },
             };
-        return Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point => {
-            NoiseSample cell = stars(new Vector4(point / scale, 0f, 0f), sites);
+        return state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point => {
+            NoiseSample<(ERational X, ERational Y, ERational Z, ERational W)> cell = stars((ERational.FromDouble(point.X).Divide(scale), ERational.FromDouble(point.Y).Divide(scale), ERational.Zero, ERational.Zero), sites);
             Vector4 draw = NoiseFunctions.White(cell.Site, draws);
-            return new Vector4((draw.Y * Easing.Saturate(1f - (cell.Value * reach)) * steady(cell.Site) * gain * starTable.Sample(draw.X).AsVector3()) + nebula(point), 1f);
-        })));
-    }
+            return new Vector4((draw.Y * (float)double.Clamp(1d - (cell.Value * reach), 0d, 1d) * steady(cell.Site) * gain * starTable.Sample(draw.X).AsVector3()) + nebula(point), 1f);
+        })).Run(frame, progress);
+    })));
 }
 
 [SmartEnum<string>]
@@ -539,28 +523,20 @@ public sealed record Starfield(
 public sealed partial class StarfieldParameter : IStateParameter<Starfield> {
     public static readonly StarfieldParameter Placement = new("placement", new StateParameter<Starfield>.Record<Placement>(Lens<Starfield, Placement>.New(static sky => sky.Placement, static placement => sky => sky with { Placement = placement })));
     public static readonly StarfieldParameter Stars = new("stars", new StateParameter<Starfield>.Record<NoiseBasis>(Lens<Starfield, NoiseBasis>.New(static sky => sky.Stars, static stars => sky => sky with { Stars = stars })));
-    public static readonly StarfieldParameter StarScale = new("star-scale", new StateParameter<Starfield>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-        Lens<Starfield, ShortSideExtent>.New(static sky => sky.StarScale, static scale => sky => sky with { StarScale = scale }), Tracks.Extent with { Soft = (0.04f, 1f) }));
-    public static readonly StarfieldParameter StarRadius = new("star-radius", new StateParameter<Starfield>.Bounded<ShortSideExtent, float, InvalidPixelValue>(
-        Lens<Starfield, ShortSideExtent>.New(static sky => sky.StarRadius, static radius => sky => sky with { StarRadius = radius }), Tracks.Extent with { Soft = (0.01f, 1f) }));
+    public static readonly StarfieldParameter StarScale = new("star-scale", StateParameter.Bounded<Starfield, ShortSideExtent, float, InvalidPixelValue>(Lens<Starfield, ShortSideExtent>.New(static sky => sky.StarScale, static scale => sky => sky with { StarScale = scale }), Tracks.Extent with { Soft = (0.04f, 1f) }));
+    public static readonly StarfieldParameter StarRadius = new("star-radius", StateParameter.Bounded<Starfield, ShortSideExtent, float, InvalidPixelValue>(Lens<Starfield, ShortSideExtent>.New(static sky => sky.StarRadius, static radius => sky => sky with { StarRadius = radius }), Tracks.Extent with { Soft = (0.01f, 1f) }));
     public static readonly StarfieldParameter StarColors = new("star-colors", new StateParameter<Starfield>.Gradient(
         Lens<Starfield, Ramp>.New(static sky => sky.StarColors, static colors => sky => sky with { StarColors = colors })));
-    public static readonly StarfieldParameter StarExposure = new("star-exposure", new StateParameter<Starfield>.Bounded<Exposure, float, InvalidToneValue>(
-        Lens<Starfield, Exposure>.New(static sky => sky.StarExposure, static exposure => sky => sky with { StarExposure = exposure }), Exposure.Presentation));
-    public static readonly StarfieldParameter Twinkle = new("twinkle", new StateParameter<Starfield>.Bounded<Mix, float, InvalidGrade>(
-        Lens<Starfield, Mix>.New(static sky => sky.Twinkle, static twinkle => sky => sky with { Twinkle = twinkle }), Tracks.Share));
-    public static readonly StarfieldParameter TwinkleRate = new("twinkle-rate", new StateParameter<Starfield>.Bounded<Frequency, float, InvalidGenerator>(
-        Lens<Starfield, Frequency>.New(static sky => sky.TwinkleRate, static rate => sky => sky with { TwinkleRate = rate }), Tracks.Rate));
+    public static readonly StarfieldParameter StarExposure = new("star-exposure", StateParameter.Bounded<Starfield, Exposure, float, InvalidToneValue>(Lens<Starfield, Exposure>.New(static sky => sky.StarExposure, static exposure => sky => sky with { StarExposure = exposure }), Exposure.Presentation));
+    public static readonly StarfieldParameter Twinkle = new("twinkle", StateParameter.Bounded<Starfield, Mix, float, InvalidGrade>(Lens<Starfield, Mix>.New(static sky => sky.Twinkle, static twinkle => sky => sky with { Twinkle = twinkle }), Tracks.Share));
+    public static readonly StarfieldParameter TwinkleRate = new("twinkle-rate", StateParameter.Bounded<Starfield, Frequency, float, InvalidGenerator>(Lens<Starfield, Frequency>.New(static sky => sky.TwinkleRate, static rate => sky => sky with { TwinkleRate = rate }), Tracks.Rate));
     public static readonly StarfieldParameter Nebula = new("nebula", new StateParameter<Starfield>.Record<NoiseSource>(Lens<Starfield, NoiseSource>.New(static sky => sky.Nebula, static nebula => sky => sky with { Nebula = nebula })));
-    public static readonly StarfieldParameter NebulaDensity = new("nebula-density", new StateParameter<Starfield>.Bounded<AxisFraction, float, InvalidGrade>(
-        Lens<Starfield, AxisFraction>.New(static sky => sky.NebulaDensity, static density => sky => sky with { NebulaDensity = density }), new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }));
+    public static readonly StarfieldParameter NebulaDensity = new("nebula-density", StateParameter.Bounded<Starfield, AxisFraction, float, InvalidGrade>(Lens<Starfield, AxisFraction>.New(static sky => sky.NebulaDensity, static density => sky => sky with { NebulaDensity = density }), new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }));
     public static readonly StarfieldParameter NebulaColors = new("nebula-colors", new StateParameter<Starfield>.Gradient(
         Lens<Starfield, Ramp>.New(static sky => sky.NebulaColors, static colors => sky => sky with { NebulaColors = colors })));
-    public static readonly StarfieldParameter NebulaExposure = new("nebula-exposure", new StateParameter<Starfield>.Bounded<Exposure, float, InvalidToneValue>(
-        Lens<Starfield, Exposure>.New(static sky => sky.NebulaExposure, static exposure => sky => sky with { NebulaExposure = exposure }), Exposure.Presentation));
+    public static readonly StarfieldParameter NebulaExposure = new("nebula-exposure", StateParameter.Bounded<Starfield, Exposure, float, InvalidToneValue>(Lens<Starfield, Exposure>.New(static sky => sky.NebulaExposure, static exposure => sky => sky with { NebulaExposure = exposure }), Exposure.Presentation));
     public static readonly StarfieldParameter Layer = new("layer", new StateParameter<Starfield>.Record<GeneratedLayer>(Lens<Starfield, GeneratedLayer>.New(static sky => sky.Layer, static layer => sky => sky with { Layer = layer })));
-    public static readonly StarfieldParameter Seed = new("seed", new StateParameter<Starfield>.Bounded<Seed, int, InvalidGenerator>(
-        Lens<Starfield, Seed>.New(static sky => sky.Seed, static seed => sky => sky with { Seed = seed }), Generators.Seed.Presentation));
+    public static readonly StarfieldParameter Seed = new("seed", StateParameter.Bounded<Starfield, Seed, int, InvalidGenerator>(Lens<Starfield, Seed>.New(static sky => sky.Seed, static seed => sky => sky with { Seed = seed }), Generators.Seed.Presentation));
     public static readonly StarfieldParameter Timing = new("timing", new StateParameter<Starfield>.Record<Timing>(Lens<Starfield, Timing>.New(static sky => sky.Timing, static timing => sky => sky with { Timing = timing })));
 
     public StateParameter<Starfield> Kind { get; }

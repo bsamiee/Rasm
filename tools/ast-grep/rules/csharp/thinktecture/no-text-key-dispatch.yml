@@ -51,16 +51,6 @@ utils:
     key-read:
         kind: member_access_expression, invocation_expression
         regex: '^@?\w+\s*\.\s*(Key|ToValue\s*\(\s*\))$'
-    key-comparison:
-        any:
-            - kind: binary_expression
-              all:
-                - has: {field: operator, regex: '^(==|!=)$'}
-                - any: [{has: {field: left, matches: key-read}}, {has: {field: right, matches: key-read}}]
-            - kind: invocation_expression
-              all:
-                - has: {field: function, regex: '(^|\.)Equals$'}
-                - has: {stopBy: end, matches: key-read}
     text-operand:
         any:
             - matches: text-constant
@@ -80,13 +70,9 @@ utils:
                 - has: {stopBy: end, matches: text-operand}
     key-scan:
         kind: invocation_expression
-        any:
-            - all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|FindIndex|Where|Any)$'}}
-                - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: key-comparison}}}}
-            - all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Filter|Exists)$'}}
-                - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: text-key-comparison}}}}
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|FindIndex|Where|Any|Filter|Exists)$'}}
+            - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: text-key-comparison}}}}
 rule:
     kind: switch_expression, switch_statement, invocation_expression
     any:

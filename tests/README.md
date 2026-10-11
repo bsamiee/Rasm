@@ -25,12 +25,14 @@ tests/
 
 Classify each test by scope, technique, and execution mode, and apply every classification that fits.
 
-| [INDEX] | [AXIS]    | [VALUE]        | [DEFINITION]                                | [ROUTE]                                                     |
-| :-----: | :-------- | :------------- | :------------------------------------------ | :---------------------------------------------------------- |
-|  [01]   | Scope     | Unit           | Isolated behavior, controlled collaborators | Default `test` run per language                             |
-|  [02]   | Scope     | Integration    | Real components or an external boundary     | Python `network` marker                                     |
-|  [03]   | Technique | Property-based | Generated examples exercise an invariant    | `TestAssertions.ForAll`, `@property_test`, `it.effect.prop` |
-|  [04]   | Mode      | Benchmark      | Timing outside the functional test session  | `benchmark` fixture, Vitest `*.bench.ts` file               |
+| [INDEX] | [AXIS]    | [VALUE]        | [DEFINITION]                                | [ROUTE]                                                        |
+| :-----: | :-------- | :------------- | :------------------------------------------ | :------------------------------------------------------------- |
+|  [01]   | Scope     | Unit           | Isolated behavior, controlled collaborators | Default `test` run per language                                |
+|  [02]   | Scope     | Integration    | Real components or an external boundary     | Python `network` marker                                        |
+|  [03]   | Technique | Property-based | Generated examples exercise an invariant    | `TestAssertions.ForAll`, Hypothesis `@given`, `it.effect.prop` |
+|  [04]   | Mode      | Benchmark      | Timing outside the functional test session  | `benchmark` fixture, Vitest `*.bench.ts` file                  |
+
+Python `@property_test(subject)` records public-API coverage.
 
 ## [03]-[EXPECTED_BEHAVIOR]
 

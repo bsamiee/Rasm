@@ -5,6 +5,7 @@ using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Rasm.Imaging.Tone.Formations;
+using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Components;
 using Rasm.Rhino.UI.Numeric;
@@ -148,10 +149,14 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
     }
 
     private static Seq<AxisLabel> KeyLabels(Option<AgXLook> look) =>
-        (NumberText.Scalar(Exposure.Presentation, ""), FalseColor.Key(look)) switch {
-            var (text, key) => key.Ramp.Stops.Zip(key.Stops)
-                .Map(band => band.Second.Map(stop => new AxisLabel((float)(double)band.First.Position, text.Shown(Some(stop)))))
-                .Somes(),
+        FalseColor.Key(look) switch {
+            var key => key.Stops.Somes() switch {
+                var stops => FieldTexts.Number(Exposure.Presentation, (Enumerable.Min(stops), Enumerable.Max(stops))).Shown switch {
+                    var shown => key.Ramp.Stops.Zip(key.Stops)
+                        .Map(band => band.Second.Map(stop => new AxisLabel((float)(double)band.First.Position, shown(stop))))
+                        .Somes(),
+                },
+            },
         };
 
     // --- [STOPS]

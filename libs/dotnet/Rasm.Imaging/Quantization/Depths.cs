@@ -27,7 +27,7 @@ public readonly record struct Quantizer {
             + (Vector4.Clamp(2f * Vector4.Min(code, Vector4.Create(MaxCode) - code), Vector4.Zero, Vector4.One) * (MathF.CopySign(1f - MathF.Sqrt(1f - MathF.Abs(signed)), signed) - rectangular));
     }
 
-    internal void Quantize<TField>(Span<Vector4> row, int column, int line) where TField : IOffsetField {
+    internal void Quantize<TField>(Span<Vector4> row, long column, long line) where TField : IOffsetField {
         for (int x = 0; x < row.Length; x++) {
             Vector4 pixel = row[x];
             Vector4 code = MaxCode * pixel;
@@ -55,7 +55,7 @@ public abstract partial class OutputDepth {
 
     public abstract Option<Quantizer> Levels { get; }
 
-    public int RowBytes(int width, bool alpha) => ((width * (alpha ? 4 : 3) * Bits) + 7) / 8;
+    public long RowBytes(int width, bool alpha) => (((long)width * (alpha ? 4 : 3) * Bits) + 7) / 8;
 
     internal void Encode(ReadOnlySpan<Vector4> row, bool alpha, Span<byte> destination) {
         int lanes = alpha ? 4 : 3;

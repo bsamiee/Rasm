@@ -1,13 +1,12 @@
-using System.Drawing;
-
 namespace Rasm.Imaging.Tone;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     InvalidToneValue = 1,
-    EmptyRegion,
-    FrameWhiteOutOfRange,
-    EmptyCenter,
+    EmptyRegion = 2,
+    FrameWhiteOutOfRange = 3,
+    EmptyCenter = 4,
+    UndefinedHableNormalization = 5,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -15,8 +14,10 @@ public sealed record InvalidToneValue() : Expected("tone value out of range", (i
     public static InvalidToneValue Create(string message) => new();
 }
 
-public sealed record EmptyRegion(Rectangle Region) : Expected("region holds no covered pixel of finite value", (int)Codes.EmptyRegion);
+public sealed record EmptyRegion((long Left, long Top, long Right, long Bottom) Region) : Expected("region holds no covered pixel of finite value", (int)Codes.EmptyRegion);
 
-public sealed record FrameWhiteOutOfRange(float Measured) : Expected("frame white falls outside the scene white range", (int)Codes.FrameWhiteOutOfRange);
+public sealed record FrameWhiteOutOfRange(double Measured) : Expected("frame white falls outside the scene white range", (int)Codes.FrameWhiteOutOfRange);
 
-public sealed record EmptyCenter(Rectangle Region) : Expected("metered center holds no kept sample at full center weight", (int)Codes.EmptyCenter);
+public sealed record EmptyCenter((long Left, long Top, long Right, long Bottom) Region) : Expected("metered center holds no kept sample at full center weight", (int)Codes.EmptyCenter);
+
+public sealed record UndefinedHableNormalization(float White) : Expected("Hable curve is zero at the normalization white", (int)Codes.UndefinedHableNormalization);

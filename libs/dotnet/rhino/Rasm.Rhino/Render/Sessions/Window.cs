@@ -11,18 +11,22 @@ public sealed record WireframeRegion(RhinoDoc Document, ViewportInfo Viewport, R
 
 [Union]
 public abstract partial record RenderWindowSource {
-    public abstract IO<RenderWindow> Open();
+    public abstract IO<T> Open<T>(Func<RenderWindow, IO<T>> body);
 
     public sealed record Detached(PixelExtent Extent, ViewInfo View) : RenderWindowSource {
-        public override IO<RenderWindow> Open() =>
-            from window in IO.lift(() => Missing.Unless(RenderWindow.Create(new Size(Extent.Width, Extent.Height)), nameof(RenderWindow.Create)))
-            from viewed in IO.lift(() => window.SetView(View))
-            select window;
+        public override IO<T> Open<T>(Func<RenderWindow, IO<T>> body) =>
+            DisposalOps.Within(() => RenderWindow.Create(new Size(Extent.Width, Extent.Height)),
+                window =>
+                    from present in IO.lift(() => Missing.Unless(window, nameof(RenderWindow.Create)))
+                    from viewed in IO.lift(() => present.SetView(View))
+                    from result in body(present)
+                    select result,
+                static window => IO.lift(() => window?.Dispose()));
     }
 
     public sealed record Rendering(Guid SessionId) : RenderWindowSource {
-        public override IO<RenderWindow> Open() =>
-            IO.lift(() => Missing.Unless(RenderWindow.FromSessionId(SessionId), nameof(RenderWindow.FromSessionId)));
+        public override IO<T> Open<T>(Func<RenderWindow, IO<T>> body) =>
+            IO.lift(() => Missing.Unless(RenderWindow.FromSessionId(SessionId), nameof(RenderWindow.FromSessionId))).Bind(body);
     }
 }
 
@@ -76,36 +80,45 @@ public static class RenderWindows {
 
     // --- [PIXELS]
     public static IO<PixelFrame> Read(RenderWindow window, RenderWindow.StandardChannels channel) =>
-        (from opened in use(Open(window, channel))
-         from extent in IO.lift(() => Extent(opened.Width, opened.Height))
-         from frame in IO.lift(() => Frame(opened, new Rectangle(0, 0, extent.Width, extent.Height), extent))
-         select frame).Bracket();
+        Opened(window, channel, static opened =>
+            from extent in IO.lift(() => Extent(opened.Width, opened.Height))
+            from frame in IO.lift(() => Frame(opened, new Rectangle(System.Drawing.Point.Empty, new Size(extent.Width, extent.Height)), extent))
+            select frame);
 
     public static Fin<PixelFrame> Frame(RenderWindow.Channel opened, Rectangle rect, PixelExtent extent) =>
-        (Conversions.Validated<ChannelLayout, int, InvalidRhinoValue>(opened.PixelSize()).ToValidation(), Extent(rect.Width, rect.Height).ToValidation())
-            .Apply((layout, size) => new PixelFrame(rect.Location, size, extent, block => Fill(opened, rect, layout, block)))
-            .As()
-            .ToFin();
+        from read in (Conversions.Validated<ChannelLayout, int, InvalidRhinoValue>(opened.PixelSize()).ToValidation(), Extent(rect.Width, rect.Height).ToValidation())
+            .Apply(static (layout, size) => (Layout: layout, Size: size)).As().ToFin()
+        let stride = (long)read.Size.Width * read.Layout.Key
+        let bounds = (Left: (long)rect.X, Top: (long)rect.Y, Right: (long)rect.X + read.Size.Width, Bottom: (long)rect.Y + read.Size.Height)
+        from native in Refused.Unless(stride <= int.MaxValue && bounds.Left >= 0L && bounds.Top >= 0L && bounds.Right <= opened.Width && bounds.Bottom <= opened.Height,
+            stride, nameof(RenderWindow.Channel.GetValues))
+        select new PixelFrame(rect.Location, read.Size, extent, block => Fill(opened, rect, (int)native, read.Layout, block));
 
     public static IO<Unit> Blit(RenderWindow window, PixelFrame frame) =>
-        (from opened in use(Open(window, RenderWindow.StandardChannels.RGBA))
-         from inside in IO.lift(() => Refused.Unless(new Rectangle(0, 0, opened.Width, opened.Height).Contains(frame.Window), nameof(RenderWindow.Channel.SetValues)))
-         from written in IO.lift(() => opened.SetValues(frame.Window, frame.Window.Size, new PixelBuffer(frame.Address)))
-         select written)
-            .Bracket()
-            .Bind(_ => IO.lift(() => window.InvalidateArea(frame.Window)));
+        Opened(window, RenderWindow.StandardChannels.RGBA, opened =>
+            from inside in IO.lift(() => Refused.Unless(
+                frame.Window is var bounds && bounds.Left >= 0L && bounds.Top >= 0L && bounds.Right <= opened.Width && bounds.Bottom <= opened.Height,
+                nameof(RenderWindow.Channel.SetValues)))
+            let rect = new Rectangle(frame.Origin, new Size(frame.Size.Width, frame.Size.Height))
+            from written in IO.lift(() => opened.SetValues(rect, rect.Size, new PixelBuffer(frame.Address)))
+            select rect)
+            .Bind(rect => IO.lift(() => window.InvalidateArea(rect)));
 
-    public static IO<Bitmap> Snapshot(RenderWindow window) =>
-        IO.lift(() => Missing.Unless(window.GetBitmap(), nameof(RenderWindow.GetBitmap)));
+    public static IO<T> Snapshot<T>(RenderWindow window, Func<Bitmap, IO<T>> body) =>
+        DisposalOps.Within(window.GetBitmap,
+            bitmap => IO.lift(() => Missing.Unless(bitmap, nameof(RenderWindow.GetBitmap))).Bind(body),
+            static bitmap => IO.lift(() => bitmap?.Dispose()));
 
     internal static Fin<PixelExtent> Extent(int width, int height) =>
         PixelExtent.Validate(width, height, out PixelExtent extent) is { } error ? error : extent;
 
-    private static IO<RenderWindow.Channel> Open(RenderWindow window, RenderWindow.StandardChannels channel) =>
-        IO.lift(() => Missing.Unless(window.OpenChannel(channel), nameof(RenderWindow.OpenChannel)));
+    private static IO<T> Opened<T>(RenderWindow window, RenderWindow.StandardChannels channel, Func<RenderWindow.Channel, IO<T>> body) =>
+        DisposalOps.Within(() => window.OpenChannel(channel),
+            opened => IO.lift(() => Missing.Unless(opened, nameof(RenderWindow.OpenChannel))).Bind(body),
+            static opened => IO.lift(() => opened?.Dispose()));
 
-    private static void Fill(RenderWindow.Channel opened, Rectangle rect, ChannelLayout layout, float[] block) {
-        opened.GetValues(rect, rect.Width * layout.Key, layout.Order, ref block);
+    private static void Fill(RenderWindow.Channel opened, Rectangle rect, int stride, ChannelLayout layout, float[] block) {
+        opened.GetValues(rect, stride, layout.Order, ref block);
         for (int pixel = (rect.Width * rect.Height) - 1; layout.Components < 4 && pixel >= 0; pixel--) {
             int source = pixel * layout.Components;
             (block[4 * pixel], block[(4 * pixel) + 1], block[(4 * pixel) + 2], block[(4 * pixel) + 3]) =

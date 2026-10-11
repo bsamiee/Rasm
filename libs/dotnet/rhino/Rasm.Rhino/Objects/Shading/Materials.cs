@@ -54,9 +54,11 @@ public static partial class Materials {
         RenderMaterial.AssignToSubFaceChoices subFaces, RenderMaterial.AssignToBlockChoices blocks, bool interactive,
         string name, RedrawPolicy redraw, IPlugInSink sink) =>
         from objects in target.Objects(doc)
-        from committed in DisposalOps.AcquireAll(objects.Map(static found => IO.lift(() => new ObjRef(found))), DisposalOps.Release).Bracket(
-            Use: refs => Commits.Commit(doc, RowText.Localize(name, table: Some<object>(sink)), redraw,
-                IO.lift(() => Refused.Unless(material.AssignTo(refs, subFaces, blocks, interactive), nameof(RenderMaterial.AssignTo)))),
-            Fin: DisposalOps.Release)
+        from committed in DisposalOps.Within(
+            (Action<IDisposable> held) => from refs in objects.TraverseM(found => DisposalOps.Acquire(IO.lift(() => new ObjRef(found)), static reference => IO.lift(reference.Dispose), held)).As()
+                                          from assigned in Commits.Commit(doc, RowText.Localize(name, table: Some<object>(sink)), redraw,
+                                              IO.lift(() => Refused.Unless(material.AssignTo(refs, subFaces, blocks, interactive), nameof(RenderMaterial.AssignTo))))
+                                          select assigned,
+            DisposalOps.Release)
         select committed;
 }

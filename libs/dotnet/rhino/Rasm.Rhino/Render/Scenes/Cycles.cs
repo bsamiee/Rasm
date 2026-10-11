@@ -203,15 +203,21 @@ public abstract partial class CyclesKey {
 
     public static string Owner => "rhino-render";
 
-    internal abstract (ValueBinding Binding, IO<Unit> Reset) Entry(DictionaryOwner owner);
+    public abstract TResult Accept<TResult>(IValueKeyVisitor<TResult> visitor);
 
-    private sealed class Row<TValue, TRaw>(ValueKey<TValue, TRaw, InvalidRhinoValue> key) : CyclesKey(key.Name) where TValue : notnull where TRaw : notnull {
-        private readonly ValueKey<TValue, TRaw, InvalidRhinoValue> key = key;
+    internal (ValueBinding Binding, IO<Unit> Reset) Entry(DictionaryOwner owner) => Accept(new Entries(owner));
 
-        internal override (ValueBinding Binding, IO<Unit> Reset) Entry(DictionaryOwner owner) =>
+    private sealed class Entries(DictionaryOwner owner) : IValueKeyVisitor<(ValueBinding Binding, IO<Unit> Reset)> {
+        public (ValueBinding Binding, IO<Unit> Reset) Visit<TValue, TRaw>(ValueKey<TValue, TRaw> key) where TValue : notnull where TRaw : notnull =>
             ArchivableDictionaries.Store(owner, key, None) switch {
                 var store => (ValueBinding.Key(Owner, key, store), store.Write(None).Map(static _ => unit)),
             };
+    }
+
+    private sealed class Row<TValue, TRaw>(ValueKey<TValue, TRaw> key) : CyclesKey(key.Name) where TValue : notnull where TRaw : notnull {
+        private readonly ValueKey<TValue, TRaw> key = key;
+
+        public override TResult Accept<TResult>(IValueKeyVisitor<TResult> visitor) => visitor.Visit(key);
     }
 }
 
@@ -252,47 +258,37 @@ public readonly partial struct LightFactor : System.Numerics.IMinMaxValue<LightF
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public abstract partial class CyclesSetting {
-    public static readonly CyclesSetting ThrottleMs = new Row<ThrottleInterval, int>(
-        ValueKey.Of<ThrottleInterval, int, InvalidRhinoValue>("ThrottleMs", "Throttle (in ms)", "Pause between Raytraced viewport updates", ThrottleInterval.Default), SettingType.Integer, Applied.Live);
-    public static readonly CyclesSetting SelectedDeviceStr = new Row<string, string>(
-        ValueKey.Raw("SelectedDeviceStr", "Device", "Devices Rhino Render runs on, -1 picks the first GPU", "-1"), SettingType.String, Applied.Live);
-    public static readonly CyclesSetting IntermediateSelectedDeviceStr = new Row<string, string>(
-        ValueKey.Raw("IntermediateSelectedDeviceStr", "Device selection", "Device choice the device section writes with Device", "-1"), SettingType.String, Applied.Live);
-    public static readonly CyclesSetting PixelSize = new Row<ViewportPixelSize, int>(
-        ValueKey.Of<ViewportPixelSize, int, InvalidRhinoValue>("PixelSize", "Pixel size", "Raytraced pixel size, Sharpness writes 11 minus it", ViewportPixelSize.Full), SettingType.Integer, Applied.Live);
-    public static readonly CyclesSetting StartGpuKernelCompiler = new Row<bool, bool>(
-        ValueKey.Raw("StartGpuKernelCompiler", "Compile GPU kernels", "Compile GPU kernels when Rhino Render loads", @default: true), SettingType.Bool, Applied.Relaunch);
-    public static readonly CyclesSetting UseLightTree = new Row<bool, bool>(
-        ValueKey.Raw("UseLightTree", "Light tree", "Sample lights through the light tree", @default: true), SettingType.Bool, Applied.Live);
-    public static readonly CyclesSetting SunLightFactor = new Row<LightFactor, double>(
-        ValueKey.Of<LightFactor, double, InvalidRhinoValue>("SunLightFactor", "Sun light factor", "Multiplier Rhino Render applies to the sun's intensity", LightFactor.Sun), SettingType.Double, Applied.Live);
-    public static readonly CyclesSetting AreaLightFactor = new Row<LightFactor, double>(
-        ValueKey.Of<LightFactor, double, InvalidRhinoValue>("AreaLightFactor", "Area light factor", "Multiplier on rectangular light intensity", LightFactor.Area), SettingType.Double, Applied.Live);
-    public static readonly CyclesSetting LinearLightFactor = new Row<LightFactor, double>(
-        ValueKey.Of<LightFactor, double, InvalidRhinoValue>("LinearLightFactor", "Linear light factor", "Multiplier on linear light intensity", LightFactor.Linear), SettingType.Double, Applied.Live);
-    public static readonly CyclesSetting PointLightFactor = new Row<LightFactor, double>(
-        ValueKey.Of<LightFactor, double, InvalidRhinoValue>("PointLightFactor", "Point light factor", "Multiplier on point light intensity", LightFactor.Point), SettingType.Double, Applied.Live);
-    public static readonly CyclesSetting SpotLightFactor = new Row<LightFactor, double>(
-        ValueKey.Of<LightFactor, double, InvalidRhinoValue>("SpotLightFactor", "Spot light factor", "Multiplier on spot light intensity", LightFactor.Spot), SettingType.Double, Applied.Live);
-
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class CyclesSetting {
     public static Guid PlugInId { get; } = new(0x9bc28e9e, 0x7a6c, 0x4b8f, 0xa0, 0xc6, 0x3d, 0x05, 0xe0, 0x2d, 0x1b, 0x97);
 
-    public static SettingsNode Node { get; } = new(PlugInId);
+    private static SettingsNode Node { get; } = new(PlugInId);
 
-    public static string Owner => "rhino-render-options";
+    public static IO<BindingGroup> Bindings {
+        get {
+            const string threads = "Threads";
+            return from node in SettingRoots.TryGetChild(Node)
+                   select new BindingGroup(Seq(
+                       Bind(ValueKey.Of<ThrottleInterval, int, InvalidRhinoValue>("ThrottleMs", "Throttle (in ms)", "Pause between Raytraced viewport updates", ThrottleInterval.Default), SettingType.Integer, Applied.Live),
+                       Bind(ValueKey.Raw("SelectedDeviceStr", "Device", "Devices Rhino Render runs on, -1 picks the first GPU", "-1"), SettingType.String, Applied.Live),
+                       Bind(ValueKey.Raw("IntermediateSelectedDeviceStr", "Device selection", "Device choice the device section writes with Device", "-1"), SettingType.String, Applied.Live),
+                       Bind(ValueKey.Of<ViewportPixelSize, int, InvalidRhinoValue>("PixelSize", "Pixel size", "Raytraced pixel size, Sharpness writes 11 minus it", ViewportPixelSize.Full), SettingType.Integer, Applied.Live),
+                       Bind(ValueKey.Raw("StartGpuKernelCompiler", "Compile GPU kernels", "Compile GPU kernels when Rhino Render loads", @default: true), SettingType.Bool, Applied.Relaunch),
+                       Bind(ValueKey.Raw("UseLightTree", "Light tree", "Sample lights through the light tree", @default: true), SettingType.Bool, Applied.Live),
+                       Bind(ValueKey.Of<LightFactor, double, InvalidRhinoValue>("SunLightFactor", "Sun light factor", "Multiplier Rhino Render applies to the sun's intensity", LightFactor.Sun), SettingType.Double, Applied.Live),
+                       Bind(ValueKey.Of<LightFactor, double, InvalidRhinoValue>("AreaLightFactor", "Area light factor", "Multiplier on rectangular light intensity", LightFactor.Area), SettingType.Double, Applied.Live),
+                       Bind(ValueKey.Of<LightFactor, double, InvalidRhinoValue>("LinearLightFactor", "Linear light factor", "Multiplier on linear light intensity", LightFactor.Linear), SettingType.Double, Applied.Live),
+                       Bind(ValueKey.Of<LightFactor, double, InvalidRhinoValue>("PointLightFactor", "Point light factor", "Multiplier on point light intensity", LightFactor.Point), SettingType.Double, Applied.Live),
+                       Bind(ValueKey.Of<LightFactor, double, InvalidRhinoValue>("SpotLightFactor", "Spot light factor", "Multiplier on spot light intensity", LightFactor.Spot), SettingType.Double, Applied.Live))
+                       + node.Bind(static settings => Callbacks.Found(settings.TryGetDefault(threads, out int factory), factory))
+                           .Map(static factory => Bind(ValueKey.Raw(threads, "CPU Threads", "Threads used by CPU render sessions", factory), SettingType.Integer, Applied.Live)).ToSeq());
 
-    public static Validation<Error, BindingGroup> Bindings => BindingGroup.Of(toSeq(Items).Map(static item => item.Bind()));
-
-    internal abstract ValueBinding Bind();
-
-    private sealed class Row<TValue, TRaw>(ValueKey<TValue, TRaw, InvalidRhinoValue> key, SettingType<TRaw> kind, Applied applied) : CyclesSetting(key.Name) where TValue : notnull where TRaw : notnull {
-        private readonly PlugInSetting<TValue, TRaw, InvalidRhinoValue> row = new(key, kind, applied, Seq<string>(), Hidden: false);
-
-        internal override ValueBinding Bind() => ValueBinding.Key(Owner, row.Value, PlugInSettings.Store(Node, row));
+            static ValueBinding Bind<TValue, TRaw>(ValueKey<TValue, TRaw> key, SettingType<TRaw> kind, Applied applied)
+                where TValue : notnull
+                where TRaw : notnull {
+                PlugInSetting<TValue, TRaw> row = new(key, kind, applied, Seq<string>(), Hidden: false);
+                return ValueBinding.Key("rhino-render-options", row.Value, PlugInSettings.Store(Node, row));
+            }
+        }
     }
 }

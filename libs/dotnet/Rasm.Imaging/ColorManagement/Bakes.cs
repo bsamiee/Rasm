@@ -100,17 +100,11 @@ public static class Bakes {
     public static Option<LutTable> Exact(LutBake bake, Seq<PixelPass.Color> chain, Gamut working) =>
         from steps in chain.Traverse(static pass => pass.Table).As()
         where bake.Input.Encoding.Transfer == TransferCurve.Linear && bake.Output.Transfer == TransferCurve.Linear
-        select (LutTable)new LutTable.Sequence(LutTables.Between(bake.Input.Gamut, working) + steps + LutTables.Between(working, bake.Output.Gamut));
+        let linear = new ColorEncoding(working, TransferCurve.Linear, Nits.ReferenceWhite)
+        select (LutTable)new LutTable.Sequence(bake.Input.Encoding.LinearTo(linear) + steps + linear.LinearTo(bake.Output));
 
     public static LutTable Export(ChartFit fit, FitDirection direction) =>
-        fit.Transform(direction).Matrix switch {
-            var matrix => new LutTable.Affine(
-                new ColorMatrix3x3(
-                    (float)matrix[0, 0], (float)matrix[0, 1], (float)matrix[0, 2],
-                    (float)matrix[1, 0], (float)matrix[1, 1], (float)matrix[1, 2],
-                    (float)matrix[2, 0], (float)matrix[2, 1], (float)matrix[2, 2]),
-                Vector3.Zero),
-        };
+        new LutTable.Affine(fit.Transform(direction).Matrix, (0d, 0d, 0d));
 
     internal static Fin<Lut3D> Lattice(LatticeSize size, Seq<Action<Span<Vector4>>> steps) {
         using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * size * size * size);

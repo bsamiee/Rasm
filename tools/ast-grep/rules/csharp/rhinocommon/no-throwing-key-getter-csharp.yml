@@ -45,6 +45,7 @@ utils:
                             - any: [{has: {field: returns, matches: dictionary-container}}, {has: {field: type, matches: dictionary-container}}]
     dictionary-node:
         any:
+            - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: dictionary-node}}}}
             - kind: member_access_expression
               has: {field: name, regex: '^UserDictionary$'}
             - kind: invocation_expression
@@ -111,13 +112,10 @@ utils:
                 kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration
                 has:
                     stopBy: end
-                    any:
-                        - kind: variable_declarator
-                          all: [{has: {field: name, pattern: $LOCAL}}, {has: {nthChild: 2, matches: dictionary-node}}]
-                        - kind: declaration_expression
-                          all:
-                            - has: {field: name, pattern: $LOCAL}
-                            - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '\.\s*TryGetDictionary$'}}}}
+                    kind: declaration_expression
+                    all:
+                        - has: {field: name, pattern: $LOCAL}
+                        - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '\.\s*TryGetDictionary$'}}}}
             - kind: identifier
               pattern: $BOUND
               inside:

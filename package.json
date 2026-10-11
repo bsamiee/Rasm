@@ -301,7 +301,7 @@
             "restore": {
                 "command": "dotnet restore Workspace.slnx -bl:.artifacts/dotnet/binlog/restore-{}.binlog",
                 "cache": true,
-                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.csproj", "dotnet"],
+                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.csproj", "dotnet", "rhino"],
                 "outputs": ["{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*", "!{workspaceRoot}/.artifacts/dotnet/obj/*.cs/*"]
             },
             "grammar": {
@@ -311,13 +311,13 @@
                 "outputs": ["{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql.so"],
                 "options": { "commands": ["tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml", "tree-sitter build --output .cache/ast-grep/sql.so node_modules/tree-sitter-sqlite3"], "parallel": false }
             },
-            "rewrite": { "command": "lockf -k .cache/ast-grep-rewrite.lock ast-grep scan --no-ignore hidden", "options": { "args": "-U" }, "parallelism": false, "dependsOn": ["grammar"] },
+            "rewrite": { "command": "lockf -k .cache/ast-grep-rewrite.lock ast-grep scan --custom-languages allow --no-ignore hidden", "options": { "args": "-U" }, "parallelism": false, "dependsOn": ["grammar"] },
             "outline": {
-                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml",
+                "command": "ast-grep outline --custom-languages allow --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml",
                 "dependsOn": ["grammar"]
             },
             "lint:ast-grep": {
-                "command": "ast-grep scan --no-ignore hidden --error=no-suppress-all",
+                "command": "ast-grep scan --custom-languages allow --no-ignore hidden --error=no-suppress-all",
                 "cache": true,
                 "parallelism": false,
                 "dependsOn": ["grammar"],
@@ -367,16 +367,16 @@
             "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "cache": true, "inputs": ["javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" }] },
             "lint:pmd": { "command": "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --use-version java-27 --cache .cache/pmd/java --no-progress", "cache": true, "inputs": ["javaFiles", "{workspaceRoot}/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }] },
             "lint:dotnet-format": {
-                "command": "dotnet format style Workspace.slnx --no-restore --verify-no-changes",
+                "options": { "args": ["Workspace.slnx", "--no-restore", "--verify-no-changes"] },
                 "cache": true,
                 "parallelism": false,
-                "dependsOn": ["restore", { "projects": ["tag:language:dotnet"], "target": "lint" }],
-                "inputs": ["dotnet", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}"]
+                "dependsOn": [{ "projects": ["tag:language:dotnet"], "target": "build" }, { "projects": ["tag:language:dotnet"], "target": "lint", "params": "forward" }],
+                "inputs": ["dotnetFormat"]
             },
             "lint": { "dependsOn": ["lint:ast-grep", "lint:biome", "lint:ruff-check", "lint:ruff-format", "lint:yamllint", "lint:yamlfmt", "lint:actionlint", "lint:google-java-format", "lint:pmd", "lint:dotnet-format"] },
             "format": {
                 "command": "node plugins/function-hooks/repository/format-cli.ts --all",
-                "dependsOn": ["restore", { "projects": ["tag:language:dotnet"], "target": "format" }],
+                "dependsOn": [{ "projects": ["tag:language:dotnet"], "target": "format" }],
                 "metadata": {
                     "writers": [
                         { "target": "format:biome", "files": ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", "!**/*.{xcassets,icon}/**"] },
@@ -397,7 +397,7 @@
             "format:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --replace", "configurations": { "files": { "command": "google-java-format --aosp --replace" } } },
             "format:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --fix --quiet", "configurations": { "files": { "command": "swiftlint lint --fix --quiet" } } },
             "format:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format format --in-place --parallel", "configurations": { "files": { "command": "xcrun swift-format format --in-place --parallel" } } },
-            "format:dotnet": { "command": "dotnet format Workspace.slnx --no-restore" },
+            "format:dotnet": { "options": { "args": ["Workspace.slnx", "--no-restore"] }, "dependsOn": ["restore"] },
             "typecheck:tsc": {
                 "command": "tsc --build --pretty false",
                 "cache": true,

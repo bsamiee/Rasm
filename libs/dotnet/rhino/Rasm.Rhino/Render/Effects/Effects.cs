@@ -2,10 +2,11 @@ using System.Drawing;
 using System.Reflection;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
+using Rasm.Imaging.Tone;
+using Rasm.Imaging.Tone.Formations;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Views;
 using Rhino;
-using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
@@ -13,12 +14,14 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-public interface IEffectRows<TState, TParameter> where TParameter : class, IStateParameter<TState> {
-    public static abstract ParameterText Text(TParameter parameter);
+public interface IEffectDefinition {
+    public static abstract EffectKind Kind { get; }
+}
 
-    public static virtual Option<HelpTopic> Help => None;
-
-    public static virtual Seq<(string Name, EffectLook<TState, TParameter> Look)> Looks => [];
+public interface IEffectDefinition<TState, TParameter> : IEffectDefinition
+    where TState : IStateRecord<TState>
+    where TParameter : class, IStateParameter<TState> {
+    public static abstract EffectRow<TState, TParameter> Row { get; }
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -28,35 +31,10 @@ public static class EffectStyles {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record EffectKind(Guid Id, PostEffectType Stage, Type State, Func<ValueSet, PassContext, IO<Option<PixelPass>>> Pass, Func<RhinoDoc, ValueBinding> Binding) {
+public sealed record EffectKind(Guid Id, PostEffectType Stage, object Default, Option<Mix> Amount, Option<Func<ValueSet, PassContext, IO<(Option<PixelPass> Pass, PassContext Context)>>> Pass, Func<RhinoDoc, ValueBinding> Binding) {
+    public Type State => Default.GetType();
+
     public Option<BuiltinEffect> Replaces { get; init; }
-
-    public static EffectKind Of<TEffect, TState, TParameter, TError>()
-        where TEffect : StageEffect<TEffect, TState, TParameter, TError>, IEffectRows<TState, TParameter>
-        where TState : IStateRecord<TState, TParameter, TError>, IPixelStage<TState>
-        where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
-        where TError : Error, IValidationError<TError> =>
-        Staged(typeof(TEffect)) switch {
-            var stage => new(
-                typeof(TEffect).GUID,
-                stage,
-                typeof(TState),
-                (set, context) => EffectStates.Recalled<TState>(EntryKey.TypeOwner(typeof(TEffect).GUID), set, EffectStates.Mixed(stage)).Map(value => EffectPipeline.Staged(value, context)),
-                doc => EffectStates.Binding<TEffect, TState, TParameter, TError>(doc, EffectStates.Mixed(stage))),
-        };
-
-    public static EffectKind Of<TEffect, TState, TParameter, TError, TResource>()
-        where TEffect : JobEffect<TEffect, TState, TParameter, TError, TResource>, IEffectRows<TState, TParameter>
-        where TState : IStateRecord<TState, TParameter, TError>
-        where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
-        where TError : Error, IValidationError<TError>
-        where TResource : notnull, IFrameJob<TResource, TState> =>
-        new(
-            typeof(TEffect).GUID,
-            Staged(typeof(TEffect)),
-            typeof(TState),
-            static (_, _) => IO.pure(Option<PixelPass>.None),
-            static doc => EffectStates.Binding<TEffect, TState, TParameter, TError>(doc, None));
 
     internal static PostEffectType Staged(Type effect) =>
         Optional(effect.GetCustomAttribute<CustomPostEffectAttribute>()).Map(static attribute => attribute.PostEffectType).ValueUnsafe();
@@ -64,16 +42,15 @@ public sealed record EffectKind(Guid Id, PostEffectType Stage, Type State, Func<
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedEffect<TEffect, TState, TParameter, TError> : PostEffect
-    where TEffect : DefinedEffect<TEffect, TState, TParameter, TError>, IEffectRows<TState, TParameter>
+    where TEffect : DefinedEffect<TEffect, TState, TParameter, TError>, IEffectDefinition<TState, TParameter>
     where TState : IStateRecord<TState, TParameter, TError>
     where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
     where TError : Error, IValidationError<TError> {
     // --- [STATE]
-    private protected DefinedEffect(Option<Mix> amount) => Held = new(typeof(TEffect).GUID, amount);
+    private protected DefinedEffect() =>
+        Held = new EffectState<TState>(typeof(TEffect).GUID, TEffect.Row.Default, TEffect.Row.Amount);
 
     private protected EffectState<TState> Held { get; }
-
-    private protected static Seq<(TParameter Parameter, ParameterText Text)> Texts => ParameterText.Join<TState, TParameter, TError>(TEffect.Text);
 
     // --- [PARAMETERS]
     public sealed override bool GetParam(string param, ref object v) {
@@ -83,7 +60,7 @@ public abstract class DefinedEffect<TEffect, TState, TParameter, TError> : PostE
     }
 
     public sealed override bool SetParam(string param, object v) =>
-        Callbacks.Succeeded(Held.SetParam(param, StoredText.Format(v)).Map(next => Changing(RenderContent.ChangeContexts.Program, next)), static () => false, CallbackSite.Of(this));
+        Callbacks.Succeeded(Held.SetParam(param, StoredText.Format(v), next => Changing(RenderContent.ChangeContexts.Program, next)), static () => false, CallbackSite.Of(this));
 
     public sealed override bool ReadState(PostEffectState state) =>
         Callbacks.Succeeded(Held.ReadState(state), CallbackSite.Of(this));
@@ -92,43 +69,67 @@ public abstract class DefinedEffect<TEffect, TState, TParameter, TError> : PostE
         Callbacks.Succeeded(Held.WriteState(state), CallbackSite.Of(this));
 
     public sealed override void ResetToFactoryDefaults() =>
-        _ = Callbacks.Answer(Changing(RenderContent.ChangeContexts.Program, Held.ResetToFactoryDefaults()), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(Changing(RenderContent.ChangeContexts.Program, Held.ResetToFactoryDefaults()), CallbackSite.Of(this));
 
-    private protected IO<Unit> Changing(RenderContent.ChangeContexts context, IO<Unit> next) =>
-        IO.lift(() => BeginChange(context))
-            .Bracket(Use: _ => next, Fin: _ => IO.lift(() => Refused.Unless(EndChange(), nameof(EndChange))))
-            .Bind(_ => IO.lift(Changed));
+    private IO<Unit> Changing(RenderContent.ChangeContexts context, IO<Unit> next) =>
+        DisposalOps.Within(() => { BeginChange(context); return unit; },
+            _ => next.Bind(_ => IO.lift(Changed)),
+            _ => IO.lift(EndChange).Map(static _ => unit));
 
     // --- [UI]
     private protected abstract Func<EtoPostEffectCollapsibleSection, IO<View.Section>> Section { get; }
 
     public sealed override void AddUISections(PostEffectUI ui) =>
-        _ = Callbacks.Answer(IO.lift(() => ui.AddSection(new DefinedEffectSection<TEffect>(this, Section))), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(DisposalOps.Acquire(
+            IO.lift(() => new DefinedEffectSection<TEffect>(this, Section)), static section => IO.lift(section.Dispose), ui.AddSection),
+            CallbackSite.Of(this));
 
     public sealed override bool DisplayHelp() =>
-        Callbacks.Succeeded(TEffect.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
+        Callbacks.Succeeded(TEffect.Row.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
 }
 
-public abstract class StageEffect<TEffect, TState, TParameter, TError> : DefinedEffect<TEffect, TState, TParameter, TError>
-    where TEffect : StageEffect<TEffect, TState, TParameter, TError>, IEffectRows<TState, TParameter>
+public abstract class StageEffect<TEffect, TState, TParameter, TError> : DefinedEffect<TEffect, TState, TParameter, TError>, IEffectDefinition
+    where TEffect : StageEffect<TEffect, TState, TParameter, TError>, IEffectDefinition<TState, TParameter>
     where TState : IStateRecord<TState, TParameter, TError>, IPixelStage<TState>
     where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
     where TError : Error, IValidationError<TError> {
-    protected StageEffect() : base(EffectStates.Mixed(EffectKind.Staged(typeof(TEffect)))) { }
+    // --- [DEFINITION]
+    static EffectKind IEffectDefinition.Kind { get; } =
+        new(
+            typeof(TEffect).GUID,
+            EffectKind.Staged(typeof(TEffect)),
+            TEffect.Row.Default,
+            TEffect.Row.Amount,
+            Some<Func<ValueSet, PassContext, IO<(Option<PixelPass> Pass, PassContext Context)>>>(static (set, context) => EffectStates.Recalled(EntryKey.TypeOwner(typeof(TEffect).GUID), set, TEffect.Row.Amount, TEffect.Row.Default)
+                .Map(value => EffectPipeline.Staged(value, context) switch {
+                    var pass => (pass, pass.IsNone ? context : value.Record switch {
+                        ExposureState exposed => context with { Exposure = context.Exposure + Exposure.Applied(exposed.Exposure.Scale, (float)value.Amount.IfNone(Mix.Full)) },
+                        ToneMapping => context with { Signal = context.Display.Encoding.Transfer },
+                        _ => context,
+                    }),
+                })),
+            static doc => EffectStates.Binding<TEffect, TState, TParameter, TError>(doc, TEffect.Row));
 
+    // --- [STATE]
     private readonly Atom<StageFrame> input = Atom<StageFrame>(new StageFrame.Unread());
 
     private readonly Derivations derivations = new();
 
-    private static Seq<EffectKind> Kinds => ((IPlugInRendering)PlugIn.Find(typeof(TEffect).Assembly)).Effects;
+    public sealed override void Dispose(bool bDisposing) {
+        try {
+            if (bDisposing) derivations.Dispose();
+        } finally {
+            base.Dispose(bDisposing);
+        }
+    }
 
-    private protected sealed override Func<EtoPostEffectCollapsibleSection, IO<View.Section>> Section => SectionRows.Stage(this, Held, Texts, TEffect.Looks, input, Changing);
+    private protected sealed override Func<EtoPostEffectCollapsibleSection, IO<View.Section>> Section => SectionRows.Stage(this, Held, ParameterText.Join<TState, TParameter, TError>(TEffect.Row.Text), TEffect.Row.Looks, input);
 
     public sealed override Guid[] RequiredChannels => EffectPipeline.Ids(TState.Channels(Held.Current));
 
     public sealed override bool Execute(PostEffectPipeline pipeline, Rectangle rect) =>
-        Callbacks.Succeeded(EffectPipeline.Run(pipeline, Kinds, rect, PostEffectType, Held.Value, input, derivations), CallbackSite.Of(this));
+        Callbacks.Succeeded(EffectPipeline.Run(pipeline, Id, ((IPlugInRendering)IPlugInSink.Of(this)).Effects, rect, PostEffectType, Held.Value, input, derivations), CallbackSite.Of(this));
 
     public sealed override bool CanExecute(PostEffectPipeline pipeline) =>
-        base.CanExecute(pipeline) && Callbacks.Answer(EffectPipeline.Runs(pipeline, Kinds, PostEffectType, Held.Value, input, derivations), static () => false, CallbackSite.Of(this));
+        base.CanExecute(pipeline) && Callbacks.Answer(EffectPipeline.Runs(pipeline, PostEffectType, Held.Value, input, derivations), static () => false, CallbackSite.Of(this));
 }

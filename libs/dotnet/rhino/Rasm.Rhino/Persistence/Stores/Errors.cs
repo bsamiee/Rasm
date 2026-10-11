@@ -3,6 +3,7 @@ namespace Rasm.Rhino.Persistence.Stores;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     RefusedEntry = 1,
+    MissingField,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -13,3 +14,5 @@ public sealed record RefusedEntry : Expected {
 
     public string Text { get; }
 }
+
+public sealed record MissingField(Type ValueType) : Expected("No text was stored for {ValueType}", (int)Codes.MissingField);

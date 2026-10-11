@@ -1,7 +1,5 @@
 using System.Numerics;
-using Eto.Forms;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Notation;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Persistence.Settings;
@@ -75,11 +73,11 @@ public static class HostDialogs {
             number => Conversions.Validated<TValue, Length, TError>(Quantities.From(number, modelUnit)))
         select chosen;
 
-    public static IO<(TValue Min, TValue Max)> ShowRangeDialog<TValue, TKey, TError>(RhinoDoc doc, LocalizeStringPair title, Presentation<TValue, TKey> presentation, (TValue Min, TValue Max) range, (bool Min, bool Max) editable)
+    public static IO<(TValue Min, TValue Max)> ShowRangeDialog<TValue, TKey, TError>(RhinoDoc doc, LocalizeStringPair title, Presentation<TKey> presentation, (TValue Min, TValue Max) range, (bool Min, bool Max) editable)
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
         where TKey : struct, INumber<TKey>
         where TError : Error, IValidationError<TError> =>
-        Quantities.Scalar(presentation) switch {
+        Quantities.Scalar(presentation, (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue())) switch {
             var display => Ranged(doc, title, range, editable, display.Decimals,
                 value => display.Shown(double.CreateSaturating(value.ToValue())),
                 number => Conversions.Validated<TValue, TKey, TError>(NumericRows.Narrowed<TKey>(display.Key(number)))),
@@ -112,13 +110,14 @@ public static class HostDialogs {
         Attended.Bind(_ => IO.lift(() => Accepted(Dialogs.ShowSunDialog(doc.Lights.Sun), unit)));
 
     private static Dialogs.OnColorChangedEvent Previewed((Func<Color4f, IO<Unit>> Deliver, CallbackSite Site) preview) =>
-        shown => _ = Callbacks.Answer(preview.Deliver(shown), static () => unit, preview.Site);
+        shown => Callbacks.Run(preview.Deliver(shown), preview.Site);
 
     private static IO<(TValue Min, TValue Max)> Ranged<TValue>(RhinoDoc doc, LocalizeStringPair title, (TValue Min, TValue Max) range, (bool Min, bool Max) editable, int decimals, Func<TValue, double> shown, Func<double, Fin<TValue>> entered) =>
         from attended in Attended
-        from ends in use(() => new RangeDialog(shown(range.Min), shown(range.Max), decimals, decimals, editable.Min, editable.Max) { Title = title.Local })
-            .Bind(dialog => IO.lift(() => Accepted(dialog.ShowSemiModal(doc, RhinoEtoApp.MainWindowForDocument(doc)), (dialog.Min, dialog.Max))))
-            .Bracket()
+        from ends in DisposalOps.Within(
+            () => new RangeDialog(shown(range.Min), shown(range.Max), decimals, decimals, editable.Min, editable.Max) { Title = title.Local },
+            dialog => IO.lift(() => Accepted(dialog.ShowSemiModal(doc, RhinoEtoApp.MainWindowForDocument(doc)), (dialog.Min, dialog.Max))),
+            static dialog => IO.lift(dialog.Dispose))
         from chosen in IO.lift((entered(ends.Min).ToValidation(), entered(ends.Max).ToValidation()).Apply(static (low, high) => (Min: low, Max: high)).As().ToFin())
         select chosen;
 
@@ -167,38 +166,43 @@ public static class HostDialogs {
         select chosen;
 
     private static IO<Seq<int>> Indices(RhinoDoc doc, Seq<ComponentRef<Layer>> layers) =>
-        layers.TraverseM(layer => TableOps.Find(doc.Layers, layer, includeDeleted: false).Map(static found => found.Index)).As();
+        Callbacks.Each(layers.Map(layer => TableOps.Find(doc.Layers, layer, includeDeleted: false).Map(static found => found.Index)));
 
     // --- [FILES]
-    public static IO<Seq<string>> ShowOpenDialog(global::Rhino.UI.OpenFileDialog dialog) =>
+    public static IO<Seq<string>> ShowOpenDialog(OpenFileDialog dialog) =>
         Attended.Bind(_ => IO.lift(() => Accepted(dialog.ShowOpenDialog(), toSeq(dialog.FileNames))));
 
-    public static IO<string> ShowSaveDialog(global::Rhino.UI.SaveFileDialog dialog) =>
+    public static IO<string> ShowSaveDialog(SaveFileDialog dialog) =>
         Attended.Bind(_ => IO.lift(() => Accepted(dialog.ShowSaveDialog(), dialog.FileName)));
 
-    public static string Filter(Seq<FileTypeRow> rows) =>
+    public static string Filter(Seq<(string Description, Seq<string> Extensions)> rows) =>
         string.Join('|', rows.Map(static row => row.Description + "|" + string.Join(';', row.Extensions.Map(static extension => "*" + extension))));
 
     public static IO<string> ShowSelectFolderDialog(RhinoDoc doc, LocalizeStringPair title, Option<string> directory) =>
         from attended in Attended
-        from folder in (
-            from dialog in use(() => new SelectFolderDialog { Title = title.Local })
-            from seeded in IO.lift(() => directory.Iter(path => dialog.Directory = path))
-            from chosen in IO.lift(() => Accepted(dialog.ShowDialog(RhinoEtoApp.MainWindowForDocument(doc)) == DialogResult.Ok, dialog.Directory))
-            select chosen).Bracket()
+        from folder in DisposalOps.Within(
+            () => new Eto.Forms.SelectFolderDialog { Title = title.Local },
+            dialog =>
+                from seeded in IO.lift(() => directory.Iter(path => dialog.Directory = path))
+                from chosen in IO.lift(() => Accepted(dialog.ShowDialog(RhinoEtoApp.MainWindowForDocument(doc)) == Eto.Forms.DialogResult.Ok, dialog.Directory))
+                select chosen,
+            static dialog => IO.lift(dialog.Dispose))
         select folder;
 
     // --- [SUPPRESSION]
-    public static Seq<PlugInSetting<bool, bool, InvalidRhinoValue>> Suppressions(ViewCatalog views) =>
+    public static Seq<PlugInSetting<bool, bool>> Suppressions(ViewCatalog views) =>
         views.Listed<View.Dialog>().Choose(static dialog => dialog.Suppression);
 
-    public static IO<Suppressible<T>> Suppressing<T>(SettingsNode node, PlugInSetting<bool, bool, InvalidRhinoValue> row, Func<CheckBox, IO<(T Value, bool Suppress)>> show) =>
-        from shows in PlugInSettings.Current(node, row)
+    public static IO<Suppressible<T>> Suppressing<T>(SettingsNode node, PlugInSetting<bool, bool> row, Func<Eto.Forms.CheckBox, IO<(T Value, bool Suppress)>> show) =>
+        from shows in node.Current(row)
         from asked in shows
-            ? (from box in use(static () => new CheckBox { Text = RowText.Localize("Do not show this dialog again").Local })
-               from answer in show(box)
-               from kept in when(answer.Suppress, PlugInSettings.Store(node, row).Write(Some(value: false)).Map(static _ => unit)).As()
-               select (Suppressible<T>)new Suppressible<T>.Shown(answer.Value)).Bracket()
+            ? DisposalOps.Within(
+                static () => new Eto.Forms.CheckBox { Text = RowText.Localize("Do not show this dialog again").Local },
+                box =>
+                    from answer in show(box)
+                    from kept in when(answer.Suppress, PlugInSettings.Store(node, row).Write(Some(value: false)).Map(static _ => unit)).As()
+                    select (Suppressible<T>)new Suppressible<T>.Shown(answer.Value),
+                static box => IO.lift(box.Dispose))
             : IO.pure<Suppressible<T>>(new Suppressible<T>.Suppressed())
         select asked;
 

@@ -43,14 +43,6 @@ utils:
               all:
                 - has: {field: type, matches: struct-parameter}
                 - has: {field: arguments, not: {has: {kind: argument}}}
-            - kind: invocation_expression
-              all:
-                - has: {field: function, any: [{kind: identifier, pattern: $HELPER}, {kind: generic_name, has: {kind: identifier, pattern: $HELPER}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
-                - inside:
-                    kind: compilation_unit
-                    stopBy: end
-                    has: {stopBy: end, kind: 'method_declaration, local_function_statement', all: [{has: {field: name, pattern: $HELPER}}, {has: {field: body, kind: arrow_expression_clause, has: {matches: default-value}}}]}
     default-argument:
         kind: argument
         has: {nthChild: {position: 1, reverse: true}, matches: default-value}

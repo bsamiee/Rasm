@@ -3,8 +3,8 @@ namespace Rasm.Rhino.Document.Geolocation;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     ReversedWindow = 1,
-    InvalidStudyStep,
-    SkippedLocalTime,
+    InvalidStudyStep = 2,
+    SkippedLocalTime = 3,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

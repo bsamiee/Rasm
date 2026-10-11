@@ -22,30 +22,37 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
         Read(context, doc, plan, target.Switch(
             local: static _ => new Reach(Local: true, Quits: false, Package: None),
             handoff: static handoff => new Reach(Local: true, Quits: true, Package: Some(handoff.Package)),
-            jobFile: static file => new Reach(Local: false, Quits: false, Package: Some(file.Package))));
+            jobFile: static file => new Reach(Local: false, Quits: false, Package: Some(file.Package)),
+            flamenco: static farm => new Reach(Local: false, Quits: false, Package: Some(farm.Package))));
 
     private static IO<Preflight> Read(QueueContext context, RhinoDoc doc, QueuePlan plan, Reach reach) =>
+        plan.Entries.Map(static entry => (Entry: entry, Frame: entry.Rendered)).Strict() switch {
+            var rendered =>
         (DocumentStatistics.Read(doc),
          Links.Closure(doc.RuntimeSerialNumber),
          Links.Style(doc).Read,
-         NamedSnapshots.Names(doc).Map(names => plan.Entries.Map((entry, index) => Entered(doc, names, entry, index)).Flatten().Strict()),
+         NamedSnapshots.Names(doc).Map(names => rendered.Map((entry, index) => Entered(doc, names, entry.Entry, index, entry.Frame)).Flatten().Strict()),
          SceneSources.Read(new SceneSource.Live(doc), RenderChannelsState.Read).Map(QueueEstimate.Channels),
          reach.Local
-             ? QueueProgress.Read(context.Record).Bind(prior => QueueProgress.State(prior, context.Record, context.Clock)).Map(static state => Some(state))
+             ? from settings in context.Settings
+               from prior in QueueProgress.Read(context.Record)
+               from state in QueueProgress.State(prior, context.Record, context.Clock, settings.Heartbeat)
+               select Some(state)
              : IO.pure(Option<RunState>.None),
          IO.lift(Host.Read),
          Measured(doc, plan, reach),
          IO.lift(() => Textured(doc)))
-        .Apply((statistics, links, style, entered, channels, run, host, disk, textures) => Judged(reach, plan, statistics, links, style, entered, channels, run, host, disk, textures))
-        .As();
+        .Apply((statistics, links, style, entered, channels, run, host, disk, textures) => Judged(reach, plan, rendered, statistics, links, style, entered, channels, run, host, disk, textures))
+        .As(),
+        };
 
     // --- [READS]
-    private static Seq<Error> Entered(RhinoDoc doc, Seq<string> snapshots, QueueEntry<PlannedOutput> entry, int index) =>
+    private static Seq<Error> Entered(RhinoDoc doc, Seq<string> snapshots, QueueEntry<Unit> entry, int index, Fin<OverscanFrame> rendered) =>
         (Held(doc, snapshots, entry.Source) ? Seq<Error>() : Seq<Error>(new SourceViewMissing(index, entry.Source.RenderSource)))
         + (entry.Overscan == Overscan.Off || entry.Source.RenderSource == RenderSettings.RenderingSources.ActiveViewport
             ? Seq<Error>()
             : Seq<Error>(new OverscanSourceRefused(index, entry.Source.RenderSource)))
-        + Seq(entry.Rendered.Map(static _ => unit), entry.Frames.Numbers.TraverseM(entry.Moment).As().Map(static _ => unit))
+        + Seq(rendered.Map(static _ => unit), entry.Frames.Numbers.TraverseM(entry.Moment).As().Map(static _ => unit))
             .Partition()
             .Fails
             .Map(error => (Error)new EntryRefused(index, error));
@@ -85,6 +92,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
     private static Preflight Judged(
         Reach reach,
         QueuePlan plan,
+        Seq<(QueueEntry<Unit> Entry, Fin<OverscanFrame> Frame)> rendered,
         DocumentStatistics statistics,
         LinkClosure links,
         Option<LinkedInstanceDefinitionUpdateStyle> style,
@@ -116,7 +124,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
                 ? (host.SafeMode && host.Renderer == CyclesSetting.PlugInId ? Seq<Error>(new RenderOnCpu()) : Seq<Error>())
                 : (textures.Unpacked + toSeq(links.Graph.Edges).Choose(static link => Stored(link.Target))).Distinct().Map(static path => (Error)new FileOutsideCopy(path))),
             statistics,
-            toMap(plan.Entries.Map((entry, index) => entry.Rendered.ToOption().Map(rendered => (index, QueueEstimate.Memory(statistics, rendered, channels)))).Somes()));
+            toMap(rendered.Map((entry, index) => entry.Frame.ToOption().Map(held => (index, QueueEstimate.Memory(statistics, held.Padded, channels)))).Somes()));
 
     private static Option<string> Stored(LinkedModel model) =>
         model.Switch(opened: static _ => Option<string>.None, stored: static stored => Some(stored.Path));

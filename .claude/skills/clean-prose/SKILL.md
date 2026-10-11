@@ -57,8 +57,6 @@ Words that fail take the current term for what they name, real field terms (SIMD
 |  [30]   | `pluggable`, `publication-quality`, `settled` (fact)              | Delete                                                           |
 |  [31]   | `toolkit`, `suite` (after a package name), `hard-won`             | Delete                                                           |
 
-`nx run rasm:lint:ast-grep -- --filter='^no-coined-identifier-' <path>...` reports coined words in identifiers
-
 Names in code, build, and rule files say what the thing is in their language's vocabulary:
 - Renames go through language tooling and update every reference, test, and file name
 - Prose writes code names in backticks with exact spelling, a tool use as its command (`ruff check`), and tool or product names used as words plain

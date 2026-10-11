@@ -123,11 +123,12 @@ public abstract partial record DefinitionEdit {
     public sealed record ModifySourceArchive(SourceReference Source, InstanceDefinitionUpdateType UpdateType, InstanceDefinitionLayerStyle LayerStyle) : DefinitionEdit {
         internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
             from path in IO.lift(() => Exchange.ExistingPath(Source.FullPath))
-            from modified in use(IO.lift(() => Missing.Unless(
-                    FileReference.CreateFromFullAndRelativePaths(path, Source.RelativePath.ValueUnsafe()), nameof(FileReference.CreateFromFullAndRelativePaths))))
-                .Bind(reference => IO.lift(() => Refused.Unless(
-                    doc.InstanceDefinitions.ModifySourceArchive(definition.Index, reference, UpdateType, LayerStyle, quiet: true), nameof(InstanceDefinitionTable.ModifySourceArchive))))
-                .Bracket()
+            from modified in DisposalOps.Within(
+                () => FileReference.CreateFromFullAndRelativePaths(path, Source.RelativePath.ValueUnsafe()),
+                reference => IO.lift(() => Missing.Unless(reference, nameof(FileReference.CreateFromFullAndRelativePaths)))
+                    .Bind(held => IO.lift(() => Refused.Unless(
+                        doc.InstanceDefinitions.ModifySourceArchive(definition.Index, held, UpdateType, LayerStyle, quiet: true), nameof(InstanceDefinitionTable.ModifySourceArchive)))),
+                static reference => DisposalOps.Release(Conversions.Rows(new[] { reference })))
             select modified;
     }
 
@@ -155,11 +156,8 @@ public abstract partial record DefinitionEdit {
 
     public sealed record Delete(bool DeleteReferences) : DefinitionEdit {
         internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
-            from containers in IO.lift(() => Conversions.Rows(definition.GetContainers()).Map(static container => container.Id).Strict())
-            from free in guard<Error>(containers.IsEmpty, new DefinitionContained(definition.Id, containers))
-            from deleted in IO.lift(() => Refused.Unless(
-                doc.InstanceDefinitions.Delete(definition.Index, DeleteReferences, quiet: true), nameof(InstanceDefinitionTable.Delete)))
-            select deleted;
+            IO.lift(() => Refused.Unless(
+                doc.InstanceDefinitions.Delete(definition.Index, DeleteReferences, quiet: true), nameof(InstanceDefinitionTable.Delete)));
     }
 }
 
@@ -183,12 +181,9 @@ public abstract partial record DefinitionOp {
         bool SkipNestedLinkedDefinitions) : DefinitionOp {
         internal override IO<int> Apply(RhinoDoc doc) =>
             from path in IO.lift(() => Exchange.ExistingPath(Path))
-            from count in IO.lift(() => doc.InstanceDefinitions.Count)
             from index in IO.lift(() => Conversions.Required(doc.InstanceDefinitions.CreateFromFile(
                 path, Metadata.Name, Conversions.Unset(Metadata.Description), Metadata.Url, Metadata.UrlTag,
                 UpdateType, LayerStyle, Conflict, SkipNestedLinkedDefinitions), nameof(InstanceDefinitionTable.CreateFromFile)))
-            from row in TableOps.Find(doc.InstanceDefinitions, index, includeDeleted: false)
-            from created in guard<Error>(index >= count || TableOps.Names<InstanceDefinition>().Equals(row.Name, Metadata.Name), new AlreadyLinked(path, row.Id))
             select index;
     }
 
@@ -237,16 +232,15 @@ public static class Definitions {
     // --- [PREVIEW]
     public static IO<TValue> Preview<TValue>(RhinoDoc doc, ComponentRef<InstanceDefinition> address, PreviewMethod method, Size pixels, Func<Bitmap, IO<TValue>> body) =>
         from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
-        from result in use(IO.lift(() => Missing.Unless(
-                method.Switch(
+        from result in DisposalOps.Within(
+                () => method.Switch(
                     (Definition: definition, Pixels: pixels),
                     byMode: static (target, mode) =>
                         target.Definition.CreatePreviewBitmap(Conversions.Unset(mode.Selected), mode.Projection, mode.DisplayMode, target.Pixels, mode.ApplyDpiScaling),
                     byCamera: static (target, camera) =>
                         target.Definition.CreatePreviewBitmap(camera.DisplayModeId, camera.Projection, camera.Camera, camera.DrawDecorations, target.Pixels, camera.ApplyDpiScaling)),
-                nameof(InstanceDefinition.CreatePreviewBitmap))))
-            .Bind(body)
-            .Bracket()
+                bitmap => IO.lift(() => Missing.Unless(bitmap, nameof(InstanceDefinition.CreatePreviewBitmap))).Bind(body),
+                static bitmap => DisposalOps.Release(Conversions.Rows(new[] { bitmap })))
         select result;
 
     // --- [WRITES]

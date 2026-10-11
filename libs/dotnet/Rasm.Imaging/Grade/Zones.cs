@@ -203,7 +203,7 @@ public readonly partial struct ZoneAdjustment : IMinMaxValue<ZoneAdjustment> {
     public static ZoneAdjustment MinValue { get; } = new(0.1f);
     public static ZoneAdjustment MaxValue { get; } = new(1.9f);
     public static ZoneAdjustment Neutral { get; } = new(1f);
-    public static Presentation<ZoneAdjustment, float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
+    public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
 
     static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
@@ -215,7 +215,7 @@ public readonly partial struct PivotAdjustment : IMinMaxValue<PivotAdjustment> {
     public static PivotAdjustment MinValue { get; } = new(0.2f);
     public static PivotAdjustment MaxValue { get; } = new(1.8f);
     public static PivotAdjustment Neutral { get; } = new(1f);
-    public static Presentation<PivotAdjustment, float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
+    public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
 
     static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
@@ -226,7 +226,7 @@ public readonly partial struct PivotAdjustment : IMinMaxValue<PivotAdjustment> {
 public readonly partial struct ZoneWidth : IMinMaxValue<ZoneWidth> {
     public static ZoneWidth MinValue { get; } = new(0.01f);
     public static ZoneWidth MaxValue { get; } = new((float)Exposure.MaxValue - (float)Exposure.MinValue);
-    public static Presentation<ZoneWidth, float> Presentation { get; } = GradingStyle.Linear.Neutral switch {
+    public static Presentation<float> Presentation { get; } = GradingStyle.Linear.Neutral switch {
         var neutral => new() {
             Soft = ((float)MinValue, neutral.Highlights.Start + neutral.Highlights.Width - (neutral.Shadows.Start - neutral.Shadows.Width)),
             Step = 0.1f,
@@ -244,7 +244,7 @@ public readonly partial struct ZoneContrast : IMinMaxValue<ZoneContrast> {
     public static ZoneContrast MinValue { get; } = new(0.01f);
     public static ZoneContrast MaxValue { get; } = new(1.99f);
     public static ZoneContrast Neutral { get; } = new(1f);
-    public static Presentation<ZoneContrast, float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
+    public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
 
     static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
@@ -323,24 +323,21 @@ public sealed partial class ToneZonesParameter : IStateParameter<ToneZones> {
     public static readonly ToneZonesParameter WhitesBlue = new("whites-blue", Whites.Blue);
     public static readonly ToneZonesParameter WhitesStart = new("whites-start", Whites.Start);
     public static readonly ToneZonesParameter WhitesWidth = new("whites-width", Whites.Width);
-    public static readonly ToneZonesParameter SContrast = new("s-contrast", new StateParameter<ToneZones>.Bounded<ZoneContrast, float, InvalidGrade>(
-        Lens<ToneZones, ZoneContrast>.New(static zones => zones.SContrast, static contrast => zones => zones with { SContrast = contrast }), ZoneContrast.Presentation));
+    public static readonly ToneZonesParameter SContrast = new("s-contrast", StateParameter.Bounded<ToneZones, ZoneContrast, float, InvalidGrade>(Lens<ToneZones, ZoneContrast>.New(static zones => zones.SContrast, static contrast => zones => zones with { SContrast = contrast }), ZoneContrast.Presentation));
 
     public StateParameter<ToneZones> Kind { get; }
 
-    private static ZoneKinds Kinds<TAdjustment>(Lens<ToneZones, Zone<TAdjustment>> zone, Presentation<TAdjustment, float> presentation)
+    private static ZoneKinds Kinds<TAdjustment>(Lens<ToneZones, Zone<TAdjustment>> zone, Presentation<float> presentation)
         where TAdjustment : struct, IObjectFactory<TAdjustment, float, InvalidGrade>, IConvertible<float>, IMinMaxValue<TAdjustment> =>
         fun((Lens<Zone<TAdjustment>, TAdjustment> channel) =>
-            (StateParameter<ToneZones>)new StateParameter<ToneZones>.Bounded<TAdjustment, float, InvalidGrade>(lens(zone, channel), presentation)) switch {
+            (StateParameter<ToneZones>)StateParameter.Bounded<ToneZones, TAdjustment, float, InvalidGrade>(lens(zone, channel), presentation)) switch {
                 var adjusted => new(
                     adjusted(Lens<Zone<TAdjustment>, TAdjustment>.New(static at => at.Master, static value => at => at with { Master = value })),
                     adjusted(Lens<Zone<TAdjustment>, TAdjustment>.New(static at => at.Red, static value => at => at with { Red = value })),
                     adjusted(Lens<Zone<TAdjustment>, TAdjustment>.New(static at => at.Green, static value => at => at with { Green = value })),
                     adjusted(Lens<Zone<TAdjustment>, TAdjustment>.New(static at => at.Blue, static value => at => at with { Blue = value })),
-                    new StateParameter<ToneZones>.Bounded<Exposure, float, InvalidToneValue>(
-                        lens(zone, Lens<Zone<TAdjustment>, Exposure>.New(static at => at.Start, static start => at => at with { Start = start })), Exposure.Presentation),
-                    new StateParameter<ToneZones>.Bounded<ZoneWidth, float, InvalidGrade>(
-                        lens(zone, Lens<Zone<TAdjustment>, ZoneWidth>.New(static at => at.Width, static width => at => at with { Width = width })), ZoneWidth.Presentation)),
+                    StateParameter.Bounded<ToneZones, Exposure, float, InvalidToneValue>(lens(zone, Lens<Zone<TAdjustment>, Exposure>.New(static at => at.Start, static start => at => at with { Start = start })), Exposure.Presentation),
+                    StateParameter.Bounded<ToneZones, ZoneWidth, float, InvalidGrade>(lens(zone, Lens<Zone<TAdjustment>, ZoneWidth>.New(static at => at.Width, static width => at => at with { Width = width })), ZoneWidth.Presentation)),
             };
 
     private readonly record struct ZoneKinds(

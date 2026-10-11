@@ -228,10 +228,6 @@ rule:
                 - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {any: [{matches: passthrough}, {matches: ok-call}]}, {pattern: $OK_CHAIN}]}}
                 - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {not: {pattern: $E}}, {pattern: $ERR_RECOVERY}]}}
             - all:
-                - matches: result-branch
-                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {pattern: $OK_FOLD}]}}
-                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {pattern: $ERR_DEFAULT}]}}
-            - all:
                 - matches: option-branch
                 - any:
                     - all:
@@ -253,10 +249,6 @@ rule:
                 - matches: option-branch
                 - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {any: [{matches: passthrough}, {matches: some-call}]}, {pattern: $OK_CHAIN}]}}
                 - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {pattern: $OPTION_RECOVERY}]}}
-            - all:
-                - matches: option-branch
-                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $OK_X}, {pattern: $OK_FOLD}]}}
-                - inside: {kind: module, stopBy: end, has: {stopBy: end, all: [{pattern: $ERR_X}, {pattern: $OPTION_DEFAULT}]}}
 rewriters:
     - id: awaited
       rule: {kind: await, pattern: $AWAITED}
@@ -319,14 +311,6 @@ rewriters:
       transform:
         BINDER: rewrite($BODY, rewriters=[point-free, constant, mapper])
       fix: .bind($BINDER)
-    - id: value-identity
-      rule: {pattern: $V}
-      fix: ''
-    - id: fold-map
-      rule: {pattern: $BODY}
-      transform:
-        MAPPER: rewrite($BODY, rewriters=[point-free, constant, mapper])
-      fix: .map($MAPPER)
     - id: error-identity
       rule:
         any:
@@ -343,30 +327,11 @@ rewriters:
       transform:
         FUNCTION: rewrite($BODY, rewriters=[error-point-free, error-constant, error-mapper])
       fix: .or_else_with($FUNCTION)
-    - id: merge
-      rule: {pattern: $E}
-      fix: .merge()
-    - id: default-value
-      rule: {matches: literal, pattern: $BODY}
-      fix: .default_value($BODY)
-    - id: default-with
-      rule: {pattern: $BODY}
-      transform:
-        FUNCTION: rewrite($BODY, rewriters=[error-point-free, error-constant, error-mapper])
-      fix: .default_with($FUNCTION)
     - id: option-recovery
       rule: {pattern: $BODY}
       transform:
         FUNCTION: rewrite($BODY, rewriters=[thunk-point-free, thunk])
       fix: .or_else_with($FUNCTION)
-    - id: optional
-      rule: {kind: none}
-      fix: .to_optional()
-    - id: option-default-with
-      rule: {pattern: $BODY}
-      transform:
-        FUNCTION: rewrite($BODY, rewriters=[thunk-point-free, thunk])
-      fix: .default_with($FUNCTION)
     - id: to-result
       rule: {matches: error-call, has: {field: arguments, has: {matches: literal, pattern: $INNER}}}
       fix: .to_result($INNER)
@@ -395,19 +360,16 @@ transform:
     LEAD: {replace: {source: $STATEMENT, replace: '(?s)^.*$', by: 'return '}}
     ERROR_TAIL: rewrite($ERR_CHAIN, rewriters=[error-identity, error-map])
     CHAIN_TAIL: rewrite($OK_CHAIN, rewriters=[success-identity, success-map, step])
-    FOLD_TAIL: rewrite($OK_FOLD, rewriters=[value-identity, fold-map])
     RECOVERY_TAIL: rewrite($ERR_RECOVERY, rewriters=[recovery])
-    DEFAULT_TAIL: rewrite($ERR_DEFAULT, rewriters=[merge, default-value, default-with])
     OPTION_RECOVERY_TAIL: rewrite($OPTION_RECOVERY, rewriters=[option-recovery])
-    OPTION_DEFAULT_TAIL: rewrite($OPTION_DEFAULT, rewriters=[optional, default-value, option-default-with])
     RESULT_MEMBER_TAIL: rewrite($RESULT_MEMBER, rewriters=[is-ok, is-error, swap])
     OPTION_MEMBER_TAIL: rewrite($OPTION_MEMBER, rewriters=[is-some, is-none])
     TO_RESULT_TAIL: rewrite($TO_RESULT, rewriters=[to-result, to-result-with])
     TO_OPTION_TAIL: {replace: {source: $TO_OPTION, replace: '(?s)^.*$', by: .to_option()}}
 fix:
-    template: $LEAD$HEAD$ERROR_TAIL$CHAIN_TAIL$FOLD_TAIL$RECOVERY_TAIL$DEFAULT_TAIL$OPTION_RECOVERY_TAIL$OPTION_DEFAULT_TAIL$RESULT_MEMBER_TAIL$OPTION_MEMBER_TAIL$TO_RESULT_TAIL$TO_OPTION_TAIL
+    template: $LEAD$HEAD$ERROR_TAIL$CHAIN_TAIL$RECOVERY_TAIL$OPTION_RECOVERY_TAIL$RESULT_MEMBER_TAIL$OPTION_MEMBER_TAIL$TO_RESULT_TAIL$TO_OPTION_TAIL
     expandEnd: {kind: return_statement}
 message: 'Branch on the case of `$SUBJECT` rebuilds a `Result` or `Option` member by hand'
-note: 'Use `map` for a wrapped value, `bind` for a returned result, `map_error` for a wrapped error, `or_else_with`, `default_with`, `default_value`, or `to_optional` for an answer to a failed or absent case, and `is_ok`, `is_error`, `is_some`, `is_none`, `swap`, `merge`, `to_option`, `to_result`, or `to_result_with` where both arms restate one, each passing its unread case through unchanged'
+note: 'Use `map`, `bind`, `map_error`, or `or_else_with` when a branch rebuilds a wrapped value or error and passes its other case through unchanged; use `is_ok`, `is_error`, `is_some`, `is_none`, `swap`, `to_option`, `to_result`, or `to_result_with` when both arms restate that member'
 labels:
     SUBJECT: {style: primary, message: Result or option the branch tests}

@@ -21,7 +21,10 @@ public static class Properties {
     public static PropertyDefinition<T> Identity<T>(string name, Gen<T> generator, Func<T, T> function, Option<Func<T, T, bool>> equal = default) =>
         Define(name, generator, value => Equal(name, value, function(value), equal));
     public static PropertyDefinition<T> Idempotent<T>(string name, Gen<T> generator, Func<T, T> function, Option<Func<T, T, bool>> equal = default) =>
-        Define(name, generator, value => Equal(name, function(value), function(function(value)), equal));
+        Define(name, generator, value => {
+            T once = function(value);
+            Equal(name, once, function(once), equal);
+        });
     public static PropertyDefinition<T> Inverse<T>(string name, Gen<T> generator, Func<T, T> forward, Func<T, T> inverse, Option<Func<T, T, bool>> equal = default) =>
         Define(name, generator, value => Equal(name, value, inverse(forward(value)), equal));
     public static PropertyDefinition<TIn> Roundtrip<TIn, TOut>(string name, Gen<TIn> generator, Func<TIn, TOut> encode, Func<TOut, TIn> decode, Option<Func<TIn, TIn, bool>> equal = default) =>
@@ -33,9 +36,11 @@ public static class Properties {
     public static PropertyDefinition<(T A, T B, T C)> Distributive<T>(string name, Gen<T> generator, Func<T, T, T> multiply, Func<T, T, T> add, Option<Func<T, T, bool>> equal = default) =>
         Define(name, Triples(generator), triple => Equal(name, multiply(triple.A, add(triple.B, triple.C)), add(multiply(triple.A, triple.B), multiply(triple.A, triple.C)), equal));
     public static PropertyDefinition<(T Lower, T Upper)> Monotone<T, TKey>(string name, Gen<(T Lower, T Upper)> pairs, Func<T, TKey> projection, Option<IComparer<TKey>> comparer = default) =>
-        Define(name, pairs, pair => Assert.True(
-            comparer.IfNone(Comparer<TKey>.Default).Compare(projection(pair.Lower), projection(pair.Upper)) <= 0,
-            $"{name}: f({pair.Lower}) = {projection(pair.Lower)} > {projection(pair.Upper)} = f({pair.Upper})"));
+        Define(name, pairs, pair => {
+            (TKey lower, TKey upper) = (projection(pair.Lower), projection(pair.Upper));
+            Assert.True(comparer.IfNone(Comparer<TKey>.Default).Compare(lower, upper) <= 0,
+                $"{name}: f({pair.Lower}) = {lower} > {upper} = f({pair.Upper})");
+        });
     public static PropertyDefinition<(T[] Source, T[] Shuffled)> Permutation<T, TResult>(string name, Gen<T[]> generator, Func<T[], TResult> function, Option<Func<TResult, TResult, bool>> equal = default) =>
         Define(name, from array in generator from shuffled in Gen.Shuffle(array) select (Source: array, Shuffled: shuffled), pair => Equal(name, function(pair.Source), function(pair.Shuffled), equal));
 

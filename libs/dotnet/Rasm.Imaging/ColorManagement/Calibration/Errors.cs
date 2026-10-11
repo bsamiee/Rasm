@@ -5,10 +5,10 @@ namespace Rasm.Imaging.ColorManagement.Calibration;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     ViewUndefined = 1,
-    ChartsDiffer,
-    SamplesRankDeficient,
-    TransformRankDeficient,
-    NeutralUnlit,
+    ChartsDiffer = 2,
+    SamplesRankDeficient = 3,
+    TransformRankDeficient = 4,
+    NeutralUnlit = 5,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

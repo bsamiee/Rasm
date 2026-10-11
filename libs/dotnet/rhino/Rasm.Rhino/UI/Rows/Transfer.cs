@@ -25,24 +25,27 @@ public static class Transfer {
 
     // --- [DRAGS]
     public static IO<Unit> Drag(Control source, Seq<string> files, Option<Image> image) =>
-        from paths in files.TraverseM(static file => IO.lift(() => Exchange.ExistingPath(file))).As()
-        let data = new DataObject { Uris = [.. paths.Map(static path => new Uri(path))] }
-        from dragged in IO.lift(() => image.Match(
+        from paths in Callbacks.Each(files.Map(static file => IO.lift(() => Exchange.ExistingPath(file))))
+        from dragged in DisposalOps.Within(
+            static () => new DataObject(),
+            data => IO.lift(() => { data.Uris = [.. paths.Map(static path => new Uri(path))]; }).Bind(_ => IO.lift(() => image.Match(
             Some: held => source.DoDragDrop(data, DragEffects.Copy, held, new PointF(held.Width / 2f, held.Height / 2f)),
-            None: () => source.DoDragDrop(data, DragEffects.Copy)))
+            None: () => source.DoDragDrop(data, DragEffects.Copy)))),
+            static data => IO.lift(data.Dispose))
         select dragged;
 
     // --- [DROPS]
-    public static IO<IDisposable> Drops(Control target, Seq<FileTypeRow> accepted, Func<string, IO<Unit>> commit, IPlugInSink sink) =>
+    public static IO<Unit> Drops(Control target, Seq<FileTypeRow> accepted, Func<string, IO<Unit>> commit, IPlugInSink sink, Action<IDisposable> retain) =>
         fun((DragEventArgs args) => IO.lift(() => { args.Effects = Accepted(args.Data, accepted).Match(Some: static _ => DragEffects.Copy, None: static () => DragEffects.None); })) switch {
-            var gate => DisposalOps.AcquireAll(
-                    Seq(IO.lift(() => target.AllowDrop = true).Map<IDisposable>(_ => new Disposal<Control>(target, static held => held.AllowDrop = false)),
-                        Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragEnter += h, h => target.DragEnter -= h, nameof(Control.DragEnter)).Inline(gate, sink),
-                        Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragOver += h, h => target.DragOver -= h, nameof(Control.DragOver)).Inline(gate, sink),
+            var gate =>
+                from changed in DisposalOps.Change(() => target.AllowDrop, held => target.AllowDrop = held, value: true, retain)
+                from attached in Seq(
+                        Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragEnter += h, h => target.DragEnter -= h, nameof(Control.DragEnter)).Inline(gate, sink, retain),
+                        Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragOver += h, h => target.DragOver -= h, nameof(Control.DragOver)).Inline(gate, sink, retain),
                         Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragDrop += h, h => target.DragDrop -= h, nameof(Control.DragDrop))
-                            .Inline(args => IO.lift(() => Accepted(args.Data, accepted)).Bind(found => found.Match(Some: commit, None: static () => IO.pure(unit))), sink)),
-                    DisposalOps.Release)
-                .Map(held => DisposalOps.Composite(held, new CallbackSite(sink, target.GetType(), nameof(Control.AllowDrop)))),
+                            .Inline(args => IO.lift(() => Accepted(args.Data, accepted)).Bind(found => found.Match(Some: commit, None: static () => IO.pure(unit))), sink, retain))
+                    .TraverseM(static attached => attached).As()
+                select unit,
         };
 
     private static Option<string> Accepted(DataObject data, Seq<FileTypeRow> accepted) =>

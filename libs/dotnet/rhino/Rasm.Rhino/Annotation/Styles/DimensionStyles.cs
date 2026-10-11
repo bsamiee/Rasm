@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
 using Rasm.Rhino.Document.Notation;
+using Rasm.Rhino.Document.Shapes;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Objects;
 using Rhino;
@@ -103,9 +104,11 @@ public static class DimensionStyles {
     public static IO<DimensionStyle> Parent(RhinoDoc doc, AnnotationBase annotation) =>
         IO.lift(() => Missing.Unless(doc.DimStyles.Find(annotation.DimensionStyleId, ignoreDeleted: false), nameof(DimStyleTable.Find)));
 
-    public static IO<DimensionStyle> Effective(RhinoDoc doc, AnnotationBase annotation, Option<DimensionStyle> parent) =>
+    public static IO<DimensionStyle> Effective(RhinoDoc doc, AnnotationBase annotation, Option<DimensionStyle> parent, Action<IDisposable> retain) =>
         from held in parent.Match(Some: static style => IO.pure(style), None: () => Parent(doc, annotation))
-        from effective in IO.lift(() => Missing.Unless(annotation.GetDimensionStyle(held), nameof(AnnotationBase.GetDimensionStyle)))
+        from effective in Copies.Owned(() => annotation.GetDimensionStyle(held),
+            static style => Missing.Unless(style, nameof(AnnotationBase.GetDimensionStyle)),
+            static style => DisposalOps.Release(Optional(style).ToSeq()), retain)
         select effective;
 
     public static IO<Unit> Edit<T>(RhinoDoc doc, Guid id, Func<T, IO<Unit>> edit) where T : AnnotationBase =>
@@ -143,12 +146,13 @@ public static class DimensionStyles {
         source.Switch(
             (Doc: doc, Staged: staged),
             builtIn: static (state, builtIn) =>
-                IO.lift(() => Conversions.Rows(state.Doc.DimStyles.BuiltInStyles)).Bracket(
-                    Use: styles =>
-                        from found in IO.lift(styles.Find(style => TableOps.Names<DimensionStyle>().Equals(style.Name, builtIn.Name)).ToFin(new Missing(nameof(DimStyleTable.BuiltInStyles))))
+                DisposalOps.Within(() => state.Doc.DimStyles.BuiltInStyles,
+                    styles =>
+                        from found in IO.lift(() => Conversions.Rows(styles).Find(style => TableOps.Names<DimensionStyle>().Equals(style.Name, builtIn.Name))
+                            .ToFin(new Missing(nameof(DimStyleTable.BuiltInStyles))))
                         from copied in IO.lift(() => state.Staged.CopyFrom(found))
                         select copied,
-                    Fin: DisposalOps.Release),
+                    static styles => DisposalOps.Release(Conversions.Rows(styles))),
             row: static (state, row) =>
                 from found in TableOps.Find(state.Doc.DimStyles, row.Address, includeDeleted: false)
                 from copied in IO.lift(() => state.Staged.CopyFrom(found))
@@ -192,12 +196,15 @@ public static class DimensionStyles {
 
     // --- [OVERRIDES]
     public static IO<Unit> SetOverride(RhinoDoc doc, AnnotationBase annotation, Func<DimensionStyle, IO<Unit>> edit) =>
-        (from effective in use(Effective(doc, annotation, None))
-         from child in use(IO.lift(() => Callbacks.Thrown<InvalidOperationException, DimensionStyle>(
-             () => effective.Duplicate("", Guid.Empty, annotation.DimensionStyleId), nameof(DimensionStyle.Duplicate))))
-         from edited in edit(child)
-         from applied in IO.lift(() => Refused.Unless(annotation.SetOverrideDimStyle(child), nameof(AnnotationBase.SetOverrideDimStyle)))
-         select applied).Bracket();
+        DisposalOps.Within((Action<IDisposable> held) =>
+            from effective in Effective(doc, annotation, None, held)
+            from applied in DisposalOps.Within(() => effective.Duplicate("", Guid.Empty, annotation.DimensionStyleId),
+                child =>
+                    from edited in edit(child)
+                    from assigned in IO.lift(() => Refused.Unless(annotation.SetOverrideDimStyle(child), nameof(AnnotationBase.SetOverrideDimStyle)))
+                    select assigned,
+                static child => IO.lift(child.Dispose))
+            select applied, DisposalOps.Release);
 
     public static IO<Unit> ClearOverrides(AnnotationBase annotation) =>
         IO.lift(() => annotation.HasPropertyOverrides ? Refused.Unless(annotation.ClearPropertyOverrides(), nameof(AnnotationBase.ClearPropertyOverrides)) : unit);
@@ -205,19 +212,21 @@ public static class DimensionStyles {
     public static IO<Unit> SaveOverrides(RhinoDoc doc, Guid annotationId, bool modifyParent) =>
         from resolved in ObjectTarget.Resolve<RhinoObject, AnnotationBase>(doc, annotationId)
         from saved in when(resolved.Geometry.HasPropertyOverrides,
-            (from parent in Parent(doc, resolved.Geometry)
+            DisposalOps.Within((Action<IDisposable> held) =>
+             from parent in Parent(doc, resolved.Geometry)
              let modify = modifyParent || parent.IsChild
-             from effective in use(Effective(doc, resolved.Geometry, Some(parent)))
-             from staged in use(IO.lift(() => Callbacks.Thrown<InvalidOperationException, DimensionStyle>(
-                 () => effective.Duplicate(modify ? parent.Name : "", modify ? parent.Id : Guid.Empty, modify ? parent.ParentId : parent.Id), nameof(DimensionStyle.Duplicate))))
+             from effective in Effective(doc, resolved.Geometry, Some(parent), held)
+             from staged in DisposalOps.Acquire(
+                 IO.lift(() => effective.Duplicate(modify ? parent.Name : "", modify ? parent.Id : Guid.Empty, modify ? parent.ParentId : parent.Id)),
+                 static copy => IO.lift(copy.Dispose), held)
              from index in IO.lift(() => modify
                  ? Refused.Unless(doc.DimStyles.Modify(staged, parent.Index, quiet: true), parent.Index, nameof(DimStyleTable.Modify))
                  : Conversions.Required(doc.DimStyles.Add(staged, reference: false), nameof(DimStyleTable.Add)))
              from replaced in Edit<AnnotationBase>(doc, annotationId, copy =>
-                from bound in IO.lift(() => { copy.DimensionStyleId = doc.DimStyles[index].Id; })
+                from bound in IO.lift(() => copy.DimensionStyleId = doc.DimStyles[index].Id)
                 from cleared in ClearOverrides(copy)
                 select cleared)
-             select replaced).Bracket()).As()
+             select replaced, DisposalOps.Release)).As()
         select saved;
 
     public static IO<Unit> SetCurrent(RhinoDoc doc, ComponentRef<DimensionStyle> address) =>

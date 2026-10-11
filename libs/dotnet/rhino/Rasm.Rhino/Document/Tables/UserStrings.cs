@@ -24,7 +24,7 @@ public sealed record DocumentKey(KeyName Name, Option<KeyName> Entry = default) 
 public static class UserStrings {
     // --- [OWNERS]
     public static HashMap<EqStringOrdinalIgnoreCase, string, string> Held(NameValueCollection bag) =>
-        toHashMap<EqStringOrdinalIgnoreCase, string, string>(toSeq(bag.AllKeys).Map(key => (key!, bag[key]!)));
+        toHashMap<EqStringOrdinalIgnoreCase, string, string>(toSeq(bag.AllKeys).Map(key => (key, bag[key])));
 
     public static HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> Replacing(
         HashMap<EqStringOrdinalIgnoreCase, string, string> held, HashMap<EqStringOrdinalIgnoreCase, string, string> desired) =>

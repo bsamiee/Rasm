@@ -38,11 +38,28 @@ utils:
         any:
             - inside: {matches: extension-block, stopBy: end}
             - {kind: ERROR, regex: '^\}$', inside: {kind: compilation_unit}, follows: {stopBy: end, has: {stopBy: end, matches: extension-block}}}
+            - {kind: ERROR, regex: '^extension\s*<[^>]+>\s*\([^\n]+\)\s*\{$'}
     ref-compound-assignment:
         kind: ERROR
         regex: '^=$'
         inside: {kind: binary_expression, has: {field: left, kind: invocation_expression}}
         follows: {regex: '^([-+*/%&|^]|<<|>>>?|\?\?)$'}
+    ref-return-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: identifier, pattern: $REF_CALL}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has: {stopBy: end, kind: method_declaration, all: [{has: {field: name, pattern: $REF_CALL}}, {has: {field: returns, kind: ref_type}}]}
+    ref-assignment:
+        kind: ERROR
+        regex: '^=\s'
+        any:
+            - inside: {kind: expression_statement, has: {matches: ref-return-call}}
+            - inside: {kind: member_access_expression, has: {field: expression, matches: ref-return-call}}
+            - inside: {kind: conditional_expression, has: {field: condition, matches: ref-return-call}}
+            - follows: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: ref-return-call}}}
     file-directives:
         kind: ERROR
         regex: '^#:[^\n]*(\n(#:[^\n]*|[ \t]*))*$'
@@ -60,6 +77,7 @@ utils:
             - matches: typed-slice
             - matches: extension-member
             - matches: ref-compound-assignment
+            - matches: ref-assignment
 rule:
     any:
         - kind: ERROR
@@ -70,4 +88,4 @@ labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
 note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-c-sharp grammar gaps are modifiers on implicitly typed lambda parameters (`(a, out b) =>`), a declaration pattern in a slice pattern (`[.. T[] rest]`), a compound assignment to a ref-returning call (`Field(owner) += handler`), members of a C# 14 `extension(<receiver>)` block, which the grammar reads as a constructor named `extension`, and file-based app directives (`#:package <id>`), which the grammar recovers as errors running up to the `;` of the first `using` directive (tree-sitter-c-sharp issue #431)
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-c-sharp grammar gaps are modifiers on implicitly typed lambda parameters (`(a, out b) =>`), a declaration pattern in a slice pattern (`[.. T[] rest]`), assignments to ref-returning calls (`Field(owner) = value` and `Field(owner) += handler`), members of a C# 14 `extension(<receiver>)` block, which the grammar reads as a constructor named `extension`, generic extension headers (`extension<T>(<receiver>) {`), and file-based app directives (`#:package <id>`), which the grammar recovers as errors running up to the `;` of the first `using` directive (tree-sitter-c-sharp issue #431)

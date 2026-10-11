@@ -11,7 +11,6 @@ public interface IPlugInRendering : IPlugInSink {
     public Atom<Option<PreviewTiles>> Tiles { get; }
     public Atom<Option<SlotComparison>> Comparison { get; }
     public Atom<Option<RenderSets>> Sets { get; }
-    public Atom<Option<NoticeSender>> Notices { get; }
     public Atom<Option<QueueContext>> QueueContext { get; }
 
     public static Fin<T> Holding<T>(Atom<Option<T>> cell, string member) => cell.Value.ToFin(new Missing(member));

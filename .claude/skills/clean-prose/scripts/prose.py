@@ -67,7 +67,7 @@ class Kind(Flag):
         member._value_ = 2 ** len(cls.__members__)
         member.pattern = pattern
         signs = "|".join(regex.escape(m.sign) for m in Marker if m.sign)
-        member.rx = regex.compile(rf"(?(DEFINE)(?P<claimed>(?!))(?P<sign>{signs})){pattern}", regex.MULTILINE)
+        member.rx = regex.compile(rf"(?(DEFINE)(?P<claimed>(?!))(?P<sign>{signs}))\A{pattern}", regex.MULTILINE)
         return member
 
 
@@ -213,10 +213,8 @@ class Number(msgspec.Struct, frozen=True):
 
 
 def parts(kind: Kind, text: str) -> regex.Match[str]:
-    """Match of the kind's pattern over a block it claimed, `LookupError` for a block a rule rewrote out of its kind."""
-    if (m := kind.rx.match(text)) is None:
-        raise LookupError(kind, text)
-    return m
+    """Return captured parts of a block claimed by `kind`."""
+    return next(kind.rx.finditer(text))
 
 
 def splice(text: str, spans: list[tuple[int, int]], fn: Callable[[str], str]) -> str:
@@ -538,7 +536,7 @@ def files(paths: list[Path]) -> dict[Path, Marker]:
     """Every named file and every file under the named folders, the working directory when no path is named, that git tracks or leaves unignored, with its marker, markdown files first."""
     named, folders = [p for p in paths if p.is_file()], [p for p in paths if p.is_dir()]
     listed = (
-        subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *folders], capture_output=True, check=True, text=True).stdout
+        subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *folders], capture_output=True, check=True, text=True).stdout  # ruff: ignore[start-process-with-partial-path]
         if folders or not named
         else ""
     )

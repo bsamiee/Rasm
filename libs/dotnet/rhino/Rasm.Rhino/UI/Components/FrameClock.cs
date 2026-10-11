@@ -7,7 +7,7 @@ namespace Rasm.Rhino.UI.Components;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed record FrameStep(IO<Unit> Step, CallbackSite Site) : Sink<FrameTick> {
-    public override IO<Unit> Post(FrameTick value) => IO.lift(() => Callbacks.Answer(Step, static () => unit, Site));
+    public override IO<Unit> Post(FrameTick value) => IO.lift(() => Callbacks.Run(Step, Site));
 
     public override IO<Unit> Complete() => IO.pure(unit);
 
@@ -19,15 +19,15 @@ internal sealed record FrameStep(IO<Unit> Step, CallbackSite Site) : Sink<FrameT
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FrameClocks {
     // --- [SOURCES]
-    public static Func<Sink<FrameTick>, IO<IDisposable>> Frames(Control view, IPlugInSink sink) =>
-        ticks => IO.lift(static () => Optional(Platform.Instance.Find<Func<Control, IPlugInSink, Func<Sink<FrameTick>, IO<IDisposable>>>>()))
-            .Bind(found => found.Match(Some: link => link()(view, sink), None: static () => Motions.Idle)(ticks));
+    public static Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Frames(Control view, IPlugInSink sink) =>
+        (ticks, retain) => IO.lift(static () => Optional(Platform.Instance.Find<Func<Control, IPlugInSink, Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>>>>()))
+            .Bind(found => found.Match(Some: link => link()(view, sink), None: static () => Motions.Idle)(ticks, retain));
 
-    public static Func<Sink<FrameTick>, IO<IDisposable>> Paced(Control view, IPlugInSink sink) =>
-        ticks => IO.lift(static () => HostTheme.Accessibility.ReduceMotion)
-            .Bind(reduced => (reduced ? Motions.Final : Frames(view, sink))(ticks));
+    public static Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Paced(Control view, IPlugInSink sink) =>
+        (ticks, retain) => IO.lift(static () => HostTheme.Accessibility.ReduceMotion)
+            .Bind(reduced => (reduced ? Motions.Final : Frames(view, sink))(ticks, retain));
 
     // --- [SAMPLING]
-    public static IO<IDisposable> Sample(Control view, IO<Unit> step, CallbackSite site) =>
-        Frames(view, site.Sink)(new FrameStep(step, site));
+    public static IO<Unit> Sample(Control view, IO<Unit> step, CallbackSite site, Action<IDisposable> retain) =>
+        Frames(view, site.Sink)(new FrameStep(step, site), retain);
 }

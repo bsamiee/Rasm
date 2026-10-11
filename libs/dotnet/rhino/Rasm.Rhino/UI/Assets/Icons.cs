@@ -1,10 +1,21 @@
+using System.Drawing;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Eto.Forms;
+using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rhino.PlugIns;
+using Rhino.Resources;
 using Rhino.Runtime;
 using Rhino.UI;
+using SixLabors.ImageSharp.Formats.Ico;
+using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
+using Svg.Model;
+using Svg.Model.Services;
+using Svg.Skia;
+using NativeAssets = Rhino.Resources.Assets;
 
 namespace Rasm.Rhino.UI.Assets;
 
@@ -42,96 +53,175 @@ public sealed partial class GlyphRole : IGlyph {
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class IconMaster {
-    public static readonly IconMaster Row = new(16);
-    public static readonly IconMaster Header = new(20);
-    public static readonly IconMaster Toolbar = new(24);
-
-    public int Points { get; }
-}
-
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class IconSlot {
-    public static readonly IconSlot PanelTab = Drawn(IconMaster.Row);
-    public static readonly IconSlot PanelButton = new(IconMaster.Row, static () => Accessors.Scoped(nameof(Accessors.Get), IO.lift(static () => Accessors.Get(Accessors.PrivatePanelButtonSize(Accessors.ToolbarButtons)))));
-    public static readonly IconSlot PickButton = Drawn(IconMaster.Row);
-    public static readonly IconSlot ListCell = Drawn(IconMaster.Row);
-    public static readonly IconSlot DropDownItem = new(IconMaster.Row, static () => IO.pure(HostUtils.RunningOnOSX ? 14 : 16));
-    public static readonly IconSlot MenuItem = Drawn(IconMaster.Row);
-    public static readonly IconSlot Window = Drawn(IconMaster.Row);
-    public static readonly IconSlot Banner = new(IconMaster.Row, static () => IO.pure(44));
-    public static readonly IconSlot ContentMenu = Drawn(IconMaster.Row);
-    public static readonly IconSlot SectionHeader = Drawn(IconMaster.Header);
-    public static readonly IconSlot RenderTab = Drawn(HostUtils.RunningOnOSX ? IconMaster.Header : IconMaster.Row);
-    public static readonly IconSlot PropertiesPage = Drawn(IconMaster.Toolbar);
-    public static readonly IconSlot Cursor = Drawn(IconMaster.Toolbar);
+    private const int RowMaster = 16;
+    private const int HeaderMaster = 20;
+    private const int ToolbarMaster = 24;
 
-    public IconMaster Master { get; }
+    public static readonly IconSlot PanelTab = new(RowMaster, static () => Accessors.Scoped(nameof(Accessors.TabIconSize), IO.lift(static () => Accessors.TabIconSize(owner: null))));
+    public static readonly IconSlot PanelButton = new(RowMaster, static () => Accessors.Scoped(nameof(Accessors.Get), IO.lift(static () => Accessors.Get(Accessors.PrivatePanelButtonSize(Accessors.ToolbarButtons)))));
+    public static readonly IconSlot PickButton = Drawn(RowMaster);
+    public static readonly IconSlot ListCell = Drawn(RowMaster);
+    public static readonly IconSlot DropDownItem = new(RowMaster, static () => IO.pure(HostUtils.RunningOnOSX ? 14 : RowMaster));
+    public static readonly IconSlot MenuItem = Drawn(RowMaster);
+    public static readonly IconSlot Window = Drawn(RowMaster);
+    public static readonly IconSlot Banner = new(RowMaster, static () => IO.pure(44));
+    public static readonly IconSlot ContentMenu = Drawn(RowMaster);
+    public static readonly IconSlot SectionHeader = Drawn(HeaderMaster);
+    public static readonly IconSlot RenderTab = Drawn(HostUtils.RunningOnOSX ? HeaderMaster : RowMaster);
+    public static readonly IconSlot PropertiesPage = Drawn(ToolbarMaster);
+    public static readonly IconSlot Cursor = Drawn(ToolbarMaster);
+
+    public int Master { get; }
 
     [UseDelegateFromConstructor]
     public partial IO<int> Size();
 
-    private static IconSlot Drawn(IconMaster master) => new(master, () => IO.pure(master.Points));
+    private static IconSlot Drawn(int master) => new(master, () => IO.pure(master));
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+internal sealed class ResourceImages<TImage>(Assembly assembly, Func<string, Size, Fin<TImage>> load, Func<TImage, Size> measure) : ResourceCache<TImage, Size>(assembly) where TImage : class {
+    protected override Size EmptySize => Size.Empty;
+
+    protected override TImage TryLoadImage(string fullPathToResource, Size size, bool autoConvertWhenInDarkMode, out int width, out int height) {
+        TImage image = load(fullPathToResource, size).ThrowIfFail();
+        ParseSize(image, out width, out height);
+        return image;
+    }
+
+    protected override TImage ResizeImage(string fullPathToResource, TImage image, Size size) =>
+        load(fullPathToResource, size).ThrowIfFail();
+
+    protected override void ParseSize(Size size, out int width, out int height) =>
+        (width, height) = (size.Width, size.Height);
+
+    protected override void ParseSize(TImage image, out int width, out int height) =>
+        ParseSize(measure(image), out width, out height);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Icons {
     // --- [RESOURCES]
-    public static string ResourceName(IGlyph glyph, IconMaster master) =>
-        string.Create(CultureInfo.InvariantCulture, $"{glyph.Key}-{master.Points}.svg");
+    public static string ResourceName(IGlyph glyph, int master) =>
+        string.Create(CultureInfo.InvariantCulture, $"{glyph.Key}-{master}.svg");
 
-    public static IO<Unit> Check(IPlugInSink plugIn, Seq<IGlyph> glyphs, IconSlot slot) =>
-        IO.lift(() => glyphs.Traverse(glyph => Cached(plugIn, ResourceName(glyph, slot.Master), slot.Master.Points).ToValidation()).As().ToFin().Map(static _ => unit));
+    // --- [SVG]
+    private static Fin<string> SvgSource(Assembly assembly, string resource) =>
+        GlyphMissing.Unless(ImageResources.SvgFromResourceId(resource, assembly), resource);
 
-    private static global::Rhino.Resources.Assets Source(IPlugInSink plugIn) =>
-        global::Rhino.Resources.Assets.Get(plugIn.GetType().Assembly);
+    public static IO<A> RenderSvg<A>(string source, Eto.Drawing.Size pixels, Option<Eto.Drawing.Color> currentColor, Func<Eto.Drawing.Bitmap, A> draw) =>
+        IO.lift(() => {
+            using Eto.Drawing.Bitmap bitmap = RenderSvg(source, new Size(pixels.Width, pixels.Height), currentColor, ToEtoBitmap).ThrowIfFail();
+            return draw(bitmap);
+        });
 
-    private static Fin<Eto.Drawing.Icon> Cached(IPlugInSink plugIn, string name, int size) =>
-        GlyphMissing.Unless(Source(plugIn).Eto.Icons.TryGet(name, new(size, size)), name);
+    private static Eto.Drawing.Bitmap ToEtoBitmap(SKBitmap bitmap) =>
+        new(bitmap.Width, bitmap.Height, Eto.Drawing.PixelFormat.Format32bppRgba,
+            bitmap.Pixels.Select(static color => unchecked((int)(uint)color)));
+
+    private static Fin<TImage> RenderSvg<TImage>(string source, Size pixels, Option<Eto.Drawing.Color> currentColor, Func<SKBitmap, TImage> convert) =>
+        Try.lift(() => {
+            SKSvg svg = new();
+            using SKColorSpace srgb = svg.Settings.Srgb;
+            using SKColorSpace linear = svg.Settings.SrgbLinear;
+            using (svg) {
+                SKPicture picture = Missing.Unless(svg.FromSvgDocument(SvgService.FromSvg(source,
+                    new SvgParameters(entities: null, css: null, currentColor.Map(static color => color.ToSystemDrawing()).ToNullable()))), nameof(SKSvg.FromSvgDocument)).ThrowIfFail();
+                using SKBitmap bitmap = new(pixels.Width, pixels.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+                using SKCanvas canvas = new(bitmap);
+                canvas.Clear(SKColors.Transparent);
+                SKRect fitted = SKRect.Create(pixels.Width, pixels.Height).AspectFit(picture.CullRect.Size);
+                canvas.Translate(fitted.Left, fitted.Top);
+                canvas.Scale(fitted.Width / picture.CullRect.Width, fitted.Height / picture.CullRect.Height);
+                canvas.Translate(-picture.CullRect.Left, -picture.CullRect.Top);
+                svg.Draw(canvas);
+                canvas.Flush();
+                return convert(bitmap);
+            }
+        }).Run();
 
     // --- [ETO]
-    public static IO<Eto.Drawing.Icon> Frames(IPlugInSink plugIn, IGlyph glyph, IconSlot slot) =>
-        slot.Size().Bind(size => IO.lift(() => Cached(plugIn, ResourceName(glyph, slot.Master), size)));
+    private static readonly Func<(Assembly Assembly, Eto.Drawing.Color Ink, Set<float> Scales), ResourceImages<Eto.Drawing.Icon>> EtoIcons = memoUnsafe<(Assembly Assembly, Eto.Drawing.Color Ink, Set<float> Scales), ResourceImages<Eto.Drawing.Icon>>(static context =>
+        new(context.Assembly, (resource, size) => SvgSource(context.Assembly, resource).Bind(source => {
+            List<Eto.Drawing.Bitmap> held = [];
+            Fin<Eto.Drawing.Icon> icon = Try.lift(() => new Eto.Drawing.Icon(toSeq(context.Scales).Map(scale => {
+                Eto.Drawing.Size pixels = Eto.Drawing.Size.Ceiling(new Eto.Drawing.SizeF(size.Width * scale, size.Height * scale));
+                Eto.Drawing.Bitmap bitmap = RenderSvg(source, new Size(pixels.Width, pixels.Height), Some(context.Ink), ToEtoBitmap).ThrowIfFail();
+                held.Add(bitmap);
+                return new Eto.Drawing.IconFrame(scale, bitmap);
+            }).Strict())).Run();
+            return icon.BindFail(error => {
+                Validation<Error, Seq<Unit>> released = toSeq(held).Rev().Traverse(static bitmap => Try.lift(() => {
+                    bitmap.Dispose();
+                    return unit;
+                }).Run().ToValidation()).As();
+                return released.Match<Fin<Eto.Drawing.Icon>>(Fail: fault => error + fault, Succ: _ => error);
+            });
+        }), static icon => new(icon.Width, icon.Height)));
 
-    public static Eto.Drawing.Icon Frame(IPlugInSink plugIn, IGlyph glyph, IconSlot slot) =>
-        Source(plugIn).Eto.Icons.Get(ResourceName(glyph, slot.Master), new(slot.Master.Points, slot.Master.Points));
+    public static IO<Eto.Drawing.Icon> Frames(IPlugInSink plugIn, (IGlyph Glyph, int Master) source, IconSlot slot) =>
+        slot.Size().Bind(size => IO.lift(() => Frame(plugIn, source.Glyph, source.Master, new(size, size))));
 
-    public static IO<IDisposable> Themed(IPlugInSink plugIn, IGlyph glyph, IconSlot slot, Action<Eto.Drawing.Icon> write) =>
-        from written in IO.pure(Frames(plugIn, glyph, slot).Bind(icon => IO.lift(() => write(icon))))
+    public static Eto.Drawing.Icon Frame(IPlugInSink plugIn, IGlyph glyph, int master, Size logicalSize) {
+        Set<float> scales = toSet(Screen.Screens.Select(static screen => screen.LogicalPixelSize)
+            .Prepend(1f).Concat(HostUtils.RunningOnOSX ? [2f] : []));
+        return EtoIcons((plugIn.GetType().Assembly, PaintSlot.ControlText.Read(), scales)).Get(ResourceName(glyph, master), logicalSize);
+    }
+
+    public static IO<Unit> Themed(IPlugInSink plugIn, (IGlyph Glyph, int Master) source, IconSlot slot, HostEvent<Unit> changes, Action<Eto.Drawing.Icon> write, Action<IDisposable> retain) =>
+        from written in IO.pure(Frames(plugIn, source, slot).Bind(icon => IO.lift(() => write(icon))))
         from _ in written
-        from subscription in HostTheme.Changed.Inline(__ => written, plugIn)
+        from subscription in changes.Inline(__ => written, plugIn, retain)
         select subscription;
 
-    public static IO<Cursor> PickCursor(IPlugInSink plugIn) =>
-        Frames(plugIn, GlyphRole.Pick, IconSlot.Cursor).Bind(static icon => IO.lift(() => new Cursor(icon, new(4f, 20f))));
+    public static IO<Cursor> PickCursor(IPlugInSink plugIn, Action<Cursor> retain) =>
+        Frames(plugIn, (GlyphRole.Pick, IconSlot.Cursor.Master), IconSlot.Cursor)
+            .Bind(icon => DisposalOps.Acquire(IO.lift(() => new Cursor(icon, new(4f, 20f))), static cursor => IO.lift(cursor.Dispose), retain));
 
     // --- [DRAWING]
-    public static IO<System.Drawing.Bitmap> Raster(IPlugInSink plugIn, IGlyph glyph, IconSlot slot) =>
+    private static readonly Func<(Assembly Assembly, Eto.Drawing.Color Ink), ResourceImages<Bitmap>> Rasters = memoUnsafe<(Assembly Assembly, Eto.Drawing.Color Ink), ResourceImages<Bitmap>>(static context =>
+        new(context.Assembly, (resource, pixels) => SvgSource(context.Assembly, resource).Bind(source => RenderSvg(source, pixels, Some(context.Ink), static bitmap => {
+            using Bitmap borrowed = new(bitmap.Width, bitmap.Height, bitmap.RowBytes, System.Drawing.Imaging.PixelFormat.Format32bppPArgb, bitmap.GetPixels());
+            return new Bitmap(borrowed);
+        })), static bitmap => bitmap.Size));
+
+    private static readonly Func<(Assembly Assembly, Eto.Drawing.Color Ink), ResourceImages<Icon>> DrawingIcons = memoUnsafe<(Assembly Assembly, Eto.Drawing.Color Ink), ResourceImages<Icon>>(static context =>
+        new(context.Assembly, (resource, pixels) => SvgSource(context.Assembly, resource).Bind(source => RenderSvg(source, pixels, Some(context.Ink), static bitmap => {
+            using SixLabors.ImageSharp.Image<Bgra32> image = SixLabors.ImageSharp.Image.LoadPixelData<Bgra32>(
+                MemoryMarshal.AsBytes(bitmap.Pixels.AsSpan()), bitmap.Width, bitmap.Height);
+            using MemoryStream encoded = new();
+            image.Save(encoded, new IcoEncoder());
+            encoded.Position = 0;
+            return new Icon(encoded);
+        })), static icon => icon.Size));
+
+    private static readonly Func<Assembly, ResourceImages<Bitmap>> IconBitmaps = memoUnsafe<Assembly, ResourceImages<Bitmap>>(static assembly =>
+        new(assembly, (resource, pixels) => Try.lift(() => {
+            using Icon icon = new(NativeAssets.Get(assembly).SystemDrawing.Icons.Get(resource), pixels);
+            return icon.ToBitmap();
+        }).Run(), static bitmap => bitmap.Size));
+
+    public static IO<Bitmap> Raster(IPlugInSink plugIn, (IGlyph Glyph, int Master) source, IconSlot slot) =>
         from size in slot.Size()
         from pixels in HostTheme.Device(new(size, size))
-        from bitmap in IO.lift(() => Rastered(plugIn, ResourceName(glyph, slot.Master), pixels))
+        from bitmap in Raster(plugIn, source.Glyph, source.Master, pixels)
         select bitmap;
 
-    public static IO<System.Drawing.Bitmap> Raster(IPlugInSink plugIn, IGlyph glyph, System.Drawing.Size pixels) =>
-        IO.lift(() => Rastered(
-            plugIn,
-            ResourceName(glyph, toSeq(IconMaster.Items).Find(master => master.Points >= Math.Max(pixels.Width, pixels.Height)).IfNone(IconMaster.Toolbar)),
-            pixels));
+    public static IO<Bitmap> Raster(IPlugInSink plugIn, IGlyph glyph, int master, Size pixels) =>
+        IO.lift(() => Rasters((plugIn.GetType().Assembly, PaintSlot.ControlText.Read())).Get(ResourceName(glyph, master), pixels));
 
-    public static IO<System.Drawing.Icon> DrawingIcon(IPlugInSink plugIn, IGlyph glyph, IconSlot slot) =>
-        from size in slot.Size()
-        let name = ResourceName(glyph, slot.Master)
-        from icon in IO.lift(() => GlyphMissing.Unless(Source(plugIn).SystemDrawing.Icons.TryGet(name, new(size, size)), name))
-        select icon;
+    public static IO<Icon> DrawingIcon(IPlugInSink plugIn, IGlyph glyph, int master, Size pixels) =>
+        IO.lift(() => DrawingIcons((plugIn.GetType().Assembly, PaintSlot.ControlText.Read())).Get(ResourceName(glyph, master), pixels));
 
-    public static IO<System.Drawing.Bitmap> PageImage(IPlugInSink plugIn) =>
+    public static IO<Bitmap> PageImage(IPlugInSink plugIn) =>
         IO.lift(() => Missing.Unless(((PlugIn)plugIn).Icon(new(128, 128)), nameof(PlugIn.Icon)));
 
-    public static IO<Option<System.Drawing.Icon>> PlugInIcon(IPlugInSink plugIn) =>
-        IO.lift(() => toSeq(plugIn.GetType().Assembly.GetCustomAttributes<PlugInDescriptionAttribute>())
-            .Find(static description => description.DescriptionType == DescriptionType.Icon)
-            .Bind(description => Optional(DrawingUtilities.IconFromResource(description.Value, plugIn.GetType().Assembly))));
-
-    private static Fin<System.Drawing.Bitmap> Rastered(IPlugInSink plugIn, string name, System.Drawing.Size pixels) =>
-        GlyphMissing.Unless(Source(plugIn).SystemDrawing.Bitmaps.TryGet(name, pixels), name);
+    public static IO<Option<TImage>> PlugInImage<TImage>(IPlugInSink plugIn, Func<(NativeAssets Native, ResourceCache<Bitmap, Size> IconBitmaps), string, TImage> read) =>
+        IO.lift(() => {
+            Assembly assembly = plugIn.GetType().Assembly;
+            return toSeq(assembly.GetCustomAttributes<PlugInDescriptionAttribute>())
+                .Find(static description => description.DescriptionType == DescriptionType.Icon)
+                .Map(description => read((NativeAssets.Get(assembly), IconBitmaps(assembly)), description.Value));
+        });
 }

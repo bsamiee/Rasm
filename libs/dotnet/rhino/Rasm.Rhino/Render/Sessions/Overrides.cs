@@ -34,7 +34,7 @@ internal sealed class ClayMeshProvider(PlugIn plugIn, IPlugInSink sink, uint ser
     protected override IO<(bool Provides, Flags Flags)> Provides(MeshRequest request, RhinoDoc document, Guid objectId) =>
         IO.lift(() => (request.Display.IsNone && document.RuntimeSerialNumber == serial, request.Flags));
 
-    protected override IO<MeshBuild> Build(MeshRequest request, RhinoDoc document, Guid objectId, Seq<InstanceObject> ancestry, Seq<Instance> previous) =>
+    protected override IO<MeshBuild> Build(MeshRequest request, RhinoDoc document, Guid objectId, Seq<InstanceObject> ancestry, Seq<Instance> previous, Action<IDisposable> retain) =>
         IO.lift(() => previous.Iter(instance => (instance.Material, instance.IsForcedMaterial) = (clay, true)))
             .Map(_ => new MeshBuild(previous, ContentKey.Of(KeyDomain.RenderMeshes, stream => stream.Integer(clay.RenderHash)), Flags: request.Flags));
 }
@@ -42,86 +42,91 @@ internal sealed class ClayMeshProvider(PlugIn plugIn, IPlugInSink sink, uint ser
 public static class RenderOverrides {
     // --- [SCOPE]
     public static IO<T> Around<T>(RenderOverride over, OverrideScope scope, IO<T> launch) =>
-        Acquired(over, scope).Bracket(Use: _ => IO.pure(unit).Bind(_ => launch), Fin: Release);
+        DisposalOps.Within(() => atomic(() => {
+            uint serial = scope.Document.RuntimeSerialNumber;
+            if (Captures.Value.Active.ContainsKey(serial) || Captures.Value.Retiring.ContainsKey(serial))
+                return Fin.Fail<(uint Serial, Capture Capture)>(new OverrideHeld(serial));
+            Capture capture = new(scope.Sink, scope.Group, Ref(Option<ValueSet>.None), Ref(Option<IDisposable>.None));
+            _ = Captures.Swap(held => (held.Active.Add(serial, capture), held.Retiring));
+            return Fin.Succ((Serial: serial, Capture: capture));
+        }), answer =>
+            from held in IO.lift(answer)
+            from before in scope.Group.Capture
+            from captured in atomicIO(() => held.Capture.Values.Swap(_ => Some(new ValueSet(before.Entries.Intersect(over.Values.Entries.Keys)))))
+            from applied in Applied(over, scope, held.Serial, held.Capture)
+            from launched in launch
+            select launched, static answer => answer.Match(
+                Succ: static held => Release(held.Serial, held.Capture),
+                Fail: static _ => IO.pure(unit)));
 
-    public static Validation<Error, BindingGroup> Group(BindingGroup scene) =>
-        CyclesSetting.Bindings.Bind(application => BindingGroup.Of(scene.Bindings + application.Bindings));
+    public static IO<BindingGroup> Group(BindingGroup scene) =>
+        CyclesSetting.Bindings.Map(cycles => new BindingGroup(scene.Bindings + cycles.Bindings));
 
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register =>
-        static (_, sink) => IO.lift(() => (IDisposable)new Disposal<IPlugInSink>(
-            sink, static held => Callbacks.Succeeded(ReleasedAll, new CallbackSite(held, typeof(RenderOverrides), nameof(Register)))));
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> Register =>
+        static (_, sink, retain) => DisposalOps.Acquire(
+            IO.lift(() => new Disposal<IPlugInSink>(sink, static held => Released(held).Run())),
+            static lease => IO.lift(lease.Dispose), retain).Map(static _ => unit);
 
     // --- [CAPTURE]
-    private static readonly Atom<Registry> Captures = Atom(Registry.Empty);
+    private static readonly Ref<(HashMap<uint, Capture> Active, HashMap<uint, Capture> Retiring)> Captures = Ref((HashMap<uint, Capture>(), HashMap<uint, Capture>()));
 
-    private static IO<uint> Acquired(RenderOverride over, OverrideScope scope) =>
-        from before in scope.Group.Capture
-        let fresh = new Capture(scope.Group, new ValueSet(before.Entries.Intersect(over.Values.Entries.Keys)), None)
-        from serial in IO.lift(() => OverrideHeld.Unless(
-            Captures.Swap(registry => registry.Claimed(scope.Document.RuntimeSerialNumber, fresh)).Held.Find(scope.Document.RuntimeSerialNumber).Exists(held => ReferenceEquals(held, fresh)),
-            scope.Document.RuntimeSerialNumber))
-        from applied in DisposalOps.OnFailure(Applied(over, scope, serial), Release(serial))
-        select serial;
-
-    private static IO<Unit> Applied(RenderOverride over, OverrideScope scope, uint serial) =>
+    private static IO<Unit> Applied(RenderOverride over, OverrideScope scope, uint serial, Capture capture) =>
         from diff in scope.Group.Apply(over.Values, LanguageExt.HashSet.empty<EntryKey>())
-        from clay in over.Clay.Traverse(albedo => Clay(albedo, scope)).As()
-        from attached in IO.lift(() => Captures.Swap(registry => registry.Attached(serial, clay)))
+        from clay in over.Clay.TraverseM(albedo => Clay(albedo, scope, lease =>
+            atomic(() => {
+                if (!Captures.Value.Active.ContainsKey(serial))
+                    return Fin.Fail<Unit>(Errors.Cancelled);
+                _ = capture.Clay.Swap(_ => Some(lease));
+                return Fin.Succ(unit);
+            }).ThrowIfFail())).As()
         select unit;
 
-    private sealed record Capture(BindingGroup Group, ValueSet Values, Option<IDisposable> Clay);
-
-    private sealed record Registry(HashMap<uint, Capture> Held, Seq<(uint Serial, Capture Capture)> Taken) {
-        public static Registry Empty { get; } = new(HashMap<uint, Capture>(), []);
-
-        public Registry Claimed(uint serial, Capture fresh) => new(Held.TryAdd(serial, fresh), []);
-
-        public Registry Attached(uint serial, Option<IDisposable> clay) => new(Held.TrySetItem(serial, held => held with { Clay = clay }), []);
-
-        public Registry Released(Seq<uint> serials) => new(Held.Except(serials), serials.Choose(serial => Held.Find(serial).Map(capture => (serial, capture))));
-    }
+    private sealed record Capture(IPlugInSink Sink, BindingGroup Group, Ref<Option<ValueSet>> Values, Ref<Option<IDisposable>> Clay);
 
     // --- [RESTORE]
-    private static IO<Unit> Release(uint serial) => Released(_ => [serial]);
+    private static IO<Unit> Release(uint serial, Capture capture) =>
+        DisposalOps.Within(
+            () => atomic(() => Captures.Swap(held => (held.Active.Remove(serial), held.Retiring.AddOrUpdate(serial, capture)))),
+            _ => Restored(serial, capture),
+            _ => atomicIO(() => Captures.Swap(held => (held.Active, held.Retiring.Remove(serial)))).Map(static _ => unit)).Uninterruptible();
 
-    private static IO<Unit> ReleasedAll => Released(static held => toSeq(held.Keys));
-
-    private static IO<Unit> Released(Func<HashMap<uint, Capture>, Seq<uint>> serials) =>
-        IO.lift(() => Captures.Swap(registry => registry.Released(serials(registry.Held))).Taken)
-            .Bind(static taken => Callbacks.Each(taken.Map(static held => Restored(held.Serial, held.Capture))))
-            .Map(static _ => unit);
+    private static IO<Unit> Released(IPlugInSink sink) =>
+        atomicIO(() => Captures.Swap(held => {
+            Seq<uint> serials = toSeq(held.Active.Filter(capture => capture.Sink == sink).Keys);
+            return (held.Active.Except(serials), held.Retiring + held.Active.Intersect(serials));
+        })).Map(static _ => unit);
 
     private static IO<Unit> Restored(uint serial, Capture capture) =>
-        from released in DisposalOps.Release(capture.Clay.ToSeq())
-        from document in IO.lift(() => Optional(RhinoDoc.FromRuntimeSerialNumber(serial)))
-        from restored in document.Traverse(_ => capture.Group.Apply(capture.Values, LanguageExt.HashSet.empty<EntryKey>())).As()
-        select unit;
+        Callbacks.Each(Seq(
+            DisposalOps.Release(capture.Clay.Value.ToSeq()),
+            IO.lift(() => Optional(RhinoDoc.FromRuntimeSerialNumber(serial)).Bind(_ => capture.Values.Value))
+                .Bind(values => values.TraverseM(prior => capture.Group.Apply(prior, LanguageExt.HashSet.empty<EntryKey>())).As())
+                .Map(static _ => unit))).Map(static _ => unit);
 
     // --- [CLAY]
-    private static IO<IDisposable> Clay(Albedo albedo, OverrideScope scope) =>
-        from material in Material(albedo, scope.Document)
-        from provider in DisposalOps.OnFailure(
-            DefinedMeshProvider.Register((plugIn, sink) => new ClayMeshProvider(plugIn, sink, scope.Document.RuntimeSerialNumber, material))(scope.PlugIn, scope.Sink),
-            IO.lift(material.Dispose))
-        select DisposalOps.Composite([material, provider], new CallbackSite(scope.Sink, typeof(RenderOverrides), nameof(Clay)));
-
-    private static IO<RenderMaterial> Material(Albedo albedo, RhinoDoc document) =>
-        from material in IO.lift(() => Missing.Unless(
-            RenderContentType.NewContentFromTypeId(ContentUuids.PhysicallyBasedMaterialType, document) as RenderMaterial, nameof(RenderContentType.NewContentFromTypeId)))
-        from written in DisposalOps.OnFailure(Written(material, albedo, document), IO.lift(material.Dispose))
-        select material;
+    private static IO<Unit> Clay(Albedo albedo, OverrideScope scope, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(owned =>
+            from material in DisposalOps.Acquire(
+                IO.lift(() => RenderContentType.NewContentFromTypeId(ContentUuids.PhysicallyBasedMaterialType, scope.Document)),
+                static content => DisposalOps.Release(Optional(content).ToSeq()),
+                content => Optional(content).Iter(owned))
+                .Bind(static content => IO.lift(() => Missing.Unless(content, nameof(RenderContentType.NewContentFromTypeId)).Bind(WrongType.Unless<RenderMaterial>)))
+            from written in Written(material, albedo, scope.Document)
+            from provider in DefinedMeshProvider.Register((plugIn, sink) => new ClayMeshProvider(plugIn, sink, scope.Document.RuntimeSerialNumber, material))(scope.PlugIn, scope.Sink, owned)
+            select unit, (_, lease) => retain(lease));
 
     private static IO<Unit> Written(RenderMaterial material, Albedo albedo, RhinoDoc document) =>
-        from settings in IO.lift(() => document.RenderSettings)
-        from workflow in IO.lift(() => settings.LinearWorkflow)
-        from encoded in IO.pure<Seq<IDisposable>>([settings, workflow]).Bracket(
-            Use: _ => IO.lift(() => MathF.Pow(albedo, workflow.PreProcessColors || workflow.PreProcessTextures ? 1f / workflow.PreProcessGamma : 1f)),
-            Fin: DisposalOps.Release)
-        from written in IO.lift(() => material.BeginChange(RenderContent.ChangeContexts.Program)).Bracket(
-            Use: _ => IO.lift(() => Callbacks.Each(
+        from encoded in DisposalOps.Within(() => document.RenderSettings,
+            settings => DisposalOps.Within(() => settings.LinearWorkflow,
+                workflow => IO.lift(() => MathF.Pow(albedo, workflow.PreProcessColors || workflow.PreProcessTextures ? 1f / workflow.PreProcessGamma : 1f)),
+                static workflow => IO.lift(workflow.Dispose)),
+            static settings => IO.lift(settings.Dispose))
+        from written in DisposalOps.Within(
+            () => { material.BeginChange(RenderContent.ChangeContexts.Program); return material; },
+            held => IO.lift(() => Callbacks.Each(
                 Seq<(string Name, object Value)>((PhysicallyBased.BaseColor, new Color4f(encoded, encoded, encoded, 1f)), (PhysicallyBased.Roughness, 0.5)),
-                parameter => material.SetParameter(parameter.Name, parameter.Value),
+                parameter => held.SetParameter(parameter.Name, parameter.Value),
                 nameof(RenderContent.SetParameter))),
-            Fin: _ => IO.lift(material.EndChange))
+            static held => IO.lift(held.EndChange))
         select written;
 }

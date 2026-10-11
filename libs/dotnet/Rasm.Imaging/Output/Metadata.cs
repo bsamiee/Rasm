@@ -72,17 +72,19 @@ public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created,
 
     private string Stamp => Created.ToString("yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture);
 
-    internal ImageMetadata Png(Option<ColorEncoding> encoding) {
+    internal void Png(ImageMetadata metadata, Option<ColorEncoding> encoding) {
         ExifProfile exif = new();
         exif.SetValue(ExifTag.Software, (string)Software);
         exif.SetValue(ExifTag.DateTimeOriginal, Stamp);
         exif.SetValue(ExifTag.OffsetTimeOriginal, Created.ToString("zzz", CultureInfo.InvariantCulture));
         _ = encoding.Iter(encoded => exif.SetValue(ExifTag.ColorSpace, ColorTags.ExifColorSpace(encoded)));
-        ImageMetadata metadata = new() { ResolutionUnits = PixelResolutionUnit.PixelsPerInch, HorizontalResolution = Density, VerticalResolution = Density, ExifProfile = exif };
+        metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
+        metadata.HorizontalResolution = Density;
+        metadata.VerticalResolution = Density;
+        metadata.ExifProfile = exif;
         _ = encoding.Bind(encoded => ColorTags.Icc(encoded, Created)).Iter(bytes => metadata.IccProfile = new IccProfile(bytes));
         _ = encoding.Bind(ColorTags.Cicp).Iter(cicp => metadata.CicpProfile = cicp);
         metadata.GetPngMetadata().TextData = [.. Fields.ToSeq().Map(static field => new PngTextData((string)field.Key, (string)field.Value, "", ""))];
-        return metadata;
     }
 
     internal Seq<(TiffTag Tag, object[] Values)> Tiff() => [

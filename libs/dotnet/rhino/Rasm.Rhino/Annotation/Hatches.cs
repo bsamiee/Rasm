@@ -79,19 +79,20 @@ internal static partial class HatchMapper {
 
 public static class Hatches {
     // --- [CREATION]
-    public static IO<Seq<Hatch>> Create(RhinoDoc doc, HatchFill fill, HatchForm form) =>
+    public static IO<Seq<Hatch>> Create(RhinoDoc doc, HatchFill fill, HatchForm form, Action<Seq<Hatch>, IDisposable> retain) =>
+        DisposalOps.Acquire(held =>
         from row in TableOps.Find(doc.HatchPatterns, fill.Pattern, includeDeleted: false)
         from hatches in form.Switch(
-            (row.Index, Fill: fill),
+            (row.Index, Fill: fill, Retain: held),
             loops: static (state, loops) =>
-                Copies.Acquire(() => Hatch.Create(loops.Plane, loops.Outer, loops.Inner, state.Index, state.Fill.Rotation, state.Fill.Scale), nameof(Hatch.Create))
+                Copies.Acquire(() => Hatch.Create(loops.Plane, loops.Outer, loops.Inner, state.Index, state.Fill.Rotation, state.Fill.Scale), nameof(Hatch.Create), state.Retain)
                     .Map(static hatch => Seq(hatch)),
             boundaries: static (state, boundaries) =>
-                Copies.AcquireNonEmpty(() => Hatch.Create(boundaries.Curves, state.Index, state.Fill.Rotation, state.Fill.Scale, boundaries.Tolerances.Absolute), nameof(Hatch.Create)),
+                Copies.AcquireNonEmpty(() => Hatch.Create(boundaries.Curves, state.Index, state.Fill.Rotation, state.Fill.Scale, boundaries.Tolerances.Absolute), nameof(Hatch.Create), state.Retain),
             onFace: static (state, face) =>
-                Copies.Acquire(() => Hatch.CreateFromBrep(face.Face.Brep, face.Face.FaceIndex, state.Index, state.Fill.Rotation, state.Fill.Scale, face.BasePoint), nameof(Hatch.CreateFromBrep))
+                Copies.Acquire(() => Hatch.CreateFromBrep(face.Face.Brep, face.Face.FaceIndex, state.Index, state.Fill.Rotation, state.Fill.Scale, face.BasePoint), nameof(Hatch.CreateFromBrep), state.Retain)
                     .Map(static hatch => Seq(hatch)))
-        select hatches;
+        select hatches, retain);
 
     // --- [EDITS]
     public static IO<Unit> Revise(RhinoDoc doc, Guid id, Seq<HatchEdit> edits) =>
@@ -104,10 +105,10 @@ public static class Hatches {
 
     // --- [DISPLAY]
     public static IO<T> Display<T>(Hatch hatch, HatchPattern pattern, double patternScale, Func<HatchDisplay, IO<T>> body) =>
-        IO.lift(() => {
+        DisposalOps.Within(() => {
             hatch.CreateDisplayGeometry(pattern, patternScale, out Curve[] bounds, out Line[] lines, out Brep solid);
-            return new HatchDisplay(Conversions.Rows(bounds), Conversions.Rows(lines), Optional(solid));
-        }).Bracket(
-            Use: display => IO.pure(display).Bind(body),
-            Fin: static display => DisposalOps.Release<GeometryBase>([.. display.Bounds, .. display.Solid.ToSeq()]));
+            return (Bounds: bounds, Lines: lines, Solid: solid);
+        },
+            display => IO.lift(() => new HatchDisplay(Conversions.Rows(display.Bounds), Conversions.Rows(display.Lines), Optional(display.Solid))).Bind(body),
+            static display => DisposalOps.Release<GeometryBase>([.. Conversions.Rows(display.Bounds), .. Optional(display.Solid).ToSeq()]));
 }

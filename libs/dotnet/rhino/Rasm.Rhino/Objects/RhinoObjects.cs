@@ -47,10 +47,7 @@ public sealed record SubObjectState(ComponentIndex ComponentIndex, bool IsSelect
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record Cut(GeometryBase Geometry, ObjectAttributes Attributes) : IDisposable {
-    public void Dispose() {
-        Geometry.Dispose();
-        Attributes.Dispose();
-    }
+    public void Dispose() => DisposalOps.Release<IDisposable>([Geometry, Attributes]).Run();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -98,9 +95,9 @@ public static class RhinoObjects {
             o.IsSubObjectHighlighted(componentIndex)));
 
     public static IO<string> Description(RhinoObject o) =>
-        (from log in use(static () => new TextLog())
-         from written in IO.lift(() => o.Description(log))
-         select log.ToString()).Bracket();
+        DisposalOps.Within(static () => new TextLog(),
+            log => IO.lift(() => { o.Description(log); return log.ToString(); }),
+            static log => IO.lift(log.Dispose));
 
     // --- [SELECTION]
     public static IO<Seq<ObjectSelection>> SelectSubObjects(RhinoObject o, Seq<ComponentIndex> components, ObjectSelection selection, bool syncHighlight) =>
@@ -113,22 +110,25 @@ public static class RhinoObjects {
         IO.lift(() => Callbacks.Each(components, component => o.HighlightSubObject(component, highlight) == highlight, nameof(RhinoObject.HighlightSubObject)));
 
     // --- [CUTS]
-    public static IO<Seq<Cut>> CreateCuts(RhinoObject o, Plane plane, string name, Option<double> thickness, Tolerances tolerances, IPlugInSink sink) =>
+    public static IO<Seq<Cut>> CreateCuts(RhinoObject o, Plane plane, string name, Option<double> thickness, Tolerances tolerances, IPlugInSink sink, Action<IDisposable> retain) =>
         from localized in IO.lift(() => RowText.Localize(name, table: Some<object>(sink)).Local)
         from answer in Copies.Owned(
-            IO.lift(() => thickness.Match(
+            () => thickness.Match(
                 Some: value => (Results: o.CreateSlices(plane, localized, value, tolerances.Absolute, out ObjectAttributes[] rows), Rows: rows, Member: nameof(RhinoObject.CreateSlices)),
-                None: () => (Results: o.CreateSections(plane, localized, tolerances.Absolute, out ObjectAttributes[] rows), Rows: rows, Member: nameof(RhinoObject.CreateSections)))),
-            static made => Measurements.Valid(toSeq<GeometryBase?>(made.Results), made.Member).Map(kept => (Geometry: kept, Attributes: toSeq(made.Rows))),
-            static made => DisposalOps.Release(Conversions.Rows<IDisposable>([.. made.Results, .. made.Rows])))
-        select answer.Geometry.Zip(answer.Attributes, static (geometry, attributes) => new Cut(geometry, attributes));
+                None: () => (Results: o.CreateSections(plane, localized, tolerances.Absolute, out ObjectAttributes[] rows), Rows: rows, Member: nameof(RhinoObject.CreateSections))),
+            static made => Measurements.Valid(toSeq<GeometryBase?>(made.Results), made.Member)
+                .Map(kept => kept.Zip(toSeq(made.Rows), static (geometry, attributes) => new Cut(geometry, attributes))),
+            static made => DisposalOps.Release(Conversions.Rows<IDisposable>([.. made.Results, .. made.Rows])), retain)
+        select answer;
 
     // --- [REPLACEMENT]
     public static IO<TResult> ReplaceGeometry<T, TResult>(RhinoDoc doc, Guid id, Func<T, IO<TResult>> edit) where T : GeometryBase =>
         from resolved in ObjectTarget.Resolve<RhinoObject, T>(doc, id)
-        from result in (from copy in use(Copies.DuplicateShallow(resolved.Geometry))
-                        from edited in edit(copy)
-                        from landed in TableOps.Apply(doc, new TableOp.Replace(id, copy, IgnoreModes: false))
-                        select edited).Bracket()
+        from result in DisposalOps.Within(
+            (Action<IDisposable> held) => from copy in Copies.DuplicateShallow(resolved.Geometry, held)
+                                          from edited in IO.pure(copy).Bind(edit)
+                                          from landed in TableOps.Apply(doc, new TableOp.Replace(id, copy, IgnoreModes: false))
+                                          select edited,
+            DisposalOps.Release)
         select result;
 }

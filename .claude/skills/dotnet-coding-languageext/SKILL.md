@@ -388,7 +388,7 @@ Collection types, their purpose, and their construction:
 `Fold` folds left to right with a seed and `FoldBack` right to left:
 - `FoldWhile` and `FoldUntil` read the state and the next element before each step, both predicates receive a `(State, Value)` tuple
 - `FoldWhile` stops when its predicate returns `false`, `FoldUntil` when it returns `true`
-- `FoldM` binds each step through a monad and folds right to left, `FoldBackM` folds left to right, both return `K<M, S>` that `.As()` converts
+- `FoldM` binds each step through a monad and folds left to right, `FoldBackM` folds right to left, both return `K<M, S>` that `.As()` converts
 - Seedless `Fold()` combines a monoid and returns nested groups in reverse order
 - `Exists` stops at the first match, `ForAll` at the first failure
 

@@ -1,12 +1,12 @@
-using System.Drawing;
 using System.Numerics;
 using System.Numerics.Tensors;
-using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.ColorManagement;
-using TinyEXR;
 
 namespace Rasm.Imaging.Pixels;
 
@@ -35,7 +35,7 @@ public readonly partial struct BinRange {
     public int First { get; }
     public int Last { get; }
 
-    public bool Holds(float level) => !float.IsNaN(level) && HistogramAxis.Bin(level) is var bin && bin >= First && bin <= Last;
+    public bool Holds(double level) => !double.IsNaN(level) && HistogramAxis.Bin(level) is var bin && bin >= First && bin <= Last;
 
     static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref int first, ref int last) =>
         validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new InvalidPixelValue();
@@ -58,14 +58,15 @@ public sealed partial class SampleSquare {
     public static readonly SampleSquare Five = new(5);
     public static readonly SampleSquare Seven = new(7);
 
-    public Option<Vector4> Mean(PixelFrame frame, Point pixel) {
-        Rectangle square = Rectangle.Intersect(
-            new(pixel.X - frame.Origin.X - (Key / 2), pixel.Y - frame.Origin.Y - (Key / 2), Key, Key),
-            new(0, 0, frame.Size.Width, frame.Size.Height));
-        (Vector4 sum, int count) = (Vector4.Zero, 0);
-        foreach (Vector4 sample in frame.View.Span.Slice(square.Y, square.X, square.Height, square.Width))
-            (sum, count) = sample.W > 0f ? (sum + sample, count + 1) : (sum, count);
-        return count > 0 ? sum / count : None;
+    public Option<Vector4> Mean(PixelFrame frame, (double X, double Y) pixel) {
+        (double x, double y) = (double.Floor(pixel.X - frame.Origin.X) - (Key / 2), double.Floor(pixel.Y - frame.Origin.Y) - (Key / 2));
+        (double left, double top, double right, double bottom) =
+            (double.Max(x, 0d), double.Max(y, 0d), double.Min(x + Key, frame.Size.Width), double.Min(y + Key, frame.Size.Height));
+        (Vector256<double> sum, int count) = (Vector256<double>.Zero, 0);
+        if (right > left && bottom > top)
+            foreach (Vector4 sample in frame.View.Span.Slice((int)top, (int)left, (int)(bottom - top), (int)(right - left)))
+                (sum, count) = sample.W > 0f ? (sum + Vector256.Create(sample.X, sample.Y, sample.Z, sample.W), count + 1) : (sum, count);
+        return count > 0 ? Some((sum / count) switch { var mean => new Vector4((float)mean[0], (float)mean[1], (float)mean[2], (float)mean[3]) }) : None;
     }
 }
 
@@ -101,18 +102,18 @@ public readonly record struct Clips(ChannelCounts Low, ChannelCounts High) {
         };
 }
 
-public readonly record struct ChromaAxes(Vector3 Weights) {
-    public Matrix4x4 Forward => new(
-        Weights.X, -Weights.X / (2f * (1f - Weights.Z)), 0.5f, 0f,
-        Weights.Y, -Weights.Y / (2f * (1f - Weights.Z)), -Weights.Y / (2f * (1f - Weights.X)), 0f,
-        Weights.Z, 0.5f, -Weights.Z / (2f * (1f - Weights.X)), 0f,
-        0f, 0f, 0f, 1f);
+public readonly record struct ChromaAxes((double X, double Y, double Z) Weights) {
+    public Matrix<double> Forward => Matrix<double>.Build.DenseOfRowMajor(3, 3, [
+        Weights.X, -Weights.X / (2d * (1d - Weights.Z)), 0.5d,
+        Weights.Y, -Weights.Y / (2d * (1d - Weights.Z)), -Weights.Y / (2d * (1d - Weights.X)),
+        Weights.Z, 0.5d, -Weights.Z / (2d * (1d - Weights.X)),
+    ]);
 
-    public Matrix4x4 Inverse => new(
-        1f, 1f, 1f, 0f,
-        0f, -2f * Weights.Z * (1f - Weights.Z) / Weights.Y, 2f * (1f - Weights.Z), 0f,
-        2f * (1f - Weights.X), -2f * Weights.X * (1f - Weights.X) / Weights.Y, 0f, 0f,
-        0f, 0f, 0f, 1f);
+    public Matrix<double> Inverse => Matrix<double>.Build.DenseOfRowMajor(3, 3, [
+        1d, 1d, 1d,
+        0d, -2d * Weights.Z * (1d - Weights.Z) / Weights.Y, 2d * (1d - Weights.Z),
+        2d * (1d - Weights.X), -2d * Weights.X * (1d - Weights.X) / Weights.Y, 0d,
+    ]);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -172,10 +173,10 @@ public static class HistogramAxis {
 
     public const int Bins = (StopBins * (TopStop + 1)) + 1;
 
-    public static int Bin(float value) =>
+    public static int Bin(double value) =>
         value switch {
             >= 1 << TopStop => Bins - 1,
-            >= 1f => StopBins + (int)(float.Log2(value) * StopBins),
+            >= 1d => StopBins + (int)(double.Log2(value) * StopBins),
             _ => int.Clamp(int.CreateSaturating(value * StopBins), 0, StopBins - 1),
         };
 
@@ -183,17 +184,17 @@ public static class HistogramAxis {
 }
 
 // --- [FOLDS] ---------------------------------------------------------------------------
-internal readonly struct HistogramFold(Vector3 luminance, Option<ClipLevels> clipping) : IRowFold {
+internal readonly struct HistogramFold((double X, double Y, double Z) luminance, Option<ClipLevels> clipping) : IRowFold {
     public int Bins => (4 * HistogramAxis.Bins) + (Clips.Ends * clipping.Count());
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
         ReadOnlySpan<ClipLevels> clips = clipping.ToSpan();
         Span2D<int> planes = bins[..(4 * HistogramAxis.Bins)].AsSpan2D(4, HistogramAxis.Bins);
         foreach (Vector4 pixel in row) {
-            Vector4 levels = pixel with { W = Vector3.Dot(luminance, pixel.AsVector3()) };
+            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, (luminance.X * pixel.X) + (luminance.Y * pixel.Y) + (luminance.Z * pixel.Z));
             int covered = pixel.W > 0f ? 1 : 0;
             for (int plane = 0; plane < 4; plane++)
-                planes[plane, HistogramAxis.Bin(levels[plane])] += float.IsNaN(levels[plane]) ? 0 : covered;
+                planes[plane, HistogramAxis.Bin(levels[plane])] += double.IsNaN(levels[plane]) ? 0 : covered;
             foreach (ClipLevels clip in clips) {
                 Span<int> ends = bins.Slice(4 * HistogramAxis.Bins, Clips.Ends);
                 ends[0] += pixel.X < clip.Low ? covered : 0;
@@ -207,48 +208,55 @@ internal readonly struct HistogramFold(Vector3 luminance, Option<ClipLevels> cli
     }
 }
 
-internal readonly struct WaveformFold(Vector3 luminance, int columns, int rows, int width) : IRowFold {
+internal readonly struct WaveformFold((double X, double Y, double Z) luminance, int columns, int rows, int width) : IRowFold {
     public int Bins => 4 * columns * rows;
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
         Span2D<int> planes = bins.AsSpan2D(4 * rows, columns);
         for (int x = 0; x < row.Length; x++) {
-            Vector4 levels = row[x] with { W = Vector3.Dot(luminance, row[x].AsVector3()) };
+            Vector4 pixel = row[x];
+            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, (luminance.X * pixel.X) + (luminance.Y * pixel.Y) + (luminance.Z * pixel.Z));
             (int covered, int column) = (row[x].W > 0f ? 1 : 0, (int)((long)x * columns / width));
             for (int plane = 0; plane < 4; plane++)
-                planes[(plane * rows) + int.Clamp(int.CreateSaturating(levels[plane] * rows), 0, rows - 1), column] += float.IsNaN(levels[plane]) ? 0 : covered;
+                planes[(plane * rows) + int.Clamp(int.CreateSaturating(levels[plane] * rows), 0, rows - 1), column] += double.IsNaN(levels[plane]) ? 0 : covered;
         }
     }
 }
 
-internal readonly struct VectorscopeFold(Matrix4x4 forward, float reach, int columns, int rows) : IRowFold {
+internal readonly struct VectorscopeFold(Matrix<double> forward, float reach, int columns, int rows) : IRowFold {
     public int Bins => columns * rows;
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
         Span2D<int> grid = bins.AsSpan2D(rows, columns);
+        DenseVector source = new(3);
+        DenseVector ycc = new(3);
         foreach (Vector4 pixel in row) {
-            Vector4 ycc = Vector4.Transform(pixel, forward);
-            (float u, float v) = ((ycc.Y + reach) / (2f * reach), (ycc.Z + reach) / (2f * reach));
+            (source[0], source[1], source[2]) = (pixel.X, pixel.Y, pixel.Z);
+            forward.LeftMultiply(source, ycc);
+            (double u, double v) = ((ycc[1] + reach) / (2d * reach), (ycc[2] + reach) / (2d * reach));
             if (pixel.W > 0f && u >= 0f && u < 1f && v >= 0f && v < 1f)
                 grid[(int)(v * rows), (int)(u * columns)]++;
         }
     }
 }
 
-internal readonly struct ChromaticityFold(ColorMatrix3x3 toXyz, Transfer encoding, int columns, int rows) : IRowFold {
+internal readonly struct ChromaticityFold(Matrix<double> toXyz, Transfer encoding, int columns, int rows) : IRowFold {
+    private readonly Vector256<double> _red = Vector256.Create(toXyz[0, 0], toXyz[1, 0], toXyz[2, 0], 0d);
+    private readonly Vector256<double> _green = Vector256.Create(toXyz[0, 1], toXyz[1, 1], toXyz[2, 1], 0d);
+    private readonly Vector256<double> _blue = Vector256.Create(toXyz[0, 2], toXyz[1, 2], toXyz[2, 2], 0d);
+
     public int Bins => columns * rows;
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
         using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(row.Length);
         row.CopyTo(scratch.Span);
         encoding.Decode(scratch.Span, Nits.ReferenceWhite);
-        Span<float> lanes = MemoryMarshal.Cast<Vector4, float>(scratch.Span);
-        ImageProcessing.ApplyColorMatrix(lanes, lanes, 4, toXyz);
         Span2D<int> grid = bins.AsSpan2D(rows, columns);
-        foreach (Vector4 xyz in scratch.Span) {
-            float sum = xyz.X + xyz.Y + xyz.Z;
-            (float x, float y) = (xyz.X / sum, xyz.Y / sum);
-            if (xyz.W > 0f && sum > 0f && x >= 0f && x < 1f && y >= 0f && y < 1f)
+        foreach (Vector4 rgb in scratch.Span) {
+            Vector256<double> xyz = (_red * rgb.X) + (_green * rgb.Y) + (_blue * rgb.Z);
+            double sum = Vector256.Sum(xyz);
+            (double x, double y) = (xyz[0] / sum, xyz[1] / sum);
+            if (rgb.W > 0f && sum > 0d && x >= 0d && x < 1d && y >= 0d && y < 1d)
                 grid[(int)(y * rows), (int)(x * columns)]++;
         }
     }
@@ -258,19 +266,20 @@ internal readonly struct ChromaticityFold(ColorMatrix3x3 toXyz, Transfer encodin
 internal static class BandFold {
     public static int[] Run<TFold>(PixelFrame frame, TFold fold) where TFold : struct, IRowFold {
         int bands = int.Min(frame.Size.Height, Environment.ProcessorCount);
-        using MemoryOwner<int> counts = MemoryOwner<int>.Allocate(bands * fold.Bins, AllocationMode.Clear);
-        ParallelHelper.For(0, bands, new BandAction<TFold>(frame.View, bands, counts.Memory, fold));
-        Span<int> merged = counts.Span[..fold.Bins];
+        int[][] counts = new int[bands][];
+        ParallelHelper.For(0, bands, new BandAction<TFold>(frame.View, counts, fold));
+        Span<int> merged = counts[0];
         for (int band = 1; band < bands; band++)
-            TensorPrimitives.Add(merged, counts.Span.Slice(band * fold.Bins, fold.Bins), merged);
-        return merged.ToArray();
+            TensorPrimitives.Add(merged, counts[band], merged);
+        return counts[0];
     }
 }
 
-file readonly struct BandAction<TFold>(Memory2D<Vector4> rows, int bands, Memory<int> counts, TFold fold) : IAction where TFold : struct, IRowFold {
+file readonly struct BandAction<TFold>(Memory2D<Vector4> rows, int[][] counts, TFold fold) : IAction where TFold : struct, IRowFold {
     public void Invoke(int i) {
-        Span<int> bins = counts.Span.Slice(i * fold.Bins, fold.Bins);
-        for (int line = (int)((long)i * rows.Height / bands); line < (int)((long)(i + 1) * rows.Height / bands); line++)
+        int[] bins = new int[fold.Bins];
+        counts[i] = bins;
+        for (int line = (int)((long)i * rows.Height / counts.Length); line < (int)((long)(i + 1) * rows.Height / counts.Length); line++)
             fold.Fold(rows.Span.GetRowSpan(line), bins);
     }
 }

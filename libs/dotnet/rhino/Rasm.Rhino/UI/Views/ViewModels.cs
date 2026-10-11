@@ -42,7 +42,7 @@ public static class SectionModels {
             IO.lift(() => model.Discard(provider.Id))));
 
     public static IO<T> UndoRecord<T>(ICollapsibleSection section, string description, IO<T> body) =>
-        Model(section).Bind(model => use(() => new UndoRecord(description, model)).Bind(_ => body).Bracket());
+        Model(section).Bind(model => DisposalOps.Within(() => new UndoRecord(description, model), _ => body, static held => IO.lift(held.Dispose)));
 
     private static IO<IRdkViewModel> Model(ICollapsibleSection section) =>
         IO.lift(() => Missing.Unless(section.ViewModel, nameof(ICollapsibleSection.ViewModel)));

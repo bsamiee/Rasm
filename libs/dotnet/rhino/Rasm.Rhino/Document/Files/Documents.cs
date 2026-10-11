@@ -1,3 +1,4 @@
+using Rasm.Rhino.Events;
 using Rhino;
 using Rhino.Collections;
 using Rhino.Commands;
@@ -81,32 +82,50 @@ public static partial class DocumentMapper {
 
 public static class Documents {
     // --- [LEASE]
-    public static IO<T> WithDocument<T>(DocumentSource source, Func<RhinoDoc, IO<T>> body) =>
-        source.Switch(
-            body,
-            live: static (run, live) => run(live.Doc),
-            active: static (run, _) => IO.lift(static () => Missing.Unless(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc))).Bind(run),
-            keyed: static (run, keyed) =>
-                IO.lift(() => Missing.Unless(RhinoDoc.FromRuntimeSerialNumber(keyed.Serial), nameof(RhinoDoc.FromRuntimeSerialNumber))).Bind(run),
-            opened: static (run, opened) =>
-                IO.lift(() => Exchange.QualifiedPath(opened.Path).Bind(static path => Missing.Unless(RhinoDoc.Open(path, out _), nameof(RhinoDoc.Open))))
-                    .Bind(run),
-            worksessionFile: static (run, file) =>
-                IO.lift(() => Exchange.QualifiedPath(file.Path).Bind(static path => Missing.Unless(Worksession.Open(path), nameof(Worksession.Open))))
-                    .Bind(run),
-            headless: static (run, headless) =>
-                use(IO.lift(() => headless.Template.Traverse(Exchange.ExistingPath).As()
-                            .Bind(static template => Missing.Unless(RhinoDoc.CreateHeadless(Conversions.Unset(template)), nameof(RhinoDoc.CreateHeadless))))
-                        .Catch(
-                            static error => error.HasException<ArgumentException>(),
-                            _ => IO.fail<RhinoDoc>(new NotModelFile(Conversions.Unset(headless.Template)))))
-                    .Bind(run)
-                    .Bracket(),
-            archive: static (run, archive) =>
-                use(IO.lift(() => Exchange.QualifiedPath(archive.Path)
-                        .Bind(path => Missing.Unless(RhinoDoc.OpenHeadless(path, archive.Options.ValueUnsafe()), nameof(RhinoDoc.OpenHeadless)))))
-                    .Bind(run)
-                    .Bracket());
+    public static IO<T> WithDocument<T>(DocumentSource source, Func<RhinoDoc, IO<T>> body, bool postNative = false) =>
+        DisposalOps.Within<RhinoDoc, T>(retain => source.Switch(
+            retain,
+            live: static (_, live) => IO.pure(live.Doc),
+            active: static (_, _) => IO.lift(static () => Missing.Unless(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc))),
+            keyed: static (_, keyed) =>
+                IO.lift(() => Missing.Unless(RhinoDoc.FromRuntimeSerialNumber(keyed.Serial), nameof(RhinoDoc.FromRuntimeSerialNumber))),
+            opened: static (_, opened) =>
+                IO.lift(() => Exchange.QualifiedPath(opened.Path).Bind(static path => Missing.Unless(RhinoDoc.Open(path, out bool _), nameof(RhinoDoc.Open)))),
+            worksessionFile: static (_, file) =>
+                IO.lift(() => Exchange.QualifiedPath(file.Path).Bind(static path => Missing.Unless(Worksession.Open(path), nameof(Worksession.Open)))),
+            headless: static (own, headless) =>
+                IO.lift(() => headless.Template.Traverse(Exchange.ExistingPath).As()).Bind(template =>
+                    DisposalOps.Acquire(
+                        IO.lift(() => Try.lift(() => Missing.Unless(RhinoDoc.CreateHeadless(Conversions.Unset(template)), nameof(RhinoDoc.CreateHeadless)))
+                            .Run()
+                            .MapFail(error => error.HasException<ArgumentException>() ? new NotModelFile(Conversions.Unset(template)) : error)),
+                        static created => IO.lift(created.Dispose), own)),
+            archive: static (own, archive) =>
+                IO.lift(() => Exchange.QualifiedPath(archive.Path)).Bind(path =>
+                    DisposalOps.Acquire(
+                        IO.lift(() => Missing.Unless(RhinoDoc.OpenHeadless(path, archive.Options.ValueUnsafe()), nameof(RhinoDoc.OpenHeadless))),
+                        static opened => IO.lift(opened.Dispose), own))) switch {
+                            var acquire => (postNative ? acquire.Post().Uninterruptible() : acquire).Bind(body),
+                        }, held => postNative ? DisposalOps.Release(held).Post() : DisposalOps.Release(held));
+
+    // --- [READ]
+    public static IO<T> Read<T>(DocumentSource source, Func<RhinoDoc, IO<T>> read, Func<RhinoDoc, Option<HostEvent<Unit>>> changed, Func<Option<HostEvent<Unit>>, IO<Unit>> observe) =>
+        from sourceObserved in when(source is DocumentSource.Active,
+            observe(Some(EventKind.ActiveDocumentChanged.Choose(static _ => Some(unit))))).As()
+        from value in WithDocument(source, doc =>
+            from observed in observe(source is DocumentSource.Headless or DocumentSource.Archive
+                ? None
+                : (Seq(
+                    EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit)),
+                    EventKind.EndSaveDocument.In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit)),
+                    EventKind.CloseDocument.In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit)),
+                    EventKind.UndoRedo.In(doc.RuntimeSerialNumber).Choose(static args => Callbacks.Found(args.IsEndRecording || args.IsEndUndo || args.IsEndRedo, unit)))
+                    + changed(doc).ToSeq()).Strict() switch {
+                        var rows => Some(Subscriptions.Host(typeof(Documents), () => rows)),
+                    })
+            from held in read(doc)
+            select held)
+        select value;
 
     // --- [WORKSESSION]
     public static IO<WorksessionState> ReadWorksession(RhinoDoc doc, bool checkForUpdates) =>

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -11,27 +12,30 @@ namespace Rasm.Imaging.Quantization;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 internal interface IOffsetField {
-    public static abstract float Draw(int column, int line);
+    public static abstract float Draw(long column, long line);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+[SuppressMessage("Design", "MA0182", Justification = "Referenced by Quantize<NoOffset> method group; Meziantou 3.0.296 omits method-reference type arguments from usage analysis.")]
 internal readonly struct NoOffset : IOffsetField {
-    public static float Draw(int column, int line) => 0.5f;
+    public static float Draw(long column, long line) => 0.5f;
 }
 
+[SuppressMessage("Design", "MA0182", Justification = "Referenced by Quantize<WhiteNoise> method group; Meziantou 3.0.296 omits method-reference type arguments from usage analysis.")]
 internal readonly struct WhiteNoise : IOffsetField {
-    public static float Draw(int column, int line) =>
+    public static float Draw(long column, long line) =>
         1103515245u switch {
             var scale => unchecked(scale * ((scale * (((uint)column >> 1) ^ (uint)line)) ^ ((scale * (((uint)line >> 1) ^ (uint)column)) >> 3))) * (1f / uint.MaxValue),
         };
 }
 
+[SuppressMessage("Design", "MA0182", Justification = "Referenced by Quantize<BlueNoise> method group; Meziantou 3.0.296 omits method-reference type arguments from usage analysis.")]
 internal readonly struct BlueNoise : IOffsetField {
     private static readonly Memo<ReadOnlyMemory2D<float>> Draws = memo(Read);
 
-    public static float Draw(int column, int line) =>
+    public static float Draw(long column, long line) =>
         Draws.Value.Span switch {
-            var draws => draws[line & (draws.Height - 1), column & (draws.Width - 1)],
+            var draws => draws[(int)(line & (draws.Height - 1)), (int)(column & (draws.Width - 1))],
         };
 
     private static ReadOnlyMemory2D<float> Read() {

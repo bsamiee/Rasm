@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Render.Content;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI.Rows;
@@ -42,13 +43,17 @@ public sealed record BackgroundState(
                 settings.RenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Reflection), Conversions.Present(settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Reflection, RenderSettings.EnvironmentPurpose.Standard))),
         });
 
-    public static IO<Unit> Write(SceneWindow window, BackgroundState state) =>
-        IO.lift(() => {
-            BackgroundMapper.Update(state, window.Settings);
-            window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, Conversions.Unset(state.BackdropEnvironment));
-            window.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Reflection, state.ReflectionOverride);
-            window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Reflection, Conversions.Unset(state.ReflectionEnvironment));
-        });
+    public static IO<BackgroundState> Write(SceneWindow window, BackgroundState state) =>
+        IO.pure(state with {
+            BackdropEnvironment = state.BackdropEnvironment.Bind(Conversions.Present),
+            ReflectionEnvironment = state.ReflectionEnvironment.Bind(Conversions.Present),
+        }).Bind(accepted => IO.lift(() => {
+            BackgroundMapper.Update(accepted, window.Settings);
+            window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, Conversions.Unset(accepted.BackdropEnvironment));
+            window.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Reflection, accepted.ReflectionOverride);
+            window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Reflection, Conversions.Unset(accepted.ReflectionEnvironment));
+            return accepted;
+        }));
 
     public static ParameterText Text(BackgroundParameter parameter) =>
         parameter.Map(
@@ -62,16 +67,20 @@ public sealed record BackgroundState(
                 }),
             backgroundColorTop: ParameterText.Of("Solid color", "Background color, the top of a gradient"),
             backgroundColorBottom: ParameterText.Of("Gradient", "Bottom color of a gradient background"),
+            backdropEnvironment: ParameterText.Of("Background environment", "Environment used by an environment background") with { Absent = Some("None") },
             scaleBackgroundToFit: ParameterText.Of("Stretch to fit", "Stretches the viewport's wallpaper to the rendering"),
-            reflectionOverride: ParameterText.Of("Use custom environment for reflections", "Reflects a chosen environment in place of the background's"));
+            reflectionOverride: ParameterText.Of("Use custom environment for reflections", "Reflects a chosen environment in place of the background's"),
+            reflectionEnvironment: ParameterText.Of("Reflection environment", "Environment selected for custom reflections") with { Absent = Some("None") });
 
     public static RowRules Rules(RowSource<BackgroundState> source, BackgroundParameter parameter) =>
         parameter.Map(
             style: RowRules.Always,
             backgroundColorTop: Shown(source, static style => style is BackgroundStyle.SolidColor or BackgroundStyle.Gradient),
             backgroundColorBottom: Shown(source, static style => style is BackgroundStyle.Gradient),
+            backdropEnvironment: Shown(source, static style => style is BackgroundStyle.Environment),
             scaleBackgroundToFit: Shown(source, static style => style is BackgroundStyle.WallpaperImage),
-            reflectionOverride: RowRules.Always);
+            reflectionOverride: RowRules.Always,
+            reflectionEnvironment: new RowRules(None, Some(RowRule.When(source, static state => state.ReflectionOverride, BackgroundParameter.ReflectionOverride))));
 
     private static RowRules Shown(RowSource<BackgroundState> source, Func<BackgroundStyle, bool> styles) =>
         new(None, Some(RowRule.When(source, state => styles(state.BackgroundStyle), BackgroundParameter.Style)));
@@ -88,10 +97,14 @@ public sealed partial class BackgroundParameter : IStateParameter<BackgroundStat
         Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorTop, static color => state => state with { BackgroundColorTop = color })));
     public static readonly BackgroundParameter BackgroundColorBottom = new("background-color-bottom", new StateParameter<BackgroundState>.Color(
         Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorBottom, static color => state => state with { BackgroundColorBottom = color })));
+    public static readonly BackgroundParameter BackdropEnvironment = new("backdrop-environment", new StateParameter<BackgroundState>.OptionalRaw<Guid>(
+        Lens<BackgroundState, Option<Guid>>.New(static state => state.BackdropEnvironment, static environment => state => state with { BackdropEnvironment = environment })));
     public static readonly BackgroundParameter ScaleBackgroundToFit = new("scale-background-to-fit", new StateParameter<BackgroundState>.Toggle(
         Lens<BackgroundState, bool>.New(static state => state.ScaleBackgroundToFit, static on => state => state with { ScaleBackgroundToFit = on })));
     public static readonly BackgroundParameter ReflectionOverride = new("custom-env-for-refl-and-refr-on", new StateParameter<BackgroundState>.Toggle(
         Lens<BackgroundState, bool>.New(static state => state.ReflectionOverride, static on => state => state with { ReflectionOverride = on })));
+    public static readonly BackgroundParameter ReflectionEnvironment = new("reflection-environment", new StateParameter<BackgroundState>.OptionalRaw<Guid>(
+        Lens<BackgroundState, Option<Guid>>.New(static state => state.ReflectionEnvironment, static environment => state => state with { ReflectionEnvironment = environment })));
 
     public StateParameter<BackgroundState> Kind { get; }
 }
@@ -110,22 +123,27 @@ public sealed record LightingState(bool SkylightEnabled, bool SkylightingOverrid
             window.Settings.RenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting),
             Conversions.Present(window.Settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, RenderSettings.EnvironmentPurpose.Standard)))));
 
-    public static IO<Unit> Write(SceneWindow window, LightingState state) =>
-        SceneSources.SubOwner(window, static settings => settings.Skylight, skylight => IO.lift(() => {
-            skylight.Enabled = state.SkylightEnabled;
-            window.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting, state.SkylightingOverride);
-            window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, Conversions.Unset(state.SkylightingEnvironment));
-        }));
+    public static IO<LightingState> Write(SceneWindow window, LightingState state) =>
+        IO.pure(state with { SkylightingEnvironment = state.SkylightingEnvironment.Bind(Conversions.Present) })
+            .Bind(accepted => SceneSources.SubOwner(window, static settings => settings.Skylight, skylight => IO.lift(() => {
+                skylight.Enabled = accepted.SkylightEnabled;
+                window.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting, accepted.SkylightingOverride);
+                window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, Conversions.Unset(accepted.SkylightingEnvironment));
+                return accepted;
+            })));
 
     public static ParameterText Text(LightingParameter parameter) =>
         parameter.Map(
             skylightEnabled: ParameterText.Of("Skylight", "Lights the scene with the skylighting environment"),
-            skylightingOverride: ParameterText.Of("Use custom environment for skylighting", "Lights with a chosen environment in place of the background's"));
+            skylightingOverride: ParameterText.Of("Use custom environment for skylighting", "Lights with a chosen environment in place of the background's"),
+            skylightingEnvironment: ParameterText.Of("Skylighting environment", "Environment selected for custom skylighting") with { Absent = Some("None") });
 
     public static RowRules Rules(RowSource<LightingState> source, LightingParameter parameter) =>
         parameter.Map(
             skylightEnabled: RowRules.Always,
-            skylightingOverride: new RowRules(None, Some(RowRule.When(source, static state => state.SkylightEnabled, LightingParameter.SkylightEnabled))));
+            skylightingOverride: new RowRules(None, Some(RowRule.When(source, static state => state.SkylightEnabled, LightingParameter.SkylightEnabled))),
+            skylightingEnvironment: new RowRules(None, Some(RowRule.When(source, static state => state.SkylightEnabled && state.SkylightingOverride,
+                LightingParameter.SkylightEnabled, LightingParameter.SkylightingOverride))));
 }
 
 [SmartEnum<string>]
@@ -137,6 +155,8 @@ public sealed partial class LightingParameter : IStateParameter<LightingState> {
         Lens<LightingState, bool>.New(static state => state.SkylightEnabled, static on => state => state with { SkylightEnabled = on })));
     public static readonly LightingParameter SkylightingOverride = new("skylight-custom-environment-on", new StateParameter<LightingState>.Toggle(
         Lens<LightingState, bool>.New(static state => state.SkylightingOverride, static on => state => state with { SkylightingOverride = on })));
+    public static readonly LightingParameter SkylightingEnvironment = new("skylighting-environment", new StateParameter<LightingState>.OptionalRaw<Guid>(
+        Lens<LightingState, Option<Guid>>.New(static state => state.SkylightingEnvironment, static environment => state => state with { SkylightingEnvironment = environment })));
 
     public StateParameter<LightingState> Kind { get; }
 }
@@ -180,7 +200,8 @@ public static class Environments {
 
     private static IO<Option<(IntensityParameter Parameter, double Gain)>> Held(RenderContent texture) =>
         toSeq(IntensityParameter.Items)
-            .TraverseM(parameter => ContentFields.GetParameter<double>(texture, parameter.Key).Map(gain => gain.Map(held => (Parameter: parameter, Gain: held))))
+            .TraverseM(parameter => ContentFields.GetParameter(texture, parameter.Key, value => TypeMismatch.Unless<double>(value, parameter.Key))
+                .Map(gain => gain.Map(held => (Parameter: parameter, Gain: held))))
             .As()
             .Map(static found => found.Somes().Head);
 
@@ -191,15 +212,16 @@ public static class Environments {
 
     // --- [PHYSICAL_SKY]
     public static IO<Guid> AddPhysicalSky(RhinoDoc doc, PhysicalSky sky) =>
-        (from created in use(Contents.FreeFloating(doc, ContentUuids.BasicEnvironmentType))
-         from environment in IO.lift(WrongType.Unless<RenderEnvironment>(created))
-         from slot in IO.lift(() => environment.TextureChildSlotName)
-         from applied in Contents.Apply(doc, environment, RenderContent.ChangeContexts.Program, Seq<ContentEdit>(
-             new ContentEdit.SetName(sky.Name, RenameEvents: false, EnsureNameUnique: false),
-             new ContentEdit.SetChild(ContentUuids.PhysicalSkyTextureType, slot)))
-         from texture in IO.lift(() => EmptySlot.Unless(environment.FindChild(slot), environment.Id, slot))
-         from configured in Contents.WithinContentChange(texture, RenderContent.ChangeContexts.Program,
-             ContentFields.SetParameter(texture, "use-document-sun", sky.UseDocumentSun).Bind(_ => Gain(texture, sky.Intensity)))
-         from attached in Contents.Attach(doc, environment)
-         select environment.Id).Bracket();
+        DisposalOps.Within<IDisposable, Guid>(retain =>
+            from created in Contents.FreeFloating(doc, ContentUuids.BasicEnvironmentType, retain)
+            from environment in IO.lift(WrongType.Unless<RenderEnvironment>(created.Content))
+            from slot in IO.lift(() => environment.TextureChildSlotName)
+            from applied in Contents.Apply(doc, environment, RenderContent.ChangeContexts.Program, Seq<ContentEdit>(
+                new ContentEdit.SetName(sky.Name, RenameEvents: false, EnsureNameUnique: false),
+                new ContentEdit.SetChild(ContentUuids.PhysicalSkyTextureType, slot)))
+            from texture in IO.lift(() => EmptySlot.Unless(environment.FindChild(slot), environment.Id, slot))
+            from configured in Contents.WithinContentChange(texture, RenderContent.ChangeContexts.Program,
+                ContentFields.SetParameter(texture, "use-document-sun", sky.UseDocumentSun).Bind(_ => Gain(texture, sky.Intensity)))
+            from attached in Contents.Attach(doc, created)
+            select environment.Id, DisposalOps.Release);
 }

@@ -11,6 +11,7 @@ using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Wacton.Unicolour;
 
 namespace Rasm.Rhino.Objects;
 
@@ -38,8 +39,8 @@ public readonly partial struct Elevation : System.Numerics.IMinMaxValue<Elevatio
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct RadiusMultiple : System.Numerics.IMinMaxValue<RadiusMultiple> {
-    public static RadiusMultiple MinValue { get; } = new(0.3);
-    public static RadiusMultiple MaxValue { get; } = new(50d);
+    public static RadiusMultiple MinValue { get; } = new(double.BitIncrement(0d));
+    public static RadiusMultiple MaxValue { get; } = new(double.MaxValue);
     public static RadiusMultiple Default { get; } = new(2.5);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
@@ -59,8 +60,8 @@ public readonly partial struct AngularDiameter : System.Numerics.IMinMaxValue<An
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "AtKey", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct LightStops : System.Numerics.IMinMaxValue<LightStops> {
-    public static LightStops MinValue { get; } = new((float)Exposure.MinValue);
-    public static LightStops MaxValue { get; } = new((float)Exposure.MaxValue);
+    public static LightStops MinValue { get; } = new(-double.MaxValue);
+    public static LightStops MaxValue { get; } = new(double.MaxValue);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
@@ -80,7 +81,7 @@ public readonly partial struct TargetRadius : System.Numerics.IMinMaxValue<Targe
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct KeySoftness : System.Numerics.IMinMaxValue<KeySoftness> {
     public static KeySoftness MinValue { get; } = new(0d);
-    public static KeySoftness MaxValue { get; } = new(10d);
+    public static KeySoftness MaxValue { get; } = new(double.MaxValue);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
@@ -93,17 +94,6 @@ public readonly partial struct ColorSaturation : System.Numerics.IMinMaxValue<Co
     public static ColorSaturation MaxValue { get; } = new(1d);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
-}
-
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-public readonly partial struct LightCount : System.Numerics.IMinMaxValue<LightCount> {
-    public static LightCount MinValue { get; } = new(1);
-    public static LightCount MaxValue { get; } = new(8);
-    public static LightCount Default { get; } = new(3);
-
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
 
@@ -145,54 +135,73 @@ public sealed record RigLight(
             var ((sinA, cosA), (sinE, cosE)) => (new Vector3d(cosE * sinA, sinE, cosE * cosA), new Vector3d(cosA, 0d, -sinA), new Vector3d(-sinE * sinA, cosE, -sinE * cosA)),
         };
 
-    public DistantLight Distant =>
-        (Axes.Toward, Color.Switch(
+    public DistantLight Distant {
+        get {
+            Vector3d toward = Axes.Toward;
+            Unicolour color = Color.Switch(
             blackbody: static blackbody => Adaptation.Blackbody(Gamut.StandardRgb, blackbody.Kelvin),
-            linear: static linear => linear.Filter.Unicolour)) switch {
-                var (toward, color) => (color.RgbLinear, color.Xyz.Y) switch {
-                    var (linear, luminance) => new(
-                        new System.Numerics.Vector3((float)toward.X, (float)toward.Y, (float)toward.Z),
-                        new System.Numerics.Vector3((float)(linear.R / luminance), (float)(linear.G / luminance), (float)(linear.B / luminance)), (float)(double)Stops),
-                },
-            };
+            linear: static linear => linear.Filter.Unicolour);
+            (double r, double g, double b) = color.RgbLinear;
+            double peak = Math.Max(Math.Abs(r), Math.Max(Math.Abs(g), Math.Abs(b)));
+            Unicolour normalized = new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, r / peak, g / peak, b / peak).MapToRgbGamut();
+            (double red, double green, double blue) = normalized.RgbLinear;
+            double luminance = normalized.Xyz.Y;
+            return new DistantLight(
+                new System.Numerics.Vector3((float)toward.X, (float)toward.Y, (float)toward.Z),
+                new System.Numerics.Vector3((float)(red / luminance), (float)(green / luminance), (float)(blue / luminance)), Stops);
+        }
+    }
 }
 
 public sealed record MatchedLook(
-    LightCount Count, RigEmitter Key, KeySoftness Softness, AngularDiameter FillSize, Option<LightStops> Fill,
+    int Count, RigEmitter Key, KeySoftness Softness, AngularDiameter FillSize, Option<LightStops> Fill,
     Option<LightStops> Rim, ColorFilter Tint, ColorSaturation Saturation, RadiusMultiple Distance) {
-    public Fin<Seq<RigLight>> Derived(LightingReading reading) =>
-        from azimuth in Fin.Succ(reading.Direction.X * Math.PI / 2d)
+    public Fin<Seq<RigLight>> Derived(LightingReading reading) {
+        RgbLinear Color(System.Numerics.Vector3 color) =>
+            new Unicolour(reading.Gamut.Configuration, ColourSpace.RgbLinear, color.X, color.Y, color.Z)
+                .ConvertToConfiguration(Gamut.StandardRgb.Configuration).RgbLinear switch {
+                    var rgb when rgb.R == 0d && rgb.G == 0d && rgb.B == 0d => new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, 1d, 1d, 1d).RgbLinear,
+                    var rgb => Math.Max(Math.Abs(rgb.R), Math.Max(Math.Abs(rgb.G), Math.Abs(rgb.B))) switch {
+                        var peak => new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear,
+                            rgb.R / peak, rgb.G / peak, rgb.B / peak).MapToRgbGamut().RgbLinear,
+                    },
+                };
+        double Luminance(System.Numerics.Vector3 color) => reading.Gamut.Luminance switch {
+            var weights => Math.Max((weights.X * color.X) + (weights.Y * color.Y) + (weights.Z * color.Z), LuminanceSamples.Floor),
+        };
+        return
+        from azimuth in Count > 0 ? Fin.Succ(reading.Direction.X * Math.PI / 2d) : Fin.Fail<double>(new InvalidRhinoValue())
         let elevation = reading.Direction.Y * Math.PI / 2d
-        let size = reading.Hardness.Filter(static hardness => hardness > 0f).Match(Some: hardness => Math.Atan2(Softness * reading.Ratio, hardness), None: static () => (double)AngularDiameter.MaxValue)
-        let behind = reading.Backlight.Exists(static stops => stops > Math.Log2(1.35)) ? Math.PI : Math.IEEERemainder(azimuth + Math.PI, Math.Tau)
-        let colors = reading.Gels.Match(
+        let size = reading.Hardness > 0f ? Math.Atan2(Softness * reading.Ratio, reading.Hardness) : (double)AngularDiameter.MaxValue
+        let behind = reading.Backlit ? Math.PI : Math.IEEERemainder(azimuth + Math.PI, Math.Tau)
+        let working = reading.Gels.Match(
             Some: static gels => (Key: gels.Key.Color, Fill: gels.Accent.Color, Rim: gels.Accent.Color),
             None: () => (Key: reading.KeyColor, Fill: reading.FillColor, Rim: reading.KeyColor))
+        let colors = (Key: Color(working.Key), Fill: Color(working.Fill), Rim: Color(working.Rim))
         let keyed = reading.Gels.Map(static gels => gels.Key) | reading.Palette.Head
         from lights in (Seq(Row(LightRole.Key, Key, azimuth, elevation, size, LightStops.AtKey, colors.Key),
                     Row(LightRole.Fill, new RigEmitter.RectangularLight(), -azimuth, Elevation.Horizon, FillSize, Fill.Map(static stops => (double)stops).IfNone(-reading.Ratio), colors.Fill))
                 + Rim.Map(rim => Row(LightRole.Rim, Key, behind, elevation, size, rim, colors.Rim)).ToSeq()
                 + reading.Palette.Filter(entry => keyed != Some(entry)).Map(entry => Row(
                     LightRole.Accent, Key, ((2d * entry.Position.X) - 1d) * Math.PI / 2d, (1d - (2d * entry.Position.Y)) * Math.PI / 2d, size,
-                    Math.Log2(MathF.Max(System.Numerics.Vector3.Dot(Gamut.StandardRgb.Luminance, entry.Color), LuminanceSamples.Floor)
-                        / MathF.Max(System.Numerics.Vector3.Dot(Gamut.StandardRgb.Luminance, colors.Key), LuminanceSamples.Floor)), entry.Color)))
+                    Math.Log2(Luminance(entry.Color)) - Math.Log2(Luminance(working.Key)), Color(entry.Color))))
             .Take(Count)
             .Traverse(static light => light)
             .As()
             .ToFin()
         select lights;
+    }
 
-    private Validation<Error, RigLight> Row(LightRole role, RigEmitter emitter, double azimuth, double elevation, double size, double stops, System.Numerics.Vector3 color) =>
+    private Validation<Error, RigLight> Row(LightRole role, RigEmitter emitter, double azimuth, double elevation, double size, double stops, RgbLinear color) =>
         (Conversions.Validated<Azimuth, double, InvalidRhinoValue>(azimuth).ToValidation(),
          Conversions.Validated<Elevation, double, InvalidRhinoValue>(elevation).ToValidation(),
          Conversions.Validated<AngularDiameter, double, InvalidRhinoValue>(size).ToValidation(),
          Conversions.Validated<LightStops, double, InvalidRhinoValue>(stops).ToValidation(),
-         MathF.Max(color.X, MathF.Max(color.Y, color.Z)) switch {
-             var peak => System.Numerics.Vector3.Lerp(System.Numerics.Vector3.One, peak > 0f ? color / peak : System.Numerics.Vector3.One, (float)(double)Saturation) switch {
-                 var tone => ColorFilter.Validate(Tint.Red * tone.X, Tint.Green * tone.Y, Tint.Blue * tone.Z, out ColorFilter? filter) is { } error
-                     ? Validation.Fail<Error, ColorFilter>(error) : Validation.Success<Error, ColorFilter>(filter!),
-             },
-         })
+         ColorFilter.Validate(
+             Tint.Red * (1d + (Saturation * (color.R - 1d))),
+             Tint.Green * (1d + (Saturation * (color.G - 1d))),
+             Tint.Blue * (1d + (Saturation * (color.B - 1d))), out ColorFilter? filter) is { } error
+                 ? Validation.Fail<Error, ColorFilter>(error) : Validation.Success<Error, ColorFilter>(filter!))
             .Apply((a, e, s, st, filter) => new RigLight(role, emitter, a, e, Distance, s, st, filter, Light.Attenuation.InverseSquared))
             .As();
 }
@@ -208,97 +217,6 @@ public abstract partial record RigLayout {
             reading,
             arranged: static (_, arranged) => Fin.Succ(arranged.Rows),
             matched: static (held, matched) => held.ToFin(new Missing(nameof(LightingReading))).Bind(matched.Look.Derived));
-}
-
-[SmartEnum<string>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RigPreset {
-    public static readonly RigPreset ThreePoint = new("three-point", static () => Arranged(
-        new PresetLight(LightRole.Key, new Vector3d(1.6, -1.6, 0.3), 0.6, 250d, 5500d),
-        new PresetLight(LightRole.Fill, new Vector3d(-1.6, -1.2, -0.1), 1.5, 90d, 6500d),
-        new PresetLight(LightRole.Rim, new Vector3d(0.5, 1.6, 0.8), 0.4, 400d, 5000d)));
-    public static readonly RigPreset HardLowKey = new("hard-low-key", static () => Arranged(
-        new PresetLight(LightRole.Key, new Vector3d(2.0, -1.0, 0.4), 0.4, 450d, 4500d),
-        new PresetLight(LightRole.Fill, new Vector3d(-1.5, -1.0, -0.2), 1.0, 25d, 7000d),
-        new PresetLight(LightRole.Rim, new Vector3d(-0.4, 1.5, 0.8), 0.3, 200d, 4200d)));
-    public static readonly RigPreset SideKey = new("side-key", static () => Arranged(
-        new PresetLight(LightRole.Key, new Vector3d(2.4, -0.6, 1.0), 0.3, 550d, 4200d)));
-    public static readonly RigPreset SoftHighKey = new("soft-high-key", static () => Arranged(
-        new PresetLight(LightRole.Key, new Vector3d(1.2, -2.0, 0.5), 2.0, 300d, 5500d),
-        new PresetLight(LightRole.Fill, new Vector3d(-1.2, -2.0, 0.5), 2.0, 250d, 5500d),
-        new PresetLight(LightRole.Top, new Vector3d(0d, 0d, 2.2), 1.5, 180d, 5500d)));
-    public static readonly RigPreset RimOnly = new("rim-only", static () => Arranged(
-        new PresetLight(LightRole.Rim, new Vector3d(0d, 1.5, 1.2), 0.5, 600d, 5000d)));
-    public static readonly RigPreset Glamour = new("glamour", static () => Arranged(
-        new PresetLight(LightRole.Key, new Vector3d(0d, -1.6, 1.4), 0.7, 350d, 5500d),
-        new PresetLight(LightRole.Fill, new Vector3d(0d, -1.0, -0.4), 1.5, 80d, 6000d)));
-    public static readonly RigPreset Auto = new("auto", static () => Matched(new RigEmitter.RectangularLight(), 1.0, None, Some(1.0), (1d, 1d, 1d), 0.85, 2.5));
-    public static readonly RigPreset Portrait = new("portrait", static () => Matched(new RigEmitter.RectangularLight(), 1.1, None, Some(1.0), (1d, 0.97, 0.92), 0.85, 2.4));
-    public static readonly RigPreset Rembrandt = new("rembrandt", static () => Matched(SpotKey, 0.9, Some(0.12), Some(0.8), (1d, 0.95, 0.85), 0.9, 2.4));
-    public static readonly RigPreset Butterfly = new("butterfly", static () => Matched(new RigEmitter.RectangularLight(), 1.3, Some(0.45), Some(0.6), (1d, 0.97, 0.95), 0.8, 2.3));
-    public static readonly RigPreset Loop = new("loop", static () => Matched(new RigEmitter.RectangularLight(), 1.1, Some(0.3), Some(0.7), (1d, 0.96, 0.9), 0.85, 2.4));
-    public static readonly RigPreset Split = new("split", static () => Matched(new RigEmitter.RectangularLight(), 0.8, Some(0.08), Some(0.5), (1d, 0.98, 0.95), 0.9, 2.4));
-    public static readonly RigPreset Clamshell = new("clamshell", static () => Matched(new RigEmitter.RectangularLight(), 2.2, Some(0.85), None, (1d, 0.97, 0.96), 0.7, 2.2));
-    public static readonly RigPreset Beauty = new("beauty", static () => Matched(new RigEmitter.RectangularLight(), 2.4, Some(0.8), Some(0.5), (1d, 0.96, 0.95), 0.75, 2.2));
-    public static readonly RigPreset Cinematic = new("cinematic", static () => Matched(SpotKey, 0.7, Some(0.15), Some(1.5), (1.05, 0.95, 0.85), 1.0, 2.6));
-    public static readonly RigPreset Dramatic = new("dramatic", static () => Matched(SpotKey, 0.45, Some(0.05), Some(0.8), (1d, 0.98, 0.92), 0.9, 2.5));
-    public static readonly RigPreset Noir = new("noir", static () => Matched(SpotKey, 0.4, Some(0.03), Some(1.2), (0.98, 0.99, 1d), 0.95, 2.5));
-    public static readonly RigPreset LowKey = new("low-key", static () => Matched(SpotKey, 0.6, Some(0.05), Some(0.6), (1d, 0.97, 0.92), 0.9, 2.5));
-    public static readonly RigPreset HighKey = new("high-key", static () => Matched(new RigEmitter.RectangularLight(), 2.6, Some(0.9), None, (1d, 1d, 1d), 0.55, 2.8));
-    public static readonly RigPreset Studio = new("studio", static () => Matched(new RigEmitter.RectangularLight(), 2.2, Some(0.7), None, (1d, 1d, 1d), 0.6, 2.8));
-    public static readonly RigPreset Product = new("product", static () => Matched(new RigEmitter.RectangularLight(), 2.0, Some(0.6), None, (1d, 1d, 1d), 0.6, 2.7));
-    public static readonly RigPreset SoftEven = new("soft-even", static () => Matched(new RigEmitter.RectangularLight(), 3.0, Some(0.95), None, (1d, 1d, 1d), 0.5, 3.0));
-    public static readonly RigPreset Rim = new("rim", static () => Matched(new RigEmitter.RectangularLight(), 1.0, Some(0.3), Some(2.0), (1d, 0.98, 0.95), 0.85, 2.5));
-    public static readonly RigPreset Backlight = new("backlight", static () => Matched(new RigEmitter.RectangularLight(), 1.2, Some(0.25), None, (1d, 0.97, 0.9), 0.9, 2.7));
-    public static readonly RigPreset Outdoor = new("outdoor", static () => Matched(new RigEmitter.DirectionalLight(), 1.0, Some(0.4), None, (1d, 0.97, 0.9), 0.85, 3.0));
-    public static readonly RigPreset Sunset = new("sunset", static () => Matched(new RigEmitter.DirectionalLight(), 1.0, Some(0.35), None, (1.1, 0.82, 0.55), 1.0, 3.0));
-    public static readonly RigPreset Twilight = new("twilight", static () => Matched(new RigEmitter.RectangularLight(), 1.6, Some(0.6), None, (0.7, 0.8, 1.05), 0.9, 2.9));
-    public static readonly RigPreset Neon = new("neon", static () => Matched(new RigEmitter.RectangularLight(), 1.0, Some(0.4), Some(1.4), (1d, 1d, 1d), 1.0, 2.5));
-    public static readonly RigPreset Candlelight = new("candlelight", static () => Matched(new RigEmitter.PointLight(), 1.4, Some(0.5), None, (1.12, 0.72, 0.42), 1.0, 2.4));
-    public static readonly RigPreset Moonlight = new("moonlight", static () => Matched(new RigEmitter.DirectionalLight(), 1.2, Some(0.3), None, (0.6, 0.72, 1.05), 0.95, 3.0));
-    public static readonly RigPreset Underlight = new("underlight", static () => Matched(SpotKey, 0.9, Some(0.15), None, (1d, 0.95, 0.9), 0.9, 2.4));
-
-    [UseDelegateFromConstructor]
-    public partial Fin<RigLayout> Layout();
-
-    private static Validation<Error, RigEmitter> SpotKey =>
-        (Conversions.Validated<SpotAngle, double, InvalidRhinoValue>(RhinoMath.ToRadians(45d) / 2d).ToValidation(),
-         Conversions.Validated<HotSpot, double, InvalidRhinoValue>(1d / (1d + 0.15)).ToValidation())
-            .Apply(static (angle, hotSpot) => (RigEmitter)new RigEmitter.SpotLight(angle, hotSpot))
-            .As();
-
-    private static Fin<RigLayout> Arranged(PresetLight reference, params PresetLight[] others) =>
-        reference.Cons(toSeq(others))
-            .Traverse(light =>
-                (Conversions.Validated<Azimuth, double, InvalidRhinoValue>(Math.Atan2(light.Offset.X, -light.Offset.Y)).ToValidation(),
-                 Conversions.Validated<Elevation, double, InvalidRhinoValue>(Math.Atan2(light.Offset.Z, double.Hypot(light.Offset.X, light.Offset.Y))).ToValidation(),
-                 Conversions.Validated<AngularDiameter, double, InvalidRhinoValue>(2d * Math.Atan(light.Side / (2d * light.Offset.Length))).ToValidation(),
-                 Conversions.Validated<LightStops, double, InvalidRhinoValue>(Math.Log2(light.Watts * reference.Offset.SquareLength / (reference.Watts * light.Offset.SquareLength))).ToValidation(),
-                 Conversions.Validated<ColorTemperature, double, InvalidColor>(light.Kelvin).ToValidation())
-                    .Apply((a, e, s, st, k) => new RigLight(light.Role, new RigEmitter.RectangularLight(), a, e, RadiusMultiple.Default, s, st, k, Light.Attenuation.InverseSquared))
-                    .As())
-            .As()
-            .ToFin()
-            .Map(static lights => (RigLayout)new RigLayout.Arranged(lights));
-
-    private static Fin<RigLayout> Matched(
-        Validation<Error, RigEmitter> key, double softness, Option<double> fillRatio, Option<double> rimStrength,
-        (double Red, double Green, double Blue) tint, double saturation, double distance) =>
-        (key,
-         Conversions.Validated<KeySoftness, double, InvalidRhinoValue>(softness).ToValidation(),
-         fillRatio.Traverse(static ratio => Conversions.Validated<LightStops, double, InvalidRhinoValue>(Math.Log2(ratio)).ToValidation()).As(),
-         rimStrength.Traverse(static strength => Conversions.Validated<LightStops, double, InvalidRhinoValue>(Math.Log2(strength)).ToValidation()).As(),
-         ColorFilter.Validate(tint.Red, tint.Green, tint.Blue, out ColorFilter? filter) is { } error ? Validation.Fail<Error, ColorFilter>(error) : filter!,
-         Conversions.Validated<ColorSaturation, double, InvalidRhinoValue>(saturation).ToValidation(),
-         Conversions.Validated<RadiusMultiple, double, InvalidRhinoValue>(distance).ToValidation())
-            .Apply(static (emitter, soft, fill, rim, filtered, saturated, reach) =>
-                (RigLayout)new RigLayout.Matched(new MatchedLook(LightCount.Default, emitter, soft, AngularDiameter.MaxValue, fill, rim, filtered, saturated, reach)))
-            .As()
-            .ToFin();
-
-    private sealed record PresetLight(LightRole Role, Vector3d Offset, double Side, double Watts, double Kelvin);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -318,7 +236,7 @@ public abstract partial record RigBasis {
 }
 
 public sealed record LightRig(
-    Guid Id, RigTarget Target, RigBasis Basis, LightIntensity Level, Azimuth Rotation, Elevation Elevation, RigLayout Layout, Option<RigPreset> Preset);
+    Guid Id, RigTarget Target, RigBasis Basis, LightIntensity Level, Azimuth Rotation, Elevation Elevation, RigLayout Layout, Option<string> Preset);
 
 public sealed record RigCommit(Func<LightRole, string> Caption, string Name, RedrawPolicy Redraw);
 
@@ -327,13 +245,13 @@ public sealed record PlacedLight(LightRole Role, LightShape Shape, LightColor Co
         new(Conversions.Present(name), enabled, Shape, Color, Intensity, watts, shadow, AttenuationVector);
 }
 
-public sealed record RigLabel(Guid Rig, int Slot, LightRole Role, Option<RigPreset> Preset) {
+public sealed record RigLabel(Guid Rig, int Slot, LightRole Role, Option<string> Preset) {
     public static HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> Strings(Option<RigLabel> label) =>
         HashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(
             (LightKey.Rig.Key, label.Map(static row => row.Rig.ToString("D"))),
             (LightKey.Slot.Key, label.Map(static row => row.Slot.ToString(CultureInfo.InvariantCulture))),
             (LightKey.Role.Key, label.Map(static row => row.Role.Name)),
-            (LightKey.Preset.Key, label.Bind(static row => row.Preset).Map(static preset => preset.Key)));
+            (LightKey.Preset.Key, label.Bind(static row => row.Preset)));
 }
 
 public sealed record HeldLight(Guid Id, uint Serial, HashMap<EqStringOrdinalIgnoreCase, string, string> Strings) {
@@ -370,7 +288,9 @@ public static class LightRigs {
             (Document: doc, Focus: focus),
             world: static (state, _) => IO.pure(new Plane(state.Focus, Vector3d.XAxis, Vector3d.ZAxis)),
             view: static (state, view) =>
-                use(Viewports.ResolveViewport(state.Document, view.Target)).Bind(static row => Cameras.ReadPose(row.Viewport)).Bracket()
+                DisposalOps.Within(
+                    (Action<IDisposable> held) => Viewports.ResolveViewport(state.Document, view.Target, held).Bind(static row => Cameras.ReadPose(row.Viewport)),
+                    DisposalOps.Release)
                     .Map(pose => new Plane(state.Focus, pose.Frame.XAxis, pose.Frame.YAxis)),
             frame: static (state, frame) => IO.lift(() => Missing.Unless(state.Document.Objects.FindId(frame.Object), nameof(ObjectTable.FindId)))
                 .Bind(static found => IO.lift(() => Conversions.Present(found.ObjectFrame()).ToFin(new InvalidAnswer(nameof(RhinoObject.ObjectFrame)))))
@@ -492,31 +412,33 @@ public static class LightRigs {
         TableOps.Apply(doc, AttributeOps.Modify(doc, new ObjectTarget.Ids(Seq(light)), Seq(AttributeEdits.SetUserStrings(RigLabel.Strings(label))), quiet: true));
 
     // --- [FOLLOW]
-    public static IO<Option<IDisposable>> Follow(RhinoDoc doc, LightRig rig, Option<LightingReading> reading, RigCommit commit, IPlugInSink sink) =>
-        rig.Target is RigTarget.Subjects subjects
-            ? from initial in Target(doc, rig.Target)
-              from acquisition in IO.lift(() => {
-                  Atom<(RigTarget.Fixed Current, bool Changed)> previous = Atom((Current: initial, Changed: false));
-                  LanguageExt.HashSet<Guid> ids = toHashSet(subjects.Ids);
-                  uint serial = doc.RuntimeSerialNumber;
-                  CallbackSite site = new(sink, typeof(LightRigs), nameof(Follow));
-                  Seq<HostEvent<(Unit, Unit)>> events = Seq(
-                      EventKind.ReplaceRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
-                      EventKind.DeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
-                      EventKind.UndeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
-                      EventKind.TransformObjects.In(serial).Choose(args => Callbacks.Found(args.ObjectIds.Exists(ids.Contains) || args.GripOwnerIds.Exists(ids.Contains), (unit, unit))));
-                  IO<Unit> Resync(HashMap<Unit, Unit> _) =>
-                      from target in Target(doc, rig.Target)
-                      from moved in IO.lift(() => previous.Swap(held => (target, held.Current != target)).Changed)
-                      from changed in when(moved, Reconcile(doc, rig with { Target = target }, reading, commit, sink).Map(static _ => unit)).As()
-                      select unit;
-                  return
-                      from mailbox in Subscriptions.Idle<Unit, Unit>(Resync)(site)
-                      from watched in DisposalOps.OnFailure(
-                          DisposalOps.AcquireAll(events.Map(row => row.Inline(mailbox.Post, sink)), DisposalOps.Release), IO.lift(mailbox.Release.Dispose))
-                      select DisposalOps.Composite(Seq(mailbox.Release) + watched, site);
-              })
-              from followed in acquisition
-              select Some(followed)
-            : IO.pure(Option<IDisposable>.None);
+    public static IO<Unit> Follow(RhinoDoc doc, LightRig rig, Option<LightingReading> reading, RigCommit commit, IPlugInSink sink, Action<IDisposable> retain) =>
+        rig.Target.Switch(
+            (Document: doc, Rig: rig, Reading: reading, Commit: commit, Sink: sink, Retain: retain),
+            subjects: static (state, subjects) => from initial in Target(state.Document, subjects)
+                                                  from acquisition in IO.lift(() => {
+                                                      Atom<RigTarget.Fixed> previous = Atom(initial);
+                                                      LanguageExt.HashSet<Guid> ids = toHashSet(subjects.Ids);
+                                                      uint serial = state.Document.RuntimeSerialNumber;
+                                                      CallbackSite site = new(state.Sink, typeof(LightRigs), nameof(Follow));
+                                                      Seq<HostEvent<(Unit, Unit)>> events = Seq(
+                                                          EventKind.ReplaceRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
+                                                          EventKind.DeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
+                                                          EventKind.UndeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
+                                                          EventKind.TransformObjects.In(serial).Choose(args => Callbacks.Found(args.ObjectIds.Exists(ids.Contains) || args.GripOwnerIds.Exists(ids.Contains), (unit, unit))));
+                                                      IO<Unit> Resync(HashMap<Unit, Unit> _) =>
+                                                          from target in Target(state.Document, state.Rig.Target)
+                                                          from moved in IO.lift(() => previous.Value != target)
+                                                          from changed in when(moved, Reconcile(state.Document, state.Rig with { Target = target }, state.Reading, state.Commit, state.Sink)
+                                                              .Bind(_ => previous.SwapIO(_ => target)).Map(static _ => unit)).As()
+                                                          select unit;
+                                                      return DisposalOps.Acquire(
+                                                          owned => from mailbox in Subscriptions.Idle<Unit, Unit>(Resync)(site, owned)
+                                                                   from watched in events.TraverseM(row => row.Inline(mailbox, state.Sink, owned)).As()
+                                                                   select unit,
+                                                          (_, lease) => state.Retain(lease));
+                                                  })
+                                                  from followed in acquisition
+                                                  select followed,
+            @fixed: static (_, _) => IO.pure(unit));
 }

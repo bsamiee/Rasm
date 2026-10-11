@@ -20,12 +20,12 @@ public sealed record PlugInDefinition {
     public Option<LicenseDefinition> License { get; init; }
     public Seq<Guid> Dependencies { get; init; }
     public Seq<PlugInSetting> Settings { get; init; }
-    public Option<(PlugInSetting<HistoryCapacity, int, InvalidRhinoValue> Capacity, PlugInSetting<MergeWindow, int, InvalidRhinoValue> Window)> History { get; init; }
+    public required Func<ISettingReader, IO<HistoryLimits>> History { get; init; }
     public TimeProvider Clock { get; init; } = TimeProvider.System;
     public Seq<Func<IPlugInSink, Command>> Commands { get; init; }
     public Seq<View> Views { get; init; }
     public Seq<EffectKind> Effects { get; init; }
-    public Seq<Func<PlugIn, IPlugInSink, IO<IDisposable>>> Acquisitions { get; init; }
+    public Seq<Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>>> Acquisitions { get; init; }
     public Seq<ComputeEndpoint> Endpoints { get; init; }
     public Seq<DocumentFrame> DocumentFrames { get; init; }
     public Option<HelpTopic> Help { get; init; }

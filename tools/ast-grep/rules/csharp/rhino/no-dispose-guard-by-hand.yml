@@ -40,6 +40,18 @@ utils:
         kind: argument
         regex: '^(\w+\s*:\s*)?ref\s'
         has: {nthChild: {position: 1, reverse: true}, matches: flag}
+        inside:
+            stopBy: end
+            kind: class_declaration, struct_declaration, record_declaration
+            has:
+                field: body
+                has:
+                    kind: field_declaration
+                    has:
+                        kind: variable_declaration
+                        all:
+                            - has: {field: type, regex: '^(bool|int|long|uint|ulong)$'}
+                            - has: {kind: variable_declarator, has: {field: name, pattern: $FLAG}}
     atomic:
         kind: invocation_expression
         all:

@@ -4,6 +4,4 @@ language: python
 rule:
     any:
         - matches: functools-partial-callee
-        - kind: identifier
-          pattern: $BASE
-          inside: {kind: module, stopBy: end, has: {kind: class_definition, stopBy: {kind: 'function_definition, class_definition'}, all: [{has: {field: name, pattern: $BASE}}, {has: {field: superclasses, has: {matches: functools-partial-class}}}]}}
+        - matches: {python-base-class: {superclasses: {has: {matches: functools-partial-class}}}}

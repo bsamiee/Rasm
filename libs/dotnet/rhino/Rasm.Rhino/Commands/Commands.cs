@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Rasm.Rhino.Objects.Authored;
 using Riok.Mapperly.Abstractions;
 using Rhino;
@@ -37,8 +38,14 @@ public static class CommandRegistry {
             .Strict());
 
     // --- [REGISTRATION]
+    public static IO<TCommand> Register<TCommand>(PlugIn plugIn, TCommand command) where TCommand : Command =>
+        IO.lift(() => Refused.Unless(RegisterCommand(plugIn, command), command, nameof(RegisterCommand)));
+
     public static IO<Seq<Command>> GetCommands(Guid plugInId) =>
         IO.lift(() => Missing.Unless(PlugIn.Find(plugInId), nameof(PlugIn.Find)).Map(static plugIn => toSeq(plugIn.GetCommands())));
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern bool RegisterCommand(PlugIn plugIn, Command command);
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -49,6 +56,8 @@ public abstract class HostCommand(IPlugInSink sink, Guid id, string englishName,
     public sealed override string EnglishName { get; } = englishName;
 
     public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
+
+    public Option<(Option<Guid> File, Guid Toolbar)> Toolbar { get; init; }
 
     // --- [EXECUTION]
     protected abstract IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site);

@@ -132,9 +132,9 @@ public sealed record WheelsState(
         ToneSpan.Shadows, ToneEdge.Highlights, ToneSpan.Highlights);
 
     public static Option<PixelPass> Pass(WheelsState state, PassContext context) {
-        static float Smooth(float low, float high, float y) =>
-            float.Clamp((y - low) / (high - low), 0f, 1f) switch {
-                var t => t * t * (3f - (2f * t)),
+        static double Smooth(double low, double high, double y) =>
+            double.Clamp((y - low) / (high - low), 0d, 1d) switch {
+                var t => t * t * (3d - (2d * t)),
             };
 
         return toSeq(ToneWheel.Items).ForAll(wheel => wheel.Lens.Get(state) == WheelOffset.Neutral)
@@ -143,9 +143,13 @@ public sealed record WheelsState(
                state.Highlights.Multiplier(context.Working), (float)state.ShadowsEnd, (float)state.HighlightsStart, (float)state.HighlightsStart + (float)state.HighlightsWidth) switch {
                    var (weights, global, shadows, midtones, highlights, shadowsEnd, start, end) => Some<PixelPass>(new PixelPass.Color(row => {
                        foreach (ref Vector4 pixel in row) {
-                           float luma = Vector3.Dot(weights, pixel.AsVector3());
-                           (float a, float b) = (Smooth(0f, shadowsEnd, luma), Smooth(start, end, luma));
-                           pixel = new Vector4(pixel.AsVector3() * global * ((shadows * (1f - a)) + (midtones * (a * (1f - b))) + (highlights * (a * b))), pixel.W);
+                           double luma = (weights.X * pixel.X) + (weights.Y * pixel.Y) + (weights.Z * pixel.Z);
+                           (double a, double b) = (Smooth(0d, shadowsEnd, luma), Smooth(start, end, luma));
+                           (double low, double middle, double high) = (1d - a, a * (1d - b), a * b);
+                           pixel = new Vector4(
+                               (float)(pixel.X * (double)global.X * ((shadows.X * low) + (midtones.X * middle) + (highlights.X * high))),
+                               (float)(pixel.Y * (double)global.Y * ((shadows.Y * low) + (midtones.Y * middle) + (highlights.Y * high))),
+                               (float)(pixel.Z * (double)global.Z * ((shadows.Z * low) + (midtones.Z * middle) + (highlights.Z * high))), pixel.W);
                        }
                    })),
                };
@@ -157,28 +161,25 @@ public sealed record WheelsState(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WheelsParameter : IStateParameter<WheelsState> {
-    public static Presentation<WheelHue, float> Hue { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) };
-    public static Presentation<WheelStrength, float> Strength { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
-    public static Presentation<WheelLuma, float> Luma { get; } = new() { Origin = (float)WheelLuma.Neutral };
+    public static Presentation<float> Hue { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) };
+    public static Presentation<float> Strength { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
+    public static Presentation<float> Luma { get; } = new() { Origin = (float)WheelLuma.Neutral };
 
-    public static readonly WheelsParameter GlobalHue = new("global-hue", new StateParameter<WheelsState>.Bounded<WheelHue, float, InvalidGrade>(ToneWheel.Global.Hue, Hue));
-    public static readonly WheelsParameter GlobalStrength = new("global-strength", new StateParameter<WheelsState>.Bounded<WheelStrength, float, InvalidGrade>(ToneWheel.Global.Strength, Strength));
-    public static readonly WheelsParameter GlobalLuma = new("global-luma", new StateParameter<WheelsState>.Bounded<WheelLuma, float, InvalidGrade>(ToneWheel.Global.Luma, Luma));
-    public static readonly WheelsParameter ShadowsHue = new("shadows-hue", new StateParameter<WheelsState>.Bounded<WheelHue, float, InvalidGrade>(ToneWheel.Shadows.Hue, Hue));
-    public static readonly WheelsParameter ShadowsStrength = new("shadows-strength", new StateParameter<WheelsState>.Bounded<WheelStrength, float, InvalidGrade>(ToneWheel.Shadows.Strength, Strength));
-    public static readonly WheelsParameter ShadowsLuma = new("shadows-luma", new StateParameter<WheelsState>.Bounded<WheelLuma, float, InvalidGrade>(ToneWheel.Shadows.Luma, Luma));
-    public static readonly WheelsParameter MidtonesHue = new("midtones-hue", new StateParameter<WheelsState>.Bounded<WheelHue, float, InvalidGrade>(ToneWheel.Midtones.Hue, Hue));
-    public static readonly WheelsParameter MidtonesStrength = new("midtones-strength", new StateParameter<WheelsState>.Bounded<WheelStrength, float, InvalidGrade>(ToneWheel.Midtones.Strength, Strength));
-    public static readonly WheelsParameter MidtonesLuma = new("midtones-luma", new StateParameter<WheelsState>.Bounded<WheelLuma, float, InvalidGrade>(ToneWheel.Midtones.Luma, Luma));
-    public static readonly WheelsParameter HighlightsHue = new("highlights-hue", new StateParameter<WheelsState>.Bounded<WheelHue, float, InvalidGrade>(ToneWheel.Highlights.Hue, Hue));
-    public static readonly WheelsParameter HighlightsStrength = new("highlights-strength", new StateParameter<WheelsState>.Bounded<WheelStrength, float, InvalidGrade>(ToneWheel.Highlights.Strength, Strength));
-    public static readonly WheelsParameter HighlightsLuma = new("highlights-luma", new StateParameter<WheelsState>.Bounded<WheelLuma, float, InvalidGrade>(ToneWheel.Highlights.Luma, Luma));
-    public static readonly WheelsParameter ShadowsEnd = new("shadows-end", new StateParameter<WheelsState>.Bounded<ToneSpan, float, InvalidGrade>(
-        Lens<WheelsState, ToneSpan>.New(static state => state.ShadowsEnd, static end => state => state with { ShadowsEnd = end }), new()));
-    public static readonly WheelsParameter HighlightsStart = new("highlights-start", new StateParameter<WheelsState>.Bounded<ToneEdge, float, InvalidGrade>(
-        Lens<WheelsState, ToneEdge>.New(static state => state.HighlightsStart, static start => state => state with { HighlightsStart = start }), new()));
-    public static readonly WheelsParameter HighlightsWidth = new("highlights-width", new StateParameter<WheelsState>.Bounded<ToneSpan, float, InvalidGrade>(
-        Lens<WheelsState, ToneSpan>.New(static state => state.HighlightsWidth, static width => state => state with { HighlightsWidth = width }), new()));
+    public static readonly WheelsParameter GlobalHue = new("global-hue", StateParameter.Bounded<WheelsState, WheelHue, float, InvalidGrade>(ToneWheel.Global.Hue, Hue));
+    public static readonly WheelsParameter GlobalStrength = new("global-strength", StateParameter.Bounded<WheelsState, WheelStrength, float, InvalidGrade>(ToneWheel.Global.Strength, Strength));
+    public static readonly WheelsParameter GlobalLuma = new("global-luma", StateParameter.Bounded<WheelsState, WheelLuma, float, InvalidGrade>(ToneWheel.Global.Luma, Luma));
+    public static readonly WheelsParameter ShadowsHue = new("shadows-hue", StateParameter.Bounded<WheelsState, WheelHue, float, InvalidGrade>(ToneWheel.Shadows.Hue, Hue));
+    public static readonly WheelsParameter ShadowsStrength = new("shadows-strength", StateParameter.Bounded<WheelsState, WheelStrength, float, InvalidGrade>(ToneWheel.Shadows.Strength, Strength));
+    public static readonly WheelsParameter ShadowsLuma = new("shadows-luma", StateParameter.Bounded<WheelsState, WheelLuma, float, InvalidGrade>(ToneWheel.Shadows.Luma, Luma));
+    public static readonly WheelsParameter MidtonesHue = new("midtones-hue", StateParameter.Bounded<WheelsState, WheelHue, float, InvalidGrade>(ToneWheel.Midtones.Hue, Hue));
+    public static readonly WheelsParameter MidtonesStrength = new("midtones-strength", StateParameter.Bounded<WheelsState, WheelStrength, float, InvalidGrade>(ToneWheel.Midtones.Strength, Strength));
+    public static readonly WheelsParameter MidtonesLuma = new("midtones-luma", StateParameter.Bounded<WheelsState, WheelLuma, float, InvalidGrade>(ToneWheel.Midtones.Luma, Luma));
+    public static readonly WheelsParameter HighlightsHue = new("highlights-hue", StateParameter.Bounded<WheelsState, WheelHue, float, InvalidGrade>(ToneWheel.Highlights.Hue, Hue));
+    public static readonly WheelsParameter HighlightsStrength = new("highlights-strength", StateParameter.Bounded<WheelsState, WheelStrength, float, InvalidGrade>(ToneWheel.Highlights.Strength, Strength));
+    public static readonly WheelsParameter HighlightsLuma = new("highlights-luma", StateParameter.Bounded<WheelsState, WheelLuma, float, InvalidGrade>(ToneWheel.Highlights.Luma, Luma));
+    public static readonly WheelsParameter ShadowsEnd = new("shadows-end", StateParameter.Bounded<WheelsState, ToneSpan, float, InvalidGrade>(Lens<WheelsState, ToneSpan>.New(static state => state.ShadowsEnd, static end => state => state with { ShadowsEnd = end }), new()));
+    public static readonly WheelsParameter HighlightsStart = new("highlights-start", StateParameter.Bounded<WheelsState, ToneEdge, float, InvalidGrade>(Lens<WheelsState, ToneEdge>.New(static state => state.HighlightsStart, static start => state => state with { HighlightsStart = start }), new()));
+    public static readonly WheelsParameter HighlightsWidth = new("highlights-width", StateParameter.Bounded<WheelsState, ToneSpan, float, InvalidGrade>(Lens<WheelsState, ToneSpan>.New(static state => state.HighlightsWidth, static width => state => state with { HighlightsWidth = width }), new()));
 
     public StateParameter<WheelsState> Kind { get; }
 }

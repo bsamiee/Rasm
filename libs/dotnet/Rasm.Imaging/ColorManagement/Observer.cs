@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.InteropServices;
-using TinyEXR;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace Rasm.Imaging.ColorManagement;
 
@@ -16,9 +16,9 @@ public static class StandardObserver {
     });
 
     public static Arr<(float Wavelength, Vector3 Matching)> Matching(Gamut working) {
-        Vector3[] matching = [.. Rows.Value.Map(static row => row.Xyz)];
-        Span<float> lanes = MemoryMarshal.Cast<Vector3, float>(matching.AsSpan());
-        ImageProcessing.ApplyColorMatrix(lanes, lanes, 3, working.FromXyz);
-        return [.. Rows.Value.Zip(matching, static (row, rgb) => (row.Wavelength, rgb))];
+        Matrix<double> matrix = working.FromXyz;
+        return Rows.Value.Map(row => matrix.Multiply(new DenseVector([row.Xyz.X, row.Xyz.Y, row.Xyz.Z])) switch {
+            var rgb => (row.Wavelength, new Vector3((float)rgb[0], (float)rgb[1], (float)rgb[2])),
+        });
     }
 }

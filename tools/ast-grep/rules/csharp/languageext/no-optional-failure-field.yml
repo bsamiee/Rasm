@@ -42,7 +42,7 @@ utils:
                     - has: {kind: variable_declarator, has: {field: name, matches: failure-name}}
     owner:
         kind: 'record_declaration, class_declaration, struct_declaration'
-        not: {matches: csharp-error-record}
+        not: {kind: record_declaration, has: {kind: base_list}}
     data-member:
         kind: 'property_declaration, field_declaration'
         not: {any: [{matches: optional-failure}, {matches: optional-failure-field}]}
@@ -52,7 +52,18 @@ utils:
         any:
             - inside: {kind: 'record_declaration, class_declaration, struct_declaration', has: {kind: parameter_list, has: {kind: parameter}}}
             - has: {matches: data-member}
+    status:
+        kind: parameter, property_declaration
+        all:
+            - has: {field: type, regex: '^bool$'}
+            - has: {field: name, regex: '^(Is)?(Success|Succeeded|Failure|Failed|Ok)$'}
 rule:
+    inside:
+        stopBy: end
+        matches: owner
+        any:
+            - has: {kind: parameter_list, has: {matches: status}}
+            - has: {field: body, has: {matches: status}}
     any:
         - kind: parameter
           all:
@@ -80,5 +91,5 @@ rule:
             - matches: optional-failure-field
             - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $FIELD}}}
             - inside: {matches: member-with-data}
-message: '`$FIELD` holds an optional failure beside success data'
-note: Use a union case or an `Expected` record with the failure as a required field, no value holds a success and a failure at once
+message: '`$FIELD` holds an optional failure beside a success flag'
+note: Use `Fin<T>` or a union case instead of separate success and failure fields. A history or observation can retain completed data and a later failure together without representing alternative result states

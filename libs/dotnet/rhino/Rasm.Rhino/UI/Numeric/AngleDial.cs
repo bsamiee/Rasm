@@ -10,11 +10,10 @@ namespace Rasm.Rhino.UI.Numeric;
 public sealed record AngleDialState<TValue>(Option<TValue> Shown, Option<double> Held) where TValue : notnull;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class AngleDial<TValue, TKey, TError>(IPlugInSink sink, NumberText<TKey> text, string caption)
+public sealed class AngleDial<TValue, TKey>(IPlugInSink sink, NumberText<TKey> text, string caption, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> keyOf, (TKey Low, TKey High) limits)
     : ComponentControl<AngleDialState<TValue>, Unit, TValue>(sink, new AngleDialState<TValue>(None, None), None)
-    where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-    where TKey : struct, INumber<TKey>
-    where TError : Error, IValidationError<TError> {
+    where TValue : notnull
+    where TKey : struct, INumber<TKey> {
     // --- [GEOMETRY]
     private const double AngleSnap = Math.Tau / 72d;
     private static readonly Axis.Periodic AngleAxis = new(AxisRange.Radians);
@@ -30,18 +29,18 @@ public sealed class AngleDial<TValue, TKey, TError>(IPlugInSink sink, NumberText
 
     private static double Signed(double delta) => delta - (Math.Tau * Math.Round(delta / Math.Tau, MidpointRounding.ToEven));
 
-    private static TKey Wrapped(double angle) =>
-        double.CreateSaturating(TValue.MinValue.ToValue()) switch {
+    private TKey Wrapped(double angle) =>
+        double.CreateSaturating(limits.Low) switch {
             var low => NumericRows.Narrowed<TKey>(angle - (Math.Tau * Math.Floor((angle - low) / Math.Tau))),
         };
 
-    private static TKey Placed(double held, Keys modifiers) => Wrapped(Snaps(modifiers) ? Math.Round(held / AngleSnap, MidpointRounding.ToEven) * AngleSnap : held);
+    private TKey Placed(double held, Keys modifiers) => Wrapped(Snaps(modifiers) ? Math.Round(held / AngleSnap, MidpointRounding.ToEven) * AngleSnap : held);
 
     protected override Seq<PlotMark<Unit>> Layout(AngleDialState<TValue> state, SizeF size, float scale) =>
         (Plane(size), float.Min(size.Width, size.Height)) switch {
             var (plane, diameter) => new PlotMark<Unit>(new MarkShape.Disc(plane.Plot.Center, diameter - 1f), MarkStyle.Ring, Some(new MarkPart<Unit>(unit, 0f)))
                 .Cons(state.Shown.Map(value => new PlotMark<Unit>(
-                    new MarkShape.Rule(plane.Plot.Center, plane.Point(Plotted(value.ToValue()), (diameter - 4f) / diameter)), Needle, None)).ToSeq()),
+                    new MarkShape.Rule(plane.Plot.Center, plane.Point(Plotted(keyOf(value)), (diameter - 4f) / diameter)), Needle, None)).ToSeq()),
         };
 
     protected override Option<float> Fitted(AngleDialState<TValue> state, float width) => Some(width);
@@ -49,15 +48,15 @@ public sealed class AngleDial<TValue, TKey, TError>(IPlugInSink sink, NumberText
     // --- [TRANSITIONS]
     protected override AngleDialState<TValue> Received(AngleDialState<TValue> state, Option<TValue> value) => state with { Shown = value, Held = None };
 
-    private static Transition<AngleDialState<TValue>, TValue> Crossed(AngleDialState<TValue> state, Option<double> held, TKey key, Func<TValue, Edit<TValue>> edit) =>
-        Conversions.Validated<TValue, TKey, TError>(key).Match(
+    private Transition<AngleDialState<TValue>, TValue> Crossed(AngleDialState<TValue> state, Option<double> held, TKey key, Func<TValue, Edit<TValue>> edit) =>
+        create(key).Match(
             Succ: value => new Transition<AngleDialState<TValue>, TValue>(
                 state with { Shown = Some(value), Held = held },
                 state.Shown.Exists(shown => EqualityComparer<TValue>.Default.Equals(shown, value)) ? None : Some(edit(value))),
             Fail: _ => new Transition<AngleDialState<TValue>, TValue>(state with { Held = held }, None));
 
     private Option<Transition<AngleDialState<TValue>, TValue>> Moved(AngleDialState<TValue> state, double steps, Keys modifiers) =>
-        state.Shown.Map(value => value.ToValue() switch {
+        state.Shown.Map(value => keyOf(value) switch {
             var key => Crossed(state, None,
                 Wrapped(double.CreateSaturating(Snaps(modifiers) ? text.Snapped(text.Moved(key, steps)) : text.Moved(key, steps * Scale(modifiers)))),
                 static next => new Edit<TValue>.Step(next)),
@@ -91,7 +90,7 @@ public sealed class AngleDial<TValue, TKey, TError>(IPlugInSink sink, NumberText
 
     // --- [ACCESSIBILITY]
     protected override PartFacet Facet(AngleDialState<TValue> state, Unit key) =>
-        new(PartRole.Slider, Cursors.Default, caption, Some(text.Shown(state.Shown.Map(static value => value.ToValue()))), None);
+        new(PartRole.Slider, Cursors.Default, caption, Some(text.Shown(state.Shown.Map(keyOf))), None);
 
     // --- [PAINT]
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, AngleDialState<TValue> state, Seq<PlotMark<Unit>> marks, Interaction<Unit> interaction) =>

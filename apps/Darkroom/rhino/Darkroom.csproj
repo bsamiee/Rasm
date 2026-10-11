@@ -1,13 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Rhino post effects forming Blender's AgX display image under an exposure and dithering the 8-bit output</Description>
+        <Description>Image formation, output, and render management</Description>
     </PropertyGroup>
 
-    <ItemGroup Label="Core Dependencies">
+    <ItemGroup Label="Core">
         <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Imaging">
+        <PackageReference Include="Emgu.CV" />
+        <PackageReference Include="SixLabors.ImageSharp" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../../../libs/dotnet/Rasm.Imaging/Rasm.Imaging.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/Rasm.Imaging.Filters/Rasm.Imaging.Filters.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

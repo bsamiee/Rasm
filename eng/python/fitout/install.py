@@ -1,27 +1,25 @@
-# ast-grep-ignore: no-parse-error-python
-
 """Installs extensions through Blender's native handler in the owning process."""
 
-import errno
-from pathlib import Path
-import shutil
+import subprocess
 import sys
+from typing import Annotated
 
 import anyio
+from cyclopts import Parameter
+from cyclopts.types import ResolvedPath
 import httpx2
 from mcp import Client, MCPError
 from mcp.types import CallToolResult
 import msgspec
+import psutil
 from pydantic import ValidationError
 from result import Err, Ok, Result
-lazy from AppKit import NSWorkspace
-lazy from Foundation import NSURL
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class _Completed(msgspec.Struct, frozen=True, tag="ok", tag_field="status"):
-    result: dict[str, int]
+    result: int
     stdout: str = ""
     stderr: str = ""
 
@@ -37,28 +35,34 @@ class RemoteFailure(msgspec.Struct, frozen=True, tag="error", tag_field="status"
     stderr: str = ""
 
 
-type InstallError = OSError | msgspec.ValidationError | ExceptionGroup[OSError | httpx2.HTTPError | MCPError | ValidationError] | CallToolResult | RemoteFailure
+type InstallError = OSError | subprocess.CalledProcessError | msgspec.DecodeError | ExceptionGroup[OSError | httpx2.HTTPError | MCPError | ValidationError] | CallToolResult | RemoteFailure
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def install(archive: Path, blender: str, endpoint: str) -> Result[int, InstallError]:
-    """Installs and enables an archive in the selected Blender's user repository.
+async def install(
+    archive: ResolvedPath, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[str, Parameter(env_var="BLENDER_PATH")] = "blender"
+) -> Result[int, InstallError]:
+    """Install and enable a Blender extension in the user repository.
 
     Args:
-        archive: Native extension archive to install or replace.
-        blender: Executable identifying the Blender installation.
-        endpoint: Native Blender Lab execution service endpoint.
+        archive: Extension ZIP file to install.
+        blender: Blender executable, supplied by BLENDER_PATH when set.
+        endpoint: Blender Lab service endpoint, supplied by BLENDER_MCP_URL.
 
     Returns:
         The native handler's status, or an executable, transport,
         response-decoding, or remote execution error. Native output is forwarded.
     """
-    if (executable := shutil.which(blender)) is None:
-        return Err(FileNotFoundError(errno.ENOENT, "Blender executable was not found", blender))
-    executable_url = NSURL.fileURLWithPath_(executable).URLByResolvingSymlinksInPath()
-    pids = tuple(application.processIdentifier() for application in NSWorkspace.sharedWorkspace().runningApplications() if application.executableURL() == executable_url)
+    try:
+        host = await anyio.run_process(
+            (blender, "--background", "--factory-startup", "--python-exit-code", "1", "--python-expr", "import bpy, json, sys; sys.stderr.write(json.dumps(bpy.app.binary_path))"), stdout=None
+        )
+        executable = anyio.Path(msgspec.json.decode(host.stderr, type=str))
+        pids = [process.pid for process in await anyio.to_thread.run_sync(tuple, psutil.process_iter(("exe",))) if (path := process.info["exe"]) and await executable.samefile(path)]
+    except (OSError, subprocess.CalledProcessError, msgspec.DecodeError) as error:
+        return Err(error)
     arguments = ("install-file", "--repo", "user_default", "--enable", str(archive))
     if not pids:
         try:
@@ -68,11 +72,11 @@ async def install(archive: Path, blender: str, endpoint: str) -> Result[int, Ins
         return Ok(process.returncode)
 
     code = (
-        "import bpy, os\n"
+        "import os\n"
         "from bl_pkg.bl_extension_cli import cli_extension_handler\n"
-        f"if os.getpid() not in {pids!r} or bpy.app.background:\n"
-        "    raise RuntimeError('The connected Blender is not a selected running GUI process')\n"
-        f"result = {{'returncode': cli_extension_handler({list(arguments)!r})}}\n"
+        f"if os.getpid() not in {pids!r}:\n"
+        "    raise RuntimeError('The connected Blender is not a selected running process')\n"
+        f"result = cli_extension_handler({list(arguments)!r})\n"
     )
     try:
         async with Client(endpoint) as client:
@@ -88,7 +92,7 @@ async def install(archive: Path, blender: str, endpoint: str) -> Result[int, Ins
             return Err(error)
         sys.stdout.write(response.stdout)
         sys.stderr.write(response.stderr)
-        return Err(response) if isinstance(response, RemoteFailure) else Ok(response.result["returncode"])
+        return Err(response) if isinstance(response, RemoteFailure) else Ok(response.result)
     return failure
 
 

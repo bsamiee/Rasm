@@ -69,4 +69,4 @@ rule:
         - has: {field: body, matches: write-block}
         - has: {matches: swallowing-handler}
 message: '`$WRITE` catches its own error to test whether its target accepts the value'
-note: 'Use the target owner''s declaration to check the value before writing, `bpy.types.UILayout.enum_item_name(<owner>, <name>, <value>)` for a Blender enum, `bl_rna.properties[<name>]` (`hard_min`, `hard_max`, `is_readonly`) for a Blender range or read-only member, and `<value> in <enum>.__members__` for an enum name, a checked write states the value it keeps'
+note: 'Represent admissible values at construction and capture native setter failures as typed errors at the host boundary. Preserve every failure instead of discarding it or testing each write with a preflight read'

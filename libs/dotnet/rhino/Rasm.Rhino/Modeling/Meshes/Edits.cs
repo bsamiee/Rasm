@@ -38,15 +38,11 @@ internal static partial class MeshMapper {
 
 public static class MeshEdits {
     // --- [EDITS]
-    public static IO<Mesh> Edit(Mesh source, Seq<MeshEdit> edits, Tolerances tolerances) =>
-        from token in cancelToken
-        from copy in Copies.Duplicate(source)
-        from edited in DisposalOps.OnFailure(
+    public static IO<Mesh> Edit(Mesh source, Seq<MeshEdit> edits, Tolerances tolerances, Action<IDisposable> retain) =>
+        Copies.Edit(source, copy =>
+            from token in cancelToken
             from applied in edits.TraverseM(edit => Applied(copy, edit, tolerances, token)).As()
-            from valid in IO.lift(() => Measurements.Valid(copy, nameof(Edit)))
-            select valid,
-            IO.lift(copy.Dispose))
-        select edited;
+            select unit, nameof(Edit), retain);
 
     private static IO<Unit> Applied(Mesh copy, MeshEdit edit, Tolerances tolerances, CancellationToken token) =>
         edit.Switch(
@@ -84,22 +80,26 @@ public static class MeshEdits {
                 : IO.lift(() => Refused.Unless(state.Copy.Subdivide(), nameof(Mesh.Subdivide))));
 
     // --- [DERIVATIONS]
-    public static IO<(Mesh Mesh, Seq<int> WallFaces)> Offset(Mesh source, double distance, bool solidify, Option<Vector3d> direction) =>
-        from answer in IO.lift(() => (
-            Mesh: source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> wallFacesOut),
-            WallFaces: toSeq(wallFacesOut)))
-        from offset in Copies.Acquire(() => answer.Mesh, nameof(Mesh.Offset))
-        select (offset, answer.WallFaces);
+    public static IO<(Mesh Mesh, Seq<int> WallFaces)> Offset(Mesh source, double distance, bool solidify, Option<Vector3d> direction, Action<IDisposable> retain) =>
+        Copies.Owned(
+            () => (Mesh: source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> walls), Walls: walls),
+            static made => Missing.Unless(made.Mesh, nameof(Mesh.Offset))
+                .Bind(static mesh => Measurements.Valid(mesh, nameof(Mesh.Offset)))
+                .Map(mesh => (Mesh: mesh, WallFaces: toSeq(made.Walls))),
+            static made => DisposalOps.Release(Conversions.Rows(new[] { made.Mesh })), retain);
 
-    public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure) =>
-        (from extruder in use(() => new MeshExtruder(source, components))
-         from configured in IO.lift(() => configure(extruder))
-         from answer in IO.lift(() => (Accepted: extruder.ExtrudedMesh(out Mesh made, out List<ComponentIndex> map), Mesh: made, Components: map))
-         from result in DisposalOps.OnFailure(
-             from accepted in IO.lift(Refused.Unless(answer.Accepted, answer.Mesh, nameof(MeshExtruder.ExtrudedMesh)))
-             from mesh in IO.lift(() => Measurements.Valid(accepted, nameof(MeshExtruder.ExtrudedMesh)))
-             from walls in IO.lift(() => toSeq(extruder.GetWallFaces()))
-             select (Mesh: mesh, Components: toSeq(answer.Components), WallFaces: walls),
-             IO.lift(answer.Mesh.Dispose))
-         select result).Bracket();
+    public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(
+            output => DisposalOps.Within(
+                () => new MeshExtruder(source, components),
+                extruder => IO.lift(() => configure(extruder)).Bind(_ => Copies.Owned(
+                    () => (Accepted: extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map), Mesh: mesh, Components: map),
+                    made =>
+                        from accepted in IO.lift(Refused.Unless(made.Accepted, made.Mesh, nameof(MeshExtruder.ExtrudedMesh)))
+                        from mesh in IO.lift(() => Measurements.Valid(accepted, nameof(MeshExtruder.ExtrudedMesh)))
+                        from walls in IO.lift(() => toSeq(extruder.GetWallFaces()))
+                        select (Mesh: mesh, Components: toSeq(made.Components), WallFaces: walls),
+                    static made => IO.lift(made.Mesh.Dispose), output)),
+                static extruder => IO.lift(extruder.Dispose)),
+            (_, release) => retain(release));
 }

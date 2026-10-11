@@ -23,19 +23,18 @@ public sealed record ExplodedPiece(RhinoObject Piece, ObjectAttributes Attribute
 public static class Instances {
     // --- [READS]
     public static IO<TValue> Explode<TValue>(RhinoDoc doc, Guid instance, bool explodeNested, PieceVisibility visibility, Func<Seq<ExplodedPiece>, IO<TValue>> body) =>
-        (from resolved in ObjectTarget.Resolve<InstanceObject, InstanceReferenceGeometry>(doc, instance)
-         from answer in use(() => {
+        ObjectTarget.Resolve<InstanceObject, InstanceReferenceGeometry>(doc, instance).Bind(resolved => DisposalOps.Within(
+         () => {
              (bool skipHidden, Guid viewport) = visibility.Switch(
                  every: static _ => (false, Guid.Empty),
                  shown: static _ => (true, Guid.Empty),
                  inViewport: static shown => (true, shown.Viewport.Id));
              resolved.Object.Explode(skipHidden, viewport, explodeNested, out RhinoObject?[] objects, out ObjectAttributes[] attributes, out Transform[] xforms);
              return (Objects: objects, Attributes: attributes, Xforms: xforms);
-         }, static answer => DisposalOps.Release(toSeq(answer.Attributes)))
-         from pieces in IO.lift(Callbacks.Each(toSeq(answer.Objects.Zip(answer.Attributes, answer.Xforms)), static Fin<ExplodedPiece> (row, index) =>
-             row.First is { } piece ? new ExplodedPiece(piece, row.Second, row.Third) : new RefusedElement(nameof(InstanceObject.Explode), index)))
-         from result in body(pieces)
-         select result).Bracket();
+         },
+         answer => IO.lift(() => Callbacks.Each(toSeq(answer.Objects.Zip(answer.Attributes, answer.Xforms)), static Fin<ExplodedPiece> (row, index) =>
+             row.First is { } piece ? new ExplodedPiece(piece, row.Second, row.Third) : new RefusedElement(nameof(InstanceObject.Explode), index))).Bind(body),
+         static answer => DisposalOps.Release(toSeq(answer.Attributes))));
 
     // --- [WRITES]
     public static IO<Seq<Guid>> Place(RhinoDoc doc, ComponentRef<InstanceDefinition> address, Seq<Transform> xforms, Option<ObjectAttributes> attributes, Option<HistoryRecord> history, bool reference) =>
@@ -63,10 +62,11 @@ public static class Instances {
             ? from definition in IO.lift(() => Optional(nested.InstanceDefinition).ToFin(new Refused(nameof(InstanceObject.InstanceDefinition))))
               from id in IO.lift(() => Conversions.Required(doc.Objects.AddInstanceObject(definition.Index, piece.Xform * nested.InstanceXform, piece.Attributes), nameof(ObjectTable.AddInstanceObject)))
               select id
-            : (from copy in use(Copies.Acquire(piece.Piece.DuplicateGeometry, nameof(RhinoObject.DuplicateGeometry)))
+            : DisposalOps.Within<IDisposable, Guid>(retain =>
+               from copy in Copies.Acquire(piece.Piece.DuplicateGeometry, nameof(RhinoObject.DuplicateGeometry), retain)
                from moved in Transformations.Transformed(copy, piece.Xform)
                from id in TableOps.Add(doc, new GeometryPair(moved, Some(piece.Attributes)), None, reference: false)
-               select id).Bracket())
+               select id, DisposalOps.Release))
         .MapFail(error => Indexed(error, index));
 
     private static Error Indexed(Error error, int index) =>

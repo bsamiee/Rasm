@@ -1,6 +1,4 @@
-using System.Drawing;
 using Rhino;
-using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
@@ -79,19 +77,6 @@ public sealed record TextureTraits(
     bool IsNormalMap,
     bool IsImageBased);
 
-public sealed record SimulatedTextureState(
-    Option<string> Filename,
-    Vector2d Repeat,
-    Vector2d Offset,
-    double Rotation,
-    bool Repeating,
-    bool Filtered,
-    SimulatedTexture.ProjectionModes ProjectionMode,
-    int MappingChannel,
-    Option<(Color4f Color, double Sensitivity)> Transparency);
-
-public sealed record EnvironmentState(Color BackgroundColor, SimulatedEnvironment.BackgroundProjections BackgroundProjection, Option<string> BackgroundImageFilename);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 public static partial class ContentMapper {
@@ -102,22 +87,6 @@ public static partial class ContentMapper {
     public static partial ContentState ToState(RenderContent content);
 
     public static partial MaterialClassification ToClassification(RenderMaterial material);
-
-    [MapPropertyFromSource(nameof(SimulatedTextureState.Transparency), Use = nameof(Transparency))]
-    internal static partial SimulatedTextureState ToState(SimulatedTexture simulation);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Both)]
-    [MapProperty(nameof(@SimulatedTextureState.Transparency.IsSome), nameof(SimulatedTexture.HasTransparentColor))]
-    [MapperIgnoreTarget(nameof(SimulatedTexture.TransparentColor), Justification = "Written with its sensitivity by ContentKinds.WriteSimulation")]
-    [MapperIgnoreTarget(nameof(SimulatedTexture.TransparentColorSensitivity), Justification = "Written with its color by ContentKinds.WriteSimulation")]
-    internal static partial void Update(SimulatedTextureState state, SimulatedTexture simulation);
-
-    internal static partial EnvironmentState ToState(SimulatedEnvironment simulation);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Both)]
-    [MapperIgnoreSource(nameof(EnvironmentState.BackgroundImageFilename), Justification = "Written by ContentKinds.WriteEnvironment through the lent background image")]
-    [MapperIgnoreTarget(nameof(SimulatedEnvironment.BackgroundImage), Justification = "Its Filename written by ContentKinds.WriteEnvironment")]
-    internal static partial void Update(EnvironmentState state, SimulatedEnvironment simulation);
 
     [UserMapping]
     private static Option<Guid> Id(RenderContent? content) => Optional(content).Map(static found => found.Id);
@@ -135,9 +104,6 @@ public static partial class ContentMapper {
                 content.ChildSlotOn(child.ChildSlotName),
                 content.ChildSlotAmount(child.ChildSlotName)))
             .Strict();
-
-    private static Option<(Color4f Color, double Sensitivity)> Transparency(SimulatedTexture simulation) =>
-        simulation.HasTransparentColor ? Some((simulation.TransparentColor, simulation.TransparentColorSensitivity)) : None;
 }
 
 public static class ContentKinds {
@@ -151,7 +117,7 @@ public static class ContentKinds {
             material.GetTextureAmountFromUsage(slot))));
 
     public static IO<TextureState> ReadTexture(RenderTexture texture) =>
-        use(static () => new TextureGraphInfo()).Map(info => {
+        DisposalOps.Within(static () => new TextureGraphInfo(), info => IO.lift(() => {
             texture.GraphInfo(ref info);
             return new TextureState(
                 texture.GetProjectionMode(),
@@ -167,7 +133,7 @@ public static class ContentKinds {
                 texture.GetPreviewLocalMapping(),
                 texture.GetDisplayInViewport(),
                 (info.AmountU(), info.AmountV(), info.AmountW(), info.ActiveAxis(), info.ActiveChannel()));
-        }).Bracket();
+        }), static info => IO.lift(info.Dispose));
 
     public static IO<TextureTraits> ReadTraits(RenderTexture texture) =>
         IO.lift(() => new TextureTraits(
@@ -180,20 +146,22 @@ public static class ContentKinds {
             texture.IsNormalMap(),
             texture.IsImageBased()));
 
-    public static IO<(SimulatedTextureState State, Option<string> OriginalFilename, Transform LocalMappingTransform)> ReadSimulation(
-        RenderTexture texture, RenderTexture.TextureGeneration generation, Option<int> size, Option<RhinoObject> obj) =>
-        use(() => size.Match(
+    public static IO<T> ReadSimulation<T>(
+        RenderTexture texture, RenderTexture.TextureGeneration generation, Option<int> size, Option<RhinoObject> obj, Func<SimulatedTexture, IO<T>> body) =>
+        DisposalOps.Within(() => size.Match(
                 Some: pixels => texture.SimulatedTexture(generation, pixels, obj.ValueUnsafe()),
-                None: () => texture.SimulatedTexture(generation, obj: obj.ValueUnsafe())))
-            .Map(static simulation => (ContentMapper.ToState(simulation), Conversions.Present(simulation.OriginalFilename), simulation.LocalMappingTransform))
-            .Bracket();
+                None: () => texture.SimulatedTexture(generation, obj: obj.ValueUnsafe())),
+            body,
+            static simulation => IO.lift(simulation.Dispose));
 
-    public static IO<EnvironmentState> ReadEnvironment(RenderEnvironment environment, bool isForDataOnly) =>
-        use(() => environment.SimulateEnvironment(isForDataOnly)).Map(ContentMapper.ToState).Bracket();
+    public static IO<T> ReadEnvironment<T>(RenderEnvironment environment, bool isForDataOnly, Func<SimulatedEnvironment, Texture, IO<T>> body) =>
+        DisposalOps.Within(() => environment.SimulateEnvironment(isForDataOnly),
+            simulation => DisposalOps.Within(() => simulation.BackgroundImage.Texture(), texture => body(simulation, texture), static texture => IO.lift(texture.Dispose)),
+            static simulation => IO.lift(simulation.Dispose));
 
     // --- [WRITES]
     public static IO<Unit> WriteTexture(RenderTexture texture, TextureState state, RenderContent.ChangeContexts cc) =>
-        Contents.WithinContentChange(texture, cc, use(static () => new TextureGraphInfo()).Bind(info => IO.lift(() => {
+        Contents.WithinContentChange(texture, cc, DisposalOps.Within(static () => new TextureGraphInfo(), info => IO.lift(() => {
             texture.SetProjectionMode(state.ProjectionMode, cc);
             texture.SetWrapType(state.WrapType, cc);
             texture.SetRepeat(state.Repeat, cc);
@@ -212,24 +180,11 @@ public static class ContentKinds {
             info.SetActiveAxis(state.GraphInfo.ActiveAxis);
             info.SetActiveChannel(state.GraphInfo.ActiveChannel);
             texture.SetGraphInfo(info);
-        })).Bracket());
-
-    public static IO<Unit> WriteSimulation(SimulatedTextureState state, SimulatedTexture simulation) =>
-        IO.lift(() => {
-            ContentMapper.Update(state, simulation);
-            _ = state.Transparency.Iter(transparency => (simulation.TransparentColor, simulation.TransparentColorSensitivity) = transparency);
-        });
-
-    public static IO<Unit> WriteEnvironment(EnvironmentState state, SimulatedEnvironment simulation) =>
-        IO.lift(() => {
-            ContentMapper.Update(state, simulation);
-            simulation.BackgroundImage.Filename = Conversions.Unset(state.BackgroundImageFilename);
-        });
+        }), static info => IO.lift(info.Dispose)));
 
     // --- [SAMPLING]
     public static IO<T> WithEvaluator<T>(RenderTexture texture, RenderTexture.TextureEvaluatorFlags flags, Func<TextureEvaluator, IO<T>> body) =>
-        (from evaluator in use(IO.lift(() => Missing.Unless(texture.CreateEvaluator(flags), nameof(RenderTexture.CreateEvaluator))))
-         from _ in IO.lift(() => Refused.Unless(evaluator.Initialize(), nameof(TextureEvaluator.Initialize)))
-         from value in body(evaluator)
-         select value).Bracket();
+        DisposalOps.Within(() => Missing.Unless(texture.CreateEvaluator(flags), nameof(RenderTexture.CreateEvaluator)).ThrowIfFail(),
+            evaluator => IO.lift(() => Refused.Unless(evaluator.Initialize(), nameof(TextureEvaluator.Initialize))).Bind(_ => body(evaluator)),
+            static evaluator => IO.lift(evaluator.Dispose));
 }

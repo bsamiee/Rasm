@@ -40,9 +40,6 @@ utils:
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL, matches: csharp-atom-cell}}}
             - kind: assignment_expression
               has: {field: left, kind: element_access_expression, has: {field: expression, pattern: $CELL, matches: collection-local}}
-            - kind: argument
-              has: {kind: identifier, pattern: $CELL, matches: csharp-atom-cell}
-              inside: {kind: argument_list, inside: {kind: invocation_expression}}
     combinator:
         kind: invocation_expression
         has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|IfSucc|IfFail|IfNone|Do|ForEach|Traverse|TraverseM|Map|Select|Bind|SelectMany|Filter|Where|Choose|Fold|Match|Switch)(\s*<.+>)?$'}}
@@ -123,7 +120,8 @@ utils:
                 - has: {regex: '^out$'}
                 - has: {kind: identifier, pattern: $CELL}
     writing-callback:
-        kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
+        kind: 'lambda_expression, anonymous_method_expression'
+        matches: combinator-callback
         has: {stopBy: end, matches: captured-write}
     overwritten:
         kind: 'expression_statement, local_declaration_statement'

@@ -163,6 +163,13 @@ utils:
         kind: invocation_expression
         all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Exists|ForAll)$'}}, {has: {field: expression, matches: stored-read}}]}
+            - inside:
+                stopBy: {kind: class_declaration}
+                kind: class_declaration
+                any:
+                    - has: {kind: parameter_list, has: {kind: parameter, all: [{matches: held-declaration}, {has: {field: type, regex: '^((global::)?LanguageExt\.)?Option\s*<'}}]}}
+                    - has: {field: body, has: {kind: field_declaration, has: {kind: variable_declaration, all: [{matches: held-declaration}, {has: {field: type, regex: '^((global::)?LanguageExt\.)?Option\s*<'}}]}}}
+                    - has: {field: body, has: {kind: property_declaration, all: [{matches: held-declaration}, {has: {field: type, regex: '^((global::)?LanguageExt\.)?Option\s*<'}}]}}
             - has: {field: arguments, all: [{has: {kind: argument, has: {matches: hook-call}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     answered:
         kind: invocation_expression

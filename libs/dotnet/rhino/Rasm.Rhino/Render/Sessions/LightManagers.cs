@@ -32,7 +32,7 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
 
     // --- [READS]
     public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) =>
-        _ = Callbacks.Answer(Appended(doc, light_array), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(Appended(doc, light_array), CallbackSite.Of(this));
 
     public sealed override bool LightFromId(RhinoDoc doc, Guid uuid, ref Light light) =>
         Callbacks.Answer(Filled(doc, uuid, light), static () => false, CallbackSite.Of(this));
@@ -77,7 +77,7 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
 
     // --- [EDITS]
     public sealed override void ModifyLight(RhinoDoc doc, Light light) =>
-        _ = Callbacks.Answer(Modified(doc, light), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(Modified(doc, light), CallbackSite.Of(this));
 
     public sealed override bool DeleteLight(RhinoDoc doc, Light light, bool bUndelete) =>
         Callbacks.Succeeded(Delete.Map(delete => Deleted(doc, light, bUndelete, delete)), static () => false, CallbackSite.Of(this));
@@ -86,10 +86,10 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
         Callbacks.Succeeded(Requested(light_array, Edit.Map(edit => par(edit, doc))), static () => false, CallbackSite.Of(this));
 
     public sealed override void GroupLights(RhinoDoc doc, ref LightArray light_array) =>
-        _ = Callbacks.Answer(Requested(light_array, Group.Map(group => par(group, doc, b: true))), static () => unit, static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(Requested(light_array, Group.Map(group => par(group, doc, b: true))), CallbackSite.Of(this));
 
     public sealed override void UnGroup(RhinoDoc doc, ref LightArray light_array) =>
-        _ = Callbacks.Answer(Requested(light_array, Group.Map(group => par(group, doc, b: false))), static () => unit, static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(Requested(light_array, Group.Map(group => par(group, doc, b: false))), CallbackSite.Of(this));
 
     private IO<Unit> Modified(RhinoDoc doc, Light light) =>
         from transfer in Lights.Gamma(doc)

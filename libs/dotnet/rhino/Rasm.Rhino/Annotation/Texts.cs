@@ -88,22 +88,21 @@ internal static partial class TextMapper {
 public static class Texts {
     // --- [CREATION]
     public static IO<AnnotationBase> Create(
-        RhinoDoc doc, TextForm form, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides) =>
+        RhinoDoc doc, TextForm form, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Action<AnnotationBase, IDisposable> retain) =>
+        DisposalOps.Acquire(held =>
         from parent in style.Match(
             Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
             None: () => IO.lift(() => doc.DimStyles.Current))
         from annotation in form.Switch(
-            parent,
-            note: static (row, note) => Copies.Acquire<AnnotationBase>(
-                () => TextEntity.CreateWithRichText(note.RichText, note.Plane, row, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians),
-                nameof(TextEntity.CreateWithRichText)),
-            callout: static (row, callout) => Copies.Acquire<AnnotationBase>(
-                () => Leader.CreateWithRichText(callout.RichText, callout.Plane, row, [.. callout.Points]),
-                nameof(Leader.CreateWithRichText)))
-        from overridden in DisposalOps.OnFailure(
-            overrides.Traverse(edit => DimensionStyles.SetOverride(doc, annotation, edit)).As(),
-            IO.lift(annotation.Dispose))
-        select annotation;
+            (Parent: parent, Retain: held),
+            note: static (state, note) => Copies.Acquire<AnnotationBase>(
+                () => TextEntity.CreateWithRichText(note.RichText, note.Plane, state.Parent, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians),
+                nameof(TextEntity.CreateWithRichText), state.Retain),
+            callout: static (state, callout) => Copies.Acquire<AnnotationBase>(
+                () => Leader.CreateWithRichText(callout.RichText, callout.Plane, state.Parent, [.. callout.Points]),
+                nameof(Leader.CreateWithRichText), state.Retain))
+        from overridden in overrides.Traverse(edit => DimensionStyles.SetOverride(doc, annotation, edit)).As()
+        select annotation, retain);
 
     // --- [EDITS]
     public static IO<Unit> Modify(RhinoDoc doc, Guid id, Seq<Func<AnnotationBase, IO<Unit>>> edits, Option<double> wrapWidth) =>
@@ -163,10 +162,8 @@ public static class Texts {
     // --- [FRAMES]
     public static IO<Transform> GetTextTransform(TextEntity text, DimensionStyle style, double scale, Option<RhinoViewport> viewport) =>
         viewport.Match(
-            Some: view =>
-                (from info in use(() => new ViewportInfo(view))
-                 from transform in IO.lift(() => text.GetTextTransform(info, scale, style))
-                 select transform).Bracket(),
+            Some: view => DisposalOps.Within(() => new ViewportInfo(view),
+                info => IO.lift(() => text.GetTextTransform(info, scale, style)), static info => IO.lift(info.Dispose)),
             None: () => IO.lift(() => text.GetTextTransform(scale, style)));
 
     public static IO<Seq<Point3d>> GetTextCorners(TextObject text, RhinoViewport viewport) =>
@@ -174,13 +171,13 @@ public static class Texts {
 
     // --- [PIECES]
     public static IO<T> TextPieces<T>(TextEntity text, Func<Seq<Curve>, IO<T>> body) =>
-        Copies.Acquire(() => text.Explode(), nameof(TextEntity.Explode)).Bracket(Use: body, Fin: DisposalOps.Release);
+        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(() => text.Explode(), nameof(TextEntity.Explode), held).Bind(body), DisposalOps.Release);
 
     public static IO<T> LeaderPieces<T>(Leader leader, Func<Seq<GeometryBase>, IO<T>> body) =>
-        Copies.Acquire(() => leader.Explode(), nameof(Leader.Explode)).Bracket(Use: body, Fin: DisposalOps.Release);
+        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(() => leader.Explode(), nameof(Leader.Explode), held).Bind(body), DisposalOps.Release);
 
     public static IO<T> LeaderCurve<T>(Leader leader, Func<NurbsCurve, IO<T>> body) =>
         from curve in IO.lift(() => Missing.Unless(leader.Curve, nameof(Leader.Curve)))
-        from value in use(Copies.DuplicateShallow(curve)).Bind(body).Bracket()
+        from value in DisposalOps.Within((Action<IDisposable> held) => Copies.DuplicateShallow(curve, held).Bind(body), DisposalOps.Release)
         select value;
 }

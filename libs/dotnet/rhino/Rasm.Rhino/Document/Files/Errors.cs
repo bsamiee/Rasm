@@ -5,17 +5,17 @@ namespace Rasm.Rhino.Document.Files;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     NotModelFile = 1,
-    OutsideScriptRunner,
-    HeadlessScript,
-    UnqualifiedPath,
-    FileMissing,
-    FolderMissing,
-    DocumentUnsaved,
-    StepFailed,
-    VersionsExhausted,
-    DestinationOccupied,
-    FolderRefused,
-    DocumentReadOnly,
+    OutsideScriptRunner = 2,
+    HeadlessScript = 3,
+    UnqualifiedPath = 4,
+    FileMissing = 5,
+    FolderMissing = 6,
+    DocumentUnsaved = 7,
+    StepFailed = 8,
+    VersionsExhausted = 9,
+    DestinationOccupied = 10,
+    FolderRefused = 11,
+    DocumentReadOnly = 12,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

@@ -66,6 +66,7 @@ utils:
                                   has: {kind: return_statement, has: {matches: parameter-narrowed}}
 rule:
     kind: as_expression, cast_expression, is_pattern_expression, switch_expression, invocation_expression
+    not: {matches: {csharp-owner-body: {type: {regex: '^Copies$'}, member: {regex: '^(Duplicate|DuplicateShallow|Edit)$'}}}}
     any:
         - matches: relay
         - kind: as_expression
@@ -85,4 +86,4 @@ rule:
             - has: {nthChild: 1, matches: copy-call}
             - has: {matches: narrowing-arm}
 message: "`$SOURCE.$COPY()` narrows its copy to `$T` by hand"
-note: Use `Copies.Duplicate(<source>)`, typed as the source with a copy of another type released as `WrongType`, and `use(Copies.Duplicate(<source>)).Bind(<body>).Bracket()` for a scoped copy
+note: Use `Copies.Duplicate(<source>, <retain>)` or `Copies.DuplicateShallow(<source>, <retain>)`, the Rhino host guarantees the source runtime type and the operation registers its copy with the resource owner

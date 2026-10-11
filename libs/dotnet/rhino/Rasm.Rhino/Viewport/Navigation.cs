@@ -159,12 +159,12 @@ public static class Navigation {
 
     // --- [VIEWPORTS]
     public static IO<Seq<bool>> ApplyToViewports(RhinoDoc doc, ViewportSet viewports, Func<RhinoViewport, IO<Unit>> edit, RedrawPolicy redraw) =>
-        Commits.WithinRedraw(doc, redraw, Viewports.ResolveViewports(doc, viewports).Bracket(
-            Use: rows => rows.TraverseM(row =>
+        Commits.WithinRedraw(doc, redraw, DisposalOps.Within((Action<IDisposable> retain) =>
+            Viewports.ResolveViewports(doc, viewports, retain).Bind(rows => rows.TraverseM(row =>
                 from before in IO.lift(() => row.Viewport.ChangeCounter)
                 from edited in edit(row.Viewport)
                 from moved in IO.lift(() => row.Viewport.ChangeCounter != before)
                 from committed in when(moved, IO.lift(row.CommitViewportChanges)).As()
-                select moved).As(),
-            Fin: DisposalOps.Release));
+                select moved).As()),
+            DisposalOps.Release));
 }

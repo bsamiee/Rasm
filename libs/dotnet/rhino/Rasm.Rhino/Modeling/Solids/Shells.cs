@@ -15,35 +15,35 @@ public sealed record OffsetResult(Seq<Brep> Offsets, Seq<Brep> Blends, Seq<Brep>
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Shells {
     // --- [OFFSETS]
-    public static IO<OffsetResult> Offset(Brep brep, double distance, bool solid, bool extend, bool shrink, Tolerances tolerances) =>
+    public static IO<OffsetResult> Offset(Brep brep, double distance, bool solid, bool extend, bool shrink, Tolerances tolerances, Action<IDisposable> retain) =>
         Copies.Owned(
-            IO.lift(() => (
+            () => (
                 Offsets: Brep.CreateOffsetBrep(brep, distance, solid, extend, shrink, tolerances.Absolute, out Brep[]? blends, out Brep[]? walls),
                 Blends: blends,
-                Walls: walls)),
+                Walls: walls),
             static Fin<OffsetResult> (made) => made.Blends is null
                 ? new Refused(nameof(Brep.CreateOffsetBrep))
                 : (Measurements.Valid(toSeq<Brep?>(made.Offsets), nameof(Brep.CreateOffsetBrep)).ToValidation(),
                    Measurements.Valid(toSeq<Brep?>(made.Blends), nameof(OffsetResult.Blends)).ToValidation(),
                    Measurements.Valid(toSeq<Brep?>(made.Walls), nameof(OffsetResult.Walls)).ToValidation())
                     .Apply(static (offsets, blends, walls) => new OffsetResult(offsets, blends, walls)).As().ToFin(),
-            static made => DisposalOps.Release(Conversions.Rows(made.Offsets) + Conversions.Rows(made.Blends) + Conversions.Rows(made.Walls)));
+            static made => DisposalOps.Release(Conversions.Rows(made.Offsets) + Conversions.Rows(made.Blends) + Conversions.Rows(made.Walls)), retain);
 
     // --- [PIPES]
-    public static IO<Seq<Brep>> Pipe(Curve rail, PipeRadii radii, bool localBlending, PipeCapMode cap, bool fitRail, Tolerances tolerances) =>
+    public static IO<Seq<Brep>> Pipe(Curve rail, PipeRadii radii, bool localBlending, PipeCapMode cap, bool fitRail, Tolerances tolerances, Action<IDisposable> retain) =>
         radii.Switch(
-            (Rail: rail, LocalBlending: localBlending, Cap: cap, FitRail: fitRail, Tolerances: tolerances),
+            (Rail: rail, LocalBlending: localBlending, Cap: cap, FitRail: fitRail, Tolerances: tolerances, Retain: retain),
             singleWall: static (pipe, wall) => Copies.AcquireNonEmpty(
                 () => Brep.CreatePipe(pipe.Rail,
                     from station in wall.Stations select station.NormalizedParameter,
                     from station in wall.Stations select station.Radius,
                     pipe.LocalBlending, pipe.Cap, pipe.FitRail, pipe.Tolerances.Absolute, pipe.Tolerances.Angle),
-                nameof(Brep.CreatePipe)),
+                nameof(Brep.CreatePipe), pipe.Retain),
             doubleWall: static (pipe, wall) => Copies.AcquireNonEmpty(
                 () => Brep.CreateThickPipe(pipe.Rail,
                     from station in wall.Stations select station.NormalizedParameter,
                     from station in wall.Stations select station.Radius0,
                     from station in wall.Stations select station.Radius1,
                     pipe.LocalBlending, pipe.Cap, pipe.FitRail, pipe.Tolerances.Absolute, pipe.Tolerances.Angle),
-                nameof(Brep.CreateThickPipe)));
+                nameof(Brep.CreateThickPipe), pipe.Retain));
 }

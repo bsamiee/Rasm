@@ -5,18 +5,14 @@ namespace Rasm.Rhino.Render.Content;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     Unattached = 1,
-    SlotRejected,
     EmptySlot,
     ContentFileFailed,
+    SerializerContent,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 public sealed record Unattached(Guid Content) : Expected("Content {Content} belongs to no document", (int)Codes.Unattached) {
     public static Fin<Unit> Unless(bool attached, Guid content) => attached ? unit : new Unattached(content);
-}
-
-public sealed record SlotRejected(Guid TypeId, string ChildSlotName) : Expected("Slot {ChildSlotName} does not accept content type {TypeId}", (int)Codes.SlotRejected) {
-    public static Fin<Unit> Unless(bool accepted, Guid typeId, string childSlotName) => accepted ? unit : new SlotRejected(typeId, childSlotName);
 }
 
 public sealed record EmptySlot(Guid Parent, string ChildSlotName) : Expected("Content {Parent} holds no child in slot {ChildSlotName}", (int)Codes.EmptySlot) {
@@ -28,3 +24,5 @@ public sealed record ContentFileFailed : Expected {
 
     public string Path { get; }
 }
+
+public sealed record SerializerContent(Guid Content) : Expected("Content {Content} has no managed serializer identity", (int)Codes.SerializerContent);

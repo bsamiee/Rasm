@@ -37,22 +37,16 @@ utils:
                 stopBy: end
                 matches: csharp-validation-hook
                 has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $KEY}}, {has: {field: type, regex: '^string\??$'}}]}}
+            - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: key-path}}}}
             - kind: identifier
               pattern: $LOCAL
               inside:
                 stopBy: end
-                matches: csharp-validation-hook
-                has:
+                follows:
                     stopBy: end
                     any:
-                        - kind: variable_declarator
-                          all:
-                            - has: {field: name, pattern: $LOCAL}
-                            - has: {nthChild: 2, matches: key-path}
-                        - kind: is_pattern_expression
-                          all:
-                            - has: {field: expression, matches: key-path}
-                            - has: {field: pattern, has: {field: name, pattern: $LOCAL}}
+                        - matches: bound-key
+                        - has: {stopBy: end, matches: bound-key}
             - kind: invocation_expression
               has:
                 field: function
@@ -67,6 +61,11 @@ utils:
                         - has: {kind: member_binding_expression, has: {field: name, matches: string-method}}
             - kind: postfix_unary_expression, parenthesized_expression
               has: {matches: key-path}
+    bound-key:
+        kind: is_pattern_expression
+        all:
+            - has: {field: expression, matches: key-path}
+            - has: {field: pattern, has: {field: name, pattern: $LOCAL}}
 rule:
     kind: throw_statement, throw_expression, invocation_expression, cast_expression
     all:

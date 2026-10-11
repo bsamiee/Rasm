@@ -23,18 +23,17 @@ public sealed record NumberText<TKey>(
 }
 
 public static class NumberText {
-    public static NumberText<TKey> Scalar<TValue, TKey>(Presentation<TValue, TKey> presentation, string varies)
-        where TValue : IMinMaxValue<TValue>, IConvertible<TKey>
+    public static NumberText<TKey> Scalar<TKey>(Presentation<TKey> presentation, (TKey Low, TKey High) bounds, string varies)
         where TKey : struct, INumber<TKey> {
-        ScalarDisplay display = Quantities.Scalar(presentation);
-        (Func<TKey, string> number, Func<TKey, string> typed) = FieldTexts.Number(presentation);
+        ScalarDisplay display = Quantities.Scalar(presentation, bounds);
+        (Func<TKey, string> number, Func<TKey, string> typed) = FieldTexts.Number(presentation, bounds);
         return new(
             key => key.Match(Some: number, None: () => varies),
             typed,
             entry => UnitText.ParseNumber(entry, StringParserSettings.DefaultParseSettings).Map(shown => NumericRows.Narrowed<TKey>(display.Key(shown))),
             (key, steps) => NumericRows.Narrowed<TKey>(double.CreateChecked(key) + (steps * display.Step)),
             key => NumericRows.Narrowed<TKey>(double.Round(double.CreateChecked(key) / display.Step, MidpointRounding.ToEven) * display.Step),
-            presentation.Soft);
+            presentation.Soft.IfNone(bounds));
     }
 
     public static NumberText<Length> Distance(LengthUnit spaceUnit, DistanceDisplay display, (Length Low, Length High) ends, string varies) {
@@ -79,16 +78,18 @@ public abstract class NumberField : TextBox {
         Optional(Platform.Instance.Find<Func<IPlugInSink, MouseEventArgs, PointF, float>>()).Match(Some: create => create()(Sink, move, last), None: () => move.Location.X - last.X);
 }
 
-public sealed class NumberField<TValue, TKey, TError> : NumberField
-    where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-    where TKey : notnull, IComparable<TKey>
-    where TError : Error, IValidationError<TError> {
+public sealed class NumberField<TValue, TKey> : NumberField
+    where TValue : notnull
+    where TKey : notnull, IComparable<TKey> {
     // --- [STATE]
     private readonly NumberText<TKey> text;
+    private readonly Func<TKey, Fin<TValue>> create;
+    private readonly Func<TValue, TKey> key;
+    private readonly (TKey Low, TKey High) bounds;
     private FieldState<TValue> state = new FieldState<TValue>.Resting(None);
 
-    public NumberField(NumberText<TKey> text, IPlugInSink sink) : base(sink) =>
-        (this.text, PlaceholderText, TextAlignment, Cursor) = (text, text.Shown(None), TextAlignment.Right, Cursors.VerticalSplit);
+    public NumberField(NumberText<TKey> text, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, IPlugInSink sink) : base(sink) =>
+        (this.text, this.create, this.key, this.bounds, PlaceholderText, TextAlignment, Cursor) = (text, create, key, bounds, text.Shown(None), TextAlignment.Right, Cursors.VerticalSplit);
 
     public event EventHandler<EditEventArgs<TValue>>? Edited;
 
@@ -156,24 +157,23 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
                 select raised));
 
     // --- [VALUES]
-    private string Showing(Option<TValue> value) => value.Match(Some: held => text.Shown(Some(held.ToValue())), None: static () => "");
+    private string Showing(Option<TValue> value) => value.Match(Some: held => text.Shown(Some(key(held))), None: static () => "");
 
-    private string Entering(Option<TValue> value) => value.Match(Some: held => text.Entry(held.ToValue()), None: static () => "");
+    private string Entering(Option<TValue> value) => value.Match(Some: held => text.Entry(key(held)), None: static () => "");
 
     private IO<Unit> Typed(FieldState<TValue>.Editing editing, string entry) =>
         text.Read(entry)
-            .Bind(static key => IO.lift(Conversions.Validated<TValue, TKey, TError>(key)))
-            .Bind(value => Accepted(editing, value))
-            .Catch(static error => error.IsType<UnparsedText>() || error.IsType<TError>(), _ => Marked(PaintSlot.InvalidText));
+            .Bind(raw => create(raw).Match(Succ: value => Accepted(editing, value), Fail: _ => Marked(PaintSlot.InvalidText)))
+            .Catch(static error => error.IsType<UnparsedText>(), _ => Marked(PaintSlot.InvalidText));
 
     private Fin<TValue> Stepped(TValue shown, double steps, Keys modifiers) =>
-        Conversions.Validated<TValue, TKey, TError>(Clamped(ComponentControl.Snaps(modifiers)
-            ? text.Snapped(text.Moved(shown.ToValue(), steps))
-            : text.Moved(shown.ToValue(), steps * ComponentControl.Scale(modifiers))));
+        create(Clamped(ComponentControl.Snaps(modifiers)
+            ? text.Snapped(text.Moved(key(shown), steps))
+            : text.Moved(key(shown), steps * ComponentControl.Scale(modifiers))));
 
-    private static TKey Clamped(TKey key) =>
-        key.CompareTo(TValue.MinValue.ToValue()) < 0 ? TValue.MinValue.ToValue()
-        : key.CompareTo(TValue.MaxValue.ToValue()) > 0 ? TValue.MaxValue.ToValue()
+    private TKey Clamped(TKey key) =>
+        key.CompareTo(bounds.Low) < 0 ? bounds.Low
+        : key.CompareTo(bounds.High) > 0 ? bounds.High
         : key;
 
     private IO<Unit> Accepted(FieldState<TValue>.Editing editing, TValue value) =>
@@ -305,5 +305,5 @@ public sealed class NumberField<TValue, TKey, TError> : NumberField
     }
 
     private void Run(IO<Unit> effect, [CallerMemberName] string member = "") =>
-        _ = Callbacks.Answer(effect, static () => unit, new CallbackSite(Sink, GetType(), member));
+        Callbacks.Run(effect, new CallbackSite(Sink, GetType(), member));
 }

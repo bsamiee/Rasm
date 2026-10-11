@@ -45,24 +45,30 @@ utils:
               pattern: $TEXT
               inside:
                 stopBy: end
-                any:
-                    - kind: block
-                      has:
-                        kind: local_declaration_statement
+                follows:
+                    stopBy: end
+                    kind: local_declaration_statement
+                    has:
+                        kind: variable_declaration
                         has:
-                            kind: variable_declaration
-                            has:
-                                kind: variable_declarator
-                                all:
-                                    - has: {field: name, pattern: $TEXT}
-                                    - has: {kind: 'member_access_expression, conditional_access_expression, invocation_expression, parenthesized_expression, interpolated_string_expression', matches: message-text}
-                    - kind: binary_expression, conditional_expression, if_statement, while_statement, arrow_expression_clause, return_statement, expression_statement
-                      has:
-                        stopBy: end
-                        kind: is_pattern_expression
-                        all:
-                            - has: {field: pattern, kind: declaration_pattern, has: {field: name, pattern: $TEXT}}
-                            - has: {field: expression, kind: 'member_access_expression, conditional_access_expression, invocation_expression, parenthesized_expression, interpolated_string_expression', matches: message-text}
+                            kind: variable_declarator
+                            all:
+                                - has: {field: name, pattern: $TEXT}
+                                - has: {nthChild: 2, matches: message-text}
+            - kind: identifier
+              pattern: $TEXT
+              inside:
+                stopBy: end
+                follows:
+                    stopBy: end
+                    any:
+                        - matches: bound-message
+                        - has: {stopBy: end, matches: bound-message}
+    bound-message:
+        kind: is_pattern_expression
+        all:
+            - has: {field: pattern, kind: declaration_pattern, has: {field: name, pattern: $TEXT}}
+            - has: {field: expression, matches: message-text}
     element-error:
         kind: lambda_expression, anonymous_method_expression
         all:

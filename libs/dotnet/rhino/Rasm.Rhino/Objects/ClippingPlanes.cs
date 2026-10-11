@@ -37,10 +37,11 @@ public static class ClippingPlanes {
     public static IO<Guid> Add(RhinoDoc doc, ClipSpec spec) =>
         from style in Styled(doc, spec.Settings.DimensionStyle)
         from id in Acquired(doc, Seq(spec.Viewports), rows =>
-            (from surface in use(() => new ClippingPlaneSurface(spec.Surface))
-             from staged in IO.lift(() => Staged(surface, rows, Seq<ViewportRef>(), spec.Settings, style))
-             from added in TableOps.Add(doc, new GeometryPair(surface, spec.Attributes), None, reference: false)
-             select added).Bracket())
+            DisposalOps.Within(() => new ClippingPlaneSurface(spec.Surface),
+                surface => from staged in IO.lift(() => Staged(surface, rows, Seq<ViewportRef>(), spec.Settings, style))
+                           from added in TableOps.Add(doc, new GeometryPair(surface, spec.Attributes), None, reference: false)
+                           select added,
+                static surface => IO.lift(surface.Dispose)))
         select id;
 
     // --- [EDITS]
@@ -67,10 +68,14 @@ public static class ClippingPlanes {
 
     private static IO<T> Editable<T>(RhinoDoc doc, RhinoObject target, int index, IO<T> body) =>
         target.Attributes.Mode switch {
-            ObjectMode.Hidden => IO.lift(() => RefusedElement.Unless(doc.Objects.Show(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Show), index))
-                .Bracket(Use: _ => body, Fin: _ => IO.lift(() => RefusedElement.Unless(doc.Objects.Hide(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Hide), index))),
-            ObjectMode.Locked => IO.lift(() => RefusedElement.Unless(doc.Objects.Unlock(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Unlock), index))
-                .Bracket(Use: _ => body, Fin: _ => IO.lift(() => RefusedElement.Unless(doc.Objects.Lock(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Lock), index))),
+            ObjectMode.Hidden => DisposalOps.Within(
+                () => RefusedElement.Unless(doc.Objects.Show(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Show), index),
+                shown => IO.lift(shown).Bind(_ => body),
+                shown => IO.lift(() => shown.Match(Succ: _ => RefusedElement.Unless(doc.Objects.Hide(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Hide), index), Fail: static _ => Fin.Succ(unit)))),
+            ObjectMode.Locked => DisposalOps.Within(
+                () => RefusedElement.Unless(doc.Objects.Unlock(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Unlock), index),
+                unlocked => IO.lift(unlocked).Bind(_ => body),
+                unlocked => IO.lift(() => unlocked.Match(Succ: _ => RefusedElement.Unless(doc.Objects.Lock(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Lock), index), Fail: static _ => Fin.Succ(unit)))),
             ObjectMode.Normal or ObjectMode.InstanceDefinitionObject => body,
         };
 
@@ -98,14 +103,17 @@ public static class ClippingPlanes {
         select state;
 
     public static IO<Seq<ClippingPlaneObject>> Clipping(RhinoDoc doc, ViewportTarget target) =>
-        (from row in use(Viewports.ResolveViewport(doc, target))
-         from planes in IO.lift(() => toSeq(doc.Objects.FindClippingPlanesForViewport(row.Viewport, includeHidden: true)))
-         select planes).Bracket();
+        DisposalOps.Within(
+            (Action<IDisposable> held) => from row in Viewports.ResolveViewport(doc, target, held)
+                                          from planes in IO.lift(() => toSeq(doc.Objects.FindClippingPlanesForViewport(row.Viewport, includeHidden: true)))
+                                          select planes,
+            DisposalOps.Release);
 
     private static IO<T> Acquired<T>(RhinoDoc doc, Seq<ViewportSet> sets, Func<Seq<ViewportRef>, IO<T>> body) =>
-        DisposalOps.AcquireAll(sets.Map(set => Viewports.ResolveViewports(doc, set)), static held => DisposalOps.Release(held.Flatten()))
-            .Map(static held => held.Flatten())
-            .Bracket(Use: body, Fin: DisposalOps.Release);
+        DisposalOps.Within(
+            (Action<IDisposable> held) => sets.TraverseM(set => Viewports.ResolveViewports(doc, set, held)).As()
+                .Map(static rows => rows.Flatten()).Bind(body),
+            DisposalOps.Release);
 
     private static IO<Option<Guid>> Styled(RhinoDoc doc, Override<ComponentRef<DimensionStyle>> style) =>
         style.Switch(doc,

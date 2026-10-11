@@ -11,12 +11,13 @@ using Rasm.Rhino.UI.Components;
 using Rasm.Rhino.UI.Editors;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Views;
 using Rhino.Resources;
 
 namespace Rasm.Rhino.UI.Viewers;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ScopeSource(string Caption, IO<Option<ScopeFrames>> Frames);
+public sealed record ScopeSource(string Caption, Func<RowScope, IO<Option<ScopeFrames>>> Frames);
 
 public sealed record ScopeState(ScopeOptions Options, PlotAspect Aspect, SampleSquare Sample) : IStateRecord<ScopeState, ScopeParameter, InvalidRhinoValue> {
     public static ScopeState Default { get; } = new(ScopeOptions.Default, PlotAspect.Proportional, SampleSquare.One);
@@ -50,7 +51,7 @@ public sealed partial class ScopeParameter : IStateParameter<ScopeState> {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class FrameLink {
-    public Atom<Option<System.Drawing.Point>> Pointer { get; } = Atom(Option<System.Drawing.Point>.None);
+    public Atom<Option<(double X, double Y)>> Pointer { get; } = Atom(Option<(double X, double Y)>.None);
     public Atom<Seq<FrameMask>> Masks { get; } = Atom(Seq<FrameMask>());
 }
 
@@ -58,52 +59,47 @@ public sealed class FrameLink {
 public static class ChartRows {
     // --- [SCOPE]
     public static (ControlRow Row, RowSource<ScopeState> Source) Scope(
-        string caption, string help, IterableNE<ScopeSource> sources, string owner, Func<RowScope, ValueStore<ScopeState>> store, Option<FrameLink> link, RowRules rules) =>
+        string caption, string help, IterableNE<ScopeSource> sources, string owner, Func<RowScope, ValueStore<ScopeState>> store, Option<FrameLink> link, RowRules rules,
+        Option<ScopeState> factory = default) =>
         IterableNE.create(ScopeParameter.Items[0], ScopeParameter.Items.Skip(1)).Map(item => new RowField<ScopeState>(item, caption, help)) switch {
-            var fields => RowSource.Fields(owner, toSeq(fields).Map(static field => (field.Parameter, field.Caption)), store) switch {
-                var source => (ControlRow.Of(source, fields, caption, help, RowShape.Block, scope => Realized(caption, sources, source, fields, link, scope), rules), source),
+            var fields => RowSource.Fields(owner, toSeq(fields).Map(static field => (field.Parameter, field.Caption)), scope => IO.pure(Seq(store(scope))), factory) switch {
+                var source => (ControlRow.Of(source, fields, caption, help, RowShape.Block, (scope, retain) => Realized(caption, sources, source, fields, link, scope, retain), rules), source),
             },
         };
 
-    private sealed record ScopeHeld(ScopeSource Source, Option<System.Drawing.Point> Pointed, Option<System.Drawing.Point> Frozen);
+    private sealed record ScopeHeld(ScopeSource Source, Option<(double X, double Y)> Pointed, Option<(double X, double Y)> Frozen);
 
     private static IO<RowCells> Realized(
-        string caption, IterableNE<ScopeSource> sources, RowSource<ScopeState> source, IterableNE<RowField<ScopeState>> fields, Option<FrameLink> link, RowScope scope) =>
+        string caption, IterableNE<ScopeSource> sources, RowSource<ScopeState> source, IterableNE<RowField<ScopeState>> fields, Option<FrameLink> link, RowScope scope, Action<IDisposable> retain) =>
         from held in IO.lift(() => Atom(new ScopeHeld(sources.Head, None, None)))
-        from view in IO.lift(() => new ScopeView(
-            scope.Sink, Wording.English.Shown(caption, scope.Sink), new ScopeEdit.Chart(source.Default.Options, source.Default.Aspect), held.ValueIO.Bind(static shown => shown.Source.Frames)))
-        from label in IO.lift(static () => new Label { Wrap = Eto.Forms.WrapMode.None, Font = HostTheme.Digits(EtoFonts.SmallFont) })
+        from view in DisposalOps.Acquire(IO.lift(() => new ScopeView(
+            scope.Sink, Wording.English.Shown(caption, scope.Sink), new ScopeEdit.Chart(source.Default.Options, source.Default.Aspect), held.ValueIO.Bind(shown => shown.Source.Frames(scope)))), static control => IO.lift(control.Dispose), retain)
+        from label in DisposalOps.Acquire(IO.lift(static () => new Label { Wrap = Eto.Forms.WrapMode.None, Font = HostTheme.Digits(EtoFonts.SmallFont) }), static control => IO.lift(control.Dispose), retain)
         from popup in ChoiceRows.Popup(
-            toSeq(ScopeKind.Items).Map(static kind => new ChoiceItem<ScopeKind>(kind, ScopeView.Caption(kind), None)), kind => Chosen(view, options => options with { Kind = kind }), scope.Sink)
+            toSeq(ScopeKind.Items).Map(static kind => new ChoiceItem<ScopeKind>(kind, ScopeView.Caption(kind), None)), kind => Chosen(view, options => options with { Kind = kind }), scope.Sink, retain)
         let site = new CallbackSite(scope.Sink, typeof(ScopeView), nameof(ScopeView.Edited))
-        from bound in DisposalOps.OnFailure(
-            RowEdit.Bind(
+        from bound in RowEdit.Bind(
                 source, fields, h => view.Edited += h, h => view.Edited -= h,
-                edit => Callbacks.Handler<EditEventArgs<ScopeEdit>>(args => edit.Take(args.Edit, Into), site),
+                edit => Callbacks.Handler<EditEventArgs<ScopeEdit>>(args => edit.Take(args.Edit, Into).Map(static _ => unit), site),
                 value =>
                     from received in view.Receive(value.Map(static state => (ScopeEdit)new ScopeEdit.Chart(state.Options, state.Aspect)))
                     from picked in popup.Show(value.Map(static state => state.Options.Kind))
                     from inked in IO.lift(() => label.TextColor = new Color(PaintSlot.ControlText.Read(), MarkStyle.Label.Alpha))
                     select unit,
-                scope, site),
-            IO.lift(popup.Release.Dispose))
-        let bracketed = Seq(popup.Release, bound.Release)
-        from menu in DisposalOps.OnFailure(ChoiceRows.Menu([], [], Some(Listing(toSeq(sources), source, bound.Edit, view, held, scope)), scope.Sink), DisposalOps.Release(bracketed))
-        from menuButton in DisposalOps.OnFailure(
-            ButtonRows.Menu(menu.Menu, GlyphRole.Options, IconSlot.PanelButton, RowText.Localize("Scope Options").Local, scope.Sink), DisposalOps.Release(bracketed.Add(menu.Release)))
-        let buttoned = bracketed + Seq(menu.Release, menuButton.Release)
-        from padlock in DisposalOps.OnFailure(link.Traverse(_ => Locked(held, scope.Sink)).As(), DisposalOps.Release(buttoned))
-        let locked = buttoned + padlock.Map(static toggle => toggle.Release).ToSeq()
-        from tick in DisposalOps.OnFailure(
-            FrameClocks.Sample(
-                label, Ticked(view, label, padlock.Map(static toggle => toggle.Command), link, held, source, scope), new CallbackSite(scope.Sink, typeof(FrameClocks), nameof(FrameClocks.Sample))),
-            DisposalOps.Release(locked))
+                scope, site, retain)
+        from menu in ChoiceRows.Menu([], [], Some(Listing(toSeq(sources), source, bound, view, held, scope)), scope.Sink, retain)
+        from menuButton in ButtonRows.Menu(menu, (GlyphRole.Options, IconSlot.PanelButton.Master), IconSlot.PanelButton, RowText.Localize("Scope Options").Local, scope.Sink, retain)
+        from padlock in link.Traverse(_ => Locked(held, scope.Sink, retain)).As()
+        let step = Ticked(view, label, padlock.Map(static toggle => toggle.Command), link, held, source, scope)
+        let clock = new CallbackSite(scope.Sink, typeof(FrameClocks), nameof(FrameClocks.Sample))
+        from tick in scope.Host.Match(
+            Some: host => FrameClocks.Sample(host, step, clock, retain),
+            None: () => ViewOps.WhileLoaded(label, keep => FrameClocks.Sample(label, step, clock, keep), clock, retain))
         select new RowCells(
             view, None, None, None,
-            Seq(new RowLine(None, popup.Control, Some<Control>(menuButton.Control), None)),
+            Seq(new RowLine(None, popup.Control, Some<Control>(menuButton), None)),
             Seq(new RowLine(None, label, padlock.Map(static toggle => (Control)toggle.Control), None)),
-            new RowHelp(None, None), bound.Edit.Shown, Some<RowEdit>(bound.Edit), None,
-            DisposalOps.Composite(locked.Add(tick), new CallbackSite(scope.Sink, typeof(ChartRows), nameof(Scope))));
+            new RowHelp(None, None), bound.Shown, Some<RowEdit>(bound), None) { Plot = Some<ComponentControl>(view) };
 
     private static IO<Seq<MenuPick>> Listing(
         Seq<ScopeSource> sources, RowSource<ScopeState> source, RowEdit<ScopeState> edit, ScopeView view, Atom<ScopeHeld> held, RowScope scope) =>
@@ -129,7 +125,7 @@ public static class ChartRows {
                 .Filter(_ => sources.Count > 1)
             + Seq<MenuPick>(new MenuPick.Group(RowText.Localize("Sample").Local, Picks(
                 toSeq(SampleSquare.Items), static square => RowText.Localize("{0} × {0}", arguments: [square.Key]).Local,
-                state.Sample, square => edit.Take(new Edit<SampleSquare>.Commit(square), static (picked, record) => record with { Sample = picked }))));
+                state.Sample, square => edit.Take(new Edit<SampleSquare>.Commit(square), static (picked, record) => record with { Sample = picked }).Map(static _ => unit))));
 
     private static Seq<MenuPick> Picks<TValue>(Seq<TValue> items, Func<TValue, string> caption, TValue marked, Func<TValue, IO<Unit>> run) =>
         items.Map(item => (MenuPick)new MenuPick.Item(caption(item), EqualityComparer<TValue>.Default.Equals(item, marked), run(item)));
@@ -144,7 +140,7 @@ public static class ChartRows {
             points: static (state, _) => state);
 
     // --- [READOUT]
-    private static IO<(ToggleButton Control, CheckCommand Command, IDisposable Release)> Locked(Atom<ScopeHeld> held, IPlugInSink sink) =>
+    private static IO<(ToggleButton Control, CheckCommand Command)> Locked(Atom<ScopeHeld> held, IPlugInSink sink, Action<IDisposable> retain) =>
         from command in IO.lift(static () => new CheckCommand { ToolTip = RowText.Localize("Lock Pixel Readout").Local, Enabled = false })
         let site = new CallbackSite(sink, typeof(CheckCommand), nameof(CheckCommand.CheckedChanged))
         from frozen in Subscriptions.Attach(
@@ -152,16 +148,16 @@ public static class ChartRows {
             Callbacks.Handler<EventArgs>(_ =>
                 from ticked in IO.lift(() => command.Checked)
                 from swapped in held.SwapIO(state => state with { Frozen = ticked ? state.Pointed : None })
-                select unit, site))
-        from toggle in DisposalOps.OnFailure(ToggleRows.Command(command, GlyphRole.LockClosed, IconSlot.PanelButton, sink), IO.lift(frozen.Dispose))
-        select (toggle.Control, command, DisposalOps.Composite(Seq(frozen, toggle.Release), site));
+                select unit, site), retain)
+        from toggle in ToggleRows.Command(command, (GlyphRole.LockClosed, IconSlot.PanelButton.Master), IconSlot.PanelButton, sink, retain)
+        select (toggle, command);
 
     private static IO<Unit> Ticked(
         ScopeView view, Label label, Option<CheckCommand> padlock, Option<FrameLink> link, Atom<ScopeHeld> held, RowSource<ScopeState> source, RowScope scope) =>
         from marks in view.Marks
-        from pointer in link.Match(Some: static linked => linked.Pointer.ValueIO, None: static () => IO.pure(Option<System.Drawing.Point>.None))
+        from pointer in link.Match(Some: static linked => linked.Pointer.ValueIO, None: static () => IO.pure(Option<(double X, double Y)>.None))
         from shown in held.SwapMaybeIO(prior => pointer.Map(at => prior with { Pointed = Some(at) }))
-        from frames in shown.Source.Frames
+        from frames in shown.Source.Frames(scope)
         from state in scope.Read(source)
         let text = Reading(marks, frames, shown.Frozen | pointer, state.Sample)
         from labelled in IO.lift(() => label.Text)
@@ -174,7 +170,7 @@ public static class ChartRows {
             None: static () => IO.pure(unit))
         select unit;
 
-    private static string Reading(ScopeMarks marks, Option<ScopeFrames> frames, Option<System.Drawing.Point> pixel, SampleSquare square) =>
+    private static string Reading(ScopeMarks marks, Option<ScopeFrames> frames, Option<(double X, double Y)> pixel, SampleSquare square) =>
         marks.Hovered.Match(
                 Some: static hovered => Binned(hovered.Bin, hovered.Reading),
                 None: () => from shown in frames from at in pixel from text in Sampled(shown, at, square) select text)
@@ -189,7 +185,7 @@ public static class ChartRows {
                         "{0:F3} · bin {1} · {2} · {3:F3} %", arguments: [HistogramAxis.LowerBound(bin), bin, reading.Bins.Luma.Row(0)[bin], 100d * below / covered]).Local),
             };
 
-    private static Option<string> Sampled(ScopeFrames frames, System.Drawing.Point pixel, SampleSquare square) =>
+    private static Option<string> Sampled(ScopeFrames frames, (double X, double Y) pixel, SampleSquare square) =>
         frames.Scene.Match(
             Some: scene =>
                 from linear in square.Mean(scene.Frame, pixel)
@@ -203,19 +199,19 @@ public static class ChartRows {
         marks.Selection.Map(range => new FrameMask(new Coverage.Luma(frames.Gamut, range), MarkStyle.Selection)).ToSeq()
             .Concat(
                 from end in marks.Clips.ToSeq()
-                from levels in frames.Levels.Map(static quantizer => quantizer.Clipping).ToSeq()
+                from levels in frames.Clipping.ToSeq()
                 from clip in Seq((Shown: end.Below, End: ClipEnd.Low, Channel: TraceChannel.Blue), (Shown: end.Above, End: ClipEnd.High, Channel: TraceChannel.Red))
                 where clip.Shown
                 select new FrameMask(new Coverage.Clipped(levels, clip.End), new MarkStyle.Fill(new MarkColor.Trace(clip.Channel), 1f)));
 
     // --- [RAMP_KEY]
     public static ControlRow RampKey(string caption, string help, Func<RowScope, IO<Option<AgXLook>>> look, RowRules rules) =>
-        new ControlRow.Readout(RowShape.Block, scope =>
+        new ControlRow.Readout(RowShape.Block, (scope, retain) =>
             from shown in look(scope)
-            from ramp in IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(caption, scope.Sink), new GradientRampState.Key(shown)))
+            from ramp in DisposalOps.Acquire(IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(caption, scope.Sink), new GradientRampState.Key(shown))), static ramp => IO.lift(ramp.Dispose), retain)
             select new RowCells(
                 ramp, None, None, None, [], [], new RowHelp(None, None),
                 look(scope).Bind(current => ramp.Advance(_ => new(new GradientRampState.Key(current), None))),
-                None, None, ramp),
+                None, None),
             caption, help, rules);
 }

@@ -26,7 +26,7 @@ public readonly partial struct CurveCoordinate : IMinMaxValue<CurveCoordinate> {
 public sealed partial class CurveAxis {
     public static readonly CurveAxis Stops = new(span: (-7d, 7d), periodic: false, unit: 1d, origin: 0d, measure: None);
     public static readonly CurveAxis Hue = new(span: (0d, double.Tau), periodic: true, unit: double.Tau, origin: None, measure: Quantity.GetUnitInfo(AngleUnit.Radian));
-    public static readonly CurveAxis Saturation = new(span: (0d, 1.4d * (1d + Gamut.StandardRgb.Luminance.Y)), periodic: false, unit: 1d, origin: None, measure: None);
+    public static readonly CurveAxis Saturation = new(span: (0d, Hsy.SaturationPeak), periodic: false, unit: 1d, origin: None, measure: None);
     public static readonly CurveAxis Gain = new(span: (0d, 2d), periodic: false, unit: 1d, origin: 1d, measure: None);
 
     private const double LinearBreak = 0.0041318374739483946;
@@ -47,7 +47,7 @@ public sealed partial class CurveAxis {
             var span => span,
         };
 
-    public Presentation<CurveCoordinate, double> Presentation => new() { Unit = Measure, Soft = Span, Origin = Origin };
+    public Presentation<double> Presentation => new() { Unit = Measure, Soft = Span, Origin = Origin };
 
     public bool Contains(double coordinate) => coordinate >= Span.Low && (Periodic ? coordinate < Span.High : coordinate <= Span.High);
 
@@ -90,8 +90,14 @@ internal sealed partial class SplineShape {
     public static readonly SplineShape Diagonal = new(static domain => Hue(domain, wraps: false, monotone: true, harmonic: false));
 
     public Func<double, double> Fit(Seq<CurvePoint> points, double input, double output) =>
-        Prepare(points.Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict()).Spline() switch {
-            var spline => coordinate => output * spline.Interpolate(coordinate / input),
+        (Prepare(points.Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict()).Spline(), this == HueHue || this == Periodic, this == HueHue) switch {
+            var (spline, periodic, lifted) => coordinate => ((periodic ? coordinate % input : coordinate) / input) switch {
+                var normalized => (periodic ? normalized - double.Floor(normalized) : normalized) switch {
+                    var phase => lifted
+                        ? (coordinate * (output / input)) + (output * (spline.Interpolate(phase) - phase))
+                        : output * spline.Interpolate(phase),
+                },
+            },
         };
 
     [UseDelegateFromConstructor]
@@ -302,10 +308,12 @@ public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Bl
             red: static state => CurveAxis.ToStops(state.Pixel.X),
             green: static state => CurveAxis.ToStops(state.Pixel.Y),
             blue: static state => CurveAxis.ToStops(state.Pixel.Z),
-            master: static state => CurveAxis.ToStops(Vector3.Dot(state.Gamut.Luminance, new Vector3(
-                (float)CurveAxis.FromStops(Mapped(state.Curves.Red.Fit(), state.Pixel.X)),
-                (float)CurveAxis.FromStops(Mapped(state.Curves.Green.Fit(), state.Pixel.Y)),
-                (float)CurveAxis.FromStops(Mapped(state.Curves.Blue.Fit(), state.Pixel.Z))))));
+            master: static state => state.Gamut.Luminance switch {
+                var weights => CurveAxis.ToStops(
+                    (weights.X * CurveAxis.FromStops(Mapped(state.Curves.Red.Fit(), state.Pixel.X)))
+                    + (weights.Y * CurveAxis.FromStops(Mapped(state.Curves.Green.Fit(), state.Pixel.Y)))
+                    + (weights.Z * CurveAxis.FromStops(Mapped(state.Curves.Blue.Fit(), state.Pixel.Z)))),
+            });
 
     public static Option<PixelPass> Pass(PointCurves state, PassContext context) =>
         state with { PreserveHue = Default.PreserveHue } == Default
@@ -336,9 +344,8 @@ public sealed partial class PointCurveParameter : IStateParameter<PointCurves> {
     public static readonly PointCurveParameter Master = new("master", new StateParameter<PointCurves>.Keyed<PointCurve, string, InvalidGrade>(CurveChannel.Master.Curve));
     public static readonly PointCurveParameter PreserveHue = new(
         "preserve-hue",
-        new StateParameter<PointCurves>.Bounded<Factor, float, InvalidToneValue>(
-            Lens<PointCurves, Factor>.New(static curves => curves.PreserveHue, static preserve => curves => curves with { PreserveHue = preserve }),
-            new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }));
+        StateParameter.Bounded<PointCurves, Factor, float, InvalidToneValue>(Lens<PointCurves, Factor>.New(static curves => curves.PreserveHue, static preserve => curves => curves with { PreserveHue = preserve }),
+        new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }));
 
     public StateParameter<PointCurves> Kind { get; }
 }

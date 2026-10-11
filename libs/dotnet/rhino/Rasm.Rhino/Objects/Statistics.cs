@@ -21,7 +21,7 @@ public sealed record DocumentStatistics(
     // --- [MEASURES]
     public int ObjectCount => Kinds.Values.Fold(0, static (sum, count) => sum + count);
 
-    public int LayerLevelCount => LayerTree.Depths.Values.Fold(0, static (levels, depth) => int.Max(levels, depth + 1));
+    public Option<int> LayerLevelCount => LayerTree.Depths.Values.FoldM(0, static (levels, depth) => depth.Map(value => int.Max(levels, value + 1))).As();
 
     public int PlacementCount => DefinitionGraph.Placements.Values.Fold(0, static (sum, placed) => sum + placed.Count);
 

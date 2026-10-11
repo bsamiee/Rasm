@@ -1,5 +1,7 @@
 """Declarative environment doubles for SSH, remote filesystems, and object stores."""
 
+# mypy: disable-error-code=no-any-unimported
+
 from collections.abc import Awaitable, Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
 import os

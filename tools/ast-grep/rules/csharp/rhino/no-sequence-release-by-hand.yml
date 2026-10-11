@@ -4,6 +4,22 @@ language: csharp
 severity: error
 files: ['**/rhino/**']
 utils:
+    sequence-type:
+        regex: '^((global::)?(LanguageExt\.|System\.Collections\.Generic\.)?)?(Seq|Lst|Arr|Iterable|IterableNE|List|IEnumerable|IReadOnlyList|IReadOnlyCollection|ICollection|IList)\s*<|\[\]$'
+    sequence-value:
+        any:
+            - kind: identifier
+              matches: {csharp-declared-type: {type: {matches: sequence-type}}}
+            - kind: invocation_expression
+              has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?(toSeq|Seq)(\s*<.+>)?$'}
+            - kind: identifier
+              pattern: $SEQUENCE_MEMBER
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has: {stopBy: end, kind: property_declaration, all: [{has: {field: name, pattern: $SEQUENCE_MEMBER}}, {has: {field: type, matches: sequence-type}}]}
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select|Filter|Where|Bind|SelectMany|Rev|Take|Skip|Strict)$'}}, {has: {field: expression, matches: sequence-value}}]}
     held:
         any:
             - pattern: $ITEM
@@ -143,7 +159,7 @@ rule:
                 kind: member_access_expression
                 all:
                     - has: {field: name, regex: '^(Iter|ForEach|Do)$'}
-                    - has: {field: expression, pattern: $SEQ, not: {matches: option-value}}
+                    - has: {field: expression, pattern: $SEQ, matches: sequence-value}
             - has:
                 field: arguments
                 all:

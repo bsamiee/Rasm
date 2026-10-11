@@ -3,9 +3,10 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Xml;
 using System.Xml.Linq;
-using Microsoft.Win32.SafeHandles;
 using NodaTime.TimeZones;
+using Rasm.Imaging.Output;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
@@ -25,19 +26,17 @@ namespace Rasm.Rhino.Render.Slots;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SlotState(
-    Guid Session, string Engine, Guid EngineId, Duration Elapsed, ValueSet Grading, Seq<Guid> Chain, Option<ValueSet> Settings, Option<string> Note) {
+    Guid Session, string Engine, Guid EngineId, Duration Elapsed, Option<ValueSet> Settings, Option<string> Note) {
     public ContentKey Key => ContentKey.Of(KeyDomain.HistorySlot, stream => stream.Id(Session));
-
-    public Seq<EffectKind> Running(Seq<EffectKind> kinds) => Chain.Choose(id => kinds.Find(kind => kind.Id == id));
 }
 
 [SmartEnum]
 public sealed partial class SlotPart {
-    public static readonly SlotPart Settings = new(static state => state.Settings);
-    public static readonly SlotPart Grading = new(static state => Some(state.Grading));
+    public static readonly SlotPart Settings = new(static slot => slot.State.Bind(static state => state.Settings));
+    public static readonly SlotPart Grading = new(static slot => Some(slot.Grading));
 
     [UseDelegateFromConstructor]
-    public partial Option<ValueSet> Of(SlotState state);
+    public partial Option<ValueSet> Of(RenderSlot slot);
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -54,31 +53,83 @@ public sealed partial class RimagePart {
     public static readonly RimagePart Channel = new("channel");
     public static readonly RimagePart Uuid = new("uuid");
     public static readonly RimagePart Offset = new("start");
+    public static readonly RimagePart PostEffects = new("post-effects-new");
+    public static readonly RimagePart PlugIn = new("plug-in");
+    public static readonly RimagePart ToneMapping = new("tone-mapping");
+    public static readonly RimagePart Selection = new("selection");
+    public static readonly RimagePart Id = new("id");
+    public static readonly RimagePart Name = new("name");
+    public static readonly RimagePart On = new("on");
+    public static readonly RimagePart Shown = new("shown");
+    public static readonly RimagePart State = new("state");
 }
 
-public sealed record RenderSlot(string Rendering, Instant Saved, PixelExtent Extent, Option<SlotState> State) {
-    public static IO<PixelExtent> Header(string rendering) => Read(rendering, (_, index) => Measured(index.Xml, rendering));
+public sealed record RenderSlot(string Rendering, Instant Saved, PixelExtent Extent, ValueSet Grading, Seq<Guid> Chain, Option<SlotState> State) {
+    public Seq<EffectKind> Running(Seq<EffectKind> kinds) => Chain.Choose(id => kinds.Find(kind => kind.Id == id));
 
-    public IO<PixelFrame> Frame => Read(Rendering, Filled);
+    public static IO<(PixelExtent Extent, ValueSet Grading, Seq<Guid> Chain)> Header(string rendering) =>
+        Read(rendering, (_, index) =>
+            from extent in Measured(index.Xml, rendering)
+            from effects in Optional(index.Xml.Element(RimagePart.PostEffects.Key)).ToFin(new MalformedRendering(rendering, RimagePart.PostEffects))
+            from entries in Callbacks.Each(
+                from stage in toSeq(effects.Elements())
+                from entry in toSeq(stage.Elements(RimagePart.PlugIn.Key))
+                where entry.Attribute(RimagePart.Name.Key) is not null
+                select (Stage: stage, Entry: entry),
+                (row, _) =>
+                    from id in Optional(row.Entry.Attribute(RimagePart.Id.Key)).Bind(static attribute => parseGuid(attribute.Value))
+                        .ToFin(new MalformedRendering(rendering, RimagePart.Id))
+                    from running in string.Equals(row.Stage.Name.LocalName, RimagePart.ToneMapping.Key, StringComparison.Ordinal)
+                        ? (Optional(row.Stage.Attribute(RimagePart.Selection.Key)).Map(static attribute => attribute.Value)
+                           | Optional(effects.Element($"{row.Stage.Name.LocalName}-{RimagePart.Selection.Key}")).Map(static element => element.Value))
+                            .Traverse(text => parseGuid(text).ToFin(new MalformedRendering(rendering, RimagePart.Selection))).As()
+                            .Map(selected => selected.Filter(static value => value != Guid.Empty).IfNone(static () => BuiltinEffect.Clamp.Id) == id)
+                        : Callbacks.Each(Seq(RimagePart.On, RimagePart.Shown), (part, _) => Optional(row.Entry.Attribute(part.Key))
+                                .Traverse(attribute => parseBool(attribute.Value).ToFin(new MalformedRendering(rendering, part))).As()
+                                .Map(static value => value.IfNone(noneValue: false)))
+                            .Map(static flags => flags.ForAll(static flag => flag))
+                    let fields = Optional(row.Entry.Element(RimagePart.State.Key)).ToSeq().Bind(static state => toSeq(state.Elements()))
+                        .Map(field => (Key: EntryKey.Named(EntryKey.TypeOwner(id), field.Name.LocalName), Text: field.Value))
+                    select (Id: id, Running: running, Fields: fields))
+            select (extent, new ValueSet(toHashMap(entries.Bind(static entry => entry.Fields))), entries.Filter(static entry => entry.Running).Map(static entry => entry.Id)));
+
+    public IO<PixelFrame> Frame => Channel(RenderWindow.StandardChannels.RGBA);
+
+    public IO<PixelFrame> Channel(RenderWindow.StandardChannels channel) =>
+        Read(Rendering, (file, index) => Offsets(index.Xml).Bind(offsets => Filled(file, index.Body, offsets, channel)));
+
+    public IO<HashMap<RenderWindow.StandardChannels, PixelFrame>> Channels =>
+        Read(Rendering, (file, index) =>
+            from offsets in Offsets(index.Xml)
+            from frames in toSeq(SavedChannel.Items).Filter(channel => Components(channel.Key).ForAll(component => offsets.ContainsKey(RenderWindow.ChannelId(component))))
+                .Traverse(channel => Filled(file, index.Body, offsets, channel.Key).Map(frame => (channel.Key, frame)).ToValidation()).As().ToFin()
+            select toHashMap(frames));
 
     public Option<string> Note => State.Bind(static state => state.Note);
 
-    private static IO<A> Read<A>(string rendering, Func<SafeFileHandle, (XElement Xml, long Body), Fin<A>> body) =>
-        use(() => File.OpenHandle(rendering, FileMode.Open, FileAccess.Read, FileShare.Read, FileOptions.RandomAccess))
-            .Bind(file => IO.lift(() => Indexed(file, rendering).Bind(index => body(file, index))))
-            .Bracket();
+    private static IO<A> Read<A>(string rendering, Func<FileStream, (XElement Xml, long Body), Fin<A>> body) =>
+        DisposalOps.Within(
+            () => new FileStream(rendering, new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.Read, Options = FileOptions.RandomAccess }),
+            file => IO.lift(() => Indexed(file, rendering).Bind(index => body(file, index))),
+            static file => IO.lift(file.Dispose));
 
-    private static Fin<(XElement Xml, long Body)> Indexed(SafeFileHandle file, string rendering) {
+    private static Fin<(XElement Xml, long Body)> Indexed(FileStream file, string rendering) {
         const int Version = 2;
         int start = RimagePart.Start.Key.Length;
         Span<byte> lead = stackalloc byte[start + (2 * sizeof(int))];
-        int read = RandomAccess.Read(file, lead, 0L);
+        int read = file.ReadAtLeast(lead, lead.Length, throwOnEndOfStream: false);
+        if (read != lead.Length || !Ascii.Equals(lead[..start], RimagePart.Start.Key) || BinaryPrimitives.ReadInt32LittleEndian(lead[start..]) != Version)
+            return new MalformedRendering(rendering, RimagePart.Start);
         int length = BinaryPrimitives.ReadInt32LittleEndian(lead[^sizeof(int)..]);
-        if (read != lead.Length || !Ascii.Equals(lead[..start], RimagePart.Start.Key) || BinaryPrimitives.ReadInt32LittleEndian(lead[start..]) != Version || length < 0)
+        if (length < 0 || length % sizeof(char) != 0 || length > System.Array.MaxLength - sizeof(char) - RimagePart.Body.Key.Length
+            || (long)length + sizeof(char) + RimagePart.Body.Key.Length > file.Length - lead.Length)
             return new MalformedRendering(rendering, RimagePart.Start);
         byte[] header = new byte[length + sizeof(char) + RimagePart.Body.Key.Length];
-        return RandomAccess.Read(file, header, lead.Length) == header.Length && Ascii.Equals(header.AsSpan(length + sizeof(char)), RimagePart.Body.Key)
-            ? Fin.Succ((Xml: XElement.Parse(Encoding.Unicode.GetString(header, 0, length)), Body: (long)lead.Length + header.Length))
+        long body = (long)lead.Length + header.Length;
+        return file.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) == header.Length && Ascii.Equals(header.AsSpan(length + sizeof(char)), RimagePart.Body.Key)
+            ? Try.lift(() => XElement.Parse(Encoding.Unicode.GetString(header, 0, length))).Run()
+                .BindFail(error => error.HasException<XmlException>() ? new MalformedRendering(rendering, RimagePart.Body) : error)
+                .Map(xml => (Xml: xml, Body: body))
             : new MalformedRendering(rendering, RimagePart.Body);
     }
 
@@ -90,8 +141,8 @@ public sealed record RenderSlot(string Rendering, Instant Saved, PixelExtent Ext
             .ToFin()
             .Bind(static size => RenderWindows.Extent(size.Width, size.Height));
 
-    private Fin<PixelFrame> Filled(SafeFileHandle file, (XElement Xml, long Body) index) =>
-        from listed in Optional(index.Xml.Element(RimagePart.Channels.Key))
+    private Fin<HashMap<Guid, long>> Offsets(XElement xml) =>
+        Optional(xml.Element(RimagePart.Channels.Key))
             .Bind(static channels => toSeq(channels.Elements(RimagePart.Channel.Key))
                 .Traverse(static channel =>
                     from id in Child(channel, RimagePart.Uuid, parseGuid)
@@ -99,24 +150,43 @@ public sealed record RenderSlot(string Rendering, Instant Saved, PixelExtent Ext
                     select (Id: id, Start: start))
                 .As())
             .ToFin(new MalformedRendering(Rendering, RimagePart.Channels))
-        let offsets = toHashMap(listed)
-        from starts in Seq(RenderWindow.StandardChannels.Red, RenderWindow.StandardChannels.Green, RenderWindow.StandardChannels.Blue, RenderWindow.StandardChannels.Alpha)
-            .Map(channel => offsets.Find(RenderWindow.ChannelId(channel)).ToValidation<Error>(new MissingPlane(Rendering, channel)))
+            .Map(static listed => toHashMap(listed));
+
+    private static Seq<RenderWindow.StandardChannels> Components(RenderWindow.StandardChannels channel) =>
+        channel switch {
+            RenderWindow.StandardChannels.RGBA => Seq(RenderWindow.StandardChannels.Red, RenderWindow.StandardChannels.Green, RenderWindow.StandardChannels.Blue, RenderWindow.StandardChannels.Alpha),
+            RenderWindow.StandardChannels.RGB => Seq(RenderWindow.StandardChannels.Red, RenderWindow.StandardChannels.Green, RenderWindow.StandardChannels.Blue),
+            RenderWindow.StandardChannels.NormalXYZ => Seq(RenderWindow.StandardChannels.NormalX, RenderWindow.StandardChannels.NormalY, RenderWindow.StandardChannels.NormalZ),
+            RenderWindow.StandardChannels.AlbedoRGB => Seq(RenderWindow.StandardChannels.AlbedoRed, RenderWindow.StandardChannels.AlbedoGreen, RenderWindow.StandardChannels.AlbedoBlue),
+            _ => Seq(channel),
+        };
+
+    private Fin<PixelFrame> Filled(FileStream file, long body, HashMap<Guid, long> offsets, RenderWindow.StandardChannels channel) =>
+        from starts in Components(channel)
+            .Map(component => offsets.Find(RenderWindow.ChannelId(component)).ToValidation<Error>(new MissingPlane(Rendering, component)))
             .Traverse(static plane => plane)
             .As()
             .ToFin()
-        let planes = starts.Map(start => index.Body + start + RimagePart.Chan.Key.Length + Unsafe.SizeOf<Guid>()).Strict()
-        let length = RandomAccess.GetLength(file)
-        from bounded in guard<Error>(planes.ForAll(plane => plane + ((long)sizeof(float) * Extent.Width * Extent.Height) <= length), new MalformedRendering(Rendering, RimagePart.Chan))
+        let length = file.Length
+        let bytes = (long)sizeof(float) * Extent.Width * Extent.Height
+        let marker = RimagePart.Chan.Key.Length + Unsafe.SizeOf<Guid>()
+        from bounded in guard<Error>(starts.ForAll(start => start >= 0 && start <= length - body - marker - bytes), new MalformedRendering(Rendering, RimagePart.Chan))
+        let planes = starts.Map(start => body + start + marker).Strict()
         select new PixelFrame(System.Drawing.Point.Empty, Extent, Extent, block => Fill(file, planes, block));
 
-    private void Fill(SafeFileHandle file, Seq<long> planes, float[] block) {
+    private void Fill(FileStream file, Seq<long> planes, float[] block) {
         Span<byte> row = new byte[sizeof(float) * Extent.Width];
         for (int line = 0; line < planes.Count * Extent.Height; line++) {
             (int lane, int y) = Math.DivRem(line, Extent.Height);
-            _ = RandomAccess.Read(file, row, planes[lane] + ((long)y * row.Length));
+            file.Position = planes[lane] + ((long)y * row.Length);
+            file.ReadExactly(row);
             for (int x = 0; x < Extent.Width; x++)
-                block[(planes.Count * ((y * Extent.Width) + x)) + lane] = BinaryPrimitives.ReadSingleLittleEndian(row[(sizeof(float) * x)..]);
+                block[(4 * ((y * Extent.Width) + x)) + lane] = BinaryPrimitives.ReadSingleLittleEndian(row[(sizeof(float) * x)..]);
+        }
+        for (int pixel = 0; planes.Count < 4 && pixel < Extent.Width * Extent.Height; pixel++) {
+            int at = 4 * pixel;
+            (block[at + 1], block[at + 2], block[at + 3]) =
+                (block[at + int.Min(1, planes.Count - 1)], block[at + int.Min(2, planes.Count - 1)], 1f);
         }
     }
 
@@ -124,12 +194,13 @@ public sealed record RenderSlot(string Rendering, Instant Saved, PixelExtent Ext
         Optional(parent.Element(part.Key)).Bind(element => parse(element.Value));
 }
 
-internal sealed record SlotFile(Guid Session, string Engine, Guid EngineId, double ElapsedSeconds, ValueSet Grading, Guid[] Chain, ValueSet? Settings, string? Note) {
+internal sealed record SlotFile(Guid Session, string Engine, Guid EngineId, double ElapsedSeconds, ValueSet? Settings, string? Note) {
+    [JsonIgnore]
     public SlotState State =>
-        new(Session, Engine, EngineId, Duration.FromSeconds(ElapsedSeconds), Grading, toSeq(Chain), Optional(Settings), Optional(Note));
+        new(Session, Engine, EngineId, Duration.FromSeconds(ElapsedSeconds), Optional(Settings), Optional(Note));
 
     public static SlotFile Of(SlotState state) =>
-        new(state.Session, state.Engine, state.EngineId, state.Elapsed.TotalSeconds, state.Grading, [.. state.Chain], state.Settings.ValueUnsafe(), state.Note.ValueUnsafe());
+        new(state.Session, state.Engine, state.EngineId, state.Elapsed.TotalSeconds, state.Settings.ValueUnsafe(), state.Note.ValueUnsafe());
 }
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Strict, WriteIndented = true, Converters = [typeof(ValueSetConverter)])]
@@ -143,70 +214,74 @@ public sealed class RenderHistory {
     private readonly string suffix;
     private readonly View.Section section;
     private readonly ViewStore store;
+    private readonly Action<IDisposable> retain;
     private readonly Atom<Ledger> held = Atom(Ledger.Empty);
 
-    private RenderHistory(IPlugInRendering plugIn, string suffix, View.Section section, ViewStore store) =>
-        (this.plugIn, this.suffix, this.section, this.store) = (plugIn, suffix, section, store);
+    private RenderHistory(IPlugInRendering plugIn, string suffix, View.Section section, ViewStore store, Action<IDisposable> retain) =>
+        (this.plugIn, this.suffix, this.section, this.store, this.retain) = (plugIn, suffix, section, store, retain);
 
-    private sealed record Ledger(
-        Option<string> Folder, Option<string> Claimed, HashMap<string, RenderSlot> Slots, Option<(RhinoDoc Doc, ValueSet Settings)> Pending, Option<(RhinoDoc Doc, ValueSet Settings)> Taken) {
-        public static Ledger Empty { get; } = new(None, None, HashMap<string, RenderSlot>(), None, None);
+    private sealed record Ledger(Option<string> Folder, Option<string> Claimed, HashMap<string, RenderSlot> Slots) {
+        public static Ledger Empty { get; } = new(None, None, HashMap<string, RenderSlot>());
 
-        public Seq<RenderSlot> Renamed(Seq<RenderSlot> items) => items.Filter(item => Slots.Find(item.Rendering).Exists(stored => stored.Note != item.Note));
+        public Seq<RenderSlot> Listed(int keep) =>
+            toSeq(Slots.Values.OrderByDescending(static slot => slot.Saved).ThenBy(static slot => slot.Rendering, StringComparer.Ordinal)).Take(keep);
+
+        public Seq<(RenderSlot Slot, Option<string> Note)> Renamed(Seq<RenderSlot> items) =>
+            items.Bind(item => Slots.Find(item.Rendering).Filter(stored => stored.Note != item.Note).Map(stored => (stored, item.Note)).ToSeq());
     }
 
     // --- [ROWS]
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register(View.Section settings, Func<RenderHistory, Seq<Func<PlugIn, IPlugInSink, IO<IDisposable>>>> readers) =>
-        (plugIn, sink) =>
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> Register(
+        View.Section settings, Func<RenderHistory, Seq<Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>>>> readers) =>
+        (plugIn, sink, retain) => DisposalOps.Acquire(owned =>
             from store in IO.lift(settings.Store.ToFin(new Missing(nameof(View.Store))))
-            from history in IO.lift(() => new RenderHistory((IPlugInRendering)sink, $".{plugIn.Id:N}.json", settings, store))
+            from history in IO.lift(() => new RenderHistory((IPlugInRendering)sink, $".{plugIn.Id:N}.json", settings, store, owned))
+            from saved in EventKind.ImageFileSaved.Inline(history.Saved, sink, owned)
+            from loaded in EventKind.ImageFileLoaded.Inline(args => history.Listed(args.FileName), sink, owned)
+            from deleted in EventKind.ImageFileDeleted.Inline(history.Deleted, sink, owned)
+            from reading in readers(history).TraverseM(row => row(plugIn, sink, owned)).As()
             let cell = history.plugIn.History
-            from acquired in DisposalOps.AcquireAll(
-                Seq(
-                        EventKind.ImageFileSaved.Inline(history.Saved, sink),
-                        EventKind.ImageFileLoaded.Inline(args => history.Listed(args.FileName), sink),
-                        EventKind.ImageFileDeleted.Inline(history.Deleted, sink))
-                    .Concat(readers(history).Map(row => row(plugIn, sink)))
-                    .Add(cell.SwapIO(_ => Some(history)).Map(_ => (IDisposable)new Disposal<Atom<Option<RenderHistory>>>(cell, static filled => filled.Swap(static _ => None)))),
-                DisposalOps.Release)
-            select DisposalOps.Composite(acquired, new CallbackSite(sink, typeof(RenderHistory), nameof(Register)));
+            from published in DisposalOps.Acquire(
+                    IO.lift(() => new Disposal<Atom<Option<RenderHistory>>>(cell, static filled => filled.Swap(static _ => None))),
+                    static lease => IO.lift(lease.Dispose), owned)
+                .Bind(_ => cell.SwapIO(_ => Some(history))).Uninterruptible()
+            select unit, (_, lease) => retain(lease));
 
     // --- [BINDINGS]
-    public Validation<Error, BindingGroup> Grading(RhinoDoc doc) =>
-        BindingGroup.Of(plugIn.Effects.Map(kind => kind.Binding(doc)));
+    public BindingGroup Grading(RhinoDoc doc) =>
+        new(plugIn.Effects.Map(kind => kind.Binding(doc)));
 
-    public Validation<Error, BindingGroup> Bindings(RhinoDoc doc) =>
-        (SceneSources.Bindings(doc), Grading(doc)).Apply(static (scene, grading) => scene.Bindings + grading.Bindings).As().Bind(BindingGroup.Of);
+    public BindingGroup Bindings(RhinoDoc doc) =>
+        new(SceneSources.Bindings(doc).Bindings + Grading(doc).Bindings);
 
     public Fin<HistoryBinding> Settings(RhinoDoc doc) =>
-        Bindings(doc).ToFin().Bind(bound => ViewOps.History((IPlugInViews)plugIn, section, store, bound, Some(doc)));
+        ViewOps.History((IPlugInViews)plugIn, section, store, Bindings(doc), Some(doc));
 
     // --- [READS]
     public IO<Seq<RenderSlot>> Slots =>
         from ledger in held.ValueIO
         from keep in IO.lift(SupportOptions.AutoSaveKeepAmount)
-        select toSeq(ledger.Slots.Values.OrderByDescending(static slot => slot.Saved).ThenBy(static slot => slot.Rendering, StringComparer.Ordinal)).Take(keep);
+        select ledger.Listed(keep);
 
     // --- [WRITES]
-    public IO<T> Launched<T>(RhinoDoc doc, IO<T> render) =>
-        from bound in IO.lift(Bindings(doc).ToFin())
-        from captured in bound.Capture
-        from pending in held.SwapIO(ledger => ledger with { Pending = Some((doc, captured)) })
-        from rendered in IO.pure(unit).Bind(_ => render).Finally(held.SwapIO(static ledger => ledger with { Pending = None }))
-        select rendered;
+    public IO<T> Launched<T>(RhinoDoc doc, IO<(ImageFileEventArgs Saved, T Value)> render) =>
+        from captured in Bindings(doc).Capture
+        from rendered in render
+        from recorded in Recorded(rendered.Saved, Some(captured))
+        select rendered.Value;
 
     public IO<ValueDiff> Restore(RhinoDoc doc, RenderSlot slot, SlotPart part) =>
-        from restored in IO.lift((from state in slot.State from set in part.Of(state) select (state.Chain, Set: set)).ToFin(new Missing(nameof(Restore))))
+        from restored in IO.lift(part.Of(slot).ToFin(new Missing(nameof(Restore))))
         from binding in IO.lift(Settings(doc))
         from locks in ViewOps.Locks(section, Some(doc)).Match(
             Some: static locked => locked.Read,
             None: static () => IO.pure(Option<LanguageExt.HashSet<EntryKey>>.None))
         from diff in part.Switch(
-            (Binding: binding, Doc: doc, Restored: restored, Locks: locks.IfNone(LanguageExt.HashSet.empty<EntryKey>())),
-            settings: static restore => restore.Binding.Commit(restore.Restored.Set, restore.Locks),
+            (Binding: binding, Doc: doc, Set: restored, slot.Chain, Locks: locks.IfNone(LanguageExt.HashSet.empty<EntryKey>())),
+            settings: static restore => restore.Binding.Commit(restore.Set, restore.Locks),
             grading: static restore => Commits.Commit(restore.Doc, restore.Binding.Caption, new RedrawPolicy.Silent(),
-                    from chained in Rechained(restore.Doc, restore.Restored.Chain)
-                    from written in restore.Binding.Commit(restore.Restored.Set, restore.Locks)
+                    from chained in Rechained(restore.Doc, restore.Chain)
+                    from written in restore.Binding.Commit(restore.Set, restore.Locks)
                     select written)
                 .Map(static committed => committed.Value))
         select diff;
@@ -220,9 +295,9 @@ public sealed class RenderHistory {
         from removed in held.SwapIO(ledger => ledger with { Slots = ledger.Slots.Remove(slot.Rendering) })
         select unit;
 
-    private static IO<Seq<EffectEntry>> Rechained(RhinoDoc doc, Seq<Guid> chain) =>
+    private static IO<Unit> Rechained(RhinoDoc doc, Seq<Guid> chain) =>
         SceneSources.Edit(doc, window =>
-            from entries in EffectRegistry.Apply(window.Settings, [])
+            from entries in EffectRegistry.Read(window.Settings)
             from applied in EffectRegistry.Apply(window.Settings, Requests(entries, chain))
             select applied);
 
@@ -234,16 +309,20 @@ public sealed class RenderHistory {
             .Add(new EffectRequest.Ordering(chain.Choose(id => entries.Find(entry => entry.Id == id && entry.Switch(listed: static _ => true, selectable: static _ => false)))));
 
     // --- [EVENTS]
+    public static HostEvent<Unit> Changed { get; } = new(
+        typeof(RenderHistory),
+        nameof(Changed),
+        static (deliver, site, retain) =>
+            IPlugInRendering.Served(((IPlugInRendering)site.Sink).History, nameof(IPlugInRendering.History))
+                .Bind(history => Subscriptions.Host<AtomChangedEvent<Ledger>, Ledger>(
+                        typeof(RenderHistory), handler => history.held.Change += handler, handler => history.held.Change -= handler,
+                        static handler => ledger => handler(sender: null, ledger), nameof(Changed))
+                    .Choose(static _ => Some(unit))
+                    .Attach(deliver, site, retain)));
+
     private IO<Unit> Saved(ImageFileEventArgs args) =>
         from listed in Listed(args.FileName)
-        from ledger in held.SwapIO(static ledger => ledger with { Pending = None, Taken = ledger.Pending })
-        from doc in IO.lift(() => (ledger.Taken.Map(static taken => taken.Doc) || Optional(RhinoDoc.ActiveDoc)).ToFin(new Missing(nameof(RhinoDoc.ActiveDoc))))
-        from grading in IO.lift(Grading(doc).ToFin()).Bind(static bound => bound.Capture)
-        from entries in SceneSources.Read(doc, static window => EffectRegistry.Apply(window.Settings, []))
-        let state = new SlotState(
-            args.SessionId, args.RenderEngine, args.RenderEngineId, Duration.FromSeconds(args.EllapsedTime), grading,
-            entries.Filter(static entry => entry.Runs).Map(static entry => entry.Id).Strict(), ledger.Taken.Map(static taken => taken.Settings), None)
-        from forked in Forked(Slot(args.FileName, None).Bind(slot => Recorded(slot, state)).Map(static _ => unit), nameof(Saved))
+        from recorded in Recorded(args, None)
         select unit;
 
     private IO<Unit> Deleted(ImageFileEventArgs args) =>
@@ -261,7 +340,7 @@ public sealed class RenderHistory {
         select unit;
 
     private IO<Unit> Forked(IO<Unit> work, string member) =>
-        work.Catch(error => IO.lift(() => plugIn.Report(error, typeof(RenderHistory), member))).As().Fork().Map(static _ => unit);
+        DisposalOps.Fork(work.Catch(error => IO.lift(() => plugIn.Report(error, typeof(RenderHistory), member))).As(), retain).Map(static _ => unit);
 
     // --- [FILES]
     private IO<Unit> Scanned(string folder) =>
@@ -276,8 +355,8 @@ public sealed class RenderHistory {
 
     private static IO<RenderSlot> Slot(string rendering, Option<SlotState> state) =>
         from saved in IO.lift(() => File.GetLastWriteTimeUtc(rendering).ToInstant())
-        from extent in RenderSlot.Header(rendering)
-        select new RenderSlot(rendering, saved, extent, state);
+        from header in RenderSlot.Header(rendering)
+        select new RenderSlot(rendering, saved, header.Extent, header.Grading, header.Chain, state);
 
     private static IO<Option<SlotState>> Stated(string sidecar) =>
         IO.lift(() => File.ReadAllBytes(sidecar))
@@ -286,15 +365,23 @@ public sealed class RenderHistory {
             .Catch(static error => error.HasException<FileNotFoundException>(), static _ => IO.pure(Option<SlotState>.None))
             .Catch(static error => error.HasException<JsonException>(), error => IO.fail<Option<SlotState>>(new MalformedSidecar(sidecar, error)));
 
+    private IO<RenderSlot> Recorded(ImageFileEventArgs args, Option<ValueSet> settings) =>
+        from saved in IO.lift(() => File.GetLastWriteTimeUtc(args.FileName).ToInstant())
+        from header in RenderSlot.Header(args.FileName)
+        let state = new SlotState(args.SessionId, args.RenderEngine, args.RenderEngineId, Duration.FromSeconds(args.EllapsedTime),
+            settings, None)
+        from recorded in Recorded(new RenderSlot(args.FileName, saved, header.Extent, header.Grading, header.Chain, None), state)
+        select recorded;
+
     private IO<RenderSlot> Recorded(RenderSlot slot, SlotState state) =>
-        Sidecar(slot.Rendering) switch {
-            var sidecar =>
-                from staged in IO.lift(() => File.WriteAllBytes($"{sidecar}.tmp", JsonSerializer.SerializeToUtf8Bytes(SlotFile.Of(state), SlotFileContext.Default.SlotFile)))
-                from moved in IO.lift(() => File.Move($"{sidecar}.tmp", sidecar, overwrite: true))
-                let noted = slot with { State = Some(state) }
-                from listed in held.SwapIO(ledger => ledger with { Slots = ledger.Slots.AddOrUpdate(noted.Rendering, noted) })
-                select noted,
-        };
+        from path in IO.lift(Conversions.Validated<OutputPath, string, InvalidOutput>(Sidecar(slot.Rendering)))
+        from written in FilePublication.Write(path, overwrite: true, stream => IO.liftAsync(async environment => {
+            await JsonSerializer.SerializeAsync(stream, SlotFile.Of(state), SlotFileContext.Default.SlotFile, environment.Token).ConfigureAwait(false);
+            return unit;
+        }))
+        let noted = slot with { State = Some(state) }
+        from listed in held.SwapIO(ledger => ledger with { Slots = ledger.Slots.AddOrUpdate(noted.Rendering, noted) })
+        select noted;
 
     private string Sidecar(string rendering) => Path.ChangeExtension(rendering, suffix);
 
@@ -306,27 +393,26 @@ public sealed class RenderHistory {
             new BrowserRow<RenderSlot, string>(
                 Key: static slot => slot.Rendering,
                 Label: Label,
-                Tile: static (scope, view, slot, size) =>
+                Tile: static (scope, view, slot, size, retain) =>
                     from tiles in IPlugInRendering.Served(((IPlugInRendering)scope.Sink).Tiles, nameof(IPlugInRendering.Tiles))
-                    from thumbnail in tiles.Thumbnail(view, TileRequest.Recorded(slot, ((IPlugInRendering)scope.Sink).Effects), size)
+                    from thumbnail in tiles.Thumbnail(view, TileRequest.Recorded(slot, ((IPlugInRendering)scope.Sink).Effects), size, retain)
                     select thumbnail,
-                Items: static scope => ValueStore.Of(
+                Items: static scope => new ValueStore<Seq<RenderSlot>>(
                     HistoryOf(scope).Bind(static history => history.Slots).Map(static slots => Some(slots)),
-                    items => HistoryOf(scope).Bind(history => history.Noted(items.IfNone(Seq<RenderSlot>()))),
+                    items => items.Match(
+                        Some: named => HistoryOf(scope).Bind(history => history.Noted(named)),
+                        None: static () => IO.pure(Change<Seq<RenderSlot>>.None)),
+                    EqualityComparer<Seq<RenderSlot>>.Default.Equals,
                     Applied.Live,
                     None),
-                Current: static scope => ValueStore.Of(
+                Current: static scope =>
                     ComparisonOf(scope).Bind(static comparison => comparison.Held).Map(static side => side.Map(static held => held.Slot.Rendering)),
-                    key => key.Match(
-                        Some: rendering =>
-                            from history in HistoryOf(scope)
-                            from slots in history.Slots
-                            from slot in IO.lift(slots.Find(slot => string.Equals(slot.Rendering, rendering, StringComparison.Ordinal)).ToFin(new Missing(nameof(Slots))))
-                            from chosen in Compared(scope, slot)
-                            select chosen,
-                        None: () => ComparisonOf(scope).Bind(static comparison => comparison.Clear)),
-                    Applied.Live,
-                    None),
+                Choose: static (scope, rendering) =>
+                    from history in HistoryOf(scope)
+                    from slots in history.Slots
+                    from slot in IO.lift(slots.Find(slot => string.Equals(slot.Rendering, rendering, StringComparison.Ordinal)).ToFin(new Missing(nameof(Slots))))
+                    from chosen in Compared(scope, slot)
+                    select chosen,
                 Mode: BrowserMode.List,
                 Extent: new ReadoutSource<PixelExtent>.Model(Framing.Extent),
                 Empty: RowText.Localize("Completed renders appear here, newest first").Local) {
@@ -334,12 +420,24 @@ public sealed class RenderHistory {
                 Search = Some(new ListSearch<RenderSlot>(RowText.Localize("Search history").Local, Label, None)),
                 Rename = Some<Func<RenderSlot, string, Fin<RenderSlot>>>(static (slot, text) =>
                     slot.State.ToFin(new Missing(nameof(Annotate))).Map(state => slot with { State = Some(state with { Note = Conversions.Present(text) }) })),
+                Reloads = Seq(Changed),
                 Commands = static selection =>
                     Seq<CommandRow>(
                         Command("history-compare", RowText.Localize("Compare").Local,
                             RowText.Localize("Compare the selected slot against the current frame through its own grading").Local, Headed(selection, Compared)),
                         Command("history-compare-before", RowText.Localize("Compare Before").Local,
-                            RowText.Localize("Compare the selected slot's frame before its chain against the current frame").Local, Headed(selection, Before)))
+                            RowText.Localize("Compare the selected slot's frame before its chain against the current frame").Local, Headed(selection, Before)),
+                        Command("history-export", RowText.Localize("Export").Local,
+                            RowText.Localize("Write the selected history frame through the output targets and its recorded grading").Local,
+                            Headed(selection, static (scope, slot) =>
+                                from document in IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
+                                from frame in slot.Frame
+                                from book in TargetRows.Book(document)
+                                from origin in FileOrigin.At(scope.Sink)
+                                let request = TileRequest.Recorded(slot, ((IPlugInRendering)scope.Sink).Effects)
+                                from written in Saves.Write(document, origin, book,
+                                    Right<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>((frame, request)))
+                                select unit)))
                     + toSeq(SlotPart.Items).Map<CommandRow>(part => Restoring(selection, part))
                     + Seq<CommandRow>(
                         Command("history-delete", RowText.Localize("Delete").Local, RowText.Localize("Delete the selected slots' renderings and their state").Local,
@@ -354,10 +452,13 @@ public sealed class RenderHistory {
             },
             new RowRules(None, None));
 
-    private IO<Unit> Noted(Seq<RenderSlot> items) =>
+    private IO<Change<Seq<RenderSlot>>> Noted(Seq<RenderSlot> items) =>
         from ledger in held.ValueIO
-        from noted in ledger.Renamed(items).TraverseM(item => Annotate(item, item.Note)).As()
-        select unit;
+        from keep in IO.lift(SupportOptions.AutoSaveKeepAmount)
+        let before = ledger.Listed(keep)
+        from noted in ledger.Renamed(items).TraverseM(item => Annotate(item.Slot, item.Note)).As()
+        let written = toHashMap(noted.Map(static slot => (slot.Rendering, slot)))
+        select ValueStore.Between(Some(before), Some(before.Map(slot => written.Find(slot.Rendering).IfNone(slot))));
 
     private static IO<RenderHistory> HistoryOf(RowScope scope) =>
         IPlugInRendering.Served(((IPlugInRendering)scope.Sink).History, nameof(IPlugInRendering.History));
@@ -366,9 +467,7 @@ public sealed class RenderHistory {
         IPlugInRendering.Served(((IPlugInRendering)scope.Sink).Comparison, nameof(IPlugInRendering.Comparison));
 
     private static IO<Unit> Compared(RowScope scope, RenderSlot slot) =>
-        slot.State.Match(
-            Some: state => ComparisonOf(scope).Bind(comparison => comparison.Choose(new CompareSide.Recorded(slot, state), Label(scope, slot))),
-            None: () => Before(scope, slot));
+        ComparisonOf(scope).Bind(comparison => comparison.Choose(new CompareSide.Recorded(slot), Label(scope, slot)));
 
     private static IO<Unit> Before(RowScope scope, RenderSlot slot) =>
         ComparisonOf(scope).Bind(comparison => comparison.Choose(new CompareSide.Before(slot), RowText.Localize("Before").Local));

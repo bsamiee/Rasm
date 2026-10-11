@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-base-class
+language: python
+arguments: [superclasses]
+utils:
+    declaration:
+        kind: class_definition
+        all:
+            - has: {field: name, pattern: $BASE}
+            - has: {field: superclasses, matches: superclasses}
+rule:
+    kind: identifier
+    pattern: $BASE
+    inside:
+        stopBy: end
+        follows:
+            stopBy: end
+            any:
+                - matches: declaration
+                - kind: decorated_definition
+                  has: {matches: declaration}

@@ -3,7 +3,7 @@ namespace Rasm.Rhino.Viewport;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     CameraLocked = 1,
-    MotionEnded,
+    MotionEnded = 2,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

@@ -210,7 +210,7 @@ GOOD in a `netstandard2.0` analyzer project:
 
 - SMELL: `NoWarn` with a compiler or analyzer code in a project, or `NoWarn` assigned without `$(NoWarn);`
 - WHY:
-    - An assignment without `$(NoWarn);` drops the SDK default `1701;1702`
+    - Assignments without `$(NoWarn);` drop SDK defaults `1701;1702`
 - RULE:
     - Every `NoWarn` assignment starts with `$(NoWarn);`
 

@@ -1,4 +1,5 @@
 using System.Numerics;
+using PeterO.Numbers;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Tables;
 using Rhino;
@@ -56,7 +57,7 @@ public sealed partial class DistanceDisplay {
 
     // --- [FACTORY]
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref bool modelUnits, ref DistanceDisplayMode mode, ref int precision) =>
-        validationError = Enum.IsDefined(mode) && precision is >= 0 and <= 8 ? null : new InvalidRhinoValue();
+        validationError = Enum.IsDefined(mode) && precision >= 0 && precision <= (modelUnits ? 8 : 20) ? null : new InvalidRhinoValue();
 
     // --- [DOCUMENT]
     public static IO<DistanceDisplay> Read(RhinoDoc doc, bool modelUnits) =>
@@ -91,57 +92,29 @@ public sealed partial class DistanceDisplay {
         Localization.FormatNumber(Quantities.As(length, spaceUnit), spaceUnit, Mode, Precision, appendUnitSystemName);
 }
 
-[ValueObject<LengthUnit>(SkipIComparable = true)]
-[ValidationError<InvalidRhinoValue>]
-public sealed partial class DocumentUnit {
-    // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref LengthUnit value) =>
-        validationError = LengthUnit.IsUnset(value) ? new InvalidRhinoValue() : null;
-
-    // --- [DOCUMENT]
-    public IO<Unit> Adjust(RhinoDoc doc, bool modelUnits, bool scale) =>
-        IO.lift(() => Refused.Unless(doc.AdjustLengthUnits(modelUnits, _value, scale), nameof(RhinoDoc.AdjustLengthUnits)));
-}
-
 public sealed record ScalarDisplay(Option<string> Symbol, double Step, int Decimals, bool Turn, Func<double, double> Shown, Func<double, double> Key);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Quantities {
     // --- [LENGTHS]
     public static Length From(double value, LengthUnit spaceUnit) =>
-        Measure(spaceUnit) * Exact(value);
+        Length.FromMeters((QuantityValue)value * LengthUnit.Scale(spaceUnit, LengthUnit.Meters));
 
     public static double As(Length length, LengthUnit spaceUnit) =>
-        QuantityValue.Reduce(length / Measure(spaceUnit)).ToDouble();
-
-    private static Length Measure(LengthUnit spaceUnit) =>
-        LengthUnit.Scale(spaceUnit, LengthUnit.Meters) switch {
-            var metres => toSeq(Length.Units).Find(named => Length.From(1, named).Meters == QuantityValue.FromDoubleRounded(metres))
-                .Match(Some: static named => Length.From(1, named), None: () => Length.FromMeters(Exact(metres))),
-        };
-
-    private static QuantityValue Exact(double value) =>
-        QuantityValue.FromDoubleRounded(value) switch {
-            var rounded when QuantityValue.Reduce(rounded).ToDouble().Equals(value) => rounded,
-            _ => int.Max(0, 52 - Math.ILogB(value)) switch {
-                var shift => QuantityValue.FromTerms(new BigInteger(Math.ScaleB(value, shift)), BigInteger.One << shift),
-            },
-        };
+        (length.Meters * LengthUnit.Scale(LengthUnit.Meters, spaceUnit)).ToDouble();
 
     // --- [SCALARS]
-    public static ScalarDisplay Scalar<TValue, TKey>(Presentation<TValue, TKey> presentation)
-        where TValue : IMinMaxValue<TValue>, IConvertible<TKey>
+    public static ScalarDisplay Scalar<TKey>(Presentation<TKey> presentation, (TKey Low, TKey High) bounds)
         where TKey : struct, INumber<TKey> {
-        Option<(UnitInfo From, UnitInfo To)> units = presentation.Unit.Map(static keyUnit => (keyUnit, Quantity.GetUnitInfo(keyUnit.Value switch {
+        Option<(UnitInfo From, UnitInfo To)> units = presentation.Unit.Map(keyUnit => (keyUnit, presentation.DisplayUnit.IfNone(() => Quantity.GetUnitInfo(keyUnit.Value switch {
             UnitsNet.Units.AngleUnit => UnitsNet.Units.AngleUnit.Degree,
             UnitsNet.Units.RatioUnit.DecimalFraction => UnitsNet.Units.RatioUnit.Percent,
-            UnitsNet.Units.LengthUnit => UnitsNet.Units.LengthUnit.Inch,
             var held => held,
-        })));
+        }))));
         Func<double, double> shown = Across(units);
         Func<double, double> key = Across(units.Map(static pair => (pair.To, pair.From)));
         double increment = presentation.Step.Map(static declared => double.CreateChecked(declared))
-            .IfNone(() => key(double.Pow(10, double.Truncate(double.Log10(Span(presentation.Soft))) - 2)));
+            .IfNone(() => double.Max(double.Epsilon, key(double.Pow(10, double.Truncate(Span(presentation.Soft.IfNone(bounds)).Log10(EContext.Binary64.WithUnlimitedExponents()).ToDouble()) - 2))));
         double step = TKey.IsInteger(TKey.CreateSaturating(0.5)) ? double.Max(1, increment) : increment;
         int decimals = presentation.Decimals.IfNone(() => int.Max(0, (int)double.Ceiling(-double.Log10(shown(step)))));
         return new(
@@ -149,12 +122,12 @@ public static class Quantities {
             step,
             decimals,
             presentation.Unit.Exists(static keyUnit => keyUnit.Value is UnitsNet.Units.AngleUnit.Radian)
-                && double.Round(Span((TValue.MinValue.ToValue(), TValue.MaxValue.ToValue())), decimals, MidpointRounding.ToEven)
+                && double.Round(Span(bounds).ToDouble(), decimals, MidpointRounding.ToEven)
                     == double.Round(UnitConverter.Default.ConvertValue(1, UnitsNet.Units.AngleUnit.Revolution, UnitsNet.Units.AngleUnit.Degree), decimals, MidpointRounding.ToEven),
             shown,
             key);
 
-        double Span((TKey Low, TKey High) ends) => double.Abs(shown(double.CreateChecked(ends.High)) - shown(double.CreateChecked(ends.Low)));
+        EFloat Span((TKey Low, TKey High) ends) => EFloat.FromDouble(shown(double.CreateChecked(ends.High))).Subtract(EFloat.FromDouble(shown(double.CreateChecked(ends.Low)))).Abs();
 
         static Func<double, double> Across(Option<(UnitInfo From, UnitInfo To)> units) =>
             units.Match(

@@ -33,11 +33,11 @@ public sealed partial class LayerReader {
 public abstract partial record TargetWrite {
     public static ColorEncoding SceneLinear { get; } = new(EffectPipeline.Working, TransferCurve.Linear, Nits.ReferenceWhite);
 
-    public sealed record Dib : TargetWrite;
+    public sealed record Raster(OutputDepth Depth, Func<PixelFrame, Option<ColorEncoding>, Fin<StillFormat>> Still) : TargetWrite;
 
-    public sealed record Formed(Func<PixelFrame, Fin<StillFormat>> Still) : TargetWrite;
+    public sealed record Dib(Func<PixelFrame, Fin<StillFormat>> Still) : TargetWrite;
 
-    public sealed record Raw(Func<PixelFrame, Fin<StillFormat>> Still) : TargetWrite;
+    public sealed record Raw(Func<PixelFrame, Option<RenderRun>, Fin<StillFormat>> Still) : TargetWrite;
 
     public sealed record Layers(Fin<ExrLayout> Layout, LayerReader Reader) : TargetWrite;
 
@@ -56,6 +56,8 @@ public abstract partial record TargetVerdict {
 
     public sealed record NoSample : TargetVerdict;
 
+    public sealed record NativeDisplay : TargetVerdict;
+
     public sealed record NoLevels : TargetVerdict;
 }
 
@@ -64,15 +66,14 @@ public abstract partial record TargetVerdict {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [ValidationError<InvalidRhinoValue>]
 public abstract partial class TargetFile {
-    public static readonly TargetFile Png = new FormedFile("png", StillFormat.PngRaster.Extensions[0], StillFormat.PngRaster.Depths,
-        static (frame, depth, encoding, alpha) => StillFormat.PngRaster.From(frame, depth, Some(encoding), alpha));
-    public static readonly TargetFile Tiff = new FormedFile("tiff", StillFormat.TiffRaster.Extensions[0], StillFormat.TiffRaster.Depths, StillFormat.TiffRaster.From);
+    public static readonly TargetFile Png = new RasterFile("png", StillFormat.PngRaster.Extensions[0], StillFormat.PngRaster.Depths, StillFormat.PngRaster.From);
+    public static readonly TargetFile Tiff = new RasterFile("tiff", StillFormat.TiffRaster.Extensions[0], StillFormat.TiffRaster.Depths, StillFormat.TiffRaster.From);
     public static readonly TargetFile Exr = new ExrFile("exr", StillFormat.ExrRaster.Extensions[0]);
     public static readonly TargetFile Dng = new DngFile("dng", StillFormat.Dng.Extensions[0]);
     public static readonly TargetFile Layered = new LayeredFile("layered", StillFormat.TiffRaster.Extensions[0]);
-    public static readonly TargetFile Jpeg = new DibFile("jpeg", StillFormat.JpegRaster.Extensions[0], holdsAlpha: false);
-    public static readonly TargetFile Bmp = new DibFile("bmp", ".bmp", holdsAlpha: true);
-    public static readonly TargetFile Targa = new DibFile("targa", ".tga", holdsAlpha: true);
+    public static readonly TargetFile Jpeg = new JpegFile("jpeg", StillFormat.JpegRaster.Extensions[0]);
+    public static readonly TargetFile Bmp = new DibFile("bmp", StillFormat.BmpRaster.Extensions[0], static (frame, alpha) => new StillFormat.BmpRaster(frame, alpha));
+    public static readonly TargetFile Targa = new DibFile("targa", StillFormat.TgaRaster.Extensions[0], static (frame, alpha) => new StillFormat.TgaRaster(frame, alpha));
 
     public string Extension { get; }
 
@@ -82,21 +83,19 @@ public abstract partial class TargetFile {
 
     private static Option<TargetVerdict> Referred(TargetParameter parameter, OutputTarget target, Seq<OutputDepth> depths, Option<TargetVerdict> alpha) =>
         parameter.Map(
-            fileFormat: TargetVerdict.Unless(target.ColorDepth.Levels.IsSome, new TargetVerdict.RawChannels()),
+            fileFormat: new TargetVerdict.NativeDisplay(),
             alpha: alpha,
             colorDepth: TargetVerdict.Unless(depths.Exists(depth => depth == target.ColorDepth), new TargetVerdict.NoSample()),
             codec: None,
             reader: None,
             position: None,
-            displayDevice: target.ColorDepth.Levels.Map<TargetVerdict>(static _ => new TargetVerdict.Honored()),
+            displayDevice: new TargetVerdict.Honored(),
             dithering: TargetVerdict.Unless(target.ColorDepth.Levels.IsSome || target.Dithering == Dither.Off, new TargetVerdict.NoLevels()));
 
-    private sealed class FormedFile(string key, string extension, Seq<OutputDepth> depths, Func<PixelFrame, OutputDepth, ColorEncoding, bool, Fin<StillFormat>> build)
+    private sealed class RasterFile(string key, string extension, Seq<OutputDepth> depths, Func<PixelFrame, OutputDepth, Option<ColorEncoding>, bool, Fin<StillFormat>> build)
         : TargetFile(key, extension) {
         public override TargetWrite Write(OutputTarget target) =>
-            target.ColorDepth.Levels.IsSome
-                ? new TargetWrite.Formed(frame => build(frame, target.ColorDepth, target.DisplayDevice.Encoding, target.Alpha))
-                : new TargetWrite.Raw(frame => build(frame, target.ColorDepth, TargetWrite.SceneLinear, target.Alpha));
+            new TargetWrite.Raster(target.ColorDepth, (frame, encoding) => build(frame, target.ColorDepth, encoding, target.Alpha));
 
         public override Option<TargetVerdict> Verdict(TargetParameter parameter, OutputTarget target) =>
             Referred(parameter, target, depths, new TargetVerdict.Honored());
@@ -106,7 +105,7 @@ public abstract partial class TargetFile {
         public override TargetWrite Write(OutputTarget target) =>
             target.Reader.Match<TargetWrite>(
                 Some: reader => new TargetWrite.Layers(Layout(target), reader),
-                None: () => new TargetWrite.Raw(frame => Layout(target).Bind(layout => StillFormat.ExrRaster.From(frame, layout, target.Alpha, None).ToFin())));
+                None: () => new TargetWrite.Raw((frame, _) => Layout(target).Bind(layout => StillFormat.ExrRaster.From(frame, layout, target.Alpha, None).ToFin())));
 
         public override Option<TargetVerdict> Verdict(TargetParameter parameter, OutputTarget target) =>
             parameter.Map(
@@ -124,7 +123,8 @@ public abstract partial class TargetFile {
 
     private sealed class DngFile(string key, string extension) : TargetFile(key, extension) {
         public override TargetWrite Write(OutputTarget target) =>
-            new TargetWrite.Raw(static frame => StillFormat.Dng.From(frame, EffectPipeline.Working, Exposure.Neutral, None, None).ToFin());
+            new TargetWrite.Raw(static (frame, framing) => StillFormat.Dng.From(frame, EffectPipeline.Working, None,
+                framing.Bind(static held => held.FocalLength), framing.Bind(static held => held.Aperture)).ToFin());
 
         public override Option<TargetVerdict> Verdict(TargetParameter parameter, OutputTarget target) =>
             parameter.Map<Option<TargetVerdict>>(
@@ -138,14 +138,26 @@ public abstract partial class TargetFile {
             Referred(parameter, target, LayeredDocument.Depths, None);
     }
 
-    private sealed class DibFile(string key, string extension, bool holdsAlpha) : TargetFile(key, extension) {
-        public override TargetWrite Write(OutputTarget target) => new TargetWrite.Dib();
+    private sealed class JpegFile(string key, string extension) : TargetFile(key, extension) {
+        public override TargetWrite Write(OutputTarget target) =>
+            new TargetWrite.Raster(OutputDepth.UInt8, static (frame, encoding) => StillFormat.JpegRaster.From(frame, encoding, Quality.Default));
 
         public override Option<TargetVerdict> Verdict(TargetParameter parameter, OutputTarget target) =>
-            parameter.Map(
-                fileFormat: new TargetVerdict.Honored(),
-                alpha: holdsAlpha ? Some<TargetVerdict>(new TargetVerdict.Honored()) : None,
-                colorDepth: None, codec: None, reader: None, position: None, displayDevice: None, dithering: None);
+            parameter.Map<Option<TargetVerdict>>(
+                fileFormat: new TargetVerdict.NativeDisplay(),
+                alpha: None, colorDepth: None, codec: None, reader: None, position: None,
+                displayDevice: new TargetVerdict.Honored(), dithering: new TargetVerdict.Honored());
+    }
+
+    private sealed class DibFile(string key, string extension, Func<PixelFrame, bool, StillFormat> build) : TargetFile(key, extension) {
+        public override TargetWrite Write(OutputTarget target) => new TargetWrite.Dib(frame => build(frame, target.Alpha));
+
+        public override Option<TargetVerdict> Verdict(TargetParameter parameter, OutputTarget target) =>
+            parameter.Map<Option<TargetVerdict>>(
+                fileFormat: new TargetVerdict.NativeDisplay(),
+                alpha: new TargetVerdict.Honored(),
+                colorDepth: None, codec: None, reader: None, position: None,
+                displayDevice: new TargetVerdict.Honored(), dithering: new TargetVerdict.Honored());
     }
 }
 
@@ -205,15 +217,15 @@ public sealed record OutputBook(Seq<OutputTarget> Targets, Option<int> Current, 
 
     public static IO<OutputBook> Recalled(ValueSet set) =>
         from targets in toSeq(Range(0, int.MaxValue).TakeWhile(index => set.Entries.Keys.Exists(key => string.Equals(key.Owner, Owned(index), StringComparison.Ordinal))))
-            .TraverseM(index => FieldTexts.Recalled<OutputTarget>(Owned(index), path => set.Entries.Find(new EntryKey(Owned(index), path))))
+            .TraverseM(index => FieldTexts.Recalled(Owned(index), toSeq<IStateParameter<OutputTarget>>(TargetParameter.Items), path => IO.pure(set.Entries.Find(new EntryKey(Owned(index), path))), OutputTarget.Default))
             .As()
-        from destination in FieldTexts.Recalled<Destination>(Owner, path => set.Entries.Find(new EntryKey(Owner, path)))
+        from destination in FieldTexts.Recalled(Owner, toSeq<IStateParameter<Destination>>(DestinationParameter.Items), path => IO.pure(set.Entries.Find(new EntryKey(Owner, path))), Destination.Default)
         select new OutputBook(targets, set.Entries.Find(new EntryKey(Owner, [CurrentKey])).Bind(parseInt).Filter(index => targets.At(index).IsSome), destination);
 
     private static string Owned(int index) => string.Create(CultureInfo.InvariantCulture, $"{Owner}-target-{index}");
 
     private static Seq<(EntryKey Key, string Text)> Entries<TRecord>(string owner, TRecord record) where TRecord : IStateRecord<TRecord> =>
-        FieldTexts<TRecord>.Items.Choose(item => item.Capture(record).Map(text => (Key: new EntryKey(owner, item.Path), Text: text)));
+        FieldTexts.Items<TRecord>().Choose(item => item.Capture(record).Map(text => (Key: new EntryKey(owner, item.Path), Text: text)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -228,22 +240,22 @@ public static class TargetRows {
     private static string DepthText(OutputDepth depth) =>
         depth.Map(uInt8: "8", uInt10: "10", uInt12: "12", uInt14: "14", uInt16: "16", float16: "Float (Half)", float32: "Float (Full)");
 
-    private static ParameterText Text(TargetParameter parameter) =>
+    public static ParameterText Text(TargetParameter parameter) =>
         parameter.Map(
             fileFormat: ParameterText.Choice<TargetFile, InvalidRhinoValue>("File format", "Format the file is written in", FileText),
-            alpha: ParameterText.Of("Alpha", "Writes RGBA, off writes RGB over black"),
-            colorDepth: ParameterText.Choice<OutputDepth, InvalidQuantization>("Color depth", "Bits per channel", DepthText),
+            alpha: ParameterText.Of("Alpha", "Includes alpha where the format supports it"),
+            colorDepth: ParameterText.Choice<OutputDepth, InvalidQuantization>("Storage depth", "Bits stored per channel; a native bitmap source has 8-bit precision", DepthText),
             codec: ParameterText.Choice<ExrCompression, InvalidOutput>("Codec", "OpenEXR compression of the color parts", static codec => codec.Map(
                 uncompressed: "None", rle: "RLE (lossless)", zips: "ZIPS (lossless)", zip: "ZIP (lossless)", piz: "PIZ (lossless)", pxr24: "Pxr24 (lossy)", b44: "B44 (lossy)", b44A: "B44A (lossy)")),
             reader: ParameterText.Choice<LayerReader, InvalidRhinoValue>("Layers", "Writes each render channel as a part named for its reader", "Single part",
                 static reader => reader.Map(blender: "Blender", nukeWorld: "Nuke, world normals", nukeView: "Nuke, view normals")),
             position: ParameterText.Of("Position", "Adds world position from the distance channel and the rendering's camera"),
-            displayDevice: ParameterText.Choice<Imaging.Tone.Formations.Display, InvalidToneValue>("Display", "Display the file is formed for and tagged as", static display => display.Map(
+            displayDevice: ParameterText.Choice<Imaging.Tone.Formations.Display, InvalidToneValue>("Display", "Display for a captured callback or history frame; native bitmap saves preserve Rhino's display", static display => display.Map(
                 srgb: "sRGB", displayP3: "Display P3", rec1886: "Rec.1886", rec2020: "Rec.2020", rec2100PqHdr: "Rec.2100-PQ, HDR 1000 nits", rec2100PqSdr: "Rec.2100-PQ, SDR",
                 rec2100HlgHdr: "Rec.2100-HLG, HDR 1000 nits", rec2100HlgSdr: "Rec.2100-HLG, SDR")),
-            dithering: ParameterText.Choice<Dither, InvalidQuantization>("Dither", "Noise or diffused error added before the file's integer codes", DitherText));
+            dithering: ParameterText.Choice<Dither, InvalidQuantization>("Dither", "Final integer quantization of a captured callback or history frame; native bitmap saves preserve Rhino's dither", DitherText));
 
-    private static ParameterText DestinationText(DestinationParameter parameter) =>
+    public static ParameterText DestinationText(DestinationParameter parameter) =>
         parameter.Map(
             folder: ParameterText.Of("Folder", "Folder the files are written to"),
             stem: ParameterText.Of("Name", "File name stem every target extends"),
@@ -252,9 +264,10 @@ public static class TargetRows {
     private static string VerdictText(TargetVerdict verdict) =>
         RowText.Localize(verdict.Map(
             honored: "Written as chosen",
-            rawChannels: "Written from the renderer's channels, ahead of every post effect",
+            rawChannels: "Scene-linear samples: renderer channels for native windows, captured scene input for callback or history exports",
             lossyColor: "Color parts lossy, data parts lossless",
             noSample: "Refused, the format holds no sample at this depth",
+            nativeDisplay: "Native windows supply 8-bit display for integer files and renderer channels for float files; callback and history exports form their captured pixels",
             noLevels: "Refused, a float depth holds no levels to dither")).Local;
 
     private static readonly Seq<(TargetParameter Parameter, ParameterText Text)> Texts = ParameterText.Join<OutputTarget, TargetParameter, InvalidRhinoValue>(Text);
@@ -317,11 +330,14 @@ public static class TargetRows {
         new(None, Some(RowRule.When(Chosen, target => target.FileFormat.Verdict(parameter, target).IsSome, TargetParameter.FileFormat, TargetParameter.ColorDepth, TargetParameter.Reader)));
 
     // --- [PAGE]
+    public static Seq<ControlRow> Formation { get; } = SectionRows.Of(Chosen,
+        Texts.Filter(static pair => pair.Parameter == TargetParameter.DisplayDevice || pair.Parameter == TargetParameter.Dithering), None, Rules);
+
     public static Seq<ControlRow> Page { get; } =
         Seq(ListRows.List("Targets", "Files each save writes from one rendering", new ListRow<(OutputTarget Target, int Index), int>(
                 IterableNE.create<ListColumn<(OutputTarget Target, int Index)>>(
                     new ListColumn<(OutputTarget Target, int Index)>.Label(None, static row => FileText(row.Target.FileFormat), None, None),
-                    new ListColumn<(OutputTarget Target, int Index)>.Label(None, static row => DepthText(row.Target.ColorDepth), None, None)),
+                    new ListColumn<(OutputTarget Target, int Index)>.Label(None, static row => row.Target.FileFormat.Verdict(TargetParameter.ColorDepth, row.Target).Map(_ => DepthText(row.Target.ColorDepth)).IfNone(""), None, None)),
                 static row => row.Index,
                 Listed,
                 Picked) {
@@ -341,30 +357,26 @@ public static class TargetRows {
                         select written))),
         },
             RowRules.Always))
-        + SectionRows.Of(Chosen, Texts, SectionRows.Unstaged, Rules)
+        + SectionRows.Of(Chosen, Texts.Filter(static pair => pair.Parameter != TargetParameter.DisplayDevice && pair.Parameter != TargetParameter.Dithering), None, Rules)
         + Seq<ControlRow>(new ControlRow.Group("Written as", RowRules.Always))
-        + Texts.Map(static pair => TextRows.Readout(
+        + Texts.Filter(static pair => pair.Parameter != TargetParameter.DisplayDevice && pair.Parameter != TargetParameter.Dithering).Map(static pair => TextRows.Readout(
             pair.Text.Caption, pair.Text.Help, new ReadoutSource<OutputTarget>.Model(Shown),
             target => target.FileFormat.Verdict(pair.Parameter, target).Match(Some: VerdictText, None: static () => ""),
             Rules(pair.Parameter)))
-        + SectionRows.Of(Destined, DestinationTexts, SectionRows.Unstaged, static _ => RowRules.Always)
+        + SectionRows.Of(Destined, DestinationTexts, None, static _ => RowRules.Always)
         + Seq(
             ListRows.List("Paths", "Files the next save writes", new ListRow<(OutputName Name, OutputPath Path), string>(
                     IterableNE.create<ListColumn<(OutputName Name, OutputPath Path)>>(new ListColumn<(OutputName Name, OutputPath Path)>.Label(None, static row => row.Path, None, None)),
                     static row => row.Path,
-                    RowSource.Opaque(Owner, "paths", Seq<(OutputName Name, OutputPath Path)>(), static scope => ValueStore.Of(
+                    RowSource.Opaque(Owner, "paths", Seq<(OutputName Name, OutputPath Path)>(), static scope => new ValueStore<Seq<(OutputName Name, OutputPath Path)>>(
                         from doc in Document(scope)
                         from book in Book(doc)
                         from listed in Saves.Preview(doc, book)
                         select Some(listed),
-                        static _ => IO.pure(unit),
+                        static _ => IO.pure(Change<Seq<(OutputName Name, OutputPath Path)>>.None),
+                        EqualityComparer<Seq<(OutputName Name, OutputPath Path)>>.Default.Equals,
                         Applied.Live,
                         Signal(scope))),
                     RowSource.Opaque(Owner, "path-picked", LanguageExt.HashSet<string>.Empty)),
-                RowRules.Always),
-            SectionRows.Pushed(new CommandRow.Run(new CommandFace("output-save", "Save rendering", "Write every target of the newest rendering", None, None), None, static scope =>
-                from doc in Document(scope)
-                from book in Book(doc)
-                from written in Saves.Newest(doc, scope.Sink, book)
-                select unit)));
+                RowRules.Always));
 }

@@ -5,8 +5,15 @@
     "useDaemonProcess": false,
     "namedInputs": {
         "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}"],
-        "dotnet": ["{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.targets,Directory.Packages.props}", { "externalDependencies": [] }, { "runtime": "dotnet --version" }],
-        "rhino": [{ "env": "RHINO_PATH" }, { "runtime": "plutil -extract CFBundleVersion raw \"$RHINO_PATH/Contents/Info.plist\"" }],
+        "dotnet": ["{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.targets,Directory.Packages.props}", { "externalDependencies": [] }, { "env": "DOTNET_CLI_ENABLEAOT" }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" }],
+        "dotnetBuild": ["dotnet", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/mise.toml", { "runtime": "doppler --version" }],
+        "dotnetFormat": ["dotnet", "rhino", "rhinoInstallation", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}"],
+        "rhino": [{ "env": "RHINO_PATH" }, { "env": "RuntimeIdentifier" }, { "runtime": "dotnet --info" }],
+        "rhinoInstallation": [{ "runtime": "dotnet msbuild libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj -target:HashRhinoInstallation -getProperty:RhinoInstallPath,RhinoInstallationHash -property:DisablePackageAssetsCache=true -nologo" }, { "dependentTasksOutputFiles": "**/project.assets.json", "transitive": true }],
+        "yakInstallation": [
+            { "runtime": "dotnet msbuild libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj -target:HashYakInstallation -getProperty:RhinoInstallPath,RhinoInstallationHash,_YakExecutable -property:DisablePackageAssetsCache=true -nologo" },
+            { "dependentTasksOutputFiles": "**/project.assets.json", "transitive": true }
+        ],
         "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" }],
         "blender": [{ "env": "BLENDER_PATH" }, { "runtime": "\"$BLENDER_PATH\" --version" }],
         "xcode": [{ "externalDependencies": [] }, { "runtime": "xcodebuild -version" }],
@@ -18,10 +25,10 @@
     "targetDefaults": {
         "build{,:*}": [
             { "cache": true },
-            { "filter": { "projects": ["tag:host:rhino"] }, "inputs": ["...", "rhino"] },
+            { "filter": { "projects": ["tag:host:rhino"] }, "inputs": ["...", "rhino", "rhinoInstallation"], "outputs": ["{workspaceRoot}/.artifacts/dotnet/bin/{projectName}_*", "{workspaceRoot}/.artifacts/dotnet/obj/{projectName}_*/*/**/*"] },
             { "filter": { "projects": ["tag:host:rhino", "!directory:libs/**"] }, "inputs": ["...", "icons"], "options": { "args": ["--no-restore"] }, "configurations": { "debug": { "args": ["--no-restore", "--configuration", "Debug"] }, "release": { "args": ["--no-restore", "--configuration", "Release"] } } },
             { "filter": { "plugin": "@nx/dotnet" }, "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }] },
-            { "filter": { "projects": ["tag:language:dotnet"] }, "command": "dotnet build -bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog", "inputs": ["...", "dotnet"] },
+            { "filter": { "projects": ["tag:language:dotnet"] }, "command": "doppler run --project rasm --config dev_repo --only-secrets SIXLABORSLICENSEKEY --no-fallback --attempts 1 -- dotnet build \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog\"", "inputs": ["...", "dotnetBuild"] },
             {
                 "filter": { "projects": ["tag:language:swift"] },
                 "executor": "nx:run-commands",
@@ -52,7 +59,7 @@
                 "filter": { "projects": ["tag:host:rhino"] },
                 "cache": true,
                 "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
-                "inputs": ["production", "^production", "{workspaceRoot}/.editorconfig", "dotnet", "rhino", "icons", { "runtime": "yak version" }],
+                "inputs": ["production", "^production", "{workspaceRoot}/.editorconfig", "dotnetBuild", "rhino", "yakInstallation", "icons"],
                 "parallelism": false
             },
             {
@@ -107,6 +114,9 @@
             }
         ],
         "format": [{ "filter": { "projects": ["tag:language:swift"] }, "executor": "nx:run-commands", "options": { "commands": ["swiftlint lint --fix --quiet {projectRoot}", "xcrun swift-format format --in-place --parallel --recursive {projectRoot}"], "parallel": false } }],
+        "restore:*.cs": { "command": "dotnet restore -bl:.artifacts/dotnet/binlog/restore-{}.binlog", "cache": true, "parallelism": false },
+        "run:*.cs": { "command": "dotnet run" },
+        "{format:dotnet,lint:dotnet-format,{format,lint}:*.cs}": { "command": "dotnet format", "parallelism": false },
         "typecheck": [
             { "filter": { "projects": ["tag:language:dotnet"] }, "executor": "nx:noop", "dependsOn": ["build"] },
             {

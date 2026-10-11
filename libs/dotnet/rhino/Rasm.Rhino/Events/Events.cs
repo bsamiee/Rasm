@@ -33,7 +33,7 @@ internal sealed class Debouncer<A> {
     public Debouncer(TimeProvider clock, Duration quiet, Func<Seq<A>, IO<Unit>> deliver, CallbackSite site) {
         this.clock = clock;
         this.quiet = quiet.ToTimeSpan();
-        Timer = clock.CreateTimer(_ => _ = Callbacks.Answer(Tick(deliver), static () => unit, site), state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        Timer = clock.CreateTimer(_ => Callbacks.Run(Tick(deliver), site), state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public ITimer Timer { get; }
@@ -82,12 +82,13 @@ public static class EventKind {
     public static readonly HostEvent<uint> DocumentArrived = new(
         typeof(RhinoDoc),
         nameof(DocumentArrived),
-        static (deliver, site) =>
-            from attached in DisposalOps.AcquireAll(Seq(LiveNewDocument, LiveEndOpenDocument).Map(row => row.Inline(deliver, site.Sink)), DisposalOps.Release)
-            from delivered in DisposalOps.OnFailure(
-                IO.lift(() => Conversions.Rows(RhinoDoc.OpenDocuments(includeHeadless: false)).Iter(doc => Callbacks.Answer(doc.RuntimeSerialNumber, deliver, static () => unit, site))),
-                DisposalOps.Release(attached))
-            select DisposalOps.Composite(attached, site));
+        static (deliver, site, retain) => DisposalOps.Acquire(
+            own =>
+                from attached in Seq(LiveNewDocument, LiveEndOpenDocument).TraverseM(row => row.Inline(deliver, site.Sink, own)).As()
+                from opened in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments(includeHeadless: false)))
+                from delivered in Callbacks.Each(opened.Map(doc => IO.pure(doc.RuntimeSerialNumber).Bind(deliver)))
+                select unit,
+            (_, release) => retain(release)));
 
     // --- [OBJECTS]
     public static readonly DocumentEvent<RhinoObjectEventArgs> AddRhinoObject = Subscriptions.Watched<RhinoObjectEventArgs>(static (watcher, h) => watcher.AddRhinoObject += h, static args => Conversions.Serial(args.TheObject?.Document));
@@ -108,24 +109,23 @@ public static class EventKind {
     public static readonly DocumentEvent<TransformedObjects> TransformObjects = new(
         typeof(RhinoDoc),
         nameof(TransformObjects),
-        static (deliver, site) =>
+        static (deliver, site, retain) => DisposalOps.Acquire(own =>
             from held in IO.lift(static () => Atom((Pending: HashMap<uint, TransformedObjects>(), Taken: Option<TransformedObjects>.None)))
-            from attached in DisposalOps.AcquireAll(
-                Seq(
-                    BeforeTransformObjects.Inline(
+            from before in BeforeTransformObjects.Inline(
                         args =>
                             from raised in IO.lift(() => (Id: args.TransformEventId, Objects: TransformedObjects.Of(args)))
                             from swapped in held.SwapIO(state => state with { Pending = state.Pending.AddOrUpdate(raised.Id, raised.Objects) })
                             select unit,
-                        site.Sink),
-                    AfterTransformObjects.Inline(
+                        site.Sink, own)
+            from after in AfterTransformObjects.Inline(
                         args =>
                             from id in IO.lift(() => args.TransformEventId)
                             from swapped in held.SwapIO(state => (state.Pending.Remove(id), state.Pending.Find(id)))
                             from delivered in swapped.Taken.Traverse(deliver).As()
                             select unit,
-                        site.Sink)), DisposalOps.Release)
-            select DisposalOps.Composite(attached, site),
+                        site.Sink, own)
+            select unit,
+            (_, release) => retain(release)),
         static args => args.Document);
 
     // --- [TABLES]
@@ -201,7 +201,7 @@ public static class EventKind {
     public static readonly DocumentEvent<DrawEventArgs> ViewportProjectionChanged = new(
         typeof(DisplayPipeline),
         nameof(DisplayPipeline.ViewportProjectionChanged),
-        static (deliver, site) =>
+        static (deliver, site, retain) =>
             from counters in IO.lift(static () => Atom((Counters: HashMap<Guid, uint>(), Repeat: false)))
             from attached in ProjectionRaised.Inline(
                 args =>
@@ -209,7 +209,7 @@ public static class EventKind {
                     from swapped in counters.SwapIO(state => (state.Counters.AddOrUpdate(raised.Viewport, raised.Counter), state.Counters.Find(raised.Viewport) == Some(raised.Counter)))
                     from delivered in unless(swapped.Repeat, IO.pure(args).Bind(deliver)).As()
                     select unit,
-                site.Sink)
+                site.Sink, retain)
             select attached,
         static args => Conversions.Serial(args.RhinoDoc));
 
@@ -264,25 +264,21 @@ public static class EventKind {
         new(
             typeof(FileSystemWatcher),
             nameof(FileChanges),
-            (deliver, site) =>
-                from watcher in IO.lift(() => new FileSystemWatcher(directory.FullName) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size, IncludeSubdirectories = subdirectories })
+            (deliver, site, retain) => DisposalOps.Acquire(own =>
+                from debouncer in DisposalOps.Acquire(IO.lift(() => new Debouncer<Either<ErrorEventArgs, FileSystemEventArgs>>(clock, quiet, deliver, site)), static held => IO.lift(held.Timer.Dispose), held => own(held.Timer))
+                from watcher in DisposalOps.Acquire(IO.lift(() => new FileSystemWatcher(directory.FullName) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size, IncludeSubdirectories = subdirectories }), static held => IO.lift(held.Dispose), own)
                     .Catch(static error => error.HasException<ArgumentException>() || error.HasException<FileNotFoundException>(), static _ => IO.fail<FileSystemWatcher>(new Missing(nameof(FileSystemWatcher))))
-                from debouncer in DisposalOps.OnFailure(IO.lift(() => new Debouncer<Either<ErrorEventArgs, FileSystemEventArgs>>(clock, quiet, deliver, site)), IO.lift(watcher.Dispose))
                 let changed = Callbacks.Handler<FileSystemEventArgs>(args => debouncer.Post(Right(args)), site)
-                from held in DisposalOps.AcquireAll(
-                    Seq(
-                        IO.pure<IDisposable>(debouncer.Timer),
-                        IO.pure<IDisposable>(watcher),
-                        Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Changed += h, h => watcher.Changed -= h, changed.Invoke),
-                        Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Created += h, h => watcher.Created -= h, changed.Invoke),
-                        Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Deleted += h, h => watcher.Deleted -= h, changed.Invoke),
-                        Subscriptions.Attach<RenamedEventHandler>(h => watcher.Renamed += h, h => watcher.Renamed -= h, changed.Invoke),
-                        Subscriptions.Attach<ErrorEventHandler>(h => watcher.Error += h, h => watcher.Error -= h, Callbacks.Handler<ErrorEventArgs>(args => debouncer.Post(Left(args)), site).Invoke)), DisposalOps.Release)
-                from enabled in DisposalOps.OnFailure(
-                    IO.lift(() => {
-                        _ = filters.Iter(watcher.Filters.Add);
-                        watcher.EnableRaisingEvents = true;
-                    }),
-                    DisposalOps.Release(held))
-                select DisposalOps.Composite(held, site));
+                from attached in Seq(
+                    Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Changed += h, h => watcher.Changed -= h, changed.Invoke, own),
+                    Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Created += h, h => watcher.Created -= h, changed.Invoke, own),
+                    Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Deleted += h, h => watcher.Deleted -= h, changed.Invoke, own),
+                    Subscriptions.Attach<RenamedEventHandler>(h => watcher.Renamed += h, h => watcher.Renamed -= h, changed.Invoke, own),
+                    Subscriptions.Attach<ErrorEventHandler>(h => watcher.Error += h, h => watcher.Error -= h, Callbacks.Handler<ErrorEventArgs>(args => debouncer.Post(Left(args)), site).Invoke, own)).TraverseM(static attach => attach).As()
+                from enabled in IO.lift(() => {
+                    _ = filters.Iter(watcher.Filters.Add);
+                    watcher.EnableRaisingEvents = true;
+                })
+                select unit,
+                (_, release) => retain(release)));
 }

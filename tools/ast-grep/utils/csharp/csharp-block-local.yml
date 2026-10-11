@@ -7,8 +7,8 @@ rule:
     pattern: $LOCAL
     inside:
         stopBy: end
-        kind: 'block, switch_section'
-        has:
+        follows:
+            stopBy: end
             kind: local_declaration_statement
             has:
                 kind: variable_declaration

@@ -7,11 +7,20 @@ using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Slots;
 using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Components;
+using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Viewers;
 using Rasm.Rhino.UI.Views;
 using Rhino.PlugIns;
 
 namespace Rasm.Rhino.Render.Effects;
+
+// --- [TYPES] ---------------------------------------------------------------------------
+internal enum TileRank {
+    Current,
+    Visible,
+    Rest,
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -22,7 +31,7 @@ public readonly partial struct TileBatch : System.Numerics.IMinMaxValue<TileBatc
     public static TileBatch Default { get; } = new(2);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value == int.Clamp(value, MinValue._value, MaxValue._value) ? null : new InvalidRhinoValue();
+        validationError = value >= MinValue._value && value <= MaxValue._value ? null : new InvalidRhinoValue();
 }
 
 [ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -35,7 +44,7 @@ public readonly partial struct TileBudget : System.Numerics.IMinMaxValue<TileBud
     public Duration Span => Duration.FromMilliseconds(_value);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value == int.Clamp(value, MinValue._value, MaxValue._value) ? null : new InvalidRhinoValue();
+        validationError = value >= MinValue._value && value <= MaxValue._value ? null : new InvalidRhinoValue();
 }
 
 [ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -46,7 +55,7 @@ public readonly partial struct TileCapacity : System.Numerics.IMinMaxValue<TileC
     public static TileCapacity Default { get; } = new(256);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value == int.Clamp(value, MinValue._value, MaxValue._value) ? null : new InvalidRhinoValue();
+        validationError = value >= MinValue._value && value <= MaxValue._value ? null : new InvalidRhinoValue();
 }
 
 public sealed record TileLimits(TileBatch Batch, TileBudget Budget, TileCapacity Capacity) {
@@ -54,22 +63,26 @@ public sealed record TileLimits(TileBatch Batch, TileBudget Budget, TileCapacity
 }
 
 public sealed record TileLimitRows(
-    PlugInSetting<TileBatch, int, InvalidRhinoValue> Batch,
-    PlugInSetting<TileBudget, int, InvalidRhinoValue> Budget,
-    PlugInSetting<TileCapacity, int, InvalidRhinoValue> Capacity) {
+    PlugInSetting<TileBatch, int> Batch,
+    PlugInSetting<TileBudget, int> Budget,
+    PlugInSetting<TileCapacity, int> Capacity) {
     public Seq<PlugInSetting> Rows => [Batch, Budget, Capacity];
 
-    public IO<TileLimits> Limits(SettingsNode node) =>
-        (PlugInSettings.Current(node, Batch), PlugInSettings.Current(node, Budget), PlugInSettings.Current(node, Capacity))
+    public Seq<Child> Children =>
+        (SectionRows.Setting(Batch, RowRules.Always)
+         + SectionRows.Setting(Budget, RowRules.Always)
+         + SectionRows.Setting(Capacity, RowRules.Always))
+            .Map(static row => (Child)row);
+
+    public IO<TileLimits> Limits(ISettingReader reader) =>
+        (reader.Current(Batch), reader.Current(Budget), reader.Current(Capacity))
             .Apply(static (batch, budget, capacity) => new TileLimits(batch, budget, capacity))
             .As();
 }
 
 public sealed record TileRequest(RenderSlot Slot, ValueSet Set, Seq<EffectKind> Chain) {
     public static TileRequest Recorded(RenderSlot slot, Seq<EffectKind> kinds) =>
-        slot.State.Match(
-            Some: state => new TileRequest(slot, state.Grading, state.Running(kinds)),
-            None: () => new TileRequest(slot, ValueSet.Empty, Seq<EffectKind>()));
+        new(slot, slot.Grading, slot.Running(kinds));
 
     public static Fin<TileRequest> Applied(RenderSlot slot, Preset preset, ValueSet current, LanguageExt.HashSet<EntryKey> locks, Seq<EffectKind> chain) =>
         preset.Values.Map(values => new TileRequest(slot, values.Over(current, locks), chain));
@@ -93,15 +106,6 @@ public sealed record TileRequest(RenderSlot Slot, ValueSet Set, Seq<EffectKind> 
         };
 }
 
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-internal sealed partial class TileRank {
-    public static readonly TileRank Current = new(forced: false);
-    public static readonly TileRank Visible = new(forced: false);
-    public static readonly TileRank Rest = new(forced: true);
-
-    public bool Forced { get; }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PreviewTiles {
     // --- [ACQUISITION]
@@ -110,32 +114,40 @@ public sealed class PreviewTiles {
 
     private readonly Atom<Ledger> held = Atom(Ledger.Empty);
     private readonly Atom<TileLimits> bounds = Atom(TileLimits.Default);
-    private readonly Derivations derivations = new();
-    private readonly IPlugInViews owner;
+    private readonly Ref<(int Count, Duration Spent, int Running)> usage = Ref((0, Duration.Zero, 0));
+    private readonly Derivations derivations;
+    private readonly IPlugInSink owner;
+    private readonly TimeProvider clock;
+    private readonly IO<TileLimits> limits;
+    private readonly Ref<Seq<Raster>> rasters = Ref(Seq<Raster>());
 
-    private PreviewTiles(IPlugInViews owner) => this.owner = owner;
+    private PreviewTiles(IPlugInSink owner, TimeProvider clock, IO<TileLimits> limits, Derivations derivations) =>
+        (this.owner, this.clock, this.limits, this.derivations) = (owner, clock, limits, derivations);
 
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register(Option<TileLimitRows> limits, Func<PreviewTiles, Seq<Func<PlugIn, IPlugInSink, IO<IDisposable>>>> readers) =>
-        (plugIn, sink) =>
-            from tiles in IO.lift(() => new PreviewTiles((IPlugInViews)sink))
-            let views = tiles.owner
-            let read = limits.Match(
-                Some: rows => rows.Limits(views.Settings).Bind(tiles.Limit),
-                None: static () => IO.pure(unit))
-            from initial in read
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> Register(Option<TileLimitRows> limits, Func<PreviewTiles, Seq<Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>>>> readers) =>
+        (plugIn, sink, retain) => DisposalOps.Acquire(owned =>
+            from views in IO.pure((IPlugInViews)sink)
+            from tiles in Open(sink, views.Clock,
+                limits.Match(Some: rows => rows.Limits(views.Settings), None: static () => IO.pure(TileLimits.Default)),
+                limits.Map(_ => SettingRoots.Saved(views.Settings)), owned)
             let cell = ((IPlugInRendering)sink).Tiles
-            let site = new CallbackSite(sink, typeof(PreviewTiles), nameof(Register))
-            from acquired in DisposalOps.AcquireAll(
-                limits.Map(_ => SettingRoots.Saved(views.Settings).Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ => read), sink)).ToSeq()
-                    .Add(tiles.Attach(site))
-                    .Concat(readers(tiles).Map(row => row(plugIn, sink)))
-                    .Add(cell.SwapIO(_ => Some(tiles)).Map(_ => (IDisposable)new Disposal<Atom<Option<PreviewTiles>>>(cell, static filled => filled.Swap(static _ => None)))),
-                DisposalOps.Release)
-            select DisposalOps.Composite(acquired, site);
+            from acquired in readers(tiles).TraverseM(row => row(plugIn, sink, owned)).As()
+            from served in DisposalOps.Change(() => cell.Value, current => _ = cell.Swap(_ => current), Some(tiles), owned)
+            select unit, (_, lease) => retain(lease));
 
-    private IO<IDisposable> Attach(CallbackSite site) =>
-        Ticked.Repeat(Schedule.spaced(Tick.ToTimeSpan())).Fork()
-            .Map(worker => (IDisposable)new Disposal<ForkIO<Unit>>(worker, running => Callbacks.Succeeded(running.Cancel, site)));
+    public static IO<PreviewTiles> Open(IPlugInSink owner, TimeProvider clock, IO<TileLimits> limits, Option<HostEvent<Unit>> changes, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(owned =>
+            from derivations in DisposalOps.Acquire(IO.lift(static () => new Derivations()), static held => IO.lift(held.Dispose), owned)
+            from tiles in IO.lift(() => new PreviewTiles(owner, clock, limits, derivations))
+            from environment in envIO
+            from images in DisposalOps.Acquire(
+                IO.lift(() => new Disposal<IO<Unit>>(tiles.Emptied, close => close.Run(environment))), static lease => IO.lift(lease.Dispose), owned)
+            let read = limits.Bind(tiles.Limit)
+            from initial in read
+            from saved in changes.TraverseM(changed => changed.Choose(static _ => Some((unit, unit)))
+                .Through(Subscriptions.Idle<Unit, Unit>(_ => read), owner, owned)).As()
+            from worker in DisposalOps.Fork(tiles.Ticked.Repeat(Schedule.spaced(Tick.ToTimeSpan())), owned)
+            select tiles, (_, lease) => retain(lease));
 
     private IO<Unit> Limit(TileLimits current) => bounds.SwapIO(_ => current).Map(static _ => unit);
 
@@ -143,57 +155,112 @@ public sealed class PreviewTiles {
     public TileSource Source(IO<Option<TileRequest>> request, IO<Option<string>> file) =>
         new(request.Map(static asked => asked.Map(static wanted => wanted.Slot.Extent)),
             extent => request.Bind(asked => asked.Match(
-                Some: wanted => Asked(wanted, extent, TileRank.Current),
+                Some: wanted => Asked(wanted, extent, TileRank.Current).Map(static found => found.Map(static pixels => pixels.Frame)),
                 None: static () => IO.pure(Option<PixelFrame>.None))),
             TransferCurve.Srgb,
             file);
 
-    public IO<PixelFrame> Formed(TileRequest request, PixelExtent extent) =>
-        Monad.recur(unit, _ => Asked(request, extent, TileRank.Visible).Bind(static found => found.Match(
-            Some: static tile => IO.pure(Next.Done<Unit, PixelFrame>(tile)),
-            None: static () => IO.yieldFor(Tick.ToTimeSpan()).Map(static _ => Next.Loop<Unit, PixelFrame>(unit))))).As();
+    internal IO<(PixelFrame Frame, PixelFrame Proxy)> Formed(TileRequest request, PixelExtent extent, TileRank rank) =>
+        Monad.recur(unit, _ => Asked(request, extent, rank).Bind(static found => found.Match(
+            Some: static tile => IO.pure(Next.Done<Unit, (PixelFrame Frame, PixelFrame Proxy)>(tile)),
+            None: static () => IO.yieldFor(Tick.ToTimeSpan()).Map(static _ => Next.Loop<Unit, (PixelFrame Frame, PixelFrame Proxy)>(unit))))).As();
 
-    public IO<Disposal<Thumbnail>> Thumbnail(Control view, TileRequest request, Size size) =>
-        from device in HostTheme.Device(size)
-        from extent in IO.lift(() => PixelExtent.Validate(device.Width, device.Height, out PixelExtent asked) is { } error ? Fin.Fail<PixelExtent>(error) : Fin.Succ(asked))
-        from tile in Formed(request, extent)
-        from pixels in FrameView.Raster(owner, view, tile, TransferCurve.Srgb)
-        select new Disposal<Thumbnail>(new Thumbnail.Raster(pixels), UI.Assets.Thumbnail.Release);
+    public IO<Disposal<Thumbnail>> Thumbnail(Control view, TileRequest request, Size size, Action<Disposal<Thumbnail>> retain) =>
+        DisposalOps.Acquire(owned =>
+            from device in HostTheme.Device(size)
+            from extent in IO.lift(() => PixelExtent.Validate(device.Width, device.Height, out PixelExtent asked) is { } error ? Fin.Fail<PixelExtent>(error) : Fin.Succ(asked))
+            from tile in Formed(request, extent, TileRank.Visible)
+            from pixels in FrameView.Raster(owner, view, tile.Frame, TransferCurve.Srgb, owned)
+            select new Disposal<Thumbnail>(new Thumbnail.Raster(pixels), UI.Assets.Thumbnail.Release), (thumbnail, _) => retain(thumbnail));
 
     public IO<Unit> Refresh =>
-        from now in IO.lift(owner.Clock.GetTimestamp)
+        from now in IO.lift(clock.GetTimestamp)
         from _ in held.SwapIO(state => state.Refreshed(now))
         select unit;
 
     public long Bytes => held.Value.Bytes;
 
-    private IO<Option<PixelFrame>> Asked(TileRequest request, PixelExtent asked, TileRank rank) =>
-        from now in IO.lift(owner.Clock.GetTimestamp)
+    public IO<Option<Unit>> Paint(object source, Option<Control> view, PixelFrame frame, PixelExtent extent, Imaging.ColorManagement.Transfer encoding, Action<Bitmap> draw) =>
+        from current in limits.Bind(Limit)
+        from now in IO.lift(clock.GetTimestamp)
+        let key = (Source: source, View: view, Frame: frame, Extent: frame.Size.Fitted(extent), Encoding: encoding)
+        from pixels in IO.lift(() => rasters.Value.Find(row => row.Key == key)).Bind(found => found.Match(
+            Some: static row => IO.pure(Some(row.Pixels)),
+            None: () => Requested(
+                from reduced in IO.lift(() => frame.Downscaled(key.Extent))
+                from image in view.Match(
+                    Some: control => FrameView.Raster(owner, control, reduced, encoding,
+                        bitmap => _ = atomic(() => rasters.Swap(rows => rows.Add(new Raster(key, bitmap, now))))),
+                    None: () => DisposalOps.Acquire(IO.lift(() => Plots.Pixels(reduced.Size, encoding.Displayed(reduced))),
+                        static bitmap => IO.lift(bitmap.Dispose), bitmap => _ = atomic(() => rasters.Swap(rows => rows.Add(new Raster(key, bitmap, now))))))
+                select image)))
+        from painted in pixels.Traverse(bitmap => IO.lift(() => {
+            _ = atomic(() => rasters.Swap(rows => rows.Map(row => row.Key == key ? row with { Drawn = now } : row)));
+            draw(bitmap);
+        })).As()
+        from released in DisposalOps.Within(() => atomic(() => {
+            Seq<Raster> current = rasters.Value;
+            Seq<Bitmap> gone = toSeq(current.Filter(row => !Recent(now)(row.Drawn)).AsIterable()
+                .OrderBy(static row => row.Drawn).Take(current.Count + held.Value.Tiles.Count - bounds.Value.Capacity)
+                .Select(static row => row.Pixels));
+            rasters.Value = current.Filter(row => !gone.Exists(removed => ReferenceEquals(row.Pixels, removed)));
+            return gone;
+        }), static _ => IO.pure(unit), DisposalOps.Release)
+        select painted;
+
+    private IO<Unit> Emptied =>
+        atomicIO(() => {
+            Seq<Raster> images = rasters.Value;
+            rasters.Value = [];
+            return images.Map(static row => row.Pixels);
+        }).Bind(DisposalOps.Release).Post().Uninterruptible();
+
+    private IO<Option<(PixelFrame Frame, PixelFrame Proxy)>> Asked(TileRequest request, PixelExtent asked, TileRank rank) =>
+        from now in IO.lift(clock.GetTimestamp)
         let keyed = request.Keyed(asked)
         from ledger in held.SwapIO(state => state.Asked(keyed.Key, request, keyed.Tile, rank, now))
-        from tile in ledger.Tiles.Find(keyed.Key).Traverse(static kept => IO.lift(kept.Result)).As()
+        from tile in ledger.Tiles.Find(keyed.Key).Traverse(kept => IO.lift(kept.Result.Map(frame => (Frame: frame, Proxy: ledger.Proxies[request.Rendering])))).As()
         select tile;
 
     // --- [FORMATION]
     private IO<Unit> Ticked =>
-        (from limits in bounds.ValueIO
-         from began in IO.lift(owner.Clock.GetTimestamp)
-         from _ in Monad.recur(0, count => Step(limits, began, count)).As()
-         from now in IO.lift(owner.Clock.GetTimestamp)
-         from __ in held.SwapIO(state => state.Evicted(limits.Capacity, Recent(now)))
+        (from reset in atomicIO(() => {
+            if (usage.Value.Running == 0) usage.Value = (0, Duration.Zero, 0);
+            return unit;
+        })
+         from _ in Monad.recur(unit, _ => Step).As()
+         from limits in bounds.ValueIO
+         from now in IO.lift(clock.GetTimestamp)
+         from __ in held.SwapIO(state => state.Evicted(limits.Capacity - rasters.Value.Count, Recent(now)))
          select unit)
         .Catch(static error => !error.Is(Errors.Cancelled), Reported);
 
-    private IO<Next<int, Unit>> Step(TileLimits limits, long began, int count) =>
-        from now in IO.lift(owner.Clock.GetTimestamp)
-        from next in count == limits.Batch || (count > 0 && owner.Clock.GetElapsedTime(began, now).ToDuration() >= limits.Budget.Span)
-            ? IO.pure(Next.Done<int, Unit>(unit))
-            : from ledger in held.SwapIO(state => state.Popped(Recent(now)))
-              from landed in ledger.Running.Match(
-                  Some: running => Land(running, ledger.Proxies).Map(_ => Next.Loop<int, Unit>(count + 1)),
-                  None: static () => IO.pure(Next.Done<int, Unit>(unit)))
-              select landed
+    private IO<Next<Unit, Unit>> Step =>
+        from now in IO.lift(clock.GetTimestamp)
+        from ledger in held.SwapIO(state => state.Popped(Recent(now)))
+        from next in ledger.Running.Match(
+            Some: running => Requested(Land(running, ledger.Proxies)).Bind(result => result.Match(
+                Some: static _ => IO.pure(Next.Loop<Unit, Unit>(unit)),
+                None: () => held.SwapIO(state => state with { Queue = running.Cons(state.Queue), Running = None })
+                    .Map(static _ => Next.Done<Unit, Unit>(unit)))),
+            None: static () => IO.pure(Next.Done<Unit, Unit>(unit)))
         select next;
+
+    private IO<Option<T>> Requested<T>(IO<T> request) =>
+        DisposalOps.Within(
+            () => atomic(() => {
+                (int count, Duration spent, int running) = usage.Value;
+                TileLimits policy = bounds.Value;
+                bool accepted = count < policy.Batch && (count == 0 || spent < policy.Budget.Span);
+                if (accepted) usage.Value = (count + 1, spent, running + 1);
+                return accepted ? Some(clock.GetTimestamp()) : Option<long>.None;
+            }),
+            began => began.Match(Some: _ => request.Map(static value => Some(value)), None: static () => IO.pure(Option<T>.None)),
+            began => began.Traverse(at => atomicIO(() => {
+                (int count, Duration spent, int running) = usage.Value;
+                usage.Value = (count, spent + clock.GetElapsedTime(at, clock.GetTimestamp()).ToDuration(), running - 1);
+                return unit;
+            })).As().Map(static _ => unit));
 
     private IO<Unit> Land(Pending running, HashMap<ContentKey, PixelFrame> proxies) =>
         (from proxy in Proxied(running, proxies)
@@ -216,19 +283,21 @@ public sealed class PreviewTiles {
         };
 
     private IO<Unit> Keep(Pending running, Fin<PixelFrame> result) =>
-        from now in IO.lift(owner.Clock.GetTimestamp)
+        from now in IO.lift(clock.GetTimestamp)
         from _ in held.SwapIO(state => state.Landed(running, result, now))
         select unit;
 
-    private IO<Unit> Reported(Error error) => IO.lift(() => owner.Report(error, typeof(PreviewTiles), nameof(Attach)));
+    private IO<Unit> Reported(Error error) => IO.lift(() => owner.Report(error, typeof(PreviewTiles), nameof(Register)));
 
-    private Func<long, bool> Recent(long now) => at => owner.Clock.GetElapsedTime(at, now).ToDuration() < Window;
+    private Func<long, bool> Recent(long now) => at => clock.GetElapsedTime(at, now).ToDuration() < Window;
 
     // --- [LEDGER]
-    private sealed record Pending(ContentKey Key, TileRequest Request, PixelExtent Extent, HashMap<TileRank, long> Asks) {
-        public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => rank.Forced || recent(at));
+    private sealed record Raster((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Imaging.ColorManagement.Transfer Encoding) Key, Bitmap Pixels, long Drawn);
 
-        public bool Ranked(Func<long, bool> recent) => toSeq(TileRank.Items).Exists(rank => Holds(rank, recent));
+    private sealed record Pending(ContentKey Key, TileRequest Request, PixelExtent Extent, HashMap<TileRank, long> Asks) {
+        public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => rank == TileRank.Rest || recent(at));
+
+        public bool Ranked(Func<long, bool> recent) => toSeq(Enum.GetValues<TileRank>()).Exists(rank => Holds(rank, recent));
     }
 
     private sealed record Kept(TileRequest Request, PixelExtent Extent, Fin<PixelFrame> Result, long Drawn);
@@ -242,23 +311,23 @@ public sealed class PreviewTiles {
 
         public Ledger Asked(ContentKey key, TileRequest request, PixelExtent tile, TileRank rank, long now) =>
             this with {
-                Tiles = rank.Forced ? Tiles : Tiles.TrySetItem(key, kept => kept with { Drawn = now }),
+                Tiles = rank == TileRank.Rest ? Tiles : Tiles.TrySetItem(key, kept => kept with { Drawn = now }),
                 Queue = Queue.Exists(pending => pending.Key == key)
                     ? Queue.Map(pending => pending.Key == key ? pending with { Asks = pending.Asks.AddOrUpdate(rank, now) } : pending)
-                    : Running.Exists(running => running.Key == key) || (!rank.Forced && Tiles.ContainsKey(key))
+                    : Running.Exists(running => running.Key == key) || (rank != TileRank.Rest && Tiles.ContainsKey(key))
                         ? Queue
                         : Queue.Add(new Pending(key, request, tile, HashMap((rank, now)))),
             };
 
         public Ledger Popped(Func<long, bool> recent) =>
-            toSeq(TileRank.Items).Choose(rank => Queue.Find(pending => pending.Holds(rank, recent))).Head.Match(
+            toSeq(Enum.GetValues<TileRank>()).Choose(rank => Queue.Find(pending => pending.Holds(rank, recent))).Head.Match(
                 Some: next => this with { Queue = Queue.Filter(pending => pending.Key != next.Key && pending.Ranked(recent)), Running = Some(next) },
                 None: () => this with { Queue = Seq<Pending>(), Running = None });
 
         public Ledger Landed(Pending running, Fin<PixelFrame> result, long now) =>
             this with { Running = None, Tiles = Tiles.AddOrUpdate(running.Key, new Kept(running.Request, running.Extent, result, now)) };
 
-        public Ledger Evicted(TileCapacity capacity, Func<long, bool> recent) =>
+        public Ledger Evicted(int capacity, Func<long, bool> recent) =>
             this with {
                 Tiles = Tiles.Except(Tiles.Filter(kept => !recent(kept.Drawn)).AsIterable()
                     .OrderBy(static entry => entry.Value.Drawn)

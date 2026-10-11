@@ -86,53 +86,57 @@ public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : Visua
     public sealed override bool ShowIsoCurves => Callbacks.Answer(definition.ShowIsoCurves, () => base.ShowIsoCurves, static () => false, CallbackSite.Of(this));
 
     public sealed override void EnableUserInterface(bool on) =>
-        _ = definition.UserInterface.Iter(show => Callbacks.Answer(on, show, static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.UserInterface.Map(show => IO.pure(on).Bind(show)), CallbackSite.Of(this));
 
     public sealed override bool ObjectSupportsAnalysisMode(RhinoObject obj) =>
         Callbacks.Answer(definition.Supports.Map(supports => IO.lift(() => supports(obj))), () => base.ObjectSupportsAnalysisMode(obj), static () => false, CallbackSite.Of(this));
 
     // --- [APPEARANCE]
     protected sealed override void SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) =>
-        _ = definition.Switch(
-            (Object: obj, Attributes: attributes, Site: CallbackSite.Of(this)),
-            falseColor: static (args, _) => Callbacks.Answer(IO.lift(() => { args.Attributes.ShadeVertexColors = true; }), static () => unit, args.Site),
-            texture: static (args, texture) => Callbacks.Answer(args, input => texture.SetUp(input.Object, input.Attributes), static () => unit, args.Site),
-            wireframe: static (_, _) => unit);
+        Callbacks.Run(
+            IO.pure((Object: obj, Attributes: attributes)).Bind(args => definition.Switch(
+                args,
+                falseColor: static (input, _) => IO.lift(() => { input.Attributes.ShadeVertexColors = true; }),
+                texture: static (input, texture) => texture.SetUp(input.Object, input.Attributes),
+                wireframe: static (_, _) => IO.pure(unit))),
+            CallbackSite.Of(this));
 
     protected sealed override void UpdateVertexColors(RhinoObject obj, Mesh[] meshes) =>
-        _ = definition.Switch(
-            (Object: obj, Meshes: meshes, Site: CallbackSite.Of(this)),
-            falseColor: static (args, color) => Callbacks.Answer((Color: color, args.Object, args.Meshes), static input => input.Color.Paint(input.Object, input.Meshes), static () => unit, args.Site),
-            texture: static (_, _) => unit,
-            wireframe: static (_, _) => unit);
+        Callbacks.Run(
+            IO.pure((Object: obj, Meshes: meshes)).Bind(args => definition.Switch(
+                args,
+                falseColor: static (input, color) => color.Paint(input.Object, input.Meshes),
+                texture: static (_, _) => IO.pure(unit),
+                wireframe: static (_, _) => IO.pure(unit))),
+            CallbackSite.Of(this));
 
     // --- [DRAWING]
     protected sealed override void DrawBrepObject(BrepObject brep, DisplayPipeline pipeline) =>
-        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: brep, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(brep).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
 
     protected sealed override void DrawExtrusionObject(ExtrusionObject extrusion, DisplayPipeline pipeline) =>
-        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: extrusion, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(extrusion).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
 
     protected sealed override void DrawMeshObject(MeshObject mesh, DisplayPipeline pipeline) =>
-        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: mesh, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(mesh).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
 
     protected sealed override void DrawSubDObject(SubDObject subd, DisplayPipeline pipeline) =>
-        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: subd, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(subd).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
 
     protected sealed override void DrawPointObject(PointObject point, DisplayPipeline pipeline) =>
-        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: point, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(point).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
 
     protected sealed override void DrawPointCloudObject(PointCloudObject pointCloud, DisplayPipeline pipeline) =>
-        _ = definition.DrawObject.Iter(draw => Callbacks.Answer((Object: pointCloud, Pipeline: pipeline), args => draw(args.Object, args.Pipeline), static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(pointCloud).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
 
     protected sealed override void DrawMesh(RhinoObject obj, Mesh mesh, DisplayPipeline pipeline) =>
-        _ = definition.DrawGeometry.Iter(draw => Callbacks.Answer((Object: obj, Geometry: mesh, Pipeline: pipeline), args => draw(args.Object, args.Geometry, args.Pipeline), static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.DrawGeometry.Map(draw => IO.pure(mesh).Bind(geometry => draw(obj, geometry, pipeline))), CallbackSite.Of(this));
 
     protected sealed override void DrawNurbsCurve(RhinoObject obj, NurbsCurve curve, DisplayPipeline pipeline) =>
-        _ = definition.DrawGeometry.Iter(draw => Callbacks.Answer((Object: obj, Geometry: curve, Pipeline: pipeline), args => draw(args.Object, args.Geometry, args.Pipeline), static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.DrawGeometry.Map(draw => IO.pure(curve).Bind(geometry => draw(obj, geometry, pipeline))), CallbackSite.Of(this));
 
     protected sealed override void DrawNurbsSurface(RhinoObject obj, NurbsSurface surface, DisplayPipeline pipeline) =>
-        _ = definition.DrawGeometry.Iter(draw => Callbacks.Answer((Object: obj, Geometry: surface, Pipeline: pipeline), args => draw(args.Object, args.Geometry, args.Pipeline), static () => unit, CallbackSite.Of(this)));
+        Callbacks.Run(definition.DrawGeometry.Map(draw => IO.pure(surface).Bind(geometry => draw(obj, geometry, pipeline))), CallbackSite.Of(this));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

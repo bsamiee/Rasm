@@ -114,8 +114,18 @@ utils:
     combinator-answer:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Iter|Exists|ForAll|Bind)$'}}, {has: {field: expression, kind: 'identifier, member_access_expression', pattern: $OPTION}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Iter|Exists|ForAll|Bind)$'}}, {has: {field: expression, kind: 'identifier, member_access_expression', pattern: $OPTION, matches: option-receiver}}]}
             - has: {field: arguments, all: [{has: {matches: first-argument, has: {matches: some-arm}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+    option-receiver:
+        any:
+            - kind: identifier
+              matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?Option\s*<'}}}
+            - kind: identifier
+              pattern: $OPTION_MEMBER
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has: {stopBy: end, kind: property_declaration, all: [{has: {field: name, pattern: $OPTION_MEMBER}}, {has: {field: type, regex: '^((global::)?LanguageExt\.)?Option\s*<'}}]}
     run-parameter:
         any:
             - kind: implicit_parameter

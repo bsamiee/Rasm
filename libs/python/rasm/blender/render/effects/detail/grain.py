@@ -1,0 +1,265 @@
+# mypy: disable-error-code="attr-defined,union-attr"
+# ty: ignore[unresolved-attribute]
+
+"""Film grain from packed normal fields and signal-dependent sensor noise."""
+
+from enum import IntEnum
+from functools import partial
+from math import exp
+from pathlib import Path
+
+import bpy
+from expression import Nothing, Ok, Option, Some
+from msgspec import inspect
+import numpy as np
+import numpy.typing as npt
+import PyOpenColorIO
+
+from rasm.blender.data.ids.images import Tag
+from rasm.blender.data.ids.ownership import Ownership, Saved
+from rasm.blender.extension.identity import Key
+from rasm.blender.faults import BlenderImagingFault, BlenderResult
+from rasm.blender.nodes.graphs import (
+    Clock,
+    compared,
+    End,
+    ended,
+    Fragment,
+    framed,
+    FrameSpace,
+    Generated,
+    gridded,
+    item_key,
+    masked,
+    math,
+    menu,
+    MenuItems,
+    mixed,
+    nested,
+    node,
+    Operand,
+    origin,
+    vector,
+)
+from rasm.blender.render.color.spaces import COLOR_INPUT, space_item
+from rasm.blender.render.effects.compositing.masks import luminance
+from rasm.blender.render.effects.generators.noise import gaussian
+from rasm.blender.render.effects.stack import CompositorEffect, precise, Shell
+from rasm.blender.render.effects.viewers import inspection
+from rasm.imaging.chain import GREY
+from rasm.imaging.effects.detail.grain import Film, Grain, Procedural, Scan, Sensor, Source
+from rasm.imaging.faults import accumulated, paired
+from rasm.imaging.hashing import content_hash
+from rasm.imaging.parameters import Motion
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Noise(IntEnum):
+    """Separate seed domains of film tile shifts and sensor draws."""
+
+    FILM = 0
+    SENSOR = 1
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
+    """Builds film and sensor grain in the stack's straight scene-linear scope.
+
+    Args:
+        shell: Entry inputs, retained scan case, config, and displayed-frame geometry.
+
+    Returns:
+        The selected medium with its complete graph, or accumulated graph and image faults.
+    """
+    socket = shell.socket
+    medium = Grain.medium.__name__
+    field_path = medium, Film, Film.field.__name__
+    chroma = socket(Grain.chroma.__name__)
+
+    def developed(key: Key, sample: Operand, chroma: Operand, granularity: Operand) -> BlenderResult[tuple[Fragment, End]]:
+        def composed(own: Operand, shared: Operand, correction: Operand) -> BlenderResult[tuple[Fragment, End]]:
+            return (
+                node(f"{key}_split", bpy.types.CompositorNodeSeparateColor, {"Image": sample}, {"mode": "RGB"})
+                .bind(lambda split: math(f"{key}_shared", "MULTIPLY", ended(f"{key}_split", "Alpha")(split), shared))
+                .bind(lambda shared_normal: vector(f"{key}_normal", "MULTIPLY_ADD", sample, own, shared_normal))
+                .bind(lambda normal: vector(f"{key}_logarithm", "MULTIPLY_ADD", normal, granularity, correction))
+                .bind(lambda logarithm: vector(key, "POWER", (exp(1.0),) * 3, logarithm))
+            )
+
+        return accumulated((
+            math(f"{key}_own_weight", "SQRT", chroma),
+            math(f"{key}_shared_variance", "SUBTRACT", 1.0, chroma).bind(lambda variance: math(f"{key}_shared_weight", "SQRT", variance)),
+            math(f"{key}_variance", "MULTIPLY", granularity, granularity).bind(lambda variance: math(f"{key}_correction", "MULTIPLY", variance, -0.5)),
+        )).bind(lambda parts: composed(*parts))
+
+    def scan_plane(scan: Scan) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
+        return Scan(path=bpy.path.abspath(scan.path)).tile(shell.config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(Some)
+
+    def fielded(point: Operand, offset: Operand, space: str) -> BlenderResult[tuple[Fragment, End]]:
+        granularity = socket(medium, Film, Film.granularity.__name__)
+
+        def sampled(key: Key, content: Generated, width: Operand, diameters: float) -> BlenderResult[tuple[Fragment, End]]:
+            image = End(node=key, socket="Image")
+            dimensions = End(node=f"{key}_info", socket="Dimensions")
+            return Fragment.joined(
+                node(key, bpy.types.CompositorNodeImage, {}, {}, Some(content)),
+                node(f"{key}_info", bpy.types.CompositorNodeImageInfo, {"Image": image}, {}),
+                node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": dimensions}, {}),
+                vector(f"{key}_aspect", "DIVIDE", End(node=f"{key}_axes", socket="X"), dimensions),
+                vector(f"{key}_diameters", "DIVIDE", End(node=f"{key}_aspect", socket="Vector"), (diameters,) * 3),
+                vector(f"{key}_ratio", "DIVIDE", End(node=f"{key}_diameters", socket="Vector"), width),
+                vector(f"{key}_uv", "MULTIPLY_ADD", point, End(node=f"{key}_ratio", socket="Vector"), offset),
+                node(
+                    f"{key}_sample",
+                    bpy.types.CompositorNodeMapUV,
+                    {"Image": image, "UV": End(node=f"{key}_uv", socket="Vector"), "Interpolation": "Bilinear", "Extension X": "Repeat", "Extension Y": "Repeat"},
+                    {},
+                ),
+                developed(f"{key}_factor", End(node=f"{key}_sample", socket="Image"), chroma, granularity),
+            ).map(ended(f"{key}_factor", "Vector"))
+
+        def from_scan(scan: Scan, tag: Tag) -> BlenderResult[Option[tuple[Fragment, End]]]:
+            content = Generated(ownership=tiles, content=content_hash(Scan, Scan(path=scan.path)), name=f"{Grain.title} {Path(scan.path).name}", plane=partial(scan_plane, scan), tag=tag)
+            return sampled(item_key(Scan), content, socket(*field_path, Scan, Scan.span.__name__), 1.0).map(Some)
+
+        def chosen(parts: tuple[tuple[Fragment, End], Option[tuple[Fragment, End]]]) -> BlenderResult[tuple[Fragment, End]]:
+            procedural, scan = parts
+            cases: dict[str, Operand] = {Procedural.title: procedural, Scan.title: scan.default_value((1.0, 1.0, 1.0, 1.0))}
+            return menu("field", "RGBA", socket(*field_path), MenuItems.of(inspect.type_info(Source)), cases)
+
+        tag = Tag(space=Some(space), alpha=Some("CHANNEL_PACKED"))
+        procedural = Generated(ownership=tiles, content=Procedural.key(), name=f"{Grain.title} {Procedural.title}", plane=lambda: Ok(Some(Procedural.tile())), tag=tag)
+        scan = shell.case(Scan, *field_path).map(partial(from_scan, tag=tag)).default_value(Ok(Nothing))
+        return paired(sampled(item_key(Procedural), procedural, socket(*field_path, Procedural, Procedural.size.__name__), float(Procedural.diameters)), scan).bind(chosen)
+
+    def filmed(field: Operand, level: Operand) -> BlenderResult[tuple[Fragment, End]]:
+        shadow_edge = socket(medium, Film, Film.shadow_edge.__name__)
+        midtone_span = socket(medium, Film, Film.midtone_span.__name__)
+        highlight_span = socket(medium, Film, Film.highlight_span.__name__)
+        shadows = socket(medium, Film, Film.shadows.__name__)
+        midtones = socket(medium, Film, Film.midtones.__name__)
+        highlights = socket(medium, Film, Film.highlights.__name__)
+
+        def band(key: Key, distance: Operand, span: Operand) -> BlenderResult[tuple[Fragment, End]]:
+            smooth = (
+                math(f"{key}_position", "DIVIDE", distance, span)
+                .bind(
+                    lambda position: node(
+                        f"{key}_smooth",
+                        bpy.types.ShaderNodeMapRange,
+                        {"Value": position, "From Min": 0.0, "From Max": 1.0, "To Min": 0.0, "To Max": 1.0},
+                        {"interpolation_type": "SMOOTHSTEP", "clamp": True},
+                    )
+                )
+                .map(ended(f"{key}_smooth", "Result"))
+            )
+            return Fragment.joined(
+                smooth,
+                math(f"{key}_positive", "GREATER_THAN", span, 0.0),
+                math(f"{key}_step", "GREATER_THAN", distance, 0.0),
+                masked(key, "FLOAT", End(node=f"{key}_positive"), End(node=f"{key}_step"), End(node=f"{key}_smooth", socket="Result")),
+            ).map(ended(key, "Value"))
+
+        def weighted(shadow: Operand, highlight: Operand) -> BlenderResult[tuple[Fragment, End]]:
+            return (
+                paired(math("highs", "SUBTRACT", highlights, midtones), math("lows", "SUBTRACT", shadows, midtones).bind(lambda lows: math("toned", "MULTIPLY_ADD", shadow, lows, midtones)))
+                .bind(lambda parts: math("weight", "MULTIPLY_ADD", highlight, *parts))
+                .bind(lambda weight: mixed("film", "RGBA", weight, shell.source, field, "MULTIPLY"))
+            )
+
+        return paired(
+            band("shadow", level, shadow_edge).bind(lambda shadow: math("shadow_weight", "SUBTRACT", 1.0, shadow)),
+            math("highlight_offset", "SUBTRACT", level, shadow_edge)
+            .bind(lambda shifted: math("highlight_distance", "SUBTRACT", shifted, midtone_span))
+            .bind(lambda distance: band("highlight", distance, highlight_span)),
+        ).bind(lambda bands: weighted(*bands))
+
+    def sensored(level: Operand, pattern: Operand) -> BlenderResult[tuple[Fragment, End]]:
+        source = shell.source
+        shot = socket(medium, Sensor, Sensor.shot.__name__)
+        read = socket(medium, Sensor, Sensor.read.__name__)
+        gain, floor = End(node="gain"), End(node="floor")
+        own_weight, shared_weight = End(node="own_weight"), End(node="shared_weight")
+        sited = End(node="sited", socket="Vector")
+        draws = tuple(End(node=f"draw_{stream}") for stream in range(4))
+        radius_a, angle_a, radius_b, angle_b = draws
+
+        def scattered(normals: tuple[tuple[tuple[Fragment, End], tuple[Fragment, End]], tuple[tuple[Fragment, End], tuple[Fragment, End]]]) -> BlenderResult[tuple[Fragment, End]]:
+            (shared, red), (green, blue) = normals
+            return Fragment.joined(
+                gridded("photosites", source).bind(lambda grid: vector("pixel", "DIVIDE", grid.base, grid.inverse)),
+                vector("photosite", "FLOOR", End(node="pixel", socket="Vector")),
+                origin("draw_origin", socket(Grain.seed.__name__), Noise.SENSOR, pattern),
+                vector("sited", "ADD", End(node="photosite", socket="Vector"), End(node="draw_origin", socket="Vector")),
+                *(node(draw.node, bpy.types.ShaderNodeTexWhiteNoise, {"Vector": sited, "W": float(stream)}, {"noise_dimensions": "4D"}) for stream, draw in enumerate(draws)),
+                math("shot_variance", "MULTIPLY", shot, shot),
+                math("gain", "DIVIDE", End(node="shot_variance"), GREY),
+                math("floor", "MULTIPLY", read, read),
+                node("own", bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Y", "Z"), (red, green, blue))), {}),
+                vector("signal", "MAXIMUM", source, (0.0, 0.0, 0.0)),
+                vector("variance", "MULTIPLY_ADD", End(node="signal", socket="Vector"), gain, floor),
+                vector("deviation", "POWER", End(node="variance", socket="Vector"), (0.5, 0.5, 0.5)),
+                math("luminance_signal", "MAXIMUM", level, 0.0),
+                math("luminance_variance", "MULTIPLY_ADD", End(node="luminance_signal"), gain, floor),
+                math("luminance_deviation", "SQRT", End(node="luminance_variance")),
+                math("own_weight", "SQRT", chroma),
+                math("shared_variance", "SUBTRACT", 1.0, chroma),
+                math("shared_weight", "SQRT", End(node="shared_variance")),
+                vector("own_scaled", "SCALE", End(node="own", socket="Vector"), own_weight),
+                vector("own_scatter", "MULTIPLY", End(node="own_scaled", socket="Vector"), End(node="deviation", socket="Vector")),
+                math("shared_scaled", "MULTIPLY", shared, shared_weight),
+                math("shared_scatter", "MULTIPLY", End(node="shared_scaled"), End(node="luminance_deviation")),
+                vector("scatter", "ADD", End(node="own_scatter", socket="Vector"), End(node="shared_scatter")),
+                vector("sensor_noise", "ADD", source, End(node="scatter", socket="Vector")),
+                node("source_alpha", bpy.types.CompositorNodeSeparateColor, {"Image": source}, {"mode": "RGB"}),
+                compared("zero_alpha", "EQUAL", End(node="source_alpha", socket="Alpha"), 0.0, epsilon=Some(0.0)),
+                masked("sensor", "RGBA", End(node="zero_alpha", socket="Result"), End(node="sensor_noise", socket="Vector"), source),
+            ).map(ended("sensor", "Image"))
+
+        return paired(gaussian("normal_a", radius_a, angle_a), gaussian("normal_b", radius_b, angle_b)).bind(scattered)
+
+    def built(parts: tuple[tuple[tuple[Fragment, End], FrameSpace], tuple[Fragment, End]]) -> BlenderResult[tuple[Fragment, End]]:
+        (level, space), pattern = parts
+        film = (
+            origin("shift", shell.socket(Grain.seed.__name__), Noise.FILM, pattern)
+            .bind(lambda shift: vector("offset", "MULTIPLY_ADD", shift, (1.0, 1.0, 0.0), (0.0, 0.0, 1.0)))
+            .bind(lambda offset: space_item(shell.config, PyOpenColorIO.ROLE_DATA).bind(partial(fielded, space.point, offset)))
+            .bind(lambda field: filmed(field, level))
+        )
+        return paired(film, sensored(level, pattern)).bind(lambda media: menu("medium", "RGBA", shell.socket(medium), shell.items[medium,], dict(zip((Film.title, Sensor.title), media))))
+
+    motion = Grain.motion.__name__
+    return paired(
+        paired(luminance(shell.config).bind(lambda working: nested("luminance", working, {COLOR_INPUT.key: shell.source}, "luminance")), framed("frame", shell.source, shell.aspect, shell.scale)),
+        Clock(key="clock", speed=shell.socket(motion, Motion.speed.__name__), hold=shell.socket(motion, Motion.hold.__name__)).pattern,
+    ).bind(built)
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+tiles = Ownership(kind=bpy.types.Image, key="grain_tile", saved=Saved.USED)
+grain: CompositorEffect[Grain] = CompositorEffect(
+    record=Grain,
+    graph=grained,
+    straight=True,
+    requested=Some(precise),
+    registrables=(
+        tiles,
+        *(
+            inspection(row=lambda: grain, key=item_key(Grain, node), title=title, description=description, target=partial(End, node=node, socket=socket))
+            for node, socket, title, description in (
+                ("weight", "Value", "View Grain Weight", "Shows film grain's tonal weight before the entry blend"),
+                ("field", "Output", "View Grain Field", "Shows the developed film grain factor before the entry blend"),
+                ("deviation", "Vector", "View Sensor Deviation", "Shows signal-dependent channel deviation before the noise draw"),
+            )
+        ),
+    ),
+)
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Noise", "grain", "grained", "tiles"]

@@ -1,11 +1,11 @@
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using CommunityToolkit.HighPerformance;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Pixels;
+using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Tone;
 
@@ -17,34 +17,41 @@ public sealed partial class LightingMood {
     public static readonly LightingMood LowKey = new();
 }
 
-public sealed record PaletteEntry(Vector3 Color, FramePosition Position, float Share);
+public sealed record PaletteEntry(Vector3 Color, FramePosition Position, float Share) {
+    public double Chroma =>
+        float.Max(Color.X, float.Max(Color.Y, Color.Z)) switch {
+            > 0f and var peak => ((double)peak - float.Min(Color.X, float.Min(Color.Y, Color.Z))) / peak,
+            _ => 0f,
+        };
+}
 
 public sealed record LightingReading(
-    Vector3 KeyColor, Vector3 FillColor, Vector3 AmbientColor,
-    float Ratio, float Range, float MeteredExposure,
-    Vector2 Direction, Option<float> Hardness, float Split, Option<float> Backlight, Seq<PaletteEntry> Palette) {
-    private static readonly (float HighKeyExposure, float HighKeyRatio, float LowKeyExposure, float LowKeyRatio) Thresholds =
-        (Metered(0.45f), float.Log2(4f), Metered(0.22f), float.Log2(8f));
+    Gamut Gamut, Vector3 KeyColor, Vector3 FillColor, Vector3 AmbientColor,
+    float Ratio, float Range, float MeteredExposure, double MeanLuminance,
+    Vector2 Direction, float Hardness, float Split, bool Backlit,
+    Option<(ColorTemperature Temperature, Tint Tint)> KeyWhite, Seq<PaletteEntry> Palette) {
+    private static readonly (float HighKeyMean, float HighKeyRatio, float LowKeyMean, float LowKeyRatio, float LowKeySplit) Thresholds =
+        (Linear(0.45f), float.Log2(4f), Linear(0.22f), float.Log2(8f), 0.42f);
 
     public LightingMood Mood =>
-        MeteredExposure < Thresholds.HighKeyExposure && Ratio < Thresholds.HighKeyRatio ? LightingMood.HighKey
-        : MeteredExposure > Thresholds.LowKeyExposure || Ratio > Thresholds.LowKeyRatio ? LightingMood.LowKey
+        MeanLuminance > Thresholds.HighKeyMean && Ratio < Thresholds.HighKeyRatio ? LightingMood.HighKey
+        : MeanLuminance < Thresholds.LowKeyMean || Ratio > Thresholds.LowKeyRatio || Split > Thresholds.LowKeySplit ? LightingMood.LowKey
         : LightingMood.Neutral;
 
     public Option<(PaletteEntry Key, PaletteEntry Accent)> Gels =>
-        Palette.Take(2) switch {
+        Palette.Take(2).Filter(static entry => entry.Chroma >= 0.18f) switch {
             [var first, var second] => Some(Vector2.Dot(new Vector2(first.Position.X - second.Position.X, second.Position.Y - first.Position.Y), Direction) >= 0f ? (first, second) : (second, first)),
             _ => None,
         };
 
-    private static float Metered(float encodedMean) {
+    private static float Linear(float encodedMean) {
         Vector4 mean = new(new Vector3(encodedMean), 1f);
         TransferCurve.Srgb.Decode(new Span<Vector4>(ref mean), Nits.ReferenceWhite);
-        return float.Log2(Exposure.MiddleGrey / mean.X);
+        return mean.X;
     }
 }
 
-public sealed record DistantLight(Vector3 Direction, Vector3 Color, float Stops);
+public sealed record DistantLight(Vector3 Direction, Vector3 Color, double Stops);
 
 [SmartEnum]
 public sealed partial class Gel {
@@ -261,66 +268,150 @@ public static class Lighting {
     extension(Xoshiro256StarStar random) {
         internal float Uniform(double low, double high) => (float)ContinuousUniform.Sample(random, low, high);
 
-        internal bool Chance(double probability) => Bernoulli.Sample(random, probability) == 1;
+        internal bool Chance(double probability) => Bernoulli.Sample(random, probability) is 1;
 
         internal T Pick<T>(IReadOnlyList<T> items) => items[random.Next(0, items.Count)];
     }
 
-    public static Fin<LightingReading> Read(PixelFrame frame, Vector3 luminance) {
+    public static Fin<LightingReading> Read(PixelFrame frame, Gamut gamut, int paletteSize) {
         PixelFrame analysis = frame.Downscaled(PixelExtent.Analysis);
         (int width, int height) = (analysis.Size.Width, analysis.Size.Height);
-        float Luma(Vector3 color) => float.Max(Vector3.Dot(luminance, color), LuminanceSamples.Floor);
-        return (LuminanceSamples.Sorted(analysis, analysis.Window, Luma, (key, pixel) => (Key: key, Index: (pixel.Y * width) + pixel.X)), Metering.Default.Metered(analysis, luminance))
-            .Apply(Measured)
-            .As();
+        (double X, double Y, double Z) luminance = gamut.Luminance;
+        double Luma(Vector3 color) => double.Max(LuminanceSamples.Luminance(color, luminance), LuminanceSamples.Floor);
+        (int Left, int Top, int Right, int Bottom) Inset(double fraction) =>
+            ((int)double.Floor(width * fraction), (int)double.Floor(height * fraction)) switch {
+                var (x, y) => (x, y, width - x, height - y),
+            };
+        bool Inside(int index, (int Left, int Top, int Right, int Bottom) box) =>
+            int.DivRem(index, width) switch {
+                var (y, x) => x >= box.Left && x < box.Right && y >= box.Top && y < box.Bottom,
+            };
+        (int Left, int Top, int Right, int Bottom) subject = Inset(0.12);
+        (long Left, long Top, long Right, long Bottom) window = (
+            (long)analysis.Origin.X + subject.Left, (long)analysis.Origin.Y + subject.Top,
+            (long)analysis.Origin.X + subject.Right, (long)analysis.Origin.Y + subject.Bottom);
+        return paletteSize <= 0 ? new InvalidToneValue()
+            : from all in LuminanceSamples.Sorted(analysis, analysis.Window, Luma,
+                (key, pixel) => (Key: key, Index: ((int)(pixel.Y - analysis.Origin.Y) * width) + (int)(pixel.X - analysis.Origin.X)))
+              let samples = all.Where(sample => Inside(sample.Index, subject)).ToArray()
+              from stops in Metering.Default.Metered([.. samples.Select(static sample => (sample.Key, Weight: 1f))], window)
+              select Measured(samples, all, stops);
 
-        LightingReading Measured((float Key, int Index)[] samples, float stops) {
-            const int sectors = 12;
-            const float chromatic = 0.18f;
+        LightingReading Measured((double Key, int Index)[] samples, (double Key, int Index)[] all, float stops) {
+            Vector3 Color(int index) => MemoryMarshal.Cast<float, Vector4>(analysis.Block)[index].AsVector3();
+            Vector2 Point(int index) => int.DivRem(index, width) switch {
+                var (row, column) => Position(column, row, width, height),
+            };
+            (double R, double G, double B) Mean(IEnumerable<int> indices) =>
+                indices.Aggregate((R: 0d, G: 0d, B: 0d, Count: 0), (sum, index) => Color(index) switch {
+                    var color => (sum.R + color.X, sum.G + color.Y, sum.B + color.Z, sum.Count + 1),
+                }) switch {
+                    var (r, g, b, count) => (r / count, g / count, b / count),
+                };
+            Vector3 Rgb((double R, double G, double B) color) => new((float)color.R, (float)color.G, (float)color.B);
+            IEnumerable<(double Key, int Index)> Band(float low, float high) =>
+                new ArraySegment<(double Key, int Index)>(samples)[LuminanceSamples.Slice(samples.Length, Percentile.Create(low), Percentile.Create(high))];
+            Vector2 Center(IEnumerable<(double Key, int Index)> band) =>
+                band.Aggregate((X: 0d, Y: 0d, Count: 0), (sum, sample) => Point(sample.Index) switch {
+                    var point => (sum.X + point.X, sum.Y + point.Y, sum.Count + 1),
+                }) switch {
+                    var (x, y, count) => new((float)(x / count), (float)(y / count)),
+                };
             LuminanceSamples ranks = new([.. samples.Select(static sample => sample.Key)]);
-            float At(float rank) => ranks.At(Percentile.Create(rank));
-            (float shadows, float low, float high, float highlights) = (At(0.15f), At(0.35f), At(0.6f), At(0.85f));
-            float[] logs = [.. Enumerable.Repeat(float.NaN, width * height)];
-            foreach ((float level, int index) in samples)
-                logs[index] = float.Log2(level);
-            ReadOnlySpan2D<float> plane = new(logs, height, width);
-            ReadOnlySpan<Vector4> pixels = MemoryMarshal.Cast<float, Vector4>(analysis.Block);
-            (Vector4 Light, Vector2 Moment)[] hues = new (Vector4, Vector2)[sectors];
-            (Vector4 shadow, Vector4 middle, Vector4 bright, Vector4 halves, Vector4 halved) = (Vector4.Zero, Vector4.Zero, Vector4.Zero, Vector4.Zero, Vector4.Zero);
-            (Vector2 moment, Vector2 rings, Vector2 ringed, float steepest) = (Vector2.Zero, Vector2.Zero, Vector2.Zero, float.NaN);
-            foreach ((float level, int index) in samples) {
+            double At(float rank) => ranks.At(Percentile.Create(rank));
+            float Asymmetry(Func<Vector2, float> axis) =>
+                samples.GroupBy(sample => float.Sign(axis(Point(sample.Index))))
+                    .ToDictionary(static half => half.Key, static half => half.Average(static sample => sample.Key)) switch {
+                        var halves when halves.TryGetValue(1, out double positive) && halves.TryGetValue(-1, out double negative) => (float)((positive - negative) / (positive + negative)),
+                        _ => 0f,
+                    };
+            Vector2 asymmetry = Saturated(new(Asymmetry(static point => point.X), Asymmetry(static point => point.Y)));
+            (double Key, int Index)[] highlights = [.. Band(0.55f, 1f)];
+            (double momentX, double momentY, double momentWeight) = highlights.Aggregate((X: 0d, Y: 0d, Weight: 0d), (sum, sample) => (Point(sample.Index), Weight: sample.Key - highlights[0].Key) switch {
+                var (point, weight) => ((weight * point.X) + sum.X, (weight * point.Y) + sum.Y, weight + sum.Weight),
+            });
+            Dictionary<int, double> plane = samples.ToDictionary(static sample => sample.Index, static sample => sample.Key);
+            (double X, double Y) Slope(int index) {
                 (int row, int column) = int.DivRem(index, width);
-                (Vector4 color, Vector2 point) = (new(pixels[index].AsVector3(), 1f), Position(column, row, width, height));
-                Vector4 side = Vector4.ConditionalSelect(Vector4.GreaterThan(new Vector4(point.X, -point.X, point.Y, -point.Y), Vector4.Zero), Vector4.One, Vector4.Zero);
-                Vector2 ring = Vector2.LessThanAll(Vector2.Abs(point), new Vector2(0.5f)) ? Vector2.UnitY : Vector2.UnitX;
-                (float peak, float trough) = (float.Max(color.X, float.Max(color.Y, color.Z)), float.Min(color.X, float.Min(color.Y, color.Z)));
-                int hue = ((int)float.Floor((float.Atan2(float.Sqrt(3f) * (color.Y - color.Z), (2f * color.X) - color.Y - color.Z) * sectors / float.Tau) + 0.5f) + sectors) % sectors;
-                float weight = peak - trough > chromatic * peak ? level : 0f;
-                (shadow, middle, bright) = (shadow + (level <= shadows ? color : Vector4.Zero), middle + (level >= low && level <= high ? color : Vector4.Zero), bright + (level >= highlights ? color : Vector4.Zero));
-                (moment, halves, halved, rings, ringed) = (moment + (level * point), halves + (level * side), halved + side, rings + (level * ring), ringed + ring);
-                (steepest, hues[hue]) = (float.MaxNumber(steepest, Slope(plane, column, row).Length()), (hues[hue].Light + (weight * color), hues[hue].Moment + (weight * point)));
+                (int left, int right, int top, int bottom) = (
+                    column > 0 && plane.ContainsKey(index - 1) ? index - 1 : index,
+                    column + 1 < width && plane.ContainsKey(index + 1) ? index + 1 : index,
+                    row > 0 && plane.ContainsKey(index - width) ? index - width : index,
+                    row + 1 < height && plane.ContainsKey(index + width) ? index + width : index);
+                return (right == left ? 0d : (plane[right] - plane[left]) / (right - left),
+                    bottom == top ? 0d : (plane[top] - plane[bottom]) / ((bottom - top) / width));
             }
-            (Vector3 key, Vector3 fill, float range, float mass) = (bright.AsVector3() / bright.W, middle.AsVector3() / middle.W, float.Log2(At(0.95f) / At(0.05f)), rings.X + rings.Y);
-            (Vector4 halfMeans, Vector2 ringMeans) = (halves / halved, rings / ringed);
+            (double gradientX, double gradientY, double gradientWeight, double steepest) = samples.Aggregate((X: 0d, Y: 0d, Weight: 0d, Steepest: 0d), (sum, sample) => Slope(sample.Index) switch {
+                var (x, y) => double.Hypot(x, y) switch {
+                    var magnitude => (sum.X + (magnitude * x), sum.Y + (magnitude * y), sum.Weight + (magnitude * magnitude), double.Max(sum.Steepest, double.Max(double.Abs(x), double.Abs(y)))),
+                },
+            });
+            Vector2 direction = (0.42f * asymmetry)
+                + (0.28f * Saturated(1.25f * (Center(Band(0.78f, 1f)) - Center(Band(0f, 0.22f)))))
+                + (0.18f * (momentWeight > 0d ? Saturated(new((float)(momentX / momentWeight), (float)(momentY / momentWeight))) : Vector2.Zero))
+                + (0.12f * (gradientWeight > 0d ? new Vector2((float)(gradientX / gradientWeight), (float)(gradientY / gradientWeight)) : Vector2.Zero));
+            (int Left, int Top, int Right, int Bottom) centerBox = Inset(0.25);
+            (int Left, int Top, int Right, int Bottom) rimBox = Inset(0.18);
+            double overall = all.Average(static sample => sample.Key);
+            double core = samples.Average(static sample => sample.Key);
+            Option<double> Average(IEnumerable<(double Key, int Index)> values) => values.AsIterableNE().Map(static band => Enumerable.Average(band, static sample => sample.Key));
+            bool backlit = (from center in Average(all.Where(sample => Inside(sample.Index, centerBox)))
+                            from border in Average(all.Where(sample => !Inside(sample.Index, centerBox)))
+                            select border > center * 1.35 && center <= overall * 1.08).Exists(static holds => holds)
+                || Average(samples.Where(sample => !Inside(sample.Index, rimBox))).Exists(rim => rim > (core * 1.25) && core < (overall * 1.05));
+            int count = int.Min(paletteSize, samples.Length);
+            (double R, double G, double B)[] centers = [.. Enumerable.Range(0, count).Select(index =>
+                Mean(new ArraySegment<(double Key, int Index)>(samples)[
+                    (int)((long)index * samples.Length / count)..(int)((long)(index + 1) * samples.Length / count)]
+                    .Select(static sample => sample.Index)))];
+            int[] Assigned() => [.. samples.Select(sample => Color(sample.Index) switch {
+                var color => centers.Select((center, index) => (
+                    Distance: double.Pow(center.R - color.X, 2d) + double.Pow(center.G - color.Y, 2d) + double.Pow(center.B - color.Z, 2d), Index: index)).Min().Index,
+            })];
+            int[] labels = Assigned();
+            IGrouping<int, int>[] groups = [.. Enumerable.Range(0, samples.Length).GroupBy(index => labels[index])];
+            while (true) {
+                foreach (IGrouping<int, int> group in groups)
+                    centers[group.Key] = Mean(group.Select(index => samples[index].Index));
+                int[] next = Assigned();
+                if (labels.SequenceEqual(next))
+                    break;
+                labels = next;
+                groups = [.. Enumerable.Range(0, samples.Length).GroupBy(index => labels[index])];
+            }
+            List<(PaletteEntry Entry, Unicolour Color)> palette = [];
+            foreach (IGrouping<int, int> group in groups.OrderByDescending(static group => group.Count()).ThenBy(static group => group.Key)) {
+                Vector3 color = Rgb(centers[group.Key]);
+                Vector2 point = Center(group.Select(index => samples[index]));
+                PaletteEntry entry = new(color, new(FrameAxis.Create((point.X + 1f) / 2f), FrameAxis.Create((1f - point.Y) / 2f)), (float)group.Count() / samples.Length);
+                double level = Luma(color);
+                Unicolour perceptual = new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, color.X / level, color.Y / level, color.Z / level).ConvertToConfiguration(Configuration.Default);
+                Option<(double Distance, int Index)> nearest = palette.Select((kept, index) => (Distance: perceptual.Difference(kept.Color, DeltaE.Ok), Index: index)).AsIterableNE().Map(static distances => Enumerable.Min(distances));
+                if (nearest.Case is ValueTuple<double, int> { Item1: < 0.08, Item2: var index })
+                    palette[index] = (palette[index].Entry with { Share = palette[index].Entry.Share + entry.Share }, palette[index].Color);
+                else
+                    palette.Add((entry, perceptual));
+            }
+            (double R, double G, double B) key = Mean(Band(0.85f, 1f).Select(static sample => sample.Index));
+            (double R, double G, double B) fill = Mean(Band(0.35f, 0.6f).Select(static sample => sample.Index));
+            float range = (float)(double.Log2(At(0.95f)) - double.Log2(At(0.05f)));
+            double hardnessScale = steepest + (At(0.9f) - At(0.1f));
             return new LightingReading(
-                key, fill, shadow.AsVector3() / shadow.W,
-                float.Log2(Luma(key) / Luma(fill)), range, stops,
-                moment / mass,
-                Some(steepest * int.Max(width, height)).Filter(float.IsFinite),
-                Saturated(new(Contrast(halfMeans.X, halfMeans.Y), Contrast(halfMeans.Z, halfMeans.W))).Length() * float.Min(1f, range / float.Log2(6f)),
-                Vector2.GreaterThanAll(ringed, Vector2.Zero) ? Some(float.Log2(ringMeans.X / ringMeans.Y)) : None,
-                toSeq(hues
-                    .Where(static hue => hue.Light.W > 0f)
-                    .Select(hue => (hue.Moment / hue.Light.W) switch {
-                        var center => new PaletteEntry(
-                            hue.Light.AsVector3() / hue.Light.W, new FramePosition(FrameAxis.Create((center.X + 1f) / 2f), FrameAxis.Create((1f - center.Y) / 2f)), hue.Light.W / mass),
-                    })
-                    .OrderByDescending(static entry => entry.Share)));
+                gamut, Rgb(key), Rgb(fill), Rgb(Mean(Band(0f, 0.15f).Select(static sample => sample.Index))),
+                (float)(double.Log2(Level(key)) - double.Log2(Level(fill))), range, stops, overall,
+                direction, hardnessScale > 0d ? (float)(steepest / hardnessScale) : 0f,
+                asymmetry.Length() * float.Min(1f, range / float.Log2(6f)), backlit,
+                Adaptation.Correlate(gamut, Rgb(key)).ToOption(), toSeq(palette.Select(static kept => kept.Entry)));
+
+            double Level((double R, double G, double B) color) =>
+                double.Max((luminance.X * color.R) + (luminance.Y * color.G) + (luminance.Z * color.B), LuminanceSamples.Floor);
         }
     }
 
     public static PixelFrame Sphere(Seq<DistantLight> lights, PixelExtent size) {
-        (Vector3 Direction, Vector3 Radiance)[] sources = [.. lights.Map(static light => (light.Direction, float.Exp2(light.Stops) * light.Color))];
+        (Vector3 Direction, double R, double G, double B)[] sources = [.. lights.Map(static light => double.Exp2(light.Stops) switch {
+            var gain => (light.Direction, gain * light.Color.X, gain * light.Color.Y, gain * light.Color.Z),
+        })];
         float radius = size.ShortSide / 2f;
         return new PixelFrame(Point.Empty, size, size, block => {
             Span<Vector4> pixels = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
@@ -330,11 +421,13 @@ public static class Lighting {
                 float distance = disc.Length();
                 Vector2 rim = distance > 1f ? disc / distance : disc;
                 Vector3 normal = new(rim, float.Sqrt(float.Max(1f - rim.LengthSquared(), 0f)));
-                Vector3 light = Vector3.Zero;
-                foreach ((Vector3 direction, Vector3 radiance) in sources)
-                    light += radiance * float.Max(Vector3.Dot(normal, direction), 0f);
+                (double red, double green, double blue) = (0d, 0d, 0d);
+                foreach ((Vector3 direction, double r, double g, double b) in sources) {
+                    double cosine = double.Max(((double)normal.X * direction.X) + ((double)normal.Y * direction.Y) + ((double)normal.Z * direction.Z), 0d);
+                    (red, green, blue) = (red + (r * cosine), green + (g * cosine), blue + (b * cosine));
+                }
                 float coverage = float.Clamp(((1f - distance) * radius) + 0.5f, 0f, 1f);
-                pixels[index] = coverage > 0f ? new(light, coverage) : Vector4.Zero;
+                pixels[index] = coverage > 0f ? new((float)red, (float)green, (float)blue, coverage) : Vector4.Zero;
             }
         });
     }
@@ -363,12 +456,4 @@ public static class Lighting {
 
     private static Vector2 Saturated(Vector2 cue) => cue * float.Min(1f, 1f / cue.Length());
 
-    private static float Contrast(float high, float low) => high + low is > 0f and var sum ? (high - low) / sum : 0f;
-
-    private static Vector2 Slope(ReadOnlySpan2D<float> plane, int x, int y) =>
-        (int.Max(x - 1, 0), int.Min(x + 1, plane.Width - 1), int.Max(y - 1, 0), int.Min(y + 1, plane.Height - 1)) switch {
-            var (left, right, top, bottom) => new(
-                right > left ? (plane[y, right] - plane[y, left]) / (right - left) : 0f,
-                bottom > top ? (plane[top, x] - plane[bottom, x]) / (bottom - top) : 0f),
-        };
 }

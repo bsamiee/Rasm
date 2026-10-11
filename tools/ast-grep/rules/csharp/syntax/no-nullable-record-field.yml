@@ -50,7 +50,7 @@ rule:
                 - matches: atomic-field
                 - inside: {stopBy: end, matches: csharp-wire-record}
                 - inside: {kind: field_declaration, has: {matches: serializer-attributes}}
-                - inside: {kind: 'parameter_list, declaration_list', inside: {matches: csharp-error-record}}
-                - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: csharp-error-record}}}
+                - inside: {kind: 'parameter_list, declaration_list', inside: {kind: record_declaration, has: {kind: base_list}}}
+                - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {kind: record_declaration, has: {kind: base_list}}}}
 message: 'Field of type `$TYPE` states absence with null'
 note: Hold `Option<T>` and convert a nullable value once at the boundary with `Optional`

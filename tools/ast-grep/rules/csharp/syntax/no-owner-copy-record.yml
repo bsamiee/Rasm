@@ -40,6 +40,16 @@ rule:
             - has: {field: type, pattern: $TYPE}
             - has: {field: returns, pattern: $TYPE}
         - not: {inside: {stopBy: {matches: owner-type}, matches: owner-type, has: {field: name, pattern: $TYPE}}}
+        - not:
+            inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: object_creation_expression
+                    all:
+                        - has: {field: type, pattern: $TYPE}
+                        - not: {inside: {stopBy: end, kind: 'method_declaration, property_declaration', has: {field: name, pattern: $NAME}}}
         - has: {kind: arrow_expression_clause, has: {nthChild: 1, matches: copy}}
 message: '`$NAME` copies members of its owner into `$TYPE`, members on the owner state what `$TYPE` derives'
 note: Declare each member of `$TYPE` on the owner holding its inputs, and delete `$TYPE` when no other producer builds it

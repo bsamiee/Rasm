@@ -11,7 +11,7 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class MeshModifier {
     // --- [KINDS]
     public static readonly MeshModifier Displacement = new(static modifiers => modifiers.Displacement is not null);
@@ -301,20 +301,25 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
 
     public static IO<Seq<uint>> Decals(ObjectAttributes staged, RowsEdit<DecalCreateParams, int> edit) =>
         Edited(edit, IO.lift(staged.Decals.RemoveAllDecals),
-            row => (from decal in use(IO.lift(() => Missing.Unless(Decal.Create(row), nameof(Decal.Create))))
-                    from crc in IO.lift(() => Conversions.Required(staged.Decals.Add(decal), nameof(staged.Decals.Add)))
-                    select crc).Bracket(),
+            row => DisposalOps.Within(() => Decal.Create(row),
+                made => from decal in IO.lift(() => Missing.Unless(made, nameof(Decal.Create)))
+                        from crc in IO.lift(() => Conversions.Required(staged.Decals.Add(decal), nameof(staged.Decals.Add)))
+                        select crc,
+                static made => DisposalOps.Release(Optional(made).ToSeq())),
             keys => toHashSet(keys) switch {
-                var crcs => IO.lift(() => Conversions.Rows(staged.Decals)).Bracket(
-                    Use: held => IO.lift(() => Callbacks.Each(held.Filter(decal => crcs.Contains(decal.CRC)).Strict(), staged.Decals.Remove, nameof(staged.Decals.Remove))),
-                    Fin: DisposalOps.Release),
+                var crcs => DisposalOps.Within(
+                    (Action<IDisposable> held) => IO.lift(() => Callbacks.Each(
+                        toSeq(staged.Decals.Select(decal => { held(decal); return decal; })).Filter(decal => crcs.Contains(decal.CRC)).Strict(),
+                        staged.Decals.Remove, nameof(staged.Decals.Remove))),
+                    DisposalOps.Release),
             });
 
     public static IO<Unit> MaterialRefs(ObjectAttributes staged, RowsEdit<MaterialRefState, Guid> edit) =>
         Edited(edit, IO.lift(staged.MaterialRefs.Clear),
-            row => (from created in use(IO.lift(() => Callbacks.Thrown<ArgumentException, MaterialRef>(() => staged.MaterialRefs.Create(AttributeMapper.ToParams(row)), nameof(staged.MaterialRefs.Create))))
-                    from added in IO.lift(() => staged.MaterialRefs.Add(row.PlugInId, created))
-                    select added).Bracket(),
+            row => DisposalOps.Within(
+                () => Callbacks.Thrown<ArgumentException, MaterialRef>(() => staged.MaterialRefs.Create(AttributeMapper.ToParams(row)), nameof(staged.MaterialRefs.Create)),
+                made => IO.lift(made).Bind(created => IO.lift(() => staged.MaterialRefs.Add(row.PlugInId, created))),
+                static made => IO.lift(() => { _ = made.IfSucc(static created => created.Dispose()); })),
             keys => IO.lift(() => keys.Iter(key => staged.MaterialRefs.Remove(key))))
             .Map(static _ => unit);
 
@@ -332,9 +337,10 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
 public static class AttributeOps {
     // --- [READS]
     public static IO<AttributeState> Read(ObjectAttributes attributes) =>
-        IO.lift(() => Conversions.Rows(attributes.Decals)).Bracket(
-            Use: decals => IO.lift(() => AttributeMapper.ToState(attributes, UserStrings.Held(attributes.GetUserStrings()), decals.Map(AttributeMapper.ToState).Strict())),
-            Fin: DisposalOps.Release);
+        DisposalOps.Within(
+            (Action<IDisposable> held) => IO.lift(() => AttributeMapper.ToState(attributes, UserStrings.Held(attributes.GetUserStrings()),
+                toSeq(attributes.Decals.Select(decal => { held(decal); return AttributeMapper.ToState(decal); })).Strict())),
+            DisposalOps.Release);
 
     public static IO<EffectiveDisplay> ReadEffective(ObjectAttributes attributes, RhinoDoc doc, Guid viewport) =>
         IO.lift(() => new EffectiveDisplay(
@@ -345,7 +351,9 @@ public static class AttributeOps {
             Callbacks.Found(attributes.HasActiveInViewportOverride(viewport, out bool active), active)));
 
     public static IO<T> WithComputedSectionStyle<T>(ObjectAttributes attributes, RhinoDoc doc, ObjectAttributes sectioner, bool computeColors, Guid viewport, Func<SectionStyle, IO<T>> body) =>
-        use(IO.lift(() => Missing.Unless(attributes.ComputedSectionStyle(doc, sectioner, computeColors, viewport), nameof(ObjectAttributes.ComputedSectionStyle)))).Bind(body).Bracket();
+        DisposalOps.Within(() => attributes.ComputedSectionStyle(doc, sectioner, computeColors, viewport),
+            made => IO.lift(() => Missing.Unless(made, nameof(ObjectAttributes.ComputedSectionStyle))).Bind(body),
+            static made => DisposalOps.Release(Optional(made).ToSeq()));
 
     // --- [FOLD]
     public static IO<Unit> Apply(RhinoDoc doc, ObjectAttributes staged, Seq<Func<RhinoDoc, ObjectAttributes, IO<Unit>>> edits) =>

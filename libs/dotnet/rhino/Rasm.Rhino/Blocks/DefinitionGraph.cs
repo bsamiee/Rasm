@@ -14,14 +14,26 @@ public sealed record MemberReference(Guid Container, Guid Member, Guid Definitio
 public sealed record DefinitionGraph(ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>> Nesting, HashMap<Guid, Seq<Guid>> Placements,
     HashMap<Guid, string> Opaque, Seq<MemberReference> Dangling) {
     // --- [ORDER]
-    public Seq<Guid> BakeOrder => toSeq(Nesting.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward)).Strict();
+    public Fin<Seq<Guid>> BakeOrder =>
+        Nesting.CondensateStronglyConnected<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>() switch {
+            var components => toSeq(components.Vertices).Filter(static component => component.EdgeCount > 0)
+                .Map(static component => toSeq(component.Vertices).Strict()).Strict() switch {
+                    var cycles => cycles.IsEmpty
+                        ? Fin.Succ(toSeq(components.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward))
+                            .Bind(static component => toSeq(component.Vertices)).Strict())
+                        : Fin.Fail<Seq<Guid>>(new CyclicDefinitions(cycles)),
+                },
+        };
 
     public Seq<Guid> Removable(LanguageExt.HashSet<Guid> stale) =>
-        toSeq(Nesting.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)).Strict() switch {
-            var order => order.Filter(order.Fold(LanguageExt.HashSet<Guid>.Empty, (removable, id) =>
-                stale.Contains(id) && !Placements.ContainsKey(id) && toSeq(Nesting.OutEdges(id)).ForAll(edge => removable.Contains(edge.Target))
-                    ? removable.Add(id)
-                    : removable).Contains),
+        Nesting.CondensateStronglyConnected<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>() switch {
+            var components => toSeq(components.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)).Strict() switch {
+                var order => order.Filter(order.Fold(LanguageExt.HashSet<AdjacencyGraph<Guid, SEquatableEdge<Guid>>>.Empty, (removable, component) =>
+                    component.Vertices.All(id => stale.Contains(id) && !Placements.ContainsKey(id)) &&
+                    components.OutEdges(component).All(edge => removable.Contains(edge.Target))
+                        ? removable.Add(component)
+                        : removable).Contains).Bind(static component => toSeq(component.Vertices)).Strict(),
+            },
         };
 
     // --- [SOURCES]

@@ -72,12 +72,12 @@ public abstract partial record PointHandler {
     public sealed record DynamicDraw(Func<GetPointDrawEventArgs, IO<Unit>> Handle) : PointHandler;
     public sealed record PostDraw(Func<DrawEventArgs, IO<Unit>> Handle) : PointHandler;
 
-    internal IO<IDisposable> Attach(GetPoint getter, CallbackSite site) =>
-        Switch((Getter: getter, Site: site),
-            mouseMove: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseMove += h, h => at.Getter.MouseMove -= h, Callbacks.Handler(Posting(row.Handle), at.Site)),
-            mouseDown: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseDown += h, h => at.Getter.MouseDown -= h, Callbacks.Handler(Posting(row.Handle), at.Site)),
-            dynamicDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.DynamicDraw += h, h => at.Getter.DynamicDraw -= h, Callbacks.Handler(Posting(row.Handle), at.Site)),
-            postDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.PostDrawObjects += h, h => at.Getter.PostDrawObjects -= h, Callbacks.Handler(Posting(row.Handle), at.Site)));
+    internal IO<Unit> Attach(GetPoint getter, CallbackSite site, Action<IDisposable> retain) =>
+        Switch((Getter: getter, Site: site, Retain: retain),
+            mouseMove: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseMove += h, h => at.Getter.MouseMove -= h, Callbacks.Handler(Posting(row.Handle), at.Site), at.Retain),
+            mouseDown: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseDown += h, h => at.Getter.MouseDown -= h, Callbacks.Handler(Posting(row.Handle), at.Site), at.Retain),
+            dynamicDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.DynamicDraw += h, h => at.Getter.DynamicDraw -= h, Callbacks.Handler(Posting(row.Handle), at.Site), at.Retain),
+            postDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.PostDrawObjects += h, h => at.Getter.PostDrawObjects -= h, Callbacks.Handler(Posting(row.Handle), at.Site), at.Retain));
 
     private static Func<TArgs, IO<Unit>> Posting<TArgs>(Func<TArgs, IO<Unit>> handle) =>
         args => IO.pure(args).Bind(handle).IfFail(static error => IO.lift(() => GetBaseClass.PostCustomMessage(error)));
@@ -156,16 +156,17 @@ public static partial class Getters {
         Func<TGetter, Seq<(GetResult Result, IO<T> Then)>> own)
         where TBase : GetBaseClass
         where TGetter : TBase =>
-        (from getter in use(create)
-         from prompted in IO.lift(() => getter.SetCommandPrompt(RowText.Localize(request.Prompt, table: Some<object>(request.Site.Sink)).Local))
-         let accepted = Accepted(getter, request, doc)
-         let routes = own(getter) + accepted.Map(static route => (route.Result, route.Then))
-         from enabled in accepted.TraverseM(static route => route.Enable).As()
-         from configured in request.Configure(getter)
-         from answer in CommandOptions.Using(
-             getter, request.Site.Sink, request.Options,
-             chosen => Routed(routes.Add((GetResult.Option, chosen)), get(getter), request.Site.Member))
-         select answer).Bracket();
+        DisposalOps.Within(create, getter =>
+                 from prompted in IO.lift(() => getter.SetCommandPrompt(RowText.Localize(request.Prompt, table: Some<object>(request.Site.Sink)).Local))
+                 let accepted = Accepted(getter, request, doc)
+                 let routes = own(getter) + accepted.Map(static route => (route.Result, route.Then))
+                 from enabled in accepted.TraverseM(static route => route.Enable).As()
+                 from configured in request.Configure(getter)
+                 from result in CommandOptions.Using(
+                     getter, request.Site.Sink, request.Options,
+                     chosen => Routed(routes.Add((GetResult.Option, chosen)), get(getter), request.Site.Member))
+                 select result,
+            static getter => IO.lift(getter.Dispose));
 
     private static IO<T> Routed<T>(Seq<(GetResult Result, IO<T> Then)> routes, IO<GetResult> get, string member) =>
         from result in get
@@ -255,24 +256,25 @@ public static partial class Getters {
             create,
             request,
             doc,
-            getter => DisposalOps.AcquireAll(request.Handlers.Map(handler => handler.Attach(getter, request.Site)), DisposalOps.Release)
-                .Bracket(
-                    Use: _ => IO.lift(() => {
-                        getter.AcceptCustomMessage(!request.Handlers.IsEmpty || request.Accept.Message.IsSome);
-                        getter.FullFrameRedrawDuringGet |= getter is GetTransform && request.FullFrame;
-                        if (request.Default.Case is Point3d point)
-                            getter.SetDefaultPoint(point);
-                        return get(getter);
-                    }),
-                    Fin: DisposalOps.Release),
+            getter => DisposalOps.Within((Action<IDisposable> retain) =>
+                 from handlers in request.Handlers.TraverseM(handler => handler.Attach(getter, request.Site, retain)).As()
+                 from result in IO.lift(() => {
+                     getter.AcceptCustomMessage(!request.Handlers.IsEmpty || request.Accept.Message.IsSome);
+                     getter.FullFrameRedrawDuringGet |= getter is GetTransform && request.FullFrame;
+                     if (request.Default.Case is Point3d point)
+                         getter.SetDefaultPoint(point);
+                     return get(getter);
+                 })
+                 select result, DisposalOps.Release),
             getter => request.Handlers.IsEmpty
                 ? Seq(answered(getter))
                 : Seq(answered(getter), (GetResult.CustomMessage, Posted(getter, request.Accept.Message))));
 
     private static IO<T> World<T>(GetPoint getter, RhinoDoc doc, Func<WorldPick, IO<T>> picked) =>
-        IO.lift(() => Optional(getter.PointOnObject())).Bracket(
-            Use: reference => Pick(getter, doc).Map(pick => new WorldPick(pick, getter.GotDefault(), getter.OsnapEventType, Callbacks.Found(getter.TryGetBasePoint(out Point3d start), start), reference)).Bind(picked),
-            Fin: static reference => DisposalOps.Release(reference.ToSeq()));
+        DisposalOps.Within(() => Optional(getter.PointOnObject()), reference => Pick(getter, doc)
+                 .Map(pick => new WorldPick(pick, getter.GotDefault(), getter.OsnapEventType, Callbacks.Found(getter.TryGetBasePoint(out Point3d start), start), reference))
+                 .Bind(picked),
+            static reference => DisposalOps.Release(reference.ToSeq()));
 
     private static IO<PointPick> Pick(GetBaseClass getter, RhinoDoc doc) =>
         IO.lift(() => Optional(getter.View())).Map(view => new PointPick(getter.Point(), Space(view, doc), view.Map(static found => Located(found.ActiveViewport))));
@@ -287,7 +289,7 @@ public static partial class Getters {
             request,
             doc,
             getter => Selected(getter, request),
-            getter => Seq((GetResult.Object, IO.lift(() => toSeq(getter.Objects())).Bracket(Use: selected, Fin: DisposalOps.Release))));
+            getter => Seq((GetResult.Object, DisposalOps.Within(() => toSeq(getter.Objects()), selected, DisposalOps.Release))));
 
     private static IO<GetResult> Selected<T>(GetObject getter, ObjectRequest<T> request) =>
         IO.lift(() => {
@@ -369,16 +371,16 @@ public static partial class Getters {
         Run(static () => new GetOption(), request, doc, static getter => IO.lift(getter.Get), static _ => Seq<(GetResult Result, IO<T> Then)>());
 
     // --- [DRAG]
-    public static IO<TransformObjectList> DragList(Seq<ObjRef> references, bool feedback) =>
-        Listed(list => references.Iter(list.Add), feedback);
+    public static IO<T> DragList<T>(Seq<ObjRef> references, bool feedback, Func<TransformObjectList, IO<T>> body) =>
+        Listed(list => references.Iter(list.Add), feedback, body);
 
-    public static IO<TransformObjectList> DragList(RhinoDoc doc, ObjectRequest<TransformObjectList> request, bool allowGrips, bool feedback) =>
+    public static IO<T> DragList<T>(RhinoDoc doc, ObjectRequest<T> request, bool allowGrips, bool feedback, Func<TransformObjectList, IO<T>> body) =>
         Run(
             static () => new GetObject(),
             request,
             doc,
             getter => Selected(getter, request),
-            getter => Seq((GetResult.Object, Listed(list => Missing.Unless(list.AddObjects(getter, allowGrips) > 0, nameof(TransformObjectList.AddObjects)), feedback))));
+            getter => Seq((GetResult.Object, Listed(list => Missing.Unless(list.AddObjects(getter, allowGrips) > 0, nameof(TransformObjectList.AddObjects)), feedback, body))));
 
     public static IO<Unit> Dragged(TransformObjectList list, Transform xform) =>
         IO.lift(() => Refused.Unless(list.UpdateDisplayFeedbackTransform(xform), nameof(TransformObjectList.UpdateDisplayFeedbackTransform)));
@@ -390,10 +392,8 @@ public static partial class Getters {
             toSeq(list.GripOwnerArray()).Map(static owner => owner.Id).Strict(),
             Conversions.Present(list.GetBoundingBox(regularObjects: true, grips: true))));
 
-    private static IO<TransformObjectList> Listed(Func<TransformObjectList, Fin<Unit>> fill, bool feedback) =>
-        from list in IO.lift(() => CreateList(feedback))
-        from filled in DisposalOps.OnFailure(IO.lift(() => fill(list)), IO.lift(list.Dispose))
-        select list;
+    private static IO<T> Listed<T>(Func<TransformObjectList, Fin<Unit>> fill, bool feedback, Func<TransformObjectList, IO<T>> body) =>
+        DisposalOps.Within(() => CreateList(feedback), list => IO.lift(() => fill(list)).Bind(_ => body(list)), static list => IO.lift(list.Dispose));
 
     // --- [STAGES]
     public static IO<TValue> Stages<TStage, TValue>(TStage entry, Func<TStage, Accepts<StageStep<TStage, TValue>>, IO<StageStep<TStage, TValue>>> prompt) =>
@@ -403,15 +403,17 @@ public static partial class Getters {
 
     // --- [AWAIT]
     public static IO<T> Await<T>(RhinoDoc doc, string prompt, Option<string> progress, Func<IProgress<double>, IO<T>> work) =>
-        (from getter in use(() => CreateWaiter((progress.IsSome, progress)))
-         from shown in IO.lift(() => getter.SetCommandPrompt(prompt))
-         from running in IO.lift(() => Task.Run(() => {
-             using EnvIO environment = EnvIO.New(token: getter.Token);
-             return Try.lift(() => work(getter.Progress).Run(environment)).Run();
-         }, getter.Token))
-         from waited in IO.lift(() => Conversions.FromResult(getter.Wait(running, doc), nameof(GetCancel.Wait)))
-         from value in IO.liftAsync(() => running).Bind(IO.lift)
-         select value).Bracket();
+        DisposalOps.Within(() => CreateWaiter((progress.IsSome, progress)), getter =>
+            IO.liftAsync(async () => {
+                getter.SetCommandPrompt(prompt);
+                Task<Fin<T>> running = Task.Run(() => {
+                    using EnvIO environment = EnvIO.New(token: getter.Token);
+                    return Try.lift(() => work(getter.Progress).Run(environment)).Run();
+                }, getter.Token);
+                Fin<Unit> waited = Conversions.FromResult(getter.Wait(running, doc), nameof(GetCancel.Wait));
+                return waited is Fin<Unit>.Fail(var error) ? Fin.Fail<T>(error) : await running.ConfigureAwait(false);
+            }).Bind(IO.lift),
+            static getter => IO.lift(getter.Dispose));
 
     // --- [MAPPING]
     [MapPropertyFromSource(nameof(TransformObjectList.DisplayFeedbackEnabled))]

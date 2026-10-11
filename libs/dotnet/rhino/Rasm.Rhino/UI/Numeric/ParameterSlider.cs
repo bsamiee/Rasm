@@ -16,11 +16,10 @@ public sealed record ParameterSliderState<TValue, TKey>(Option<TValue> Shown, Op
     where TValue : notnull where TKey : struct, INumber<TKey>;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class ParameterSlider<TValue, TKey, TError>(IPlugInSink sink, Presentation<TValue, TKey> presentation, NumberText<TKey> text, string caption)
+public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, Presentation<TKey> presentation, NumberText<TKey> text, string caption, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> keyOf, (TKey Low, TKey High) limits)
     : ComponentControl<ParameterSliderState<TValue, TKey>, Unit, TValue>(sink, new ParameterSliderState<TValue, TKey>(None, None), None)
-    where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-    where TKey : struct, INumber<TKey>
-    where TError : Error, IValidationError<TError> {
+    where TValue : notnull
+    where TKey : struct, INumber<TKey> {
     // --- [METRICS]
     private const int TickIntervals = 10;
 
@@ -63,10 +62,10 @@ public sealed class ParameterSlider<TValue, TKey, TError>(IPlugInSink sink, Pres
     private (TKey Low, TKey High) Track(ParameterSliderState<TValue, TKey> state) =>
         state.Grip.Match(
             Some: static grip => grip.Track,
-            None: () => state.Shown.Match(Some: shown => presentation.Track(shown.ToValue()), None: () => presentation.Soft));
+            None: () => state.Shown.Match(Some: shown => presentation.Track(keyOf(shown), limits), None: () => presentation.Soft.IfNone(limits)));
 
     private double Position(ParameterSliderState<TValue, TKey> state) =>
-        state.Shown.Match(Some: shown => presentation.Position(shown.ToValue(), Track(state)), None: static () => 0d);
+        state.Shown.Match(Some: shown => presentation.Position(keyOf(shown), Track(state)), None: static () => 0d);
 
     private double Origin(ParameterSliderState<TValue, TKey> state) =>
         presentation.Origin.Map(origin => presentation.Position(origin, Track(state))).IfNone(0d);
@@ -82,15 +81,15 @@ public sealed class ParameterSlider<TValue, TKey, TError>(IPlugInSink sink, Pres
     // --- [TRANSITIONS]
     protected override ParameterSliderState<TValue, TKey> Received(ParameterSliderState<TValue, TKey> state, Option<TValue> value) => state with { Shown = value };
 
-    private static Transition<ParameterSliderState<TValue, TKey>, TValue> Moved(ParameterSliderState<TValue, TKey> state, TKey key, Func<TValue, Edit<TValue>> edit) =>
-        state.Shown.Exists(shown => shown.ToValue() == key)
+    private Transition<ParameterSliderState<TValue, TKey>, TValue> Moved(ParameterSliderState<TValue, TKey> state, TKey next, Func<TValue, Edit<TValue>> edit) =>
+        state.Shown.Exists(shown => keyOf(shown) == next)
             ? new(state, None)
-            : Conversions.Validated<TValue, TKey, TError>(key).Match(
+            : create(next).Match(
                 Succ: value => new Transition<ParameterSliderState<TValue, TKey>, TValue>(state with { Shown = Some(value) }, Some(edit(value))),
                 Fail: _ => new Transition<ParameterSliderState<TValue, TKey>, TValue>(state, None));
 
     private Option<Transition<ParameterSliderState<TValue, TKey>, TValue>> Stepping(ParameterSliderState<TValue, TKey> state, Func<TKey, (TKey Low, TKey High), TKey> next) =>
-        state.Shown.Map(shown => Moved(state, next(shown.ToValue(), Track(state)), static value => new Edit<TValue>.Step(value)));
+        state.Shown.Map(shown => Moved(state, next(keyOf(shown), Track(state)), static value => new Edit<TValue>.Step(value)));
 
     protected override Option<Transition<ParameterSliderState<TValue, TKey>, TValue>> Pressed(
         ParameterSliderState<TValue, TKey> state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
@@ -134,13 +133,13 @@ public sealed class ParameterSlider<TValue, TKey, TError>(IPlugInSink sink, Pres
 
     // --- [ACCESSIBILITY]
     protected override PartFacet Facet(ParameterSliderState<TValue, TKey> state, Unit key) =>
-        new(PartRole.Slider, Cursors.Default, caption, Some(text.Shown(state.Shown.Map(static shown => shown.ToValue()))), None);
+        new(PartRole.Slider, Cursors.Default, caption, Some(text.Shown(state.Shown.Map(keyOf))), None);
 
     // --- [PAINT]
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, ParameterSliderState<TValue, TKey> state, Seq<PlotMark<Unit>> marks, Interaction<Unit> interaction) =>
         Plane(Bar(bounds.Size)) switch {
             var plane =>
-                from stops in when(presentation.Stops.IsSome, Plots.Strip(canvas, plane, position => presentation.Fill(presentation.Key(position, Track(state)))
+                from stops in when(presentation.Stops.IsSome, Plots.Strip(canvas, plane, position => presentation.Fill(presentation.Key(position, Track(state)), limits)
                     .Map(static light => Plots.Encoded(Gamut.StandardRgb, light.AsVector3()))
                     .IfNone(Colors.Transparent))).As()
                 from veil in IO.lift(() => HostTheme.Veil(canvas.Slots, canvas.Slots[PaintSlot.ControlBackground])

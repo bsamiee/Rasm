@@ -1,4 +1,5 @@
 using System.Net;
+using System.Runtime.InteropServices;
 using Rasm.Rhino.Document.Files;
 using Rhino;
 using Rhino.Render;
@@ -37,6 +38,11 @@ internal enum Codes {
     TextureMissing,
     FileOutsideCopy,
     RenderOnCpu,
+    JobFrameOutsideSpan,
+    FarmPlatformUnsupported,
+    FlamencoRefused,
+    FlamencoUnreached,
+    FarmScriptRequired,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -70,7 +76,11 @@ public sealed record JobEntryRejected : Expected {
     public int Index { get; }
 }
 
-public sealed record NoticeRefused(HttpStatusCode Status) : Expected("{Status} answered the notice post", (int)Codes.NoticeRefused);
+public sealed record JobFrameOutsideSpan(SequenceNumber Frame, SequenceNumber First, SequenceNumber Last) : Expected("Job frame {Frame} lies outside its entry's {First} to {Last} range", (int)Codes.JobFrameOutsideSpan);
+
+public sealed record NoticeRefused(HttpStatusCode Status) : Expected("{Status} answered the notice post", (int)Codes.NoticeRefused) {
+    public static Fin<Unit> Unless(HttpStatusCode status) => status == HttpStatusCode.OK ? unit : new NoticeRefused(status);
+}
 
 public sealed record NoticeUnreached : Expected {
     public NoticeUnreached(string server, Error cause) : base("{Server} received no notice post", (int)Codes.NoticeUnreached, cause) => Server = server;
@@ -125,3 +135,15 @@ public sealed record TextureMissing(string Path) : Expected("{Path} is not found
 public sealed record FileOutsideCopy(string Path) : Expected("{Path} stays outside the copy", (int)Codes.FileOutsideCopy);
 
 public sealed record RenderOnCpu() : Expected("Rhino Render runs on the CPU in safe mode", (int)Codes.RenderOnCpu);
+
+public sealed record FarmPlatformUnsupported(OSPlatform Platform) : Expected("Rhino farm workers do not run on {Platform}", (int)Codes.FarmPlatformUnsupported);
+
+public sealed record FlamencoRefused(HttpStatusCode Status) : Expected("Flamenco refused the render job with {Status}", (int)Codes.FlamencoRefused);
+
+public sealed record FlamencoUnreached : Expected {
+    public FlamencoUnreached(Uri manager, Error cause) : base("{Manager} received no render job", (int)Codes.FlamencoUnreached, cause) => Manager = manager;
+
+    public Uri Manager { get; }
+}
+
+public sealed record FarmScriptRequired() : Expected("A dedicated Rhino farm process runs the scripted job command", (int)Codes.FarmScriptRequired);

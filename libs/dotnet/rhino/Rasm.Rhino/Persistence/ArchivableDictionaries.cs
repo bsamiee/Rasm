@@ -99,7 +99,7 @@ public static class ArchivableDictionaries {
         owner.Edit(target => Fin.Succ(ignore(target.Remove(codec.Name))));
 
     // --- [STORES]
-    public static ValueStore<TValue> Store<TValue, TRaw, TError>(DictionaryOwner owner, ValueKey<TValue, TRaw, TError> key, Option<HostEvent<Unit>> changed)
+    public static ValueStore<TValue> Store<TValue, TRaw>(DictionaryOwner owner, ValueKey<TValue, TRaw> key, Option<HostEvent<Unit>> changed)
         where TValue : notnull
         where TRaw : notnull =>
         ValueStore.Of(

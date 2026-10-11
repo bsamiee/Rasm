@@ -12,11 +12,11 @@ public static class NamedCallbacks {
     [UnsafeAccessor(UnsafeAccessorKind.StaticField, Name = "_namedCallbacks")]
     private static extern ref Dictionary<string, EventHandler<NamedParametersEventArgs>> Handlers([UnsafeAccessorType("Rhino.Runtime.HostUtils, RhinoCommon")] object? owner);
 
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register(string name, Func<NamedParametersEventArgs, IO<Unit>> reply) =>
-        (_, sink) => IO.lift(() => Taken.Unless(!Handlers(owner: null).ContainsKey(name), nameof(HostUtils.RegisterNamedCallback), name))
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> Register(string name, Func<NamedParametersEventArgs, IO<Unit>> reply) =>
+        (_, sink, retain) => IO.lift(() => Taken.Unless(!Handlers(owner: null).ContainsKey(name), nameof(HostUtils.RegisterNamedCallback), name))
             >> Subscriptions.Host<NamedParametersEventArgs>(typeof(HostUtils), handler => HostUtils.RegisterNamedCallback(name, handler),
                 handler => ((ICollection<KeyValuePair<string, EventHandler<NamedParametersEventArgs>>>)Handlers(owner: null)).Remove(new(name, handler)), name)
-                .Inline(args => reply(args) >> IO.lift(() => args.Set(HandledEntry, value: true)), sink);
+                .Inline(args => reply(args) >> IO.lift(() => args.Set(HandledEntry, value: true)), sink, retain);
 
     // --- [EXECUTION]
     public static IO<T> Execute<T>(string name, Func<NamedParametersEventArgs, Option<T>> read, params Seq<Action<NamedParametersEventArgs>> entries) =>

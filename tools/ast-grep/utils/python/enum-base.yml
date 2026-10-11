@@ -4,6 +4,4 @@ language: python
 rule:
     any:
         - matches: {python-member-use: {module: {regex: '^enum$'}, name: {regex: '^(Enum|IntEnum|StrEnum|Flag|IntFlag|ReprEnum)$'}}}
-        - kind: identifier
-          pattern: $BASE
-          inside: {kind: module, stopBy: end, has: {kind: class_definition, all: [{has: {field: name, pattern: $BASE}}, {has: {field: superclasses, has: {matches: enum-base}}}]}}
+        - matches: {python-base-class: {superclasses: {has: {matches: enum-base}}}}

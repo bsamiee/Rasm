@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.Intrinsics;
+using PeterO.Numbers;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using SixLabors.ImageSharp;
@@ -14,7 +16,7 @@ namespace Rasm.Imaging.Filters.Stylize;
 [ValidationError<InvalidStylize>]
 public readonly partial struct LevelCount : IMinMaxValue<LevelCount> {
     public static LevelCount MinValue { get; } = new(2);
-    public static LevelCount MaxValue { get; } = new(256);
+    public static LevelCount MaxValue { get; } = new(int.MaxValue);
     public static LevelCount Eighths { get; } = new(8 + 1);
 
     static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref int value) =>
@@ -84,24 +86,27 @@ public sealed partial class PaletteDither {
     internal IDither Kernel { get; }
 }
 
-public sealed record Posterize(LevelCount Levels, Mix RetainHue, Mix DitherStrength, Gated<CellSize> DitherCell)
+public sealed record Posterize(LevelCount Levels, Mix RetainHue, Mix DitherStrength, Gated<ShortSideExtent> DitherCell)
     : IStateRecord<Posterize, PosterizeParameter, InvalidStylize>, IPixelStage<Posterize> {
-    public static Posterize Default { get; } = new(LevelCount.Eighths, Mix.Full, Mix.MinValue, new(Enabled: false, CellSize.MinValue));
+    public static Posterize Default { get; } = new(LevelCount.Eighths, Mix.MinValue, Mix.MinValue, new(Enabled: false, ShortSideExtent.MinValue));
 
     public static Option<PixelPass> Pass(Posterize state, PassContext context) => Some<PixelPass>(new PixelPass.Pointwise(Rows(state, context.Extent)));
 
-    private static Action<Span<Vector4>, int, int> Rows(Posterize state, PixelExtent extent) {
-        float steps = state.Levels - 1;
-        float cell = state.DitherCell.Active.Map(size => float.Max(1f, size.Pixels(extent))).IfNone(1f);
+    private static Action<Span<Vector4>, long, long> Rows(Posterize state, PixelExtent extent) {
+        double steps = state.Levels - 1;
+        ERational cell = state.DitherCell.Active.Map(size => ERational.FromSingle(size).Multiply(extent.ShortSide)).IfNone(ERational.One);
         (float strength, float retain, int height) = (state.DitherStrength, state.RetainHue, extent.Height);
         return (row, column, line) => {
-            int v = (int)float.Floor((height - line - 0.5f) / cell) & 7;
+            int v = WrapMode.Periodic.Fold(ERational.FromInt64((2L * (height - line)) - 1L).Divide(2).Divide(cell), 8).Point.ToEInteger().ToInt32Checked();
             for (int x = 0; x < row.Length; x++) {
-                int b = ((int)float.Floor((column + x + 0.5f) / cell) & 7) ^ v;
+                int b = WrapMode.Periodic.Fold(ERational.FromInt64((2L * (column + x)) + 1L).Divide(2).Divide(cell), 8).Point.ToEInteger().ToInt32Checked() ^ v;
                 int rank = ((b & 1) << 5) | ((v & 1) << 4) | ((b & 2) << 2) | ((v & 2) << 1) | ((b & 4) >> 1) | ((v & 4) >> 2);
-                float offset = strength * (((rank + 0.5f) / 64f) - 0.5f);
-                Vector4 level = new(Vector3.Clamp(Vector3.Round((row[x].AsVector3() * steps) + new Vector3(0.5f + offset), MidpointRounding.ToNegativeInfinity), Vector3.Zero, new Vector3(steps)) / steps, row[x].W);
-                row[x] = retain > 0f ? Vector4.Lerp(level, (Hsy.From(level) with { Hue = Hsy.From(row[x]).Hue }).ToRgb(row[x].W), retain) : level;
+                double offset = strength * (((rank + 0.5d) / 64d) - 0.5d);
+                Vector256<double> codes = Vector256.Floor((Vector256.Clamp(Vector256.Create(row[x].X, row[x].Y, row[x].Z, 0d), Vector256<double>.Zero, Vector256.Create(1d)) * steps) + Vector256.Create(0.5d + offset)) / steps;
+                Vector4 level = new((float)codes.GetElement(0), (float)codes.GetElement(1), (float)codes.GetElement(2), row[x].W);
+                row[x] = retain > 0f
+                    ? new Vector4(Vector3.Lerp(level.AsVector3(), (Hsy.From(level) with { Hue = Hsy.From(row[x]).Hue }).ToRgb(row[x].W).AsVector3(), retain), row[x].W)
+                    : level;
             }
         };
     }
@@ -113,18 +118,14 @@ public sealed record Posterize(LevelCount Levels, Mix RetainHue, Mix DitherStren
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PosterizeParameter : IStateParameter<Posterize> {
     public static readonly PosterizeParameter Levels = new(
-        "levels", new StateParameter<Posterize>.Bounded<LevelCount, int, InvalidStylize>(
-            Lens<Posterize, LevelCount>.New(static posterize => posterize.Levels, static levels => posterize => posterize with { Levels = levels }), new()));
+        "levels", StateParameter.Bounded<Posterize, LevelCount, int, InvalidStylize>(Lens<Posterize, LevelCount>.New(static posterize => posterize.Levels, static levels => posterize => posterize with { Levels = levels }), new() { Soft = (2, 256) }));
     public static readonly PosterizeParameter RetainHue = new(
-        "retain-hue", new StateParameter<Posterize>.Bounded<Mix, float, InvalidGrade>(
-            Lens<Posterize, Mix>.New(static posterize => posterize.RetainHue, static retain => posterize => posterize with { RetainHue = retain }), new()));
+        "retain-hue", StateParameter.Bounded<Posterize, Mix, float, InvalidGrade>(Lens<Posterize, Mix>.New(static posterize => posterize.RetainHue, static retain => posterize => posterize with { RetainHue = retain }), new()));
     public static readonly PosterizeParameter DitherStrength = new(
-        "dither-strength", new StateParameter<Posterize>.Bounded<Mix, float, InvalidGrade>(
-            Lens<Posterize, Mix>.New(static posterize => posterize.DitherStrength, static strength => posterize => posterize with { DitherStrength = strength }), new()));
+        "dither-strength", StateParameter.Bounded<Posterize, Mix, float, InvalidGrade>(Lens<Posterize, Mix>.New(static posterize => posterize.DitherStrength, static strength => posterize => posterize with { DitherStrength = strength }), new()));
     public static readonly PosterizeParameter DitherCell = new(
-        "dither-cell", new StateParameter<Posterize>.OptionalBounded<CellSize, float, InvalidStylize>(
-            Lens<Posterize, Gated<CellSize>>.New(static posterize => posterize.DitherCell, static cell => posterize => posterize with { DitherCell = cell }),
-            CellSize.Presentation));
+        "dither-cell", StateParameter.OptionalBounded<Posterize, ShortSideExtent, float, InvalidPixelValue>(Lens<Posterize, Gated<ShortSideExtent>>.New(static posterize => posterize.DitherCell, static cell => posterize => posterize with { DitherCell = cell }),
+        ShortSideExtent.Presentation with { Soft = (0.001f, 0.25f) }));
 
     public StateParameter<Posterize> Kind { get; }
 }
@@ -143,15 +144,13 @@ public sealed record PaletteReduction(ColorCount Colors, PaletteDither Dithering
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PaletteReductionParameter : IStateParameter<PaletteReduction> {
     public static readonly PaletteReductionParameter Colors = new(
-        "colors", new StateParameter<PaletteReduction>.Bounded<ColorCount, int, InvalidStylize>(
-            Lens<PaletteReduction, ColorCount>.New(static reduction => reduction.Colors, static colors => reduction => reduction with { Colors = colors }),
-            new() { Scale = TrackScale.Log }));
+        "colors", StateParameter.Bounded<PaletteReduction, ColorCount, int, InvalidStylize>(Lens<PaletteReduction, ColorCount>.New(static reduction => reduction.Colors, static colors => reduction => reduction with { Colors = colors }),
+        new() { Scale = TrackScale.Log }));
     public static readonly PaletteReductionParameter Dithering = new(
         "dithering", new StateParameter<PaletteReduction>.Choice<PaletteDither, InvalidStylize>(
             Lens<PaletteReduction, PaletteDither>.New(static reduction => reduction.Dithering, static dithering => reduction => reduction with { Dithering = dithering })));
     public static readonly PaletteReductionParameter DitherStrength = new(
-        "dither-strength", new StateParameter<PaletteReduction>.Bounded<Mix, float, InvalidGrade>(
-            Lens<PaletteReduction, Mix>.New(static reduction => reduction.DitherStrength, static strength => reduction => reduction with { DitherStrength = strength }), new()));
+        "dither-strength", StateParameter.Bounded<PaletteReduction, Mix, float, InvalidGrade>(Lens<PaletteReduction, Mix>.New(static reduction => reduction.DitherStrength, static strength => reduction => reduction with { DitherStrength = strength }), new()));
 
     public StateParameter<PaletteReduction> Kind { get; }
 }
@@ -178,8 +177,7 @@ public sealed partial class PaletteMappingParameter : IStateParameter<PaletteMap
         "dithering", new StateParameter<PaletteMapping>.Choice<PaletteDither, InvalidStylize>(
             Lens<PaletteMapping, PaletteDither>.New(static mapping => mapping.Dithering, static dithering => mapping => mapping with { Dithering = dithering })));
     public static readonly PaletteMappingParameter DitherStrength = new(
-        "dither-strength", new StateParameter<PaletteMapping>.Bounded<Mix, float, InvalidGrade>(
-            Lens<PaletteMapping, Mix>.New(static mapping => mapping.DitherStrength, static strength => mapping => mapping with { DitherStrength = strength }), new()));
+        "dither-strength", StateParameter.Bounded<PaletteMapping, Mix, float, InvalidGrade>(Lens<PaletteMapping, Mix>.New(static mapping => mapping.DitherStrength, static strength => mapping => mapping with { DitherStrength = strength }), new()));
 
     public StateParameter<PaletteMapping> Kind { get; }
 }
@@ -195,9 +193,8 @@ internal static class Reduction {
         };
 
     public static Func<PixelFrame, IProgress<int>, Fin<Unit>> Kernel(IQuantizer quantizer) =>
-        (frame, progress) => {
-            frame.Mutate(image => image.Mutate(context => context.Quantize(quantizer)));
+        (frame, progress) => frame.Mutate(image => image.Mutate(context => context.Quantize(quantizer))).Map(_ => {
             progress.Report(frame.Size.Height);
             return unit;
-        };
+        });
 }

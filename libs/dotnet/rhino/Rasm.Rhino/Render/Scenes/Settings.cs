@@ -19,13 +19,13 @@ namespace Rasm.Rhino.Render.Scenes;
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct PixelDimension : System.Numerics.IMinMaxValue<PixelDimension> {
     public static PixelDimension MinValue { get; } = new(1);
-    public static PixelDimension MaxValue { get; } = new(1_000_000);
+    public static PixelDimension MaxValue { get; } = new(int.MaxValue);
     public static PixelDimension DefaultWidth { get; } = new(800);
     public static PixelDimension DefaultHeight { get; } = new(600);
-    public static Presentation<PixelDimension, int> Presentation { get; } = new() { Form = NumberForm.Field };
+    public static Presentation<int> Presentation { get; } = new() { Form = NumberForm.Field };
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+        validationError = value >= MinValue._value ? null : new InvalidRhinoValue();
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -85,8 +85,8 @@ public sealed record ImageOutputState(bool UseViewportSize, PixelDimension Image
                 .ToFin(),
         });
 
-    public static IO<Unit> Write(SceneWindow window, ImageOutputState state) =>
-        IO.lift(() => RenderSettingsMapper.Update(state, window.Settings));
+    public static IO<ImageOutputState> Write(SceneWindow window, ImageOutputState state) =>
+        IO.lift(() => { RenderSettingsMapper.Update(state, window.Settings); return state; });
 
     public static ParameterText Text(ImageOutputParameter parameter) =>
         parameter.Map(
@@ -110,13 +110,10 @@ public sealed record ImageOutputState(bool UseViewportSize, PixelDimension Image
 public sealed partial class ImageOutputParameter : IStateParameter<ImageOutputState> {
     public static readonly ImageOutputParameter UseViewportSize = new("use-viewport-size", new StateParameter<ImageOutputState>.Toggle(
         Lens<ImageOutputState, bool>.New(static state => state.UseViewportSize, static on => state => state with { UseViewportSize = on })));
-    public static readonly ImageOutputParameter ImageWidth = new("image-width", new StateParameter<ImageOutputState>.Bounded<PixelDimension, int, InvalidRhinoValue>(
-        Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageWidth, static width => state => state with { ImageWidth = width }), PixelDimension.Presentation));
-    public static readonly ImageOutputParameter ImageHeight = new("image-height", new StateParameter<ImageOutputState>.Bounded<PixelDimension, int, InvalidRhinoValue>(
-        Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageHeight, static height => state => state with { ImageHeight = height }), PixelDimension.Presentation));
-    public static readonly ImageOutputParameter ImageDpi = new("image-dpi", new StateParameter<ImageOutputState>.Bounded<PixelDensity, double, InvalidOutput>(
-        Lens<ImageOutputState, PixelDensity>.New(static state => state.ImageDpi, static dpi => state => state with { ImageDpi = dpi }),
-        new Presentation<PixelDensity, double> { Form = NumberForm.Field, Step = 1d, Decimals = 0 }));
+    public static readonly ImageOutputParameter ImageWidth = new("image-width", StateParameter.Bounded<ImageOutputState, PixelDimension, int, InvalidRhinoValue>(Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageWidth, static width => state => state with { ImageWidth = width }), PixelDimension.Presentation));
+    public static readonly ImageOutputParameter ImageHeight = new("image-height", StateParameter.Bounded<ImageOutputState, PixelDimension, int, InvalidRhinoValue>(Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageHeight, static height => state => state with { ImageHeight = height }), PixelDimension.Presentation));
+    public static readonly ImageOutputParameter ImageDpi = new("image-dpi", StateParameter.Bounded<ImageOutputState, PixelDensity, double, InvalidOutput>(Lens<ImageOutputState, PixelDensity>.New(static state => state.ImageDpi, static dpi => state => state with { ImageDpi = dpi }),
+    new Presentation<double> { Form = NumberForm.Field, Step = 1d, Decimals = 0 }));
     public static readonly ImageOutputParameter ImageUnitSystem = new("image-unit-system", new StateParameter<ImageOutputState>.Enumerated<UnitSystem>(
         Lens<ImageOutputState, UnitSystem>.New(static state => state.ImageUnitSystem, static system => state => state with { ImageUnitSystem = system })));
 
@@ -134,8 +131,12 @@ public sealed record RenderSourceState(RenderSettings.RenderingSources RenderSou
     public static IO<RenderSourceState> Read(SceneWindow window) =>
         IO.lift(() => RenderSettingsMapper.ToState(window.Settings));
 
-    public static IO<Unit> Write(SceneWindow window, RenderSourceState state) =>
-        IO.lift(() => RenderSettingsMapper.Update(state, window.Settings));
+    public static IO<RenderSourceState> Write(SceneWindow window, RenderSourceState state) =>
+        IO.pure(state with {
+            SpecificViewport = state.SpecificViewport.Bind(Conversions.Present),
+            NamedView = state.NamedView.Bind(Conversions.Present),
+            Snapshot = state.Snapshot.Bind(Conversions.Present),
+        }).Bind(accepted => IO.lift(() => { RenderSettingsMapper.Update(accepted, window.Settings); return accepted; }));
 
     public static ParameterText Text(RenderSourceParameter parameter) =>
         parameter.Map(
@@ -202,8 +203,8 @@ public sealed record FrameState(
                     settings.RenderAnnotations, settings.UseHiddenLights, settings.DepthCue, settings.FlatShade)),
         });
 
-    public static IO<Unit> Write(SceneWindow window, FrameState state) =>
-        IO.lift(() => RenderSettingsMapper.Update(state, window.Settings));
+    public static IO<FrameState> Write(SceneWindow window, FrameState state) =>
+        IO.lift(() => { RenderSettingsMapper.Update(state, window.Settings); return state; });
 
     public static ParameterText Text(FrameParameter parameter) =>
         parameter.Map(
@@ -280,8 +281,8 @@ public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProces
             Conversions.Validated<Gamma, float, InvalidRhinoValue>(workflow.PostProcessGamma)
                 .Map(gamma => new LinearWorkflowState(workflow.PreProcessColors, gamma, workflow.PostProcessGammaOn))));
 
-    public static IO<Unit> Write(SceneWindow window, LinearWorkflowState state) =>
-        SceneSources.SubOwner(window, static settings => settings.LinearWorkflow, workflow => IO.lift(() => RenderSettingsMapper.Update(state, workflow)));
+    public static IO<LinearWorkflowState> Write(SceneWindow window, LinearWorkflowState state) =>
+        SceneSources.SubOwner(window, static settings => settings.LinearWorkflow, workflow => IO.lift(() => { RenderSettingsMapper.Update(state, workflow); return state; }));
 
     public static ParameterText Text(LinearWorkflowParameter parameter) =>
         parameter.Map(
@@ -299,9 +300,8 @@ public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProces
 public sealed partial class LinearWorkflowParameter : IStateParameter<LinearWorkflowState> {
     public static readonly LinearWorkflowParameter PreProcessColors = new("use-linear-workflow", new StateParameter<LinearWorkflowState>.Toggle(
         Lens<LinearWorkflowState, bool>.New(static state => state.PreProcessColors, static on => state => state with { PreProcessColors = on })));
-    public static readonly LinearWorkflowParameter PostProcessGamma = new("gamma", new StateParameter<LinearWorkflowState>.Bounded<Gamma, float, InvalidRhinoValue>(
-        Lens<LinearWorkflowState, Gamma>.New(static state => state.PostProcessGamma, static gamma => state => state with { PostProcessGamma = gamma }),
-        new Presentation<Gamma, float> { Step = 0.01f, Decimals = 2 }));
+    public static readonly LinearWorkflowParameter PostProcessGamma = new("gamma", StateParameter.Bounded<LinearWorkflowState, Gamma, float, InvalidRhinoValue>(Lens<LinearWorkflowState, Gamma>.New(static state => state.PostProcessGamma, static gamma => state => state with { PostProcessGamma = gamma }),
+    new Presentation<float> { Step = 0.01f, Decimals = 2 }));
     public static readonly LinearWorkflowParameter PostProcessGammaOn = new("use-post-process-gamma", new StateParameter<LinearWorkflowState>.Toggle(
         Lens<LinearWorkflowState, bool>.New(static state => state.PostProcessGammaOn, static on => state => state with { PostProcessGammaOn = on })));
 
@@ -319,8 +319,8 @@ public sealed record DitheringState(bool Enabled, DitherMethod Method)
     public static IO<DitheringState> Read(SceneWindow window) =>
         SceneSources.SubOwner(window, static settings => settings.Dithering, static dithering => IO.lift(() => RenderSettingsMapper.ToState(dithering)));
 
-    public static IO<Unit> Write(SceneWindow window, DitheringState state) =>
-        SceneSources.SubOwner(window, static settings => settings.Dithering, dithering => IO.lift(() => RenderSettingsMapper.Update(state, dithering)));
+    public static IO<DitheringState> Write(SceneWindow window, DitheringState state) =>
+        SceneSources.SubOwner(window, static settings => settings.Dithering, dithering => IO.lift(() => { RenderSettingsMapper.Update(state, dithering); return state; }));
 
     public static ParameterText Text(DitheringParameter parameter) =>
         parameter.Map(
@@ -356,8 +356,8 @@ public sealed record RenderChannelsState(RenderChannels.Modes Mode, Set<Guid> Cu
     public static IO<RenderChannelsState> Read(SceneWindow window) =>
         SceneSources.SubOwner(window, static settings => settings.RenderChannels, static channels => IO.lift(() => RenderSettingsMapper.ToState(channels)));
 
-    public static IO<Unit> Write(SceneWindow window, RenderChannelsState state) =>
-        SceneSources.SubOwner(window, static settings => settings.RenderChannels, channels => IO.lift(() => RenderSettingsMapper.Update(state, channels)));
+    public static IO<RenderChannelsState> Write(SceneWindow window, RenderChannelsState state) =>
+        SceneSources.SubOwner(window, static settings => settings.RenderChannels, channels => IO.lift(() => { RenderSettingsMapper.Update(state, channels); return state; }));
 
     public static ParameterText Text(RenderChannelsParameter parameter) =>
         parameter.Map(

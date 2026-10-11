@@ -1,4 +1,5 @@
 using System.Drawing;
+using PeterO.Numbers;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Render.Effects;
@@ -20,7 +21,7 @@ public readonly partial struct FrameFraction : System.Numerics.IMinMaxValue<Fram
     public static FrameFraction MaxValue { get; } = new(1d);
     public static FrameFraction ActionArea { get; } = new(0.9d);
     public static FrameFraction TitleArea { get; } = new(0.8d);
-    public static Presentation<FrameFraction, double> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
+    public static Presentation<double> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
@@ -53,8 +54,8 @@ public sealed record SafeFrameState(
                 .As()
                 .ToFin()));
 
-    public static IO<Unit> Write(SceneWindow window, SafeFrameState state) =>
-        SceneSources.SubOwner(window, static settings => settings.SafeFrame, frame => IO.lift(() => SafeFrameMapper.Update(state, frame)));
+    public static IO<SafeFrameState> Write(SceneWindow window, SafeFrameState state) =>
+        SceneSources.SubOwner(window, static settings => settings.SafeFrame, frame => IO.lift(() => { SafeFrameMapper.Update(state, frame); return state; }));
 
     public static ParameterText Text(SafeFrameParameter parameter) =>
         parameter.Map(
@@ -115,18 +116,14 @@ public sealed partial class SafeFrameParameter : IStateParameter<SafeFrameState>
         Lens<SafeFrameState, bool>.New(static state => state.ActionFrameOn, static on => state => state with { ActionFrameOn = on })));
     public static readonly SafeFrameParameter ActionFrameLinked = new("action-frame-link", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.ActionFrameLinked, static linked => state => state with { ActionFrameLinked = linked })));
-    public static readonly SafeFrameParameter ActionFrameXScale = new("action-frame-x-scale", new StateParameter<SafeFrameState>.Bounded<FrameFraction, double, InvalidRhinoValue>(
-        Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameXScale, static scale => state => state with { ActionFrameXScale = scale }), FrameFraction.Presentation));
-    public static readonly SafeFrameParameter ActionFrameYScale = new("action-frame-y-scale", new StateParameter<SafeFrameState>.Bounded<FrameFraction, double, InvalidRhinoValue>(
-        Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameYScale, static scale => state => state with { ActionFrameYScale = scale }), FrameFraction.Presentation));
+    public static readonly SafeFrameParameter ActionFrameXScale = new("action-frame-x-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameXScale, static scale => state => state with { ActionFrameXScale = scale }), FrameFraction.Presentation));
+    public static readonly SafeFrameParameter ActionFrameYScale = new("action-frame-y-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameYScale, static scale => state => state with { ActionFrameYScale = scale }), FrameFraction.Presentation));
     public static readonly SafeFrameParameter TitleFrameOn = new("title-frame-on", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.TitleFrameOn, static on => state => state with { TitleFrameOn = on })));
     public static readonly SafeFrameParameter TitleFrameLinked = new("title-frame-link", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.TitleFrameLinked, static linked => state => state with { TitleFrameLinked = linked })));
-    public static readonly SafeFrameParameter TitleFrameXScale = new("title-frame-x-scale", new StateParameter<SafeFrameState>.Bounded<FrameFraction, double, InvalidRhinoValue>(
-        Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameXScale, static scale => state => state with { TitleFrameXScale = scale }), FrameFraction.Presentation));
-    public static readonly SafeFrameParameter TitleFrameYScale = new("title-frame-y-scale", new StateParameter<SafeFrameState>.Bounded<FrameFraction, double, InvalidRhinoValue>(
-        Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameYScale, static scale => state => state with { TitleFrameYScale = scale }), FrameFraction.Presentation));
+    public static readonly SafeFrameParameter TitleFrameXScale = new("title-frame-x-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameXScale, static scale => state => state with { TitleFrameXScale = scale }), FrameFraction.Presentation));
+    public static readonly SafeFrameParameter TitleFrameYScale = new("title-frame-y-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameYScale, static scale => state => state with { TitleFrameYScale = scale }), FrameFraction.Presentation));
 
     public StateParameter<SafeFrameState> Kind { get; }
 }
@@ -165,33 +162,47 @@ public sealed partial class RenderRegion {
         validationError = left < right && top < bottom ? null : new InvalidRhinoValue();
 }
 
-public sealed record OverscanFrame(PixelExtent Frame, Size Pad) {
-    public Size Padded => new(Frame.Width + (2 * Pad.Width), Frame.Height + (2 * Pad.Height));
+public sealed class OverscanFrame {
+    private OverscanFrame(PixelExtent frame, PixelExtent padded) => (Frame, Padded) = (frame, padded);
+
+    public PixelExtent Frame { get; }
+    public PixelExtent Padded { get; }
+    public Size Pad => new((Padded.Width - Frame.Width) / 2, (Padded.Height - Frame.Height) / 2);
 
     public Rectangle DisplayWindow => new(0, 0, Frame.Width, Frame.Height);
 
     public Rectangle DataWindow => new(-Pad.Width, -Pad.Height, Padded.Width, Padded.Height);
 
-    public double FrustumScale => Frame.Width >= Frame.Height ? (double)Padded.Width / Frame.Width : (double)Padded.Height / Frame.Height;
+    public static Fin<OverscanFrame> Around(PixelExtent frame, Overscan overscan) {
+        EFloat fraction = EFloat.FromDouble(overscan);
+        EInteger width = Dimension(frame.Width);
+        EInteger height = Dimension(frame.Height);
+        return width.CanFitInInt32() && height.CanFitInInt32()
+            ? PixelExtent.Validate(width.ToInt32Unchecked(), height.ToInt32Unchecked(), out PixelExtent padded) is { } error
+                ? error
+                : new OverscanFrame(frame, padded)
+            : new InvalidPixelValue();
+
+        EInteger Dimension(int side) => fraction.Multiply(side).RoundToIntegerNoRoundedFlag(EContext.UnlimitedHalfEven).ToEInteger().Multiply(2).Add(side);
+    }
 
     public IO<Unit> Widen(ViewportInfo view) =>
-        IO.lift(() =>
-            Refused.Unless(view.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far), nameof(ViewportInfo.GetFrustum))
-                .Bind(_ => Refused.Unless(
-                    view.SetFrustum(left * FrustumScale, right * FrustumScale, bottom * FrustumScale, top * FrustumScale, near, far),
-                    nameof(ViewportInfo.SetFrustum))));
+        IO.lift(() => {
+            view.FrustumAspect = (float)Frame.Width / Frame.Height;
+            return Refused.Unless(view.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far), nameof(ViewportInfo.GetFrustum))
+                .Bind(_ => {
+                    double x = (right - left) * (Pad.Width / (double)Frame.Width);
+                    double y = (top - bottom) * (Pad.Height / (double)Frame.Height);
+                    return Refused.Unless(view.SetFrustum(left - x, right + x, bottom - y, top + y, near, far), nameof(ViewportInfo.SetFrustum));
+                });
+        });
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct Overscan : System.Numerics.IMinMaxValue<Overscan> {
     public static Overscan MinValue { get; } = new(0d);
-    public static Overscan MaxValue { get; } = new(0.5d);
-
-    public OverscanFrame Around(PixelExtent frame) =>
-        new(frame, new Size(Pad(frame.Width), Pad(frame.Height)));
-
-    private int Pad(int side) => (int)Math.Round(side * _value, MidpointRounding.ToEven);
+    public static Overscan MaxValue { get; } = new(double.MaxValue);
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
@@ -221,9 +232,6 @@ public static class Framing {
             .Apply((width, height) => held with { ImageWidth = width, ImageHeight = height })
             .As()
             .ToFin();
-
-    public static Fin<PixelDimension> AspectHeight(PixelDimension width, PixelExtent viewport) =>
-        Conversions.Validated<PixelDimension, int, InvalidRhinoValue>((int)((width / (viewport.Width / (double)viewport.Height)) + 0.5d));
 
     // --- [EXTENT]
     public static ReadModel<PixelExtent> Extent { get; } = new(

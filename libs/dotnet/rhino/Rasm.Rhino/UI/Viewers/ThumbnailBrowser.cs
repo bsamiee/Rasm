@@ -15,7 +15,7 @@ public readonly partial struct TileSize : System.Numerics.IMinMaxValue<TileSize>
     public static TileSize MinValue { get; } = new(32f);
     public static TileSize MaxValue { get; } = new(256f);
     public static TileSize List { get; } = new(48f);
-    public static Presentation<TileSize, float> Presentation { get; } = new() { Step = 1f, Decimals = 0 };
+    public static Presentation<float> Presentation { get; } = new() { Step = 1f, Decimals = 0 };
 
     public static TileSize Clamped(float width) => new(float.Clamp(width, MinValue._value, MaxValue._value));
 
@@ -43,7 +43,7 @@ public readonly record struct TileFace(RectangleF Image, RectangleF Caption, Rec
     public const float Inset = 4f;
 
     public RectangleF Star =>
-        IconSlot.ListCell.Master.Points switch {
+        IconSlot.ListCell.Master switch {
             var side => new RectangleF(Image.Right - Inset - side, Image.Top + Inset, side, side),
         };
 }
@@ -72,7 +72,7 @@ public sealed partial class BrowserMode {
                 cell,
                 number > 0f ? Some(new RectangleF(start, cell.Y, number, cell.Height)) : Option<RectangleF>.None,
                 FormattedTextAlignment.Left,
-Ruled: false),
+                Ruled: false),
         },
         static (pointer, flow) => (int)MathF.Round((pointer.Y - TileFlow.Spacing) / (flow.Cell.Height + TileFlow.Spacing), MidpointRounding.ToEven),
         static _ => TileSize.List);
@@ -94,11 +94,11 @@ Ruled: false),
     public partial TileSize Fit(float width);
 }
 
-public sealed record BrowserSource<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, string> Label, Func<Control, TItem, Size, IO<Disposal<Thumbnail>>> Tile, string Empty)
+public sealed record BrowserSource<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, string> Label, Func<Control, TItem, Size, Action<Disposal<Thumbnail>>, IO<Disposal<Thumbnail>>> Tile, string Empty)
     where TItem : notnull where TKey : notnull {
     public bool Numbered { get; init; }
     public Option<Func<TItem, bool>> Favourite { get; init; }
-    public Option<Func<Option<TItem>, IO<Unit>>> Preview { get; init; }
+    public Option<Func<TItem, Action<IDisposable>, IO<Unit>>> Preview { get; init; }
     public Option<Func<Control, Seq<TItem>, Option<Thumbnail>, IO<Unit>>> Export { get; init; }
     public bool Renames { get; init; }
     public bool Reorders { get; init; }
@@ -119,6 +119,7 @@ public sealed record BrowserState<TItem, TKey>(Seq<TItem> Items, Option<TKey> Cu
     public Option<DragGap<TKey>> Gap { get; init; }
     public Option<Seq<TKey>> Exported { get; init; }
     public Option<TKey> Renaming { get; init; }
+    internal object Revision { get; init; } = new();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -154,10 +155,13 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
     private readonly BrowserSource<TItem, TKey> source;
     private readonly TextBox editor = new() { Visible = false, Font = EtoFonts.SmallFont };
     private readonly PixelLayout overlay = new();
-    private Option<IDisposable> held;
+    private readonly Ref<Option<Seq<IDisposable>>> lifetime = Ref(Option<Seq<IDisposable>>.None);
     private Option<Scrollable> scroll;
     private HashMap<GlyphRole, Icon> stars;
-    private Dwell dwell = new(None, Shown: false);
+    private Option<(object Request, TKey Key, IDisposable Work)> dwell;
+    private Option<(object Revision, Action<IDisposable> Retain, IDisposable Work)> loading;
+    private bool showing = true;
+    private bool available = true;
 
     public ThumbnailBrowser(IPlugInSink sink, BrowserSource<TItem, TKey> source, BrowserState<TItem, TKey> initial) : base(sink, initial, None) {
         this.source = source;
@@ -165,12 +169,22 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         Content = overlay;
     }
 
-    public IO<Unit> Items(Seq<TItem> items) => Advance(state => new(Normalized(state with { Items = items }), None));
-    public IO<Unit> TileWidth(Option<TileSize> size) => Advance(state => new(Normalized(state with { Size = size, Requested = [] }), None));
-    public IO<Unit> Mode(BrowserMode mode) => Advance(state => new(Normalized(state with { Mode = mode, Requested = [] }), None));
-    public IO<Unit> Extent(PixelExtent extent) => Advance(state => new(Normalized(state with { Extent = extent, Requested = [] }), None));
+    public IO<Unit> Items(Seq<TItem> items) => Advance(state => new(items == state.Items ? state : Normalized(state with { Items = items, Requested = [], Revision = new() }), None));
+    public IO<Unit> TileWidth(Option<TileSize> size) => Advance(state => new(state.Size == size ? state : Normalized(state with { Size = size, Requested = [], Revision = new() }), None));
+    public IO<Unit> Mode(BrowserMode mode) => Advance(state => new(state.Mode == mode ? state : Normalized(state with { Mode = mode, Requested = [], Revision = new() }), None));
+    public IO<Unit> Extent(PixelExtent extent) => Advance(state => new(state.Extent == extent ? state : Normalized(state with { Extent = extent, Requested = [], Revision = new() }), None));
     public IO<Unit> Filter(Func<TItem, bool> filter) => Advance(state => new(Normalized(state with { Filter = filter }), None));
-    public IO<Unit> Reload => Advance(state => new(Normalized(state with { Requested = [] }), None));
+    public IO<Unit> Reload => Advance(state => new(Normalized(state with { Requested = [], Revision = new() }), None));
+    public IO<Unit> Visibility(bool visible) => IO.lift(() => {
+        bool changed = showing != visible;
+        showing = visible;
+        return changed;
+    }).Bind(changed => when(changed, Hovered).As());
+    public IO<Unit> Available(bool enabled) => IO.lift(() => {
+        bool changed = available != enabled;
+        available = enabled;
+        return changed;
+    }).Bind(changed => when(changed, Hovered).As());
     public IO<Unit> TargetPointer => Advance(state => new(Targeted(state), None));
     public Seq<TItem> Selection => Shown(State).Filter(entry => State.Selected.Contains(entry.Key)).Map(static entry => entry.Item);
     public TileSize ImageWidth => State.Size.IfNone(() => State.Mode.Fit(Width));
@@ -187,8 +201,6 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
 
     protected override Option<float> Fitted(BrowserState<TItem, TKey> state, float width) =>
         scroll.Map(_ => state.Viewport.Fold(Geometry(state, width).Flow.Height(Slots(state).Count), static (height, view) => float.Max(height, view.Height)));
-
-    private sealed record Dwell(Option<ForkIO<Unit>> Pending, bool Shown);
 
     // --- [LAYOUT]
     private sealed record Entry(TItem Item, TKey Key, int Number);
@@ -449,18 +461,19 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
 
     protected override void OnSizeChanged(EventArgs e) {
         base.OnSizeChanged(e);
-        _ = Callbacks.Answer(Viewing, static () => unit, Site());
+        Callbacks.Run(Viewing, Site());
     }
 
     // --- [RECONCILE]
     protected override IO<Unit> Reconcile(
         BrowserState<TItem, TKey> before, BrowserState<TItem, TKey> after, Interaction<BrowserPart<TKey>> was, Interaction<BrowserPart<TKey>> now) =>
         Callbacks.Each(Seq(
+                Callbacks.Found(!ReferenceEquals(before.Revision, after.Revision), ReleasedTiles),
                 Loading(before, after),
                 Releasing(before, after),
                 from preview in source.Preview
-                where was.Hovered.Bind(static part => part.Item) != now.Hovered.Bind(static part => part.Item)
-                select Hovered(preview, now.Hovered.Bind(static part => part.Item).Bind(key => Listed(after, key))),
+                where !ReferenceEquals(before.Revision, after.Revision) || was.Hovered.Bind(static part => part.Item) != now.Hovered.Bind(static part => part.Item)
+                select Hovered,
                 before.Renaming == after.Renaming ? None : Some(after.Renaming.Match(Some: key => Editing(after, key), None: () => Closing)),
                 from view in scroll
                 from lead in after.Lead
@@ -479,45 +492,79 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
 
     private Option<IO<Unit>> Loading(BrowserState<TItem, TKey> before, BrowserState<TItem, TKey> after) =>
         from box in RequestBox(after)
-        let gained = after.Requested.Except(before.Requested)
+        let gained = ReferenceEquals(before.Revision, after.Revision) && RequestBox(before) == Some(box)
+            ? after.Requested.Except(before.Requested) : after.Requested
         where !gained.IsEmpty
-        select after.Items.Filter(item => gained.Contains(source.Key(item)))
-            .Traverse(item => source.Tile(this, item, box).Bind(arrival => Arrived(source.Key(item), box, arrival).Post()).Catch(Reported).As())
-            .As()
-            .Fork()
-            .Map(static _ => unit);
+        select from owned in IO.lift(() => loading.Filter(held => ReferenceEquals(held.Revision, after.Revision))).Bind(current => current.Match(
+                   Some: static held => IO.pure(held.Retain),
+                   None: () => ReleasedTiles.Bind(_ =>
+                       DisposalOps.Acquire(static keep => IO.pure(keep), (keep, lease) => loading = Some((after.Revision, keep, lease))))))
+               from loaded in DisposalOps.Fork(
+                   after.Items.Filter(item => gained.Contains(source.Key(item)))
+                       .Traverse(item => source.Tile(this, item, box, Retain).Bind(arrival => Arrived(source.Key(item), box, after.Revision, arrival).Post()).Catch(Reported).As()).As(), owned)
+               select unit;
 
-    private IO<Unit> Arrived(TKey key, Size box, Disposal<Thumbnail> arrival) =>
-        IO.lift(() => RequestBox(State) == Some(box) && State.Requested.Contains(key))
+    private IO<Unit> Arrived(TKey key, Size box, object revision, Disposal<Thumbnail> arrival) =>
+        (from arrived in IO.lift(() => lifetime.Value.IsSome && ReferenceEquals(State.Revision, revision) && RequestBox(State) == Some(box) && State.Requested.Contains(key))
             .Bind(accepted => accepted
                 ? Advance(state => new(Normalized(state with { Loaded = state.Loaded.AddOrUpdate(key, arrival) }), None))
-                : IO.lift(arrival.Dispose));
+                : IO.lift(arrival.Dispose))
+         from released in atomicIO(() => lifetime.Value = lifetime.Value.Map(items => items.Filter(item => !ReferenceEquals(item, arrival))))
+         select unit).Uninterruptible();
 
     private static Option<IO<Unit>> Releasing(BrowserState<TItem, TKey> before, BrowserState<TItem, TKey> after) =>
         before.Loaded.Filter((key, thumbnail) => !after.Loaded.Find(key).Exists(kept => ReferenceEquals(kept, thumbnail))) switch {
             var dropped => dropped.IsEmpty ? None : Some(DisposalOps.Release(toSeq(dropped.Values))),
         };
 
-    private IO<Unit> Hovered(Func<Option<TItem>, IO<Unit>> preview, Option<Entry> hovered) =>
+    private IO<Unit> ReleasedTiles => IO.lift(() => {
+        Option<IDisposable> prior = loading.Map(static held => held.Work);
+        loading = None;
+        return prior;
+    }).Bind(static prior => DisposalOps.Release(prior.ToSeq())).Uninterruptible();
+
+    private Option<TKey> Hover =>
+        lifetime.Value.IsSome && showing && available && Enabled && Visible && Application.Instance.IsActive
+            && Optional(ParentWindow).Exists(static window => window.HasFocus) && !Keyboard.Modifiers.HasFlag(Keys.Shift)
+            ? PointFromScreen(Mouse.Position) switch {
+                var pointer => Cues.Hovered.Bind(static part => part.Item)
+                    .Filter(key => VisibleBounds.Contains(pointer) && Cell(State, Width, key).Exists(cell => cell.Contains(pointer))),
+            }
+            : None;
+
+    private IO<Unit> Hovered =>
         from restored in Restored
-        from pending in hovered.Match(
-            Some: entry => IO.yieldFor(TimeSpan.FromSeconds(0.2)).Bind(_ => Previewed(preview, entry.Item).Post()).Catch(Reported).As().Fork().Map(static fork => Some(fork)),
-            None: static () => IO.pure(Option<ForkIO<Unit>>.None))
-        from recorded in IO.lift(() => { dwell = dwell with { Pending = pending }; })
+        from hovered in IO.lift(() => from preview in source.Preview from key in Hover select (Preview: preview, Key: key))
+        from pending in hovered.Traverse(hover => IO.lift(static () => new object()).Bind(request =>
+            DisposalOps.Acquire(owned => DisposalOps.Fork(
+                IO.yieldFor(TimeSpan.FromSeconds(0.2)).Bind(_ => Previewed(request, hover.Key, hover.Preview, owned).Post()).Catch(Reported).As(), owned)
+                .Map(static _ => unit), lease => dwell = Some((request, hover.Key, lease))))).As()
         select unit;
 
-    private IO<Unit> Previewed(Func<Option<TItem>, IO<Unit>> preview, TItem item) =>
-        from suspended in IO.lift(static () => Keyboard.Modifiers.HasFlag(Keys.Shift))
-        from shown in unless(suspended, preview(Some(item))).As()
-        from recorded in IO.lift(() => { dwell = dwell with { Shown = !suspended }; })
+    private IO<Unit> Previewed(object request, TKey key, Func<TItem, Action<IDisposable>, IO<Unit>> preview, Action<IDisposable> retain) =>
+        from admitted in IO.lift(() =>
+            from current in dwell
+            where ReferenceEquals(current.Request, request) && Hover == Some(key)
+            from entry in Listed(State, key)
+            select entry.Item)
+        from shown in admitted.Traverse(item => preview(item, retain)).As()
         select unit;
+
+    private IO<Unit> Shifted =>
+        IO.lift(static () => Keyboard.Modifiers.HasFlag(Keys.Shift)).Bind(suspended =>
+            suspended ? Restored : when(dwell.IsNone, Hovered).As());
+
+    private IO<Unit> Observed => IO.lift(() => Hover == dwell.Map(static held => held.Key))
+        .Bind(current => unless(current, Hovered).As());
 
     private IO<Unit> Restored =>
-        from current in IO.lift(() => dwell)
-        from cancelled in current.Pending.Match(Some: static pending => pending.Cancel, None: static () => IO.pure(unit))
-        from restored in when(current.Shown, source.Preview.Match(Some: static preview => preview(None), None: static () => IO.pure(unit))).As()
-        from cleared in IO.lift(() => { dwell = new Dwell(None, Shown: false); })
-        select unit;
+        (from current in IO.lift(() => {
+            Option<(object Request, TKey Key, IDisposable Work)> prior = dwell;
+            dwell = None;
+            return prior;
+        })
+         from restored in DisposalOps.Release(current.Map(static held => held.Work).ToSeq())
+         select unit).Uninterruptible();
 
     private IO<Unit> Editing(BrowserState<TItem, TKey> state, TKey key) =>
         IO.lift(() => Locate(Placements(state, Width, View(state, Size)), key).Iter(at => {
@@ -535,7 +582,13 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         from refocused in when(focused, IO.lift(Focus)).As()
         select unit;
 
-    private IO<Unit> Reported(Error error) => IO.lift(() => Sink.Report(error, GetType(), nameof(Reconcile)));
+    private IO<Unit> Reported(Error error) =>
+        IO.lift(() => {
+            if (error == Errors.Cancelled)
+                return Fin.Fail<Unit>(error);
+            Sink.Report(error, GetType(), nameof(Reconcile));
+            return Fin.Succ(unit);
+        });
 
     private static int Revealed(Rectangle shown, RectangleF cell) =>
         cell.Top < shown.Top ? (int)MathF.Floor(cell.Top)
@@ -578,13 +631,12 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
             .Map(static _ => unit);
 
     private IO<Unit> Lettered(PlotCanvas canvas, RectangleF bounds, BrowserState<TItem, TKey> state, Seq<Placed> placed) =>
-        use(() => new FormattedText {
+        DisposalOps.Within(() => new FormattedText {
             Font = canvas.Font,
             ForegroundBrush = Brushes.Cached(Plots.Resolve(canvas, new MarkStyle.Fill(PaintSlot.ContentListEnabledText, 1f))),
             Trimming = FormattedTextTrimming.CharacterEllipsis,
-        })
-            .Bind(text => IO.lift(() => Runs(bounds, state, placed).Iter(run => Typeset(canvas.Graphics, text, run))))
-            .Bracket();
+        }, text => IO.lift(() => Runs(bounds, state, placed).Iter(run => Typeset(canvas.Graphics, text, run))).Map(static _ => unit),
+            static text => IO.lift(text.Dispose));
 
     private Seq<(string Text, RectangleF Box, FormattedTextAlignment Align, FormattedTextWrapMode Wrap)> Runs(RectangleF bounds, BrowserState<TItem, TKey> state, Seq<Placed> placed) =>
         state.Items.IsEmpty
@@ -615,47 +667,76 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
     protected override void OnLoad(EventArgs e) {
         base.OnLoad(e);
         scroll = Optional(Parent as Scrollable);
-        held = Callbacks.Answer(Acquired.Map(static acquired => Some(acquired)), static () => Option<IDisposable>.None, Site());
-        _ = Callbacks.Answer(IO.lift(() => VisibleBounds).Bind(view => Advance(state => new(Viewed(state, Some(view)), None))), static () => unit, Site());
+        _ = atomic(() => lifetime.Value = Some(Seq<IDisposable>()));
+        Callbacks.Run(DisposalOps.OnFailure(
+            from acquired in Acquired
+            from view in IO.lift(() => VisibleBounds)
+            from viewed in Advance(state => new(Viewed(state, Some(view)), None))
+            from hovered in Hovered
+            select unit, Unloaded), Site());
     }
 
-    protected override void OnUnLoad(EventArgs e) {
-        _ = Callbacks.Answer(Unloaded, static () => unit, Site());
-        base.OnUnLoad(e);
-    }
+    protected override void OnUnLoad(EventArgs e) => Callbacks.Run(Callbacks.Each(Seq(Unloaded, IO.lift(() => base.OnUnLoad(e)))).Uninterruptible(), Site());
 
     protected override void Dispose(bool disposing) {
         if (disposing) {
-            editor.Dispose();
-            overlay.Dispose();
-        }
-        base.Dispose(disposing);
+            Callbacks.Run(Unloaded, Site());
+            try {
+                editor.Dispose();
+            } finally {
+                try {
+                    overlay.Dispose();
+                } finally {
+                    base.Dispose(disposing);
+                }
+            }
+        } else
+            base.Dispose(disposing);
     }
 
-    private IO<IDisposable> Acquired =>
+    private IO<Unit> Acquired =>
         DisposalOps.AcquireAll(
                 scroll.ToSeq()
-                    .Bind(view => Seq(
-                        Subscriptions.Attach(
-                            handler => view.Scroll += handler, handler => view.Scroll -= handler, Callbacks.Handler<ScrollEventArgs>(_ => Viewing, Site(nameof(Scrollable.Scroll)))),
-                        Subscriptions.Attach(
-                            handler => view.SizeChanged += handler, handler => view.SizeChanged -= handler, Callbacks.Handler<EventArgs>(_ => Viewing, Site(nameof(SizeChanged))))))
-                    .Concat(Seq(
-                        Subscriptions.Attach(
-                            handler => editor.KeyDown += handler, handler => editor.KeyDown -= handler, Callbacks.Handler<KeyEventArgs>(Keyed, Site(nameof(KeyDown)))),
-                        Subscriptions.Attach(
-                            handler => editor.LostFocus += handler, handler => editor.LostFocus -= handler, Callbacks.Handler<EventArgs>(_ => Renamed, Site(nameof(LostFocus))))))
-                    .Concat(source.Favourite.ToSeq().Bind(static _ => Seq(GlyphRole.FavouriteOn, GlyphRole.FavouriteOff)).Map(role => Icons.Themed(Sink, role, IconSlot.ListCell, icon => {
+                    .Bind(view => Seq<Func<Action<IDisposable>, IO<Unit>>>(
+                        retain => Subscriptions.Attach(
+                            handler => view.Scroll += handler, handler => view.Scroll -= handler, Callbacks.Handler<ScrollEventArgs>(_ => Viewing, Site(nameof(Scrollable.Scroll))), retain),
+                        retain => Subscriptions.Attach(
+                            handler => view.SizeChanged += handler, handler => view.SizeChanged -= handler, Callbacks.Handler<EventArgs>(_ => Viewing, Site(nameof(SizeChanged))), retain)))
+                    .Concat(Seq<Func<Action<IDisposable>, IO<Unit>>>(
+                        retain => Subscriptions.Attach(
+                            handler => editor.KeyDown += handler, handler => editor.KeyDown -= handler, Callbacks.Handler<KeyEventArgs>(Keyed, Site(nameof(KeyDown))), retain),
+                        retain => Subscriptions.Attach(
+                            handler => editor.LostFocus += handler, handler => editor.LostFocus -= handler, Callbacks.Handler<EventArgs>(_ => Renamed, Site(nameof(LostFocus))), retain),
+                        retain => Subscriptions.Attach(
+                            static handler => Keyboard.ModifiersChanged += handler, static handler => Keyboard.ModifiersChanged -= handler,
+                            Callbacks.Handler<EventArgs>(_ => Shifted, Site(nameof(Keyboard.ModifiersChanged))), retain),
+                        retain => Subscriptions.Attach(
+                            handler => EnabledChanged += handler, handler => EnabledChanged -= handler, Callbacks.Handler<EventArgs>(_ => Hovered, Site(nameof(EnabledChanged))), retain),
+                        retain => Subscriptions.Attach(
+                            static handler => Application.Instance.IsActiveChanged += handler, static handler => Application.Instance.IsActiveChanged -= handler,
+                            Callbacks.Handler<EventArgs>(_ => Hovered, Site(nameof(Application.IsActiveChanged))), retain)))
+                    .Concat(source.Preview.ToSeq().Map(_ => fun((Action<IDisposable> retain) => FrameClocks.Sample(this, Observed, Site(nameof(Observed)), retain))))
+                    .Concat(source.Favourite.ToSeq().Bind(static _ => Seq(GlyphRole.FavouriteOn, GlyphRole.FavouriteOff)).Map(role => fun((Action<IDisposable> retain) => Icons.Themed(Sink, (role, IconSlot.ListCell.Master), IconSlot.ListCell, HostTheme.In(this), icon => {
                         stars = stars.AddOrUpdate(role, icon);
                         Invalidate();
-                    }))),
-                DisposalOps.Release)
-            .Map(acquired => DisposalOps.Composite(acquired, Site(nameof(OnUnLoad))));
+                    }, retain)))),
+                DisposalOps.Release,
+                (_, lease) => Retain(lease))
+            .Map(static _ => unit);
 
     private IO<Unit> Unloaded =>
-        from restored in Restored
-        from released in IO.lift(() => held.Iter(static acquired => acquired.Dispose()))
-        from cleared in IO.lift(() => { held = None; })
-        from emptied in Advance(static state => new(state with { Viewport = None, Loaded = [], Requested = [] }, None))
-        select unit;
+        (from acquired in atomicIO(() => {
+            Option<Seq<IDisposable>> prior = lifetime.Value;
+            lifetime.Value = None;
+            return prior.ToSeq().Flatten();
+        })
+         from released in Callbacks.Each(Seq(
+             Restored,
+             ReleasedTiles,
+             DisposalOps.Release(acquired),
+             Advance(static state => new(state with { Viewport = None, Loaded = [], Requested = [], Revision = new() }, None))))
+         select unit).Uninterruptible();
+
+    private void Retain(IDisposable resource) =>
+        _ = atomic(() => lifetime.Value = Some(lifetime.Value.ToFin(Errors.Cancelled).ThrowIfFail().Add(resource)));
 }

@@ -1,6 +1,6 @@
 """Property-test registration and public-API test coverage accounting."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 import enum
 import functools
 import importlib
@@ -8,23 +8,18 @@ import inspect
 from pathlib import Path
 import sys
 from types import BuiltinFunctionType, ClassMethodDescriptorType, FunctionType, MethodDescriptorType, MethodType, ModuleType, WrapperDescriptorType
-from typing import get_args, TypeAliasType, TypeForm, TypeIs
+from typing import TypeAliasType
 
-from hypothesis import given as hyp_given
 import msgspec
 import pytest
-
-from tests.python.support.strategies import strategy_for
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class PropertyRecord(msgspec.Struct, frozen=True):
-    """Registered property test keyed by subject and test module."""
+    """Public subject covered by a property mark."""
 
     subject: str
-    property_name: str
-    module: str
     subject_module: str | None
 
 
@@ -43,20 +38,15 @@ PACKAGES_UNDER_TEST: pytest.StashKey[frozendict[str, PackageUnderTest]] = pytest
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _record(subject: object, property_name: str, module: str) -> PropertyRecord:
-    """Build the property record of a subject under a property name in a test module."""
+def _record(subject: object) -> PropertyRecord:
+    """Return the subject identity used by public-API coverage."""
     match subject:
         case type() | TypeAliasType() | FunctionType() | MethodType() | BuiltinFunctionType():
-            return PropertyRecord(subject=subject.__qualname__, property_name=property_name, module=module, subject_module=subject.__module__)
+            return PropertyRecord(subject=subject.__qualname__, subject_module=subject.__module__)
         case MethodDescriptorType() | WrapperDescriptorType() | ClassMethodDescriptorType():
-            return PropertyRecord(subject=subject.__qualname__, property_name=property_name, module=module, subject_module=subject.__objclass__.__module__)
+            return PropertyRecord(subject=subject.__qualname__, subject_module=subject.__objclass__.__module__)
         case _:
-            return PropertyRecord(subject=str(subject), property_name=property_name, module=module, subject_module=None)
-
-
-def _resolvable(subject: object) -> TypeIs[TypeForm[object]]:
-    """Return whether Hypothesis can construct a strategy for the subject."""
-    return isinstance(subject, type | TypeAliasType) or bool(get_args(subject))
+            return PropertyRecord(subject=str(subject), subject_module=None)
 
 
 def is_automatically_exempt(subject: object) -> bool:
@@ -112,26 +102,14 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
     return public_api, tuple(failures)
 
 
-def property_test[**P](subject: object, *, given: bool = True) -> Callable[[Callable[P, None]], Callable[P, None]]:
-    """Return a decorator marking a test with its ``PropertyRecord``, with ``given`` injecting ``strategy_for(subject)`` as the rightmost positional argument."""
-
-    def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
-        if not isinstance(fn, FunctionType):
-            raise TypeError(f"@property_test decorates a test function, got {fn!r}")
-        record = _record(subject, fn.__qualname__, fn.__module__)
-        if not given:
-            return pytest.mark.property(record=record)(fn)
-        if not _resolvable(subject):
-            raise TypeError(f"@property_test given=True requires a resolvable type form, got {subject!r}")
-        drawn: Callable[P, None] = hyp_given(strategy_for(subject))(fn)
-        return pytest.mark.property(record=record)(drawn)
-
-    return _decorator
+def property_test(subject: object) -> pytest.MarkDecorator:
+    """Return a property mark recording the covered subject."""
+    return pytest.mark.property(record=_record(subject))
 
 
-def covers(module: str, *subjects: object) -> list[pytest.MarkDecorator]:
-    """Return one property mark per subject for the ``pytestmark`` of the test module named ``module``."""
-    return [pytest.mark.property(record=_record(subject, "covers", module)) for subject in subjects]
+def covers(*subjects: object) -> list[pytest.MarkDecorator]:
+    """Return property marks for module-level ``pytestmark`` coverage."""
+    return [property_test(subject) for subject in subjects]
 
 
 def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: frozenset[str] = frozenset()) -> None:

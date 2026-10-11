@@ -65,6 +65,17 @@ utils:
                         - has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $SRC}}}
                     - kind: assignment_expression
                       all: [{has: {field: left, matches: target-member}}, {has: {field: right, matches: resolution}}]
+    bound-source:
+        inside:
+            stopBy: end
+            kind: query_expression
+            has:
+                stopBy: end
+                kind: invocation_expression
+                all:
+                    - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?DisposalOps\s*\.\s*Change$'}
+                    - has: {field: arguments, has: {kind: argument, nthChild: 3, has: {pattern: $SRC}}}
+                    - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {kind: lambda_expression, has: {field: body, kind: assignment_expression, has: {field: left, matches: target-member}}}}}
     plain-statement:
         kind: expression_statement
         has: {matches: copy-write}
@@ -176,4 +187,6 @@ rule:
                     matches: function-owner
                     has: {stopBy: end, any: [{matches: source-addressed}, {matches: same-type-pair}]}
 message: 'Members of `$SRC` are written one by one onto `$TARGET`'
+constraints:
+    SRC: {not: {matches: bound-source}}
 note: Use a Mapperly `partial <host> To<host>(<record> source)` for a new host value or `partial void Update(<record> source, <host> target)` under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for a caller-owned mutable value, with `[MapProperty]` per renamed member, or the host value itself where the record adds no constraint. RhinoDoc setters mutate live document state and stay explicit, as do setters completing a host call that drives the target or takes the source whole, and every write of a construction that resolves a source column (`source.Column.Member`) at the write, the resolution reading state no mapper owns. Mapping declarations and renamed members require a reviewed fix

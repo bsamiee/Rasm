@@ -41,6 +41,9 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
 
     public static DictionaryCodec<ValueSet> Codec { get; } = new("ValueSet", 1, Encoded, Decoded);
 
+    public static ValueSet Fields<TRecord>(string owner, TRecord record, Seq<IStateParameter<TRecord>> parameters) where TRecord : notnull =>
+        new(toHashMap(parameters.Bind(FieldTexts.Of).Choose(field => field.Capture(record).Map(text => (new EntryKey(owner, field.Path), text)))));
+
     public string Text() => JsonSerializer.Serialize(this, ValueSetContext.Default.ValueSet);
 
     public static Fin<ValueSet> Read(string text) =>
@@ -56,9 +59,9 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
 
     public ValueDiff Diff(ValueSet after) =>
         new(Entries.Union<string, Change<string>>(after.Entries,
-                static (_, held) => ValueDiff.Between(held, None),
-                static (_, recalled) => ValueDiff.Between(None, recalled),
-                static (_, held, recalled) => ValueDiff.Between(held, recalled))
+                static (_, held) => Change<string>.Removed(held),
+                static (_, recalled) => Change<string>.Added(recalled),
+                static (_, held, recalled) => ValueStore.Between<string>(held, recalled))
             .Filter(static change => change.HasChanged));
 
     internal Seq<(string Name, TNode Node)> Tree<TNode>(Func<string, TNode> leaf, Func<Seq<(string Name, TNode Node)>, TNode> branch) =>
@@ -97,111 +100,98 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
 public sealed record ValueDiff(HashMap<EntryKey, Change<string>> Changes) {
     public static ValueDiff Empty { get; } = new(HashMap<EntryKey, Change<string>>());
 
+    public static ValueDiff Of<TValue>(Change<TValue> change, TValue @default, Func<TValue, ValueSet> capture) =>
+        change.HasChanged ? capture(ValueStore.Before(change).IfNone(@default)).Diff(capture(change.ToOption().IfNone(@default))) : Empty;
+
     public ValueSet After() =>
         new(toHashMap(toSeq(Changes.AsIterable()).Choose(static entry => entry.Value.ToOption().Map(text => (entry.Key, text)))));
 
-    public ValueDiff Inverse() => new(Changes.Map(static change => Between(change.ToOption(), Held(change))));
+    public ValueDiff Inverse() => new(Changes.Map(static change => ValueStore.Between(change.ToOption(), ValueStore.Before(change))));
 
     public ValueDiff Then(ValueDiff later) =>
-        new(Changes.Union(later.Changes, static (_, earlier, next) => Between(Held(earlier), next.ToOption())).Filter(static change => change.HasChanged));
+        new(Changes.Union(later.Changes, static (_, earlier, next) => ValueStore.Between(ValueStore.Before(earlier), next.ToOption())).Filter(static change => change.HasChanged));
 
-    internal static Change<string> Between(Option<string> before, Option<string> after) =>
-        (before.Case, after.Case) switch {
-            (string held, string recalled) => string.Equals(held, recalled, StringComparison.Ordinal) ? Change<string>.None : Change<string>.Mapped(held, recalled),
-            (string held, _) => Change<string>.Removed(held),
-            (_, string recalled) => Change<string>.Added(recalled),
-            _ => Change<string>.None,
-        };
-
-    private static Option<string> Held(Change<string> change) =>
-        change switch {
-            EntryRemoved<string> removed => removed.OldValue,
-            EntryMapped<string, string> mapped => mapped.From,
-            _ => None,
-        };
+    public static ValueDiff Together(Seq<ValueDiff> diffs) =>
+        new(diffs.Fold(HashMap<EntryKey, Change<string>>(), static (earlier, later) => earlier.Union(later.Changes)));
 }
 
 public sealed record NameText(Seq<string> Path, string Caption, Func<string, string> Shown);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record ValueBinding(
-    string Owner, Seq<NameText> Texts, IO<HashMap<Seq<string>, string>> Capture, Func<HashMap<Seq<string>, string>, Validation<Error, IO<Unit>>> Recall) {
+    string Owner, Seq<NameText> Texts, Func<HashMap<Seq<string>, string>> Defaults, IO<HashMap<Seq<string>, string>> Capture, Func<HashMap<Seq<string>, string>, IO<IO<ValueDiff>>> Prepare) {
     public Seq<Seq<string>> Paths() => Texts.Map(static text => text.Path);
 
     public ValueBinding Under(Seq<string> prefix) =>
         new(Owner,
             Texts.Map(text => text with { Path = prefix + text.Path }),
+            () => toHashMap(Defaults().AsIterable().Map(entry => (prefix + entry.Key, entry.Value))),
             Capture.Map(entries => toHashMap(entries.AsIterable().Map(entry => (prefix + entry.Key, entry.Value)))),
-            entries => Recall(toHashMap(entries.AsIterable()
+            entries => Prepare(toHashMap(entries.AsIterable()
                 .Filter(entry => entry.Key.Take(prefix.Count).Equals(prefix))
-                .Map(entry => (entry.Key.Skip(prefix.Count), entry.Value)))));
+                .Map(entry => (entry.Key.Skip(prefix.Count), entry.Value))))
+                .Map(write => write.Map(diff => new ValueDiff(toHashMap(diff.Changes.AsIterable().Map(entry =>
+                    (new EntryKey(entry.Key.Owner, prefix + entry.Key.Path), entry.Value)))))));
 
-    public static ValueBinding Key<TValue, TRaw, TError>(string owner, ValueKey<TValue, TRaw, TError> key, ValueStore<TValue> store)
+    public static ValueBinding Key<TValue, TRaw>(string owner, ValueKey<TValue, TRaw> key, ValueStore<TValue> store)
         where TValue : notnull
         where TRaw : notnull =>
         Seq(key.Name) switch {
             var path => new(owner, [new NameText(path, key.Caption, static text => text)],
+                () => HashMap((path, key.Text(key.Default))),
                 store.Read.Map(held => HashMap((path, key.Text(held.IfNone(key.Default))))),
                 entries => entries.Find(path).Match(
-                    Some: text => new EntryKey(owner, path).Read(text, key.Read).ToValidation().Map(value => store.Write(Some(value)).Map(static _ => unit)),
-                    None: static () => IO.pure(unit))),
+                    Some: text => IO.lift(new EntryKey(owner, path).Read(text, key.Read))
+                        .Map(value => store.Write(Some(value)).Map(change => ValueDiff.Of(change, key.Default,
+                            held => new ValueSet(HashMap((new EntryKey(owner, path), key.Text(held))))))),
+                    None: static () => IO.pure(IO.pure(ValueDiff.Empty)))),
         };
 
     public static ValueBinding Fields<TValue>(string owner, ValueStore<TValue> store, TValue @default, Seq<(IStateParameter<TValue> Parameter, string Caption)> fields)
         where TValue : notnull =>
         (from field in fields from text in FieldTexts.Of(field.Parameter) select (Name: new NameText(text.Path, field.Caption, text.Shown), Text: text)).Strict() switch {
-            var items => new(owner, items.Map(static item => item.Name),
-                store.Read.Map(held => held.IfNone(@default)).Map(value => toHashMap(items.Choose(item => item.Text.Capture(value).Map(text => (item.Text.Path, text))))),
-                entries => items
-                    .Choose(item => entries.Find(item.Text.Path).Map(text => new EntryKey(owner, item.Text.Path).Read(text, item.Text.Recall).ToValidation()))
-                    .Traverse(static step => step)
-                    .As()
-                    .Map(steps =>
-                        from sets in steps.Traverse(static step => step).As()
+            var items => fun((TValue value) => toHashMap(items.Choose(item => item.Text.Capture(value).Map(text => (item.Text.Path, text))))) switch {
+                var capture => new(owner, items.Map(static item => item.Name),
+                    () => capture(@default),
+                    store.Read.Map(held => held.IfNone(@default)).Map(capture),
+                    entries =>
                         from held in store.Read
-                        from written in store.Write(Some(sets.Fold(held.IfNone(@default), static (value, set) => set(value))))
-                        select unit)),
+                        from next in FieldTexts.Recalled(owner, fields.Map(static field => field.Parameter), path => IO.pure(entries.Find(path)), held.IfNone(@default))
+                        select store.Write(Some(next)).Map(change => ValueDiff.Of(change, @default,
+                            value => new ValueSet(toHashMap(capture(value).AsIterable().Map(entry => (new EntryKey(owner, entry.Key), entry.Value))))))),
+            },
         };
 }
 
-public sealed record BindingGroup {
-    private BindingGroup(Seq<ValueBinding> bindings) => Bindings = bindings;
-
-    public Seq<ValueBinding> Bindings { get; }
-
+public sealed record BindingGroup(Seq<ValueBinding> Bindings) {
     public Seq<EntryKey> Keys() =>
         from binding in Bindings
         from path in binding.Paths()
         select new EntryKey(binding.Owner, path);
 
-    public IO<ValueSet> Capture =>
-        Bindings.TraverseM(static binding => binding.Capture.Map(entries => toSeq(entries.AsIterable()).Map(entry => (new EntryKey(binding.Owner, entry.Key), entry.Value))))
-            .As()
-            .Map(static parts => new ValueSet(toHashMap(parts.Flatten())));
+    public ValueSet Defaults =>
+        new(toHashMap(from binding in Bindings
+                      from entry in binding.Defaults().AsIterable()
+                      select (new EntryKey(binding.Owner, entry.Key), entry.Value)));
 
-    public static Validation<Error, BindingGroup> Of(Seq<ValueBinding> bindings) =>
-        new BindingGroup(bindings) switch {
-            var group => Callbacks.Unique(group.Keys(), identity, nameof(BindingGroup)).Map(_ => group),
-        };
+    public IO<ValueSet> Capture =>
+        Callbacks.Each(Bindings.Map(static binding => binding.Capture.Map(entries => toSeq(entries.AsIterable()).Map(entry => (new EntryKey(binding.Owner, entry.Key), entry.Value)))))
+            .Map(static parts => new ValueSet(toHashMap(parts.Flatten())));
 
     public Option<NameText> Text(EntryKey key) =>
         Bindings.Filter(binding => string.Equals(binding.Owner, key.Owner, StringComparison.Ordinal)).Bind(static binding => binding.Texts).Find(text => text.Path.Equals(key.Path));
 
     public IO<ValueDiff> Apply(ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
-        from before in Capture
-        let pending = before.Diff(new ValueSet(incoming.Entries.Intersect(Keys())).Over(before, locks))
-        from writes in IO.lift(Bindings
-            .Map(binding => (Binding: binding, Entries: Changed(pending, binding)))
+        from entries in IO.pure(incoming.Entries.Except(locks))
+        from prepared in Bindings
+            .Map(binding => (Binding: binding, Entries: toHashMap(binding.Paths()
+                .Choose(path => entries.Find(new EntryKey(binding.Owner, path)).Map(text => (path, text))))))
             .Filter(static held => !held.Entries.IsEmpty)
-            .Traverse(static held => held.Binding.Recall(held.Entries))
-            .As()
-            .ToFin())
-        from written in writes.TraverseM(static write => write).As()
-        from after in Capture
-        select before.Diff(after);
-
-    private static HashMap<Seq<string>, string> Changed(ValueDiff diff, ValueBinding binding) =>
-        toHashMap(binding.Paths().Choose(path => diff.Changes.Find(new EntryKey(binding.Owner, path)).Bind(static change => change.ToOption()).Map(text => (path, text))));
+            .Map<K<IO, IO<ValueDiff>>>(static held => held.Binding.Prepare(held.Entries))
+            .PartitionFallible().As()
+        from accepted in unless(prepared.Fails.IsEmpty, IO.fail<Unit>(Error.Many(prepared.Fails))).As()
+        from written in Callbacks.Each(prepared.Succs)
+        select ValueDiff.Together(written);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

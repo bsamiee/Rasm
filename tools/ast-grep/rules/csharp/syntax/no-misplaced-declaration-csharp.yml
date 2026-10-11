@@ -27,7 +27,7 @@ rule:
                     kind: class_declaration, record_declaration, struct_declaration
                     all: [{has: {field: name, pattern: $OWNER}}, {has: {kind: type_parameter_list}}]
         - kind: record_declaration, struct_declaration
-          not: {matches: csharp-error-record}
+          not: {has: {kind: base_list}}
           follows: {stopBy: {matches: csharp-section-divider}, matches: csharp-section-divider, regex: '^// --- \[(OPERATIONS|COMPOSITION|EXPORTS)\] '}
         - kind: class_declaration, record_declaration, struct_declaration
           not: {has: {any: [{kind: base_list}, {kind: modifier, regex: '^static$'}]}}

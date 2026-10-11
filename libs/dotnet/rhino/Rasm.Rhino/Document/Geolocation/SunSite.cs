@@ -143,11 +143,13 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
         };
 
     public SunDay Day(LocalDate date) =>
-        Solved(InstantOf(date.At(LocalTime.Noon)), 0d) switch {
+        new SolarTerms(new SolarTerms(InstantOf(date.At(LocalTime.Noon))).Transit(Place.Longitude)).Transit(Place.Longitude) switch {
             var noon => Horizon(new SolarTerms(noon).Declination, SunriseZenith) switch {
                 <= -1d => new SunDay.PolarDay(noon),
                 >= 1d => new SunDay.PolarNight(noon),
-                _ => new SunDay.RiseAndSet(Solved(noon, -1d), noon, Solved(noon, 1d)),
+                var cosine => Duration.FromDays(Math.Acos(cosine) / double.Tau) switch {
+                    var half => new SunDay.RiseAndSet(noon - half, noon, noon + half),
+                },
             },
         };
 
@@ -157,33 +159,13 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
         let days = toSeq(new DateInterval(new LocalDate(year, 1, 1), new LocalDate(year, 12, 31)))
         let hours = toSeq(Range(0, NodaConstants.HoursPerDay)).Map(static hour => LocalTime.Midnight.PlusHours(hour))
         let standard = Standard.ToValue()
-        from loops in Observed(clock, (sun, computer) => hours.Traverse(hour => days.Traverse(date => Direction(sun, computer, date.At(hour).WithOffset(standard).ToInstant()))).As())
-        let pole = double.DegreesToRadians(Place.Latitude)
-        let declinations = days.Map(date => new SolarTerms(date.At(LocalTime.Noon).WithOffset(standard).ToInstant()).Declination)
-        let band = (Lowest: Enumerable.Min(declinations), Highest: Enumerable.Max(declinations))
-        let low = Math.Max(band.Lowest, pole - (Math.PI / 2d))
-        let high = Math.Min(band.Highest, pole + (Math.PI / 2d))
-        let rows = toSeq(Range(0, (int)Math.Ceiling((high - low) / double.DegreesToRadians(1d)) + 1))
-        let columns = toSeq(Range(0, 361))
-        let frame = Transform.Rotation(double.DegreesToRadians(North) - (Math.PI / 2d), Vector3d.ZAxis, Point3d.Origin) * Transform.Rotation(pole - (Math.PI / 2d), Vector3d.XAxis, Point3d.Origin)
+        from grid in Observed(clock, (sun, computer) => days.Traverse(date => hours.Traverse(hour => Direction(sun, computer, date.At(hour).WithOffset(standard).ToInstant())).As()).As())
+        let sky = Arr.createRange(grid.Bind(static row => row).Map(static toward => -toward))
+        let solstices = days.Map((date, row) => (Row: row, new SolarTerms(date.At(LocalTime.Noon).WithOffset(standard).ToInstant()).Declination))
         select new SunPaths(
-            toMap(hours.Zip(loops).Map(path => (path.First, Arcs(path.Second.Map(static toward => -toward)).Map(arc => arc.Map(point => Projected(placed, point)))))),
-            new SunCoverage(
-                from row in rows
-                let declination = low + ((high - low) * row / (rows.Count - 1))
-                let half = Math.Acos(Math.Clamp(Horizon(declination, 90d), -1d, 1d))
-                let tilt = Math.SinCos(declination)
-                from column in columns
-                let hour = Math.SinCos(half * ((2d * column / (columns.Count - 1)) - 1d))
-                select Projected(placed, frame * new Vector3d(-tilt.Cos * hour.Sin, -tilt.Cos * hour.Cos, tilt.Sin)),
-                from row in rows.Init
-                from column in columns.Init
-                let corner = (row * columns.Count) + column
-                select (row == 0 && low > band.Lowest, row == rows.Count - 2 && high < band.Highest) switch {
-                    (true, _) => new MeshFace(corner, corner + columns.Count + 1, corner + columns.Count),
-                    (_, true) => new MeshFace(corner, corner + 1, corner + columns.Count),
-                    _ => new MeshFace(corner, corner + 1, corner + columns.Count + 1, corner + columns.Count),
-                }));
+            toMap(hours.Map((hour, column) => (hour, Arcs(toSeq(Range(0, days.Count)).Map(row => sky[(row * hours.Count) + column]))
+                .Map(arc => arc.Map(point => Projected(placed, point)))))),
+            Meshed(sky, Band(sky, hours.Count, solstices.MaxBy(static day => day.Declination).Row, solstices.MinBy(static day => day.Declination).Row), placed));
 
     private static IO<TResult> Observed<TResult>(TimeProvider clock, Func<Sun, DateTimeZone, Fin<TResult>> read) =>
         use(static () => new Sun { Accuracy = Sun.Accuracies.Maximum }).Bind(sun => IO.lift(() => read(sun, BclDateTimeZone.FromTimeZoneInfo(clock.LocalTimeZone)))).Bracket();
@@ -212,13 +194,6 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
             .Map(static location => DateTimeZoneProviders.Tzdb[location.ZoneId])
             .ToFin(new Missing(nameof(TzdbDateTimeZoneSource.ZoneLocations)));
 
-    private Instant Solved(Instant start, double side) =>
-        Range(0, 3).Fold(start, (at, _) => new SolarTerms(at) switch {
-            var terms => at - Duration.FromDays(Math.IEEERemainder(
-                terms.HourAngle(Place.Longitude) - (side * Math.Acos(Math.Clamp(Horizon(terms.Declination, SunriseZenith), -1d, 1d))),
-                double.Tau) / double.Tau),
-        });
-
     private double Horizon(double declination, double zenith) =>
         Math.SinCos(double.DegreesToRadians(Place.Latitude)) switch {
             var (sin, cos) => (Math.Cos(double.DegreesToRadians(zenith)) - (sin * Math.Sin(declination))) / (cos * Math.Cos(declination)),
@@ -239,13 +214,46 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
 
     private static Vector3d Crossing(Vector3d from, Vector3d to) => from + ((to - from) * (from.Z / (from.Z - to.Z)));
 
+    private static Seq<Seq<(int A, int B)>> Band(Arr<Vector3d> sky, int columns, int june, int december) =>
+        (from row in toSeq(Range(june, december - june))
+         from column in toSeq(Range(0, columns))
+         select Seq(
+                (row * columns) + column,
+                (row * columns) + ((column + 1) % columns),
+                ((row + 1) * columns) + ((column + 1) % columns),
+                ((row + 1) * columns) + column))
+            .Bind(quad => quad.ForAll(slot => sky[slot].Z > 0d)
+                ? Seq(quad.Map(static slot => (slot, slot)))
+                : Seq(Seq(quad[0], quad[1], quad[2]), Seq(quad[0], quad[2], quad[3]))
+                    .Map(triangle => Clipped(sky, triangle)).Filter(static polygon => !polygon.IsEmpty));
+
+    private static Seq<(int A, int B)> Clipped(Arr<Vector3d> sky, Seq<int> corners) =>
+        corners.Exists(slot => sky[slot].Z > 0d)
+            ? corners.Zip(corners.Tail.Add(corners[0])).Bind(edge => Seq(
+                Some((edge.First, edge.First)).Filter(_ => sky[edge.First].Z >= 0d),
+                Some((Math.Min(edge.First, edge.Second), Math.Max(edge.First, edge.Second)))
+                    .Filter(_ => (sky[edge.First].Z < 0d && sky[edge.Second].Z > 0d)
+                        || (sky[edge.First].Z > 0d && sky[edge.Second].Z < 0d))).Somes())
+            : Seq<(int A, int B)>();
+
+    private static SunCoverage Meshed(Arr<Vector3d> sky, Seq<Seq<(int A, int B)>> polygons, Sphere dome) =>
+        polygons.Bind(static polygon => polygon).Distinct() switch {
+            var keys => toHashMap(keys.Map(static (key, index) => (key, index))) switch {
+                var indices => new SunCoverage(
+                    keys.Map(key => Projected(dome, key.A == key.B ? sky[key.A] : Crossing(sky[key.A], sky[key.B]))),
+                    polygons.Map(polygon => polygon.Map(key => indices[key])).Map(static at => new MeshFace(at[0], at[1], at[2], at[^1]))),
+            },
+        };
+
     private static Point3d Projected(Sphere dome, Vector3d sky) => dome.Center + (dome.Radius * sky);
 
     private readonly record struct SolarTerms(Instant At) {
         public double Declination => Math.Asin(Math.Sin(Obliquity) * Math.Sin(ApparentLongitude));
 
-        public double HourAngle(Longitude longitude) =>
-            (double.Tau * At.InUtc().TimeOfDay.NanosecondOfDay / NodaConstants.NanosecondsPerDay) + double.DegreesToRadians(longitude) + Equation - Math.PI;
+        public Instant Transit(Longitude longitude) =>
+            At - Duration.FromDays(Math.IEEERemainder(
+                (double.Tau * At.InUtc().TimeOfDay.NanosecondOfDay / NodaConstants.NanosecondsPerDay) + double.DegreesToRadians(longitude) + Equation - Math.PI,
+                double.Tau) / double.Tau);
 
         private double Century => (At.ToJulianDate() - 2451545d) / 36525d;
 

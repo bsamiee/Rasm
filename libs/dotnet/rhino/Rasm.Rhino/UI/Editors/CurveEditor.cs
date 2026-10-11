@@ -11,7 +11,7 @@ using Rasm.Rhino.UI.Numeric;
 namespace Rasm.Rhino.UI.Editors;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union<TraceChannel, HueCurveKind>(T1Name = "Channel", T2Name = "Hue")]
+[Union<TraceChannel, HueCurveKind>(T1Name = "Channel", T2Name = "Hue", SkipToString = true)]
 public sealed partial class CurveKey;
 
 public abstract record PlottedCurve {
@@ -113,7 +113,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
 
     public IO<Unit> Enter(CurveAnchor anchor) =>
         Advance(state =>
-            (from plotted in Plotting(state, Size)
+            (from plotted in Plotting(state, Surface.Size)
              from index in plotted.State.Selected.Last
              from point in plotted.Curve.Points.At(index)
              from moved in plotted.Moving(Seq(index), anchor.Point.X - point.X, anchor.Point.Y - point.Y)
@@ -122,7 +122,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
 
     public IO<Unit> Pick(Func<CurveKey, double> input) =>
         Advance(state =>
-            (from plotted in Plotting(state, Size)
+            (from plotted in Plotting(state, Surface.Size)
              let placed = Picks(plotted.Curve, input(plotted.State.Active)).Fold(plotted, static (held, at) => held.Inserting(at).IfNone(held))
              where placed != plotted
              select placed.Raised(static curve => new Edit<PlottedCurve>.Commit(curve)))
@@ -201,7 +201,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
                 graph: static (held, graph) => Graphed(graph, held.Size, held.Scale)));
 
     protected override PartFacet Facet(CurveEditorState state, CurvePart key) =>
-        state.Switch((Key: key, Text: text, Size, Pointer),
+        state.Switch((Key: key, Text: text, Surface.Size, Pointer),
             editing: static (held, editing) => Indexed(held.Key).Match(
                 Some: index => new PartFacet(
                     PartRole.Handle, Cursors.Pointer, RowText.Localize("{0} point {1}", arguments: [held.Text.Curve(editing.Active), index + 1]).Local,
@@ -285,7 +285,8 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
         private Seq<PlotMark<CurvePart>> Knots =>
             from knot in Curve.Points.Map(static (point, index) => (Point: point, Index: index))
             from shift in Curve.Input.Periodic ? Seq(0f, -Traced.X.Range.Span, Traced.X.Range.Span) : Seq(0f)
-            let disc = new MarkShape.Disc(Traced.Point((float)knot.Point.X + shift, (float)knot.Point.Y), KnotDiameter)
+            let disc = new MarkShape.Disc(Traced.Point((float)knot.Point.X + shift,
+                (float)knot.Point.Y + (Curve.Ascending ? shift : 0f)), KnotDiameter)
             let part = new MarkPart<CurvePart>(new CurvePart.Knot(knot.Index), Plots.Reach)
             from mark in State.Selected.Exists(index => index == knot.Index)
                 ? Seq(new PlotMark<CurvePart>(disc, new MarkStyle.Fill(Curve.Paint, 1f), part))

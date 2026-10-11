@@ -44,7 +44,7 @@ public sealed record LicenseDefinition(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 internal static partial class LicenseMapper {
-    [MapperIgnoreSource(nameof(LicenseStatus.ProductIcon), Justification = "The plug-in's icon reads through Icons.PlugInIcon")]
+    [MapperIgnoreSource(nameof(LicenseStatus.ProductIcon), Justification = "The plug-in's icon reads through Icons.PlugInImage")]
     [MapperIgnoreSource(nameof(LicenseStatus.CloudZooLeaseIsValid), Justification = "CloudZooLeaseExpiration is set exactly while the Cloud Zoo manager holds the lease")]
     internal static partial LicenseState ToState(LicenseStatus status);
 
@@ -64,7 +64,8 @@ public static class Licensing {
         Asked(plugIn, license, (validate, leaseChanged) => AskUserForLicense(plugIn, build, standAlone: false, license.TextMask.ValueUnsafe(), parent.ValueUnsafe(), validate, leaseChanged));
 
     private static IO<Unit> Asked(IPlugInSink sink, LicenseDefinition license, Func<ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> ask) =>
-        Icons.PlugInIcon(sink).Bind(icon => IO.lift(() => guard(ask(Validator(license.Validate, sink), LeaseHandler(license.LeaseChanged, icon, sink)), Errors.Cancelled).ToFin()));
+        Icons.PlugInImage(sink, static (assets, name) => assets.Native.SystemDrawing.Icons.Get(name))
+            .Bind(icon => IO.lift(() => guard(ask(Validator(license.Validate, sink), LeaseHandler(license.LeaseChanged, icon, sink)), Errors.Cancelled).ToFin()));
 
     // --- [RELEASE]
     public static IO<Unit> Return(PlugIn plugIn) =>
@@ -93,13 +94,11 @@ public static class Licensing {
 
     private static OnLeaseChangedDelegate LeaseHandler(Func<Option<LeaseState>, IO<Unit>> leaseChanged, Option<Icon> icon, IPlugInSink sink) =>
         (args, out answer) => {
-            _ = Callbacks.Answer(
-                args,
-                changed => leaseChanged(
+            Callbacks.Run(
+                IO.pure(args).Bind(changed => leaseChanged(
                     from lease in Some(changed.Lease)
                     from leaseId in Conversions.Present(lease.LeaseId)
-                    select LicenseMapper.ToLease(lease, leaseId, lease.IssuedAt.ToInstant(), lease.Expiration.ToInstant())),
-                static () => unit,
+                    select LicenseMapper.ToLease(lease, leaseId, lease.IssuedAt.ToInstant(), lease.Expiration.ToInstant()))),
                 new CallbackSite(sink, typeof(OnLeaseChangedDelegate), nameof(OnLeaseChangedDelegate.Invoke)));
             answer = icon.ValueUnsafe();
         };

@@ -5,13 +5,20 @@ using Rhino.PlugIns;
 
 namespace Rasm.Rhino.Persistence.Settings;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+public interface ISettingReader {
+    public IO<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
+        where TValue : notnull
+        where TRaw : notnull;
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 public abstract record PlugInSetting {
     internal abstract IO<Unit> Register(PersistentSettings settings);
 }
 
-public sealed record PlugInSetting<TValue, TRaw, TError>(
-    ValueKey<TValue, TRaw, TError> Value,
+public sealed record PlugInSetting<TValue, TRaw>(
+    ValueKey<TValue, TRaw> Value,
     SettingType<TRaw> Kind,
     Applied Applied,
     Seq<string> LegacyNames,
@@ -22,6 +29,7 @@ public sealed record PlugInSetting<TValue, TRaw, TError>(
             | @catch(static error => error.HasException<NotSupportedException>(), error => IO.lift(() => Fin.Fail<TRaw>(SettingType.String.TryGet(settings, Value.Name).Match(
                 Some: text => new UnreadText(text, typeof(TRaw), Some(error)),
                 None: () => error))))
+        from admitted in IO.lift(() => Value.From(registered))
         from hidden in when(Hidden, IO.lift(() => settings.HideSettingFromUserInterface(Value.Name))).As()
         let refused = fun((TRaw raw) => Value.From(raw).IsFail)
         from validated in IO.lift(() => Kind.Validator.Iter(validator => validator(settings, Value.Name, refused)))
@@ -37,7 +45,7 @@ public static class PlugInSettings {
         select unit;
 
     // --- [STORES]
-    public static ValueStore<TValue> Store<TValue, TRaw, TError>(SettingsNode node, PlugInSetting<TValue, TRaw, TError> row)
+    public static ValueStore<TValue> Store<TValue, TRaw>(SettingsNode node, PlugInSetting<TValue, TRaw> row)
         where TValue : notnull
         where TRaw : notnull =>
         ValueStore.Of(
@@ -53,11 +61,6 @@ public static class PlugInSettings {
             row.Applied,
             SettingRoots.Saved(node));
 
-    public static IO<TValue> Current<TValue, TRaw, TError>(SettingsNode node, PlugInSetting<TValue, TRaw, TError> row)
-        where TValue : notnull
-        where TRaw : notnull =>
-        Store(node, row).Read.Map(held => held.IfNone(row.Value.Default));
-
     public static ValueStore<TRecord> Record<TRecord>(SettingsNode node, Applied applied) where TRecord : IStateRecord<TRecord> =>
         ValueStore.Of(
             from texts in Callbacks.Each(
@@ -66,7 +69,8 @@ public static class PlugInSettings {
                        select from settings in found
                               from text in SettingType.String.TryGet(settings, leaf.Key)
                               select (leaf.Field.Path, text))
-            from record in FieldTexts.Recalled<TRecord>(typeof(TRecord).Name, toHashMap(texts.Somes()).Find)
+            let stored = toHashMap(texts.Somes())
+            from record in FieldTexts.Recalled(typeof(TRecord).Name, toSeq(TRecord.Parameters), path => IO.pure(stored.Find(path)), TRecord.Default)
             select Some(record).Filter(static held => !EqualityComparer<TRecord>.Default.Equals(held, TRecord.Default)),
             value =>
                 from targets in Callbacks.Each(
@@ -87,7 +91,7 @@ public static class PlugInSettings {
             SettingRoots.Saved(node));
 
     private static Seq<(FieldText<TRecord> Field, SettingsNode Parent, string Key)> Leaves<TRecord>(SettingsNode node) where TRecord : IStateRecord<TRecord> =>
-        FieldTexts<TRecord>.Items.Choose(field => field.Path.Last.Map(key => (field, node with { Path = node.Path + field.Path.Init }, key)));
+        FieldTexts.Items<TRecord>().Choose(field => field.Path.Last.Map(key => (field, node with { Path = node.Path + field.Path.Init }, key)));
     internal static Fin<Unit> Writable(PersistentSettings settings, string key) =>
         ReadOnlyKey.Unless(!(settings.TryGetSettingIsReadOnly(key, out bool readOnly) && readOnly), key);
 

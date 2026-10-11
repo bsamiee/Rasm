@@ -39,37 +39,38 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
     }
 
     private readonly Atom<SkinLoad> load = Atom<SkinLoad>(new SkinLoad.Starting());
-    private readonly Atom<Option<(Form Window, Label Status, ProgressBar Bar)>> splash = Atom<Option<(Form Window, Label Status, ProgressBar Bar)>>(None);
+    private readonly Ref<Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)>> splash = Ref<Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)>>(None);
 
     // --- [IDENTITY]
     private static readonly Size MarkSize = new(128, 128);
+    private static readonly System.Drawing.Size MainIconSize = new(256, 256);
 
     protected sealed override string ApplicationName => GetType().Assembly.GetCustomAttributes<AssemblyTitleAttribute>().Single().Title;
 
     protected sealed override System.Drawing.Bitmap? MainRhinoIcon =>
-        Callbacks.Answer<System.Drawing.Bitmap?>(
-            from icon in HostUtils.RunningOnWindows ? Icons.PlugInIcon(this) : IO.pure(Option<System.Drawing.Icon>.None)
-            from bitmap in icon.TraverseM(static frames => use(() => new System.Drawing.Icon(frames, 256, 256)).Map(static sized => sized.ToBitmap()).Bracket()).As()
-            select bitmap.ValueUnsafe(),
+        Callbacks.Answer(
+            (HostUtils.RunningOnWindows
+                ? Icons.PlugInImage(this, static (assets, name) => assets.IconBitmaps.Get(name, MainIconSize))
+                : IO.pure(Option<System.Drawing.Bitmap>.None)).Map(static bitmap => bitmap.ValueUnsafe()),
             static () => null,
             CallbackSite.Of(this));
 
-    private IO<Option<Icon>> Mark => Icons.PlugInIcon(this).Map(static icon => icon.Map(static frames => frames.ToEto().WithSize(MarkSize)));
+    private IO<Option<Icon>> Mark => Icons.PlugInImage(this, static (assets, name) => assets.Native.Eto.Icons.Get(name, MarkSize));
 
     // --- [LOAD]
     protected sealed override void OnBeginLoadAtStartPlugIns(int expectedCount) =>
-        _ = Callbacks.Answer(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, Seq<string>()) : current).Map(static _ => unit), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, Seq<string>()) : current), CallbackSite.Of(this));
 
     protected sealed override void OnBeginLoadPlugIn(string description) =>
-        _ = Callbacks.Answer(Advanced(current => current.Begin(description)).Bind(static next => IO.lift(() => next.Percent.Iter(SetBootSplashProgress))), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(Advanced(current => current.Begin(description)).Bind(static next => IO.lift(() => next.Percent.Iter(SetBootSplashProgress))), CallbackSite.Of(this));
 
     protected sealed override void OnEndLoadAtStartPlugIns() =>
-        _ = Callbacks.Answer(Advanced(static _ => new SkinLoad.Ready()).Bind(static _ => IO.lift(DismissBootSplash)), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(Advanced(static _ => new SkinLoad.Ready()).Bind(static _ => IO.lift(DismissBootSplash)), CallbackSite.Of(this));
 
     private IO<SkinLoad> Advanced(Func<SkinLoad, SkinLoad> transition) =>
         from next in IO.lift(() => load.Swap(transition))
         from shown in IO.lift(() => {
-            _ = splash.Value.Iter(held => {
+            _ = atomic(() => splash.Value).Iter(held => {
                 Refresh(next, held.Status, held.Bar);
                 Placed(held.Window, Size.Max(held.Window.ClientSize, Size.Ceiling(held.Window.Content.GetPreferredSize())));
             });
@@ -79,76 +80,79 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
 
     // --- [SPLASH]
     protected sealed override void ShowSplash() =>
-        _ = Callbacks.Answer(
+        Callbacks.Run(
             unless(HasBootSplash,
-                from mark in Mark
-                from shown in IO.lift(() => {
-                    Label status = new() { Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center };
-                    ProgressBar bar = new();
-                    Refresh(load.Value, status, bar);
-                    Form window = new() {
-                        Title = ApplicationName, WindowStyle = WindowStyle.None, Resizable = false, Minimizable = false, Maximizable = false, ShowInTaskbar = false, Topmost = true,
-                        Content = Layout(mark, new StackLayout(status, bar) {
+                DisposalOps.Replace(
+                    owned =>
+                        from mark in Mark
+                        from status in DisposalOps.Acquire(IO.lift(static () => new Label { Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }), static value => IO.lift(value.Dispose), owned)
+                        from bar in DisposalOps.Acquire(IO.lift(static () => new ProgressBar()), static value => IO.lift(value.Dispose), owned)
+                        from detail in DisposalOps.Acquire(IO.lift(() => new StackLayout(status, bar) {
                             Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Dialog),
                             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                        }),
-                    };
-                    window.UseRhinoStyle();
-                    Placed(window, Size.Ceiling(window.Content.GetPreferredSize()));
-                    window.Show();
-                    _ = splash.Swap(_ => Some((window, status, bar)));
-                    Application.Instance.RunIteration();
-                })
-                select shown).As(),
-            static () => unit,
+                        }), static value => IO.lift(value.Dispose), owned)
+                        from content in Layout(mark, detail, owned)
+                        from window in DisposalOps.Acquire(IO.lift(() => new Form {
+                            Title = ApplicationName, WindowStyle = WindowStyle.None, Resizable = false, Minimizable = false, Maximizable = false, ShowInTaskbar = false, Topmost = true,
+                            Content = content,
+                        }), static value => IO.lift(value.Dispose), owned)
+                        from shown in IO.lift(() => {
+                            Refresh(load.Value, status, bar);
+                            window.UseRhinoStyle();
+                            Placed(window, Size.Ceiling(content.GetPreferredSize()));
+                            window.Show();
+                        })
+                        select (Window: window, Status: status, Bar: bar),
+                    (held, lease) => atomic(() => {
+                        Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)> previous = splash.Value;
+                        splash.Value = Some((held.Window, held.Status, held.Bar, lease));
+                        return previous;
+                    }).TraverseM(static previous => Callbacks.Each(Seq(IO.lift(previous.Window.Close), IO.lift(previous.Lease.Dispose)))).As().Map(static _ => unit))
+                    .Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As(),
             CallbackSite.Of(this));
 
     protected sealed override void HideSplash() =>
-        _ = Callbacks.Answer(
-            IO.lift(() => {
-                _ = splash.Value.Iter(static held => {
-                    held.Window.Close();
-                    held.Window.Dispose();
-                });
-                _ = splash.Swap(static _ => None);
-            }),
-            static () => unit,
+        Callbacks.Run(
+            IO.lift(() => atomic(() => {
+                Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)> previous = splash.Value;
+                splash.Value = None;
+                return previous;
+            })).Bind(static previous => previous.TraverseM(static held =>
+                Callbacks.Each(Seq(IO.lift(held.Window.Close), IO.lift(held.Lease.Dispose)))).As()).Uninterruptible(),
             CallbackSite.Of(this));
 
     // --- [HELP]
     protected sealed override void ShowHelp() =>
-        _ = Callbacks.Answer(
-            from mark in Mark
-            from shown in use(() => new Dialog {
-                Title = ApplicationName, Resizable = false,
-                Content = Layout(mark, new Label { Text = RowText.Localize("Rhino {0}", arguments: [RhinoApp.Version]).Local, Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }),
-            })
-                .Bind(static dialog => IO.lift(() => {
-                    dialog.UseRhinoStyle();
-                    dialog.ShowModal(RhinoEtoApp.MainWindow);
-                }))
-                .Bracket()
-            select shown,
-            static () => unit,
+        Callbacks.Run(
+            DisposalOps.Within<IDisposable, Unit>(
+                owned =>
+                    from mark in Mark
+                    from detail in DisposalOps.Acquire(IO.lift(static () => new Label { Text = RowText.Localize("Rhino {0}", arguments: [RhinoApp.Version]).Local, Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }), static value => IO.lift(value.Dispose), owned)
+                    from content in Layout(mark, detail, owned)
+                    from dialog in DisposalOps.Acquire(IO.lift(() => new Dialog { Title = ApplicationName, Resizable = false, Content = content }), static value => IO.lift(value.Dispose), owned)
+                    from shown in IO.lift(() => {
+                        dialog.UseRhinoStyle();
+                        dialog.ShowModal(RhinoEtoApp.MainWindow);
+                    })
+                    select shown,
+                DisposalOps.Release),
             CallbackSite.Of(this));
 
     // --- [DOCUMENTS]
     protected sealed override void ShowChooseTemplate() =>
-        _ = Callbacks.Answer(
+        Callbacks.Run(
             Chosen(
-                from paths in IO.lift(static () => new global::Rhino.UI.OpenFileDialog {
+                from paths in IO.lift(static () => HostDialogs.ShowOpenDialog(new() {
                     Title = RowText.Localize("New from Template").Local,
-                    Filter = HostDialogs.Filter(Seq(new FileTypeRow(RhinoApp.CurrentRhinoId, RowText.Localize("Rhino Templates").Local, Seq(".3dm")))),
+                    Filter = HostDialogs.Filter(Seq((RowText.Localize("Rhino Templates").Local, Seq(".3dm")))),
                     InitialDirectory = FileSettings.TemplateFolder,
-                })
-                    .Bind(HostDialogs.ShowOpenDialog)
+                })).Bind(static dialog => dialog)
                 from opened in paths.TraverseM(static path => IO.lift(() => Missing.Unless(OpenNewDocument(path), nameof(OpenNewDocument)))).As()
                 select unit),
-            static () => unit,
             CallbackSite.Of(this));
 
     protected sealed override void ShowChooseRecent() =>
-        _ = Callbacks.Answer(
+        Callbacks.Run(
             Chosen(
                 from files in IO.lift(static () => toSeq(FileSettings.RecentlyOpenedFiles()).Map(static path => new Captioned<string>(path, new LocalizeStringPair(path, path))).AsIterableNE())
                 from opened in files.TraverseM(static items =>
@@ -157,7 +161,6 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
                     from document in Documents.WithDocument(new DocumentSource.Opened(existing), static _ => IO.pure(unit))
                     select document).As()
                 select unit),
-            static () => unit,
             CallbackSite.Of(this));
 
     private static IO<Unit> Chosen(IO<Unit> choice) => choice | @catch(Errors.Cancelled, IO.pure(unit));
@@ -182,12 +185,15 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
             None: () => bar.Indeterminate = true);
     }
 
-    private StackLayout Layout(Option<Icon> mark, Control detail) =>
-        new([.. mark.ToSeq().Map<StackLayoutItem>(static icon => icon), new Label { Text = ApplicationName, Font = EtoFonts.HeadingFont }, new StackLayoutItem(detail, HorizontalAlignment.Stretch)]) {
+    private IO<StackLayout> Layout(Option<Icon> mark, Control detail, Action<IDisposable> retain) =>
+        from heading in DisposalOps.Acquire(IO.lift(() => new Label { Text = ApplicationName, Font = EtoFonts.HeadingFont }), static value => IO.lift(value.Dispose), retain)
+        from image in mark.TraverseM(icon => DisposalOps.Acquire(IO.lift(() => new ImageView { Image = icon }), static value => IO.lift(value.Dispose), retain)).As()
+        from layout in DisposalOps.Acquire(IO.lift(() => new StackLayout([.. image.ToSeq().Map<StackLayoutItem>(static view => view), heading, new StackLayoutItem(detail, HorizontalAlignment.Stretch)]) {
             Padding = RhinoLayout.Padding(RhinoLayout.PaddingType.Dialog),
             Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Dialog),
             HorizontalContentAlignment = HorizontalAlignment.Center,
-        };
+        }), static value => IO.lift(value.Dispose), retain)
+        select layout;
 
     private static void Placed(Form window, Size client) {
         window.ClientSize = client;

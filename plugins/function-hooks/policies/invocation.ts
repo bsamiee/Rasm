@@ -40,6 +40,7 @@ const _AST_GREP: Program = {
     valued: [
         '-c',
         '--config',
+        '--custom-languages',
         '-r',
         '--rule',
         '--rewrite',

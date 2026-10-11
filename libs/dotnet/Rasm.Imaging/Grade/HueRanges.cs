@@ -9,58 +9,70 @@ using UnitsNet.Units;
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct Hsy(float Hue, float Saturation, float Luma) {
-    private const float Knee = 0.15f;
-    private const float LowGain = 5f;
-    private const float Scale = 1.4f;
+public readonly record struct Hsy(double Hue, double Saturation, double Luma) {
+    private const double Knee = 0.15d;
+    private const double LowGain = 5d;
+    private const double Scale = 1.4d;
+    private const double MinLuma = 0.001d;
+    private const double MaxLuma = 0.01d;
 
-    public static Vector3 LumaWeights { get; } = Gamut.StandardRgb.Luminance;
+    public static (double X, double Y, double Z) LumaWeights { get; } = Gamut.StandardRgb.Luminance;
+
+    public static double SaturationPeak =>
+        LumaWeights switch {
+            var weights => Scale * (1d + ((weights.X + weights.Y + weights.Z) / double.Min(double.Min(weights.X, weights.Y), weights.Z))) / 3d,
+        };
 
     public static Hsy From(Vector4 color) {
-        Vector3 rgb = color.AsVector3();
-        float luma = Vector3.Dot(LumaWeights, rgb);
-        float distance = Vector3.Dot(Vector3.Abs(rgb - new Vector3(luma)), Vector3.One);
-        float low = distance * LowGain;
-        float high = distance / float.Max((0.07f * distance) + 1e-6f, Knee + Vector3.Dot(rgb, Vector3.One));
-        float max = float.Max(float.Max(rgb.X, rgb.Y), rgb.Z);
-        float min = float.Min(float.Min(rgb.X, rgb.Y), rgb.Z);
-        float sextant = min == max ? 0f
-            : rgb.X == max ? 1f + ((rgb.Y - rgb.Z) / (max - min))
-            : rgb.Y == max ? 3f + ((rgb.Z - rgb.X) / (max - min))
-            : 5f + ((rgb.X - rgb.Y) / (max - min));
-        return new(sextant * 0.16666666666666666f * float.Tau, (low + (Blend(luma) * (high - low))) * Scale, luma);
+        (double red, double green, double blue) = (color.X, color.Y, color.Z);
+        double luma = Luminance(red, green, blue);
+        double distance = double.Abs(red - luma) + double.Abs(green - luma) + double.Abs(blue - luma);
+        double max = double.Max(double.Max(red, green), blue);
+        double min = double.Min(double.Min(red, green), blue);
+        double sextant = min == max ? 0d
+            : red == max ? 1d + ((green - blue) / (max - min))
+            : green == max ? 3d + ((blue - red) / (max - min))
+            : 5d + ((red - green) / (max - min));
+        double turn = sextant / 6d;
+        return new((turn - double.Floor(turn)) * double.Tau, distance * SaturationGain(luma), luma);
     }
 
-    public static Vector3 Saturated(float hue) =>
-        ((hue / float.Tau) - (1f / 6f)) switch {
-            var turn => ((turn - float.Floor(turn)) * 6f) switch {
-                var sextant => Vector3.Clamp(new Vector3(float.Abs(sextant - 3f) - 1f, 2f - float.Abs(sextant - 2f), 2f - float.Abs(sextant - 4f)), Vector3.Zero, Vector3.One),
-            },
+    public static Vector3 Saturated(double hue) =>
+        HueRgb(hue) switch {
+            var (red, green, blue) => new((float)red, (float)green, (float)blue),
         };
 
     public Vector4 ToRgb(float alpha) {
-        static float Root(float a, float b, float c) =>
-            float.Sqrt((b * b) - (4f * a * c)) switch {
-                var root => (2f * c / (-root - b)) switch { >= 0f and var gain => gain, _ => 2f * c / (root - b) },
-            };
-        Vector3 hue = Saturated(Luma < 0f ? Hue + float.Pi : Hue);
-        Vector3 rgb = hue * (Luma / Vector3.Dot(LumaWeights, hue));
-        float distance = Vector3.Dot(Vector3.Abs(rgb - new Vector3(Luma)), Vector3.One);
-        float excess = Vector3.Dot(rgb, Vector3.One) - (3f * Luma);
-        float saturation = Saturation / Scale;
-        float knee = Knee + (3f * Luma);
-        float blend = Blend(Luma);
-        float gain = blend switch {
-            1f => float.Min(saturation * knee / float.Max(1e-6f, distance - (saturation * excess)), 50f),
-            0f => saturation / float.Max(1e-10f, distance * LowGain),
-            _ => (distance * LowGain * (1f - blend)) switch {
-                var low => Root(low * excess, (low * knee) + (distance * blend) - (saturation * excess), -saturation * knee),
-            },
-        };
-        return new(new Vector3(Luma) + (gain * (rgb - new Vector3(Luma))), alpha);
+        (double red, double green, double blue) = HueRgb(Hue);
+        double luma = Luminance(red, green, blue);
+        (red, green, blue) = (red - luma, green - luma, blue - luma);
+        double gain = Saturation / SaturationGain(Luma) / (double.Abs(red) + double.Abs(green) + double.Abs(blue));
+        return new((float)(Luma + (gain * red)), (float)(Luma + (gain * green)), (float)(Luma + (gain * blue)), alpha);
     }
 
-    private static float Blend(float luma) => float.Clamp((luma - 1e-3f) / (1e-2f - 1e-3f), 0f, 1f);
+    private static double Luminance(double red, double green, double blue) =>
+        ((LumaWeights.X * red) + (LumaWeights.Y * green) + (LumaWeights.Z * blue)) / (LumaWeights.X + LumaWeights.Y + LumaWeights.Z);
+
+    private static double SaturationGain(double luma) =>
+        luma switch {
+            <= MinLuma => Scale * LowGain,
+            >= MaxLuma => Scale / (Knee + (3d * luma)),
+            _ => ((luma - MinLuma) / (MaxLuma - MinLuma)) switch {
+                var blend => Scale * (((1d - blend) * LowGain) + (blend / (Knee + (3d * luma)))),
+            },
+        };
+
+    private static (double Red, double Green, double Blue) HueRgb(double hue) =>
+        ((hue % double.Tau / double.Tau) - (1d / 6d)) switch {
+            var turn => ((turn - double.Floor(turn)) * 6d) switch {
+                < 1d and var sextant => (1d, sextant, 0d),
+                < 2d and var sextant => (2d - sextant, 1d, 0d),
+                < 3d and var sextant => (0d, 1d, sextant - 2d),
+                < 4d and var sextant => (0d, 4d - sextant, 1d),
+                < 5d and var sextant => (sextant - 4d, 0d, 1d),
+                var sextant => (1d, 0d, 6d - sextant),
+            },
+        };
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -102,19 +114,19 @@ public sealed partial class RangeAxis {
     public static readonly RangeAxis Hue = new(
         InputAxis.Hue, Lens<HueRange, RangeBand>.New(static range => range.Hue, static band => range => range with { Hue = band }),
         new() { Unit = Quantity.GetUnitInfo(AngleUnit.Revolution) },
-        static (hsy, value) => hsy with { Hue = (float)value });
+        static (hsy, value) => hsy with { Hue = value });
     public static readonly RangeAxis Saturation = new(
         InputAxis.Saturation, Lens<HueRange, RangeBand>.New(static range => range.Saturation, static band => range => range with { Saturation = band }),
         new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) },
-        static (hsy, value) => hsy with { Saturation = (float)value });
+        static (hsy, value) => hsy with { Saturation = value });
     public static readonly RangeAxis Luma = new(
         InputAxis.Stops, Lens<HueRange, RangeBand>.New(static range => range.Luma, static band => range => range with { Luma = band }),
         new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) },
-        static (hsy, value) => hsy with { Luma = (float)CurveAxis.FromStops(value) });
+        static (hsy, value) => hsy with { Luma = CurveAxis.FromStops(value) });
 
     public InputAxis Input { get; }
     public Lens<HueRange, RangeBand> Band { get; }
-    public Presentation<AxisFraction, float> Presentation { get; }
+    public Presentation<float> Presentation { get; }
 
     public (Lens<TRecord, AxisFraction> Center, Lens<TRecord, AxisFraction> Width, Lens<TRecord, AxisFraction> Softness) Members<TRecord>(Lens<TRecord, HueRange> range) =>
         lens(range, Band) switch {
@@ -122,7 +134,7 @@ public sealed partial class RangeAxis {
         };
 
     public (StateParameter<TRecord> Center, StateParameter<TRecord> Width, StateParameter<TRecord> Softness) Kinds<TRecord>(Lens<TRecord, HueRange> range) =>
-        (Members(range), fun((Lens<TRecord, AxisFraction> member) => (StateParameter<TRecord>)new StateParameter<TRecord>.Bounded<AxisFraction, float, InvalidGrade>(member, Presentation))) switch {
+        (Members(range), fun((Lens<TRecord, AxisFraction> member) => (StateParameter<TRecord>)StateParameter.Bounded<TRecord, AxisFraction, float, InvalidGrade>(member, Presentation))) switch {
             var ((center, width, softness), kind) => (kind(center), kind(width), kind(softness)),
         };
 
@@ -213,19 +225,16 @@ public sealed partial class SelectiveColorParameter : IStateParameter<SelectiveC
     public static readonly SelectiveColorParameter LumaSoftness = new("luma-softness", RangeAxis.Luma.Kinds(Range).Softness);
     public static readonly SelectiveColorParameter HueShift = new(
         "hue-shift",
-        new StateParameter<SelectiveColor>.Bounded<HueShift, float, InvalidGrade>(
-            Lens<SelectiveColor, HueShift>.New(static state => state.Shift, static shift => state => state with { Shift = shift }),
-            new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = 0f, Stops = Shifts }));
+        StateParameter.Bounded<SelectiveColor, HueShift, float, InvalidGrade>(Lens<SelectiveColor, HueShift>.New(static state => state.Shift, static shift => state => state with { Shift = shift }),
+        new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = 0f, Stops = Shifts }));
     public static readonly SelectiveColorParameter Saturation = new(
         "saturation",
-        new StateParameter<SelectiveColor>.Bounded<Saturation, float, InvalidGrade>(
-            Lens<SelectiveColor, Saturation>.New(static state => state.Saturation, static saturation => state => state with { Saturation = saturation }),
-            ContrastGradeParameter.Chroma));
+        StateParameter.Bounded<SelectiveColor, Saturation, float, InvalidGrade>(Lens<SelectiveColor, Saturation>.New(static state => state.Saturation, static saturation => state => state with { Saturation = saturation }),
+        ContrastGradeParameter.Chroma));
     public static readonly SelectiveColorParameter Exposure = new(
         "exposure",
-        new StateParameter<SelectiveColor>.Bounded<Exposure, float, InvalidToneValue>(
-            Lens<SelectiveColor, Exposure>.New(static state => state.Exposure, static exposure => state => state with { Exposure = exposure }),
-            Tone.Exposure.Presentation));
+        StateParameter.Bounded<SelectiveColor, Exposure, float, InvalidToneValue>(Lens<SelectiveColor, Exposure>.New(static state => state.Exposure, static exposure => state => state with { Exposure = exposure }),
+        Tone.Exposure.Presentation));
 
     public StateParameter<SelectiveColor> Kind { get; }
 
@@ -239,8 +248,13 @@ public sealed partial class SelectiveColorParameter : IStateParameter<SelectiveC
 public sealed record HueIsolation(HueRange Range) : IStateRecord<HueIsolation, HueIsolationParameter, InvalidGrade>, IPixelStage<HueIsolation> {
     public static HueIsolation Default { get; } = new(HueRange.All);
 
-    public Func<Vector4, Vector4> Graded(Vector3 luminance) =>
-        color => new(Vector3.Lerp(new Vector3(Vector3.Dot(luminance, color.AsVector3())), color.AsVector3(), Range.Membership(Hsy.From(color))), color.W);
+    public Func<Vector4, Vector4> Graded((double X, double Y, double Z) luminance) =>
+        color => Range.Membership(Hsy.From(color)) switch {
+            1f => color,
+            var membership => ((1d - membership) * ((luminance.X * color.X) + (luminance.Y * color.Y) + (luminance.Z * color.Z))) switch {
+                var grey => new((float)(grey + (membership * (double)color.X)), (float)(grey + (membership * (double)color.Y)), (float)(grey + (membership * (double)color.Z)), color.W),
+            },
+        };
 
     public static Option<PixelPass> Pass(HueIsolation state, PassContext context) =>
         state.Range == HueRange.All

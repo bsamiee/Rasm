@@ -81,7 +81,7 @@ public static class StyleTables {
         toHashMap(candidates.Map(static candidate => (candidate.Row, candidate))) switch {
             var byRow => toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward))
                 .Choose(byRow.Find)
-                .FoldBackM(LanguageExt.HashSet<ComponentIdentity>.Empty, (removed, candidate) =>
+                .FoldM(LanguageExt.HashSet<ComponentIdentity>.Empty, (removed, candidate) =>
                     graph.OutEdges(candidate.Row).All(edge => removed.Contains(edge.Target))
                         ? candidate.Delete.Map(deleted => deleted ? removed.Add(candidate.Row) : removed)
                         : IO.pure(removed))

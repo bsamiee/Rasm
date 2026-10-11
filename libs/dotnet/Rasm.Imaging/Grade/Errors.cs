@@ -3,8 +3,8 @@ namespace Rasm.Imaging.Grade;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     InvalidGrade = 1,
-    CorrectionUnreadable,
-    CorrectionMalformed,
+    CorrectionUnreadable = 2,
+    CorrectionMalformed = 3,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

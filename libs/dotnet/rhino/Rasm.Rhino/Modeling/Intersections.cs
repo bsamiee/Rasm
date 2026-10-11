@@ -155,30 +155,37 @@ public static class Intersections {
         Crossings(host, static _ => unit, static _ => unit);
 
     private static IO<Seq<CurveCrossing<TAt, TSpan>>> Crossings<TAt, TSpan>(Func<CurveIntersections?> host, Func<IntersectionEvent, TAt> at, Func<IntersectionEvent, TSpan> span) =>
-        IO.lift(() => {
-            using CurveIntersections? events = host();
-            return Conversions.Rows(events)
+        DisposalOps.Within(
+            host,
+            events => IO.lift(() => Conversions.Rows(events)
                 .Map<CurveCrossing<TAt, TSpan>>(crossing => crossing.IsPoint
                     ? new CurveCrossing<TAt, TSpan>.Hit(crossing.ParameterA, at(crossing), crossing.PointA, crossing.PointB)
                     : new CurveCrossing<TAt, TSpan>.Overlap(crossing.OverlapA, span(crossing)))
-                .Strict();
-        });
+                .Strict()),
+            static events => DisposalOps.Release(Conversions.Rows(new[] { events })));
 
     // --- [CURVES_AND_POINTS]
-    public static IO<(Seq<Curve> Curves, Seq<Point3d> Points)> Acquire(Func<(bool Accepted, Curve[] Curves, Point3d[] Points)> host, string member) =>
-        from answer in IO.lift(host)
-        from curves in Copies.Acquire(() => Refused.Unless(answer.Accepted, answer.Curves, member), member)
-        select (curves, toSeq(answer.Points));
+    public static IO<(Seq<Curve> Curves, Seq<Point3d> Points)> Acquire(Func<(bool Accepted, Curve[] Curves, Point3d[] Points)> host, string member, Action<IDisposable> retain) =>
+        Copies.Owned(
+            host,
+            answer =>
+                from made in Refused.Unless(answer.Accepted, answer, member)
+                from curves in Missing.Unless(made.Curves, member)
+                from valid in Measurements.Valid(toSeq<Curve?>(curves), member)
+                select (Curves: valid, Points: toSeq(made.Points)),
+            static answer => DisposalOps.Release(Conversions.Rows(answer.Curves)), retain);
 
     // --- [MESHES]
-    public static IO<MeshCrossings> MeshMesh(Seq<Mesh> meshes, Option<Seq<Mesh>> against, Tolerances tolerances, bool overlaps, bool overlapMesh, Option<IProgress<double>> progress, Option<TextLog> textLog) =>
+    public static IO<MeshCrossings> MeshMesh(Seq<Mesh> meshes, Option<Seq<Mesh>> against, Tolerances tolerances, bool overlaps, bool overlapMesh, Option<IProgress<double>> progress, Option<TextLog> textLog, Action<IDisposable> retain) =>
         from token in cancelToken
-        from answer in IO.lift(() => against.Match(
+        from crossings in Copies.Owned(
+            () => against.Match(
             Some: others => (Accepted: Intersection.MeshMeshTwoSets(meshes, others, tolerances.MeshIntersection, out Polyline[] polylines, overlaps, out Polyline[] overlapped, overlapMesh, out Mesh merged, textLog.ValueUnsafe(), token, progress.ValueUnsafe()), Polylines: polylines, Overlaps: overlapped, Mesh: merged, Member: nameof(Intersection.MeshMeshTwoSets)),
-            None: () => (Accepted: Intersection.MeshMesh(meshes, tolerances.MeshIntersection, out Polyline[] polylines, overlaps, out Polyline[] overlapped, overlapMesh, out Mesh merged, textLog.ValueUnsafe(), token, progress.ValueUnsafe()), Polylines: polylines, Overlaps: overlapped, Mesh: merged, Member: nameof(Intersection.MeshMesh))))
-        from crossings in IO.lift(Fin<MeshCrossings> () => answer.Accepted
-            ? new MeshCrossings(Conversions.Rows(answer.Polylines), Conversions.Rows(answer.Overlaps), Optional(answer.Mesh))
-            : token.IsCancellationRequested ? Errors.Cancelled : new Refused(answer.Member))
+            None: () => (Accepted: Intersection.MeshMesh(meshes, tolerances.MeshIntersection, out Polyline[] polylines, overlaps, out Polyline[] overlapped, overlapMesh, out Mesh merged, textLog.ValueUnsafe(), token, progress.ValueUnsafe()), Polylines: polylines, Overlaps: overlapped, Mesh: merged, Member: nameof(Intersection.MeshMesh))),
+            Fin<MeshCrossings> (answer) => answer.Accepted
+                ? new MeshCrossings(Conversions.Rows(answer.Polylines), Conversions.Rows(answer.Overlaps), Optional(answer.Mesh))
+                : token.IsCancellationRequested ? Errors.Cancelled : new Refused(answer.Member),
+            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer.Mesh })), retain)
         select crossings;
 
     public static IO<Option<(double T, Seq<int> Faces)>> MeshRay(Mesh mesh, Ray3d ray) =>

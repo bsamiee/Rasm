@@ -18,7 +18,7 @@ public abstract partial record NetworkMethod {
     public sealed record Ordered(NetworkCurves U, NetworkCurves V) : NetworkMethod;
 }
 
-[Union<Curve, Line, Polyline>(MapMethods = SwitchMapMethodsGeneration.None)]
+[Union<Curve, Line, Polyline>(SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class RevolveProfile;
 
 [ComplexValueObject]
@@ -34,15 +34,15 @@ public sealed partial class PointGrid {
         validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount == 0 ? null : new InvalidRhinoValue();
 }
 
-[Union<Cone, Cylinder, Sphere, Torus>(SkipEqualityComparison = true, MapMethods = SwitchMapMethodsGeneration.None)]
+[Union<Cone, Cylinder, Sphere, Torus>(SkipEqualityComparison = true, SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class AnalyticShape;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SurfaceConstruction {
     // --- [FROM_CURVES]
-    public static IO<NurbsSurface> Network(NetworkMethod method, double interiorTolerance, Tolerances tolerances) =>
-        Copies.Acquire(
-            Fin<NurbsSurface> () => method.Switch(
+    public static IO<NurbsSurface> Network(NetworkMethod method, double interiorTolerance, Tolerances tolerances, Action<IDisposable> retain) =>
+        Copies.Owned(
+            () => method.Switch(
                 (Interior: interiorTolerance, Tolerances: tolerances),
                 autoSorted: static (network, sorted) => (
                     Surface: NurbsSurface.CreateNetworkSurface(
@@ -52,13 +52,13 @@ public static class SurfaceConstruction {
                     Surface: NurbsSurface.CreateNetworkSurface(
                         ordered.U.Curves, (int)ordered.U.Start, (int)ordered.U.End, ordered.V.Curves, (int)ordered.V.Start, (int)ordered.V.End,
                         network.Tolerances.Absolute, network.Interior, network.Tolerances.Angle, out int error),
-                    Error: error)) switch {
-                        (var surface, 0) => surface,
-                        (_, var error) => new NetworkSurfaceFailed((NetworkFailure)error),
-                    },
-            nameof(NurbsSurface.CreateNetworkSurface));
+                    Error: error)),
+            static Fin<NurbsSurface> (answer) => answer.Error == 0
+                ? Missing.Unless(answer.Surface, nameof(NurbsSurface.CreateNetworkSurface)).Bind(static surface => Measurements.Valid(surface, nameof(NurbsSurface.CreateNetworkSurface)))
+                : new NetworkSurfaceFailed((NetworkFailure)answer.Error),
+            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer.Surface })), retain);
 
-    public static IO<RevSurface> Revolved(RevolveProfile profile, Line axis, Option<(double StartRadians, double EndRadians)> angles) =>
+    public static IO<RevSurface> Revolved(RevolveProfile profile, Line axis, Option<(double StartRadians, double EndRadians)> angles, Action<IDisposable> retain) =>
         Copies.Acquire(
             () => angles.Match(
                 Some: sweep => profile.Switch(
@@ -71,53 +71,54 @@ public static class SurfaceConstruction {
                     curve: static (about, curve) => RevSurface.Create(curve, about),
                     line: static (about, line) => RevSurface.Create(line, about),
                     polyline: static (about, polyline) => RevSurface.Create(polyline, about))),
-            nameof(RevSurface.Create));
+            nameof(RevSurface.Create), retain);
 
     // --- [FROM_POINTS]
-    public static IO<NurbsSurface> FromPoints(PointGrid grid, int uDegree, int vDegree, Option<(bool UClosed, bool VClosed)> interpolation) =>
+    public static IO<NurbsSurface> FromPoints(PointGrid grid, int uDegree, int vDegree, Option<(bool UClosed, bool VClosed)> interpolation, Action<IDisposable> retain) =>
         interpolation.Match(
             Some: closed => Copies.Acquire(
                 () => NurbsSurface.CreateThroughPoints(grid.Points, grid.UCount, grid.VCount, uDegree, vDegree, closed.UClosed, closed.VClosed),
-                nameof(NurbsSurface.CreateThroughPoints)),
+                nameof(NurbsSurface.CreateThroughPoints), retain),
             None: () => Copies.Acquire(
-                () => NurbsSurface.CreateFromPoints(grid.Points, grid.UCount, grid.VCount, uDegree, vDegree), nameof(NurbsSurface.CreateFromPoints)));
+                () => NurbsSurface.CreateFromPoints(grid.Points, grid.UCount, grid.VCount, uDegree, vDegree), nameof(NurbsSurface.CreateFromPoints), retain));
 
     // --- [PRIMITIVES]
-    public static IO<NurbsSurface> ToNurbsSurface(AnalyticShape shape) =>
+    public static IO<NurbsSurface> ToNurbsSurface(AnalyticShape shape, Action<IDisposable> retain) =>
         Copies.Acquire(
             () => shape.Switch(
                 cone: static cone => cone.ToNurbsSurface(),
                 cylinder: static cylinder => cylinder.ToNurbsSurface(),
                 sphere: static sphere => sphere.ToNurbsSurface(),
                 torus: static torus => torus.ToNurbsSurface()),
-            nameof(Sphere.ToNurbsSurface));
+            nameof(Sphere.ToNurbsSurface), retain);
 
-    public static IO<RevSurface> ToRevSurface(AnalyticShape shape) =>
+    public static IO<RevSurface> ToRevSurface(AnalyticShape shape, Action<IDisposable> retain) =>
         Copies.Acquire(
             () => shape.Switch(
                 cone: static cone => cone.ToRevSurface(),
                 cylinder: static cylinder => cylinder.ToRevSurface(),
                 sphere: static sphere => sphere.ToRevSurface(),
                 torus: static torus => torus.ToRevSurface()),
-            nameof(Sphere.ToRevSurface));
+            nameof(Sphere.ToRevSurface), retain);
 
     // --- [REFIT]
-    public static IO<(NurbsSurface A, NurbsSurface B)> MakeCompatible(Surface a, Surface b) =>
+    public static IO<(NurbsSurface A, NurbsSurface B)> MakeCompatible(Surface a, Surface b, Action<IDisposable> retain) =>
         Copies.Owned(
-            IO.lift(() => Refused.Unless(NurbsSurface.MakeCompatible(a, b, out NurbsSurface first, out NurbsSurface second), (A: first, B: second), nameof(NurbsSurface.MakeCompatible))),
-            static pair => (Measurements.Valid(pair.A, nameof(NurbsSurface.MakeCompatible)).ToValidation(), Measurements.Valid(pair.B, nameof(NurbsSurface.MakeCompatible)).ToValidation())
-                .Apply(static (first, second) => (A: first, B: second)).As().ToFin(),
-            static pair => DisposalOps.Release(Seq(pair.A, pair.B)));
+            () => (Accepted: NurbsSurface.MakeCompatible(a, b, out NurbsSurface first, out NurbsSurface second), A: first, B: second),
+            static pair => Refused.Unless(pair.Accepted, pair, nameof(NurbsSurface.MakeCompatible)).Bind(static answer =>
+                (Measurements.Valid(answer.A, nameof(NurbsSurface.MakeCompatible)).ToValidation(), Measurements.Valid(answer.B, nameof(NurbsSurface.MakeCompatible)).ToValidation())
+                    .Apply(static (first, second) => (A: first, B: second)).As().ToFin()),
+            static pair => DisposalOps.Release(Conversions.Rows(new[] { pair.A, pair.B })), retain);
 
     // --- [EDITS]
     public static IO<Surface> VariableOffset(
         Surface surface, (double UMinVMin, double UMinVMax, double UMaxVMin, double UMaxVMax) corners, Seq<(Point2d Parameter, double Distance)> interior,
-        Tolerances tolerances) =>
+        Tolerances tolerances, Action<IDisposable> retain) =>
         Copies.Acquire(
             () => interior.IsEmpty
                 ? surface.VariableOffset(corners.UMinVMin, corners.UMinVMax, corners.UMaxVMin, corners.UMaxVMax, tolerances.Absolute)
                 : surface.VariableOffset(
                     corners.UMinVMin, corners.UMinVMax, corners.UMaxVMin, corners.UMaxVMax,
                     interior.Map(static row => row.Parameter), interior.Map(static row => row.Distance), tolerances.Absolute),
-            nameof(Surface.VariableOffset));
+            nameof(Surface.VariableOffset), retain);
 }

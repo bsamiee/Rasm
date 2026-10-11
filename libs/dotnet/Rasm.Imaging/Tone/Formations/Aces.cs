@@ -1,13 +1,14 @@
 using System.Numerics;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Pixels;
-using TinyEXR;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Tone.Formations;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record JmhSpace(Matrix4x4 ToCone, Matrix4x4 FromCone);
+internal sealed record JmhSpace(Matrix<double> ToCone, Matrix<double> FromCone);
 
 internal sealed record AcesPeak(
     float Ceiling, float ForwardLimit, float S2, float M2, float LimitJ, float MidJ,
@@ -33,14 +34,14 @@ internal static class AcesTransform {
     private static readonly float LuminanceScale = (float)(Adaptation / (float)Nits.ReferenceWhite);
     private static readonly float ModelGamma = (float)(0.59d * (1.48d + double.Sqrt(20d / (float)Nits.ReferenceWhite)));
     private static readonly float WhiteResponse = Compressed((float)Adaptation);
-    private static readonly Matrix4x4 ConeToAab = (1d / ((2d + 1d + (1d / 20d)) * WhiteResponse), 400d * 43d * 0.9d) switch {
-        var (achromatic, chromatic) => new Matrix4x4(
-            (float)(2d * achromatic), (float)chromatic, (float)(chromatic / 9d), 0f,
-            (float)achromatic, (float)(-12d / 11d * chromatic), (float)(chromatic / 9d), 0f,
-            (float)(achromatic / 20d), (float)(chromatic / 11d), (float)(-2d / 9d * chromatic), 0f,
-            0f, 0f, 0f, 1f),
+    private static readonly Matrix<double> ConeToAab = (1d / ((2d + 1d + (1d / 20d)) * WhiteResponse), 400d * 43d * 0.9d) switch {
+        var (achromatic, chromatic) => Matrix<double>.Build.DenseOfRowMajor(3, 3, [
+            2d * achromatic, achromatic, achromatic / 20d,
+            chromatic, -12d / 11d * chromatic, chromatic / 11d,
+            chromatic / 9d, chromatic / 9d, -2d / 9d * chromatic,
+        ]),
     };
-    private static readonly Matrix4x4 AabToCone = Inverted(ConeToAab);
+    private static readonly Matrix<double> AabToCone = ConeToAab.Inverse();
     private static readonly JmhSpace Reach = Space(Gamut.Acescg);
     private static readonly Func<(Gamut Limit, Nits Peak), AcesGamut> Gamuts = memoUnsafe<(Gamut Limit, Nits Peak), AcesGamut>(Limited);
 
@@ -50,7 +51,7 @@ internal static class AcesTransform {
             rec2100PqHdr: Gamut.Rec2020, rec2100PqSdr: Gamut.StandardRgb, rec2100HlgHdr: Gamut.Rec2020, rec2100HlgSdr: Gamut.StandardRgb) switch {
                 var limit => Gamuts((limit, context.Display.Peak)) switch {
                     var gamut => Formation.Formed(
-                        Seq(new LutTable.Affine(context.Working.MatrixTo(Gamut.Acescg), Vector3.Zero).Apply, row => {
+                        Seq(new LutTable.Affine(context.Working.MatrixTo(Gamut.Acescg), (0d, 0d, 0d)).Apply, row => {
                             foreach (ref Vector4 pixel in row)
                                 pixel = new Vector4(Rendered(pixel.AsVector3(), gamut), pixel.W);
                         }),
@@ -80,7 +81,7 @@ internal static class AcesTransform {
         float remaining = float.Max(0f, 1f - relative);
         float limit = float.Pow(relative, 1f / ModelGamma) * reach / norm;
         float expanded = limit - Toe(limit - (jmh.Y * float.Pow(toned / jmh.X, 1f / ModelGamma) / norm), limit - 0.001f, remaining * peak.Saturation, float.Sqrt((relative * relative) + peak.SaturationThreshold));
-        return new(toned, jmh.Y == 0f ? 0f : Toe(expanded, limit, relative * peak.Compression, remaining) * norm);
+        return new(toned, jmh.Y is 0f ? 0f : Toe(expanded, limit, relative * peak.Compression, remaining) * norm);
     }
 
     private static Vector2 GamutCompressed(Vector2 jm, float hue, float reach, AcesGamut gamut) =>
@@ -162,26 +163,25 @@ internal static class AcesTransform {
 
     private static Vector3 Aab(float j, float m, float cos, float sin) => new(float.Pow(j / LightnessScale, 1f / ModelGamma), m * cos, m * sin);
 
-    private static Vector3 Aab(Vector3 rgb, JmhSpace space) => Vector3.Transform(Compressed(Vector3.Transform(rgb, space.ToCone)), ConeToAab);
+    private static Vector3 Aab(Vector3 rgb, JmhSpace space) =>
+        ConeToAab.Multiply(space.ToCone.Multiply(new DenseVector([rgb.X, rgb.Y, rgb.Z])).Map(static value =>
+            double.Pow(double.Abs(value), ConeExponent) switch { var response => double.CopySign(response / (ConeOffset + response), value) })) switch {
+                var aab => new((float)aab[0], (float)aab[1], (float)aab[2]),
+            };
 
-    private static Vector3 Rgb(Vector3 aab, JmhSpace space) => Vector3.Transform(Uncompressed(Vector3.Transform(aab, AabToCone)), space.FromCone);
+    private static Vector3 Rgb(Vector3 aab, JmhSpace space) =>
+        space.FromCone.Multiply(AabToCone.Multiply(new DenseVector([aab.X, aab.Y, aab.Z])).Map(static value =>
+            double.Min(double.Abs(value), 0.99d) switch { var limited => double.CopySign(double.Pow(ConeOffset * limited / (1d - limited), 1d / ConeExponent), value) })) switch {
+                var rgb => new((float)rgb[0], (float)rgb[1], (float)rgb[2]),
+            };
 
     private static float Lightness(float luminance) => LightnessScale * float.Pow(Compressed(luminance * LuminanceScale) / WhiteResponse, ModelGamma);
 
     private static float Compressed(float value) =>
         float.Pow(float.Abs(value), ConeExponent) switch { var response => float.CopySign(response / (ConeOffset + response), value) };
 
-    private static Vector3 Compressed(Vector3 value) => new(Compressed(value.X), Compressed(value.Y), Compressed(value.Z));
-
     private static float Uncompressed(float value) =>
         float.Min(float.Abs(value), 0.99f) switch { var limited => float.CopySign(float.Pow(ConeOffset * limited / (1f - limited), 1f / ConeExponent), value) };
-
-    private static Vector3 Uncompressed(Vector3 value) => new(Uncompressed(value.X), Uncompressed(value.Y), Uncompressed(value.Z));
-
-    private static Matrix4x4 Inverted(Matrix4x4 matrix) {
-        _ = Matrix4x4.Invert(matrix, out Matrix4x4 inverse);
-        return inverse;
-    }
 
     private static JmhSpace Space(Gamut gamut) {
         RgbConfiguration rgb = gamut.Configuration.Rgb;
@@ -193,11 +193,10 @@ internal static class AcesTransform {
         };
         (double, double, double) Cone((double, double, double) value) => new Unicolour(sharpened, ColourSpace.Xyz, new Unicolour(own, ColourSpace.RgbLinear, value).Xyz.Tuple).RgbLinear.Tuple;
         (double red, double green, double blue) = Cone((1d, 1d, 1d));
-        ColorMatrix3x3 columns = Gamut.Columns(basis => Cone(basis) switch {
+        Matrix<double> toCone = Gamut.Columns(basis => Cone(basis) switch {
             var (r, g, b) => (Adaptation * r / red, Adaptation * g / green, Adaptation * b / blue),
         });
-        Matrix4x4 toCone = new(columns.M11, columns.M21, columns.M31, 0f, columns.M12, columns.M22, columns.M32, 0f, columns.M13, columns.M23, columns.M33, 0f, 0f, 0f, 0f, 1f);
-        return new(toCone, Inverted(toCone));
+        return new(toCone, toCone.Inverse());
     }
 
     private static AcesPeak Peaked(Nits nits) {
@@ -254,7 +253,7 @@ internal static class AcesTransform {
         };
 
     private static Seq<float> Nominal(Seq<float> sorted) =>
-        sorted.Fold((Counts: Seq<int>(), Last: -1, Floor: sorted.Head.Map(static hue => hue == 0f ? 0 : 1).IfNone(1)), static (state, hue) =>
+        sorted.Fold((Counts: Seq<int>(), Last: -1, Floor: sorted.Head.Map(static hue => hue is 0f ? 0 : 1).IfNone(1)), static (state, hue) =>
             int.Min(int.Max((int)float.Round(hue, MidpointRounding.AwayFromZero), state.Floor), Degrees - 1) switch {
                 var index when index != state.Last => (state.Counts.Add(index), index, index),
                 var index when state.Counts is [.., var before, var last] && before != last - 1 => (state.Counts.Init.Add(last - 1).Add(index), index, index),

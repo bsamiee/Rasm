@@ -1,6 +1,3 @@
-# mypy: disable-error-code="union-attr"
-# ty: ignore[unresolved-attribute]
-
 """Export cubic contours through Blender's native geometry icon codec."""
 
 from collections import defaultdict
@@ -26,17 +23,17 @@ def packed(glyphs: "Glyphs", destination: Path, exporter: Path) -> None:
         resources.callback(bpy.data.scenes.remove, scene)
         objects: defaultdict[str, list[bpy.types.Object]] = defaultdict(list)
         materials = {}
-        for alpha in {alpha for groups in glyphs.values() for alpha, _ in groups}:
-            material = bpy.data.materials.new(str(alpha))
+        for rgba in {rgba for paints in glyphs.values() for rgba, _ in paints}:
+            material = bpy.data.materials.new(str(rgba))
             resources.callback(bpy.data.materials.remove, material)
-            material.node_tree.nodes.new("ShaderNodeRGB").outputs[0].default_value = (1, 1, 1, alpha)
-            materials[alpha] = material
-        for stem, alpha, contours in ((stem, alpha, contours) for stem, groups in glyphs.items() for alpha, contours in groups):
+            material.node_tree.nodes.new("ShaderNodeRGB").outputs[0].default_value = rgba  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            materials[rgba] = material
+        for stem, depth, rgba, contours in ((stem, depth, rgba, contours) for stem, paints in glyphs.items() for depth, (rgba, contours) in enumerate(paints)):
             curve = bpy.data.curves.new(stem, "CURVE")
             resources.callback(bpy.data.curves.remove, curve)
             curve.dimensions = "2D"
             curve.fill_mode = "FRONT"
-            curve.materials.append(materials[alpha])
+            curve.materials.append(materials[rgba])
             for contour in contours:
                 spline = curve.splines.new("BEZIER")
                 spline.use_cyclic_u = True
@@ -46,6 +43,7 @@ def packed(glyphs: "Glyphs", destination: Path, exporter: Path) -> None:
                 spline.bezier_points.foreach_set("handle_right", tuple(component for _, _, right in contour for component in (*right, 0)))
             obj = bpy.data.objects.new(stem, curve)
             resources.callback(bpy.data.objects.remove, obj, do_unlink=True)
+            obj.location.z = depth
             scene.collection.objects.link(obj)
             objects[stem].append(obj)
         with bpy.context.temp_override(scene=scene, view_layer=scene.view_layers[0]):

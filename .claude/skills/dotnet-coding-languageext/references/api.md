@@ -458,7 +458,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [27]   | `Seq.Traverse(Func<A,K<F,B>>)`                                     | `instance` | Applicative shape inversion               |
 |  [28]   | `Seq.TraverseM(Func<A,K<M,B>>)`                                    | `instance` | Short-circuiting shape inversion          |
 |  [29]   | `FoldableExtensions.Fold(S, Func<S,A,S>)`                          | `fold`     | Type-generic state fold                   |
-|  [30]   | `FoldableExtensions.FoldM` / `FoldBackM(S, Func<S,A,K<M,S>>)`      | `fold`     | Monadic fold, tail-to-head / head-to-tail |
+|  [30]   | `FoldableExtensions.FoldM` / `FoldBackM(S, Func<S,A,K<M,S>>)`      | `fold`     | Monadic fold, head-to-tail / tail-to-head |
 |  [31]   | `FoldableExtensions.FoldWhile(S, Func<S,A,S>, Func<(S,A),bool>)`   | `fold`     | Predicate-bounded fold                    |
 |  [32]   | `FoldableExtensions.FoldMap(Func<A,B>)`                            | `fold`     | Monoidal aggregation                      |
 |  [33]   | `FoldableExtensions.Find(Func<A,bool>)`                            | `static`   | `Option`-shaped search                    |

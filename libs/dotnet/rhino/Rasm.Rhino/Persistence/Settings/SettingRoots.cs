@@ -16,7 +16,7 @@ public abstract partial record SettingsRoot {
     public sealed record CommandNode(Command Command) : SettingsRoot;
 }
 
-public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default) {
+public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default) : ISettingReader {
     public static readonly SettingsNode Application = new(new SettingsRoot.ApplicationNode());
 
     public static readonly SettingsNode Options = Application.Child("Options");
@@ -24,6 +24,11 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
     public static readonly SettingsNode DisplayModes = Options.Child("DisplayAttributesManager");
 
     public SettingsNode Child(string key) => this with { Path = Path.Add(key) };
+
+    public IO<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
+        where TValue : notnull
+        where TRaw : notnull =>
+        PlugInSettings.Store(this, row).Read.Map(held => held.IfNone(row.Value.Default));
 }
 
 public sealed record KeyDescription(Option<Type> RuntimeType, bool ReadOnly, bool HiddenFromUserInterface);
@@ -82,18 +87,18 @@ public static class SettingRoots {
             plugInNode: static plugIn => Heard(() => Optional(PlugIn.Find(plugIn.Id))),
             commandNode: static command => Heard(() => Some(command.Command.PlugIn)));
 
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> SavedByAnotherRhino(Func<PersistentSettingsSavedEventArgs, IO<Unit>> deliver) =>
-        (plugIn, sink) => EventKind.SettingsSaved(plugIn).Choose(static args => Callbacks.Found(!args.SavedByThisRhino, args)).Inline(deliver, sink);
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> SavedByAnotherRhino(Func<PersistentSettingsSavedEventArgs, IO<Unit>> deliver) =>
+        (plugIn, sink, retain) => EventKind.SettingsSaved(plugIn).Choose(static args => Callbacks.Found(!args.SavedByThisRhino, args)).Inline(deliver, sink, retain);
 
     private static readonly HostEvent<Unit> SettingsSaved =
         Subscriptions.Host<PersistentSettingsSavedEventArgs>(typeof(RhinoApp), static handler => add_SettingsSaved(owner: null, handler), static handler => remove_SettingsSaved(owner: null, handler))
             .Choose(static _ => Some(unit));
 
     private static HostEvent<Unit> Heard(Func<Option<PlugIn>> owner) =>
-        new(typeof(PlugIn), nameof(PlugIn.SettingsSaved), (deliver, site) =>
+        new(typeof(PlugIn), nameof(PlugIn.SettingsSaved), (deliver, site, retain) =>
             IO.lift(owner).Bind(found => found.Match(
-                Some: plugIn => EventKind.SettingsSaved(plugIn).Choose(static _ => Some(unit)).Attach(deliver, site),
-                None: static () => IO.pure(Thinktecture.Empty.Disposable()))));
+                Some: plugIn => EventKind.SettingsSaved(plugIn).Choose(static _ => Some(unit)).Attach(deliver, site, retain),
+                None: static () => IO.pure(unit))));
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
     private static extern void add_SettingsSaved([UnsafeAccessorType("Rhino.RhinoApp, RhinoCommon")] object? owner, EventHandler<PersistentSettingsSavedEventArgs> value);

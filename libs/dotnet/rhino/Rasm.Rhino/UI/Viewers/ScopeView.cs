@@ -2,10 +2,10 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Eto.Forms;
+using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
-using Rasm.Imaging.Quantization;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Assets;
@@ -26,18 +26,7 @@ public readonly partial struct PlotAspect : IMinMaxValue<PlotAspect> {
         validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
 }
 
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-public readonly partial struct TraceGain : IMinMaxValue<TraceGain> {
-    public static TraceGain MinValue { get; } = new(1f);
-    public static TraceGain MaxValue { get; } = new(10f);
-    public static TraceGain Unity => MinValue;
-
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
-}
-
-public sealed record ScopeFrames(PixelFrame Frame, Gamut Gamut, Transfer Encoding, Option<Quantizer> Levels, Option<(PixelFrame Frame, Gamut Gamut)> Scene);
+public sealed record ScopeFrames(PixelFrame Frame, Gamut Gamut, Transfer Encoding, Option<float> MaxCode, Option<ClipLevels> Clipping, Option<(PixelFrame Frame, Gamut Gamut)> Scene);
 
 [SmartEnum]
 public sealed partial class WaveformLayout {
@@ -55,7 +44,7 @@ public sealed partial class WaveformLayout {
 
     public Fin<ScopePlan> Plan(ScopeFrames frames, RectangleF plot, float scale) =>
         Plots.Device(ScopeKind.Unit(Columns(plot).Head.Column), scale).Map(extent =>
-            (ScopePlan)new ScopePlan.Waveform(frames.Frame, new ScopeRequest.Waveform(frames.Gamut, extent), this, frames.Levels.Map(static levels => levels.MaxCode)));
+            (ScopePlan)new ScopePlan.Waveform(frames.Frame, new ScopeRequest.Waveform(frames.Gamut, extent), this, frames.MaxCode));
 }
 
 [Union]
@@ -121,7 +110,7 @@ public sealed partial class WellShape {
 public sealed partial class ScopeKind {
     public static readonly ScopeKind Histogram = new("histogram", WellShape.Banded, static (frames, _, _, _) =>
         new ScopePlan.Histogram(
-            frames.Frame, new ScopeRequest.Histogram(frames.Gamut, frames.Levels.Map(static levels => levels.Clipping)),
+            frames.Frame, new ScopeRequest.Histogram(frames.Gamut, frames.Clipping),
             frames.Scene.Map(static scene => (scene.Frame, new ScopeRequest.Histogram(scene.Gamut, None)))));
     public static readonly ScopeKind WaveformLuma = new("waveform-luma", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Luma.Plan(frames, plot, scale));
     public static readonly ScopeKind WaveformRgb = new("waveform-rgb", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Overlay.Plan(frames, plot, scale));
@@ -205,8 +194,6 @@ public sealed partial class VectorTarget {
     public static readonly VectorTarget Yellow = new(Color.FromArgb(0xFF, 0xFF, 0x00));
 
     public Color Paint { get; }
-
-    public Vector3 Drive => 0.75f * new Vector3(Paint.R, Paint.G, Paint.B);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -231,7 +218,7 @@ public abstract partial record ScopePart {
 public sealed record ScopeMarks(Option<(int Bin, ScopeReading.Histogram Reading)> Hovered, Option<BinRange> Selection, Option<ClipEnd> Clips);
 
 public sealed record ScopeViewState(
-    ScopeEdit Value, Option<ScopeTraces> Traces, TraceGain Gain, ChromaZoom Zoom,
+    ScopeEdit Value, Option<ScopeTraces> Traces, float Gain, ChromaZoom Zoom,
     Option<BinRange> Selection, Option<ClipEnd> Clips, Option<LevelsParameter> Held);
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -239,23 +226,25 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     // --- [STATE]
     public const float GripHeight = 5f;
     public const float StripHeight = 10f;
+    private const float UnityGain = 1f;
 
     private readonly string caption;
     private readonly IO<Option<ScopeFrames>> frames;
     private readonly Atom<Option<Run>> run;
+    private Option<IDisposable> pending;
 
     public ScopeView(IPlugInSink sink, string caption, ScopeEdit value, IO<Option<ScopeFrames>> frames)
         : this(sink, caption, value, frames, Atom(Option<Run>.None)) { }
 
     private ScopeView(IPlugInSink sink, string caption, ScopeEdit value, IO<Option<ScopeFrames>> frames, Atom<Option<Run>> run)
-        : base(sink, new ScopeViewState(value, None, TraceGain.Unity, ChromaZoom.Normal, None, None, None), Some(Sampled(run))) =>
+        : base(sink, new ScopeViewState(value, None, UnityGain, ChromaZoom.Normal, None, None, None), Some(Sampled(run))) =>
         (this.caption, this.frames, this.run) = (caption, frames, run);
 
     public IO<ScopeMarks> Marks =>
         IO.lift(() => new ScopeMarks(
             from at in Pointer
-            from window in Optional(ParentWindow)
-            from part in Plots.Hit(Layout(State, Size, window.LogicalPixelSize), at)
+            from surface in CurrentSurface
+            from part in Plots.Hit(Layout(State, surface.Size, surface.Scale), at)
             from bin in Bin(State, part, at)
             from shown in HistogramOf(State)
             select (Bin: bin, Reading: shown.Shown),
@@ -265,7 +254,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     protected override ScopeViewState Received(ScopeViewState state, Option<ScopeEdit> value) =>
         value.Map(shown => shown.Chosen.Kind == state.Value.Chosen.Kind
                 ? state with { Value = shown }
-                : state with { Value = shown, Traces = None, Selection = None, Clips = None, Gain = TraceGain.Unity })
+                : state with { Value = shown, Traces = None, Selection = None, Clips = None, Gain = UnityGain })
             .IfNone(state);
 
     protected override Option<float> Fitted(ScopeViewState state, float width) =>
@@ -281,25 +270,53 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             state with { Traces = held.Filter(answered => answered.Kind == state.Value.Chosen.Kind).Bind(static answered => answered.Shown) }));
 
     protected override IO<Unit> Reconcile(ScopeViewState before, ScopeViewState after, Interaction<ScopePart> was, Interaction<ScopePart> now) =>
-        from scale in IO.lift(() => Optional(ParentWindow).Map(static window => window.LogicalPixelSize))
+        from surface in IO.lift(() => CurrentSurface)
         from source in frames
-        from width in IO.lift(() => (float)Width)
-        from requested in (from held in scale
+        from requested in (from held in surface
                            from shown in source
-                           from plan in after.Value.Chosen.Kind.Plan(shown, Placed(after, width).Plot, held, after.Zoom).ToOption()
+                           from plan in after.Value.Chosen.Kind.Plan(shown, Placed(after, held.Size.Width).Plot, held.Scale, after.Zoom).ToOption()
                            where !run.Value.Exists(current => current.Requested == plan)
                            select Requested(after.Value.Chosen.Kind, plan)).IfNone(IO.pure(unit))
         select unit;
 
     private IO<Unit> Requested(ScopeKind kind, ScopePlan plan) =>
-        from requested in run.SwapIO(held => Some(new Run(kind, plan, held.Filter(current => current.Kind == kind).Bind(static current => current.Shown))))
-        from forked in IO.lift(() => Callbacks.Succeeded(Answered(plan), new CallbackSite(Sink, typeof(ScopeView), nameof(ScopePlan.Read)))).Fork()
-        select unit;
+        DisposalOps.Replace(acquired =>
+            from ready in IO.lift(static () => new TaskCompletionSource<Unit>(TaskCreationOptions.RunContinuationsAsynchronously))
+            from forked in DisposalOps.Fork(
+                IO.liftVAsync(environment => new ValueTask<Unit>(ready.Task.WaitAsync(environment.Token)))
+                    .Bind(_ => Answered(plan)).Catch(
+                        static error => error != Errors.Cancelled,
+                        error => IO.lift(() => Sink.Report(error, typeof(ScopeView), nameof(ScopePlan.Read)))), acquired)
+            select ready,
+            (ready, lease) => {
+                Option<IDisposable> prior = pending;
+                _ = run.Swap(held => Some(new Run(kind, plan, held.Filter(current => current.Kind == kind).Bind(static current => current.Shown))));
+                pending = Some(lease);
+                ready.SetResult(unit);
+                return DisposalOps.Release(prior.ToSeq());
+            }).Map(static _ => unit);
 
     private IO<Unit> Answered(ScopePlan plan) =>
         from traces in IO.lift(plan.Read)
         from answered in IO.lift(() => run.SwapMaybe(held => held.Filter(current => current.Requested == plan).Map(current => Some(current with { Shown = Some(traces) }))))
         select unit;
+
+    private IO<Unit> Stopped =>
+        (from prior in IO.lift(() => {
+            Option<IDisposable> prior = pending;
+            pending = None;
+            _ = run.Swap(static _ => None);
+            return prior;
+        })
+         from released in DisposalOps.Release(prior.ToSeq())
+         select released).Uninterruptible();
+
+    protected override void OnUnLoad(EventArgs e) =>
+        Callbacks.Run(Callbacks.Each(Seq(Stopped, IO.lift(() => base.OnUnLoad(e)))).Uninterruptible(), Site());
+
+    protected override void Dispose(bool disposing) =>
+        Callbacks.Run(Callbacks.Each((disposing ? Seq(Stopped) : Seq<IO<Unit>>())
+            .Add(IO.lift(() => base.Dispose(disposing)))).Uninterruptible(), Site());
 
     // --- [LAYOUT]
     private const float ClipSide = 9f;
@@ -343,8 +360,10 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                 Cursors.VerticalSplit,
                 RowText.Localize(level.Handle.Map(black: "Black Level", white: "White Level")).Local,
                 held.State.Value.Pair.Map(pair => level.Handle.Map(
-                    black: FieldTexts.Number(LevelsParameter.BlackPoint.Presentation).Shown(pair.Black),
-                    white: FieldTexts.Number(LevelsParameter.WhitePoint.Presentation).Shown(pair.White))),
+                    black: FieldTexts.Number(LevelsParameter.BlackPoint.Presentation,
+                        ((float)BlackLevel.MinValue, (float)BlackLevel.MaxValue)).Shown(pair.Black),
+                    white: FieldTexts.Number(LevelsParameter.WhitePoint.Presentation,
+                        ((float)Exposure.MinValue, (float)Exposure.MaxValue)).Shown(pair.White))),
                 None));
 
     private static (RectangleF Well, RectangleF Plot) Placed(ScopeViewState state, float width) =>
@@ -461,16 +480,23 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     protected override Option<Transition<ScopeViewState, ScopeEdit>> DoubleClicked(ScopeViewState state, SizeF size, float scale, Option<ScopePart> part, MouseEventArgs e) =>
         part.Filter(static key => key is ScopePart.Plot).Bind(_ => state.Value.Chosen.Kind.Shape.Switch(
             state,
-            banded: static held => Some(new Transition<ScopeViewState, ScopeEdit>(held with { Gain = TraceGain.Unity }, None)),
+            banded: static held => Some(new Transition<ScopeViewState, ScopeEdit>(held with { Gain = UnityGain }, None)),
             square: static held => Some(new Transition<ScopeViewState, ScopeEdit>(held with { Zoom = held.Zoom.Map(normal: ChromaZoom.Doubled, doubled: ChromaZoom.Normal) }, None)),
             diagram: static _ => Option<Transition<ScopeViewState, ScopeEdit>>.None));
 
     protected override Option<Transition<ScopeViewState, ScopeEdit>> Scrolled(ScopeViewState state, SizeF size, float scale, Option<ScopePart> part, MouseEventArgs e) =>
         part.Filter(static key => key is ScopePart.Plot).Bind(_ => state.Value.Chosen.Kind.Shape.Switch(
             (State: state, Notches: e.Delta.Height),
-            banded: static held => Some(new Transition<ScopeViewState, ScopeEdit>(
-                held.State with { Gain = Conversions.Validated<TraceGain, float, InvalidRhinoValue>(held.State.Gain + (GainStep * held.Notches)).IfFail(held.State.Gain) },
-                None)),
+            banded: static held =>
+                from notches in Some(held.Notches)
+                where float.IsFinite(notches) && notches <= ((double)float.MaxValue - held.State.Gain) / GainStep
+                select new Transition<ScopeViewState, ScopeEdit>(
+                    held.State with {
+                        Gain = notches <= ((double)UnityGain - held.State.Gain) / GainStep
+                            ? UnityGain
+                            : (float)(held.State.Gain + (GainStep * (double)notches)),
+                    },
+                    None),
             square: static _ => Option<Transition<ScopeViewState, ScopeEdit>>.None,
             diagram: static _ => Option<Transition<ScopeViewState, ScopeEdit>>.None));
 
@@ -698,9 +724,11 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         };
 
     private static MarkColor Hue(ChromaAxes axes, Vector2 chroma) =>
-        Vector4.Transform(new Vector4(0.5f, chroma.X, chroma.Y, 1f), axes.Inverse).AsVector3() switch {
-            var rgb => (Low: float.Min(rgb.X, float.Min(rgb.Y, rgb.Z)), High: float.Max(rgb.X, float.Max(rgb.Y, rgb.Z))) switch {
-                var (low, high) when high > low => new MarkColor.Fixed(Shade((rgb - new Vector3(low)) / (high - low))),
+        axes.Inverse.LeftMultiply(new DenseVector([0.5d, chroma.X, chroma.Y])) switch {
+            var rgb => (Low: rgb.Minimum(), High: rgb.Maximum()) switch {
+                var (low, high) when high > low => rgb.Subtract(low).Divide(high - low) switch {
+                    var saturated => new MarkColor.Fixed(new Color((float)saturated[0], (float)saturated[1], (float)saturated[2])),
+                },
                 _ => new MarkColor.Themed(PaintSlot.ControlText),
             },
         };
@@ -729,8 +757,8 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         };
 
     private static Seq<(VectorTarget Target, PointF At, MarkShape.Polygon Box)> Aimed(PlotPlane.Polar polar, ChromaAxes axes) =>
-        toSeq(VectorTarget.Items).Map(target => Vector4.Transform(new Vector4(target.Drive, 1f), axes.Forward) switch {
-            var ycc => (Angle: MathF.Atan2(ycc.Z, ycc.Y), Chroma: new Vector2(ycc.Y, ycc.Z).Length()) switch {
+        toSeq(VectorTarget.Items).Map(target => axes.Forward.LeftMultiply(new DenseVector([target.Paint.R, target.Paint.G, target.Paint.B]).Multiply(0.75d)) switch {
+            var ycc => (Angle: (float)double.Atan2(ycc[2], ycc[1]), Chroma: (float)double.Hypot(ycc[1], ycc[2])) switch {
                 var (angle, chroma) => (Target: target, At: polar.Point(angle, chroma), Box: Box(polar, angle, chroma)),
             },
         });
@@ -743,9 +771,10 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         };
 
     private static IO<Unit> ChromaticityPaint(PlotCanvas canvas, RectangleF plot, ScopeTraces.Chromaticity traces) =>
-        IO.lift(() => canvas.Graphics.SetClip(plot)).Bracket(
-            Use: _ => ChromaticityPlot(canvas, plot, traces),
-            Fin: _ => IO.lift(canvas.Graphics.ResetClip));
+        DisposalOps.Within(
+            () => { canvas.Graphics.SetClip(plot); return unit; },
+            _ => ChromaticityPlot(canvas, plot, traces),
+            _ => IO.lift(canvas.Graphics.ResetClip));
 
     private static IO<Unit> ChromaticityPlot(PlotCanvas canvas, RectangleF plot, ScopeTraces.Chromaticity traces) =>
         (Square: ScopeKind.Unit(ScopeTraces.Chromaticity.Square(plot)), Ink: Ink(canvas, new MarkColor.Themed(PaintSlot.ControlText)), Peak: Peak(traces.Reading.Bins.Counts),
@@ -778,7 +807,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private static Seq<PlotMark<ScopePart>> Gamuts(PlotPlane.Cartesian square, float side, Seq<(string Role, Gamut Gamut, float Alpha)> roles) =>
         from role in roles
         let columns = role.Gamut.XyzColumns
-        let white = Xy(square, columns.Red + columns.Green + columns.Blue)
+        let white = Xy(square, (columns.Red.X + columns.Green.X + columns.Blue.X, columns.Red.Y + columns.Green.Y + columns.Blue.Y, columns.Red.Z + columns.Green.Z + columns.Blue.Z))
         from mark in Seq(
             new PlotMark<ScopePart>(
                 new MarkShape.Polygon([Xy(square, columns.Red), Xy(square, columns.Green), Xy(square, columns.Blue)]),
@@ -794,9 +823,9 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                 None))
         select mark;
 
-    private static PointF Xy(PlotPlane.Cartesian square, Vector3 xyz) =>
+    private static PointF Xy(PlotPlane.Cartesian square, (double X, double Y, double Z) xyz) =>
         (xyz.X + xyz.Y + xyz.Z) switch {
-            var sum => square.Point(xyz.X / sum, xyz.Y / sum),
+            var sum => square.Point((float)(xyz.X / sum), (float)(xyz.Y / sum)),
         };
 
     private static IO<Unit> Legend(PlotCanvas canvas, RectangleF plot, Seq<(string Role, Gamut Gamut, float Alpha)> roles) =>
@@ -820,12 +849,12 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static IO<Unit> Rastered(PlotCanvas canvas, RectangleF target, PixelExtent extent, Func<PointF, Vector3> trace) =>
         Rgb(canvas.Slots[PaintSlot.ControlBackground]) switch {
-            var well => use(() => Plots.Pixels(extent, Enumerable.Range(0, extent.Width * extent.Height).Select(index =>
+            var well => DisposalOps.Within(() => Plots.Pixels(extent, Enumerable.Range(0, extent.Width * extent.Height).Select(index =>
                     Shade(Vector3.Min(well + trace(new PointF(
                         target.Left + (((index % extent.Width) + 0.5f) * target.Width / extent.Width),
-                        target.Top + (((index / extent.Width) + 0.5f) * target.Height / extent.Height))), Vector3.One)).ToArgb())))
-                .Bind(bitmap => Plots.Raster(canvas, target, bitmap))
-                .Bracket(),
+                        target.Top + (((index / extent.Width) + 0.5f) * target.Height / extent.Height))), Vector3.One)).ToArgb())),
+                bitmap => Plots.Raster(canvas, target, bitmap),
+                static bitmap => IO.lift(bitmap.Dispose)),
         };
 
     private static Vector3 Ink(PlotCanvas canvas, MarkColor paint) => Rgb(Plots.Resolve(canvas, new MarkStyle.Fill(paint, 1f)));

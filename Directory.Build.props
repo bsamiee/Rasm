@@ -17,11 +17,12 @@
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <_RhinoResourcesDir>$([MSBuild]::NormalizeDirectory('$(RHINO_PATH)', 'Contents', 'Frameworks', 'RhCore.framework', 'Versions', 'Current', 'Resources'))</_RhinoResourcesDir>
-        <RhinoResourcesDir Condition="Exists('$(_RhinoResourcesDir)Eto.macOS.dll')">$(_RhinoResourcesDir)</RhinoResourcesDir>
-        <_YakCoreAssembly Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(_RhinoResourcesDir)Yak.Core.dll</_YakCoreAssembly>
-        <_YakCoreAssembly Condition="$([MSBuild]::IsOSPlatform('Windows'))">$([MSBuild]::NormalizePath('$(RHINO_PATH)', 'System', 'Yak.Core.dll'))</_YakCoreAssembly>
-        <DefaultItemExcludes Condition="'$(RhinoResourcesDir)' == ''">$(DefaultItemExcludes);**/macOS/**</DefaultItemExcludes>
+        <_RhinoTargetPlatform>windows</_RhinoTargetPlatform>
+        <_RhinoTargetPlatform Condition="$(RuntimeIdentifier.StartsWith('osx-')) or ('$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">macos</_RhinoTargetPlatform>
+        <ArtifactsProjectName>$(MSBuildProjectName)_$(_RhinoTargetPlatform)</ArtifactsProjectName>
+        <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>
+        <RhinoInstallPath>$(RHINO_PATH)</RhinoInstallPath>
+        <DefaultItemExcludes Condition="'$(_RhinoTargetPlatform)' != 'macos'">$(DefaultItemExcludes);**/macOS/**</DefaultItemExcludes>
         <DefaultItemExcludes Condition="'$(RhinoHost)' == 'common'">$(DefaultItemExcludes);grasshopper/**</DefaultItemExcludes>
     </PropertyGroup>
 
@@ -34,16 +35,18 @@
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
         <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
         <PublishReferencesSymbols>false</PublishReferencesSymbols>
-        <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
+        <UseCurrentRuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('OSX')) or $([MSBuild]::IsOSPlatform('Windows'))">true</UseCurrentRuntimeIdentifier>
         <PlatformTarget>AnyCPU</PlatformTarget>
-        <PlugInIcons>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', $(_RepoRelativeDir.Substring(1, $(_RepoRelativeDir.IndexOf('/rhino/')))), 'icons'))</PlugInIcons>
-        <PlugInMark>$(PlugInIcons)mark.svg</PlugInMark>
-        <PlugInPackageIcon Condition="Exists('$(PlugInMark)')">icon.png</PlugInPackageIcon>
+        <_ProductDir>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', $(_RepoRelativeDir.Substring(1, $(_RepoRelativeDir.IndexOf('/rhino/'))))))</_ProductDir>
+        <PlugInIcons>$([MSBuild]::NormalizeDirectory('$(_ProductDir)', 'icons'))</PlugInIcons>
+        <PlugInIconSource>$(_ProductDir)icon.svg</PlugInIconSource>
+        <PlugInPackageIcon Condition="Exists('$(PlugInIconSource)')">icon.png</PlugInPackageIcon>
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">
         <RepoTargetFramework>net10.0</RepoTargetFramework>
         <TargetFramework>$(RepoTargetFramework)</TargetFramework>
+        <TargetFramework Condition="'$(RhinoHost)' != '' and '$(_RhinoTargetPlatform)' == 'windows'">$(RepoTargetFramework)-windows</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
@@ -51,7 +54,6 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <AnalysisLevel>latest-all</AnalysisLevel>
-        <NoWarn>$(NoWarn);EPC20</NoWarn>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <NuGetAudit>false</NuGetAudit>

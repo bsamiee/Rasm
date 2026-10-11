@@ -39,15 +39,19 @@ public static class AttachedData {
 
     public static IO<Unit> Write<T>(BinaryArchiveWriter writer, uint typeCode, DictionaryCodec<T> codec, T payload) =>
         from dictionary in IO.lift(() => codec.ToDictionary(payload))
-        from written in IO.lift(() => Refused.Unless(writer.BeginWrite3dmChunk(typeCode, majorVersion: 1, minorVersion: 0), nameof(BinaryArchiveWriter.BeginWrite3dmChunk))).Bracket(
-            Use: _ => Faulted(IO.lift(() => writer.WriteDictionary(dictionary)), nameof(BinaryArchiveWriter.WriteDictionary)),
-            Fin: _ => IO.lift(() => Refused.Unless(writer.EndWrite3dmChunk(), nameof(BinaryArchiveWriter.EndWrite3dmChunk))))
+        from written in DisposalOps.Within(
+            () => writer.BeginWrite3dmChunk(typeCode, majorVersion: 1, minorVersion: 0),
+            begun => IO.lift(() => Refused.Unless(begun, nameof(BinaryArchiveWriter.BeginWrite3dmChunk)))
+                .Bind(_ => Faulted(IO.lift(() => writer.WriteDictionary(dictionary)), nameof(BinaryArchiveWriter.WriteDictionary))),
+            begun => when(begun, IO.lift(() => Refused.Unless(writer.EndWrite3dmChunk(), nameof(BinaryArchiveWriter.EndWrite3dmChunk)))).As())
         select written;
 
     public static IO<T> Read<T>(BinaryArchiveReader reader, uint typeCode, DictionaryCodec<T> codec) =>
-        from dictionary in IO.lift(() => Refused.Unless(reader.BeginRead3dmChunk(typeCode, out _, out _), nameof(BinaryArchiveReader.BeginRead3dmChunk))).Bracket(
-            Use: _ => Faulted(IO.lift(reader.ReadDictionary), nameof(BinaryArchiveReader.ReadDictionary)),
-            Fin: _ => IO.lift(() => Refused.Unless(reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: true), nameof(BinaryArchiveReader.EndRead3dmChunk))))
+        from dictionary in DisposalOps.Within(
+            () => reader.BeginRead3dmChunk(typeCode, out _, out _),
+            begun => IO.lift(() => Refused.Unless(begun, nameof(BinaryArchiveReader.BeginRead3dmChunk)))
+                .Bind(_ => Faulted(IO.lift(reader.ReadDictionary), nameof(BinaryArchiveReader.ReadDictionary))),
+            begun => when(begun, IO.lift(() => Refused.Unless(reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: true), nameof(BinaryArchiveReader.EndRead3dmChunk)))).As())
         from payload in IO.lift(() => codec.FromDictionary(dictionary))
         select payload;
 
@@ -76,24 +80,25 @@ public static class AttachedData {
         where TData : DefinedUserData<TState>, new()
         where TState : notnull =>
         from found in Find<TData>(target)
-        from held in found.Match(
-            Some: IO.pure,
+        from stored in found.Match(
+            Some: held => IO.lift(() => { held.State = Some(state); }),
             None:
-                from data in IO.lift(static () => new TData())
-                from attached in DisposalOps.OnFailure(
-                    IO.lift(() => Refused.Unless(target.UserData.Add(data), data, nameof(UserDataList.Add)))
-                        .Catch(static error => error.HasException<ArgumentException>(), static error => IO.fail<TData>(new NotAttachable(typeof(TData), error))),
-                    IO.lift(data.Dispose))
-                select attached)
-        from stored in IO.lift(() => { held.State = Some(state); })
+                IO.lift(static () => new TData()).Bind(data => DisposalOps.OnFailure(
+                    IO.lift(() => { data.State = Some(state); })
+                        .Bind(_ => IO.lift(() => Refused.Unless(target.UserData.Add(data), nameof(UserDataList.Add))))
+                        .Catch(static error => error.HasException<ArgumentException>(), static error => IO.fail<Unit>(new NotAttachable(typeof(TData), error))),
+                    IO.lift(data.Dispose))).Uninterruptible())
         select stored;
 
     public static IO<Unit> Remove<TData>(CommonObject target) where TData : UserData =>
         from found in Find<TData>(target)
-        from removed in found.Traverse(held => IO.lift(() => Refused.Unless(target.UserData.Remove(held), nameof(UserDataList.Remove)))
-            .Finally(IO.lift(held.Dispose))).As()
+        from removed in found.Traverse(held => DisposalOps.Within(() => held,
+            data => IO.lift(() => Refused.Unless(target.UserData.Remove(data), nameof(UserDataList.Remove))),
+            static data => IO.lift(data.Dispose))).As()
         select unit;
 
     public static IO<Unit> Move(CommonObject source, CommonObject destination, bool append) =>
-        IO.lift(() => UserData.MoveUserDataTo(destination, UserData.MoveUserDataFrom(source), append));
+        IO.lift(() => UserData.MoveUserDataFrom(source)).Bind(id => DisposalOps.OnFailure(
+            IO.lift(() => UserData.MoveUserDataTo(destination, id, append)),
+            IO.lift(() => UserData.MoveUserDataTo(source, id, append: true)))).Uninterruptible();
 }

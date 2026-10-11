@@ -1,4 +1,5 @@
 using Rasm.Rhino.Events;
+using Rasm.Rhino.Commands;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Plugin.Hosting;
@@ -17,20 +18,24 @@ namespace Rasm.Rhino.Plugin;
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PlugInSession {
     // --- [STATE]
-    private readonly Atom<Option<Held>> state = Atom(Option<Held>.None);
+    private readonly Ref<Option<Held>> state = Ref(Option<Held>.None);
 
     private sealed record Held(Func<(Error Error, Type Owner, string Member), IO<Unit>> Post, Seq<IDisposable> Releases);
 
     // --- [OPEN]
-    public IO<Unit> Open(Seq<IO<IDisposable>> rows) =>
-        from mailbox in Subscriptions.Queued(
-            Buffer<(Error Error, Type Owner, string Member)>.Unbounded,
-            static report => ErrorOps.Report(report.Error, report.Owner, report.Member).Post(),
-            static fault => ErrorOps.Report(fault, typeof(ErrorOps), nameof(ErrorOps.Report)).Post())
-        from opened in state.SwapIO(_ => Some(new Held(mailbox.Post, [mailbox.Release])))
-        from acquired in DisposalOps.OnFailure(DisposalOps.AcquireAll(rows, DisposalOps.Release), Close())
-        from appended in state.SwapIO(held => held.Map(open => open with { Releases = open.Releases.Concat(acquired) }))
-        select unit;
+    public IO<Unit> Open(Seq<Func<Action<IDisposable>, IO<Unit>>> rows) =>
+        IO.pure<Action<IDisposable>>(lease => _ = atomic(() => state.Swap(held => held.Map(open => open with { Releases = open.Releases.Add(lease) })))
+                .IfNone(static () => Errors.Cancelled.Throw<Held>())).Bind(retain => DisposalOps.OnFailure(
+            from opened in atomicIO(() => state.Swap(static _ => Some(new Held(static report => ErrorOps.Report(report.Error, report.Owner, report.Member), []))))
+            from post in Subscriptions.Queued(
+                Buffer<(Error Error, Type Owner, string Member)>.Unbounded,
+                static report => ErrorOps.Report(report.Error, report.Owner, report.Member).Post(),
+                static fault => ErrorOps.Report(fault, typeof(ErrorOps), nameof(ErrorOps.Report)).Post(), retain)
+            from published in atomicIO(() => state.Swap(held => held.Map(open => open with { Post = post })))
+                .Bind(static held => held.Match(Some: static _ => IO.pure(unit), None: static () => IO.fail<Unit>(Errors.Cancelled)))
+            from acquired in rows.TraverseM(row => IO.pure(retain).Bind(row)).As()
+            select unit,
+            Close()));
 
     // --- [REPORT]
     public void Report(Error error, Type owner, string member) =>
@@ -41,10 +46,13 @@ public sealed class PlugInSession {
 
     // --- [CLOSE]
     public IO<Unit> Close() =>
-        from taken in state.ValueIO
-        from cleared in state.SwapIO(static _ => Option<Held>.None)
-        from released in taken.TraverseM(static held => DisposalOps.Release(held.Releases)).As()
-        select unit;
+        (from taken in atomicIO(() => {
+            Option<Held> held = state.Value;
+            state.Value = None;
+            return held;
+        })
+         from released in taken.TraverseM(static held => DisposalOps.Release(held.Releases)).As()
+         select unit).Uninterruptible();
 }
 
 internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kindViews) {
@@ -66,19 +74,12 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
                 _ => inherited,
             });
 
-    public IO<HistoryLimits> Limits(SettingsNode node) =>
-        definition.History.Match(
-            Some: rows => (PlugInSettings.Current(node, rows.Capacity), PlugInSettings.Current(node, rows.Window))
-                .Apply(static (capacity, window) => new HistoryLimits(capacity, window))
-                .As(),
-            None: static () => IO.pure(HistoryLimits.Default));
-
     // --- [LOAD]
     public (LoadReturnCode Code, string Message) Load<TPlugIn>(TPlugIn plugIn, CallbackSite site) where TPlugIn : PlugIn, IPlugInViews =>
         Callbacks.Answer(
             Loading(plugIn)
                 .Map(static _ => (LoadReturnCode.Success, ""))
-                .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure((LoadReturnCode.ErrorNoDialog, "")))
+                .Catch(static error => error.Count == 1 && error.Is(Errors.Cancelled), static _ => IO.pure((LoadReturnCode.ErrorNoDialog, "")))
                 .Catch(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Map(_ => (LoadReturnCode.ErrorShowDialog, ErrorOps.Localize(error))))
                 .As(),
             static () => (LoadReturnCode.ErrorShowDialog, ""),
@@ -87,40 +88,39 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
     private IO<Unit> Loading<TPlugIn>(TPlugIn plugIn) where TPlugIn : PlugIn, IPlugInViews =>
         from initialized in IO.lift(static () => AssemblyLoading.Initialized)
         from licensed in definition.License.TraverseM(license => Licensing.Request(plugIn, license)).As()
-        from collection in IO.lift(ViewCatalog.Of(definition.Views.Concat(kindViews)).ToFin())
+        let collection = new ViewCatalog(definition.Views.Concat(kindViews))
         from published in views.SwapIO(_ => collection)
         from dependencies in PlugInRegistry.LoadPlugIns(definition.Dependencies)
         from registered in PlugInSettings.RegisterAll(((IPlugInViews)plugIn).Settings, [
             .. definition.Settings,
             .. HostDialogs.Suppressions(collection),
-            .. definition.History.ToSeq().Bind(static rows => Seq<PlugInSetting>(rows.Capacity, rows.Window)),
         ])
-        from opened in Session.Open(
+        from opened in DisposalOps.OnFailure(Session.Open(
             Seq(
                     Presence.NotificationActivated,
                     ViewRegistration.RegisterPanels,
                     ViewRegistration.AddCustomUISections,
                     EffectRegistry.Register(definition.Effects),
-                    RenderRuns.Register,
-                    static (_, sink) => Framing.Extent.Attach(sink),
-                    static (_, sink) => TargetRows.Shown.Attach(sink))
+                    static (_, sink, retain) => Framing.Extent.Attach(sink, retain),
+                    static (_, sink, retain) => TargetRows.Shown.Attach(sink, retain))
                 .Concat(definition.Acquisitions)
-                .Map(row => row(plugIn, plugIn)))
-        from endpoints in DisposalOps.OnFailure(
-            IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type))),
-            Session.Close())
+                .Map(row => fun((Action<IDisposable> retain) => IO.pure(plugIn).Bind(owner => row(owner, owner, retain)))))
+            .Bind(_ => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type)))), Session.Close())
         select unit;
 
     // --- [COMMANDS]
     public void Register(Func<Command, bool> register, CallbackSite site) =>
-        _ = Callbacks.Answer(
-            IO.lift(() => Callbacks.Each(
-                    definition.Commands.Map(row => row(site.Sink)),
-                    (command, _) => CommandRefused.Unless(register(command), command)))
-                .Map(static _ => unit),
-            static () => unit,
+        Callbacks.Run(
+            Callbacks.Each(definition.Commands.Map(row =>
+                from command in IO.lift(() => row(site.Sink))
+                from registered in IO.lift(() => CommandRefused.Unless(register(command), command))
+                from chrome in Optional(command as HostCommand).TraverseM(Toolbars.RegisterCommand).As()
+                select unit)),
             site);
 
     // --- [SHUTDOWN]
-    public void Shutdown(CallbackSite site) => _ = Callbacks.Answer(Session.Close(), static () => unit, site);
+    public IO<Unit> Close =>
+        Callbacks.Each(Seq(Session.Close(), IO.lift(PlugIn.FlushSettingsSavedQueue))).Map(static _ => unit).Uninterruptible();
+
+    public void Shutdown(CallbackSite site) => Callbacks.Run(Close, site);
 }

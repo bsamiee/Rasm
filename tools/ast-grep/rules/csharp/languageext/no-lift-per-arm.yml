@@ -71,14 +71,7 @@ utils:
             - matches: lifted-call
             - kind: parenthesized_expression
               has: {matches: lifted}
-            - kind: identifier
-              pattern: $HELD
-              inside:
-                stopBy: end
-                kind: block
-                has:
-                    kind: local_declaration_statement
-                    has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $HELD}}, {has: {nthChild: 2, matches: lifted}}]}}
+            - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: lifted}}}}
     lifted-return:
         kind: block
         all:

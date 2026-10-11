@@ -139,10 +139,21 @@ utils:
                         - has: {field: expression, regex: '(^|\.)(Activator|AppDomain|CurrentDomain)$'}
                         - has: {field: name, regex: '^CreateInstance\w*$', matches: method}
             - has: {field: arguments, has: {matches: first-name-argument}}
+            - not: {has: {field: arguments, has: {matches: first-name-argument, has: {kind: string_literal, regex: ',\s*[^",]+"$'}}}}
+            - not:
+                inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has:
+                        stopBy: end
+                        kind: attribute
+                        all:
+                            - has: {field: name, regex: '^((global::)?System\.Runtime\.CompilerServices\.)?UnsafeAccessorType(Attribute)?$'}
+                            - has: {kind: attribute_argument_list, has: {kind: attribute_argument, has: {pattern: $NAME}}}
 rule:
     any:
         - matches: lookup
         - matches: factory
         - matches: type-by-name
 message: '`$METHOD` looks up a member or type by name string `$NAME`'
-note: Name a type or member directly (`typeof(<type>)`, a property read, a method group, an expression lambda) and reach a non-public member through an `[UnsafeAccessor]` extern typed like it, a runtime binding by name and signature that throws on a missing member; a `nameof` overload lookup whose signature holds a type parameter selects the overload a type argument names, which no direct reference states
+note: Name a type or member directly (`typeof(<type>)`, a property read, a method group, an expression lambda) and reach a non-public member through an `[UnsafeAccessor]` extern typed like it. An assembly-qualified external type or a type named by `UnsafeAccessorType` can be unavailable to `typeof` and uses its external type identity for runtime inspection. A `nameof` overload lookup whose signature holds a type parameter selects the overload a type argument names, which no direct reference states

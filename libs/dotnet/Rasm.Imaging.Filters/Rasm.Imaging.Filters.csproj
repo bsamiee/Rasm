@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Optics, detail, denoise, stylize, warp, and generator filters over float RGBA frames through OpenCV, ImageSharp, and the host's Open Image Denoise</Description>
+        <Description>Optics, detail, denoise, stylize, warp, and generator filters over float RGBA frames through LibTorch, OpenCV, ImageSharp, and the host's Open Image Denoise</Description>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
@@ -16,12 +16,16 @@
 
     <ItemGroup Label="Mathematics">
         <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
     <ItemGroup Label="Imaging">
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="Emgu.CV.runtime.mini.macos" />
         <PackageReference Include="SixLabors.ImageSharp" />
+        <PackageReference Include="TorchSharp" />
+        <PackageReference Include="libtorch-cpu" />
+        <PackageReference Include="libtorch-cpu-win-arm64" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Packages">

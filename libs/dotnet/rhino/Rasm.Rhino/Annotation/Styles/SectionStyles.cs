@@ -37,10 +37,10 @@ public abstract partial record BoundaryLinetype {
     internal IO<int> Written(RhinoDoc doc, SectionStyle staged) =>
         Switch(
             table: table => table.Reference.Resolve(doc),
-            embedded: embedded => (from native in use(static () => new Linetype())
+            embedded: embedded => DisposalOps.Within(static () => new Linetype(), native =>
                                    from written in Linetypes.Written(native, embedded.Definition)
                                    from copied in IO.lift(() => staged.SetBoundaryLinetype(native))
-                                   select RhinoMath.UnsetIntIndex).Bracket());
+                                   select RhinoMath.UnsetIntIndex, static native => IO.lift(native.Dispose)));
 }
 
 public sealed record SectionBoundary(Option<Color> Color, Option<Color> PrintColor, BoundaryWidthScale WidthScale, Option<PlotWeight> PrintWidth, Option<BoundaryLinetype> Linetype) {
@@ -82,9 +82,10 @@ public static class SectionStyles {
     public static IO<(SectionStyleDefinition Definition, bool BoundaryHasShapes)> Definition(SectionStyle style, Option<Seq<HatchPattern>> patterns = default) =>
         from visible in IO.lift(() => style.BoundaryVisible)
         from embedded in visible
-            ? IO.lift(() => Optional(style.GetBoundaryLinetype())).Bracket(
-                Use: static held => from definition in held.Traverse(Linetypes.Definition).As()
-                                    select (Definition: definition, HasShapes: held.Exists(static linetype => linetype.HasShapes)), Fin: static held => DisposalOps.Release(held.ToSeq()))
+            ? DisposalOps.Within(style.GetBoundaryLinetype,
+                static held => from definition in Optional(held).Traverse(Linetypes.Definition).As()
+                               select (Definition: definition, HasShapes: Optional(held).Exists(static linetype => linetype.HasShapes)),
+                static held => DisposalOps.Release(Optional(held).ToSeq()))
             : IO.pure((Definition: Option<LinetypeDefinition>.None, HasShapes: false))
         let requested = Conversions.Present(style.HatchIndex)
         from pattern in IO.lift(patterns.Traverse(rows => requested.Traverse(index =>
@@ -139,17 +140,19 @@ public static class SectionStyles {
     // --- [FILES]
     public static IO<(Seq<(string Name, SectionStyleDefinition Definition)> Styles, Seq<(string Name, HatchPatternDefinition Definition)> Patterns)> ReadFile(string path) =>
         from existing in IO.lift(() => Exchange.ExistingPath(path))
-        from file in IO.lift(() => Refused.Unless(
-                SectionStyle.ReadFromFile(existing, out SectionStyle[] styles, out HatchPattern[] patterns),
-                (Styles: Conversions.Rows(styles), Patterns: Conversions.Rows(patterns)), nameof(SectionStyle.ReadFromFile)))
-            .Bracket(
-                Use: static read => (
+        from file in DisposalOps.Within(() => {
+            bool read = SectionStyle.ReadFromFile(existing, out SectionStyle[] styles, out HatchPattern[] patterns);
+            return (Read: read, Styles: styles, Patterns: patterns);
+        },
+            static native => IO.lift(() => Refused.Unless(native.Read,
+                (Styles: Conversions.Rows(native.Styles), Patterns: Conversions.Rows(native.Patterns)), nameof(SectionStyle.ReadFromFile)))
+                .Bind(static read => (
                     read.Styles.TraverseM(style => from definition in Definition(style, Some(read.Patterns))
                                                    select (style.Name, definition.Definition)).As(),
                     read.Patterns.TraverseM(static pattern => from definition in HatchPatterns.Definition(pattern)
                                                               select (pattern.Name, Definition: definition)).As())
-                    .Apply(static (styles, patterns) => (Styles: styles, Patterns: patterns)).As(),
-                Fin: static read => DisposalOps.Release<IDisposable>([.. read.Styles, .. read.Patterns]))
+                    .Apply(static (styles, patterns) => (Styles: styles, Patterns: patterns)).As()),
+            static read => DisposalOps.Release<IDisposable>([.. Conversions.Rows(read.Styles), .. Conversions.Rows(read.Patterns)]))
         select file;
 
     public static IO<Committed<Seq<(string Name, int Index)>>> Import(RhinoDoc doc, string path, string name, RedrawPolicy redraw) =>

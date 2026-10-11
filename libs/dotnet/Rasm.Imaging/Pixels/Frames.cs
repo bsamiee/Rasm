@@ -1,7 +1,9 @@
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
+using PeterO.Numbers;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Output;
 using SixLabors.ImageSharp.Formats;
@@ -30,7 +32,7 @@ public readonly partial struct PixelExtent {
             : bound.Height < Height ? new((int)((((long)Width * bound.Height) + Height - 1) / Height), bound.Height) : this;
 
     static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref int width, ref int height) =>
-        validationError = width >= 1 && height >= 1 && 4L * width * height <= System.Array.MaxLength ? null : new InvalidPixelValue();
+        validationError = width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height ? null : new InvalidPixelValue();
 }
 
 public sealed class PixelFrame {
@@ -46,13 +48,20 @@ public sealed class PixelFrame {
     public PixelExtent Extent { get; }
     public ReadOnlySpan<float> Block => block;
     public nint Address => Marshal.UnsafeAddrOfPinnedArrayElement(block, 0);
-    public Rectangle Window => new(Origin.X, Origin.Y, Size.Width, Size.Height);
+    public (long Left, long Top, long Right, long Bottom) Window => (Origin.X, Origin.Y, (long)Origin.X + Size.Width, (long)Origin.Y + Size.Height);
     public bool Whole => Origin == Point.Empty && Size == Extent;
     public Memory2D<Vector4> View => block.AsMemory().Cast<float, Vector4>().AsMemory2D(Size.Height, Size.Width);
 
-    public int Line(int index) => Extent.Height - 1 - Origin.Y - index;
+    public long Line(int index) => (long)Extent.Height - 1 - Origin.Y - index;
 
-    public Span<Vector4> Row(int line) => MemoryMarshal.Cast<float, Vector4>(block.AsSpan()).AsSpan2D(Size.Height, Size.Width).GetRowSpan(Line(line));
+    public int RowIndex(long line) => int.CreateChecked((long)Extent.Height - 1 - Origin.Y - line);
+
+    public Span<Vector4> Row(long line) => MemoryMarshal.Cast<float, Vector4>(block.AsSpan()).AsSpan2D(Size.Height, Size.Width).GetRowSpan(RowIndex(line));
+
+    public PixelFrame Copy() => new(Origin, Size, Extent, destination => Block.CopyTo(destination));
+
+    public T Sample<T>((double X, double Y) point, (WrapMode Across, WrapMode Down) wrap, T sum, Func<T, Vector4, double, T> add) =>
+        ((ReadOnlySpan2D<Vector4>)View.Span).Sample(point, wrap, sum, add, Some((Origin, Extent)));
 
     public PixelFrame Downscaled(PixelExtent bound) =>
         Size.Fitted(bound) switch {
@@ -180,23 +189,49 @@ public sealed record ImageFile {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PixelSampling {
-    public static int GaussianTaps(float sigma) => (2 * (int)float.Ceiling(3f * sigma)) + 1;
+    public static Fin<TCount> GaussianTaps<TCount>(double sigma) where TCount : IBinaryInteger<TCount> => KernelTaps<TCount>(ERational.FromDouble(sigma).Multiply(3));
+
+    public static Fin<TCount> KernelTaps<TCount>(ERational radius) where TCount : IBinaryInteger<TCount> =>
+        radius.CompareTo(0) >= 0
+            ? Try.lift(() => radius.Numerator.DivRem(radius.Denominator) switch {
+                var division => TCount.CreateChecked(new BigInteger(division[0].Add(division[1].IsZero ? 0 : 1).Multiply(2).Add(1).ToBytes(littleEndian: true))),
+            }).Run().MapFail(_ => new KernelSizeUnsupported(radius))
+            : new KernelSizeUnsupported(radius);
 
     extension(ReadOnlySpan2D<Vector4> plane) {
-        public Vector4 Sample(Vector2 point, (WrapMode Across, WrapMode Down) wrap) =>
-            plane.Sample(point, wrap, Vector4.Zero, static (sum, pixel, weight) => sum + (pixel * (float)weight));
+        public Vector4 Sample((double X, double Y) point, (WrapMode Across, WrapMode Down) wrap) =>
+            plane.Sample(point, wrap, Vector256<double>.Zero, static (sum, pixel, weight) =>
+                sum + (Vector256.Create(pixel.X, pixel.Y, pixel.Z, pixel.W) * weight)) switch {
+                    var value => new((float)value[0], (float)value[1], (float)value[2], (float)value[3]),
+                };
+    }
 
-        public T Sample<T>(Vector2 point, (WrapMode Across, WrapMode Down) wrap, T sum, Func<T, Vector4, double, T> add) {
-            (double x, double y) = (point.X - 0.5d, point.Y - 0.5d);
+    extension<TPixel>(ReadOnlySpan2D<TPixel> plane) {
+        public T Sample<T>((double X, double Y) point, (WrapMode Across, WrapMode Down) wrap, T sum, Func<T, TPixel, double, T> add, Option<(Point Origin, PixelExtent Extent)> framing = default) {
+            if (plane.IsEmpty)
+                return sum;
+            (int storedWidth, int storedHeight) = (plane.Width, plane.Height);
+            (Point origin, int width, int height) = framing.Match(Some: static frame => (frame.Origin, frame.Extent.Width, frame.Extent.Height), None: () => (Point.Empty, storedWidth, storedHeight));
+            (int boundsX, int boundsY, int boundsWidth, int boundsHeight) = (
+                wrap.Across == WrapMode.Black ? origin.X : 0,
+                wrap.Down == WrapMode.Black ? origin.Y : 0,
+                wrap.Across == WrapMode.Black ? storedWidth : width,
+                wrap.Down == WrapMode.Black ? storedHeight : height);
+            ((double horizontalPoint, double horizontalWeight), (double verticalPoint, double verticalWeight)) =
+                (wrap.Across.Fold(point.X - boundsX, boundsWidth, 0d), wrap.Down.Fold(point.Y - boundsY, boundsHeight, 0d));
+            (double x, double y) = (horizontalPoint - 0.5d, verticalPoint - 0.5d);
             (double left, double top) = (Math.Floor(x), Math.Floor(y));
             (double across, double down) = (x - left, y - top);
             for (int row = 0; row < 2; row++) {
-                Option<int> wrappedRow = wrap.Down.Index(top + row, plane.Height);
+                Option<int> wrappedRow = wrap.Down.Index(top + row, boundsHeight);
                 double vertical = row == 0 ? 1d - down : down;
                 for (int column = 0; column < 2; column++) {
-                    double weight = vertical * (column == 0 ? 1d - across : across);
-                    sum = (wrappedRow, wrap.Across.Index(left + column, plane.Width)) switch {
-                        ( { IsSome: true } atRow, { IsSome: true } atColumn) => add(sum, plane[(int)atRow, (int)atColumn], weight),
+                    double weight = horizontalWeight * verticalWeight * vertical * (column == 0 ? 1d - across : across);
+                    sum = (wrappedRow, wrap.Across.Index(left + column, boundsWidth)) switch {
+                        ( { IsSome: true } atRow, { IsSome: true } atColumn)
+                            when weight > 0d && (long)(int)atRow + boundsY - origin.Y is var storedRow and >= 0 && storedRow < storedHeight
+                                && (long)(int)atColumn + boundsX - origin.X is var storedColumn and >= 0 && storedColumn < storedWidth =>
+                            add(sum, plane[(int)storedRow, (int)storedColumn], weight),
                         _ => sum,
                     };
                 }

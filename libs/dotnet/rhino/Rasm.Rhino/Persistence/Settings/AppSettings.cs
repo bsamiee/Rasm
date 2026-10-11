@@ -18,10 +18,11 @@ public sealed record ProcessSetting<T>(IO<T> Read, Func<T, IO<Unit>> Write) wher
     public IO<Unit> Edit(Func<T, T> change) => Read.Map(change).Bind(Write);
 
     public IO<TResult> Within<TResult>(Func<T, T> change, IO<TResult> body) =>
-        from prior in Read
-        from result in DisposalOps.OnFailure(Edit(change).Bind(_ => body), Write(prior))
-        from restored in Write(prior)
-        select result;
+        envIO.Bind(environment =>
+            (from prior in Read
+             from result in DisposalOps.OnFailure(Edit(change).Bind(_ => IO.liftVAsync(() => body.RunAsync(environment))), Write(prior))
+             from restored in Write(prior)
+             select result).Uninterruptible());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -49,13 +50,7 @@ public abstract partial record AppSettingsFamily<TSettings> where TSettings : cl
     public sealed record Writable : AppSettingsFamily<TSettings> {
         public Writable(Func<TSettings> current, Func<TSettings> factory, Action<TSettings> update) : base(factory) {
             Setting = new ProcessSetting<TSettings>(IO.lift(current), state => IO.lift(() => update(state)));
-            Store = new ValueStore<TSettings>(
-                from held in Setting.Read
-                from initial in Default
-                select Same(held, initial) ? Option<TSettings>.None : Some(held),
-                value => value.Match(Some: static state => IO.pure(state), None: () => Default).Bind(Setting.Write),
-                Same,
-                Applied.Live,
+            Store = ValueStore.Defaulted(Setting.Read, Default, Setting.Write, Same, Applied.Live,
                 Some(ValueStore.Signal(EventKind.AppSettingsChanged, static _ => true)));
         }
 
@@ -213,16 +208,12 @@ public static class AppSettings {
         path => IO.lift(() => path.Traverse(existing).As()).Bind(checkedPath => IO.lift(() => write(Conversions.Unset(checkedPath)))));
 
     // --- [NUDGE]
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> NudgeFollowsActiveDocument(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
-        (_, sink) => new HostEvent<(Unit, Unit)>(typeof(AppSettings), nameof(NudgeFollowsActiveDocument), static (deliver, site) =>
-                DisposalOps.AcquireAll(
-                        Seq(
-                            EventKind.DocumentArrived.Inline(_ => deliver((unit, unit)), site.Sink),
-                            EventKind.ActiveDocumentChanged.Inline(_ => deliver((unit, unit)), site.Sink),
-                            EventKind.DocumentPropertiesChanged.Inline(_ => deliver((unit, unit)), site.Sink)),
-                        DisposalOps.Release)
-                    .Map(held => DisposalOps.Composite(held, site)))
-            .Through(Subscriptions.Idle<Unit, Unit>(_ => NudgeActive(steps)), sink);
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> NudgeFollowsActiveDocument(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
+        (_, sink, retain) => Subscriptions.Host(typeof(AppSettings), static () => Seq(
+                EventKind.DocumentArrived.Choose(static _ => Some((unit, unit))),
+                EventKind.ActiveDocumentChanged.Choose(static _ => Some((unit, unit))),
+                EventKind.DocumentPropertiesChanged.Choose(static _ => Some((unit, unit)))))
+            .Through(Subscriptions.Idle<Unit, Unit>(_ => NudgeActive(steps)), sink, retain);
 
     private static IO<Unit> NudgeActive(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
         IO.lift(static () => Optional(RhinoDoc.ActiveDoc)).Bind(active => active.Match(Some: doc => Nudge(doc, steps), None: static () => IO.pure(unit)));
@@ -233,18 +224,18 @@ public static class AppSettings {
         let modelUnit = doc.ModelUnits
         let wanted = steps(display.Resolution(modelUnit), Quantities.From(grid.SnapSpacing, modelUnit), Quantities.From(grid.GridSpacing, modelUnit))
         let target = (Quantities.As(wanted.Nudge, modelUnit), Quantities.As(wanted.Ctrl, modelUnit), Quantities.As(wanted.Shift, modelUnit))
-        from held in IO.lift(static () => (ModelAidSettings.NudgeKeyStep, ModelAidSettings.CtrlNudgeKeyStep, ModelAidSettings.ShiftNudgeKeyStep))
-        from written in when(held != target, IO.lift(() => {
+        from written in IO.lift(() => {
             (ModelAidSettings.NudgeKeyStep, ModelAidSettings.CtrlNudgeKeyStep, ModelAidSettings.ShiftNudgeKeyStep) = target;
-        })).As()
+        })
         select written;
 
     // --- [LIFETIME]
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Hold<T>(ProcessSetting<T> setting, T value) where T : notnull, IEquatable<T> =>
-        (_, sink) =>
-            from prior in setting.Read
-            from written in when(!prior.Equals(value), setting.Write(value)).As()
-            select (IDisposable)new Disposal<T>(prior, held => Callbacks.Succeeded(
-                setting.Read.Bind(current => when(current.Equals(value) && !held.Equals(value), setting.Write(held)).As()),
-                new CallbackSite(sink, typeof(AppSettings), nameof(Hold))));
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> Hold<T>(ProcessSetting<T> setting, T value) where T : notnull, IEquatable<T> =>
+        (_, _, retain) =>
+            (from prior in setting.Read
+             from lease in IO.lift(() => new Disposal<T>(prior, held =>
+                 setting.Read.Bind(current => when(current.Equals(value) && !held.Equals(value), setting.Write(held)).As()).Run()))
+             from written in DisposalOps.OnFailure(when(!prior.Equals(value), setting.Write(value)).As(), setting.Write(prior))
+             from retained in DisposalOps.OnFailure(IO.lift(() => retain(lease)), IO.lift(lease.Dispose))
+             select retained).Uninterruptible();
 }

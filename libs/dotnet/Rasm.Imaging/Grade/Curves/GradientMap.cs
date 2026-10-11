@@ -11,8 +11,11 @@ public sealed record GradientMap(Ramp Ramp) : IStateRecord<GradientMap, Gradient
         (state.Ramp.Tabulate(context.Working), context.Working.Luminance) switch {
             var (table, weights) => Some<PixelPass>(new PixelPass.Color(row => {
                 foreach (ref Vector4 pixel in row)
-                    pixel = table.Sample(float.Cbrt(Vector3.Dot(weights, pixel.AsVector3()))) switch {
-                        var mapped => new Vector4(Vector3.Lerp(pixel.AsVector3(), mapped.AsVector3(), mapped.W), pixel.W),
+                    pixel = table.Sample((float)double.Cbrt((weights.X * pixel.X) + (weights.Y * pixel.Y) + (weights.Z * pixel.Z))) switch {
+                        var mapped => new Vector4(
+                            (float)double.Lerp(pixel.X, mapped.X, mapped.W),
+                            (float)double.Lerp(pixel.Y, mapped.Y, mapped.W),
+                            (float)double.Lerp(pixel.Z, mapped.Z, mapped.W), pixel.W),
                     };
             })),
         };

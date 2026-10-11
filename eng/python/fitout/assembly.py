@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined,no-any-unimported"
-
 """Assemble a local Blender extension from the locked Python runtime."""
 
 import ast
@@ -9,17 +7,19 @@ import shutil
 import subprocess
 import tokenize
 import tomllib
+from typing import Annotated
 from zipfile import BadZipFile, ZipFile
 
 import anyio
 from asttokens import ASTText
 from asttokens.util import replace
+from cyclopts import Parameter
+from cyclopts.types import ResolvedPath
 from expression.extra.result import catch
 import httpx2
 import msgspec
-from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name, parse_wheel_filename
-from pathops import PathOpsError
+from pathops import PathOpsError  # type: ignore[attr-defined]
 from result import as_async_result
 import tomlkit
 
@@ -32,33 +32,30 @@ class _Interpreter(msgspec.Struct, frozen=True):
     executable: str
     build_hash: str
     platform: str
-
-
-# --- [ERRORS] ---------------------------------------------------------------------------
-
-type PackError = OSError | subprocess.CalledProcessError | BadZipFile | httpx2.HTTPError | SyntaxError | ValueError | PathOpsError
+    bundled: tuple[str, ...]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@as_async_result(OSError, subprocess.CalledProcessError, BadZipFile, httpx2.HTTPError, SyntaxError, ValueError, PathOpsError)
-async def pack(source: Path, archive: Path, blender: str, workspace: Path) -> int:
-    """Build an archive carrying private first-party modules and host-native wheels.
+@as_async_result(OSError, subprocess.CalledProcessError, BadZipFile, httpx2.HTTPError, msgspec.DecodeError, SyntaxError, ValueError, PathOpsError)
+async def pack(source: ResolvedPath, archive: ResolvedPath, /, *, modules: tuple[Path, ...], blender: Annotated[str, Parameter(env_var="BLENDER_PATH")] = "blender") -> int:
+    """Build a Blender extension at the requested archive path.
 
     Args:
-        source: Extension source directory containing its Blender manifest.
-        archive: Native extension archive to replace.
-        blender: Blender executable supplying the target interpreter.
-        workspace: Root project containing the Python declaration and lock.
+        source: Extension directory containing its manifest.
+        archive: ZIP file to create or replace.
+        modules: First-party wheel modules in the extension's runtime import closure.
+        blender: Blender executable, supplied by BLENDER_PATH when set.
 
     Returns:
         Native build status, or an input, process, archive, or network error.
     """
+    workspace = Path.cwd()
     stage = archive.parent / "stage"
     wheels = stage / "wheels"
     extensions = archive.parent / "extensions"
-    requirements = archive.parent / "requirements.txt"
+    lock = archive.parent / "pylock.toml"
     environment = {**os.environ, "BLENDER_USER_EXTENSIONS": str(extensions)}
     catch(shutil.rmtree, exception=FileNotFoundError)(stage).default_value(None)
     shutil.copytree(source, stage, ignore=shutil.ignore_patterns("tests", "__pycache__", "*.pyc", "*.pyo"))
@@ -73,8 +70,11 @@ async def pack(source: Path, archive: Path, blender: str, workspace: Path) -> in
             "1",
             "--python-expr",
             (
-                "import bpy, json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; "
-                "sys.stderr.write(json.dumps({'executable': sys.executable, 'build_hash': bpy.app.build_hash.decode(), 'platform': platform_from_this_system()}))"
+                "import bpy, json, sys, sysconfig; from importlib.metadata import distributions; "
+                "from bl_pkg.cli.blender_ext import platform_from_this_system; "
+                "sys.stderr.write(json.dumps({'executable': sys.executable, 'build_hash': bpy.app.build_hash.decode(), 'platform': platform_from_this_system(), "
+                "'bundled': [next(distributions(name='numpy', path=[sysconfig.get_path('purelib')])).name, "
+                "*(name for name, library in (('opencolorio', bpy.app.ocio), ('openimageio', bpy.app.oiio)) if library.supported)]}))"
             ),
         ),
         env=environment,
@@ -90,21 +90,28 @@ async def pack(source: Path, archive: Path, blender: str, workspace: Path) -> in
             "--no-default-groups",
             "--no-editable",
             "--format",
-            "requirements.txt",
-            *(argument for row in declaration["tool"]["uv"]["constraint-dependencies"] for argument in ("--no-emit-package", Requirement(row).name)),
+            "pylock.toml",
+            *(argument for name in interpreter.bundled for argument in ("--no-emit-package", name)),
             "--output-file",
-            requirements,
+            lock,
         ),
         cwd=workspace,
         stdout=subprocess.DEVNULL,
         stderr=None,
     )
     await anyio.run_process(
-        ("pip", "--python", interpreter.executable, "wheel", "--no-deps", "--no-require-hashes", "--requirement", requirements, "--wheel-dir", wheels), cwd=workspace, stdout=None, stderr=None
+        ("pip", "--python", interpreter.executable, "wheel", "--no-deps", "--no-require-hashes", "--requirement", lock, "--wheel-dir", wheels), cwd=workspace, stdout=None, stderr=None
     )
     (first_party,) = (wheel for wheel in wheels.glob("*.whl") if parse_wheel_filename(wheel.name)[0] == canonicalize_name(declaration["project"]["name"]))
+    selected = frozenset(modules)
+    packages = {module.parent for module in selected}
     with ZipFile(first_party) as wheel:
-        members = tuple(member for member in wheel.infolist() if not Path(member.filename).parts[0].endswith(".dist-info"))
+        members = tuple(
+            member
+            for member in wheel.infolist()
+            for path in (Path(member.filename),)
+            if path in selected or (path.suffix == ".pyi" and path.with_suffix(".py") in selected) or (path.suffix not in {".py", ".pyi"} and any(path.is_relative_to(package) for package in packages))
+        )
         roots = {Path(member.filename).parts[0] for member in members}
         wheel.extractall(stage, members)
     first_party.unlink()
@@ -120,13 +127,20 @@ async def pack(source: Path, archive: Path, blender: str, workspace: Path) -> in
         ]
         if edits:
             module.write_text(replace(text, edits), encoding=encoding)
-    if glyphs := outlined(source.parent / "icons"):
+    icons = source.parent / "icons"
+    previews = stage / icons.name
+    previews.mkdir(exist_ok=True)
+    preview_size = "256"
+    for master in icons.glob("*.svg"):
+        await anyio.run_process(("resvg", "--width", preview_size, "--height", preview_size, master, (previews / master.name).with_suffix(".png")), stdout=None, stderr=None)
+    tools = icons / "tools"
+    if glyphs := outlined(tools):
         async with httpx2.AsyncClient() as client:
             exporter = await client.get(f"https://raw.githubusercontent.com/blender/blender/{interpreter.build_hash}/release/datafiles/blender_icons_geom.py")
             exporter.raise_for_status()
         exporter_path = archive.parent / "blender_icons_geom.py"
         exporter_path.write_text(exporter.text)
-        icons = Path(__file__).with_name("geometry.py")
+        geometry = Path(__file__).with_name("geometry.py")
         await anyio.run_process(
             (
                 blender,
@@ -135,7 +149,7 @@ async def pack(source: Path, archive: Path, blender: str, workspace: Path) -> in
                 "--python-exit-code",
                 "1",
                 "--python-expr",
-                f"from pathlib import Path; import runpy; runpy.run_path({str(icons)!r})['packed']({glyphs!r}, Path({str(stage / 'icons')!r}), Path({str(exporter_path)!r}))",
+                f"from pathlib import Path; import runpy; runpy.run_path({str(geometry)!r})['packed']({glyphs!r}, Path({str(previews / tools.name)!r}), Path({str(exporter_path)!r}))",
             ),
             env=environment,
             stdout=None,
@@ -144,7 +158,9 @@ async def pack(source: Path, archive: Path, blender: str, workspace: Path) -> in
     manifest = stage / "blender_manifest.toml"
     document = tomlkit.parse(manifest.read_text())
     document["platforms"] = [interpreter.platform]
-    document["wheels"] = tomlkit.item([f"./wheels/{wheel.name}" for wheel in sorted(wheels.glob("*.whl"))]).multiline(multiline=True)
+    manifest_wheels = tomlkit.array().multiline(multiline=True)
+    manifest_wheels.extend(f"./wheels/{wheel.name}" for wheel in sorted(wheels.glob("*.whl")))
+    document["wheels"] = manifest_wheels
     manifest.write_text(tomlkit.dumps(document))
     process = await anyio.run_process((blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-filepath", archive), env=environment, stdout=None, stderr=None)
     return process.returncode
@@ -152,4 +168,4 @@ async def pack(source: Path, archive: Path, blender: str, workspace: Path) -> in
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PackError", "pack"]
+__all__ = ["pack"]

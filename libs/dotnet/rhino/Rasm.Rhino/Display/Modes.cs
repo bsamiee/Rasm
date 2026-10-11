@@ -30,7 +30,7 @@ internal static partial class ModeMapper {
 
 public static class DisplayModes {
     // --- [IDENTITY]
-    public static Guid ConceptId { get; } = new("881f20dd-a78e-4930-a7c3-690e5e6b0927");
+    public static Guid ConceptId { get; } = new(0x881f20ddU, 0xa78e, 0x4930, 0xa7, 0xc3, 0x69, 0x0e, 0x5e, 0x6b, 0x09, 0x27);
 
     // --- [TABLE]
     public static IO<Seq<ModeState>> GetDisplayModes() => ReadModes(static modes => Fin.Succ(modes.Map(ModeMapper.ToState).Strict()));
@@ -82,9 +82,9 @@ public static class DisplayModes {
 
     // --- [VIEWPORT]
     public static IO<Guid> DisplayMode(RhinoDoc doc, ViewportTarget target) =>
-        use(Viewports.ResolveViewport(doc, target))
-            .Bind(static row => use(IO.lift(() => Missing.Unless(row.Viewport.DisplayMode, nameof(RhinoViewport.DisplayMode)))).Map(static mode => mode.Id).Bracket())
-            .Bracket();
+        DisposalOps.Within<IDisposable, Guid>(retain => Viewports.ResolveViewport(doc, target, retain)
+            .Bind(static row => use(IO.lift(() => Missing.Unless(row.Viewport.DisplayMode, nameof(RhinoViewport.DisplayMode)))).Map(static mode => mode.Id).Bracket()),
+            DisposalOps.Release);
 
     public static IO<Seq<bool>> SetDisplayMode(RhinoDoc doc, ViewportSet viewports, Guid id, RedrawPolicy redraw) =>
         Viewports.WithMode(id, mode => Navigation.ApplyToViewports(doc, viewports, viewport => IO.lift(() => { viewport.DisplayMode = mode; }), redraw));

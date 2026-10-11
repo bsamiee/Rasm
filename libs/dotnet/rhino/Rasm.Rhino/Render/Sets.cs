@@ -1,5 +1,4 @@
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Scenes;
@@ -184,10 +183,15 @@ public sealed record SetBook {
             .Bind(ArchivableDictionaries.Children)
             .Bind(static rows => Callbacks.Each(rows, static (row, _) =>
                 (Conversions.Validated<SetName, string, InvalidRhinoValue>(row.Key).ToValidation(), DecodedSet(row.Value).ToValidation())
-                    .Apply(static (name, set) => (name, set))
+                    .Apply(static (name, set) => (Name: name, Set: set))
                     .As()
                     .ToFin()))
-            .Map(static rows => new SetBook(toMap(rows)));
+            .Bind(static rows =>
+                (Callbacks.Unique(rows, static row => row.Name, nameof(Decoded)),
+                 Callbacks.Unique(rows.Filter(static row => row.Set.Stored.IsNone), static _ => nameof(Active), nameof(Decoded)))
+                    .Apply(static (named, _) => new SetBook(toMap(named)))
+                    .As()
+                    .ToFin());
 
     private static Fin<RenderSet> DecodedSet(ArchivableDictionary source) =>
         (ArchivableDictionaries.Required<string>(source, MembershipKey).Bind(Conversions.Validated<SetMembership, string, InvalidRhinoValue>).ToValidation(),
@@ -199,6 +203,9 @@ public sealed record SetBook {
 }
 
 public sealed record SetRow(SetName Key, SetName Name, SetMembership Membership, bool Active) {
+    public static Seq<SetRow> Of(SetBook book) =>
+        toSeq(book.Sets.Map(static (name, set) => new SetRow(name, name, set.Membership, set.Stored.IsNone)).Values);
+
     public static Lens<SetRow, SetName> Named { get; } = Lens<SetRow, SetName>.New(static row => row.Name, static name => row => row with { Name = name });
 
     public static Lens<SetRow, bool> Activated { get; } = Lens<SetRow, bool>.New(static row => row.Active, static active => row => row with { Active = active });
@@ -237,37 +244,35 @@ public abstract partial record BoardRow {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed record RenderSets(RenderHistory History) {
+public sealed record RenderSets(Func<RhinoDoc, IO<HistoryBinding>> Settings, Func<RhinoDoc, IO<BindingGroup>> Grading) {
     // --- [ROSTER]
     public static ViewStore Store { get; } = new ViewStore.DocumentStores(new RedrawPolicy.Silent()) {
         Locks = Some(LockSets.Store),
         Bindings = Some<Func<IPlugInViews, RhinoDoc, Fin<BindingGroup>>>(static (owner, doc) =>
-            IPlugInRendering.Holding(((IPlugInRendering)owner).History, nameof(IPlugInRendering.History)).Bind(history => history.Bindings(doc).ToFin())),
+            IPlugInRendering.Holding(((IPlugInRendering)owner).History, nameof(IPlugInRendering.History)).Map(history => history.Bindings(doc))),
     };
 
     // --- [READS]
-    public static IO<Atom<SetBook>> Held(RhinoDoc doc) =>
-        IO.lift(() => doc.RuntimeData.GetValue(typeof(SetBook), static _ => Atom(SetBook.Empty)));
-
-    public static IO<SetBook> Book(RhinoDoc doc) => Held(doc).Bind(static held => held.ValueIO);
+    public static IO<SetBook> Book(RhinoDoc doc) =>
+        ArchivableDictionaries.Read(SceneSources.Dictionary(doc), SetBook.Codec).Map(static book => book.IfNone(SetBook.Empty));
 
     public static IO<Seq<SetName>> Renderable(RhinoDoc doc) => Book(doc).Map(static book => book.Renderable);
 
     public IO<ValueSet> Values(RhinoDoc doc, SetName name) =>
         from book in Book(doc)
         from set in IO.lift(book.Find(name))
-        from values in set.Stored.Match(Some: static held => IO.pure(held), None: () => IO.lift(() => History.Settings(doc)).Bind(static binding => binding.Group.Capture))
+        from values in set.Stored.Match(Some: static held => IO.pure(held), None: () => Settings(doc).Bind(static binding => binding.Group.Capture))
         select values;
 
     private IO<ValueSet> Category(RhinoDoc doc, SetName source, SetCategory category) =>
         from values in Values(doc, source)
-        from binding in IO.lift(() => History.Settings(doc))
-        from grading in IO.lift(() => History.Grading(doc).ToFin())
+        from binding in Settings(doc)
+        from grading in Grading(doc)
         select new ValueSet(values.Entries.Intersect(category.Keys(binding.Group, grading)));
 
     private IO<bool> Changes(RhinoDoc doc, SetScope scope, ValueSet incoming) =>
         from book in Book(doc)
-        from binding in IO.lift(() => History.Settings(doc))
+        from binding in Settings(doc)
         from live in binding.Group.Capture
         from diffs in IO.lift(book.Previewed(scope, incoming, live))
         select diffs.Exists(static (_, diff) => !diff.Changes.IsEmpty);
@@ -290,51 +295,42 @@ public sealed record RenderSets(RenderHistory History) {
         Committed(doc, (book, live) => step(book, live).Map(static next => (next, Option<ValueSet>.None)));
 
     private IO<SetBook> Committed(RhinoDoc doc, Func<SetBook, ValueSet, Fin<(SetBook Book, Option<ValueSet> Live)>> step) =>
-        IO.lift(() => History.Settings(doc)).Bind(binding => binding.Scope.Switch(
+        Settings(doc).Bind(binding => binding.Scope.Switch(
             (Doc: doc, Binding: binding, Step: step),
-            applicationScope: static (state, _) => Stepped(state.Doc, state.Binding, state.Step, static (_, _, _) => IO.pure(unit)),
+            applicationScope: static (state, _) => Stepped(state.Doc, state.Binding, state.Step),
             documentScope: static (state, scope) => Commits.Commit(scope.Doc, state.Binding.Caption, scope.Redraw,
-                    Stepped(scope.Doc, state.Binding, state.Step, (held, before, after) => Reversed(scope, state.Binding.Caption, held, before, after)))
+                    Stepped(scope.Doc, state.Binding, state.Step))
                 .Map(static committed => committed.Value)));
 
     private static IO<SetBook> Stepped(
-        RhinoDoc doc, HistoryBinding binding, Func<SetBook, ValueSet, Fin<(SetBook Book, Option<ValueSet> Live)>> step, Func<Atom<SetBook>, SetBook, SetBook, IO<Unit>> reversed) =>
-        from held in Held(doc)
-        from before in held.ValueIO
+        RhinoDoc doc, HistoryBinding binding, Func<SetBook, ValueSet, Fin<(SetBook Book, Option<ValueSet> Live)>> step) =>
+        from before in Book(doc)
         from live in binding.Group.Capture
         from next in IO.lift(step(before, live))
         from written in next.Live.Traverse(values => binding.Commit(values, [])).As()
-        from swapped in held.SwapIO(_ => next.Book)
-        from registered in reversed(held, before, next.Book)
+        from writtenBook in ArchivableDictionaries.Write(SceneSources.Dictionary(doc), SetBook.Codec, next.Book)
         select next.Book;
-
-    private static IO<Unit> Reversed(HistoryScope.DocumentScope scope, string caption, Atom<SetBook> held, SetBook before, SetBook after) =>
-        from recording in IO.lift(() => scope.Doc.UndoRecordingIsActive)
-        from registered in when(recording && before != after, TableOps.Register(scope.Doc, new CustomUndo(caption,
-            held.SwapIO(_ => before).Map(static _ => unit),
-            held.SwapIO(_ => after).Map(static _ => unit),
-            scope.Site))).As()
-        select unit;
 
     // --- [SNAPSHOTS]
     public SnapshotState<RhinoDoc> Snapshot =>
         new SnapshotState<RhinoDoc, SetBook>(SetBook.TypeCode, SetBook.Codec, Book, (doc, book) => Booked(doc, (_, _) => book).Map(static _ => unit));
 
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register(RenderHistory history, Func<RenderSets, DefinedSnapshotClient> client) =>
-        (plugIn, _) =>
-            from sets in IO.pure(new RenderSets(history))
-            from registered in IO.lift(() => ignore(SnapShotsClient.RegisterSnapShotClient(client(sets))))
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> Register(RenderHistory history, Func<RenderSets, DefinedSnapshotClient> client) =>
+        (plugIn, _, retain) => DisposalOps.Acquire(owned =>
+            from sets in IO.lift(() => new RenderSets(doc => IO.lift(history.Settings(doc)), doc => IO.lift(() => history.Grading(doc))))
+            from registered in IO.lift(() => SnapShotsClient.RegisterSnapShotClient(client(sets)))
             let cell = ((IPlugInRendering)plugIn).Sets
-            from filled in cell.SwapIO(_ => Some(sets))
-            select (IDisposable)new Disposal<Atom<Option<RenderSets>>>(cell, static held => ignore(held.Swap(static _ => None)));
+            from published in DisposalOps.Change(() => cell.Value, value => ignore(cell.Swap(_ => value)), Some(sets), owned)
+            select unit, (_, lease) => retain(lease));
 
     // --- [ROWS]
     private const string Owner = "render-sets";
 
     private static readonly (RowSource<Seq<SetRow>> Source, RowField<Seq<SetRow>> Field) Listed =
-        RowSource.Opaque(Owner, "sets", Seq<SetRow>(), static scope => ValueStore.Of(
-            Served(scope).Bind(static held => Book(held.Doc)).Map(static book => Some(toSeq(book.Sets.Map(static (name, set) => new SetRow(name, name, set.Membership, set.Stored.IsNone)).Values))),
+        RowSource.Opaque(Owner, "sets", Seq<SetRow>(), static scope => new ValueStore<Seq<SetRow>>(
+            Served(scope).Bind(static held => Book(held.Doc)).Map(static book => Some(SetRow.Of(book))),
             items => Served(scope).Bind(held => held.Sets.Edited(held.Doc, items.IfNone(Seq<SetRow>()))),
+            EqualityComparer<Seq<SetRow>>.Default.Equals,
             Applied.Live,
             None));
 
@@ -342,9 +338,10 @@ public sealed record RenderSets(RenderHistory History) {
         RowSource.Opaque(Owner, "picked", LanguageExt.HashSet<SetName>.Empty);
 
     private static readonly (RowSource<Seq<BoardRow>> Source, RowField<Seq<BoardRow>> Field) Boarded =
-        RowSource.Opaque(Owner, "board", Seq<BoardRow>(), static scope => ValueStore.Of(
+        RowSource.Opaque(Owner, "board", Seq<BoardRow>(), static scope => new ValueStore<Seq<BoardRow>>(
             Served(scope).Bind(held => held.Sets.Board(held.Doc, scope.Sink)).Map(static rows => Some(rows)),
-            static _ => IO.pure(unit),
+            static _ => IO.pure(Change<Seq<BoardRow>>.None),
+            EqualityComparer<Seq<BoardRow>>.Default.Equals,
             Applied.Live,
             None));
 
@@ -448,16 +445,17 @@ public sealed record RenderSets(RenderHistory History) {
                     from locked in when(!keys.IsEmpty, scope.Lock(keys, enabled)).As()
                     select unit));
 
-    private IO<Unit> Edited(RhinoDoc doc, Seq<SetRow> items) =>
+    private IO<Change<Seq<SetRow>>> Edited(RhinoDoc doc, Seq<SetRow> items) =>
         from book in Book(doc)
         from activated in items.Find(row => row.Active && book.Active != Some(row.Key)).Traverse(row => Activate(doc, row.Key)).As()
-        from renamed in items.Filter(static row => !string.Equals(row.Name, row.Key, StringComparison.Ordinal)).TraverseM(row => Rename(doc, row.Key, row.Name)).As()
-        select unit;
+        from renamed in items.Filter(static row => !string.Equals(row.Name, row.Key, StringComparison.Ordinal))
+            .Fold(IO.pure(activated.IfNone(book)), (current, row) => current.Bind(_ => Rename(doc, row.Key, row.Name)))
+        select ValueStore.Between<Seq<SetRow>>(SetRow.Of(book), SetRow.Of(renamed));
 
     private IO<Seq<BoardRow>> Board(RhinoDoc doc, IPlugInSink sink) =>
         from book in Book(doc)
-        from binding in IO.lift(() => History.Settings(doc))
-        from grading in IO.lift(() => History.Grading(doc).ToFin())
+        from binding in Settings(doc)
+        from grading in Grading(doc)
         from live in binding.Group.Capture
         select BoardRow.Board(book, binding.Group, grading, live, key => binding.Group.Text(key).Map(text => RowText.Localize(text.Caption, table: Some<object>(sink)).Local));
 

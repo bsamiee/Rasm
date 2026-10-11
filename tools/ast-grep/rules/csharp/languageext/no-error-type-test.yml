@@ -101,5 +101,12 @@ rule:
             any:
                 - matches: element-error
                 - matches: {csharp-error-owner: {name: {pattern: $ERROR}, type: {regex: '^((global::)?(LanguageExt\.)?Common\.)?Error$'}}}
+        - not:
+            inside:
+                stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                kind: switch_expression_arm
+                all:
+                    - inside: {kind: switch_expression, has: {nthChild: 1, matches: tested-error}}
+                    - follows: {stopBy: end, kind: switch_expression_arm, has: {nthChild: 1, matches: many-pattern}}
 message: Type test on `Error` `$ERROR` misses the same case inside `ManyErrors`
 note: Use `<error>.IsType<E>()`, `IsExpected`, or `IsExceptional` to test the case and `<error>.Filter<E>().Head is E <case>` where a branch reads its value, each searches `ManyErrors` leaves

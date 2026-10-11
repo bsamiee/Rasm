@@ -7,6 +7,7 @@ using Rasm.Rhino.Render;
 using Rasm.Rhino.Render.Content;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Queue;
+using Rasm.Rhino.Render.Scenes;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Slots;
 using Rasm.Rhino.UI.Views;
@@ -56,7 +57,7 @@ internal static class FileFormats {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IPlugInViews, IPlugInRendering {
+public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IPlugInViews, IPlugInRendering, IPlugInLifetime {
     // --- [LIFECYCLE]
     private readonly PlugInDefinition definition = definition;
     private readonly PlugInLifetime lifetime = new(definition, Seq<View>());
@@ -80,10 +81,12 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IPlug
 
     protected sealed override void ResetMessageBoxes() {
         base.ResetMessageBoxes();
-        _ = Callbacks.Answer(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
     }
 
     public void Report(Error error, Type owner, string member) => lifetime.Session.Report(error, owner, member);
+
+    public IO<Unit> Close => lifetime.Close;
 
     // --- [VIEWS]
     public ViewCatalog Views => lifetime.Views;
@@ -92,7 +95,7 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IPlug
 
     public AtomHashMap<Guid, ValueHistory> Histories => lifetime.Histories;
 
-    public IO<HistoryLimits> Limits => lifetime.Limits(((IPlugInViews)this).Settings);
+    public IO<HistoryLimits> Limits => definition.History(((IPlugInViews)this).Settings);
 
     SettingsNode IPlugInViews.Settings => new(new SettingsRoot.PlugInNode(Id));
 
@@ -107,8 +110,6 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IPlug
 
     public Atom<Option<RenderSets>> Sets { get; } = Atom(Option<RenderSets>.None);
 
-    public Atom<Option<NoticeSender>> Notices { get; } = Atom(Option<NoticeSender>.None);
-
     public Atom<Option<QueueContext>> QueueContext { get; } = Atom(Option<QueueContext>.None);
 
     // --- [IDENTITY]
@@ -122,17 +123,17 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IPlug
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {
         base.OptionsDialogPages(pages);
-        _ = Callbacks.Answer(ViewRegistration.OptionsDialogPages(this, pages), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
     }
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
         base.DocumentPropertiesDialogPages(doc, pages);
-        _ = Callbacks.Answer(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
     }
 
     protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
         base.ObjectPropertiesPages(collection);
-        _ = Callbacks.Answer(ViewRegistration.ObjectPropertiesPages(this, collection), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
     }
 
     // --- [ARCHIVE]
@@ -140,16 +141,16 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IPlug
 
     protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) {
         base.WriteDocument(doc, archive, options);
-        _ = DocumentArchive.Write(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
+        DocumentArchive.Write(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
     }
 
     protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
         base.ReadDocument(doc, archive, options);
-        _ = DocumentArchive.Read(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
+        DocumentArchive.Read(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
     }
 }
 
-public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileFormat<FileReadOptions>> formats) : FileImportPlugIn, IPlugInViews, IPlugInRendering {
+public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileFormat<FileReadOptions>> formats) : FileImportPlugIn, IPlugInViews, IPlugInRendering, IPlugInLifetime {
     // --- [LIFECYCLE]
     private readonly PlugInDefinition definition = definition;
     private readonly Seq<FileFormat<FileReadOptions>> formats = formats;
@@ -174,10 +175,12 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override void ResetMessageBoxes() {
         base.ResetMessageBoxes();
-        _ = Callbacks.Answer(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
     }
 
     public void Report(Error error, Type owner, string member) => lifetime.Session.Report(error, owner, member);
+
+    public IO<Unit> Close => lifetime.Close;
 
     // --- [VIEWS]
     public ViewCatalog Views => lifetime.Views;
@@ -186,7 +189,7 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
 
     public AtomHashMap<Guid, ValueHistory> Histories => lifetime.Histories;
 
-    public IO<HistoryLimits> Limits => lifetime.Limits(((IPlugInViews)this).Settings);
+    public IO<HistoryLimits> Limits => definition.History(((IPlugInViews)this).Settings);
 
     SettingsNode IPlugInViews.Settings => new(new SettingsRoot.PlugInNode(Id));
 
@@ -201,8 +204,6 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
 
     public Atom<Option<RenderSets>> Sets { get; } = Atom(Option<RenderSets>.None);
 
-    public Atom<Option<NoticeSender>> Notices { get; } = Atom(Option<NoticeSender>.None);
-
     public Atom<Option<QueueContext>> QueueContext { get; } = Atom(Option<QueueContext>.None);
 
     // --- [IDENTITY]
@@ -216,17 +217,17 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {
         base.OptionsDialogPages(pages);
-        _ = Callbacks.Answer(ViewRegistration.OptionsDialogPages(this, pages), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
     }
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
         base.DocumentPropertiesDialogPages(doc, pages);
-        _ = Callbacks.Answer(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
     }
 
     protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
         base.ObjectPropertiesPages(collection);
-        _ = Callbacks.Answer(ViewRegistration.ObjectPropertiesPages(this, collection), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
     }
 
     // --- [ARCHIVE]
@@ -234,12 +235,12 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) {
         base.WriteDocument(doc, archive, options);
-        _ = DocumentArchive.Write(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
+        DocumentArchive.Write(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
     }
 
     protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
         base.ReadDocument(doc, archive, options);
-        _ = DocumentArchive.Read(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
+        DocumentArchive.Read(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
     }
 
     // --- [FILES]
@@ -255,11 +256,11 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) {
         base.DisplayOptionsDialog(parent, description, extension);
-        _ = Callbacks.Answer(FileFormats.DisplayOptionsDialog(this, formats, description, extension), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension), CallbackSite.Of(this));
     }
 }
 
-public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileFormat<FileWriteOptions>> formats) : FileExportPlugIn, IPlugInViews, IPlugInRendering {
+public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileFormat<FileWriteOptions>> formats) : FileExportPlugIn, IPlugInViews, IPlugInRendering, IPlugInLifetime {
     // --- [LIFECYCLE]
     private readonly PlugInDefinition definition = definition;
     private readonly Seq<FileFormat<FileWriteOptions>> formats = formats;
@@ -284,10 +285,12 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override void ResetMessageBoxes() {
         base.ResetMessageBoxes();
-        _ = Callbacks.Answer(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
     }
 
     public void Report(Error error, Type owner, string member) => lifetime.Session.Report(error, owner, member);
+
+    public IO<Unit> Close => lifetime.Close;
 
     // --- [VIEWS]
     public ViewCatalog Views => lifetime.Views;
@@ -296,7 +299,7 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
 
     public AtomHashMap<Guid, ValueHistory> Histories => lifetime.Histories;
 
-    public IO<HistoryLimits> Limits => lifetime.Limits(((IPlugInViews)this).Settings);
+    public IO<HistoryLimits> Limits => definition.History(((IPlugInViews)this).Settings);
 
     SettingsNode IPlugInViews.Settings => new(new SettingsRoot.PlugInNode(Id));
 
@@ -311,8 +314,6 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
 
     public Atom<Option<RenderSets>> Sets { get; } = Atom(Option<RenderSets>.None);
 
-    public Atom<Option<NoticeSender>> Notices { get; } = Atom(Option<NoticeSender>.None);
-
     public Atom<Option<QueueContext>> QueueContext { get; } = Atom(Option<QueueContext>.None);
 
     // --- [IDENTITY]
@@ -326,17 +327,17 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {
         base.OptionsDialogPages(pages);
-        _ = Callbacks.Answer(ViewRegistration.OptionsDialogPages(this, pages), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
     }
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
         base.DocumentPropertiesDialogPages(doc, pages);
-        _ = Callbacks.Answer(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
     }
 
     protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
         base.ObjectPropertiesPages(collection);
-        _ = Callbacks.Answer(ViewRegistration.ObjectPropertiesPages(this, collection), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
     }
 
     // --- [ARCHIVE]
@@ -344,12 +345,12 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) {
         base.WriteDocument(doc, archive, options);
-        _ = DocumentArchive.Write(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
+        DocumentArchive.Write(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
     }
 
     protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
         base.ReadDocument(doc, archive, options);
-        _ = DocumentArchive.Read(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
+        DocumentArchive.Read(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
     }
 
     // --- [FILES]
@@ -365,11 +366,11 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) {
         base.DisplayOptionsDialog(parent, description, extension);
-        _ = Callbacks.Answer(FileFormats.DisplayOptionsDialog(this, formats, description, extension), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension), CallbackSite.Of(this));
     }
 }
 
-public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererDefinition renderer) : RenderPlugIn, IPlugInViews, IPlugInRendering {
+public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererDefinition renderer) : RenderPlugIn, IPlugInViews, IPlugInRendering, IPlugInLifetime {
     // --- [LIFECYCLE]
     private readonly PlugInDefinition definition = definition;
     private readonly RendererDefinition renderer = renderer;
@@ -394,10 +395,12 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
 
     protected sealed override void ResetMessageBoxes() {
         base.ResetMessageBoxes();
-        _ = Callbacks.Answer(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
     }
 
     public void Report(Error error, Type owner, string member) => lifetime.Session.Report(error, owner, member);
+
+    public IO<Unit> Close => lifetime.Close;
 
     // --- [VIEWS]
     public ViewCatalog Views => lifetime.Views;
@@ -406,7 +409,7 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
 
     public AtomHashMap<Guid, ValueHistory> Histories => lifetime.Histories;
 
-    public IO<HistoryLimits> Limits => lifetime.Limits(((IPlugInViews)this).Settings);
+    public IO<HistoryLimits> Limits => definition.History(((IPlugInViews)this).Settings);
 
     SettingsNode IPlugInViews.Settings => new(new SettingsRoot.PlugInNode(Id));
 
@@ -421,8 +424,6 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
 
     public Atom<Option<RenderSets>> Sets { get; } = Atom(Option<RenderSets>.None);
 
-    public Atom<Option<NoticeSender>> Notices { get; } = Atom(Option<NoticeSender>.None);
-
     public Atom<Option<QueueContext>> QueueContext { get; } = Atom(Option<QueueContext>.None);
 
     // --- [IDENTITY]
@@ -436,17 +437,17 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {
         base.OptionsDialogPages(pages);
-        _ = Callbacks.Answer(ViewRegistration.OptionsDialogPages(this, pages), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
     }
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
         base.DocumentPropertiesDialogPages(doc, pages);
-        _ = Callbacks.Answer(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
     }
 
     protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
         base.ObjectPropertiesPages(collection);
-        _ = Callbacks.Answer(ViewRegistration.ObjectPropertiesPages(this, collection), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
     }
 
     protected sealed override OptionsDialogPage? RenderOptionsDialogPage(RhinoDoc doc) =>
@@ -462,20 +463,15 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
 
     protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) {
         base.WriteDocument(doc, archive, options);
-        _ = DocumentArchive.Write(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
+        DocumentArchive.Write(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
     }
 
     protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
         base.ReadDocument(doc, archive, options);
-        _ = DocumentArchive.Read(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
+        DocumentArchive.Read(definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
     }
 
     // --- [RENDER]
-    private const RenderWindow.StandardChannels DefaultChannels =
-        global::Rhino.Render.RenderWindow.StandardChannels.RGB
-        | global::Rhino.Render.RenderWindow.StandardChannels.NormalXYZ
-        | global::Rhino.Render.RenderWindow.StandardChannels.AlbedoRGB;
-
     protected sealed override Result Render(RhinoDoc doc, RunMode mode, bool fastPreview) =>
         Callbacks.Answer(Conversions.ToResult(Batches.Render(doc, mode, this, renderer.Engine, new RenderStart.Full(fastPreview))), static () => Result.Failure, CallbackSite.Of(this));
 
@@ -487,45 +483,37 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
 
     protected sealed override bool SupportsFeature(RenderFeature feature) => renderer.Features.Contains(feature);
 
-    protected sealed override Guid[] SupportedChannels =>
-        [
-            .. toSeq(Enum.GetValues<RenderWindow.StandardChannels>())
-                .Filter(channel => int.IsPow2((int)channel) && (renderer.Engine.Channels & ~DefaultChannels).HasFlag(channel))
-                .Choose(static channel => Conversions.Present(global::Rhino.Render.RenderWindow.ChannelId(channel))),
-        ];
+    protected sealed override Guid[] SupportedChannels => [.. renderer.Engine.SupportedChannels];
 
     // --- [RENDER_WINDOW]
     protected sealed override void RegisterRenderPanels(RenderPanels panels) {
         base.RegisterRenderPanels(panels);
-        _ = Callbacks.Answer(ViewRegistration.RegisterRenderPanels(this, panels), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.RegisterRenderPanels(this, panels), CallbackSite.Of(this));
     }
 
     protected sealed override void RegisterRenderTabs(RenderTabs tabs) {
         base.RegisterRenderTabs(tabs);
-        _ = Callbacks.Answer(ViewRegistration.RegisterRenderTabs(this, tabs), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.RegisterRenderTabs(this, tabs), CallbackSite.Of(this));
     }
 
     // --- [SECTIONS]
     public sealed override void RenderSettingsCustomSections(List<ICollapsibleSection> sections) {
         base.RenderSettingsCustomSections(sections);
-        _ = Callbacks.Answer(ViewRegistration.CustomSections(this, renderer.SettingsSections, sections), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.CustomSections(this, renderer.SettingsSections, sections), CallbackSite.Of(this));
     }
 
     public sealed override void SunCustomSections(List<ICollapsibleSection> sections) {
         base.SunCustomSections(sections);
-        _ = Callbacks.Answer(ViewRegistration.CustomSections(this, renderer.SunSections, sections), static () => unit, CallbackSite.Of(this));
+        Callbacks.Run(ViewRegistration.CustomSections(this, renderer.SunSections, sections), CallbackSite.Of(this));
     }
 
     // --- [SAVES]
     protected sealed override void RegisterCustomRenderSaveFileTypes(CustomRenderSaveFileTypes saveFileTypes) {
         base.RegisterCustomRenderSaveFileTypes(saveFileTypes);
-        _ = Callbacks.Answer(
-            IO.lift(() => renderer.SaveTypes.Iter(type => saveFileTypes.RegisterFileType(
-                Seq(type.Target.FileFormat.Extension[1..]),
-                RowText.Localize(type.Description, table: Some<object>(this)).Local,
-                (fileName, includeAlpha, window) => SaveFile(type.Target with { Alpha = includeAlpha }, fileName, window)))),
-            static () => unit,
-            CallbackSite.Of(this));
+        Callbacks.Run(IO.lift(() => renderer.SaveTypes.Iter(type => saveFileTypes.RegisterFileType(
+            Seq(type.Target.FileFormat.Extension[1..]),
+            RowText.Localize(type.Description, table: Some<object>(this)).Local,
+            (fileName, includeAlpha, window) => SaveFile(type.Target with { Alpha = includeAlpha }, fileName, window)))), CallbackSite.Of(this));
     }
 
     private bool SaveFile(OutputTarget target, string fileName, RenderWindow window) =>
@@ -534,7 +522,7 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
                 from path in IO.lift(Conversions.Validated<OutputPath, string, InvalidOutput>(fileName))
                 from origin in FileOrigin.At(this)
                 from whole in Saves.Whole(window)
-                from written in Saves.Write(new SaveSource(document, window), origin, target, path, None, whole)
+                from written in Saves.Write(new SaveSource(document, window, None), origin, Seq((target, path, Option<RenderRegion>.None, whole)))
                 select unit),
             CallbackSite.Of(this, nameof(CustomRenderSaveFileTypes.SaveFileHandler)));
 
@@ -553,19 +541,15 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
 
     protected sealed override void CreatePreview(CreatePreviewEventArgs args) {
         base.CreatePreview(args);
-        _ = Callbacks.Answer(
+        Callbacks.Run(
             renderer.Preview.Map(row => row.Content(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))),
-            static () => unit,
-            static () => unit,
             CallbackSite.Of(this));
     }
 
     protected sealed override void CreateTexture2dPreview(CreateTexture2dPreviewEventArgs args) {
         base.CreateTexture2dPreview(args);
-        _ = Callbacks.Answer(
+        Callbacks.Run(
             renderer.Preview.Map(row => row.Texture(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))),
-            static () => unit,
-            static () => unit,
             CallbackSite.Of(this));
     }
 }

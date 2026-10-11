@@ -32,14 +32,26 @@ public static class Callbacks {
     public static bool Succeeded(Option<IO<Unit>> effect, Func<bool> absent, CallbackSite site) =>
         effect.Match(Some: run => Succeeded(run, site), None: absent);
 
+    public static void Run<T>(IO<T> effect, CallbackSite site) =>
+        Run(Try.lift(effect.Run).Run(), site);
+
+    public static void Run<T>(Fin<T> answer, CallbackSite site) =>
+        answer.IfFail(error => site.Sink.Report(error, site.Owner, site.Member));
+
+    public static void Run<T>(Option<IO<T>> effect, CallbackSite site) =>
+        effect.Iter(run => Run(run, site));
+
     public static EventHandler<TArgs> Handler<TArgs>(Func<TArgs, IO<Unit>> deliver, CallbackSite site) =>
-        (_, args) => _ = Answer(args, deliver, static () => unit, site);
+        (_, args) => Run(IO.pure(args).Bind(deliver), site);
 
     // --- [CALLS]
     public static IO<T> Captured<T>(Func<Action<Fin<T>>, IO<Unit>> host, string member) =>
+        CapturedOptional(host).Bind(answer => IO.lift(() => answer.ToFin(new Missing(member))));
+
+    public static IO<Option<T>> CapturedOptional<T>(Func<Action<Fin<T>>, IO<Unit>> host) =>
         from answer in IO.lift(static () => Atom(Option<Fin<T>>.None))
         from _ in host(value => answer.Swap(_ => Some(value)))
-        from value in IO.lift(answer.Value.IfNone(() => new Missing(member)))
+        from value in answer.Value.Traverse(static result => IO.lift(() => result)).As()
         select value;
 
     public static IO<T> Captured<TArgs, T>(Action<Action<TArgs>> host, Func<TArgs, IO<T>> body, string member) =>

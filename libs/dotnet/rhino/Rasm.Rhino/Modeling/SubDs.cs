@@ -2,6 +2,8 @@ using Rasm.Rhino.Document.Notation;
 using Rasm.Rhino.Document.Shapes;
 using Rasm.Rhino.Objects;
 using Rhino;
+using Rhino.DocObjects;
+using Rhino.DocObjects.Tables;
 using Rhino.Geometry.Collections;
 
 namespace Rasm.Rhino.Modeling;
@@ -11,7 +13,7 @@ namespace Rasm.Rhino.Modeling;
 public abstract partial record SubDEdit {
     public sealed record Subdivide(int Count) : SubDEdit;
     public sealed record SubdivideFaces(Seq<int> FaceIndices) : SubDEdit;
-    public sealed record InterpolateSurfacePoints(Seq<(uint Vertex, Point3d Point)> Points) : SubDEdit;
+    public sealed record InterpolateSurfacePoints(Seq<Point3d> SurfacePoints) : SubDEdit;
     public sealed record SetVertexSurfacePoint(uint VertexIndex, Point3d SurfacePoint) : SubDEdit;
     public sealed record MergeAllCoplanarFaces : SubDEdit;
     public sealed record PackFaces : SubDEdit;
@@ -31,18 +33,33 @@ public readonly partial struct EditResult<TCount> where TCount : struct, System.
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SubDs {
     // --- [EDITS]
-    public static IO<(SubD Copy, bool CopiedCache, Seq<(SubDEdit Edit, EditResult<uint> Result, uint UpdatedTags)> Edits, uint UpdatedCache)> Edit(SubD source, Seq<SubDEdit> edits, Tolerances tolerances) =>
-        from copy in Copies.Duplicate(source)
-        from answer in DisposalOps.OnFailure(
+    public static IO<(SubD Copy, bool CopiedCache, Seq<(SubDEdit Edit, EditResult<uint> Result, uint UpdatedTags)> Edits, uint UpdatedCache)> Edit(SubD source, Seq<SubDEdit> edits, Tolerances tolerances, Action<IDisposable> retain) =>
+        Copies.Edit(source, copy =>
             from copiedCache in IO.lift(() => copy.CopyEvaluationCache(source))
             from result in Edited(copy, edits, tolerances)
-            from valid in IO.lift(() => Measurements.Valid(copy, nameof(SubD.UpdateSurfaceMeshCache)))
-            select (valid, copiedCache, result.Edits, result.UpdatedCache),
-            IO.lift(copy.Dispose))
-        select answer;
+            select (CopiedCache: copiedCache, result.Edits, result.UpdatedCache),
+            nameof(SubD.UpdateSurfaceMeshCache), retain)
+            .Map(static answer => (answer.Copy, answer.Result.CopiedCache, answer.Result.Edits, answer.Result.UpdatedCache));
 
     public static IO<(Seq<(SubDEdit Edit, EditResult<uint> Result, uint UpdatedTags)> Edits, uint UpdatedCache)> Revise(RhinoDoc doc, Guid id, Seq<SubDEdit> edits, Tolerances tolerances) =>
         RhinoObjects.ReplaceGeometry(doc, id, (SubD copy) => Edited(copy, edits, tolerances));
+
+    public static IO<(uint UpdatedTags, uint UpdatedCache)> InterpolateSurfacePoints(RhinoDoc doc, Guid id, Seq<(uint Vertex, Point3d Point)> points) =>
+        DisposalOps.Within(() => new ObjRef(doc, id), reference => DisposalOps.Within((Action<IDisposable> retain) =>
+            from subd in Copies.Acquire(reference.SubD, nameof(ObjRef.SubD), retain)
+            let targets = points.Map(static row => row.Point).ToArray()
+            from solved in DisposalOps.Within(
+                () => (Interpolator: SubDSurfaceInterpolator.CreateFromVertexIdList(subd, points.Map(static row => row.Vertex), out uint count), Count: count),
+                made =>
+                    from interpolator in IO.lift(() => Refused.Unless(made.Count == points.Count, made.Interpolator, nameof(SubD.InterpolateSurfacePoints)))
+                    from result in IO.lift(() => Refused.Unless(interpolator.Solve(targets), nameof(SubDSurfaceInterpolator.Solve)))
+                    select result,
+                static made => IO.lift(made.Interpolator.Dispose))
+            from tags in IO.lift(subd.UpdateAllTagsAndSectorCoefficients)
+            from cache in IO.lift(() => subd.UpdateSurfaceMeshCache(lazyUpdate: true))
+            from replaced in IO.lift(() => Refused.Unless(doc.Objects.Replace(reference, subd), nameof(ObjectTable.Replace)))
+            select (tags, cache),
+            DisposalOps.Release), static reference => IO.lift(reference.Dispose));
 
     private static IO<(Seq<(SubDEdit Edit, EditResult<uint> Result, uint UpdatedTags)> Edits, uint UpdatedCache)> Edited(SubD subd, Seq<SubDEdit> edits, Tolerances tolerances) =>
         from results in edits.TraverseM(edit => Applied(subd, edit, tolerances)).As()
@@ -55,7 +72,7 @@ public static class SubDs {
             subdivide: static (state, of) => IO.lift(() => Refused.Unless(state.Subd.Subdivide(of.Count), EditResult<uint>.CreateCompleted(), nameof(SubD.Subdivide))),
             subdivideFaces: static (state, of) => IO.lift(() => Refused.Unless(state.Subd.Subdivide(of.FaceIndices), EditResult<uint>.CreateCompleted(), nameof(SubD.Subdivide))),
             interpolateSurfacePoints: static (state, of) => IO.lift(() => Refused.Unless(
-                state.Subd.InterpolateSurfacePoints([.. of.Points.Map(static row => row.Vertex)], [.. of.Points.Map(static row => row.Point)]),
+                state.Subd.InterpolateSurfacePoints([.. of.SurfacePoints]),
                 EditResult<uint>.CreateCompleted(), nameof(SubD.InterpolateSurfacePoints))),
             setVertexSurfacePoint: static (state, of) => IO.lift(() => Refused.Unless(state.Subd.SetVertexSurfacePoint(of.VertexIndex, of.SurfacePoint), EditResult<uint>.CreateCompleted(), nameof(SubD.SetVertexSurfacePoint))),
             mergeAllCoplanarFaces: static (state, _) => IO.lift(() => new EditResult<uint>(state.Subd.MergeAllCoplanarFaces(state.Tolerances.Absolute, state.Tolerances.Angle))),

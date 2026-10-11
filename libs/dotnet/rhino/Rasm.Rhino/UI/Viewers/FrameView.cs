@@ -85,7 +85,7 @@ public abstract partial record FrameTransform {
     public sealed record Placed(FrameZoom Zoom, Vector2 Center) : FrameTransform;
 }
 
-public sealed record FrameFeed(IO<Option<PixelFrame>> Read, Transfer Encoding, Option<Nits> Peak, ImageInterpolation Reduction);
+public sealed record FrameFeed(Transfer Encoding, Option<Nits> Peak, ImageInterpolation Reduction);
 
 public sealed record FrameSide(FrameFeed Feed, string Caption);
 
@@ -119,30 +119,31 @@ public sealed partial class RegionHandle {
     public Cursor Shape { get; }
 }
 
-public readonly record struct QuadCorners(Vector2 TopLeft, Vector2 TopRight, Vector2 BottomRight, Vector2 BottomLeft) {
+public readonly record struct QuadCorners((double X, double Y) TopLeft, (double X, double Y) TopRight, (double X, double Y) BottomRight, (double X, double Y) BottomLeft) {
     public Option<FrameQuad> Quad => FrameQuad.Validate(TopLeft, TopRight, BottomRight, BottomLeft, out FrameQuad? quad) is null ? Optional(quad) : None;
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class QuadCorner {
-    public static readonly QuadCorner TopLeft = new(Lens<QuadCorners, Vector2>.New(static held => held.TopLeft, static point => held => held with { TopLeft = point }));
-    public static readonly QuadCorner TopRight = new(Lens<QuadCorners, Vector2>.New(static held => held.TopRight, static point => held => held with { TopRight = point }));
-    public static readonly QuadCorner BottomRight = new(Lens<QuadCorners, Vector2>.New(static held => held.BottomRight, static point => held => held with { BottomRight = point }));
-    public static readonly QuadCorner BottomLeft = new(Lens<QuadCorners, Vector2>.New(static held => held.BottomLeft, static point => held => held with { BottomLeft = point }));
+    public static readonly QuadCorner TopLeft = new(Lens<QuadCorners, (double X, double Y)>.New(static held => held.TopLeft, static point => held => held with { TopLeft = point }));
+    public static readonly QuadCorner TopRight = new(Lens<QuadCorners, (double X, double Y)>.New(static held => held.TopRight, static point => held => held with { TopRight = point }));
+    public static readonly QuadCorner BottomRight = new(Lens<QuadCorners, (double X, double Y)>.New(static held => held.BottomRight, static point => held => held with { BottomRight = point }));
+    public static readonly QuadCorner BottomLeft = new(Lens<QuadCorners, (double X, double Y)>.New(static held => held.BottomLeft, static point => held => held with { BottomLeft = point }));
 
-    public Lens<QuadCorners, Vector2> Point { get; }
+    public Lens<QuadCorners, (double X, double Y)> Point { get; }
 }
 
 public sealed record QuadPatch(QuadCorners Corners, Vector3 Fill, Vector3 Outline);
 
 public sealed record FrameMask(Coverage Coverage, MarkStyle Style);
 
-public sealed record FrameGuide(System.Drawing.Rectangle Frame, MarkStyle.Stroke Style);
+public sealed record FrameSampling(IO<(FrameShown Current, Option<FrameShown> Reference, Seq<FrameMask> Masks)> Read, IO<Unit> Stop);
+
+public sealed record FrameGuide((long Left, long Top, long Right, long Bottom) Frame, MarkStyle.Stroke Style);
 
 [Union]
 public abstract partial record FrameOverlay {
     public sealed record AreaPick(Option<PixelExtent> Aspect, Func<FrameRegion, string> Readout) : FrameOverlay;
-    public sealed record MaskSet(Seq<FrameMask> Masks) : FrameOverlay;
     public sealed record GuideSet(Seq<FrameGuide> Guides) : FrameOverlay;
     public sealed record QuadCage(Func<FrameQuad, Seq<QuadPatch>> Patches, Gamut Working, OverlayOpacity Opacity) : FrameOverlay;
 }
@@ -151,16 +152,16 @@ public abstract partial record FrameOverlay {
 public abstract partial record FrameEdit {
     public sealed record AreaEdited(FrameRegion Area) : FrameEdit;
     public sealed record QuadEdited(FrameQuad Quad) : FrameEdit;
-    public sealed record PixelPicked(System.Drawing.Point Pixel) : FrameEdit;
+    public sealed record PixelPicked((double X, double Y) Pixel) : FrameEdit;
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class PickKind {
-    public static readonly PickKind Value = new(static sink => Icons.PickCursor(sink).Map(static cursor => (cursor, Some<IDisposable>(cursor))));
-    public static readonly PickKind Position = new(static _ => IO.pure((Cursors.Crosshair, Option<IDisposable>.None)));
+    public static readonly PickKind Value = new(static (sink, retain) => Icons.PickCursor(sink, retain));
+    public static readonly PickKind Position = new(static (_, _) => IO.pure(Cursors.Crosshair));
 
     [UseDelegateFromConstructor]
-    public partial IO<(Cursor Shape, Option<IDisposable> Lease)> Cursor(IPlugInSink sink);
+    public partial IO<Cursor> Cursor(IPlugInSink sink, Action<IDisposable> retain);
 }
 
 [Union]
@@ -182,16 +183,17 @@ public abstract partial record FrameDrag {
 
 public sealed record FrameViewState(
     FrameShown Current, Option<FrameShown> Reference, Nits Target, FrameTransform Transform, bool Comparing, CompareMode Mode, AxisFraction Split, bool Swapped,
-    Option<FrameOverlay> Overlay, FrameRegion Area, Option<FrameQuad> Quad, Option<PickKind> Picking, Option<FrameDrag> Drag);
+    Seq<FrameMask> Masks, Option<FrameOverlay> Overlay, FrameRegion Area, Option<FrameQuad> Quad, Option<PickKind> Picking, Option<FrameDrag> Drag);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class FrameView : ComponentControl<FrameViewState, FramePart, FrameEdit> {
     // --- [STATE]
     private readonly Seq<(Command Command, Func<FrameViewState, Transition<FrameViewState, FrameEdit>> Act)> bindings;
     private Cache cache = Cache.Empty;
+    private Option<IDisposable> appearance;
 
-    public FrameView(IPlugInSink sink, FrameSide current, IO<Option<FrameSide>> reference)
-        : base(sink, Initial(current), Some(Sampled(sink, current, reference))) {
+    public FrameView(IPlugInSink sink, (FrameShown Current, Option<FrameShown> Reference, Seq<FrameMask> Masks) initial, FrameSampling sampling)
+        : base(sink, Initial(initial), Some(Sampled(sink, sampling))) {
         Compare = Titled(new CheckCommand(), "Compare");
         Modes = toSeq(CompareMode.Items).Map(static mode => (mode, Titled(new RadioCommand { Shortcut = mode.Shortcut }, mode.Caption))).Strict();
         Swap = Titled(new Command { Shortcut = Keys.Alt | Keys.W }, "Swap");
@@ -216,12 +218,8 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     public IO<Unit> Overlay(Option<FrameOverlay> overlay) => Advance(state => new(state with { Overlay = overlay, Drag = None }, None));
 
     public IO<Unit> Pick(PickKind kind) =>
-        from lease in kind.Cursor(Sink)
-        from released in Unpicked
-        from held in IO.lift(() => {
-            cache = cache with { Pick = Some(lease) };
-            Focus();
-        })
+        from held in Picked(kind)
+        from focused in IO.lift(Focus)
         from picked in Advance(state => new(state with { Picking = Some(kind), Drag = None }, None))
         select picked;
 
@@ -239,79 +237,126 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         from released in when(before.Picking.IsSome && after.Picking.IsNone, Unpicked).As()
         select released;
 
-    protected override void OnUnLoad(EventArgs e) {
-        base.OnUnLoad(e);
-        _ = Callbacks.Answer(Emptied, static () => unit, Site());
+    protected override void OnLoad(EventArgs e) {
+        base.OnLoad(e);
+        Callbacks.Run(DisposalOps.Acquire(owned => HostTheme.In(this).Inline(_ =>
+            from cursor in State.Picking.Traverse(Picked).As()
+            from refreshed in Advance(static state => new(state, None))
+            from invalidated in IO.lift(() => Invalidate())
+            select unit, Sink, owned), (_, lease) => appearance = Some(lease)), Site());
     }
 
-    private static FrameViewState Initial(FrameSide current) =>
-        new(new FrameShown(current, None), None, Nits.ReferenceWhite, new FrameTransform.Fitted(), Comparing: false, CompareMode.VerticalWipe, AxisFraction.Half, Swapped: false,
-            None, FrameRegion.Whole, None, None, None);
+    protected override void OnUnLoad(EventArgs e) =>
+        Callbacks.Run(Callbacks.Each(Seq(
+            Unwatched, IO.lift(() => base.OnUnLoad(e)), Advance(static state => new(state with { Picking = None, Drag = None }, None)), Emptied))
+            .Uninterruptible(), Site());
 
-    private static Func<Control, IO<Func<FrameViewState, FrameViewState>>> Sampled(IPlugInSink sink, FrameSide current, IO<Option<FrameSide>> reference) =>
+    protected override void Dispose(bool disposing) =>
+        Callbacks.Run(Callbacks.Each(
+            (disposing
+                ? Seq(Unwatched)
+                : Seq<IO<Unit>>()).Add(IO.lift(() => base.Dispose(disposing)).Bind(_ =>
+                    when(disposing, IO.lift(() => {
+                        Cache held = cache;
+                        cache = Cache.Empty;
+                        return held;
+                    }).Bind(static held => DisposalOps.Release(held.Owned))).As())))
+            .Uninterruptible(), Site());
+
+    private static FrameViewState Initial((FrameShown Current, Option<FrameShown> Reference, Seq<FrameMask> Masks) initial) =>
+        new(initial.Current, initial.Reference, Nits.ReferenceWhite, new FrameTransform.Fitted(), Comparing: initial.Reference.IsSome, CompareMode.VerticalWipe, AxisFraction.Half, Swapped: false,
+            initial.Masks, None, FrameRegion.Whole, None, None, None);
+
+    private static Func<Control, IO<Func<FrameViewState, FrameViewState>>> Sampled(IPlugInSink sink, FrameSampling sampling) =>
         view =>
-            from frame in current.Feed.Read
-            from side in reference
-            from other in side.Traverse(static held => held.Feed.Read.Map(read => new FrameShown(held, read))).As()
+            from sampled in sampling.Read
             from target in Target(sink, view)
             select fun((FrameViewState held) => held with {
-                Current = new FrameShown(current, frame),
-                Reference = other,
+                Current = sampled.Current,
+                Reference = sampled.Reference,
+                Comparing = sampled.Reference.IsSome && (held.Comparing || sampled.Reference.Map(static shown => shown.Side) != held.Reference.Map(static shown => shown.Side)),
                 Target = target,
-                Transform = frame.Map(static shown => shown.Size) == held.Current.Frame.Map(static shown => shown.Size) ? held.Transform : new FrameTransform.Fitted(),
+                Masks = sampled.Masks,
+                Transform = sampled.Current.Frame.Map(static shown => shown.Size) == held.Current.Frame.Map(static shown => shown.Size) ? held.Transform : new FrameTransform.Fitted(),
             });
 
     private IO<Unit> Unpicked =>
-        from held in IO.lift(() => cache.Pick)
-        from cleared in IO.lift(() => {
-            cache = cache with { Pick = None };
-        })
-        from released in DisposalOps.Release(held.Bind(static pick => pick.Lease).ToSeq())
-        select released;
+        IO.lift(() => {
+            Option<(Option<Cursor> Shape, Seq<(Cursor Shape, IDisposable Lease)> Owned)> held = cache.Pick;
+            cache = cache with { Pick = held.Map(static pick => (Shape: Option<Cursor>.None, pick.Owned)) };
+            return held;
+        }).Bind(held => (from pick in held from shape in pick.Shape select pick.Owned).Match(
+            Some: owned => IO.lift(() => {
+                Cursor selected = Cursor;
+                if (owned.Exists(pick => ReferenceEquals(selected, pick.Shape))) Cursor = Cursors.Default;
+                cache = cache with { Pick = None };
+            }).Bind(_ => DisposalOps.Release(owned.Map(static pick => pick.Lease))),
+            None: static () => IO.pure(unit))).Uninterruptible();
+
+    private IO<Unit> Picked(PickKind kind) =>
+        DisposalOps.Replace(owned => kind.Cursor(Sink, owned), (shape, lease) => {
+            Option<(Option<Cursor> Shape, Seq<(Cursor Shape, IDisposable Lease)> Owned)> prior = cache.Pick;
+            Cursor selected = Cursor;
+            Seq<(Cursor Shape, IDisposable Lease)> reserved = prior.ToSeq().Bind(static pick => pick.Owned).Add((shape, lease));
+            cache = cache with { Pick = Some((prior.Map(static pick => pick.Shape).IfNone(Some(shape)), reserved)) };
+            return DisposalOps.OnFailure(
+                IO.lift(() => {
+                    if (prior.Exists(pick => pick.Shape.IsNone || pick.Owned.Exists(owned => ReferenceEquals(selected, owned.Shape)))) Cursor = shape;
+                }),
+                IO.lift(() => { Cursor = selected; })
+                    .Bind(_ => IO.lift(() => { cache = cache with { Pick = prior }; }))
+                    .Bind(_ => DisposalOps.Release(Seq(lease))))
+                .Bind(_ => IO.lift(() => { cache = cache with { Pick = Some((Some(shape), Seq((shape, lease)))) }; }))
+                .Bind(_ => DisposalOps.Release(prior.ToSeq().Bind(static pick => pick.Owned).Map(static owned => owned.Lease)));
+        }).Map(static _ => unit);
+
+    private IO<Unit> Unwatched =>
+        IO.lift(() => {
+            Option<IDisposable> held = appearance;
+            appearance = None;
+            return held;
+        }).Bind(static held => DisposalOps.Release(held.ToSeq()));
 
     private IO<Unit> Emptied =>
-        from held in IO.lift(() => cache)
-        from cleared in IO.lift(() => {
-            cache = Cache.Empty;
-        })
-        from released in DisposalOps.Release(held.Owned)
-        select released;
+        Callbacks.Each(Seq(Unpicked, IO.lift(() => {
+            Cache held = cache;
+            cache = Cache.Empty with { Pick = held.Pick };
+            return held with { Pick = None };
+        }).Bind(static held => DisposalOps.Release(held.Owned))))
+            .Map(static _ => unit).Uninterruptible();
 
-    private IO<Bitmap> Cached<TKey>(Lens<Cache, HashMap<TKey, Bitmap>> slot, TKey key, Func<IO<Bitmap>> build) =>
+    private IO<Bitmap> Cached<TKey>(Lens<Cache, HashMap<TKey, Bitmap>> slot, TKey key, Func<Action<Bitmap>, IO<Bitmap>> build) =>
         IO.lift(() => slot.Get(cache).Find(key)).Bind(found => found.Match(
             Some: static image => IO.pure(image),
-            None: () =>
-                from image in build()
-                from stored in IO.lift(() => {
-                    cache = slot.Update(held => held.Add(key, image), cache);
-                })
-                select image));
+            None: () => build(image => cache = slot.Update(held => held.Add(key, image), cache))));
 
     private IO<Unit> Retained<TKey>(Lens<Cache, HashMap<TKey, Bitmap>> slot, LanguageExt.HashSet<TKey> keep) =>
-        from gone in IO.lift(() => slot.Get(cache).Filter((key, _) => !keep.Contains(key)))
-        from kept in IO.lift(() => {
+        (from gone in IO.lift(() => {
+            HashMap<TKey, Bitmap> gone = slot.Get(cache).Filter((key, _) => !keep.Contains(key));
             cache = slot.Update(held => held.Filter((key, _) => keep.Contains(key)), cache);
+            return gone;
         })
-        from released in DisposalOps.Release(toSeq(gone.Values))
-        select released;
+         from released in DisposalOps.Release(toSeq(gone.Values))
+         select released).Uninterruptible();
 
     private sealed record Cache(
-        HashMap<(PixelFrame Frame, Nits Target), Bitmap> Frames,
+        HashMap<(PixelFrame Frame, FrameFeed Feed, Nits Target), Bitmap> Frames,
         HashMap<(PixelFrame Frame, FrameMask Mask, Color Color), Bitmap> Tints,
-        Option<(Cursor Shape, Option<IDisposable> Lease)> Pick) {
-        public static Cache Empty { get; } = new(HashMap<(PixelFrame Frame, Nits Target), Bitmap>(), HashMap<(PixelFrame Frame, FrameMask Mask, Color Color), Bitmap>(), None);
+        Option<(Option<Cursor> Shape, Seq<(Cursor Shape, IDisposable Lease)> Owned)> Pick) {
+        public static Cache Empty { get; } = new(HashMap<(PixelFrame Frame, FrameFeed Feed, Nits Target), Bitmap>(), HashMap<(PixelFrame Frame, FrameMask Mask, Color Color), Bitmap>(), None);
 
-        public static Lens<Cache, HashMap<(PixelFrame Frame, Nits Target), Bitmap>> FrameSlot { get; } =
-            Lens<Cache, HashMap<(PixelFrame Frame, Nits Target), Bitmap>>.New(static held => held.Frames, static frames => held => held with { Frames = frames });
+        public static Lens<Cache, HashMap<(PixelFrame Frame, FrameFeed Feed, Nits Target), Bitmap>> FrameSlot { get; } =
+            Lens<Cache, HashMap<(PixelFrame Frame, FrameFeed Feed, Nits Target), Bitmap>>.New(static held => held.Frames, static frames => held => held with { Frames = frames });
 
         public static Lens<Cache, HashMap<(PixelFrame Frame, FrameMask Mask, Color Color), Bitmap>> TintSlot { get; } =
             Lens<Cache, HashMap<(PixelFrame Frame, FrameMask Mask, Color Color), Bitmap>>.New(static held => held.Tints, static tints => held => held with { Tints = tints });
 
         public Seq<IDisposable> Owned =>
-            toSeq(Frames.Values).Map<IDisposable>(static image => image) + toSeq(Tints.Values).Map<IDisposable>(static image => image) + Pick.Bind(static pick => pick.Lease).ToSeq();
+            toSeq(Frames.Values).Map<IDisposable>(static image => image) + toSeq(Tints.Values).Map<IDisposable>(static image => image)
+            + Pick.ToSeq().Bind(static pick => pick.Owned).Map(static owned => owned.Lease);
     }
 
-    private readonly record struct Placement(RectangleF Pane, float Scale, Vector2 Extent, float Fit, float Zoom, Vector2 Center) {
+    private readonly record struct Placement(RectangleF Pane, float Scale, Vector2 Extent, System.Drawing.Point Origin, float Fit, float Zoom, Vector2 Center) {
         private Vector2 Middle => new(Pane.X + (Pane.Width / 2f), Pane.Y + (Pane.Height / 2f));
 
         public RectangleF Frame => Mapped(new RectangleF(0f, 0f, Extent.X, Extent.Y));
@@ -324,6 +369,8 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             var view => new PointF(view.X, view.Y),
         };
 
+        public PointF View((double X, double Y) point) => View(new Vector2((float)(point.X - Origin.X), (float)(point.Y - Origin.Y)));
+
         public Vector2 Point(PointF view) => ((new Vector2(view.X, view.Y) - Middle) * (Scale / Zoom)) + Center;
 
         public Vector2 Fraction(PointF view) => Vector2.Clamp(Point(view) / Extent, Vector2.Zero, Vector2.One);
@@ -333,6 +380,11 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         public RectangleF Mapped(RectangleF frame) => (View(new Vector2(frame.Left, frame.Top)), View(new Vector2(frame.Right, frame.Bottom))) switch {
             var (from, to) => RectangleF.FromSides(from.X, from.Y, to.X, to.Y),
         };
+
+        public RectangleF Mapped((long Left, long Top, long Right, long Bottom) frame) =>
+            (View((frame.Left, frame.Top)), View((frame.Right, frame.Bottom))) switch {
+                var (from, to) => RectangleF.FromSides(from.X, from.Y, to.X, to.Y),
+            };
 
         public RectangleF Region(RectangleF fractions) =>
             Mapped(new RectangleF(fractions.X * Extent.X, fractions.Y * Extent.Y, fractions.Width * Extent.X, fractions.Height * Extent.Y));
@@ -384,7 +436,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     public IO<Option<FrameZoom>> Zoom =>
         IO.lift(() => Placed(State, Size, ParentWindow.LogicalPixelSize).Bind(static at => Conversions.Validated<FrameZoom, float, InvalidRhinoValue>(at.Zoom).ToOption()));
 
-    public IO<Option<System.Drawing.Point>> Hovered =>
+    public IO<Option<(double X, double Y)>> Hovered =>
         IO.lift(() =>
             from pointer in Pointer
             from at in At(State, Size, ParentWindow.LogicalPixelSize, pointer)
@@ -393,10 +445,10 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     public IO<Option<RectangleF>> VisibleFrame => IO.lift(() => Placed(State, Size, ParentWindow.LogicalPixelSize).Map(static at => at.Visible));
 
-    private static Option<System.Drawing.Point> Pixel(Placement at, PointF view) =>
+    private static Option<(double X, double Y)> Pixel(Placement at, PointF view) =>
         at.Point(view) switch {
             var point when point.X >= 0f && point.Y >= 0f && point.X < at.Extent.X && point.Y < at.Extent.Y =>
-                Some(new System.Drawing.Point((int)MathF.Floor(point.X), (int)MathF.Floor(point.Y))),
+                Some((at.Origin.X + (double)MathF.Floor(point.X) + 0.5d, at.Origin.Y + (double)MathF.Floor(point.Y) + 0.5d)),
             _ => None,
         };
 
@@ -409,7 +461,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         from frame in state.Current.Frame
         let extent = Extent(frame)
         let fit = float.Min(pane.Width * scale / extent.X, pane.Height * scale / extent.Y)
-        select new Placement(pane, scale, extent, fit, state.Transform.Switch(fit, fitted: static (held, _) => held, placed: static (_, placed) => (float)placed.Zoom), Centre(state.Transform, extent));
+        select new Placement(pane, scale, extent, frame.Origin, fit, state.Transform.Switch(fit, fitted: static (held, _) => held, placed: static (_, placed) => (float)placed.Zoom), Centre(state.Transform, extent));
 
     private static Option<Placement> Placed(FrameViewState state, SizeF size, float scale) =>
         Panes(state, size).Head.Bind(pane => Placed(state, pane, scale));
@@ -444,19 +496,15 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static Option<FrameOverlay.AreaPick> Picked(FrameViewState state) =>
         Overlaid(state).Bind(static overlay => overlay.Switch<Option<FrameOverlay.AreaPick>>(
-            areaPick: static pick => pick, maskSet: static _ => None, guideSet: static _ => None, quadCage: static _ => None));
-
-    private static Seq<FrameMask> Masks(FrameViewState state) =>
-        Overlaid(state).ToSeq().Bind(static overlay => overlay.Switch(
-            areaPick: static _ => [], maskSet: static set => set.Masks, guideSet: static _ => [], quadCage: static _ => []));
+            areaPick: static pick => pick, guideSet: static _ => None, quadCage: static _ => None));
 
     private static Seq<FrameGuide> Guides(FrameViewState state) =>
         Overlaid(state).ToSeq().Bind(static overlay => overlay.Switch(
-            areaPick: static _ => [], maskSet: static _ => [], guideSet: static set => set.Guides, quadCage: static _ => []));
+            areaPick: static _ => [], guideSet: static set => set.Guides, quadCage: static _ => []));
 
     private static Option<(FrameOverlay.QuadCage Cage, FrameQuad Quad)> Caged(FrameViewState state) =>
         from cage in Overlaid(state).Bind(static overlay => overlay.Switch<Option<FrameOverlay.QuadCage>>(
-            areaPick: static _ => None, maskSet: static _ => None, guideSet: static _ => None, quadCage: static cage => cage))
+            areaPick: static _ => None, guideSet: static _ => None, quadCage: static cage => cage))
         from quad in state.Quad
         select (cage, quad);
 
@@ -472,7 +520,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         new PlotMark<FramePart>(new MarkShape.Band(new RectangleF(size)), None, Some(new MarkPart<FramePart>(new FramePart.Ground(), 0f))).Cons(
             Placed(state, size, scale).ToSeq().Bind(at =>
                 Guides(state).Map(guide => new PlotMark<FramePart>(
-                    new MarkShape.Band(at.Mapped(new RectangleF(guide.Frame.X, guide.Frame.Y, guide.Frame.Width, guide.Frame.Height))), Some<MarkStyle>(guide.Style), None))
+                    new MarkShape.Band(at.Mapped(guide.Frame)), Some<MarkStyle>(guide.Style), None))
                 + Divided(state, size, scale).Filter(_ => state.Mode.Rule.IsSome).ToSeq().Map(static divided => new PlotMark<FramePart>(
                     Ruler(divided.Along, divided.Position, divided.Bounds), Some<MarkStyle>(Wipe), Some(new MarkPart<FramePart>(new FramePart.Rule(), Plots.Reach))))
                 + Picked(state).ToSeq().Bind(_ => Areas(at, state.Area))
@@ -557,7 +605,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         new(state with { Picking = None, Drag = None }, Some<Edit<FrameEdit>>(new Edit<FrameEdit>.Cancel()));
 
     private Cursor Grounded(FrameViewState state) =>
-        (state.Picking.Bind(_ => cache.Pick).Map(static pick => pick.Shape)
+        (state.Picking.Bind(_ => cache.Pick).Bind(static pick => pick.Shape)
          | Compared(state).Bind(_ => state.Mode.Rule).Map(static rule => rule == Orientation.Vertical ? Cursors.VerticalSplit : Cursors.HorizontalSplit)
          | Picked(state).Map(static _ => Cursors.Crosshair))
         .IfNone(Cursors.Default);
@@ -650,10 +698,16 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static Transition<FrameViewState, FrameEdit> Cornered(FrameViewState state, Placement at, FrameDrag.Cornering corner, PointF previous, MouseEventArgs e) =>
         (e.Modifiers.HasFlag(Keys.Alt), e.Modifiers.HasFlag(Keys.Shift), Scale(e.Modifiers)) switch {
-            (true, true, var fine) => Bent(
-                state, corner, Matrix3x2.CreateRotation((e.Location.X - previous.X) * at.Scale * Turn * fine, corner.Handle.Point.Get(corner.Raw)), other => other != corner.Handle),
-            (var every, _, var fine) => Bent(
-                state, corner, Matrix3x2.CreateTranslation((at.Point(e.Location) - at.Point(previous)) * fine), other => every || other == corner.Handle),
+            (true, true, var fine) =>
+                (Math.SinCos((e.Location.X - previous.X) * at.Scale * Turn * fine), corner.Handle.Point.Get(corner.Raw)) switch {
+                    var ((sin, cos), pivot) => Bent(state, corner,
+                        point => (point.X - pivot.X, point.Y - pivot.Y) switch {
+                            var (x, y) => (pivot.X + (x * cos) - (y * sin), pivot.Y + (x * sin) + (y * cos)),
+                        }, other => other != corner.Handle),
+                },
+            (var every, _, var fine) => ((at.Point(e.Location) - at.Point(previous)) * fine) switch {
+                var moved => Bent(state, corner, point => (point.X + moved.X, point.Y + moved.Y), other => every || other == corner.Handle),
+            },
         };
 
     private static Option<Transition<FrameViewState, FrameEdit>> Spreaded(FrameViewState state, FrameDrag drag, float factor) =>
@@ -662,10 +716,12 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             panning: static (_, _) => None,
             wiping: static (_, _) => None,
             sizing: static (_, _) => None,
-            cornering: static (held, corner) => Bent(held.State, corner, Matrix3x2.CreateScale(held.Factor, corner.Handle.Point.Get(corner.Raw)), other => other != corner.Handle));
+            cornering: static (held, corner) => corner.Handle.Point.Get(corner.Raw) switch {
+                var pivot => Bent(held.State, corner, point => (pivot.X + ((point.X - pivot.X) * held.Factor), pivot.Y + ((point.Y - pivot.Y) * held.Factor)), other => other != corner.Handle),
+            });
 
-    private static Transition<FrameViewState, FrameEdit> Bent(FrameViewState state, FrameDrag.Cornering drag, Matrix3x2 motion, Func<QuadCorner, bool> moves) =>
-        toSeq(QuadCorner.Items).Filter(moves).Fold(drag.Raw, (raw, corner) => corner.Point.Update(point => Vector2.Transform(point, motion), raw)) switch {
+    private static Transition<FrameViewState, FrameEdit> Bent(FrameViewState state, FrameDrag.Cornering drag, Func<(double X, double Y), (double X, double Y)> motion, Func<QuadCorner, bool> moves) =>
+        toSeq(QuadCorner.Items).Filter(moves).Fold(drag.Raw, (raw, corner) => corner.Point.Update(motion, raw)) switch {
             var raw => raw.Quad.Match(
                 Some: quad => new Transition<FrameViewState, FrameEdit>(
                     state with { Quad = Some(quad), Drag = Some<FrameDrag>(drag with { Raw = raw }) },
@@ -705,7 +761,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static Seq<(Orientation Axis, RectangleF Band, float Degrees)> Flips(Placement at, QuadCorners corners) {
         PointF centre = toSeq(QuadCorner.Items).Fold(PointF.Empty, (sum, corner) => sum + at.View(corner.Point.Get(corners))) / QuadCorner.Items.Count;
-        float glyph = IconSlot.PanelButton.Master.Points;
+        float glyph = IconSlot.PanelButton.Master;
         return Seq((Axis: Orientation.Horizontal, From: corners.TopLeft, To: corners.TopRight), (Axis: Orientation.Vertical, From: corners.BottomLeft, To: corners.TopLeft))
             .Map(edge => Flipped(edge.Axis, at.View(edge.From), at.View(edge.To), centre, glyph));
     }
@@ -736,24 +792,25 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static float CaptionInset => RhinoLayout.Padding(RhinoLayout.PaddingType.RhinoPanel).Top;
 
-    public static IO<Bitmap> Raster(IPlugInSink sink, Control view, PixelFrame frame, Transfer encoding) =>
-        IO.lift(static () => Optional(Platform.Instance.Find<Func<IPlugInSink, Control, PixelFrame, Transfer, IO<Bitmap>>>()))
+    public static IO<Bitmap> Raster(IPlugInSink sink, Control view, PixelFrame frame, Transfer encoding, Action<Bitmap> retain) =>
+        IO.lift(static () => Optional(Platform.Instance.Find<Func<IPlugInSink, Control, PixelFrame, Transfer, Action<Bitmap>, IO<Bitmap>>>()))
             .Bind(found => found.Match(
-                Some: create => create()(sink, view, frame, encoding),
-                None: () => IO.lift(() => Plots.Pixels(frame.Size, encoding.Displayed(frame)))));
+                Some: create => create()(sink, view, frame, encoding, retain),
+                None: () => DisposalOps.Acquire(IO.lift(() => Plots.Pixels(frame.Size, encoding.Displayed(frame))), static bitmap => IO.lift(bitmap.Dispose), retain)));
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, FrameViewState state, Seq<PlotMark<FramePart>> marks, Interaction<FramePart> interaction) =>
         from well in Plots.Well(canvas, bounds)
         let layers = Layers(state, bounds.Size, canvas.Scale)
         let tints =
-            from at in Placed(state, bounds.Size, canvas.Scale).ToSeq()
-            from frame in state.Current.Frame.ToSeq()
-            from mask in Masks(state)
-            select (At: at, Frame: frame, Mask: mask, Color: Plots.Resolve(canvas, mask.Style))
-        from framesKept in Retained(Cache.FrameSlot, toHashSet(layers.Choose(layer => layer.Side.Frame.Map(frame => (frame, state.Target)))))
+            from layer in layers
+            where ReferenceEquals(layer.Side, state.Current)
+            from frame in layer.Side.Frame.ToSeq()
+            from mask in state.Masks
+            select (layer.At, layer.Clip, Frame: frame, Mask: mask, Color: Plots.Resolve(canvas, mask.Style))
+        from framesKept in Retained(Cache.FrameSlot, toHashSet(layers.Choose(layer => layer.Side.Frame.Map(frame => (frame, layer.Side.Side.Feed, state.Target)))))
         from tintsKept in Retained(Cache.TintSlot, toHashSet(tints.Map(static tint => (tint.Frame, tint.Mask, tint.Color))))
         from framed in layers.TraverseM(layer => Framed(canvas, layer, state.Target)).As()
-        from masked in tints.TraverseM(tint => Tinted(canvas, tint, state.Current.Side.Feed.Reduction)).As()
+        from masked in tints.TraverseM(tint => Clipped(canvas, tint.Clip, Tinted(canvas, (tint.At, tint.Frame, tint.Mask, tint.Color), state.Current.Side.Feed.Reduction))).As()
         from captioned in Captioned(canvas, state, bounds.Size)
         from painted in Plots.Paint(canvas, marks)
         from glyphs in Glyphed(canvas, state, bounds.Size)
@@ -767,28 +824,30 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
                 None: static () => IO.pure(1f)))
             .Bind(static headroom => IO.lift(Conversions.Validated<Nits, float, InvalidColor>(headroom * (float)Nits.ReferenceWhite)));
 
-    private static IO<Bitmap> Mapped(IPlugInSink sink, Control view, FrameFeed feed, PixelFrame frame, Nits target) =>
+    private static IO<Bitmap> Mapped(IPlugInSink sink, Control view, FrameFeed feed, PixelFrame frame, Nits target, Action<Bitmap> retain) =>
         feed.Peak.Bind(peak => new PeakMapping(target, DisplayBlack.Floor, KneeOffset.Bt2390).Pass(Nits.ReferenceWhite, peak)).Match(
             Some: pass =>
                 from light in IO.lift(() => feed.Encoding.Light(frame))
                 from mapped in IO.lift(() => pass.Run(light, new Progress<int>()))
-                from image in Raster(sink, view, light, TransferCurve.Linear)
+                from image in Raster(sink, view, light, TransferCurve.Linear, retain)
                 select image,
-            None: () => Raster(sink, view, frame, feed.Encoding));
+            None: () => Raster(sink, view, frame, feed.Encoding, retain));
 
     private static Seq<(Placement At, FrameShown Side, RectangleF Clip)> Layers(FrameViewState state, SizeF size, float scale) =>
         Divided(state, size, scale).Match(
             Some: divided => state.Mode.Rule.IsSome
-                ? Placed(state, size, scale).ToSeq().Bind(at => Seq((at, divided.Right, at.Pane), (at, divided.Left, Before(at.Pane, divided.Along, divided.Position))))
+                ? Placed(state, size, scale).ToSeq().Bind(at => Seq(
+                    (at, divided.Right, Portion(at, divided.Along, divided.Position, before: false)),
+                    (at, divided.Left, Portion(at, divided.Along, divided.Position, before: true))))
                 : from lane in Panes(state, size).Zip(Seq(divided.Left, divided.Right))
                   from at in Placed(state, lane.First, scale).ToSeq()
                   select (at, lane.Second, at.Pane),
             None: () => Placed(state, size, scale).ToSeq().Map(at => (at, state.Current, at.Pane)));
 
-    private static RectangleF Before(RectangleF pane, Orientation along, float position) =>
-        along == Orientation.Vertical
-            ? RectangleF.FromSides(pane.Left, pane.Top, position, pane.Bottom)
-            : RectangleF.FromSides(pane.Left, pane.Top, pane.Right, position);
+    private static RectangleF Portion(Placement at, Orientation along, float position, bool before) =>
+        RectangleF.Intersect(at.Pane, along == Orientation.Vertical
+            ? RectangleF.FromSides(before ? at.Frame.Left : position, at.Frame.Top, before ? position : at.Frame.Right, at.Frame.Bottom)
+            : RectangleF.FromSides(at.Frame.Left, before ? at.Frame.Top : position, at.Frame.Right, before ? position : at.Frame.Bottom));
 
     private IO<Unit> Framed(PlotCanvas canvas, (Placement At, FrameShown Side, RectangleF Clip) layer, Nits target) =>
         layer.Side.Frame.Match(
@@ -797,17 +856,20 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private IO<Unit> Pictured(PlotCanvas canvas, RectangleF bounds, PixelFrame frame, FrameFeed feed, Nits target) =>
         from board in Thumbnails.Checker(canvas, bounds, Checkerboard.Frame)
-        from image in Cached(Cache.FrameSlot, (frame, target), () => Mapped(Sink, this, feed, frame, target))
+        from image in Cached(Cache.FrameSlot, (frame, feed, target), retain => Mapped(Sink, this, feed, frame, target, retain))
         from drawn in Imaged(canvas, image, bounds, frame.Size, feed.Reduction)
         select drawn;
 
     private IO<Unit> Tinted(PlotCanvas canvas, (Placement At, PixelFrame Frame, FrameMask Mask, Color Color) tint, ImageInterpolation reduction) =>
-        from image in Cached(Cache.TintSlot, (tint.Frame, tint.Mask, tint.Color), () => IO.lift(() => Folded(tint.Frame, tint.Mask.Coverage, tint.Color)))
+        from image in Cached(Cache.TintSlot, (tint.Frame, tint.Mask, tint.Color), retain => DisposalOps.Acquire(IO.lift(() => Folded(tint.Frame, tint.Mask.Coverage, tint.Color)), static bitmap => IO.lift(bitmap.Dispose), retain))
         from drawn in Imaged(canvas, image, tint.At.Frame, tint.Frame.Size, reduction)
         select drawn;
 
     private static IO<Unit> Clipped(PlotCanvas canvas, RectangleF clip, IO<Unit> draw) =>
-        IO.lift(() => canvas.Graphics.SetClip(clip)).Bracket(Use: _ => draw, Fin: _ => IO.lift(canvas.Graphics.ResetClip));
+        DisposalOps.Within(
+            () => { canvas.Graphics.SetClip(clip); return unit; },
+            _ => draw,
+            _ => IO.lift(canvas.Graphics.ResetClip));
 
     private static IO<Unit> Imaged(PlotCanvas canvas, Image image, RectangleF target, PixelExtent extent, ImageInterpolation reduction) =>
         IO.lift(() => {
@@ -819,7 +881,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         int[] words = GC.AllocateUninitializedArray<int>(frame.Size.Width * frame.Size.Height);
         float[] weights = new float[frame.Size.Width];
         for (int index = 0; index < frame.Size.Height; index++) {
-            coverage.Weights(frame.View.Span.GetRowSpan(index), frame.Origin.X, frame.Line(index), frame.Extent, weights);
+            coverage.Weights(frame.View.Span.GetRowSpan(index), frame.Origin.X, frame.Line(index), weights);
             for (int column = 0; column < weights.Length; column++)
                 words[(index * weights.Length) + column] = new Color(color, color.A * weights[column]).ToArgb();
         }
@@ -871,15 +933,17 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         (from caged in Caged(state)
          from at in Placed(state, size, canvas.Scale)
          select Flips(at, QuadMapper.ToCorners(caged.Quad))).Match(
-            Some: flips => Icons.Frames(Sink, GlyphRole.Flip, IconSlot.PanelButton).Bind(icon => flips.TraverseM(flip => Turned(canvas, icon, flip)).As()).Map(static _ => unit),
+            Some: flips => Icons.Frames(Sink, (GlyphRole.Flip, IconSlot.PanelButton.Master), IconSlot.PanelButton).Bind(icon => flips.TraverseM(flip => Turned(canvas, icon, flip)).As()).Map(static _ => unit),
             None: static () => IO.pure(unit));
 
     private static IO<Unit> Turned(PlotCanvas canvas, Image icon, (Orientation Axis, RectangleF Band, float Degrees) flip) =>
-        IO.lift(() => {
-            canvas.Graphics.SaveTransform();
-            canvas.Graphics.TranslateTransform(flip.Band.Center);
-            canvas.Graphics.RotateTransform(flip.Degrees);
-        }).Bracket(Use: _ => Stamped(canvas, icon, flip.Band.Size), Fin: _ => IO.lift(canvas.Graphics.RestoreTransform));
+        DisposalOps.Within(
+            canvas.Graphics.SaveTransformState,
+            _ => IO.lift(() => {
+                canvas.Graphics.TranslateTransform(flip.Band.Center);
+                canvas.Graphics.RotateTransform(flip.Degrees);
+            }).Bind(_ => Stamped(canvas, icon, flip.Band.Size)),
+            static saved => IO.lift(saved.Dispose));
 
     private static IO<Unit> Stamped(PlotCanvas canvas, Image icon, SizeF size) =>
         IO.lift(() => canvas.Graphics.DrawImage(icon, RectangleF.FromCenter(PointF.Empty, size)));

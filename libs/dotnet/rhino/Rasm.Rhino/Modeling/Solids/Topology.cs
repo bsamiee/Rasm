@@ -93,133 +93,138 @@ public abstract partial record BrepPoint {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SolidTopology {
     // --- [BOOLEANS]
-    public static IO<Seq<Brep>> Boolean(SolidBoolean operation, Tolerances tolerances) =>
+    public static IO<Seq<Brep>> Boolean(SolidBoolean operation, Tolerances tolerances, Action<IDisposable> retain) =>
         operation.Switch(
-            tolerances.Absolute,
-            booleanUnion: static (tolerance, union) => Copies.Acquire<Brep>(
-                () => Brep.CreateBooleanUnion(union.Breps, tolerance, union.ManifoldOnly, out Point3d[] naked, out Point3d[] bad, out Point3d[] nonManifold) is { } results
+            (Tolerance: tolerances.Absolute, Retain: retain),
+            booleanUnion: static (at, union) => Copies.Acquire(
+                Fin<Brep[]> () => Brep.CreateBooleanUnion(union.Breps, at.Tolerance, union.ManifoldOnly, out Point3d[] naked, out Point3d[] bad, out Point3d[] nonManifold) is { } results
                     ? results
                     : new BooleanUnionFailed(toSeq(naked), toSeq(bad), toSeq(nonManifold)),
-                nameof(Brep.CreateBooleanUnion)),
-            booleanIntersection: static (tolerance, intersection) => Copies.Acquire(() => Brep.CreateBooleanIntersection(intersection.First, intersection.Second, tolerance, intersection.ManifoldOnly), nameof(Brep.CreateBooleanIntersection)),
-            booleanDifference: static (tolerance, difference) => Copies.Acquire(() => Brep.CreateBooleanDifference(difference.First, difference.Second, tolerance, difference.ManifoldOnly), nameof(Brep.CreateBooleanDifference)),
-            booleanSplit: static (tolerance, split) => Copies.AcquireNonEmpty(() => Brep.CreateBooleanSplit(split.First, split.Second, tolerance), nameof(Brep.CreateBooleanSplit)));
+                nameof(Brep.CreateBooleanUnion), at.Retain),
+            booleanIntersection: static (at, intersection) => Copies.Acquire(() => Brep.CreateBooleanIntersection(intersection.First, intersection.Second, at.Tolerance, intersection.ManifoldOnly), nameof(Brep.CreateBooleanIntersection), at.Retain),
+            booleanDifference: static (at, difference) => Copies.Acquire(() => Brep.CreateBooleanDifference(difference.First, difference.Second, at.Tolerance, difference.ManifoldOnly), nameof(Brep.CreateBooleanDifference), at.Retain),
+            booleanSplit: static (at, split) => Copies.AcquireNonEmpty(() => Brep.CreateBooleanSplit(split.First, split.Second, at.Tolerance), nameof(Brep.CreateBooleanSplit), at.Retain));
 
-    public static IO<Seq<Brep>> Boolean(PlanarBoolean operation, Plane plane, Tolerances tolerances) =>
+    public static IO<Seq<Brep>> Boolean(PlanarBoolean operation, Plane plane, Tolerances tolerances, Action<IDisposable> retain) =>
         operation.Switch(
-            (Plane: plane, Tolerance: tolerances.Absolute),
-            planarUnion: static (at, union) => Copies.Acquire(() => Brep.CreatePlanarUnion(union.Regions, at.Plane, at.Tolerance), nameof(Brep.CreatePlanarUnion)),
-            planarIntersection: static (at, pair) => Copies.Acquire(() => Brep.CreatePlanarIntersection(pair.First, pair.Second, at.Plane, at.Tolerance), nameof(Brep.CreatePlanarIntersection)),
-            planarDifference: static (at, pair) => Copies.Acquire(() => Brep.CreatePlanarDifference(pair.First, pair.Second, at.Plane, at.Tolerance), nameof(Brep.CreatePlanarDifference)));
+            (Plane: plane, Tolerance: tolerances.Absolute, Retain: retain),
+            planarUnion: static (at, union) => Copies.Acquire(() => Brep.CreatePlanarUnion(union.Regions, at.Plane, at.Tolerance), nameof(Brep.CreatePlanarUnion), at.Retain),
+            planarIntersection: static (at, pair) => Copies.Acquire(() => Brep.CreatePlanarIntersection(pair.First, pair.Second, at.Plane, at.Tolerance), nameof(Brep.CreatePlanarIntersection), at.Retain),
+            planarDifference: static (at, pair) => Copies.Acquire(() => Brep.CreatePlanarDifference(pair.First, pair.Second, at.Plane, at.Tolerance), nameof(Brep.CreatePlanarDifference), at.Retain));
 
-    public static IO<Seq<Grouped<Brep>>> CreateBooleanUnionWithIndexMap(Seq<Brep> breps, bool manifoldOnly, Tolerances tolerances) =>
-        Copies.Acquire(() => (Brep.CreateBooleanUnionWithIndexMap(breps, tolerances.Absolute, manifoldOnly, out int[][] indexMap), indexMap), nameof(Brep.CreateBooleanUnionWithIndexMap))
-            .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row))));
+    public static IO<Seq<Grouped<Brep>>> CreateBooleanUnionWithIndexMap(Seq<Brep> breps, bool manifoldOnly, Tolerances tolerances, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(
+            output => Copies.Acquire(() => (Brep.CreateBooleanUnionWithIndexMap(breps, tolerances.Absolute, manifoldOnly, out int[][] indexMap), indexMap), nameof(Brep.CreateBooleanUnionWithIndexMap), output)
+                .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row)))),
+            (_, release) => retain(release));
 
-    public static IO<Seq<Grouped<Brep>>> CreateBooleanDifferenceWithIndexMap(Seq<Brep> firstSet, Seq<Brep> secondSet, bool manifoldOnly, Tolerances tolerances) =>
-        Copies.Acquire(() => (Brep.CreateBooleanDifferenceWithIndexMap(firstSet, secondSet, tolerances.Absolute, manifoldOnly, out int[] indexMap), indexMap), nameof(Brep.CreateBooleanDifferenceWithIndexMap))
-            .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, Seq(row.Row))));
+    public static IO<Seq<Grouped<Brep>>> CreateBooleanDifferenceWithIndexMap(Seq<Brep> firstSet, Seq<Brep> secondSet, bool manifoldOnly, Tolerances tolerances, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(
+            output => Copies.Acquire(() => (Brep.CreateBooleanDifferenceWithIndexMap(firstSet, secondSet, tolerances.Absolute, manifoldOnly, out int[] indexMap), indexMap), nameof(Brep.CreateBooleanDifferenceWithIndexMap), output)
+                .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, Seq(row.Row)))),
+            (_, release) => retain(release));
 
     // --- [JOINS]
-    public static IO<Seq<Grouped<Brep>>> JoinBreps(Seq<Brep> brepsToJoin, Tolerances tolerances) =>
-        Copies.Acquire(() => (Brep.JoinBreps(brepsToJoin, tolerances.Absolute, tolerances.Angle, out List<int[]> indexMap), indexMap), nameof(Brep.JoinBreps))
-            .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row))));
+    public static IO<Seq<Grouped<Brep>>> JoinBreps(Seq<Brep> brepsToJoin, Tolerances tolerances, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(
+            output => Copies.Acquire(() => (Brep.JoinBreps(brepsToJoin, tolerances.Absolute, tolerances.Angle, out List<int[]> indexMap), indexMap), nameof(Brep.JoinBreps), output)
+                .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row)))),
+            (_, release) => retain(release));
 
-    public static IO<Brep> CreateFromJoinedEdges(Brep brep0, int edgeIndex0, Brep brep1, int edgeIndex1, Tolerances tolerances) =>
+    public static IO<Brep> CreateFromJoinedEdges(Brep brep0, int edgeIndex0, Brep brep1, int edgeIndex1, Tolerances tolerances, Action<IDisposable> retain) =>
         Copies.Acquire(
             () => (IndexOutOfRange.Unless(edgeIndex0, brep0.Edges.Count, nameof(Brep.CreateFromJoinedEdges)).ToValidation(), IndexOutOfRange.Unless(edgeIndex1, brep1.Edges.Count, nameof(Brep.CreateFromJoinedEdges)).ToValidation())
                 .Apply((_, _) => Brep.CreateFromJoinedEdges(brep0, edgeIndex0, brep1, edgeIndex1, tolerances.Absolute))
                 .As().ToFin(),
-            nameof(Brep.CreateFromJoinedEdges));
+            nameof(Brep.CreateFromJoinedEdges), retain);
 
-    public static IO<(Brep Matched, Option<Brep> Target)> CreateFromMatch(BrepEdge edge, Seq<Curve> targetCurves, MatchSrfSettings settings) =>
+    public static IO<(Brep Matched, Option<Brep> Target)> CreateFromMatch(BrepEdge edge, Seq<Curve> targetCurves, MatchSrfSettings settings, Action<IDisposable> retain) =>
         Copies.Owned(
-            IO.lift(() => (Accepted: Brep.CreateFromMatch(edge, targetCurves, settings, out Brep? matched, out Brep? target), Matched: matched, Target: target)),
+            () => (Accepted: Brep.CreateFromMatch(edge, targetCurves, settings, out Brep? matched, out Brep? target), Matched: matched, Target: target),
             static made => made.Accepted ?
                 (Written(made.Matched, nameof(Brep.CreateFromMatch)), Optional(made.Target).Traverse(static target => Measurements.Valid(target, nameof(Brep.CreateFromMatch))).As().ToValidation())
                     .Apply(static (matched, target) => (Matched: matched, Target: target))
                     .As().ToFin() : new Refused(nameof(Brep.CreateFromMatch)),
-            static made => DisposalOps.Release(Conversions.Rows([made.Matched, made.Target])));
+            static made => DisposalOps.Release(Conversions.Rows([made.Matched, made.Target])), retain);
 
-    public static IO<(Brep Face0, Brep Face1)> ExtendBrepFacesToConnect(BrepFace face0, int edgeIndex0, BrepFace face1, int edgeIndex1, Tolerances tolerances) =>
+    public static IO<(Brep Face0, Brep Face1)> ExtendBrepFacesToConnect(BrepFace face0, int edgeIndex0, BrepFace face1, int edgeIndex1, Tolerances tolerances, Action<IDisposable> retain) =>
         from indices in IO.lift(() =>
                 (IndexOutOfRange.Unless(edgeIndex0, face0.Brep.Edges.Count, nameof(Brep.ExtendBrepFacesToConnect)).ToValidation(), IndexOutOfRange.Unless(edgeIndex1, face1.Brep.Edges.Count, nameof(Brep.ExtendBrepFacesToConnect)).ToValidation())
                     .Apply(static (_, _) => unit)
                     .As().ToFin())
-        from connected in Connected(() => (Brep.ExtendBrepFacesToConnect(face0, edgeIndex0, face1, edgeIndex1, tolerances.Absolute, tolerances.Angle, out Brep? first, out Brep? second), first, second))
+        from connected in Connected(() => (Brep.ExtendBrepFacesToConnect(face0, edgeIndex0, face1, edgeIndex1, tolerances.Absolute, tolerances.Angle, out Brep? first, out Brep? second), first, second), retain)
         select connected;
 
-    public static IO<(Brep Face0, Brep Face1)> ExtendBrepFacesToConnect(BrepFace face0, Point3d pick0, BrepFace face1, Point3d pick1, Tolerances tolerances) =>
-        Connected(() => (Brep.ExtendBrepFacesToConnect(face0, pick0, face1, pick1, tolerances.Absolute, tolerances.Angle, out Brep? first, out Brep? second), first, second));
+    public static IO<(Brep Face0, Brep Face1)> ExtendBrepFacesToConnect(BrepFace face0, Point3d pick0, BrepFace face1, Point3d pick1, Tolerances tolerances, Action<IDisposable> retain) =>
+        Connected(() => (Brep.ExtendBrepFacesToConnect(face0, pick0, face1, pick1, tolerances.Absolute, tolerances.Angle, out Brep? first, out Brep? second), first, second), retain);
 
-    private static IO<(Brep Face0, Brep Face1)> Connected(Func<(bool Accepted, Brep? First, Brep? Second)> extend) =>
+    private static IO<(Brep Face0, Brep Face1)> Connected(Func<(bool Accepted, Brep? First, Brep? Second)> extend, Action<IDisposable> retain) =>
         Copies.Owned(
-            IO.lift(extend),
+            extend,
             static made => made.Accepted ?
                 (Written(made.First, nameof(Brep.ExtendBrepFacesToConnect)), Written(made.Second, nameof(Brep.ExtendBrepFacesToConnect)))
                     .Apply(static (face0, face1) => (Face0: face0, Face1: face1))
                     .As().ToFin() : new Refused(nameof(Brep.ExtendBrepFacesToConnect)),
-            static made => DisposalOps.Release(Conversions.Rows([made.First, made.Second])));
+            static made => DisposalOps.Release(Conversions.Rows([made.First, made.Second])), retain);
 
     // --- [SPLITS]
-    public static IO<Seq<Grouped<Brep>>> SplitDisjointPieces(Brep brep) =>
-        Copies.Acquire(() => (Brep.SplitDisjointPieces(brep, out List<int[]> indexMap), indexMap), nameof(Brep.SplitDisjointPieces))
-            .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row))));
+    public static IO<Seq<Grouped<Brep>>> SplitDisjointPieces(Brep brep, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(
+            output => Copies.Acquire(() => (Brep.SplitDisjointPieces(brep, out List<int[]> indexMap), indexMap), nameof(Brep.SplitDisjointPieces), output)
+                .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row)))),
+            (_, release) => retain(release));
 
-    public static IO<(Seq<Brep> Pieces, bool ToleranceWasRaised)> Split(Brep brep, Brep cutter, Tolerances tolerances) =>
+    public static IO<(Seq<Brep> Pieces, bool ToleranceWasRaised)> Split(Brep brep, Brep cutter, Tolerances tolerances, Action<IDisposable> retain) =>
         Copies.Owned(
-            IO.lift(() => (Pieces: brep.Split(cutter, tolerances.Absolute, out bool raised), Raised: raised)),
+            () => (Pieces: brep.Split(cutter, tolerances.Absolute, out bool raised), Raised: raised),
             static made => Measurements.Valid([.. made.Pieces], nameof(Brep.Split)).Map(pieces => (Pieces: pieces, ToleranceWasRaised: made.Raised)),
-            static made => DisposalOps.Release(Conversions.Rows(made.Pieces)));
+            static made => DisposalOps.Release(Conversions.Rows(made.Pieces)), retain);
 
-    public static IO<Seq<Brep>> Split(Brep brep, IterableNE<Brep> cutters, Tolerances tolerances) =>
-        Copies.Acquire(() => brep.Split(cutters, tolerances.Absolute), nameof(Brep.Split));
+    public static IO<Seq<Brep>> Split(Brep brep, IterableNE<Brep> cutters, Tolerances tolerances, Action<IDisposable> retain) =>
+        Copies.Acquire(() => brep.Split(cutters, tolerances.Absolute), nameof(Brep.Split), retain);
 
-    public static IO<Seq<Brep>> Split(Brep brep, IterableNE<Curve> cutters, Tolerances tolerances) =>
-        Copies.Acquire(() => brep.Split(cutters, tolerances.Absolute), nameof(Brep.Split));
+    public static IO<Seq<Brep>> Split(Brep brep, IterableNE<Curve> cutters, Tolerances tolerances, Action<IDisposable> retain) =>
+        Copies.Acquire(() => brep.Split(cutters, tolerances.Absolute), nameof(Brep.Split), retain);
 
-    public static IO<Seq<Brep>> Split(Brep brep, IterableNE<GeometryBase> cutters, Vector3d normal, bool planView, Tolerances tolerances) =>
-        Copies.Acquire(() => brep.Split(cutters, normal, planView, tolerances.Absolute), nameof(Brep.Split));
+    public static IO<Seq<Brep>> Split(Brep brep, IterableNE<GeometryBase> cutters, Vector3d normal, bool planView, Tolerances tolerances, Action<IDisposable> retain) =>
+        Copies.Acquire(() => brep.Split(cutters, normal, planView, tolerances.Absolute), nameof(Brep.Split), retain);
 
-    public static IO<(Seq<Brep> Kept, Seq<Brep> CutAway)> WireCut(Brep brep, Seq<Curve> closedCurves, Vector3d direction, Option<(double Depth, bool BothSides)> depth, bool splitKinkyFaces, Tolerances tolerances) =>
+    public static IO<(Seq<Brep> Kept, Seq<Brep> CutAway)> WireCut(Brep brep, Seq<Curve> closedCurves, Vector3d direction, Option<(double Depth, bool BothSides)> depth, bool splitKinkyFaces, Tolerances tolerances, Action<IDisposable> retain) =>
         Cut(() => (
             brep.WireCut(closedCurves, direction, Conversions.Unset(depth.Map(static at => at.Depth)), depth.Exists(static at => at.BothSides), tolerances.Absolute, splitKinkyFaces, out Brep[]? kept, out Brep[]? cutAway),
             kept,
-            cutAway));
+            cutAway), retain);
 
     public static IO<(Seq<Brep> Kept, Seq<Brep> CutAway)> WireCut(
-        Brep brep, Curve openCurve, Vector3d direction, Vector3d trimDirection, bool bothSides, Option<(double Depth, double TrimDepth, bool TrimBothSides)> depth, bool splitKinkyFaces, Tolerances tolerances) =>
+        Brep brep, Curve openCurve, Vector3d direction, Vector3d trimDirection, bool bothSides, Option<(double Depth, double TrimDepth, bool TrimBothSides)> depth, bool splitKinkyFaces, Tolerances tolerances, Action<IDisposable> retain) =>
         Cut(() => (
             brep.WireCut(
                 openCurve, direction, trimDirection, Conversions.Unset(depth.Map(static at => at.Depth)), Conversions.Unset(depth.Map(static at => at.TrimDepth)),
                 bothSides, depth.Exists(static at => at.TrimBothSides), tolerances.Absolute, splitKinkyFaces, out Brep[]? kept, out Brep[]? cutAway),
             kept,
-            cutAway));
+            cutAway), retain);
 
-    public static IO<Seq<Brep>> UnjoinEdges(Brep brep, Set<int> edgesToUnjoin) =>
+    public static IO<Seq<Brep>> UnjoinEdges(Brep brep, Set<int> edgesToUnjoin, Action<IDisposable> retain) =>
         Copies.AcquireNonEmpty(
             () => Copies.InRange(toSeq(edgesToUnjoin), brep.Edges.Count, nameof(Brep.UnjoinEdges)).Map(_ => brep.UnjoinEdges(edgesToUnjoin)),
-            nameof(Brep.UnjoinEdges));
+            nameof(Brep.UnjoinEdges), retain);
 
-    private static IO<(Seq<Brep> Kept, Seq<Brep> CutAway)> Cut(Func<(bool Accepted, Brep[]? Kept, Brep[]? CutAway)> wireCut) =>
+    private static IO<(Seq<Brep> Kept, Seq<Brep> CutAway)> Cut(Func<(bool Accepted, Brep[]? Kept, Brep[]? CutAway)> wireCut, Action<IDisposable> retain) =>
         Copies.Owned(
-            IO.lift(wireCut),
+            wireCut,
             static made => made.Accepted ?
                 (Measurements.Valid(toSeq<Brep?>(made.Kept), nameof(Brep.WireCut)).ToValidation(), Measurements.Valid(toSeq<Brep?>(made.CutAway), nameof(Brep.WireCut)).ToValidation())
                     .Apply(static (kept, cutAway) => (Kept: kept, CutAway: cutAway))
                     .As().ToFin() : new Refused(nameof(Brep.WireCut)),
-            static made => DisposalOps.Release(Conversions.Rows(made.Kept).Concat(Conversions.Rows(made.CutAway))));
+            static made => DisposalOps.Release(Conversions.Rows(made.Kept).Concat(Conversions.Rows(made.CutAway))), retain);
 
     // --- [EDITS]
-    public static IO<(Brep Copy, Seq<(SolidEdit Edit, EditResult<int> Result)> Results)> Edit(Brep source, Seq<SolidEdit> edits, Tolerances tolerances) =>
-        from copy in Copies.Duplicate(source)
-        from result in DisposalOps.OnFailure(
+    public static IO<(Brep Copy, Seq<(SolidEdit Edit, EditResult<int> Result)> Results)> Edit(Brep source, Seq<SolidEdit> edits, Tolerances tolerances, Action<IDisposable> retain) =>
+        Copies.Edit(source, copy =>
             from answers in edits.TraverseM(edit => Applied(copy, edit, tolerances).Map(answer => (Edit: edit, Result: answer))).As()
             from compacted in IO.lift(copy.Compact)
-            from valid in IO.lift(() => Measurements.Valid(copy, nameof(Brep.Compact)))
-            select (Copy: valid, Results: answers),
-            IO.lift(copy.Dispose))
-        select result;
+            select answers, nameof(Brep.Compact), retain)
+            .Map(static edited => (edited.Copy, Results: edited.Result));
 
     private static IO<EditResult<int>> Applied(Brep copy, SolidEdit edit, Tolerances tolerances) =>
         edit.Switch(
@@ -243,8 +248,9 @@ public static class SolidTopology {
                      Some: edge => edited.Copy.Edges.MergeEdge(edge, edited.Tolerances.Angle),
                      None: () => edited.Copy.Edges.MergeAllEdges(edited.Tolerances.Angle))))).As(),
             removeNakedMicroEdges: static (edited, _) =>
-                (IO.lift(() => EditResult<int>.CreateCount(edited.Copy.Edges.RemoveNakedMicroEdges(edited.Tolerances.Absolute, cleanUp: false)))
-                 >> IO.lift(() => edited.Copy.SetTolerancesBoxesAndFlags())).As(),
+                from result in IO.lift(() => EditResult<int>.CreateCount(edited.Copy.Edges.RemoveNakedMicroEdges(edited.Tolerances.Absolute, cleanUp: false)))
+                from updated in IO.lift(() => edited.Copy.SetTolerancesBoxesAndFlags())
+                select result,
             removeFins: static (edited, _) => IO.lift(() => Refused.Unless(edited.Copy.RemoveFins(), nameof(Brep.RemoveFins))).Map(EditResult<int>.CreateCompleted()),
             removeSlits: static (edited, _) => IO.lift(() => new EditResult<int>(edited.Copy.Faces.RemoveSlits())),
             shrinkFaces: static (edited, _) => IO.lift(() => Refused.Unless(edited.Copy.Faces.ShrinkFaces(), nameof(BrepFaceList.ShrinkFaces))).Map(EditResult<int>.CreateCompleted()),
@@ -281,43 +287,43 @@ public static class SolidTopology {
                 nameof(Brep.TransformComponent))).Map(EditResult<int>.CreateCompleted()));
 
     // --- [DERIVATIONS]
-    public static IO<Brep> Derive(Brep source, SolidDerivation derivation, Tolerances tolerances) =>
+    public static IO<Brep> Derive(Brep source, SolidDerivation derivation, Tolerances tolerances, Action<IDisposable> retain) =>
         derivation.Switch(
-            (Source: source, Tolerances: tolerances),
+            (Source: source, Tolerances: tolerances, Retain: retain),
             removeHoles: static (of, holes) =>
                 (IO.lift(() => Callbacks.Each(toSeq(holes.Loops), (loop, _) =>
                     IndexOutOfRange.Unless(loop, of.Source.Loops.Count, nameof(Brep.RemoveHoles)) switch {
                         Fin<Unit>.Succ => RefusedElement.Unless(of.Source.Loops[loop].LoopType == BrepLoopType.Inner, nameof(Brep.RemoveHoles), loop),
                         var failed => failed,
                     }))
-                 >> Copies.Acquire(() => of.Source.RemoveHoles(toSeq(holes.Loops).Map(static loop => new ComponentIndex(ComponentIndexType.BrepLoop, loop)), of.Tolerances.Absolute), nameof(Brep.RemoveHoles))).As(),
+                 >> Copies.Acquire(() => of.Source.RemoveHoles(toSeq(holes.Loops).Map(static loop => new ComponentIndex(ComponentIndexType.BrepLoop, loop)), of.Tolerances.Absolute), nameof(Brep.RemoveHoles), of.Retain)).As(),
             untrimFace: static (of, untrim) =>
                 (IO.lift(() => IndexOutOfRange.Unless(untrim.Face, of.Source.Faces.Count, nameof(Brep.UntrimFace)))
-                 >> Copies.Acquire(() => of.Source.UntrimFace(untrim.Face, of.Tolerances.Absolute), nameof(Brep.UntrimFace))).As(),
+                 >> Copies.Acquire(() => of.Source.UntrimFace(untrim.Face, of.Tolerances.Absolute), nameof(Brep.UntrimFace), of.Retain)).As(),
             untrimOuterLoop: static (of, untrim) =>
                 (IO.lift(() => IndexOutOfRange.Unless(untrim.Face, of.Source.Faces.Count, nameof(Brep.UntrimOuterLoop)))
-                 >> Copies.Acquire(() => of.Source.UntrimOuterLoop(untrim.Face), nameof(Brep.UntrimOuterLoop))).As(),
+                 >> Copies.Acquire(() => of.Source.UntrimOuterLoop(untrim.Face), nameof(Brep.UntrimOuterLoop), of.Retain)).As(),
             insetFaces: static (of, inset) =>
                 (IO.lift(() => Copies.InRange(toSeq(inset.Faces), of.Source.Faces.Count, nameof(Brep.InsetFaces)))
-                 >> Copies.Acquire(() => of.Source.InsetFaces(inset.Faces, inset.Distance, inset.Loose, inset.IgnoreSeams, inset.CreaseCorners, of.Tolerances.Absolute, of.Tolerances.Angle), nameof(Brep.InsetFaces))).As(),
+                 >> Copies.Acquire(() => of.Source.InsetFaces(inset.Faces, inset.Distance, inset.Loose, inset.IgnoreSeams, inset.CreaseCorners, of.Tolerances.Absolute, of.Tolerances.Angle), nameof(Brep.InsetFaces), of.Retain)).As(),
             pushPullExtend: static (of, push) =>
                 (IO.lift(() => IndexOutOfRange.Unless(push.Face, of.Source.Faces.Count, nameof(Brep.PushPullExtend)))
-                 >> Copies.Acquire(() => of.Source.PushPullExtend(push.Face, push.Transform, of.Tolerances.Absolute), nameof(Brep.PushPullExtend))).As(),
+                 >> Copies.Acquire(() => of.Source.PushPullExtend(push.Face, push.Transform, of.Tolerances.Absolute), nameof(Brep.PushPullExtend), of.Retain)).As(),
             replaceEdge: static (of, replace) =>
                 (IO.lift(() => Copies.InRange(toSeq(replace.Edges), of.Source.Edges.Count, nameof(Brep.ReplaceEdge)))
                  >> Copies.Acquire(() => replace.Replacement.Arguments switch {
                      var (method, curve) => of.Source.ReplaceEdge(replace.Edges, method, curve, of.Tolerances.Absolute),
-                 }, nameof(Brep.ReplaceEdge))).As(),
+                 }, nameof(Brep.ReplaceEdge), of.Retain)).As(),
             duplicateSubBrep: static (of, sub) =>
                 (IO.lift(() => Copies.InRange(toSeq(sub.Faces), of.Source.Faces.Count, nameof(Brep.DuplicateSubBrep)))
-                 >> Copies.Acquire(() => of.Source.DuplicateSubBrep(sub.Faces), nameof(Brep.DuplicateSubBrep))).As());
+                 >> Copies.Acquire(() => of.Source.DuplicateSubBrep(sub.Faces), nameof(Brep.DuplicateSubBrep), of.Retain)).As());
 
-    public static IO<Brep> TryConvertBrep(GeometryBase geometry) =>
+    public static IO<Brep> TryConvertBrep(GeometryBase geometry, Action<IDisposable> retain) =>
         geometry is Brep brep
-            ? Copies.Duplicate(brep)
-            : Copies.Acquire<Brep>(
-                () => Brep.TryConvertBrep(geometry) is { } converted ? converted : new WrongType(typeof(Brep), geometry.GetType()),
-                nameof(Brep.TryConvertBrep));
+            ? Copies.Duplicate(brep, retain)
+            : Copies.Acquire(
+                Fin<Brep> () => Brep.TryConvertBrep(geometry) is { } converted ? converted : new WrongType(typeof(Brep), geometry.GetType()),
+                nameof(Brep.TryConvertBrep), retain);
 
     // --- [QUERIES]
     public static IO<BrepPoint> ClosestPoint(Brep brep, Point3d testPoint) =>

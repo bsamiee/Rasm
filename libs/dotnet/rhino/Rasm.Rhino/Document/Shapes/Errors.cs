@@ -5,7 +5,7 @@ namespace Rasm.Rhino.Document.Shapes;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     InvalidGeometry = 1,
-    InvalidGeometryElement,
+    InvalidGeometryElement = 2,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

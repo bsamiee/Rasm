@@ -93,9 +93,8 @@ public sealed record HueCurves(
                         Hsy hsy = Hsy.From(pixel);
                         (double hue, double luma) = (InputAxis.Hue.Read(hsy), InputAxis.Stops.Read(hsy));
                         double saturation = Saturation(satSat, hueSat, lumSat, hsy.Saturation, hue, luma);
-                        double turns = hueHue(hue) / CurveAxis.Hue.Unit;
                         double gain = (1d - ((1d - Floored(hueLum(hue))) * double.Min(saturation, 1d))) * Floored(satLum(saturation));
-                        pixel = new Hsy((float)(CurveAxis.Hue.Unit * (turns - double.Floor(turns))), (float)saturation, (float)(CurveAxis.FromStops(lumLum(luma)) * gain)).ToRgb(pixel.W);
+                        pixel = new Hsy(hueHue(hue), saturation, CurveAxis.FromStops(lumLum(luma)) * gain).ToRgb(pixel.W);
                     }
                 })),
             };

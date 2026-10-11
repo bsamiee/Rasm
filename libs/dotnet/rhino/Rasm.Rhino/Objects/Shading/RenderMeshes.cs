@@ -48,7 +48,8 @@ public abstract partial class DefinedMeshProvider(PlugIn plugIn, IPlugInSink sin
     public sealed override bool HasCustomRenderMeshes(MeshType mt, ViewportInfo vp, RhinoDoc doc, Guid objectId, ref Flags flags, PlugIn plugin, DisplayPipelineAttributes attrs) {
         MeshRequest request = new(mt, vp, flags, Optional(plugin), Optional(attrs));
         (bool Provides, Flags Flags) answer = Callbacks.Answer(
-            Provides(request, doc, objectId), () => (false, request.Flags), new(sink, GetType(), nameof(HasCustomRenderMeshes)));
+            (Request: request, Document: doc, ObjectId: objectId),
+            args => Provides(args.Request, args.Document, args.ObjectId), () => (false, request.Flags), new(sink, GetType(), nameof(HasCustomRenderMeshes)));
         flags = answer.Flags;
         return answer.Provides;
     }
@@ -56,13 +57,18 @@ public abstract partial class DefinedMeshProvider(PlugIn plugIn, IPlugInSink sin
     public sealed override RenderMeshes? RenderMeshes(MeshType mt, ViewportInfo vp, RhinoDoc doc, Guid objectId, List<InstanceObject> ancestry, ref Flags flags, RenderMeshes previousPrimitives, PlugIn plugin, DisplayPipelineAttributes attrs) {
         MeshRequest request = new(mt, vp, flags, Optional(plugin), Optional(attrs));
         (Option<RenderMeshes> Meshes, Flags Flags) answer = Callbacks.Answer(
-            from built in Build(request, doc, objectId, Conversions.Rows(ancestry), Conversions.Rows(previousPrimitives))
-            let providerId = ProviderId
-            let hash = uint.CreateTruncating((UInt128)ContentKey.Of(KeyDomain.RenderMeshes, stream => stream.Integer(previousPrimitives.Hash).Id(providerId).Integer((UInt128)built.Inputs)))
-            from meshes in IO.lift(() => new RenderMeshes(doc, objectId, providerId, hash, (uint)built.Flags))
-            from added in DisposalOps.OnFailure(IO.lift(() => built.Instances.Iter(meshes.AddInstance)), IO.lift(meshes.Dispose))
-            select (Some(meshes), built.Flags),
-            () => (Option<RenderMeshes>.None, request.Flags), new(sink, GetType(), nameof(RenderMeshes)));
+            DisposalOps.Within(
+                (Action<IDisposable> temporary) =>
+                    from previous in IO.lift(() => toSeq(previousPrimitives.Select(instance => { temporary(instance.Mesh); temporary(instance); return instance; })).Strict())
+                    from built in Build(request, doc, objectId, Conversions.Rows(ancestry), previous, temporary)
+                    let providerId = ProviderId
+                    let hash = uint.CreateTruncating((UInt128)ContentKey.Of(KeyDomain.RenderMeshes, stream => stream.Integer(previousPrimitives.Hash).Id(providerId).Integer((UInt128)built.Inputs)))
+                    from meshes in IO.lift(() => new RenderMeshes(doc, objectId, providerId, hash, (uint)built.Flags))
+                    from added in DisposalOps.OnFailure(IO.lift(() => built.Instances.Iter(meshes.AddInstance)), IO.lift(meshes.Dispose))
+                    select (Meshes: Some(meshes), built.Flags),
+                DisposalOps.Release),
+            () => (Option<RenderMeshes>.None, request.Flags),
+            new(sink, GetType(), nameof(RenderMeshes)));
         flags = answer.Flags;
         return answer.Meshes.ValueUnsafe();
     }
@@ -81,55 +87,57 @@ public abstract partial class DefinedMeshProvider(PlugIn plugIn, IPlugInSink sin
 
     protected abstract IO<(bool Provides, Flags Flags)> Provides(MeshRequest request, RhinoDoc document, Guid objectId);
 
-    protected abstract IO<MeshBuild> Build(MeshRequest request, RhinoDoc document, Guid objectId, Seq<InstanceObject> ancestry, Seq<Instance> previous);
+    protected abstract IO<MeshBuild> Build(MeshRequest request, RhinoDoc document, Guid objectId, Seq<InstanceObject> ancestry, Seq<Instance> previous, Action<IDisposable> retain);
 
     protected virtual IO<Option<RenderMeshProviderProgress>> Progressing(RhinoDoc document, Seq<Guid> objectIds) => IO.pure(Option<RenderMeshProviderProgress>.None);
 
     // --- [REGISTRATION]
-    public static Func<PlugIn, IPlugInSink, IO<IDisposable>> Register(Func<PlugIn, IPlugInSink, DefinedMeshProvider> create) =>
-        (plugIn, sink) => from provider in IO.lift(() => create(plugIn, sink))
-                          from registered in DisposalOps.OnFailure(
-                              from identified in IO.lift(() => MissingGuid.Unless(provider.GetType()))
-                              from accepted in IO.lift(() => Refused.Unless(RegisterProvider(provider, plugIn), nameof(RegisterProvider)))
-                              select accepted,
-                              IO.lift(() => provider.Dispose()))
-                          select (IDisposable)provider;
+    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> Register(Func<PlugIn, IPlugInSink, DefinedMeshProvider> create) =>
+        (plugIn, sink, retain) => DisposalOps.Acquire(
+            owned => from provider in DisposalOps.Acquire(IO.lift(() => create(plugIn, sink)), static held => IO.lift(held.Dispose), owned)
+                     from identified in IO.lift(() => MissingGuid.Unless(provider.GetType()))
+                     from accepted in IO.lift(() => Refused.Unless(RegisterProvider(provider, plugIn), nameof(RegisterProvider)))
+                     select accepted,
+            (_, lease) => retain(lease));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Meshing {
     // --- [CACHES]
-    public static IO<Seq<Mesh>> GetMeshes(RhinoObject rhinoObject, MeshType type) =>
-        IO.lift(() => Conversions.Rows(rhinoObject.GetMeshes(type))).Bind(static cached => DisposalOps.AcquireAll(cached.Map(Copies.Duplicate), DisposalOps.Release));
+    public static IO<Seq<Mesh>> GetMeshes(RhinoObject rhinoObject, MeshType type, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(
+            owned => IO.lift(() => Conversions.Rows(rhinoObject.GetMeshes(type)))
+                .Bind(cached => cached.TraverseM(mesh => Copies.Duplicate(mesh, owned)).As()),
+            (_, lease) => retain(lease));
 
     // --- [CUSTOM_MESHES]
-    public static IO<RenderMeshes> RenderMeshes(RhinoObject rhinoObject, MeshRequest request, Seq<InstanceObject> ancestry) =>
-        (from read in IO.lift(() => {
-            RenderMeshProvider.Flags flags = request.Flags;
-            return Missing.Unless(
-                rhinoObject.RenderMeshes(request.Type, request.Viewport, [.. ancestry], ref flags, request.Requester.ValueUnsafe(), request.Display.ValueUnsafe()),
-                nameof(RhinoObject.RenderMeshes)).Map(meshes => (Meshes: meshes, Flags: flags));
-        })
-         from canceled in when(read.Flags.HasFlag(RenderMeshProvider.Flags.Canceled), IO.lift(read.Meshes.Dispose).Bind(static _ => IO.fail<Unit>(Errors.Cancelled))).As()
-         from completed in read.Flags.HasFlag(RenderMeshProvider.Flags.Incomplete)
-             ? IO.lift(read.Meshes.Dispose).Bind(static _ => IO.lift(static () => RhinoApp.Wait())).Map(_ => read)
-             : IO.pure(read)
-         select completed)
-        .RepeatUntil(static read => !read.Flags.HasFlag(RenderMeshProvider.Flags.Incomplete))
-        .Map(static read => read.Meshes);
+    public static IO<RenderMeshes> RenderMeshes(RhinoObject rhinoObject, MeshRequest request, Seq<InstanceObject> ancestry, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(owned =>
+            (from read in DisposalOps.Acquire(IO.lift(() => {
+                RenderMeshProvider.Flags flags = request.Flags;
+                RenderMeshes? meshes = rhinoObject.RenderMeshes(request.Type, request.Viewport, [.. ancestry], ref flags, request.Requester.ValueUnsafe(), request.Display.ValueUnsafe());
+                return (Meshes: meshes, Flags: flags, Release: new Disposal<RenderMeshes?>(meshes, static held => held?.Dispose()));
+            }), static read => IO.lift(read.Release.Dispose), read => owned(read.Release))
+             from meshes in IO.lift(() => Missing.Unless(read.Meshes, nameof(RhinoObject.RenderMeshes)))
+             from canceled in when(read.Flags.HasFlag(RenderMeshProvider.Flags.Canceled), IO.fail<Unit>(Errors.Cancelled)).As()
+             from completed in read.Flags.HasFlag(RenderMeshProvider.Flags.Incomplete)
+                 ? IO.lift(read.Release.Dispose).Bind(static _ => IO.lift(static () => RhinoApp.Wait())).Map(_ => (Meshes: meshes, read.Flags))
+                 : IO.pure((Meshes: meshes, read.Flags))
+             select completed)
+            .RepeatUntil(static read => !read.Flags.HasFlag(RenderMeshProvider.Flags.Incomplete))
+            .Map(static read => read.Meshes),
+            (_, lease) => retain(lease));
 
     // --- [PROVIDER_PARAMETERS]
     public static IO<Option<T>> GetCustomRenderMeshParameter<T>(RhinoObject rhinoObject, Guid providerId, string parameterName) where T : notnull =>
-        from held in IO.lift(() => Optional(rhinoObject.GetCustomRenderMeshParameter(providerId, parameterName)))
-        from converted in held.Traverse(static value =>
-            IO.lift(() => (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture))
-                .Finally(DisposalOps.Release(Optional(value as IDisposable).ToSeq()))).As()
-        select converted;
+        DisposalOps.Within(() => rhinoObject.GetCustomRenderMeshParameter(providerId, parameterName),
+            static held => Optional(held).Traverse(static value => IO.lift(() => (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture))).As(),
+            static held => DisposalOps.Release(Optional(held as IDisposable).ToSeq()));
 
     // --- [BATCH]
-    public static IO<MeshBatch> MeshObjects(Seq<RhinoObject> rhinoObjects, MeshingParameters parameters, MeshRun run) =>
+    public static IO<MeshBatch> MeshObjects(Seq<RhinoObject> rhinoObjects, MeshingParameters parameters, MeshRun run, Action<IDisposable> retain) =>
         Copies.Owned(
-            IO.lift(() => run.Switch(
+            () => run.Switch(
                 (Objects: rhinoObjects, Parameters: parameters),
                 unattended: static (state, unattended) => (
                     Result: RhinoObject.MeshObjects(state.Objects, state.Parameters, out Mesh[] meshes, out ObjectAttributes[] attributes, unattended.WorkerThread),
@@ -139,10 +147,10 @@ public static class Meshing {
                     return (
                         Result: RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref style, styled.Xform, out Mesh[] meshes, out ObjectAttributes[] attributes),
                         Meshes: meshes, Attributes: attributes, Interface: Conversions.Validated<MeshInterface, int, InvalidRhinoValue>(style));
-                })),
+                }),
             static made => from accepted in Conversions.FromResult(made.Result, nameof(RhinoObject.MeshObjects))
                            from closed in made.Interface
                            from meshes in Measurements.Valid(toSeq<Mesh?>(made.Meshes), nameof(RhinoObject.MeshObjects))
                            select new MeshBatch(meshes.Zip(Conversions.Rows(made.Attributes), static (mesh, attributes) => (Mesh: mesh, Attributes: attributes)), closed),
-            static made => DisposalOps.Release(Conversions.Rows<IDisposable>(made.Meshes) + Conversions.Rows<IDisposable>(made.Attributes)));
+            static made => DisposalOps.Release(Conversions.Rows<IDisposable>(made.Meshes) + Conversions.Rows<IDisposable>(made.Attributes)), retain);
 }

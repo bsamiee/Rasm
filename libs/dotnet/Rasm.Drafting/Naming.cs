@@ -74,7 +74,7 @@ public abstract partial record NameLayout {
             fields.Init.FoldBack(
                 fields.Last.Bind(entries.Find).IfNone(""),
                 (text, field) => entries.Find(field) switch {
-                    { IsNone: true } when text.Length == 0 => text,
+                    { IsNone: true } when text.Length is 0 => text,
                     var value => value.IfNone("").PadRight(field.MaxWidth.IfNone(0), Pad) + text,
                 });
         internal override Option<HashMap<NameField, string>> Split(Seq<NameField> fields, string text) =>
@@ -214,7 +214,7 @@ public sealed partial class StandardName : IComparable<StandardName> {
             (_, string) => -1,
             _ => 0,
         })
-            .Find(static order => order != 0).IfNone(0);
+            .Find(static order => order is not 0).IfNone(0);
 
     public static bool operator <(StandardName? left, StandardName? right) => Comparer<StandardName>.Default.Compare(left, right) < 0;
     public static bool operator <=(StandardName? left, StandardName? right) => Comparer<StandardName>.Default.Compare(left, right) <= 0;

@@ -49,7 +49,6 @@ rule:
             - all: [{has: {field: consequence, matches: error-branch}}, {has: {field: alternative, matches: plain}}]
           matches: result
           not: {has: {field: condition, has: {stopBy: end, kind: 'declaration_pattern, var_pattern, recursive_pattern'}}}
-        - pattern: $ANSWERS.$FOUND($$$).ToFin(new $OWNER($$$))
     not: {matches: {csharp-owner-body: {type: {regex: '.'}, member: {regex: '^Unless$'}}}}
 constraints:
     OWNER: {regex: '^((global::)?[A-Z]\w*\.)*[A-Z]\w*$'}
@@ -61,7 +60,5 @@ constraints:
                 - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $DISCARDED}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $DISCARDED}}}]}
                 - has: {field: body, not: {kind: block}, matches: plain}
                 - not: {has: {field: body, any: [{pattern: $DISCARDED}, {has: {stopBy: end, kind: identifier, pattern: $DISCARDED}}]}}
-    ANSWERS: {regex: '^((global::)?Rasm\.Rhino\.)?Callbacks$'}
-    FOUND: {regex: '^Found(\s*<.+>)?$'}
 message: Check selects between a value and `$OWNER` by hand
 note: Use `<owner>.Unless(<check>, <arguments>)`, or `Unless<T>(<check>, <value>, <arguments>)` with `T` a base type of `<value>`, declared on the error record in its namespace's `Errors.cs`

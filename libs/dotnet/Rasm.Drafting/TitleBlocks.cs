@@ -34,7 +34,7 @@ public sealed partial class RevisionIndex {
     public override string ToString() => Letters;
 
     private static string Spell(string symbols, int ordinal) =>
-        ordinal == 0 ? "" : Spell(symbols, (ordinal - 1) / symbols.Length) + symbols[(ordinal - 1) % symbols.Length];
+        ordinal is 0 ? "" : Spell(symbols, (ordinal - 1) / symbols.Length) + symbols[(ordinal - 1) % symbols.Length];
 
     static partial void ValidateFactoryArguments(ref InvalidDrafting? validationError, ref RevisionAlphabet alphabet, ref int ordinal) =>
         validationError = ordinal >= 1 && ordinal <= alphabet.Count ? null : new InvalidDrafting();

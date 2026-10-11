@@ -64,6 +64,7 @@ rule:
         - kind: method_declaration
           all:
             - has: {field: name, pattern: $CALLEE}
+            - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^((global::)?System\.Runtime\.CompilerServices\.)?UnsafeAccessorType(Attribute)?$'}}}}
             - has:
                 kind: attribute_list
                 has:
@@ -121,4 +122,4 @@ rule:
                         - has: {field: expression, regex: '^(global::)?(System\.)?(Runtime\.InteropServices\.)?MemoryMarshal$'}
                         - has: {field: name, regex: '^(Cast|AsRef|Read|TryRead)<'}
 message: '`$CALLEE` bypasses its type''s public constructors and factories'
-note: Use a declared factory or public constructor, each runs the checks its type states
+note: Use a declared factory or public constructor, each runs the checks its type states. An `UnsafeAccessorType` constructor binds an external type unavailable to the compiler and still invokes that type's constructor

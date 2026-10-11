@@ -61,14 +61,16 @@ public abstract partial record DimensionDisplayGeometry {
 public static partial class Dimensions {
     // --- [CREATION]
     public static IO<T> Create<T>(
-        RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Func<DimensionStyle, T?> create, string member)
+        RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Func<DimensionStyle, T?> create, string member,
+        Action<T, IDisposable> retain)
         where T : Dimension =>
-        from parent in style.Match(
-            Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
-            None: () => IO.lift(() => doc.DimStyles.Current))
-        from dimension in Copies.Acquire(() => create(parent), member)
-        from overridden in DisposalOps.OnFailure(overrides.Traverse(edit => DimensionStyles.SetOverride(doc, dimension, edit)).As(), IO.lift(dimension.Dispose))
-        select dimension;
+        DisposalOps.Acquire(held =>
+            from parent in style.Match(
+                Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
+                None: () => IO.lift(() => doc.DimStyles.Current))
+            from dimension in Copies.Acquire(() => create(parent), member, held)
+            from overridden in overrides.Traverse(edit => DimensionStyles.SetOverride(doc, dimension, edit)).As()
+            select dimension, retain);
 
     // --- [READS]
     public static IO<DimensionState> State(DimensionObject owner, Dimension dimension) =>
@@ -97,9 +99,10 @@ public static partial class Dimensions {
 
     // --- [TEXT]
     public static IO<Unit> UpdateDimensionText(RhinoDoc doc, Dimension dimension, LengthUnit units) =>
-        (from style in use(DimensionStyles.Effective(doc, dimension, None))
+        DisposalOps.Within((Action<IDisposable> held) =>
+         from style in DimensionStyles.Effective(doc, dimension, None, held)
          from updated in IO.lift(() => dimension.UpdateDimensionText(style, units))
-         select updated).Bracket();
+         select updated, DisposalOps.Release);
 
     public static IO<string> ValueText(Dimension dimension, DimensionStyle style, LengthUnit units) =>
         IO.lift(Fin<string> () => dimension switch {
@@ -112,8 +115,9 @@ public static partial class Dimensions {
         });
 
     public static IO<Transform> GetTextTransform(Dimension dimension, DimensionStyle style, RhinoViewport viewport, double textScale) =>
-        (from info in use(() => new ViewportInfo(viewport))
-         select dimension.GetTextTransform(info, style, textScale, drawForward: false)).Bracket();
+        DisposalOps.Within(() => new ViewportInfo(viewport),
+            info => IO.lift(() => dimension.GetTextTransform(info, style, textScale, drawForward: false)),
+            static info => IO.lift(info.Dispose));
 
     // --- [DISPLAY]
     public static IO<DimensionDisplayGeometry> DisplayGeometry(Dimension dimension, DimensionStyle style, double scale) =>
@@ -148,5 +152,5 @@ public static partial class Dimensions {
 
     // --- [PIECES]
     public static IO<T> Explode<T>(Dimension dimension, Func<Seq<GeometryBase>, IO<T>> body) =>
-        Copies.AcquireNonEmpty(dimension.Explode, nameof(Dimension.Explode)).Bracket(Use: pieces => IO.pure(pieces).Bind(body), Fin: DisposalOps.Release);
+        DisposalOps.Within((Action<IDisposable> held) => Copies.AcquireNonEmpty(dimension.Explode, nameof(Dimension.Explode), held).Bind(body), DisposalOps.Release);
 }

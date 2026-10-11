@@ -139,15 +139,15 @@ internal static partial class Catalog {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 internal static class Program {
-    public static int Main(string[] args) =>
-        Upgrade(args).RunSafe().Match(
+    public static async Task<int> Main(string[] args) =>
+        (await Upgrade(args).RunSafeAsync().ConfigureAwait(false)).Match(
             Succ: Report,
             Fail: Report);
 
     private static IO<Seq<Move>> Upgrade(string[] args) =>
         from path in IO.lift(Fin<string> () => args is [var file] ? Path.GetFullPath(file) : new Usage())
         from framework in IO.lift(static () => Optional(AppContext.TargetFrameworkName).Map(NuGetFramework.Parse).ToFin(new UnknownFramework()))
-        from text in IO.lift(() => File.ReadAllText(path))
+        from text in IO.liftAsync(env => File.ReadAllTextAsync(path, env.Token))
         let lines = toList(text.Split('\n'))
         let rows = Catalog.Rows(lines, XDocument.Parse(text, LoadOptions.SetLineInfo))
         from cache in use(static () => new SourceCacheContext { NoCache = true })
@@ -156,7 +156,7 @@ internal static class Program {
             .Choose(static row => NuGetVersion.TryParse(row.Version, out NuGetVersion? current) ? Some((Row: row, Current: current)) : None)
             .Map(pending => Catalog.Newest(framework, cache, feeds, pending.Row, pending.Current)))
             .Map(static moves => moves.Somes())
-        from written in when(!moves.IsEmpty, IO.lift(() => File.WriteAllText(path, Catalog.Rewrite(lines, rows, moves)))).As()
+        from written in when(!moves.IsEmpty, IO.liftAsync(env => File.WriteAllTextAsync(path, Catalog.Rewrite(lines, rows, moves), env.Token).ToUnit())).As()
         select moves;
 
     private static int Report(Seq<Move> moves) {

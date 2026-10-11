@@ -11,7 +11,6 @@ internal enum Codes {
     NotAttachable,
     UnrestorableEdit,
     UnknownSnapshot,
-    SnapshotNotApplied,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -48,7 +47,3 @@ public sealed record UnrestorableEdit(string Member) : Expected("A layer state r
 }
 
 public sealed record UnknownSnapshot(SnapshotName Name) : Expected("No snapshot is named {Name}", (int)Codes.UnknownSnapshot);
-
-public sealed record SnapshotNotApplied(SnapshotChange Change) : Expected("{Change} left the snapshot names unchanged", (int)Codes.SnapshotNotApplied) {
-    public static Fin<Unit> Unless(bool applied, SnapshotChange change) => applied ? unit : new SnapshotNotApplied(change);
-}

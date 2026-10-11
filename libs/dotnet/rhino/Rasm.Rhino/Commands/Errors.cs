@@ -5,7 +5,7 @@ namespace Rasm.Rhino.Commands;
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
     UnexpectedGetResult = 1,
-    ScriptRaised,
+    ScriptRaised = 2,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

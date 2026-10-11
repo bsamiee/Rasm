@@ -57,18 +57,7 @@ utils:
               any: [{has: {field: consequence, matches: failed-value}}, {has: {field: alternative, matches: failed-value}}]
             - kind: switch_expression
               has: {kind: switch_expression_arm, has: {nthChild: {position: 1, reverse: true}, matches: failed-value}}
-            - kind: identifier
-              pattern: $HELD
-              inside:
-                stopBy: end
-                kind: block
-                has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $HELD}}, {has: {nthChild: 2, matches: failed-value}}]}}}
-            - kind: identifier
-              pattern: $RELAYED
-              inside:
-                stopBy: end
-                kind: block
-                has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RELAYED}}, {has: {nthChild: 2, matches: failed-value}}]}}}
+            - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: failed-value}}}}
     called:
         kind: invocation_expression
         has:

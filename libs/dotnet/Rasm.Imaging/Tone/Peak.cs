@@ -39,7 +39,7 @@ public sealed record PeakMapping(Nits TargetPeak, DisplayBlack Black, KneeOffset
 
     public static Fin<Nits> MeasuredPeak(PixelFrame frame, Nits white) =>
         LuminanceSamples.Greatest(frame).Bind(samples =>
-            Nits.Validate(samples.FrameWhite * (float)white, provider: null, out Nits peak) is { } error ? error : (Fin<Nits>)peak);
+            Nits.Validate((float)(samples.FrameWhite * (float)white), provider: null, out Nits peak) is { } error ? error : (Fin<Nits>)peak);
 
     public Option<PixelPass> Pass(Nits white, Nits sourcePeak) {
         float fitted = float.Min((float)TargetPeak, (float)sourcePeak);
@@ -48,11 +48,11 @@ public sealed record PeakMapping(Nits TargetPeak, DisplayBlack Black, KneeOffset
         (float source, float peak, float floor, float knee) = (levels.X, levels.Y / levels.X, levels.Z / levels.X, (float)Knee);
         (float start, float power) = (((1f + knee) * peak) - knee, float.Min(1f / floor, 4f));
         float gain = 1f / (1f + (floor / peak * float.Pow(1f - peak, power)));
-        CubicSpline rolloff = CubicSpline.InterpolateHermiteSorted([start, 1d], [start, peak], [1d, 0d]);
+        CubicSpline rolloff = CubicSpline.InterpolateHermiteSorted([0d, 1d], [start, peak], [1d - start, 0d]);
 
         float Mapped(float signal) =>
             float.Clamp(signal / source, 0f, 1f) switch {
-                var x when x > start => (float)rolloff.Interpolate(x),
+                var x when x > start => (float)rolloff.Interpolate((x - start) / (1d - start)),
                 var x => x,
             } switch {
                 var x => float.Clamp((gain * (x + (floor * float.Pow(1f - x, power)) - floor)) + floor, floor, peak) * source,
@@ -74,17 +74,14 @@ public sealed record PeakMapping(Nits TargetPeak, DisplayBlack Black, KneeOffset
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PeakParameter : IStateParameter<PeakMapping> {
-    public static readonly PeakParameter TargetPeak = new("target-peak", new StateParameter<PeakMapping>.Bounded<Nits, float, InvalidColor>(
-        Lens<PeakMapping, Nits>.New(static mapping => mapping.TargetPeak, static peak => mapping => mapping with { TargetPeak = peak }),
-        new Presentation<Nits, float> {
-            Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LuminanceUnit.Nit), Soft = ((float)Nits.ReferenceWhite, (float)Nits.MaxValue), Step = 1f, Decimals = 0,
-        }));
-    public static readonly PeakParameter Black = new("display-black", new StateParameter<PeakMapping>.Bounded<DisplayBlack, float, InvalidToneValue>(
-        Lens<PeakMapping, DisplayBlack>.New(static mapping => mapping.Black, static black => mapping => mapping with { Black = black }),
-        new Presentation<DisplayBlack, float> { Soft = ((float)DisplayBlack.Floor, 1e-3f), Step = 1e-5f, Decimals = 6 }));
-    public static readonly PeakParameter Knee = new("knee-offset", new StateParameter<PeakMapping>.Bounded<KneeOffset, float, InvalidToneValue>(
-        Lens<PeakMapping, KneeOffset>.New(static mapping => mapping.Knee, static knee => mapping => mapping with { Knee = knee }),
-        new Presentation<KneeOffset, float> { Step = 0.01f, Decimals = 2 }));
+    public static readonly PeakParameter TargetPeak = new("target-peak", StateParameter.Bounded<PeakMapping, Nits, float, InvalidColor>(Lens<PeakMapping, Nits>.New(static mapping => mapping.TargetPeak, static peak => mapping => mapping with { TargetPeak = peak }),
+    new Presentation<float> {
+        Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LuminanceUnit.Nit), Soft = ((float)Nits.ReferenceWhite, (float)Nits.MaxValue), Step = 1f, Decimals = 0,
+    }));
+    public static readonly PeakParameter Black = new("display-black", StateParameter.Bounded<PeakMapping, DisplayBlack, float, InvalidToneValue>(Lens<PeakMapping, DisplayBlack>.New(static mapping => mapping.Black, static black => mapping => mapping with { Black = black }),
+    new Presentation<float> { Soft = ((float)DisplayBlack.Floor, 1e-3f), Step = 1e-5f, Decimals = 6 }));
+    public static readonly PeakParameter Knee = new("knee-offset", StateParameter.Bounded<PeakMapping, KneeOffset, float, InvalidToneValue>(Lens<PeakMapping, KneeOffset>.New(static mapping => mapping.Knee, static knee => mapping => mapping with { Knee = knee }),
+    new Presentation<float> { Step = 0.01f, Decimals = 2 }));
 
     public StateParameter<PeakMapping> Kind { get; }
 }

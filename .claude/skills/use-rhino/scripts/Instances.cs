@@ -23,10 +23,6 @@ using Rhino.PlugIns;
 namespace Rasm.Skills.UseRhino;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-internal interface ICommand<TSelf> where TSelf : ICommand<TSelf> {
-    public static abstract TSelf Query(IReadOnlyDictionary<int, string> slots);
-}
-
 internal enum Codes {
     Refused = 1,
 }
@@ -36,8 +32,8 @@ internal enum Codes {
 internal sealed class ShownAttribute(string present, string absent) : Attribute {
     public ShownAttribute(string present) : this(present, present) { }
 
-    public string Present => present;
-    public string Absent => absent;
+    public string Present { get; } = present;
+    public string Absent { get; } = absent;
     public bool Omitted { get; init; }
 
     public Option<string> Text(object? value) => (value is ICollection items ? items.Count : value) switch {
@@ -58,17 +54,17 @@ internal sealed record Output(string Stdout);
 internal sealed record Entry([property: Shown("{0}", "untitled")] string? Name, [property: Shown("modified", "unmodified")] bool Modified);
 internal sealed record Document(Entry Entry, [property: Shown("slot={0}", Omitted = true)] string? Slot, [property: Shown("active", Omitted = true)] bool Active);
 
-internal sealed record Reply<T>(
+internal sealed record Reply(
     [property: Shown("Rhino {0}")] int Major,
     [property: Shown("pre-release", Omitted = true)] bool PreRelease,
     [property: Shown("pid {0}")] int Pid,
-    T Command) where T : ICommand<T>;
+    Listing Command);
 
 internal sealed record Listing(
     [property: Shown("Grasshopper 2 editor open", Omitted = true)] bool Gh2Editor,
     [property: Shown("documents: {0}")] IReadOnlyList<Document> Documents,
     [property: Shown("Grasshopper 2 definitions: {0}")] IReadOnlyList<Entry> Gh2,
-    [property: Shown("Grasshopper 1 definitions: {0}", Omitted = true)] IReadOnlyList<Entry> Gh1) : ICommand<Listing> {
+    [property: Shown("Grasshopper 1 definitions: {0}", Omitted = true)] IReadOnlyList<Entry> Gh1) {
     public static Listing Query(IReadOnlyDictionary<int, string> slots) => (Loaded("Grasshopper2") ? ReadGh2() : (false, [])) switch {
         var (open, gh2) => new(
             open,
@@ -101,7 +97,7 @@ internal sealed record Listing(
 [JsonSerializable(typeof(Output))]
 [JsonSerializable(typeof(Entry))]
 [JsonSerializable(typeof(Document))]
-[JsonSerializable(typeof(Reply<Listing>))]
+[JsonSerializable(typeof(Reply))]
 internal sealed partial class Wire : JsonSerializerContext {
     public static T Read<T>(string json) => (T)JsonSerializer.Deserialize(json, typeof(T), Default)!;
     public static string Write<T>(T value) => JsonSerializer.Serialize(value, typeof(T), Default);
@@ -112,16 +108,16 @@ internal sealed record Refused(string Text) : Expected(Text, (int)Codes.Refused)
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 internal static class Program {
-    public static int Main(string[] args) => args switch {
-        [] or [nameof(Listing)] => Run<Listing>(),
+    public static async Task<int> Main(string[] args) => args switch {
+        [] or [nameof(Listing)] => await RunAsync().ConfigureAwait(false),
         _ => Usage(args),
     };
 
-    private static int Run<T>([CallerFilePath] string source = "") where T : ICommand<T> {
-        Console.WriteLine(IO.lift(static () => new HttpClient())
-            .Bracket(Use: http => List<T>(http, Router(new FileInfo(source).Directory)), Fin: static http => IO.lift(http.Dispose))
+    private static async Task<int> RunAsync([CallerFilePath] string source = "") {
+        Console.WriteLine(await IO.lift(static () => new HttpClient())
+            .Bracket(Use: http => IO.liftAsync(env => RouterAsync(new FileInfo(source).Directory, env.Token)).Bind(router => List(http, router)), Fin: static http => IO.lift(http.Dispose))
             .Catch(Unanswered, static error => IO.pure($"Rhino: unknown, {error.Message}"))
-            .Run());
+            .RunAsync(CancellationToken.None).ConfigureAwait(false));
         return 0;
     }
 
@@ -130,26 +126,26 @@ internal static class Program {
         return 2;
     }
 
-    private static void Answer<T>(IReadOnlyDictionary<int, string> slots) where T : ICommand<T> =>
-        Console.Write(Wire.Write(new Reply<T>(RhinoApp.ExeVersion, RhinoApp.IsPreRelease, Environment.ProcessId, T.Query(slots))));
+    private static void Answer(IReadOnlyDictionary<int, string> slots) =>
+        Console.Write(Wire.Write(new Reply(RhinoApp.ExeVersion, RhinoApp.IsPreRelease, Environment.ProcessId, Listing.Query(slots))));
 
-    private static Uri Router(DirectoryInfo? directory) => directory?.GetFiles(".mcp.json") switch {
-        [FileInfo config] => Wire.Read<Config>(File.ReadAllText(config.FullName)).McpServers.Router.Url,
-        [] => Router(directory.Parent),
+    private static async Task<Uri> RouterAsync(DirectoryInfo? directory, CancellationToken cancellation) => directory?.GetFiles(".mcp.json") switch {
+        [FileInfo config] => Wire.Read<Config>(await File.ReadAllTextAsync(config.FullName, cancellation).ConfigureAwait(false)).McpServers.Router.Url,
+        [] => await RouterAsync(directory.Parent, cancellation).ConfigureAwait(false),
         _ => throw new FileNotFoundException("No .mcp.json in a folder above the script", ".mcp.json"),
     };
 
-    private static IO<string> List<T>(HttpClient http, Uri router) where T : ICommand<T> =>
+    private static IO<string> List(HttpClient http, Uri router) =>
         from reply in Call(http, router, "list_slots", ReadOnlyDictionary<string, object?>.Empty).Map(static result => result.Content.OfType<TextContentBlock>().Single().Text)
         from slots in Wire.Read<Routed>(reply).Payload is { } payload ? IO.pure(payload) : IO.fail<Slot[]>(new Refused(Wire.Read<Faulted>(reply).Error.Message))
-        from applications in toSeq(slots.GroupBy(static slot => slot.Pid)).Traverse(application => Ask<T>(http, application)).As()
+        from applications in toSeq(slots.GroupBy(static slot => slot.Pid)).Traverse(application => Ask(http, application)).As()
         select applications.IsEmpty ? "Rhino: not running" : string.Join('\n', applications.Bind(identity));
 
-    private static IO<Seq<string>> Ask<T>(HttpClient http, IGrouping<int, Slot> application) where T : ICommand<T> =>
-        Call(http, application.First().Endpoint, "run_csharp", new Dictionary<string, object?>(StringComparer.Ordinal) { ["script"] = Loader<T>(application) })
+    private static IO<Seq<string>> Ask(HttpClient http, IGrouping<int, Slot> application) =>
+        Call(http, application.First().Endpoint, "run_csharp", new Dictionary<string, object?>(StringComparer.Ordinal) { ["script"] = Loader(application) })
             .Bind(static result => result.IsError is true
                 ? IO.fail<Seq<string>>(new Refused(Wire.Read<Fault>(result.Content.OfType<TextContentBlock>().First().Text).Message))
-                : IO.pure(Lines(Wire.Read<Reply<T>>(Wire.Read<Output>(result.Content.OfType<TextContentBlock>().Last().Text).Stdout))))
+                : IO.pure(Lines(Wire.Read<Reply>(Wire.Read<Output>(result.Content.OfType<TextContentBlock>().Last().Text).Stdout))))
             .Catch(Unanswered, error => IO.pure(Seq(string.Create(CultureInfo.InvariantCulture, $"pid {application.Key}, unanswered: {error.Message}"))));
 
     private static IO<CallToolResult> Call(HttpClient http, Uri endpoint, string tool, IReadOnlyDictionary<string, object?> arguments) =>
@@ -159,11 +155,11 @@ internal static class Program {
 
     private static bool Unanswered(Error error) => error.IsType<Refused>() || error.HasException<HttpRequestException>();
 
-    private static string Loader<T>(IEnumerable<Slot> slots) where T : ICommand<T> => string.Join('\n', [
+    private static string Loader(IEnumerable<Slot> slots) => string.Join('\n', [
         "var context = new System.Runtime.Loader.AssemblyLoadContext(null, isCollectible: true);",
         "try {",
-        $"    var module = context.LoadFromStream(new System.IO.MemoryStream(System.IO.File.ReadAllBytes({Wire.Write(typeof(T).Assembly.Location)}))).ManifestModule;",
-        string.Create(CultureInfo.InvariantCulture, $"    ((System.Reflection.MethodInfo)module.ResolveMethod({((Action<IReadOnlyDictionary<int, string>>)Answer<T>).Method.MetadataToken})).MakeGenericMethod(module.ResolveType({typeof(T).MetadataToken}))"),
+        $"    var module = context.LoadFromStream(new System.IO.MemoryStream(System.IO.File.ReadAllBytes({Wire.Write(typeof(Program).Assembly.Location)}))).ManifestModule;",
+        string.Create(CultureInfo.InvariantCulture, $"    module.ResolveMethod({((Action<IReadOnlyDictionary<int, string>>)Answer).Method.MetadataToken})"),
         $"        .Invoke(null, System.Reflection.BindingFlags.DoNotWrapExceptions, null, new object[] {{ new Dictionary<int, string> {{ {string.Join(", ", slots.Select(static slot => string.Create(CultureInfo.InvariantCulture, $"[{slot.Port}] = {Wire.Write(slot.SlotId)}")))} }} }}, null);",
         "} finally {",
         "    context.Unload();",

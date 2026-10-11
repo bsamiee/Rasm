@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Description>Rhino documents, viewports, persistence, blocks, objects, annotation, modeling, commands, display, UI, rendering, and plug-in definitions as IO effects over RhinoCommon</Description>
     </PropertyGroup>
 
@@ -8,16 +9,19 @@
     </PropertyGroup>
 
     <ItemGroup Label="Rhino">
-        <PackageReference Include="System.Drawing.Common" />
+        <PackageReference Include="Microsoft.Win32.SystemEvents" />
     </ItemGroup>
 
     <ItemGroup Label="Core">
+        <PackageReference Include="CliWrap" />
+        <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="LanguageExt.Streaming" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="compile;contentfiles;analyzers;build" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
+        <PackageReference Include="UUIDNext" />
     </ItemGroup>
 
     <ItemGroup Label="Quantities">
@@ -25,6 +29,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="PeterO.Numbers" />
         <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
@@ -32,8 +38,19 @@
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
+    <ItemGroup Label="Image Rendering">
+        <PackageReference Include="SixLabors.ImageSharp" />
+        <PackageReference Include="SkiaSharp" />
+        <PackageReference Include="Svg.Model" />
+        <PackageReference Include="Svg.Skia" />
+    </ItemGroup>
+
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../Rasm.Drafting/Rasm.Drafting.csproj" />
         <ProjectReference Include="../../Rasm.Imaging/Rasm.Imaging.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Render Queue">
+        <EmbeddedResource Include="Render/Queue/rasm_rhino_render.js" LogicalName="Rasm.Rhino.Render.Queue.rasm_rhino_render.js" />
     </ItemGroup>
 </Project>

@@ -15,16 +15,24 @@ utils:
         has: {field: parameters, any: [{kind: implicit_parameter, pattern: $P}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $P}}}]}
     action:
         all:
-            - any:
-                - inside: {field: body, matches: handler-lambda}
-                - inside: {kind: expression_statement, inside: {kind: block, inside: {field: body, matches: handler-lambda}}}
             - has: {field: right, pattern: $P}
+            - inside: {stopBy: end, matches: handler-lambda}
 rule:
     kind: assignment_expression
     all:
         - has: {field: operator, regex: '^\+=$'}
         - has: {field: left, matches: event}
         - not: {matches: action}
+        - not:
+            inside:
+                stopBy: end
+                kind: argument
+                nthChild: 1
+                inside:
+                    kind: argument_list
+                    all:
+                        - inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?DisposalOps\s*\.\s*Within(\s*<.+>)?$'}}
+                        - has: {kind: argument, nthChild: 3, has: {stopBy: end, kind: assignment_expression, all: [{has: {field: operator, regex: '^-=$'}}, {has: {field: left, matches: event}}]}}
         - not:
             has:
                 field: right
@@ -52,8 +60,5 @@ rule:
                         - has: {field: operator, regex: '^-=$'}
                         - has: {field: left, matches: event}
                         - not: {matches: action}
-            - all:
-                - has: {field: left, kind: member_access_expression, not: {has: {field: expression, regex: '^(this|base)$'}}}
-                - has: {field: right, kind: 'lambda_expression, anonymous_method_expression'}
 message: '`+=` attaches a handler to `$EVENT` of another object by hand'
 note: Use `Subscriptions.Attach<THandler>(h => <source>.<event> += h, h => <source>.<event> -= h, <handler>)` with the handler `Callbacks.Handler` builds at its site, and dispose the `IDisposable` it answers to detach

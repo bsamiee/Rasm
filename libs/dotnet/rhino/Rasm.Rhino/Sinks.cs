@@ -14,6 +14,10 @@ public interface IPlugInSink {
     public static IPlugInSink Of(object constructed) => constructed as IPlugInSink ?? (IPlugInSink)PlugIn.Find(constructed.GetType().Assembly);
 }
 
+public interface IPlugInLifetime : IPlugInSink {
+    public IO<Unit> Close { get; }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RowText {
     public static CultureInfo Culture => CultureInfo.GetCultureInfo(Localization.CurrentLanguageId);

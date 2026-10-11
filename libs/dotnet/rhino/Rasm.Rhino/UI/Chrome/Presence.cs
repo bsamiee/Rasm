@@ -5,34 +5,12 @@ using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Views;
 using Rhino.PlugIns;
-using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.UI.Chrome;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
-public readonly partial struct BadgeCount : System.Numerics.IMinMaxValue<BadgeCount> {
-    public static BadgeCount MinValue { get; } = new(1);
-    public static BadgeCount MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
-}
-
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class DockPhase {
-    public static readonly DockPhase Working = new(static work => work.Map(inactive: TaskbarProgressState.None, indeterminate: TaskbarProgressState.Indeterminate, counted: TaskbarProgressState.Progress));
-    public static readonly DockPhase Failed = new(static _ => TaskbarProgressState.Error);
-
-    [UseDelegateFromConstructor]
-    public partial TaskbarProgressState State(WorkState work);
-}
-
-public sealed record DockState(WorkState Work, DockPhase Phase);
-
-public sealed record TrayRow(string Caption, IGlyph Glyph, Seq<Seq<MenuEntry>> Menu);
+public sealed record TrayRow(string Caption, (IGlyph Glyph, int Master) Glyph, Seq<Seq<MenuEntry>> Menu);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
@@ -43,7 +21,8 @@ internal static partial class BannerMapper {
     [MapperIgnoreSource(nameof(Notice.Message), Justification = "Rhino's notification center holds the detail text")]
     [MapperIgnoreSource(nameof(Notice.Severity), Justification = "The system banner states no severity")]
     [MapperIgnoreSource(nameof(Notice.Glyph), Justification = "Presence reads it as the content image")]
-    internal static partial Notification ToBanner(Notice notice, Eto.Drawing.Image? contentImage);
+    [MapperIgnoreTarget(nameof(Notification.ContentImage), Justification = "Presence assigns the acquired glyph")]
+    internal static partial void Update(Notice notice, Notification banner);
 
     [UserMapping(Default = false)]
     private static string Revealed(Option<View.Panel> reveal) =>
@@ -52,42 +31,32 @@ internal static partial class BannerMapper {
 
 public static class Presence {
     // --- [DOCK]
-    public static IO<Disposal<Application>> Acquire() =>
-        IO.lift(static () => new Disposal<Application>(Application.Instance, Cleared));
+    public static IO<Disposal<Application>> Acquire(Action<Disposal<Application>> retain) =>
+        DisposalOps.Acquire(IO.lift(static () => new Disposal<Application>(Application.Instance, Cleared)), static held => IO.lift(held.Dispose), retain);
 
-    public static IO<Unit> SetProgress(Disposal<Application> hold, DockState state) =>
+    public static IO<Unit> SetProgress(Disposal<Application> hold, WorkState work, Option<TaskbarProgressState> state = default) =>
         IO.lift(() => hold.Held.Iter(_ => Taskbar.SetProgress(
-            state.Phase.State(state.Work),
-            state.Work.Switch(inactive: static _ => 0f, indeterminate: static _ => 0f, counted: static counted => (float)counted.Work.Done / counted.Work.Total))));
+            state.IfNone(work.Map(inactive: TaskbarProgressState.None, indeterminate: TaskbarProgressState.Indeterminate, counted: TaskbarProgressState.Progress)),
+            work.Switch(inactive: static _ => 0f, indeterminate: static _ => 0f, counted: static counted => (float)counted.Done / counted.Total))));
 
-    public static IO<Unit> BadgeLabel(Disposal<Application> hold, Option<BadgeCount> count) =>
-        IO.lift(() => hold.Held.Iter(app => app.BadgeLabel = Label(count)));
+    public static IO<Unit> BadgeLabel(Disposal<Application> hold, Option<string> label) =>
+        IO.lift(() => hold.Held.Iter(app => app.BadgeLabel = Conversions.Unset(label)));
 
-    private static void Cleared(Application app) {
-        Taskbar.SetProgress(TaskbarProgressState.None);
-        app.BadgeLabel = Label(None);
-    }
-
-    private static string Label(Option<BadgeCount> count) =>
-        Conversions.Unset(count.Map(static shown => shown.ToString(format: null, RowText.Culture)));
+    private static void Cleared(Application app) =>
+        Callbacks.Each(Seq(IO.lift(static () => Taskbar.SetProgress(TaskbarProgressState.None)), IO.lift(() => { app.BadgeLabel = ""; }))).Run();
 
     // --- [TRAY]
-    public static IO<IDisposable> Tray(TrayRow row, IPlugInSink sink) =>
-        from tray in IO.lift(static () => new TrayIndicator())
-        from held in DisposalOps.AcquireAll(
-            Seq(
-                IO.pure<IDisposable>(tray),
-                Icons.Themed(sink, row.Glyph, IconSlot.MenuItem, icon => tray.Image = icon),
-                from menu in ChoiceRows.Menu(row.Menu, Seq<IO<Unit>>(), None, sink)
-                from set in DisposalOps.OnFailure(IO.lift(() => tray.Menu = menu.Menu), IO.lift(menu.Release.Dispose))
-                select menu.Release),
-            DisposalOps.Release)
-        from titled in DisposalOps.OnFailure(
-            IO.lift(tray.Show).Bind(_ => IO.lift(() => Callbacks.Thrown<ArgumentOutOfRangeException, string>(
+    public static IO<Unit> Tray(TrayRow row, IPlugInSink sink, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(acquired =>
+            from tray in DisposalOps.Acquire(IO.lift(static () => new TrayIndicator()), static held => IO.lift(held.Dispose), acquired)
+            from themed in Icons.Themed(sink, row.Glyph, IconSlot.MenuItem, HostTheme.Changed, icon => tray.Image = icon, acquired)
+            from menu in ChoiceRows.Menu(row.Menu, Seq<IO<Unit>>(), None, sink, acquired)
+            from assigned in IO.lift(() => tray.Menu = menu)
+            from shown in IO.lift(tray.Show)
+            from titled in IO.lift(() => Callbacks.Thrown<ArgumentOutOfRangeException, string>(
                 () => tray.Title = RowText.Localize(row.Caption, table: Some<object>(sink)).Local,
-                nameof(TrayIndicator.Title)))),
-            DisposalOps.Release(held))
-        select DisposalOps.Composite(held, new CallbackSite(sink, typeof(TrayIndicator), nameof(TrayIndicator.Dispose)));
+                nameof(TrayIndicator.Title)))
+            select unit, (_, held) => retain(held));
 
     // --- [BANNERS]
     public static IO<Unit> Show(Notice notice, IPlugInSink sink) =>
@@ -95,17 +64,21 @@ public static class Presence {
 
     private static IO<Unit> Banner(Notice notice, IPlugInSink sink) =>
         from image in notice.Glyph.Traverse(glyph => Icons.Frames(sink, glyph, IconSlot.Banner)).As()
-        from shown in use(() => BannerMapper.ToBanner(notice, image.ValueUnsafe())).Bind(static banner => IO.lift(() => banner.Show())).Bracket()
+        from shown in DisposalOps.Within(static () => new Notification(), banner =>
+            from mapped in IO.lift(() => BannerMapper.Update(notice, banner))
+            from assigned in IO.lift(() => banner.ContentImage = image.ValueUnsafe())
+            from delivered in IO.lift(() => banner.Show())
+            select delivered, static banner => IO.lift(banner.Dispose))
         select shown;
 
     // --- [ACTIVATION]
-    public static IO<IDisposable> NotificationActivated(PlugIn plugIn, IPlugInSink sink) =>
+    public static IO<Unit> NotificationActivated(PlugIn plugIn, IPlugInSink sink, Action<IDisposable> retain) =>
         Subscriptions.Host<NotificationEventArgs>(
                 typeof(Application),
                 static handler => Application.Instance.NotificationActivated += handler,
                 static handler => Application.Instance.NotificationActivated -= handler,
                 nameof(Application.NotificationActivated))
             .Inline(args => IO.lift(() => Callbacks.Found(Guid.TryParse(args.UserData, CultureInfo.InvariantCulture, out Guid id), id)
-                .Bind(((IPlugInViews)plugIn).Views.Find<View.Panel>)
-                .Iter(static panel => Panels.OpenPanel(panel.Identity, makeSelectedPanel: true))), sink);
+                .Bind(((IPlugInViews)plugIn).Views.Find<View.Panel>))
+                .Bind(static found => found.TraverseM(Showing.Open).As()).Map(static _ => unit), sink, retain);
 }

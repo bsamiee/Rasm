@@ -17,7 +17,7 @@ public static class Modals {
         select answer.Value;
 
     public static IO<T> Get<TGetter, T>(Func<TGetter> create, Func<TGetter, (Result Result, T Value)> get, string member) where TGetter : IDisposable =>
-        Ask(use(create).Map(get), member).Bracket();
+        DisposalOps.Within(create, getter => Ask(IO.lift(() => get(getter)), member), static getter => IO.lift(getter.Dispose));
 
     // --- [VIEWS]
     public static IO<ViewportTarget> GetView(string prompt) =>
@@ -25,10 +25,12 @@ public static class Modals {
             .Bind(static view => IO.lift(Target(view, nameof(RhinoGet.GetView))));
 
     public static IO<Seq<ViewportTarget>> GetViewports(string prompt) =>
-        Ask(IO.lift(() => (RhinoGet.GetViewports(prompt, out RhinoViewport[] viewports), Conversions.Rows(viewports))), nameof(RhinoGet.GetViewports))
-            .Bracket(
-                Use: static viewports => IO.lift(() => viewports.Map(static viewport => (ViewportTarget)new ViewportTarget.Id(viewport.Id)).Strict()),
-                Fin: DisposalOps.Release);
+        DisposalOps.Within(() => {
+            Result result = RhinoGet.GetViewports(prompt, out RhinoViewport[] viewports);
+            return (Result: result, Viewports: Conversions.Rows(viewports));
+        }, static answer => IO.lift(Conversions.FromResult(answer.Result, nameof(RhinoGet.GetViewports)))
+            .Map(_ => answer.Viewports.Map(static viewport => (ViewportTarget)new ViewportTarget.Id(viewport.Id)).Strict()),
+            static answer => DisposalOps.Release(answer.Viewports));
 
     public static IO<(Rectangle Client, ViewportTarget Viewport)> Get2dRectangle(bool solidPen) =>
         from answer in Ask(IO.lift(() => (RhinoGet.Get2dRectangle(solidPen, out Rectangle rectangle, out RhinoView view), (Client: rectangle, View: view))), nameof(RhinoGet.Get2dRectangle))

@@ -126,12 +126,12 @@ public abstract partial record VisibilityState {
     public Fin<Unit> Apply(ObjectTable table, RhinoObject target, bool ignoreLayerMode, int index) =>
         Switch(
             (Table: table, Target: target, IgnoreLayerMode: ignoreLayerMode, Index: index),
-            hidden: static (state, hidden) => state.Target.IsHidden ? unit : RefusedElement.Unless(
+            hidden: static (state, hidden) => RefusedElement.Unless(
                 hidden.Group.Match(Some: group => state.Table.Hide(state.Target, state.IgnoreLayerMode, group), None: () => state.Table.Hide(state.Target, state.IgnoreLayerMode)),
                 nameof(ObjectTable.Hide), state.Index),
-            shown: static (state, _) => state.Target.IsHidden ? RefusedElement.Unless(state.Table.Show(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Show), state.Index) : unit,
-            locked: static (state, _) => state.Target.IsLocked ? unit : RefusedElement.Unless(state.Table.Lock(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Lock), state.Index),
-            unlocked: static (state, _) => state.Target.IsLocked ? RefusedElement.Unless(state.Table.Unlock(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Unlock), state.Index) : unit);
+            shown: static (state, _) => RefusedElement.Unless(state.Table.Show(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Show), state.Index),
+            locked: static (state, _) => RefusedElement.Unless(state.Table.Lock(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Lock), state.Index),
+            unlocked: static (state, _) => RefusedElement.Unless(state.Table.Unlock(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Unlock), state.Index));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -153,7 +153,7 @@ public sealed record GeometryPair(GeometryBase Geometry, Option<ObjectAttributes
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TableOp {
-    public sealed record Add(Seq<GeometryPair> Rows, Option<HistoryRecord> History, bool Reference) : TableOp;
+    public sealed record Add(Seq<(GeometryPair Row, Option<HistoryRecord> History)> Rows, bool Reference) : TableOp;
 
     public sealed record Replace(Guid Id, GeometryBase Geometry, bool IgnoreModes) : TableOp;
 
@@ -276,18 +276,15 @@ public static class TableOps {
         IO.lift(() => Conversions.Rows(table).Filter(static row => !row.IsReference && Conversions.Present(row.Name).IsSome).Strict());
 
     public static IO<int> AddRow<T>(RhinoDoc doc, TableKind<T> kind, Func<T, IO<Unit>> edit) where T : ModelComponent, new() =>
-        (from staged in use(static () => new T())
-         from edited in edit(staged)
-         from index in IO.lift(() => Conversions.Required(kind.Add(doc, staged), nameof(TableKind<>.Add)))
-         select index).Bracket();
+        DisposalOps.Within(static () => new T(), staged =>
+            from edited in edit(staged)
+            from index in IO.lift(() => Conversions.Required(kind.Add(doc, staged), nameof(TableKind<>.Add)))
+            select index,
+            static staged => IO.lift(staged.Dispose));
 
     public static IO<Unit> ModifyRow<T>(RhinoDoc doc, TableKind<T> kind, ComponentRef<T> address, Func<T, IO<Unit>> edit) where T : ModelComponent, new() =>
         from live in Find(kind.Table(doc), address, includeDeleted: false)
-        from modified in (
-            from staged in use(() => kind.Copy(live))
-            from edited in edit(staged)
-            from landed in Modified(doc, kind, staged, live.Index)
-            select landed).Bracket()
+        from modified in DisposalOps.Within(() => kind.Copy(live), staged => edit(staged).Bind(_ => Modified(doc, kind, staged, live.Index)), static staged => IO.lift(staged.Dispose))
         select modified;
 
     public static Validation<Error, TablePlan<T, TSpec>> Plan<T, TSpec>(Seq<T> rows, TableSpec<TSpec> spec) where T : ModelComponent =>
@@ -303,12 +300,13 @@ public static class TableOps {
         where T : ModelComponent, new() =>
         upserts.TraverseM(upsert => upsert.Existing.Match(
                 Some: row =>
-                    (from staged in use(() => kind.Copy(row))
+                    DisposalOps.Within(() => kind.Copy(row), staged =>
                      from named in Named(staged, Some(upsert.Name))
                      from written in write(staged, upsert.Spec)
                      from same in unchanged(row, staged)
                      from modified in unless(same && string.Equals(row.Name, upsert.Name, StringComparison.Ordinal), Modified(doc, kind, staged, row.Index)).As()
-                     select (upsert.Name, row.Index)).Bracket(),
+                     select (upsert.Name, row.Index),
+                     static staged => IO.lift(staged.Dispose)),
                 None: () => AddRow(doc, kind, staged => Named(staged, Some(upsert.Name)).Bind(_ => write(staged, upsert.Spec))).Map(index => (upsert.Name, index))))
             .As();
 
@@ -317,7 +315,7 @@ public static class TableOps {
 
     // --- [ATTRIBUTES]
     public static IO<T> WithAttributes<T>(Func<ObjectAttributes> defaults, Option<ObjectAttributes> attributes, Func<ObjectAttributes, IO<T>> body) =>
-        attributes.Match(Some: body, None: () => use(defaults).Bind(body).Bracket());
+        attributes.Match(Some: body, None: () => DisposalOps.Within(defaults, body, static owned => IO.lift(owned.Dispose)));
 
     public static IO<T> WithAttributes<T>(Func<ObjectAttributes> defaults, Seq<GeometryPair> members, Func<Seq<GeometryBase>, Seq<ObjectAttributes>, IO<T>> body) =>
         members.FoldBack(
@@ -328,32 +326,36 @@ public static class TableOps {
     public static IO<Seq<Guid>> Apply(RhinoDoc doc, TableOp op) =>
         op.Switch(
             doc,
-            add: static (document, add) => add.Rows.TraverseM(row => Add(document, row, add.History, add.Reference)).As(),
+            add: static (document, add) => Callbacks.Each(add.Rows.Map(row => Add(document, row.Row, row.History, add.Reference))),
             replace: static (document, replace) => IO.lift(() =>
                 Refused.Unless(document.Objects.Replace(replace.Id, replace.Geometry, replace.IgnoreModes), Seq(replace.Id), nameof(ObjectTable.Replace))),
             delete: static (document, delete) => Each(document, delete.Target, found => document.Objects.Delete(found, delete.Quiet, delete.IgnoreModes), nameof(ObjectTable.Delete)),
             move: static (document, move) => Each(document, move.Target, (found, _, index) => IO.lift(() => move.Mode.Apply(document.Objects, found, move.Xform, index))),
             modifyAttributes: static (document, modify) => Each(document, modify.Target, (found, id, index) =>
-                (from copy in use(() => found.Attributes.Duplicate())
+                DisposalOps.Within(() => found.Attributes.Duplicate(), copy =>
                  from edited in modify.Edit(copy)
                  from landed in IO.lift(() => RefusedElement.Unless(document.Objects.ModifyAttributes(found, copy, modify.Quiet), id, nameof(ObjectTable.ModifyAttributes), index))
-                 select landed).Bracket()),
+                 select landed,
+                 static copy => IO.lift(copy.Dispose))),
             state: static (document, state) => Each(document, state.Target, (found, id, index) => IO.lift(() => state.Next.Apply(document.Objects, found, state.IgnoreLayerMode, index).Map(_ => id))),
             undelete: static (document, undelete) => Each(document, undelete.Target, document.Objects.Undelete, nameof(ObjectTable.Undelete)),
-            pointCloud: static (document, cloud) => IO.lift(() => Conversions.Required(
-                    document.Objects.AddOrderedPointCloud(cloud.X, cloud.Y, cloud.Z, cloud.Box.GetCorners(), cloud.Attributes.ValueUnsafe(), cloud.History.ValueUnsafe(), cloud.Reference),
+            pointCloud: static (document, cloud) => WithAttributes(document.CreateDefaultAttributes, cloud.Attributes, attributes => IO.lift(() => Conversions.Required(
+                    document.Objects.AddOrderedPointCloud(cloud.X, cloud.Y, cloud.Z, cloud.Box.GetCorners(), attributes, cloud.History.ValueUnsafe(), cloud.Reference),
                     nameof(ObjectTable.AddOrderedPointCloud))
-                .Map(static id => Seq(id))),
+                .Map(static id => Seq(id)))),
             importPage: static (document, page) => IO.lift(() =>
                 Refused.Unless(document.Views.ImportPageView(page.Path, page.MainViewportId, page.PageName), Seq<Guid>(), nameof(ViewTable.ImportPageView))));
 
     public static IO<Guid> Add(RhinoDoc doc, GeometryPair row, Option<HistoryRecord> history, bool reference) =>
-        IO.lift(() => Conversions.Required(doc.Objects.Add(row.Geometry, row.Attributes.ValueUnsafe(), history.ValueUnsafe(), reference), nameof(ObjectTable.Add)));
+        WithAttributes(doc.CreateDefaultAttributes, row.Attributes, attributes =>
+            IO.lift(() => Conversions.Required(doc.Objects.Add(row.Geometry, attributes, history.ValueUnsafe(), reference), nameof(ObjectTable.Add))));
 
-    public static IO<Seq<Guid>> Place<T>(RhinoDoc doc, IO<Seq<T>> created, Option<ObjectAttributes> attributes, Option<HistoryRecord> history, bool reference) where T : GeometryBase =>
-        created.Bracket(
-            Use: products => products.TraverseM(product => Add(doc, new GeometryPair(product, attributes), history, reference)).As(),
-            Fin: DisposalOps.Release);
+    public static IO<Seq<Guid>> Place(RhinoDoc doc, Func<Action<IDisposable>, IO<Seq<(GeometryPair Row, Option<HistoryRecord> History)>>> created, bool reference) =>
+        envIO.Bind(environment =>
+            DisposalOps.Within((Action<IDisposable> retain) =>
+                from products in IO.liftVAsync(() => created(retain).RunAsync(environment))
+                from ids in Apply(doc, new TableOp.Add(products, reference))
+                select ids, DisposalOps.Release).Uninterruptible());
 
     public static IO<Committed<Seq<Guid>>> Recorded(RhinoDoc doc, string name, RedrawPolicy redraw, Seq<CustomUndo> custom, Seq<TableOp> steps) =>
         Commits.Commit(doc, name, redraw,

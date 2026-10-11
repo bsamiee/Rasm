@@ -15,7 +15,8 @@ mise owns tool binaries, the process environment, and local services.
 - Isolated roots hold the SDK's runtime alone, `DOTNET_ROLL_FORWARD = "Major"` runs an older-major tool on it
 - `MSBuildLocator` skips an SDK newer than its host runtime, a tool loading MSBuild rolls forward to the SDK's runtime
 - `MSBUILDDISABLENODEREUSE = "1"` ends MSBuild worker nodes with each command and starts no MSBuild server
-- `NuGet.config` `globalPackagesFolder` relocates the package folder for every run whose working directory sits inside the repository, editor-spawned restores included, the HTTP cache has no config key and keeps its `mise.toml` row
+- `NuGet.config` `globalPackagesFolder` relocates packages for runs with repository working directories, including editor restores
+- HTTP cache has no NuGet config key and keeps its `mise.toml` row
 - Editor settings name a mise install by its `latest` link and a Homebrew install by its `opt` link, a server reading mise's environment takes neither
 - `mise upgrade` moves each `latest` row, a `pypi:` row from a GitHub repository with no release stays at the branch HEAD it installed
 

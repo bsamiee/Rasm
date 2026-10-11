@@ -8,6 +8,7 @@ internal enum Codes {
     FrameUnformed,
     SceneUntapped,
     OverrideHeld,
+    NativeOutputUnavailable,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -17,6 +18,7 @@ public sealed record FrameUnformed(Guid Session) : Expected("Rendering {Session}
 
 public sealed record SceneUntapped(Guid Session) : Expected("Rendering {Session} holds no scene-linear frame", (int)Codes.SceneUntapped);
 
-public sealed record OverrideHeld(uint Document) : Expected("Document {Document} already holds a render override", (int)Codes.OverrideHeld) {
-    public static Fin<uint> Unless(bool free, uint document) => free ? document : new OverrideHeld(document);
-}
+public sealed record NativeOutputUnavailable(Guid Session, Seq<Guid> Effects)
+    : Expected("Rendering {Session} cannot reconstruct the requested output around native effects {Effects}", (int)Codes.NativeOutputUnavailable);
+
+public sealed record OverrideHeld(uint Document) : Expected("Document {Document} already holds a render override", (int)Codes.OverrideHeld);

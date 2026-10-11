@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Text;
 using Rasm.Imaging.Pixels;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI.Assets;
@@ -10,6 +11,7 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
+using Rhino.Render.Fields;
 
 namespace Rasm.Rhino.Render.Content;
 
@@ -22,7 +24,7 @@ public sealed record ContentPreviewRow(
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IStateRecord<TState> {
     // --- [FIELDS]
-    protected DefinedMaterial() => _ = Callbacks.Answer(ContentRecords.Declare<TState>(this), static () => unit, CallbackSite.Of(this));
+    protected DefinedMaterial() => Callbacks.Run(ContentRecords.Declare<TState>(this), CallbackSite.Of(this));
 
     public sealed override IEnumerable<string> FilesToEmbed => Callbacks.Answer(ContentRecords.Files<TState>(this), static () => Seq<string>(), CallbackSite.Of(this));
 
@@ -36,7 +38,7 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
 
     protected abstract string Help { get; }
 
-    protected abstract IGlyph Glyph { get; }
+    protected abstract (IGlyph Glyph, int Master) Glyph { get; }
 
     protected abstract Material Simulation(TState state);
 
@@ -46,7 +48,9 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
     public sealed override string TypeDescription => RowText.Localize(Help, table: Some<object>(IPlugInSink.Of(this))).Local;
 
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) {
-        bitmap = Callbacks.Answer(Icons.Raster(IPlugInSink.Of(this), Glyph, size).Map(static Bitmap? (image) => image), static () => null, CallbackSite.Of(this));
+        bitmap = Glyph switch {
+            var glyph => Callbacks.Answer(Icons.Raster(IPlugInSink.Of(this), glyph.Glyph, glyph.Master, size).Map(static Bitmap? (image) => image), static () => null, CallbackSite.Of(this)),
+        };
         return bitmap is not null;
     }
 
@@ -54,7 +58,8 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
     public sealed override void SimulateMaterial(ref Material simulation, RenderTexture.TextureGeneration tg) {
         Material target = simulation;
         if (!Callbacks.Succeeded(
-                ContentRecords.Read<TState>(this).Bind(state => use(() => Simulation(state)).Bind(built => IO.lift(() => target.CopyFrom(built))).Bracket()),
+                ContentRecords.Read<TState>(this).Bind(state => DisposalOps.Within(() => Simulation(state),
+                    built => IO.lift(() => target.CopyFrom(built)), static built => IO.lift(built.Dispose))),
                 CallbackSite.Of(this)))
             base.SimulateMaterial(ref simulation, tg);
     }
@@ -62,7 +67,7 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
 
 public abstract class DefinedTexture<TState> : RenderTexture where TState : IStateRecord<TState> {
     // --- [FIELDS]
-    protected DefinedTexture() => _ = Callbacks.Answer(ContentRecords.Declare<TState>(this), static () => unit, CallbackSite.Of(this));
+    protected DefinedTexture() => Callbacks.Run(ContentRecords.Declare<TState>(this), CallbackSite.Of(this));
 
     public sealed override IEnumerable<string> FilesToEmbed => Callbacks.Answer(ContentRecords.Files<TState>(this), static () => Seq<string>(), CallbackSite.Of(this));
 
@@ -76,7 +81,7 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : ISta
 
     protected abstract string Help { get; }
 
-    protected abstract IGlyph Glyph { get; }
+    protected abstract (IGlyph Glyph, int Master) Glyph { get; }
 
     protected abstract Color4f Sample(TState state, Point3d uvw, Vector3d duvwdx, Vector3d duvwdy);
 
@@ -86,7 +91,9 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : ISta
     public sealed override string TypeDescription => RowText.Localize(Help, table: Some<object>(IPlugInSink.Of(this))).Local;
 
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) {
-        bitmap = Callbacks.Answer(Icons.Raster(IPlugInSink.Of(this), Glyph, size).Map(static Bitmap? (image) => image), static () => null, CallbackSite.Of(this));
+        bitmap = Glyph switch {
+            var glyph => Callbacks.Answer(Icons.Raster(IPlugInSink.Of(this), glyph.Glyph, glyph.Master, size).Map(static Bitmap? (image) => image), static () => null, CallbackSite.Of(this)),
+        };
         return bitmap is not null;
     }
 
@@ -106,7 +113,7 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : ISta
 
 public abstract class DefinedEnvironment<TState> : RenderEnvironment where TState : IStateRecord<TState> {
     // --- [FIELDS]
-    protected DefinedEnvironment() => _ = Callbacks.Answer(ContentRecords.Declare<TState>(this), static () => unit, CallbackSite.Of(this));
+    protected DefinedEnvironment() => Callbacks.Run(ContentRecords.Declare<TState>(this), CallbackSite.Of(this));
 
     public sealed override IEnumerable<string> FilesToEmbed => Callbacks.Answer(ContentRecords.Files<TState>(this), static () => Seq<string>(), CallbackSite.Of(this));
 
@@ -120,9 +127,9 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
 
     protected abstract string Help { get; }
 
-    protected abstract IGlyph Glyph { get; }
+    protected abstract (IGlyph Glyph, int Master) Glyph { get; }
 
-    protected abstract EnvironmentState Simulation(TState state);
+    protected abstract IO<Unit> Simulation(TState state, SimulatedEnvironment simulation, bool isForDataOnly);
 
     // --- [IDENTITY]
     public sealed override string TypeName => RowText.Localize(Caption, table: Some<object>(IPlugInSink.Of(this))).Local;
@@ -130,14 +137,16 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
     public sealed override string TypeDescription => RowText.Localize(Help, table: Some<object>(IPlugInSink.Of(this))).Local;
 
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) {
-        bitmap = Callbacks.Answer(Icons.Raster(IPlugInSink.Of(this), Glyph, size).Map(static Bitmap? (image) => image), static () => null, CallbackSite.Of(this));
+        bitmap = Glyph switch {
+            var glyph => Callbacks.Answer(Icons.Raster(IPlugInSink.Of(this), glyph.Glyph, glyph.Master, size).Map(static Bitmap? (image) => image), static () => null, CallbackSite.Of(this)),
+        };
         return bitmap is not null;
     }
 
     // --- [SIMULATION]
     public sealed override void SimulateEnvironment(ref SimulatedEnvironment simulation, bool isForDataOnly) {
         SimulatedEnvironment target = simulation;
-        if (!Callbacks.Succeeded(ContentRecords.Read<TState>(this).Bind(state => ContentKinds.WriteEnvironment(Simulation(state), target)), CallbackSite.Of(this)))
+        if (!Callbacks.Succeeded(ContentRecords.Read<TState>(this).Bind(state => Simulation(state, target, isForDataOnly)), CallbackSite.Of(this)))
             base.SimulateEnvironment(ref simulation, isForDataOnly);
     }
 }
@@ -146,36 +155,36 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
 public static class ContentRecords {
     // --- [DECLARATIONS]
     public static IO<Unit> Declare<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        Callbacks.Each(FieldTexts<TState>.Items.Map(field => (Name: EntryKey.Name(field.Path), Text: Conversions.Unset(field.Capture(TState.Default))) switch {
+        Callbacks.Each(FieldTexts.Items<TState>().Map(field => (Name: EntryKey.Name(field.Path), Text: Conversions.Unset(field.Capture(TState.Default))) switch {
             var held =>
                 from added in IO.lift(() => field.File.IsSome ? content.Fields.AddFilename(held.Name, held.Text, "", 0) : content.Fields.Add(held.Name, held.Text))
-                from bound in ContentFields.BindParameterToField(content, held.Name, added)
+                from bound in IO.lift(fun(() => content.BindParameterToField(held.Name, added, RenderContent.ChangeContexts.Program)))
                 select bound,
         })).Map(static _ => unit);
 
     // --- [READS]
     public static IO<TState> Read<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        FieldTexts.Recalled<TState>(EntryKey.TypeOwner(content.TypeId), path => Stored(content, EntryKey.Name(path)));
+        FieldTexts.Recalled(EntryKey.TypeOwner(content.TypeId), toSeq(TState.Parameters), path => Stored(content, EntryKey.Name(path)), TState.Default);
 
     public static IO<uint> Hash<TState>(RenderContent content, Seq<string> excluded, uint seed) where TState : IStateRecord<TState> =>
-        IO.lift(() => FieldTexts<TState>.Items
+        Callbacks.Each(FieldTexts.Items<TState>()
             .Map(static field => EntryKey.Name(field.Path))
             .Filter(name => !excluded.Exists(held => string.Equals(held, name, StringComparison.Ordinal)))
-            .Fold(seed, (crc, name) => Stored(content, name).Fold(crc, static (sum, text) => RhinoMath.CRC32(sum, Encoding.UTF8.GetBytes(text)))));
+            .Map(name => Stored(content, name)))
+            .Map(texts => texts.Somes().Fold(seed, static (sum, text) => RhinoMath.CRC32(sum, Encoding.UTF8.GetBytes(text))));
 
     public static IO<Seq<string>> Files<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        IO.lift(() => FieldTexts<TState>.Items.Choose(field =>
-            from file in field.File
-            from text in Stored(content, EntryKey.Name(field.Path))
-            from path in file(text)
-            select path).Strict());
+        Callbacks.Each(FieldTexts.Items<TState>().Choose(field => field.File.Map(file =>
+            Stored(content, EntryKey.Name(field.Path)).Map(text => text.Bind(file)))))
+            .Map(static paths => paths.Somes());
 
-    private static Option<string> Stored(RenderContent content, string name) =>
-        Callbacks.Found(content.Fields.TryGetValue(name, out string text), text).Bind(static held => Conversions.Present(held));
+    private static IO<Option<string>> Stored(RenderContent content, string name) =>
+        ContentFields.Read(content.Fields, name, field => TypeMismatch.Unless<string>(field.ValueAsObject(), name))
+            .Map(static held => held.Bind(Conversions.Present));
 
     // --- [WRITES]
     public static IO<Unit> Write<TState>(RenderContent content, RenderContent.ChangeContexts context, TState next) where TState : IStateRecord<TState> =>
-        Contents.WithinContentChange(content, context, Callbacks.Each(FieldTexts<TState>.Items.Map(field => Written(content, EntryKey.Name(field.Path), Conversions.Unset(field.Capture(next))))).Map(static _ => unit));
+        Contents.WithinContentChange(content, context, Callbacks.Each(FieldTexts.Items<TState>().Map(field => Written(content, EntryKey.Name(field.Path), Conversions.Unset(field.Capture(next))))).Map(static _ => unit));
 
     public static ValueStore<TState> Store<TState>(RenderContent content) where TState : IStateRecord<TState> =>
         ValueStore.Of(
@@ -185,7 +194,8 @@ public static class ContentRecords {
             None);
 
     private static IO<Unit> Written(RenderContent content, string name, string text) =>
-        IO.lift(() => Stored(content, name) != Conversions.Present(text)).Bind(differs => when(differs, ContentFields.Set(content.Fields, name, text)).As());
+        Stored(content, name).Bind(held => when(held != Conversions.Present(text),
+            IO.lift(() => Callbacks.Thrown<InvalidOperationException, Unit>(fun(() => content.Fields.Set(name, text)), nameof(FieldDictionary.Set)))).As());
 
     // --- [ROWS]
     public static Seq<ControlRow> Rows<TContent, TState, TParameter, TError>(Func<TParameter, ParameterText> text)
@@ -197,7 +207,7 @@ public static class ContentRecords {
             var texts => SectionRows.Of(
                 SectionRows.Source(EntryKey.TypeOwner(typeof(TContent).GUID), texts, static scope => scope.Contents(Store<TState>)),
                 texts,
-                SectionRows.Unstaged,
+                None,
                 static _ => RowRules.Always),
         };
 }
